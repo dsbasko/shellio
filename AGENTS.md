@@ -79,11 +79,11 @@
 
 - Рабочий путь — цели `Makefile`. Прямой `cargo build` сверяет набор ghostty только при перезапуске `build.rs` и блокировку не берёт.
 - `make setup` ставит Rust из `rust-toolchain.toml`, Zig по SHA-256, Metal toolchain и `bindgen-cli`. `make ghostty` собирает и публикует набор в `vendor/ghostty/` ([ADR-0003](docs/adr/0003-terminal-libghostty.md)), если `--verify` не проходит, иначе только сверяет его.
-- `make check` — `--verify`, `cargo fmt --check`, `clippy` и тесты. `make test-scripts` — тесты публикации набора и идентичности подписи, им нужен OpenSSL 3 или новее в `PATH` или в `OPENSSL`: `/usr/bin/openssl` — это LibreSSL. `make bindings` генерирует привязки, `make bindings-check` сверяет их с репозиторием. `make link-audit` линкует весь архив и в `check` не входит.
+- `make check` — `--verify`, `cargo fmt --check`, `clippy` и тесты. `make test-scripts` — тесты публикации набора и идентичности подписи, тесту идентичности нужен OpenSSL 3 или новее в `PATH` или в `OPENSSL`: `/usr/bin/openssl` — это LibreSSL. `make bindings` генерирует привязки, `make bindings-check` сверяет их с репозиторием. `make link-audit` линкует весь архив и в `check` не входит.
 - `make bundle` собирает и подписывает `target/bundle/shellio.app`, `make check-bundle` проверяет его, `make run` запускает через `open` с временным `SHELLIO_STATE_DIR`. `make test-bundle` проверяет отказы `check-bundle.sh`, ему нужна идентичность `Shellio Dev`.
 - Набор с другим штампом не линкуется. Расхождение `scripts/ghostty/vendor.sh --verify` исправляет `make ghostty`. Штамп, манифест и файлы набора вручную не правятся.
 - Закрепление набора — `scripts/ghostty/pin`, список линковки — только `scripts/ghostty/link-libs`. `crates/shellio-sys-ghostty/src/bindings.rs` вручную не правится: новые функции добавляются в allowlist `scripts/ghostty/bindings.sh`, затем `make bindings`.
-- Инструменты и исходники ghostty кэшируются в `~/.cache/shellio`, каталог задаёт `SHELLIO_CACHE_DIR`. CI (`.github/workflows/ci.yml`) выполняет те же цели, его пути кэша повторяют пути `tools.sh` и `build.sh`.
+- Инструменты и исходники ghostty кэшируются в `~/.cache/shellio`, каталог задаёт `SHELLIO_CACHE_DIR`. CI (`.github/workflows/ci.yml`) выполняет те же цели, кроме `test-bundle` и `run`; его пути кэша повторяют пути `tools.sh` и `build.sh`.
 - Доступ к `vendor/ghostty/` последовательный. Цели, читающие набор, держат блокировку `vendor/ghostty.lock` весь рецепт, вторая такая цель сразу получает отказ «набор ghostty занят». Публикует набор только `make ghostty`.
 - Бандл подписывается только идентичностью `Shellio Dev` по SHA-1 из `scripts/signing/requirement.txt`, ad-hoc подпись не подставляется ([ADR-0019](docs/adr/0019-distribution-and-updates.md)).
 
