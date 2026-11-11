@@ -72,6 +72,8 @@ expect_ok "копия бандла запускается через open" "$che
 
 # Подменённый open запускает бинарь бандла напрямую и завершается кодом и сообщением из FAKE_OPEN_*:
 # так воспроизводится гонка, в которой приложение выходит раньше, чем open подписывается на его завершение.
+# FAKE_OPEN_STDOUT подменяет вывод приложения, FAKE_OPEN_STDERR дописывается в его stderr,
+# FAKE_OPEN_TOUCH_STATE=1 оставляет файл в SHELLIO_STATE_DIR.
 fake_open="$tmp/fake-open"
 mkdir -p "$fake_open"
 cat >"$fake_open/open" <<'EOF'
@@ -92,6 +94,13 @@ done
 if [[ "$FAKE_OPEN_RUN" == 1 ]]; then
   env ${envs[@]+"${envs[@]}"} "$1/Contents/MacOS/shellio" >"$out" 2>"$err" || true
 fi
+[[ -z "${FAKE_OPEN_STDOUT:-}" ]] || printf '%s\n' "$FAKE_OPEN_STDOUT" >"$out"
+[[ -z "${FAKE_OPEN_STDERR:-}" ]] || printf '%s\n' "$FAKE_OPEN_STDERR" >>"$err"
+if [[ "${FAKE_OPEN_TOUCH_STATE:-}" == 1 ]]; then
+  for kv in ${envs[@]+"${envs[@]}"}; do
+    [[ "$kv" != SHELLIO_STATE_DIR=* ]] || : >"${kv#SHELLIO_STATE_DIR=}/state"
+  done
+fi
 echo "$FAKE_OPEN_MESSAGE" >&2
 exit "$FAKE_OPEN_STATUS"
 EOF
@@ -106,6 +115,14 @@ PATH="$fake_open:$PATH" FAKE_OPEN_RUN=1 FAKE_OPEN_STATUS=1 FAKE_OPEN_MESSAGE="LS
   expect_fail "другой отказ open отвергается" "open завершился с кодом 1" "$check" --open "$copy"
 PATH="$fake_open:$PATH" FAKE_OPEN_RUN=1 FAKE_OPEN_STATUS=2 FAKE_OPEN_MESSAGE="$early" \
   expect_fail "код open кроме 1 отвергается и с сообщением о раннем выходе" "open завершился с кодом 2" "$check" --open "$copy"
+PATH="$fake_open:$PATH" FAKE_OPEN_RUN=1 FAKE_OPEN_STATUS=0 FAKE_OPEN_MESSAGE= FAKE_OPEN_STDERR="warning" \
+  expect_fail "вывод приложения в stderr отвергается" "самопроверка писала в stderr" "$check" --open "$copy"
+PATH="$fake_open:$PATH" FAKE_OPEN_RUN=0 FAKE_OPEN_STATUS=0 FAKE_OPEN_MESSAGE= FAKE_OPEN_STDOUT=$'{}\n{}' \
+  expect_fail "вывод не одной строкой отвергается" "вывела не одну строку" "$check" --open "$copy"
+PATH="$fake_open:$PATH" FAKE_OPEN_RUN=0 FAKE_OPEN_STATUS=0 FAKE_OPEN_MESSAGE= FAKE_OPEN_STDOUT='{"app_version":"0.0.0"}' \
+  expect_fail "неверное значение в выводе отвергается" "app_version самопроверки" "$check" --open "$copy"
+PATH="$fake_open:$PATH" FAKE_OPEN_RUN=1 FAKE_OPEN_STATUS=0 FAKE_OPEN_MESSAGE= FAKE_OPEN_TOUCH_STATE=1 \
+  expect_fail "файл в SHELLIO_STATE_DIR отвергается" "оставила файлы в SHELLIO_STATE_DIR" "$check" --open "$copy"
 
 copy="$(copy_app no-terminfo)"
 rm -rf "$copy/Contents/Resources/terminfo"
@@ -117,6 +134,22 @@ copy="$(copy_app adhoc)"
 codesign --force --sign - "$copy" >"$out" 2>&1 || fail "ad-hoc подпись копии не удалась"
 expect_ok "ad-hoc подпись проходит codesign --verify --strict" codesign --verify --strict "$copy"
 expect_fail "бандл с ad-hoc подписью отвергается" "подпись бандла ad-hoc" "$check" "$copy"
+
+# Настоящий сертификат, но requirement подписи не тот, что в requirement.txt.
+copy="$(copy_app other-requirement)"
+sha1="$(sed -n 's/.*certificate leaf = H"\([0-9a-fA-F]\{40\}\)".*/\1/p' "$here/signing/requirement.txt")"
+codesign --force --sign "$sha1" ${SHELLIO_SIGNING_KEYCHAIN:+--keychain "$SHELLIO_SIGNING_KEYCHAIN"} \
+  --identifier io.github.dsbasko.shellio --timestamp=none \
+  -r '=designated => identifier "io.github.dsbasko.shellio"' "$copy" >"$out" 2>&1 ||
+  fail "подпись копии с другим requirement не удалась"
+expect_fail "подпись с другим requirement отвергается" "designated requirement подписи" "$check" "$copy"
+
+copy="$(copy_app extra-executable)"
+# Вложенный код подписывается до бандла; копия основного бинаря привязана к Info.plist и не годится.
+cp /usr/bin/true "$copy/Contents/MacOS/helper"
+expect_ok "лишний исполняемый файл подписывается настоящей идентичностью" "$sign" "$copy/Contents/MacOS/helper"
+expect_ok "бандл с лишним файлом в Contents/MacOS подписывается настоящей идентичностью" "$sign" "$copy"
+expect_fail "лишний файл в Contents/MacOS отвергается" "содержимое Contents/MacOS" "$check" "$copy"
 
 copy="$(copy_app modified)"
 printf '\n' >>"$copy/Contents/Resources/licenses/ghostty.txt"

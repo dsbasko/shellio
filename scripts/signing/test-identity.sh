@@ -163,6 +163,18 @@ security import "$backup" -k "$kc_ci" -f pkcs12 -P "$p12_password" -T /usr/bin/c
 security set-key-partition-list -S apple-tool:,apple: -s -k "$kc_password" "$kc_ci" >"$out" 2>&1 ||
   fail "partition list во временном keychain CI"
 sign_probe "$kc_ci" "$sha1" "$req1"
+# make bundle в CI подписывает через sign.sh с SHELLIO_SIGNING_KEYCHAIN; копия sign.sh читает req1 рядом с собой.
+mkdir -p "$tmp/signing"
+cp "$here/sign.sh" "$tmp/signing/sign.sh"
+cp "$req1" "$tmp/signing/requirement.txt"
+rm -f "$tmp/probe"
+cp /usr/bin/true "$tmp/probe"
+expect_ok "sign.sh подписывает из keychain CI" \
+  env SHELLIO_SIGNING_KEYCHAIN="$kc_ci" "$tmp/signing/sign.sh" "$tmp/probe"
+codesign --verify --strict "$tmp/probe" >"$out" 2>&1 || fail "подпись sign.sh не проходит codesign --verify --strict"
+grep -qx "Authority=$NAME" <<<"$(codesign -dvvv "$tmp/probe" 2>&1)" || fail "подпись sign.sh не от $NAME"
+[[ "$(codesign -d -r- "$tmp/probe" 2>&1 | sed -n 's/^designated => /&/p')" == "$(csreq -r "$req1" -t)" ]] ||
+  fail "requirement подписи sign.sh не совпадает с $req1"
 security delete-keychain "$kc_ci"
 [[ ! -e "$kc_ci" ]] || fail "временный keychain CI не удалён"
 ok "как в CI: .p12 импортируется во временный keychain, бинарь подписывается, keychain удаляется"

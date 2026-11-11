@@ -92,16 +92,8 @@ impl fmt::Display for Error {
     }
 }
 
-impl StdError for Error {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        match self {
-            Self::CurrentExe(err) | Self::ResolveExe(_, err) | Self::Stdout(err) => Some(err),
-            Self::Layout(err) => Some(err),
-            Self::Ghostty(err) => Some(err),
-            Self::NonUtf8Path(_) => None,
-        }
-    }
-}
+// Причина уже входит в текст ошибки, поэтому `source` не переопределяется: обход цепочки повторил бы её.
+impl StdError for Error {}
 
 /// Проверяет бандл и libghostty и возвращает итог одной строкой JSON.
 ///
@@ -324,6 +316,11 @@ mod tests {
         let dir = TempDir::new();
         let exe = dir.0.join("target/debug/shellio");
         assert_eq!(find_resources(&exe), Err(LayoutError::NotInBundle(exe)));
+        // Каждое из двух имён проверяется отдельно.
+        for path in ["X/MacOS/shellio", "shellio.app/Contents/bin/shellio"] {
+            let exe = dir.0.join(path);
+            assert_eq!(find_resources(&exe), Err(LayoutError::NotInBundle(exe)));
+        }
         let root = Path::new("/shellio");
         assert_eq!(
             find_resources(root),

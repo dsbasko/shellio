@@ -20,7 +20,7 @@ mod tests {
     #[test]
     fn links_ghostty_info() {
         let info: unsafe extern "C" fn() -> ghostty_info_s = ghostty_info;
-        assert!(!std::hint::black_box(info as *const ()).is_null());
+        std::hint::black_box(info);
     }
 
     #[test]

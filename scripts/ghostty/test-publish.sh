@@ -88,9 +88,13 @@ make_build() {
 build="$tmp/build"
 make_build "$build"
 
+# Штамп, снятый до сборки, как его снимает make ghostty; входы до конца теста возвращаются к нему.
+before="$tmp/stamp.before"
+vendor_sh --print-stamp >"$before"
+
 # Каждый случай с порчей начинается со свежего набора, который проходит сверку.
 fresh_set() {
-  lock_sh "$scripts/vendor.sh" publish "$build" >"$out" 2>&1 || fail "публикация поддельного набора"
+  lock_sh "$scripts/vendor.sh" publish "$build" "$before" >"$out" 2>&1 || fail "публикация поддельного набора"
   vendor_sh --verify >"$out" 2>&1 || fail "сверка свежего набора"
 }
 
@@ -101,8 +105,8 @@ stamp_now() { vendor_sh --print-stamp; }
 base_stamp="$(stamp_now)"
 [[ "$(stamp_now)" == "$base_stamp" ]] || fail "штамп не повторяется"
 ok "штамп повторяется"
-for key in ghostty_rev ghostty_version_string zig_sha256 build_flags patches_sha256 build_sh_sha256 \
-  arch developer_dir xcodebuild_version sdk_version sdk_build metal_version; do
+for key in ghostty_repo ghostty_rev ghostty_version_string ghostty_min_macos zig_version zig_sha256 \
+  build_flags patches_sha256 build_sh_sha256 arch developer_dir xcodebuild_version sdk_version sdk_build metal_version; do
   grep -q "^$key=." <<<"$base_stamp" || fail "в штампе нет $key"
 done
 grep -qx "ghostty_rev=$fake_rev" <<<"$base_stamp" || fail "в штампе не ревизия из pin"
@@ -112,16 +116,20 @@ patch_files=("$patches"/*.patch)
 real_patch="$(basename "${patch_files[0]}")"
 cp "$patches/$real_patch" "$tmp/patch.orig"
 cp "$scripts/build.sh" "$tmp/build.sh.orig"
+cp "$scripts/pin" "$tmp/pin.orig"
 
+# Неудачный --print-stamp дал бы пустой штамп, который тоже отличается от исходного.
 expect_changed() {
-  local desc="$1"
-  [[ "$(stamp_now)" != "$base_stamp" ]] || fail "$desc не меняет штамп"
+  local desc="$1" now
+  now="$(stamp_now)" || fail "$desc: штамп не считается"
+  [[ "$now" != "$base_stamp" ]] || fail "$desc не меняет штамп"
   ok "$desc меняет штамп"
 }
 
 expect_same() {
-  local desc="$1"
-  [[ "$(stamp_now)" == "$base_stamp" ]] || fail "$desc меняет штамп"
+  local desc="$1" now
+  now="$(stamp_now)" || fail "$desc: штамп не считается"
+  [[ "$now" == "$base_stamp" ]] || fail "$desc меняет штамп"
   ok "$desc не меняет штамп"
 }
 
@@ -142,6 +150,20 @@ printf '# изменение рецепта\n' >>"$scripts/build.sh"
 expect_changed "изменённый build.sh"
 cp "$tmp/build.sh.orig" "$scripts/build.sh"
 
+sed -i '' 's/^GHOSTTY_MIN_MACOS=.*/GHOSTTY_MIN_MACOS=13.1/' "$scripts/pin"
+expect_changed "изменённое значение pin"
+cp "$tmp/pin.orig" "$scripts/pin"
+
+mkdir -p "$tmp/sdk-bin"
+cat >"$tmp/sdk-bin/xcrun" <<'EOF'
+#!/bin/sh
+[ "$1" = --show-sdk-version ] && echo 99.0 && exit 0
+exec /usr/bin/xcrun "$@"
+EOF
+chmod +x "$tmp/sdk-bin/xcrun"
+PATH="$tmp/sdk-bin:$PATH" expect_changed "другая версия SDK"
+expect_same "возврат входов"
+
 printf '\nправка\n' >>"$patches/README.md"
 printf '# правка\n' >>"$scripts/tools.sh"
 printf '# правка\n' >>"$scripts/lock.sh"
@@ -160,7 +182,7 @@ expect_fail "без Metal toolchain штамп не считается" "make se
 
 expect_fail "сверка без набора" "make ghostty" vendor_sh --verify
 expect_fail "публикация без маркера отказывает" "SHELLIO_GHOSTTY_LOCKED" \
-  env -u SHELLIO_GHOSTTY_LOCKED "$scripts/vendor.sh" publish "$build"
+  env -u SHELLIO_GHOSTTY_LOCKED "$scripts/vendor.sh" publish "$build" "$before"
 [[ ! -e "$set_dir" ]] || fail "публикация без маркера создала набор"
 ok "публикация без маркера ничего не создаёт"
 
@@ -173,7 +195,7 @@ grep -qE '  (manifest|stamp)$' "$set_dir/manifest" && fail "манифест п�
 ok "манифест учитывает скрытые файлы и имена с пробелами"
 
 expect_fail "публикация без маркера поверх набора отказывает" "SHELLIO_GHOSTTY_LOCKED" \
-  env -u SHELLIO_GHOSTTY_LOCKED "$scripts/vendor.sh" publish "$build"
+  env -u SHELLIO_GHOSTTY_LOCKED "$scripts/vendor.sh" publish "$build" "$before"
 expect_ok "набор после отказа без маркера цел" vendor_sh --verify
 
 fresh_set
@@ -221,7 +243,7 @@ build2="$tmp/build2"
 make_build "$build2"
 printf 'second license\n' >"$build2/LICENSE"
 expect_fail "публикация, прерванная после шага 2" "прервана" \
-  env SHELLIO_GHOSTTY_LOCKED=1 SHELLIO_GHOSTTY_TEST_ABORT_BEFORE_STAMP=1 "$scripts/vendor.sh" publish "$build2"
+  env SHELLIO_GHOSTTY_LOCKED=1 SHELLIO_GHOSTTY_TEST_ABORT_BEFORE_STAMP=1 "$scripts/vendor.sh" publish "$build2" "$before"
 [[ ! -e "$set_dir/stamp" ]] || fail "прерванная публикация оставила старый штамп"
 cmp -s "$build2/LICENSE" "$set_dir/LICENSE" || fail "прерванная публикация не дошла до замены содержимого"
 ok "прерванная после шага 2 публикация оставляет набор без штампа"
@@ -232,7 +254,7 @@ ok "повторная публикация восстанавливает на�
 reject_build() {
   local desc="$1" reason="$2" dir="$3"
   fresh_set
-  expect_fail "$desc" "$reason" lock_sh "$scripts/vendor.sh" publish "$dir"
+  expect_fail "$desc" "$reason" lock_sh "$scripts/vendor.sh" publish "$dir" "$before"
   expect_ok "набор после отказа «${desc}» цел" vendor_sh --verify
 }
 
@@ -271,6 +293,15 @@ make_build "$bad"
 printf 'other header\n' >"$bad/include/ghostty.h"
 reject_build "заголовок не из собранного дерева" "ghostty.h" "$bad"
 
+fresh_set
+printf '\n' >>"$patches/$real_patch"
+expect_fail "входы, изменённые за время сборки" "входы сборки изменились" \
+  lock_sh "$scripts/vendor.sh" publish "$build" "$before"
+cp "$tmp/patch.orig" "$patches/$real_patch"
+expect_ok "набор после отказа по изменённым входам цел" vendor_sh --verify
+expect_fail "публикация без штампа, снятого до сборки" "снятого до сборки" \
+  lock_sh "$scripts/vendor.sh" publish "$build" "$tmp/no-stamp"
+
 cat >"$patches/0002-header.patch" <<'EOF'
 diff --git a/include/ghostty.h b/include/ghostty.h
 --- a/include/ghostty.h
@@ -279,23 +310,42 @@ diff --git a/include/ghostty.h b/include/ghostty.h
  fake ghostty header
 +patched line
 EOF
-expect_fail "заголовок без наложенного на него патча" "ghostty.h" lock_sh "$scripts/vendor.sh" publish "$build"
+vendor_sh --print-stamp >"$tmp/stamp.patched"
+expect_fail "заголовок без наложенного на него патча" "ghostty.h" \
+  lock_sh "$scripts/vendor.sh" publish "$build" "$tmp/stamp.patched"
 patched="$tmp/build-patched"
 make_build "$patched"
 printf 'patched line\n' >>"$patched/include/ghostty.h"
-expect_ok "заголовок с наложенным патчем публикуется" lock_sh "$scripts/vendor.sh" publish "$patched"
+expect_ok "заголовок с наложенным патчем публикуется" \
+  lock_sh "$scripts/vendor.sh" publish "$patched" "$tmp/stamp.patched"
 rm "$patches/0002-header.patch"
 
 inner="$tmp/inner"
 make_build "$inner"
 expect_fail "набор внутри каталога сборки" "внутри каталога сборки" \
-  env SHELLIO_GHOSTTY_VENDOR="$inner/set" "$scripts/lock.sh" "$scripts/vendor.sh" publish "$inner"
+  env SHELLIO_GHOSTTY_VENDOR="$inner/set" "$scripts/lock.sh" "$scripts/vendor.sh" publish "$inner" "$before"
 [[ -f "$inner/LICENSE" ]] || fail "отказ задел каталог сборки"
 outer="$tmp/outer"
 make_build "$outer/build"
 expect_fail "каталог сборки внутри набора" "внутри набора" \
-  env SHELLIO_GHOSTTY_VENDOR="$outer" "$scripts/lock.sh" "$scripts/vendor.sh" publish "$outer/build"
+  env SHELLIO_GHOSTTY_VENDOR="$outer" "$scripts/lock.sh" "$scripts/vendor.sh" publish "$outer/build" "$before"
 [[ -f "$outer/build/LICENSE" ]] || fail "отказ задел каталог сборки внутри набора"
+
+# Публикация удаляет корень набора, поэтому корень, накрывающий репозиторий, HOME или vendor/, отвергается.
+# Все пути временные: копия репозитория и поддельный HOME.
+expect_fail "набор на месте репозитория" "содержит репозиторий" \
+  env SHELLIO_GHOSTTY_VENDOR="$repo" "$scripts/lock.sh" "$scripts/vendor.sh" publish "$build" "$before"
+[[ -f "$scripts/vendor.sh" ]] || fail "отказ задел копию репозитория"
+mkdir -p "$repo/vendor"
+printf 'keep\n' >"$repo/vendor/keep"
+expect_fail "набор на месте vendor/" "там лежит файл блокировки" \
+  env SHELLIO_GHOSTTY_VENDOR="$repo/vendor" "$scripts/lock.sh" "$scripts/vendor.sh" publish "$build" "$before"
+[[ -f "$repo/vendor/keep" ]] || fail "отказ задел vendor/"
+mkdir -p "$tmp/home"
+printf 'keep\n' >"$tmp/home/keep"
+expect_fail "набор на месте HOME" "содержит HOME" \
+  env HOME="$tmp/home" SHELLIO_GHOSTTY_VENDOR="$tmp/home" "$scripts/lock.sh" "$scripts/vendor.sh" publish "$build" "$before"
+[[ -f "$tmp/home/keep" ]] || fail "отказ задел HOME"
 
 # --- блокировка ---
 

@@ -43,21 +43,17 @@ plist="$contents/Info.plist"
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/shellio-check-bundle.XXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
 
-workspace_version() {
-  awk '
-    /^\[/ { in_section = ($0 == "[workspace.package]") }
-    in_section && /^version *= *"/ { sub(/^version *= *"/, ""); sub(/".*/, ""); print; exit }
-  ' "$root/Cargo.toml"
-}
-
-min_macos() {
-  sed -n 's/^MACOSX_DEPLOYMENT_TARGET = { value = "\([0-9.]*\)".*/\1/p' "$root/.cargo/config.toml"
-}
-
-stamp_value() {
-  [[ -f "$vendor/stamp" ]] || die "нет штампа набора $vendor/stamp"
-  sed -n "s/^$1=//p" "$vendor/stamp"
-}
+# Ожидаемые значения не бывают пустыми: пустое совпало бы с отсутствующим ключом.
+app_version="$(awk '
+  /^\[/ { in_section = ($0 == "[workspace.package]") }
+  in_section && /^version *= *"/ { sub(/^version *= *"/, ""); sub(/".*/, ""); print; exit }
+' "$root/Cargo.toml")"
+[[ -n "$app_version" ]] || die "в [workspace.package] Cargo.toml нет version"
+min_macos="$(sed -n 's/^MACOSX_DEPLOYMENT_TARGET = { value = "\([0-9.]*\)".*/\1/p' "$root/.cargo/config.toml")"
+[[ -n "$min_macos" ]] || die "в .cargo/config.toml нет MACOSX_DEPLOYMENT_TARGET"
+[[ -f "$vendor/stamp" ]] || die "нет штампа набора $vendor/stamp"
+ghostty_version="$(sed -n 's/^ghostty_version_string=//p' "$vendor/stamp")"
+[[ -n "$ghostty_version" ]] || die "в штампе $vendor/stamp нет ghostty_version_string"
 
 # Значение ключа plist или JSON; пустая строка, если ключа нет.
 extract() {
@@ -105,9 +101,9 @@ check_plist() {
   expect_equal "CFBundleIdentifier" "$(extract CFBundleIdentifier "$plist")" "$BUNDLE_ID"
   expect_equal "CFBundleExecutable" "$(extract CFBundleExecutable "$plist")" "shellio"
   expect_equal "CFBundlePackageType" "$(extract CFBundlePackageType "$plist")" "APPL"
-  expect_equal "LSMinimumSystemVersion" "$(extract LSMinimumSystemVersion "$plist")" "$(min_macos)"
-  expect_equal "CFBundleShortVersionString" "$(extract CFBundleShortVersionString "$plist")" "$(workspace_version)"
-  expect_equal "CFBundleVersion" "$(extract CFBundleVersion "$plist")" "$(workspace_version)"
+  expect_equal "LSMinimumSystemVersion" "$(extract LSMinimumSystemVersion "$plist")" "$min_macos"
+  expect_equal "CFBundleShortVersionString" "$(extract CFBundleShortVersionString "$plist")" "$app_version"
+  expect_equal "CFBundleVersion" "$(extract CFBundleVersion "$plist")" "$app_version"
 }
 
 # Список «SHA-256  путь» обычных файлов каталога в порядке LC_ALL=C; другие элементы отвергаются.
@@ -154,7 +150,7 @@ check_binary() {
   expect_equal "архитектуры бинаря" "$(lipo -archs "$exe")" "arm64"
   build="$(xcrun vtool -show-build "$exe")" || die "vtool не читает $exe"
   minos="$(awk '$1 == "minos" { print $2; exit }' <<<"$build")"
-  expect_equal "minos бинаря" "$minos" "$(min_macos)"
+  expect_equal "minos бинаря" "$minos" "$min_macos"
 
   deps="$(otool -L "$exe" | tail -n +2 | awk '{ print $1 }')"
   [[ -n "$deps" ]] || die "otool -L не показал зависимостей бинаря"
@@ -164,22 +160,16 @@ check_binary() {
 
 # Строку самопроверки проверяют оба способа запуска: прямой и через open.
 check_report() {
-  local out="$1" err="$2" key want
+  local out="$1" err="$2"
 
   [[ ! -s "$err" ]] || die "самопроверка писала в stderr: $(tr '\n' ' ' <"$err")"
   [[ -s "$out" ]] || die "самопроверка ничего не вывела"
   [[ "$(wc -l <"$out" | tr -d ' ')" == 1 ]] || die "самопроверка вывела не одну строку: $(cat "$out")"
-  for key in app_version ghostty_version ghostty_build_mode ghostty_resources terminfo; do
-    case "$key" in
-      app_version) want="$(workspace_version)" ;;
-      ghostty_version) want="$(stamp_value ghostty_version_string)" ;;
-      ghostty_build_mode) want=ReleaseFast ;;
-      ghostty_resources) want="$resources/ghostty" ;;
-      terminfo) want="$resources/terminfo" ;;
-    esac
-    [[ -n "$want" ]] || die "не известно ожидаемое значение $key"
-    expect_equal "$key самопроверки" "$(extract "$key" "$out")" "$want"
-  done
+  expect_equal "app_version самопроверки" "$(extract app_version "$out")" "$app_version"
+  expect_equal "ghostty_version самопроверки" "$(extract ghostty_version "$out")" "$ghostty_version"
+  expect_equal "ghostty_build_mode самопроверки" "$(extract ghostty_build_mode "$out")" ReleaseFast
+  expect_equal "ghostty_resources самопроверки" "$(extract ghostty_resources "$out")" "$resources/ghostty"
+  expect_equal "terminfo самопроверки" "$(extract terminfo "$out")" "$resources/terminfo"
 }
 
 expect_empty() {

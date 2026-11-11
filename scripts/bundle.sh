@@ -8,6 +8,8 @@ set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/.." && pwd)"
+# rustup и Cargo ищут rust-toolchain.toml и .cargo/config.toml от текущего каталога, а не от --manifest-path.
+cd "$root"
 
 vendor="${SHELLIO_GHOSTTY_VENDOR:-$root/vendor/ghostty}"
 cargo="${CARGO:-$HOME/.cargo/bin/cargo}"
@@ -32,7 +34,8 @@ exe="$target_dir/release/shellio"
 
 "$root/scripts/ghostty/vendor.sh" --verify
 
-out="$target_dir/bundle"
+# Бандл лежит в target/ корня и при другом каталоге сборки Cargo: там его ищут check-bundle.sh и test-bundle.sh.
+out="$root/target/bundle"
 app="$out/shellio.app"
 mkdir -p "$out"
 staging="$(mktemp -d "$out/.staging.XXXXXX")"

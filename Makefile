@@ -51,8 +51,9 @@ locked-ghostty:
 		echo "собираю набор ghostty заново"; \
 		build_dir="$$(mktemp -d "$${TMPDIR:-/tmp}/shellio-ghostty-set.XXXXXX")" && \
 		trap 'rm -rf "$$build_dir"' EXIT && \
+		$(GHOSTTY_VENDOR) --print-stamp >"$$build_dir/stamp" && \
 		$(GHOSTTY_BUILD) "$$build_dir/set" && \
-		$(GHOSTTY_VENDOR) publish "$$build_dir/set"; \
+		$(GHOSTTY_VENDOR) publish "$$build_dir/set" "$$build_dir/stamp"; \
 	fi
 
 locked-check:

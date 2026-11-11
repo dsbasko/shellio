@@ -43,3 +43,11 @@
 ## Условие пересмотра
 
 Если E2E окажутся нестабильными на runner CI, они останутся локальным рубежом.
+
+## Уточнено в P0.1
+
+План [toolchain-bootstrap](../plans/completed/20261111-toolchain-bootstrap.md) конкретизирует рубеж. Решение не меняется.
+
+- `make check` сначала сверяет набор ghostty (`scripts/ghostty/vendor.sh --verify`), затем выполняет `cargo fmt --check`, `cargo clippy --all-targets --locked -- -D warnings` и `cargo test --locked`. Всё это идёт под блокировкой набора, без опубликованного `vendor/ghostty/` рубеж не проходит.
+- Вне `make check`: `make test-scripts` (публикация набора на поддельном наборе и идентичность подписи на временных keychain), `make bindings-check`, `make link-audit` и `make check-bundle`. Все они выполняются в CI, `make check-bundle` — при заданных секретах подписи.
+- Целям `make test-bundle` и `make run` нужны настоящая идентичность и запуск через `open`. Они входят в приёмку, но не в CI.

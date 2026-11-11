@@ -3,7 +3,10 @@
 #
 #   vendor.sh --print-stamp      ожидаемый штамп набора; только читает, сеть не нужна
 #   vendor.sh --verify           сверяет опубликованный набор со штампом и манифестом; только читает
-#   vendor.sh publish <каталог>  публикует набор из каталога сборки build.sh; только шаг make ghostty
+#   vendor.sh publish <каталог> <штамп>
+#                                публикует набор из каталога сборки build.sh; только шаг make ghostty.
+#                                <штамп> — вывод --print-stamp, снятый до сборки: если входы изменились
+#                                за время сборки, публикация отказывает
 #
 # Корень набора — $SHELLIO_GHOSTTY_VENDOR, по умолчанию vendor/ghostty. Публикация требует маркер
 # SHELLIO_GHOSTTY_LOCKED=1, который выставляет lock.sh. Маркер — соглашение, а не доказательство захвата.
@@ -25,7 +28,7 @@ die() {
 }
 
 usage() {
-  echo "usage: $0 --print-stamp|--verify|publish <каталог>" >&2
+  echo "usage: $0 --print-stamp|--verify|publish <каталог> <штамп>" >&2
   exit 2
 }
 
@@ -55,6 +58,7 @@ sha256_of() {
 compute_stamp() {
   local name value flags patch names="" list="" digest xcode out
 
+  # Номер поднимается, когда меняется смысл сверки или набора без изменения входов сборки.
   field stamp_format 1
   while IFS= read -r name; do
     value="${!name}"
@@ -192,22 +196,32 @@ check_build_dir() {
 }
 
 publish() {
-  local build vendor_abs manifest
+  local build before="$2" vendor_abs repo home manifest
   [[ "${SHELLIO_GHOSTTY_LOCKED:-}" == 1 ]] ||
     die "публикация выполняется только целью make ghostty под блокировкой набора (нет SHELLIO_GHOSTTY_LOCKED=1)"
   [[ -d "$1" ]] || die "каталог сборки $1 не найден"
-  build="$(cd "$1" && pwd)"
+  [[ -f "$before" ]] || die "нет штампа $before, снятого до сборки"
   [[ -n "$vendor" ]] || die "пустой путь набора"
   mkdir -p "$(dirname "$vendor")"
-  vendor_abs="$(cd "$(dirname "$vendor")" && pwd)/$(basename "$vendor")"
+  # Пути сравниваются физическими: лишняя косая черта или ссылка в пути не обходит проверки ниже.
+  build="$(cd "$1" && pwd -P)"
+  vendor_abs="$(cd "$(dirname "$vendor")" && pwd -P)/$(basename "$vendor")"
+  repo="$(cd "$root" && pwd -P)"
+  home="$HOME"
+  [[ ! -d "$home" ]] || home="$(cd "$home" && pwd -P)"
   # Публикация удаляет корень набора целиком, поэтому он не может накрывать репозиторий, HOME или файл блокировки.
-  case "$root/" in "$vendor_abs/"*) die "набор нельзя публиковать в $vendor_abs: он содержит репозиторий" ;; esac
-  case "$HOME/" in "$vendor_abs/"*) die "набор нельзя публиковать в $vendor_abs: он содержит HOME" ;; esac
-  [[ "$vendor_abs" != "$root/vendor" ]] || die "набор нельзя публиковать в $vendor_abs: там лежит файл блокировки"
+  case "$repo/" in "$vendor_abs/"*) die "набор нельзя публиковать в $vendor_abs: он содержит репозиторий" ;; esac
+  case "$home/" in "$vendor_abs/"*) die "набор нельзя публиковать в $vendor_abs: он содержит HOME" ;; esac
+  [[ "$vendor_abs" != "$repo/vendor" ]] || die "набор нельзя публиковать в $vendor_abs: там лежит файл блокировки"
   case "$build/" in "$vendor_abs/"*) die "каталог сборки $build лежит внутри набора $vendor_abs" ;; esac
   case "$vendor_abs/" in "$build/"*) die "набор $vendor_abs лежит внутри каталога сборки $build" ;; esac
 
+  # Штамп описывает входы, из которых собран набор, поэтому они не должны меняться за время сборки.
   compute_stamp
+  if ! cmp -s <(printf '%s' "$stamp") "$before"; then
+    diff -u -L "до сборки" -L "после сборки" "$before" <(printf '%s' "$stamp") >&2 || true
+    die "входы сборки изменились за время сборки, набор не публикуется: выполните make ghostty заново"
+  fi
   work="$(mktemp -d "${TMPDIR:-/tmp}/shellio-vendor.XXXXXX")"
   trap 'rm -rf "$work"' EXIT
 
@@ -244,8 +258,8 @@ case "${1:-}" in
     verify
     ;;
   publish)
-    [[ $# -eq 2 ]] || usage
-    publish "$2"
+    [[ $# -eq 3 ]] || usage
+    publish "$2" "$3"
     ;;
   *) usage ;;
 esac

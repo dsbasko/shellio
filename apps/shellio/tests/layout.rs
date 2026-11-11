@@ -203,6 +203,33 @@ fn self_check_passes_in_isolated_bundle() {
 }
 
 #[test]
+fn self_check_follows_link_to_bundle_binary() {
+    let tmp = TempDir::new();
+    let exe = layout(&tmp.0, true);
+    let link = tmp.0.join("bin/shellio");
+    fs::create_dir_all(link.parent().unwrap()).unwrap();
+    std::os::unix::fs::symlink(&exe, &link).unwrap();
+    let dirs = isolated_dirs(&tmp.0);
+
+    let output = run_isolated(&link, &tmp.0, &dirs);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(0), "stderr: {stderr}");
+    let json = tmp.0.join("self-check.json");
+    fs::write(&json, &output.stdout).unwrap();
+    let resources = tmp.0.join("shellio.app/Contents/Resources");
+    assert_eq!(
+        plutil_extract("ghostty_resources", &json),
+        resources.join("ghostty").display().to_string()
+    );
+    assert_eq!(
+        plutil_extract("terminfo", &json),
+        resources.join("terminfo").display().to_string()
+    );
+
+    assert_empty(&dirs);
+}
+
+#[test]
 fn self_check_fails_without_terminfo() {
     let tmp = TempDir::new();
     let exe = layout(&tmp.0, false);
