@@ -68,6 +68,44 @@ copy_app() {
 
 copy="$(copy_app baseline)"
 expect_ok "копия бандла проходит check-bundle.sh" "$check" "$copy"
+expect_ok "копия бандла запускается через open" "$check" --open "$copy"
+
+# Подменённый open запускает бинарь бандла напрямую и завершается кодом и сообщением из FAKE_OPEN_*:
+# так воспроизводится гонка, в которой приложение выходит раньше, чем open подписывается на его завершение.
+fake_open="$tmp/fake-open"
+mkdir -p "$fake_open"
+cat >"$fake_open/open" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+envs=()
+out=/dev/null
+err=/dev/null
+while [[ $# -gt 1 ]]; do
+  case "$1" in
+    -W | -n) shift ;;
+    --env) envs+=("$2") && shift 2 ;;
+    --stdout) out="$2" && shift 2 ;;
+    --stderr) err="$2" && shift 2 ;;
+    *) echo "fake open: неизвестный аргумент $1" >&2 && exit 2 ;;
+  esac
+done
+if [[ "$FAKE_OPEN_RUN" == 1 ]]; then
+  env ${envs[@]+"${envs[@]}"} "$1/Contents/MacOS/shellio" >"$out" 2>"$err" || true
+fi
+echo "$FAKE_OPEN_MESSAGE" >&2
+exit "$FAKE_OPEN_STATUS"
+EOF
+chmod +x "$fake_open/open"
+
+early="Unable to block on applications (initial call to kevent() failed: No such process)"
+PATH="$fake_open:$PATH" FAKE_OPEN_RUN=1 FAKE_OPEN_STATUS=1 FAKE_OPEN_MESSAGE="$early" \
+  expect_ok "код 1 open после раннего выхода приложения судится по выводу" "$check" --open "$copy"
+PATH="$fake_open:$PATH" FAKE_OPEN_RUN=0 FAKE_OPEN_STATUS=1 FAKE_OPEN_MESSAGE="$early" \
+  expect_fail "ранний выход без вывода приложения отвергается" "самопроверка ничего не вывела" "$check" --open "$copy"
+PATH="$fake_open:$PATH" FAKE_OPEN_RUN=1 FAKE_OPEN_STATUS=1 FAKE_OPEN_MESSAGE="LSOpenURLsWithRole() failed" \
+  expect_fail "другой отказ open отвергается" "open завершился с кодом 1" "$check" --open "$copy"
+PATH="$fake_open:$PATH" FAKE_OPEN_RUN=1 FAKE_OPEN_STATUS=2 FAKE_OPEN_MESSAGE="$early" \
+  expect_fail "код open кроме 1 отвергается и с сообщением о раннем выходе" "open завершился с кодом 2" "$check" --open "$copy"
 
 copy="$(copy_app no-terminfo)"
 rm -rf "$copy/Contents/Resources/terminfo"

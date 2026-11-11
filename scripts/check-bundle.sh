@@ -205,7 +205,11 @@ check_self_check() {
 
 # open не передаёт код выхода приложения, поэтому итог судится по выводу и пустому каталогу состояния.
 # Заглушка выходит раньше, чем open начинает её ждать, и open пишет «Unable to block on application»
-# в свой stderr; его вывод показывается только при ошибке самого open.
+# в свой stderr; его вывод показывается только при ошибке самого open. Если заглушка вышла раньше, чем
+# open подписался на её завершение, kevent отвечает ESRCH и open возвращает 1, хотя приложение
+# отработало: такой отказ тоже судится по выводу.
+OPEN_EXITED_EARLY="initial call to kevent() failed: No such process"
+
 check_open() {
   local state="$tmp/state" status=0
 
@@ -214,7 +218,9 @@ check_open() {
   : >"$tmp/stderr"
   open -W -n --env "SHELLIO_STATE_DIR=$state" --stdout "$tmp/stdout" --stderr "$tmp/stderr" "$app" \
     >"$tmp/open.log" 2>&1 || status=$?
-  [[ $status -eq 0 ]] || die "open завершился с кодом $status: $(tr '\n' ' ' <"$tmp/open.log")"
+  if [[ $status -ne 0 ]] && ! { [[ $status -eq 1 ]] && grep -qF "$OPEN_EXITED_EARLY" "$tmp/open.log"; }; then
+    die "open завершился с кодом $status: $(tr '\n' ' ' <"$tmp/open.log")"
+  fi
   check_report "$tmp/stdout" "$tmp/stderr"
   expect_empty SHELLIO_STATE_DIR "$state"
 }

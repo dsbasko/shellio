@@ -325,10 +325,16 @@
 
 ### Task 10: Проверка приёмочных условий
 
-- [ ] в копии рабочего дерева без `target/` и `vendor/` проходят `make setup ghostty check test-scripts bindings-check link-audit bundle check-bundle run`
-- [ ] повторный `make ghostty` ничего не собирает, изменённый патч блокирует линковку
-- [ ] две чистые сборки дают одинаковый requirement, подпись не ad-hoc
-- [ ] `make run` запускает бандл через `open` с изолированным `SHELLIO_STATE_DIR`, самопроверка успешна
+**Files:**
+- ➕ Modify: `scripts/check-bundle.sh`
+- ➕ Modify: `scripts/test-bundle.sh`
+
+- [x] в копии рабочего дерева без `target/` и `vendor/` проходят `make setup ghostty check test-scripts bindings-check link-audit bundle check-bundle run`
+- [x] повторный `make ghostty` ничего не собирает, изменённый патч блокирует линковку
+- [x] две чистые сборки дают одинаковый requirement, подпись не ad-hoc
+- [x] `make run` запускает бандл через `open` с изолированным `SHELLIO_STATE_DIR`, самопроверка успешна
+- [x] ➕ первый прогон в копии упал на `make run`: `open -W` вернул 1 с «Unable to block on applications (initial call to kevent() failed: No such process)», хотя заглушка отработала и вывела полный JSON. Она выходит раньше, чем `open` подписывается на её завершение; на 60 запусках так случилось один раз, в остальных `open` возвращает 0 с «Unable to block on application (GetProcessPID() returned …)». `check-bundle.sh --open` теперь принимает код 1 только с сообщением о `kevent` и `No such process` и судит по выводу, как и при коде 0; другой код или другое сообщение по-прежнему отказ. `test-bundle.sh` проверяет это подменённым `open` в `PATH`: ранний выход с выводом проходит, без вывода, с другим сообщением и с кодом 2 отвергается, а прежняя версия `check-bundle.sh` на первом случае падает. Добавлен и запуск копии бандла настоящим `open`: 23 проверки примерно за 11 с
+- [x] ➕ итоги на копии рабочего дерева в `/private/tmp`, снятой `rsync` без `target/` и `vendor/`: вся цепочка прошла за 197 с, набор ghostty собран за 138 с при прогретых кэшах `~/.cache/shellio`, штамп совпал со штампом основного дерева, отслеживаемые файлы не изменились. Повторный `make ghostty` за 1 с ответил «сборка ghostty не нужна», штамп и манифест прежние. Строка, дописанная в патч, роняет `make check`, `make bundle` и `make link-audit` на сверке штампа, а прямой `cargo build --locked -p shellio` — в `build.rs` с diff `patches_sha256` и подсказкой `make ghostty`; после возврата патча набор снова в силе без пересборки. После `cargo clean` вторая сборка дала тот же requirement и тот же CDHash, `Authority=Shellio Dev`, `flags=0x0(none)`, обе прошли `make check-bundle`; requirement совпал и с бандлом основного дерева. `make run` выводит JSON с путями внутри бандла копии, `SHELLIO_STATE_DIR` остаётся пустым; после исправления прошли все 60 запусков `check-bundle.sh --open` и `make test-bundle` в копии
 
 ### Task 11: [Final] Документы
 
