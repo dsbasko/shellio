@@ -13,10 +13,12 @@ GHOSTTY_TOOLS := scripts/ghostty/tools.sh
 GHOSTTY_BUILD := scripts/ghostty/build.sh
 GHOSTTY_VENDOR := scripts/ghostty/vendor.sh
 GHOSTTY_LOCK := scripts/ghostty/lock.sh
+GHOSTTY_BINDINGS := scripts/ghostty/bindings.sh
+GHOSTTY_LINK_AUDIT := scripts/ghostty/link-audit.sh
 
 # Цели, читающие vendor/ghostty/, выполняют весь рецепт под одной блокировкой набора: рецепт цели X
 # лежит во внутренней цели locked-X и запускается вложенным make. Вторая такая цель сразу получает отказ.
-LOCKED_TARGETS := ghostty check
+LOCKED_TARGETS := ghostty check bindings bindings-check link-audit
 
 .PHONY: setup test-scripts $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
 
@@ -34,6 +36,7 @@ setup:
 	$(RUSTUP) show active-toolchain
 	$(GHOSTTY_TOOLS) zig
 	$(GHOSTTY_TOOLS) metal
+	$(GHOSTTY_TOOLS) bindgen
 
 $(LOCKED_TARGETS):
 	@$(GHOSTTY_LOCK) $(MAKE) --no-print-directory locked-$@
@@ -54,6 +57,19 @@ locked-check:
 	$(CARGO) fmt --check
 	$(CARGO) clippy --all-targets --locked -- -D warnings
 	$(CARGO) test --locked
+
+locked-bindings:
+	$(GHOSTTY_VENDOR) --verify
+	$(GHOSTTY_BINDINGS)
+
+locked-bindings-check:
+	$(GHOSTTY_VENDOR) --verify
+	$(GHOSTTY_BINDINGS) --check
+
+# Весь архив без -dead_strip; дольше make check, поэтому входит в CI и приёмку, но не в check.
+locked-link-audit:
+	$(GHOSTTY_VENDOR) --verify
+	$(GHOSTTY_LINK_AUDIT)
 
 test-scripts:
 	scripts/ghostty/test-publish.sh

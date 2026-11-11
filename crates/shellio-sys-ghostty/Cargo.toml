@@ -1,0 +1,12 @@
+[package]
+name = "shellio-sys-ghostty"
+description = "Сгенерированные привязки и линковка закреплённого набора libghostty"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+links = "ghostty"
+build = "build.rs"
+
+[lints]
+workspace = true

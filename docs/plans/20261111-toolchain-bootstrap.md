@@ -198,19 +198,24 @@
 - Create: `crates/shellio-sys-ghostty/src/bindings.rs`
 - Create: `scripts/ghostty/link-libs`
 - Create: `scripts/ghostty/link-audit.sh`
+- Create: `scripts/ghostty/bindings.sh`
+- Modify: `scripts/ghostty/tools.sh`
 - Modify: `Cargo.toml`
 - Modify: `Cargo.lock`
 - Modify: `Makefile`
 
-- [ ] в `build.rs` вызывать `vendor.sh --verify` и при расхождении завершать сборку с подсказкой `make ghostty`; линковку брать из `link-libs`; отдавать версию ghostty из штампа через `cargo:rustc-env`
-- [ ] перезапускать `build.rs` при изменении `build.sh`, `vendor.sh`, `pin`, `link-libs`, каталога патчей, `stamp`, `manifest`, `libghostty.a`, `ghostty.h` и переменных `DEVELOPER_DIR` и `SDKROOT`
-- [ ] генерировать `bindings.rs` закреплённым `bindgen-cli` с allowlist `ghostty_info` и его типов; явно задавать `LIBCLANG_PATH` из Xcode, target, sysroot и Rust edition; шапка без временных путей, с ревизией; добавить `bindgen-cli` в `make setup`
-- [ ] объявить модуль привязок с `#[rustfmt::skip]` и `#[allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]`; проверить, что `cargo fmt --check` и `clippy` его не отвергают
-- [ ] добавить цели `make bindings` и `make bindings-check`, обе с блокировкой и `--verify` первым шагом
-- [ ] в `link-audit.sh` линковать весь архив с `-force_load` без `-dead_strip` по `link-libs`; затем `otool -L` не показывает библиотек вне `/System` и `/usr/lib`; добавить цель `make link-audit` с блокировкой и `--verify`
-- [ ] проверить, что удаление `GameController` из `link-libs` роняет `make link-audit`
-- [ ] проверить отказ `build.rs` при устаревшем штампе
-- [ ] проверки раскладки от `bindgen` включены и проходят; `make check`, `make bindings-check` и `make link-audit` проходят
+- [x] в `build.rs` вызывать `vendor.sh --verify` и при расхождении завершать сборку с подсказкой `make ghostty`; линковку брать из `link-libs`; отдавать версию ghostty из штампа через `cargo:rustc-env`
+- [x] перезапускать `build.rs` при изменении `build.sh`, `vendor.sh`, `pin`, `link-libs`, каталога патчей, `stamp`, `manifest`, `libghostty.a`, `ghostty.h` и переменных `DEVELOPER_DIR` и `SDKROOT`
+- [x] генерировать `bindings.rs` закреплённым `bindgen-cli` с allowlist `ghostty_info` и его типов; явно задавать `LIBCLANG_PATH` из Xcode, target, sysroot и Rust edition; шапка без временных путей, с ревизией; добавить `bindgen-cli` в `make setup`
+- [x] объявить модуль привязок с `#[rustfmt::skip]` и `#[allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]`; проверить, что `cargo fmt --check` и `clippy` его не отвергают
+- [x] добавить цели `make bindings` и `make bindings-check`, обе с блокировкой и `--verify` первым шагом
+- [x] в `link-audit.sh` линковать весь архив с `-force_load` без `-dead_strip` по `link-libs`; затем `otool -L` не показывает библиотек вне `/System` и `/usr/lib`; добавить цель `make link-audit` с блокировкой и `--verify`
+- [x] проверить, что удаление `GameController` из `link-libs` роняет `make link-audit`
+- [x] проверить отказ `build.rs` при устаревшем штампе
+- [x] проверки раскладки от `bindgen` включены и проходят; `make check`, `make bindings-check` и `make link-audit` проходят
+- [x] ➕ `bindgen-cli` 0.73.2 (BSD-3-Clause) — инструмент генерации, а не зависимость workspace. Его ставит `tools.sh bindgen` через `cargo install --locked` в `~/.cache/shellio/bindgen-cli/<версия>`, версия закреплена в `tools.sh`, а не в `pin`, чтобы не менять штамп набора. Генерацию и сверку ведёт `scripts/ghostty/bindings.sh` (без аргумента и `--check`): `LIBCLANG_PATH` от `xcrun --find clang`, SDK из `xcrun`, `rustfmt` закреплённого toolchain через `rustup which`, `--rust-target` из `rust-toolchain.toml`, edition из `Cargo.toml`, target `arm64-apple-macos` с минимумом из `.cargo/config.toml`. Перечисление остаётся константами, а не Rust enum
+- [x] ➕ `build.rs` передаёт `vendor.sh` тот же корень набора, что линкует; относительный `SHELLIO_GHOSTTY_VENDOR` отвергается. Архив подключается как `static:-bundle`, поэтому 140 МБ не копируются в rlib каждого профиля: rlib весит 14 КБ, путь поиска доходит до итоговой линковки. Crate объявляет `links = "ghostty"` и отдаёт версию константой `GHOSTTY_VERSION`. Тест берёт `ghostty_info` указателем на функцию через `black_box` без вызова и `unsafe`, тестовый бинарь содержит `_ghostty_info` и зависит только от системных библиотек
+- [x] ➕ итоги проверок: список `link-libs` из Context подтверждён без изменений, `link-audit` линкует весь архив около 3 с, автолинковки `LC_LINKER_OPTION` в архиве нет. Без `GameController` линковка падает на `_OBJC_CLASS_$_GCController` из `imgui_impl_osx.o`. Лишняя строка в патче даёт отказ прямого `cargo build -p shellio-sys-ghostty` с diff штампа и подсказкой `make ghostty`. Лишние пробелы в `bindings.rs` пропускают `cargo fmt --check` и не исправляются `cargo fmt`, а `make bindings-check` на них падает
 
 ### Task 5: Сведения о сборке в `shellio-ghostty`
 

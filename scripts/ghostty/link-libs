@@ -1,0 +1,17 @@
+# Единственный список линковки набора ghostty. Его читают build.rs из shellio-sys-ghostty и link-audit.sh.
+# Строка — вид=имя: static — архив lib<имя>.a из lib/ набора, framework — системный фреймворк, dylib — библиотека /usr/lib.
+static=ghostty
+framework=AppKit
+framework=Foundation
+framework=Carbon
+framework=CoreFoundation
+framework=CoreGraphics
+framework=CoreText
+framework=CoreVideo
+framework=QuartzCore
+framework=IOSurface
+framework=Metal
+# Его требует бэкенд Dear ImGui внутри libghostty.
+framework=GameController
+dylib=c++
+dylib=objc

@@ -5,3 +5,7 @@ version = 4
 [[package]]
 name = "shellio"
 version = "0.1.0"
+
+[[package]]
+name = "shellio-sys-ghostty"
+version = "0.1.0"
