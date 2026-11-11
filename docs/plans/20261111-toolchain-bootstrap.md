@@ -96,7 +96,7 @@
   3. запись `stamp`.
 
   Набор без `stamp` публичный `--verify` отвергает, поэтому середина публикации не линкуется. Атомарности замены каталога скрипт не обещает. Версию ghostty в рантайме проверяет тест `info()` в задаче 5.
-- Блокировка: файл `vendor/ghostty.lock` вне заменяемого каталога, `lockf -k -t 0`, файл не удаляется и не заменяется. Обёртка в `Makefile` берёт её на всё время рецепта целей `ghostty`, `check`, `bindings`, `bindings-check`, `link-audit`, `bundle`, `check-bundle` и `run` и выставляет `SHELLIO_GHOSTTY_LOCKED=1`. Вторая такая цель в другом терминале завершается с ошибкой «набор занят», а не ждёт. Пока идёт `make check`, соседний терминал собрать бандл не сможет, это принятая цена. `.NOTPARALLEL` не даёт `make -j` упасть на собственной блокировке.
+- Блокировка: файл `vendor/ghostty.lock` вне заменяемого каталога, `lockf -k -t 0`, файл не удаляется и не заменяется. Обёртка в `Makefile` берёт её на всё время рецепта целей `ghostty`, `check`, `bindings`, `bindings-check`, `link-audit`, `bundle`, `check-bundle`, `run` и `test-bundle` и выставляет `SHELLIO_GHOSTTY_LOCKED=1`. Вторая такая цель в другом терминале завершается с ошибкой «набор занят», а не ждёт. Пока идёт `make check`, соседний терминал собрать бандл не сможет, это принятая цена. `.NOTPARALLEL` не даёт `make -j` упасть на собственной блокировке.
 - Версия ghostty для Rust: `build.rs` из `shellio-sys-ghostty` читает её из штампа и отдаёт константой через `cargo:rustc-env`.
 - Ресурсы в заглушке: путь берётся один раз через `current_exe`, от него ищутся `Contents/Resources/ghostty` и `Contents/Resources/terminfo/78/xterm-ghostty`, то есть раскладка, которую найдёт алгоритм ghostty без `GHOSTTY_RESOURCES_DIR`. Ошибка `current_exe` завершает запуск с кодом 1 и причиной, путь через `argv[0]` или `PATH` не восстанавливается. `GHOSTTY_RESOURCES_DIR` в P0.1 не читается и не задаётся.
 - Изоляция самопроверки: её запускают с временными `HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`, `XDG_DATA_HOME` и `SHELLIO_STATE_DIR`, и после выхода эти каталоги должны остаться пустыми.
@@ -115,6 +115,7 @@
   | `link-audit` | `--verify`; линкует весь архив без `-dead_strip` и проверяет `otool -L`; входит в CI и приёмку, но не в `make check` |
   | `bundle`, `check-bundle` | собирает и подписывает бандл; проверяет подпись, requirement, раскладку, зависимости и самопроверку |
   | `run` | запускает бандл через `open -W -n` с временным `SHELLIO_STATE_DIR`, сохраняет вывод и проверяет его |
+  | `test-bundle` | `--verify`; проверяет отказы `check-bundle.sh` на копиях бандла, переподписанных настоящей идентичностью; не входит в `test-scripts` |
 
 ## What Goes Where
 
@@ -282,20 +283,27 @@
 **Files:**
 - Create: `scripts/bundle.sh`
 - Create: `scripts/check-bundle.sh`
+- Create: `scripts/test-bundle.sh`
+- Create: `scripts/signing/sign.sh`
+- Modify: `scripts/signing/README.md`
 - Modify: `Makefile`
 
 ⚠️ Подпись зависит от задачи 7: нужны идентичность `Shellio Dev`, которую владелец создаёт в login keychain, и закоммиченный `scripts/signing/requirement.txt`. Если их нет, задача останавливается: временную идентичность или ad-hoc подпись вместо них не подставлять, а пункты подписи и проверки не закрываются как пропущенные.
 
-- [ ] собирать `cargo build --release --locked -p shellio`, раскладывать `target/bundle/shellio.app` по разделу Technical Details, подставлять версии в `Info.plist` и проверять его через `plutil -lint`
-- [ ] перед раскладкой выполнять `--verify`
-- [ ] подписывать `codesign --force --sign <SHA-1> --identifier io.github.dsbasko.shellio --timestamp=none -r scripts/signing/requirement.txt`; без идентичности завершаться ошибкой, ad-hoc не подставлять
-- [ ] в `check-bundle.sh` проверять: `codesign --verify --strict`, подпись не ad-hoc, сертификат с SHA-1 из requirement, каноническое совпадение requirement, bundle ID, раскладку ресурсов, minos 27.0 у бинаря, `otool -L` бинаря без библиотек вне `/System` и `/usr/lib`
-- [ ] запускать самопроверку бандла с изоляцией из раздела Technical Details: код 0, версия ghostty из штампа, пути ресурсов внутри бандла, временные каталоги пусты
-- [ ] в `make run` запускать `open -W -n --env SHELLIO_STATE_DIR=<временный> --stdout <файл> --stderr <файл>` и проверять JSON так же
-- [ ] добавить цели `bundle`, `check-bundle` и `run` с блокировкой
-- [ ] проверить отказы `check-bundle.sh`: бандл без `terminfo`, подписанный настоящей идентичностью; бандл, переподписанный ad-hoc; файл, изменённый после подписи
-- [ ] проверить: две сборки с `cargo clean` между ними дают одинаковый requirement и обе проходят `make check-bundle`
-- [ ] `make check` проходит
+- [x] собирать `cargo build --release --locked -p shellio`, раскладывать `target/bundle/shellio.app` по разделу Technical Details, подставлять версии в `Info.plist` и проверять его через `plutil -lint`
+- [x] перед раскладкой выполнять `--verify`
+- [x] подписывать `codesign --force --sign <SHA-1> --identifier io.github.dsbasko.shellio --timestamp=none -r scripts/signing/requirement.txt`; без идентичности завершаться ошибкой, ad-hoc не подставлять
+- [x] в `check-bundle.sh` проверять: `codesign --verify --strict`, подпись не ad-hoc, сертификат с SHA-1 из requirement, каноническое совпадение requirement, bundle ID, раскладку ресурсов, minos 27.0 у бинаря, `otool -L` бинаря без библиотек вне `/System` и `/usr/lib`
+- [x] запускать самопроверку бандла с изоляцией из раздела Technical Details: код 0, версия ghostty из штампа, пути ресурсов внутри бандла, временные каталоги пусты
+- [x] в `make run` запускать `open -W -n --env SHELLIO_STATE_DIR=<временный> --stdout <файл> --stderr <файл>` и проверять JSON так же
+- [x] добавить цели `bundle`, `check-bundle` и `run` с блокировкой
+- [x] проверить отказы `check-bundle.sh`: бандл без `terminfo`, подписанный настоящей идентичностью; бандл, переподписанный ad-hoc; файл, изменённый после подписи
+- [x] проверить: две сборки с `cargo clean` между ними дают одинаковый requirement и обе проходят `make check-bundle`
+- [x] `make check` проходит
+- [x] ➕ подпись вынесена в `scripts/signing/sign.sh <путь>`: SHA-1 из `requirement.txt`, идентичность ищется через `security find-identity -p codesigning` без `-v`, потому что недоверенный сертификат в списке действительных не бывает. `SHELLIO_SIGNING_KEYCHAIN` задаёт keychain для `find-identity` и `codesign --keychain`, им задача 9 подписывает из временного keychain CI. `bundle.sh` собирает бандл в `target/bundle/.staging.*`, подписывает его там и только потом заменяет `target/bundle/shellio.app`; каталог сборки берётся из `cargo metadata`, версия — из `[workspace.package]` в `CFBundleShortVersionString` и `CFBundleVersion`. Ресурсы копируются `ditto` без расширенных атрибутов, скрытый `.zshenv` сохраняется
+- [x] ➕ `check-bundle.sh [--open] [<бандл>]`: сертификат сверяется по SHA-1 извлечённого листа и `codesign --verify -R`, ресурсы `ghostty/`, `terminfo/` и `licenses/ghostty.txt` — с манифестом набора по хэшам, без лишних и недостающих файлов; `Contents` и `Contents/MacOS` не содержат ничего сверх раскладки, бинарь только arm64. `open -W` возвращает 0 и при коде 1 приложения, а заглушка выходит раньше, чем он начинает ждать («Unable to block on application»), поэтому `make run` судит по выводу: одна строка JSON, пустой stderr и пустой `SHELLIO_STATE_DIR`
+- [x] ➕ отказы проверяет `scripts/test-bundle.sh` в цели `make test-bundle` с блокировкой: 18 проверок примерно за 7 с на копиях бандла, переподписанных настоящей идентичностью. Причина каждого отказа своя: без `terminfo` — раскладка, ad-hoc — проверка подписанта (`codesign --verify --strict` ad-hoc подпись пропускает), изменённые после подписи ресурс и бинарь — `codesign --verify --strict`, лишний и изменённый ресурс — манифест, чужой bundle ID — `Info.plist`, `sign.sh` с пустым keychain отказывает и оставляет прежнюю подпись. Тесту нужна идентичность, поэтому в `make test-scripts` он не входит; исходный бандл и список поиска keychain он не меняет
+- [x] ➕ итоги: `make bundle` после сборки занимает около 5 с, `make check-bundle` около 2 с, `make run` около 1 с. После `cargo clean` вторая сборка дала тот же requirement и тот же CDHash, обе прошли `make check-bundle`. Подпись из login keychain идёт без запросов Keychain
 
 ### Task 9: CI на GitHub Actions
 

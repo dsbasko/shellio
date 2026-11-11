@@ -73,6 +73,10 @@ scripts/signing/create-identity.sh --from-p12 ~/secure/shellio-dev.p12
 
 `.p12` и его пароль хранятся вне репозитория и вне этой машины. Потеря ключа означает ручную переустановку у всех пользователей (ADR-0019).
 
+## Подпись бандла
+
+`sign.sh <путь>` подписывает бандл или бинарь: `codesign --force --sign <SHA-1> --identifier io.github.dsbasko.shellio --timestamp=none -r requirement.txt`. SHA-1 берётся из `requirement.txt`. Если идентичности с этим SHA-1 нет, скрипт завершается ошибкой, ad-hoc подпись и другая идентичность не подставляются. `SHELLIO_SIGNING_KEYCHAIN` задаёт keychain с идентичностью, например временный keychain CI, без неё идентичность ищется в списке поиска пользователя. Скрипт вызывают `make bundle` и `make test-bundle`.
+
 ## Доверие к сертификату
 
 Для P0.1 доверие не нужно. Самоподписанный сертификат подписывает бинарь с явным requirement, и подпись проходит `codesign --verify --strict` без доверия. `security find-identity -p codesigning` показывает идентичность с `CSSMERR_TP_NOT_TRUSTED`, а с `-v` не показывает её вовсе, так и должно быть. `security add-trusted-cert` требует подтверждения пользователя, а настройки доверия не переносятся в `.p12` и задаются на каждой машине заново, поэтому скрипт их не меняет. Hardened runtime и сохранение разрешений TCC проверяет P0.5.

@@ -15,10 +15,13 @@ GHOSTTY_VENDOR := scripts/ghostty/vendor.sh
 GHOSTTY_LOCK := scripts/ghostty/lock.sh
 GHOSTTY_BINDINGS := scripts/ghostty/bindings.sh
 GHOSTTY_LINK_AUDIT := scripts/ghostty/link-audit.sh
+BUNDLE := scripts/bundle.sh
+CHECK_BUNDLE := scripts/check-bundle.sh
+TEST_BUNDLE := scripts/test-bundle.sh
 
 # Цели, читающие vendor/ghostty/, выполняют весь рецепт под одной блокировкой набора: рецепт цели X
 # лежит во внутренней цели locked-X и запускается вложенным make. Вторая такая цель сразу получает отказ.
-LOCKED_TARGETS := ghostty check bindings bindings-check link-audit
+LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run test-bundle
 
 .PHONY: setup test-scripts $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
 
@@ -70,6 +73,23 @@ locked-bindings-check:
 locked-link-audit:
 	$(GHOSTTY_VENDOR) --verify
 	$(GHOSTTY_LINK_AUDIT)
+
+# bundle.sh сверяет набор сам, перед раскладкой бандла.
+locked-bundle:
+	CARGO=$(CARGO) $(BUNDLE)
+
+locked-check-bundle:
+	$(GHOSTTY_VENDOR) --verify
+	$(CHECK_BUNDLE)
+
+locked-run:
+	$(GHOSTTY_VENDOR) --verify
+	$(CHECK_BUNDLE) --open
+
+# Отказы check-bundle.sh на копиях бандла; нужна настоящая идентичность, поэтому не в test-scripts.
+locked-test-bundle:
+	$(GHOSTTY_VENDOR) --verify
+	$(TEST_BUNDLE)
 
 test-scripts:
 	scripts/ghostty/test-publish.sh
