@@ -7,5 +7,12 @@ name = "shellio"
 version = "0.1.0"
 
 [[package]]
+name = "shellio-ghostty"
+version = "0.1.0"
+dependencies = [
+ "shellio-sys-ghostty",
+]
+
+[[package]]
 name = "shellio-sys-ghostty"
 version = "0.1.0"
