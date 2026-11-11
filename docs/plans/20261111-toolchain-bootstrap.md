@@ -310,14 +310,18 @@
 **Files:**
 - Create: `.github/workflows/ci.yml`
 - Create: `.github/actionlint.yaml`
+- ➕ Modify: `scripts/signing/README.md`
 
-- [ ] `runs-on: xcode-27`, `DEVELOPER_DIR=/Applications/Xcode_27.app/Contents/Developer`, в логе `xcodebuild -version`
-- [ ] до `make setup` восстанавливать кэш архива Zig по версии и SHA-256 и кэш `ZIG_GLOBAL_CACHE_DIR` по `GHOSTTY_REV` и `ZIG_VERSION` с `restore-keys`; после `make setup` считать ключ кэша `vendor/ghostty/` по SHA-256 `--print-stamp`; кэш только ускоряет, `--verify` обязателен
-- [ ] выполнять `make ghostty`, `make check`, `make test-scripts`, `make bindings-check` и `make link-audit`; команды Cargo внутри целей идут с `--locked`
-- [ ] импортировать идентичность из секретов во временный keychain, выполнять `make bundle` и `make check-bundle`, удалять keychain в шаге `always()`; без секретов пропускать сборку бандла с явной пометкой
-- [ ] объявить метку `xcode-27` в `.github/actionlint.yaml` и проверить workflow через `actionlint`, поставленный на время проверки
-- [ ] записать в плане, что задача проверена только статически: первый прогон CI будет после появления репозитория на GitHub
-- [ ] `make check` проходит
+- [x] `runs-on: xcode-27`, `DEVELOPER_DIR=/Applications/Xcode_27.app/Contents/Developer`, в логе `xcodebuild -version`
+- [x] до `make setup` восстанавливать кэш архива Zig по версии и SHA-256 и кэш `ZIG_GLOBAL_CACHE_DIR` по `GHOSTTY_REV` и `ZIG_VERSION` с `restore-keys`; после `make setup` считать ключ кэша `vendor/ghostty/` по SHA-256 `--print-stamp`; кэш только ускоряет, `--verify` обязателен
+- [x] выполнять `make ghostty`, `make check`, `make test-scripts`, `make bindings-check` и `make link-audit`; команды Cargo внутри целей идут с `--locked`
+- [x] импортировать идентичность из секретов во временный keychain, выполнять `make bundle` и `make check-bundle`, удалять keychain в шаге `always()`; без секретов пропускать сборку бандла с явной пометкой
+- [x] объявить метку `xcode-27` в `.github/actionlint.yaml` и проверить workflow через `actionlint`, поставленный на время проверки
+- [x] записать в плане, что задача проверена только статически: первый прогон CI будет после появления репозитория на GitHub
+- [x] `make check` проходит
+- [x] ➕ один job, `DEVELOPER_DIR` задан на уровне job: путь Xcode входит в штамп. `actions/checkout` v7.0.1 и `actions/cache` v6.1.0 закреплены по SHA коммита. Кэши разнесены на `actions/cache/restore` и `actions/cache/save`, потому что общий `actions/cache` сохраняет только при успехе всего job (`post-if: success()`). Ключи: `zig-archive-<ZIG_VERSION>-<ZIG_SHA256>` для одного файла архива, а не распакованного Zig, поэтому сумма сверяется при каждом прогоне; `zig-global-<ZIG_VERSION>-<GHOSTTY_REV>` с `restore-keys` `zig-global-<ZIG_VERSION>-`; `ghostty-vendor-<SHA-256 штампа>` без `restore-keys`. Набор сохраняется сразу после успешного `make ghostty`, кэш пакетов Zig — только при промахе набора, когда сборка действительно шла. Ключ набора на этой машине совпадает с SHA-256 опубликованного `vendor/ghostty/stamp`. В целях `--locked` есть у `clippy`, `test`, `cargo build` и `cargo metadata` в `bundle.sh` и `cargo install` в `tools.sh`; `cargo fmt` зависимостей не разрешает
+- [x] ➕ наличие секретов проверяет отдельный шаг: в `if:` секреты недоступны. Без обоих секретов шаги бандла пропускаются с `::notice` и строкой в итогах прогона, при одном заданном прогон падает. Секреты получают только этот шаг и шаг импорта. `SHELLIO_DEV_P12` хранится в base64, формат описан в `scripts/signing/README.md`. Импорт повторяет путь CI из `test-identity.sh` и проверен локально на одноразовом `.p12`: keychain в `RUNNER_TEMP` со случайным паролем, без тайм-аута, вне списка поиска; подпись из него проходит `codesign --verify --strict`, очистка удаляет keychain и не падает, если его нет. actionlint 1.7.12 и shellcheck 0.11.0 ставились во временный каталог по SHA-256 релизов и удалены; без `.github/actionlint.yaml` actionlint отвергает метку `xcode-27`
+- [x] ⚠️ задача проверена только статически, первый прогон CI будет после появления репозитория на GitHub. Не проверены на раннере: метка `xcode-27` и путь `/Applications/Xcode_27.app`, установленный `rustup`, загрузка Metal toolchain через `xcodebuild -downloadComponent` без `sudo`, OpenSSL 3 или новее первым в `PATH` для `test-identity.sh` (шаг Xcode печатает его версию), время сборки набора и размеры кэшей
 
 ### Task 10: Проверка приёмочных условий
 
@@ -337,7 +341,7 @@
 Владелец:
 
 - хранит `.p12` и пароль вне репозитория и вне этой машины: потеря ключа означает ручную переустановку (ADR-0019);
-- создаёт репозиторий на GitHub и добавляет секреты `SHELLIO_DEV_P12` и `SHELLIO_DEV_P12_PASSWORD`;
+- создаёт репозиторий на GitHub и добавляет секреты `SHELLIO_DEV_P12` (`.p12` в base64) и `SHELLIO_DEV_P12_PASSWORD`, команды в `scripts/signing/README.md`;
 - проверяет первый прогон CI.
 
 Ручная приёмка:

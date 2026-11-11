@@ -1,0 +1,183 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: xcode-27
+    timeout-minutes: 90
+    env:
+      # Путь Xcode входит в штамп набора ghostty, поэтому он один на весь job.
+      DEVELOPER_DIR: /Applications/Xcode_27.app/Contents/Developer
+      CARGO_TERM_COLOR: always
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Xcode и SDK
+        run: |
+          [[ -d "$DEVELOPER_DIR" ]] || { echo "::error::нет $DEVELOPER_DIR"; exit 1; }
+          sw_vers
+          uname -m
+          xcodebuild -version
+          xcrun --show-sdk-version
+          command -v openssl && openssl version
+
+      - name: Значения pin
+        id: pin
+        run: |
+          source scripts/ghostty/pin
+          {
+            echo "zig_version=$ZIG_VERSION"
+            echo "zig_sha256=$ZIG_SHA256"
+            echo "ghostty_rev=$GHOSTTY_REV"
+          } >>"$GITHUB_OUTPUT"
+
+      # Кэши только ускоряют: архив Zig сверяется по SHA-256, набор ghostty — через --verify.
+      - name: Восстановить архив Zig
+        id: zig-archive
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/shellio/zig/dl/zig-aarch64-macos-${{ steps.pin.outputs.zig_version }}.tar.xz
+          key: zig-archive-${{ steps.pin.outputs.zig_version }}-${{ steps.pin.outputs.zig_sha256 }}
+
+      - name: Восстановить кэш пакетов Zig
+        id: zig-global
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/shellio/zig-global
+          key: zig-global-${{ steps.pin.outputs.zig_version }}-${{ steps.pin.outputs.ghostty_rev }}
+          restore-keys: |
+            zig-global-${{ steps.pin.outputs.zig_version }}-
+
+      - name: make setup
+        run: make setup
+
+      - name: Сохранить архив Zig
+        if: steps.zig-archive.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/shellio/zig/dl/zig-aarch64-macos-${{ steps.pin.outputs.zig_version }}.tar.xz
+          key: ${{ steps.zig-archive.outputs.cache-primary-key }}
+
+      # Штамп зависит от Xcode, SDK и Metal toolchain, поэтому ключ считается после make setup.
+      - name: Ключ кэша набора ghostty
+        id: stamp
+        run: |
+          scripts/ghostty/vendor.sh --print-stamp >"$RUNNER_TEMP/ghostty-stamp"
+          cat "$RUNNER_TEMP/ghostty-stamp"
+          sum="$(shasum -a 256 <"$RUNNER_TEMP/ghostty-stamp")"
+          echo "key=ghostty-vendor-${sum%% *}" >>"$GITHUB_OUTPUT"
+
+      # Набор с другим штампом всё равно пересобирается, поэтому restore-keys нет.
+      - name: Восстановить набор ghostty
+        id: vendor
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: vendor/ghostty
+          key: ${{ steps.stamp.outputs.key }}
+
+      - name: make ghostty
+        run: make ghostty
+
+      # Сохраняется сразу после успешной публикации: ключ кэша неизменяем, а следующие шаги могут упасть.
+      - name: Сохранить набор ghostty
+        if: steps.vendor.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: vendor/ghostty
+          key: ${{ steps.stamp.outputs.key }}
+
+      # Без промаха набора сборки не было и кэш пакетов не пополнялся.
+      - name: Сохранить кэш пакетов Zig
+        if: steps.vendor.outputs.cache-hit != 'true' && steps.zig-global.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/shellio/zig-global
+          key: ${{ steps.zig-global.outputs.cache-primary-key }}
+
+      - name: make check
+        run: make check
+
+      - name: make test-scripts
+        run: make test-scripts
+
+      - name: make bindings-check
+        run: make bindings-check
+
+      - name: make link-audit
+        run: make link-audit
+
+      # Секреты недоступны в условиях шагов и в pull request из форков, поэтому их наличие проверяет шаг.
+      - name: Идентичность подписи
+        id: signing
+        env:
+          P12: ${{ secrets.SHELLIO_DEV_P12 }}
+          P12_PASSWORD: ${{ secrets.SHELLIO_DEV_P12_PASSWORD }}
+        run: |
+          if [[ -n "$P12" && -n "$P12_PASSWORD" ]]; then
+            echo "available=true" >>"$GITHUB_OUTPUT"
+          elif [[ -z "$P12" && -z "$P12_PASSWORD" ]]; then
+            echo "available=false" >>"$GITHUB_OUTPUT"
+            msg="Сборка и проверка бандла пропущены: нет секретов SHELLIO_DEV_P12 и SHELLIO_DEV_P12_PASSWORD."
+            echo "::notice title=Бандл не собран::$msg"
+            echo "$msg" >>"$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::задан только один из секретов SHELLIO_DEV_P12 и SHELLIO_DEV_P12_PASSWORD"
+            exit 1
+          fi
+
+      # Тот же путь, что проверяет scripts/signing/test-identity.sh: только security, keychain вне списка поиска.
+      - name: Импорт идентичности во временный keychain
+        if: steps.signing.outputs.available == 'true'
+        env:
+          SHELLIO_DEV_P12: ${{ secrets.SHELLIO_DEV_P12 }}
+          SHELLIO_DEV_P12_PASSWORD: ${{ secrets.SHELLIO_DEV_P12_PASSWORD }}
+          KEYCHAIN: ${{ runner.temp }}/shellio-signing.keychain-db
+        run: |
+          umask 077
+          p12="$RUNNER_TEMP/shellio-dev.p12"
+          trap 'rm -f "$p12"' EXIT
+          kc_password="$(uuidgen)"
+          echo "::add-mask::$kc_password"
+          printf '%s' "$SHELLIO_DEV_P12" | base64 --decode >"$p12"
+          security create-keychain -p "$kc_password" "$KEYCHAIN"
+          # Без тайм-аута и блокировки при сне: keychain не закрывается до шага подписи.
+          security set-keychain-settings "$KEYCHAIN"
+          security unlock-keychain -p "$kc_password" "$KEYCHAIN"
+          security import "$p12" -k "$KEYCHAIN" -f pkcs12 -P "$SHELLIO_DEV_P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$kc_password" "$KEYCHAIN" >/dev/null
+          security find-identity -p codesigning "$KEYCHAIN"
+
+      - name: make bundle
+        if: steps.signing.outputs.available == 'true'
+        env:
+          SHELLIO_SIGNING_KEYCHAIN: ${{ runner.temp }}/shellio-signing.keychain-db
+        run: make bundle
+
+      - name: make check-bundle
+        if: steps.signing.outputs.available == 'true'
+        run: make check-bundle
+
+      - name: Удалить временный keychain
+        if: always()
+        env:
+          KEYCHAIN: ${{ runner.temp }}/shellio-signing.keychain-db
+        run: |
+          if [[ -e "$KEYCHAIN" ]]; then
+            security delete-keychain "$KEYCHAIN"
+          fi
+          rm -f "$RUNNER_TEMP/shellio-dev.p12"

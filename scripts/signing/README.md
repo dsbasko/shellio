@@ -77,6 +77,15 @@ scripts/signing/create-identity.sh --from-p12 ~/secure/shellio-dev.p12
 
 `sign.sh <путь>` подписывает бандл или бинарь: `codesign --force --sign <SHA-1> --identifier io.github.dsbasko.shellio --timestamp=none -r requirement.txt`. SHA-1 берётся из `requirement.txt`. Если идентичности с этим SHA-1 нет, скрипт завершается ошибкой, ad-hoc подпись и другая идентичность не подставляются. `SHELLIO_SIGNING_KEYCHAIN` задаёт keychain с идентичностью, например временный keychain CI, без неё идентичность ищется в списке поиска пользователя. Скрипт вызывают `make bundle` и `make test-bundle`.
 
+## CI
+
+`.github/workflows/ci.yml` подписывает бандл из двух секретов репозитория:
+
+- `SHELLIO_DEV_P12` — резервная копия `.p12` в base64, потому что секрет хранит только текст: `base64 -i ~/secure/shellio-dev.p12 | gh secret set SHELLIO_DEV_P12`;
+- `SHELLIO_DEV_P12_PASSWORD` — пароль `.p12`, `gh secret set SHELLIO_DEV_P12_PASSWORD` запрашивает его в терминале.
+
+Импорт повторяет путь CI из `test-identity.sh`. Keychain создаётся в `RUNNER_TEMP` со случайным паролем и в список поиска не попадает. `.p12` импортируется `security import` с доступом для `/usr/bin/codesign`, затем задаётся partition list `apple-tool:,apple:`. Других ключей в этом keychain нет, поэтому ограничивать partition list меткой не нужно. `make bundle` получает keychain через `SHELLIO_SIGNING_KEYCHAIN`, а шаг `always()` удаляет его. Если нет обоих секретов, например в pull request из форка, сборка бандла пропускается с пометкой в итогах прогона. Если задан только один секрет, прогон завершается ошибкой.
+
 ## Доверие к сертификату
 
 Для P0.1 доверие не нужно. Самоподписанный сертификат подписывает бинарь с явным requirement, и подпись проходит `codesign --verify --strict` без доверия. `security find-identity -p codesigning` показывает идентичность с `CSSMERR_TP_NOT_TRUSTED`, а с `-v` не показывает её вовсе, так и должно быть. `security add-trusted-cert` требует подтверждения пользователя, а настройки доверия не переносятся в `.p12` и задаются на каждой машине заново, поэтому скрипт их не меняет. Hardened runtime и сохранение разрешений TCC проверяет P0.5.

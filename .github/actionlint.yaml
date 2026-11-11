@@ -1,0 +1,4 @@
+# xcode-27 — hosted runner GitHub в public preview, actionlint его метку пока не знает.
+self-hosted-runner:
+  labels:
+    - xcode-27
