@@ -60,7 +60,7 @@
 
 ## Уточнено в P0.1
 
-План [toolchain-bootstrap](../plans/20261111-toolchain-bootstrap.md) конкретизирует подпись. Решение не меняется.
+План [toolchain-bootstrap](../plans/completed/20261111-toolchain-bootstrap.md) конкретизирует подпись. Решение не меняется.
 
 - Bundle ID — `io.github.dsbasko.shellio`.
 - Designated requirement задаётся явно и хранится в `scripts/signing/requirement.txt`: `designated => identifier "io.github.dsbasko.shellio" and certificate leaf = H"<SHA-1 сертификата>"`. Сравнивается каноническая форма из `codesign -d -r-`, а не исходный текст. Хэш сертификата публичен, закрытый ключ в репозиторий не попадает.

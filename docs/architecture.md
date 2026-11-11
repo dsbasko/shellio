@@ -76,8 +76,11 @@ docs/
   adr/  plans/  architecture.md  ux.md  roadmap.md  requirements.md
 prototype/              интерактивный HTML-прототип интерфейса, не код продукта
 scripts/
-  ghostty-patches/
+  ghostty/              сборка, сверка и публикация набора libghostty, привязки, аудит линковки
+  ghostty-patches/      патчи закреплённой ревизии Ghostty
+  signing/              идентичность Shellio Dev, requirement, подпись
 spikes/                 временный код фазы 0
+vendor/                 собранный набор ghostty, не хранится в git
 ```
 
 ## Правила зависимостей

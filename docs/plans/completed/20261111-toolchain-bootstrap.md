@@ -2,8 +2,8 @@
 
 ## Overview
 
-- Шаг P0.1 `toolchain-bootstrap` [дорожной карты](../roadmap.md). Это первый код репозитория, от него зависят все остальные планы.
-- Закрепляет набор сборки libghostty из [ADR-0003](../adr/0003-terminal-libghostty.md), заводит Cargo workspace, `make check` из [ADR-0021](../adr/0021-testing.md), CI и постоянную идентичность `Shellio Dev` из [ADR-0019](../adr/0019-distribution-and-updates.md).
+- Шаг P0.1 `toolchain-bootstrap` [дорожной карты](../../roadmap.md). Это первый код репозитория, от него зависят все остальные планы.
+- Закрепляет набор сборки libghostty из [ADR-0003](../../adr/0003-terminal-libghostty.md), заводит Cargo workspace, `make check` из [ADR-0021](../../adr/0021-testing.md), CI и постоянную идентичность `Shellio Dev` из [ADR-0019](../../adr/0019-distribution-and-updates.md).
 - Готово, когда пустой бандл собирается, линкует libghostty и запускается с постоянной подписью: запуск через `open` даёт успешную самопроверку, две чистые сборки подряд дают одинаковый designated requirement, подпись не ad-hoc.
 
 ## Context (from discovery)
@@ -24,7 +24,7 @@
 - Hosted runner GitHub `xcode-27` (public preview, arm64): macOS 27.0.1, Xcode 27.0 в `/Applications/Xcode_27.app`, по умолчанию выбран 27.1. Образ переходит с OpenSSL 3 на 4.
 - Самоподписанный сертификат OpenSSL с назначением Code Signing подписывает бинарь с явным requirement `certificate leaf = H"…"` и проходит `codesign --verify --strict` на macOS 27.0.1 без доверия к сертификату. Проверено во временном разблокированном keychain с переданными паролями; поведение login keychain может отличаться.
 - `-force_load` вместе с `-dead_strip` скрывает неразрешённые символы неиспользуемого кода: проверка полноты линковки идёт без `-dead_strip`. Вложенный `lockf -k -t 0` на том же файле возвращает 75.
-- Патч и приёмы из agterm переносятся с уведомлением об авторстве ([ADR-0022](../adr/0022-licensing-and-borrowing.md)).
+- Патч и приёмы из agterm переносятся с уведомлением об авторстве ([ADR-0022](../../adr/0022-licensing-and-borrowing.md)).
 - Ни ghostty, ни Rust здесь ещё не собирались: путь к архиву, флаги и список фреймворков выведены из исходников и подтверждаются задачами 2 и 4.
 
 ## Development Approach
@@ -338,9 +338,9 @@
 
 ### Task 11: [Final] Документы
 
-- [ ] добавить в `AGENTS.md` раздел о сборке: цели `Makefile`, правило «не линковать набор с другим штампом», последовательный доступ к `vendor/ghostty/`
-- [ ] добавить в дерево `docs/architecture.md` каталоги `scripts/ghostty/`, `scripts/signing/` и несохраняемый `vendor/`
-- [ ] перенести план в `docs/plans/completed/`
+- [x] добавить в `AGENTS.md` раздел о сборке: цели `Makefile`, правило «не линковать набор с другим штампом», последовательный доступ к `vendor/ghostty/`
+- [x] добавить в дерево `docs/architecture.md` каталоги `scripts/ghostty/`, `scripts/signing/` и несохраняемый `vendor/`
+- [x] перенести план в `docs/plans/completed/`
 
 ## Post-Completion
 
