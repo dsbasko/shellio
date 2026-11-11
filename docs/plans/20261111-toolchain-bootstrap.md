@@ -160,12 +160,15 @@
 - Create: `scripts/ghostty-patches/README.md`
 - Modify: `Makefile`
 
-- [ ] перенести патч из agterm и описать в README его назначение, условие удаления, источник и MIT-уведомление
-- [ ] загружать Zig архивом по `ZIG_VERSION` и `ZIG_SHA256`, отказываться при несовпадении суммы; добавить Zig и Metal toolchain в `make setup`
-- [ ] в `build.sh` загружать ревизию, проверять патчи через `git apply --check`, собирать с флагами из `pin` и `ZIG_GLOBAL_CACHE_DIR`
-- [ ] извлекать в указанный каталог `libghostty-internal.a` как `lib/libghostty.a`, `include/ghostty.h`, ресурсы, `terminfo` и `LICENSE`
-- [ ] проверить, что все зависимости `zig build` скачиваются, а каталог сборки содержит всё из раскладки набора; при отказе `deps.files.ghostty.org` записать препятствие ⚠️ и остановиться
-- [ ] `make check` проходит
+- [x] перенести патч из agterm и описать в README его назначение, условие удаления, источник и MIT-уведомление
+- [x] загружать Zig архивом по `ZIG_VERSION` и `ZIG_SHA256`, отказываться при несовпадении суммы; добавить Zig и Metal toolchain в `make setup`
+- [x] ➕ установка Zig и Metal toolchain вынесена в `scripts/ghostty/tools.sh`: её правка не меняет дайджест `build.sh` в штампе, а сумма архива закреплена в `pin`. `ZIG_MIRROR` задаёт зеркало Zig с плоской раскладкой, сумма проверяется так же. Без первого запуска Xcode `-downloadComponent` не загружает свои модули, поэтому скрипт сначала выполняет `xcodebuild -runFirstLaunch`
+- [x] в `build.sh` загружать ревизию, проверять патчи через `git apply --check`, собирать с флагами из `pin` и `ZIG_GLOBAL_CACHE_DIR`
+- [x] извлекать в указанный каталог `libghostty-internal.a` как `lib/libghostty.a`, `include/ghostty.h`, ресурсы, `terminfo` и `LICENSE`
+- [x] проверить, что все зависимости `zig build` скачиваются, а каталог сборки содержит всё из раскладки набора; при отказе `deps.files.ghostty.org` записать препятствие ⚠️ и остановиться
+- [x] ➕ итог первой сборки: путь к архиву и флаги из Context подтверждены. Зависимости, включая `deps.files.ghostty.org`, загружаются отдельным шагом `zig build --fetch`, сборка с ним занимает около 3,5 минут. Все 225 объектов архива имеют minos 13.0 и при `MACOSX_DEPLOYMENT_TARGET=14.0` в окружении; `build.sh` проверяет это, архитектуру arm64 и чтение архива `ar`. В `terminfo` кроме `78/xterm-ghostty` есть `67/ghostty`, в `shell-integration` есть скрытый `zsh/.zshenv`, ссылок в наборе нет: манифест задачи 3 учитывает скрытые файлы
+- [x] ➕ исходники ревизии кэшируются в `~/.cache/shellio/ghostty-src.git` под ref `refs/shellio/pin/<ревизия>`, каждая сборка идёт в чистой копии из кэша. `build.sh --print-flags` печатает флаги без сети для штампа задачи 3. `build.sh` отказывается собирать в непустой каталог
+- [x] `make check` проходит
 
 ### Task 3: Публикация набора, штамп и блокировка
 

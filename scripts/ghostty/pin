@@ -1,0 +1,8 @@
+# shellcheck shell=bash
+# Закреплённый набор сборки libghostty (ADR-0003). Обновление — отдельный план по процедуре ADR-0003.
+GHOSTTY_REPO=https://github.com/ghostty-org/ghostty
+GHOSTTY_REV=83fb95624b0439ee660c2679b43b38c8b63769cd
+GHOSTTY_VERSION_STRING=1.4.0
+GHOSTTY_MIN_MACOS=13.0
+ZIG_VERSION=0.17.1
+ZIG_SHA256=75f1bc7a1e9852f17ec9a0c1895f767c4ec56d46bc8a834920eece1d0359dd8d

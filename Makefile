@@ -9,6 +9,8 @@ CARGO := $(CARGO_HOME)/bin/cargo
 
 RUSTUP_INIT_URL := https://sh.rustup.rs
 
+GHOSTTY_TOOLS := scripts/ghostty/tools.sh
+
 .PHONY: setup check
 
 setup:
@@ -20,6 +22,8 @@ setup:
 	fi
 	$(RUSTUP) toolchain install
 	$(RUSTUP) show active-toolchain
+	$(GHOSTTY_TOOLS) zig
+	$(GHOSTTY_TOOLS) metal
 
 check:
 	$(CARGO) fmt --check
