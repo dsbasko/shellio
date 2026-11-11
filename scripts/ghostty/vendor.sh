@@ -196,16 +196,21 @@ check_build_dir() {
 }
 
 publish() {
-  local build before="$2" vendor_abs repo home manifest
+  local build before="$2" vendor_abs vendor_name vendor_parent repo home manifest
   [[ "${SHELLIO_GHOSTTY_LOCKED:-}" == 1 ]] ||
     die "публикация выполняется только целью make ghostty под блокировкой набора (нет SHELLIO_GHOSTTY_LOCKED=1)"
   [[ -d "$1" ]] || die "каталог сборки $1 не найден"
   [[ -f "$before" ]] || die "нет штампа $before, снятого до сборки"
   [[ -n "$vendor" ]] || die "пустой путь набора"
+  vendor_name="$(basename "$vendor")"
+  [[ "$vendor_name" != / && "$vendor_name" != . && "$vendor_name" != .. ]] ||
+    die "путь набора $vendor должен оканчиваться именем каталога"
   mkdir -p "$(dirname "$vendor")"
   # Пути сравниваются физическими: лишняя косая черта или ссылка в пути не обходит проверки ниже.
   build="$(cd "$1" && pwd -P)"
-  vendor_abs="$(cd "$(dirname "$vendor")" && pwd -P)/$(basename "$vendor")"
+  vendor_parent="$(cd "$(dirname "$vendor")" && pwd -P)"
+  # У каталога прямо под / родитель равен /, без среза получилось бы //имя и проверки ниже не совпали бы.
+  vendor_abs="${vendor_parent%/}/$vendor_name"
   repo="$(cd "$root" && pwd -P)"
   home="$HOME"
   [[ ! -d "$home" ]] || home="$(cd "$home" && pwd -P)"

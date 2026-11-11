@@ -346,6 +346,17 @@ printf 'keep\n' >"$tmp/home/keep"
 expect_fail "набор на месте HOME" "содержит HOME" \
   env HOME="$tmp/home" SHELLIO_GHOSTTY_VENDOR="$tmp/home" "$scripts/lock.sh" "$scripts/vendor.sh" publish "$build" "$before"
 [[ -f "$tmp/home/keep" ]] || fail "отказ задел HOME"
+# Корень набора прямо под / накрывает временный каталог теста. Неверный штамп останавливает публикацию до
+# удаления, даже если проверка пути сломается. lock.sh не используется: файл блокировки лёг бы в /.
+top="/$(cd "$tmp" && pwd -P | cut -d/ -f2)"
+printf 'wrong\n' >"$tmp/stamp.wrong"
+expect_fail "набор в каталоге прямо под /" "набор нельзя публиковать в $top:" \
+  env HOME="$tmp/home" SHELLIO_GHOSTTY_LOCKED=1 SHELLIO_GHOSTTY_VENDOR="$top" \
+  "$scripts/vendor.sh" publish "$build" "$tmp/stamp.wrong"
+expect_fail "путь набора, оканчивающийся на .." "должен оканчиваться именем каталога" \
+  env SHELLIO_GHOSTTY_LOCKED=1 SHELLIO_GHOSTTY_VENDOR="$tmp/home/.." \
+  "$scripts/vendor.sh" publish "$build" "$tmp/stamp.wrong"
+[[ -f "$tmp/home/keep" ]] || fail "отказ задел каталог над набором"
 
 # --- блокировка ---
 
