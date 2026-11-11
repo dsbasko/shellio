@@ -73,3 +73,4 @@ locked-link-audit:
 
 test-scripts:
 	scripts/ghostty/test-publish.sh
+	scripts/signing/test-identity.sh
