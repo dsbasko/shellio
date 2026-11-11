@@ -57,3 +57,13 @@
 ## Условие пересмотра
 
 Ужесточение Gatekeeper в новой macOS или появление Developer ID.
+
+## Уточнено в P0.1
+
+План [toolchain-bootstrap](../plans/20261111-toolchain-bootstrap.md) конкретизирует подпись. Решение не меняется.
+
+- Bundle ID — `io.github.dsbasko.shellio`.
+- Designated requirement задаётся явно и хранится в `scripts/signing/requirement.txt`: `designated => identifier "io.github.dsbasko.shellio" and certificate leaf = H"<SHA-1 сертификата>"`. Сравнивается каноническая форма из `codesign -d -r-`, а не исходный текст. Хэш сертификата публичен, закрытый ключ в репозиторий не попадает.
+- Подпись выполняется по SHA-1 сертификата, а не по отображаемому имени. Без идентичности сборка бандла завершается ошибкой, ad-hoc подпись не подставляется.
+- Доверие к сертификату не требуется. Самоподписанный сертификат OpenSSL с назначением Code Signing подписывает бинарь с явным requirement и проходит `codesign --verify --strict` на macOS 27.0.1 без доверия. Это проверено во временном разблокированном keychain, поведение login keychain может отличаться.
+- Hardened runtime в P0.1 не нужен. Сохранение разрешений TCC по-прежнему проверяет P0.5.

@@ -140,16 +140,16 @@
 - Modify: `docs/adr/0019-distribution-and-updates.md`
 - Modify: `docs/roadmap.md`
 
-- [ ] дополнить ADR-0003 разделом «Уточнено в P0.1»: сборка без Sentry, Zig архивом с SHA-256, минимумы 27.0 и 13.0, состав штампа и манифеста, а также влияние `ghostty_init` на процесс из раздела Context как исходные данные для P0.3; дополнить ADR-0019 таким же разделом: bundle ID, явный requirement, подпись по SHA-1, доверие к сертификату не требуется. Сами решения не меняются
-- [ ] уточнить в `docs/roadmap.md`, что правило `spikes/` относится к пробам P0.2–P0.8, а P0.1 создаёт продуктовую сборочную базу
-- [ ] поставить `rustup`, если его нет, и закрепить в `rust-toolchain.toml` точную стабильную версию с `rustfmt`, `clippy` и целью `aarch64-apple-darwin`
-- [ ] описать workspace: `resolver = "3"`, edition 2024, общая версия, `[workspace.lints]` с запретом `clippy::unwrap_used` и `clippy::expect_used`; каждый crate наследует `lints.workspace = true`, `clippy.toml` разрешает их только в тестах
-- [ ] добавить в `.gitignore` `target/`, `vendor/`, `.DS_Store`, `*.p12`, `*.keychain-db`; `Cargo.lock` хранить в репозитории
-- [ ] задать `MACOSX_DEPLOYMENT_TARGET` в `.cargo/config.toml` по разделу Technical Details
-- [ ] завести пустую заглушку `apps/shellio`
-- [ ] добавить цели `setup` и `check` в `Makefile`; в этой задаче `setup` ставит только Rust, а `check` — только команды Cargo
-- [ ] `make check` проходит
-- [ ] после `cargo clean -p shellio` и прямого `cargo build --locked -p shellio` с `MACOSX_DEPLOYMENT_TARGET=14.0` в родительском окружении `xcrun vtool -show-build target/debug/shellio` показывает minos 27.0
+- [x] дополнить ADR-0003 разделом «Уточнено в P0.1»: сборка без Sentry, Zig архивом с SHA-256, минимумы 27.0 и 13.0, состав штампа и манифеста, а также влияние `ghostty_init` на процесс из раздела Context как исходные данные для P0.3; дополнить ADR-0019 таким же разделом: bundle ID, явный requirement, подпись по SHA-1, доверие к сертификату не требуется. Сами решения не меняются
+- [x] уточнить в `docs/roadmap.md`, что правило `spikes/` относится к пробам P0.2–P0.8, а P0.1 создаёт продуктовую сборочную базу
+- [x] поставить `rustup`, если его нет, и закрепить в `rust-toolchain.toml` точную стабильную версию с `rustfmt`, `clippy` и целью `aarch64-apple-darwin`
+- [x] описать workspace: `resolver = "3"`, edition 2024, общая версия, `[workspace.lints]` с запретом `clippy::unwrap_used` и `clippy::expect_used`; каждый crate наследует `lints.workspace = true`, `clippy.toml` разрешает их только в тестах
+- [x] добавить в `.gitignore` `target/`, `vendor/`, `.DS_Store`, `*.p12`, `*.keychain-db`; `Cargo.lock` хранить в репозитории
+- [x] задать `MACOSX_DEPLOYMENT_TARGET` в `.cargo/config.toml` по разделу Technical Details
+- [x] завести пустую заглушку `apps/shellio`
+- [x] добавить цели `setup` и `check` в `Makefile`; в этой задаче `setup` ставит только Rust, а `check` — только команды Cargo
+- [x] `make check` проходит
+- [x] после `cargo clean -p shellio` и прямого `cargo build --locked -p shellio` с `MACOSX_DEPLOYMENT_TARGET=14.0` в родительском окружении `xcrun vtool -show-build target/debug/shellio` показывает minos 27.0
 
 ### Task 2: Zig и сборка ghostty во временный каталог
 
