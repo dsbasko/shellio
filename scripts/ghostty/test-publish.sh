@@ -358,6 +358,28 @@ expect_fail "путь набора, оканчивающийся на .." "до�
   "$scripts/vendor.sh" publish "$build" "$tmp/stamp.wrong"
 [[ -f "$tmp/home/keep" ]] || fail "отказ задел каталог над набором"
 
+# На томе без учёта регистра другое написание имени ведёт к тому же каталогу и не должно обходить проверки.
+# Неверный штамп и здесь останавливает публикацию до удаления.
+publish_as() {
+  env HOME="$tmp/home" SHELLIO_GHOSTTY_LOCKED=1 SHELLIO_GHOSTTY_VENDOR="$1" \
+    "$scripts/vendor.sh" publish "$2" "$tmp/stamp.wrong"
+}
+if [[ "$tmp/REPO" -ef "$repo" ]]; then
+  expect_fail "набор на месте репозитория в другом регистре" "содержит репозиторий" publish_as "$tmp/REPO" "$build"
+  expect_fail "набор на месте vendor/ в другом регистре" "там лежит файл блокировки" \
+    publish_as "$repo/VENDOR" "$build"
+  expect_fail "набор на месте HOME в другом регистре" "содержит HOME" publish_as "$tmp/HOME" "$build"
+  expect_fail "набор внутри каталога сборки в другом регистре" "внутри каталога сборки" \
+    publish_as "$tmp/INNER/set" "$inner"
+  expect_fail "каталог сборки внутри набора в другом регистре" "внутри набора" \
+    publish_as "$tmp/OUTER" "$outer/build"
+  [[ -f "$scripts/vendor.sh" && -f "$repo/vendor/keep" && -f "$tmp/home/keep" ]] ||
+    fail "отказ по пути в другом регистре задел каталог"
+  [[ -f "$inner/LICENSE" && -f "$outer/build/LICENSE" ]] || fail "отказ по пути в другом регистре задел каталог сборки"
+else
+  echo "skip: том различает регистр, проверки другого написания пути пропущены"
+fi
+
 # --- блокировка ---
 
 lock_sh sh -c 'printf "%s" "$SHELLIO_GHOSTTY_LOCKED"' >"$out" 2>&1 || fail "команда под блокировкой"
@@ -369,6 +391,14 @@ expect_fail "вторая обёртка при занятой блокиров�
   lock_sh "$scripts/lock.sh" sh -c "touch '$tmp/inner-ran'"
 [[ ! -e "$tmp/inner-ran" ]] || fail "команда второй обёртки выполнилась"
 ok "команда второй обёртки не выполняется"
+
+# Другое написание того же корня набора берёт тот же файл блокировки, а не файл внутри набора.
+expect_fail "вторая обёртка с косыми чертами в конце пути" "занят" \
+  lock_sh env SHELLIO_GHOSTTY_VENDOR="$set_dir//" "$scripts/lock.sh" sh -c "touch '$tmp/inner-ran'"
+[[ ! -e "$tmp/inner-ran" && ! -e "$set_dir/.lock" ]] || fail "путь с косыми чертами в конце взял другую блокировку"
+expect_fail "путь набора, оканчивающийся на /." "должен оканчиваться именем каталога" \
+  env SHELLIO_GHOSTTY_VENDOR="$set_dir/." "$scripts/lock.sh" true
+[[ ! -e "$set_dir/..lock" ]] || fail "путь, оканчивающийся на /., создал блокировку внутри набора"
 
 status=0
 lock_sh sh -c 'exit 75' >"$out" 2>&1 || status=$?

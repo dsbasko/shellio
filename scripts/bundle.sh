@@ -25,11 +25,19 @@ version="$(awk '
 ' "$root/Cargo.toml")"
 [[ -n "$version" ]] || die "в [workspace.package] Cargo.toml нет version"
 
-"$cargo" build --release --locked -p shellio --manifest-path "$root/Cargo.toml"
-
-target_dir="$("$cargo" metadata --format-version 1 --no-deps --locked --manifest-path "$root/Cargo.toml" |
-  plutil -extract target_directory raw -o - -)" || die "cargo metadata не назвал каталог сборки"
-exe="$target_dir/release/shellio"
+# Путь бинаря берётся из сообщения Cargo о собранном артефакте: при build.target или CARGO_BUILD_TARGET он лежит
+# в каталоге цели, а не в release/, и там может остаться старый бинарь.
+messages="$("$cargo" build --release --locked -p shellio --manifest-path "$root/Cargo.toml" \
+  --message-format=json-render-diagnostics)" || die "cargo build завершился ошибкой"
+exe=""
+while IFS= read -r line; do
+  [[ "$line" == *'"reason":"compiler-artifact"'* && "$line" != *'"executable":null'* ]] || continue
+  [[ "$(plutil -extract target.name raw -o - - <<<"$line")" == shellio ]] || continue
+  [[ "$(plutil -extract target.kind.0 raw -o - - <<<"$line")" == bin ]] || continue
+  [[ -z "$exe" ]] || die "Cargo сообщил больше одного бинаря shellio"
+  exe="$(plutil -extract executable raw -o - - <<<"$line")" || die "в сообщении Cargo о бинаре shellio нет пути"
+done <<<"$messages"
+[[ -n "$exe" ]] || die "Cargo не сообщил о собранном бинаре shellio"
 [[ -f "$exe" ]] || die "после сборки нет $exe"
 
 "$root/scripts/ghostty/vendor.sh" --verify

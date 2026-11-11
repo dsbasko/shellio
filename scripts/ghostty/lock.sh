@@ -11,7 +11,6 @@ here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
 
 vendor="${SHELLIO_GHOSTTY_VENDOR:-$root/vendor/ghostty}"
-lock="${vendor%/}.lock"
 
 die() {
   echo "error: $*" >&2
@@ -23,7 +22,14 @@ die() {
   exit 2
 }
 
-mkdir -p "$(dirname "$lock")"
+# Путь блокировки строится так же, как корень набора в vendor.sh publish: физический родитель и имя каталога.
+# Поэтому лишние косые черты в конце пути не уводят блокировку внутрь набора.
+name="$(basename "$vendor")"
+[[ "$name" != / && "$name" != . && "$name" != .. ]] || die "путь набора $vendor должен оканчиваться именем каталога"
+mkdir -p "$(dirname "$vendor")"
+parent="$(cd "$(dirname "$vendor")" && pwd -P)"
+lock="${parent%/}/$name.lock"
+
 # Код 75 занятой блокировки совпадает с EX_TEMPFAIL команды, поэтому команда сначала удаляет отметку о старте.
 started="$(mktemp "${TMPDIR:-/tmp}/shellio-ghostty-lock.XXXXXX")"
 trap 'rm -f "$started"' EXIT

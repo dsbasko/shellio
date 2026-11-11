@@ -195,6 +195,20 @@ check_build_dir() {
   check_header "$build"
 }
 
+# Путь $2 совпадает с каталогом $1 или лежит внутри него. Кроме строк сравнивается сам объект файловой системы:
+# имя в другом регистре на томе без учёта регистра или путь через firmlink ведут к тому же каталогу.
+covers() {
+  local top="$1" path="$2" up
+  case "$path/" in "$top/"*) return 0 ;; esac
+  while :; do
+    [[ ! "$path" -ef "$top" ]] || return 0
+    # Подъём заканчивается на / у абсолютного пути и на . у относительного или пустого, например HOME.
+    up="$(dirname "$path")"
+    [[ "$up" != "$path" ]] || return 1
+    path="$up"
+  done
+}
+
 publish() {
   local build before="$2" vendor_abs vendor_name vendor_parent repo home manifest
   [[ "${SHELLIO_GHOSTTY_LOCKED:-}" == 1 ]] ||
@@ -215,11 +229,12 @@ publish() {
   home="$HOME"
   [[ ! -d "$home" ]] || home="$(cd "$home" && pwd -P)"
   # Публикация удаляет корень набора целиком, поэтому он не может накрывать репозиторий, HOME или файл блокировки.
-  case "$repo/" in "$vendor_abs/"*) die "набор нельзя публиковать в $vendor_abs: он содержит репозиторий" ;; esac
-  case "$home/" in "$vendor_abs/"*) die "набор нельзя публиковать в $vendor_abs: он содержит HOME" ;; esac
-  [[ "$vendor_abs" != "$repo/vendor" ]] || die "набор нельзя публиковать в $vendor_abs: там лежит файл блокировки"
-  case "$build/" in "$vendor_abs/"*) die "каталог сборки $build лежит внутри набора $vendor_abs" ;; esac
-  case "$vendor_abs/" in "$build/"*) die "набор $vendor_abs лежит внутри каталога сборки $build" ;; esac
+  ! covers "$vendor_abs" "$repo" || die "набор нельзя публиковать в $vendor_abs: он содержит репозиторий"
+  ! covers "$vendor_abs" "$repo/vendor/ghostty.lock" ||
+    die "набор нельзя публиковать в $vendor_abs: там лежит файл блокировки"
+  ! covers "$vendor_abs" "$home" || die "набор нельзя публиковать в $vendor_abs: он содержит HOME"
+  ! covers "$vendor_abs" "$build" || die "каталог сборки $build лежит внутри набора $vendor_abs"
+  ! covers "$build" "$vendor_abs" || die "набор $vendor_abs лежит внутри каталога сборки $build"
 
   # Штамп описывает входы, из которых собран набор, поэтому они не должны меняться за время сборки.
   compute_stamp

@@ -66,13 +66,13 @@ export SHELLIO_KEYCHAIN_PASSWORD="$kc_password"
 export SHELLIO_DEV_P12_PASSWORD="$p12_password"
 unset SHELLIO_SIGNING_TEST_ABORT_AFTER_IMPORT
 
+# Путь возвращается в new_kc, а не через подстановку: в подоболочке запись в keychains потерялась бы для cleanup.
 new_keychain() {
-  local kc="$tmp/$1.keychain-db"
-  security create-keychain -p "$kc_password" "$kc"
-  keychains+=("$kc")
+  new_kc="$tmp/$1.keychain-db"
+  keychains+=("$new_kc")
+  security create-keychain -p "$kc_password" "$new_kc"
   # Без тайм-аута и блокировки при сне: keychain не закрывается посреди теста.
-  security set-keychain-settings "$kc"
-  printf '%s\n' "$kc"
+  security set-keychain-settings "$new_kc"
 }
 
 cert_count() {
@@ -109,7 +109,8 @@ sign_probe() {
   [[ "$dr" == "$(csreq -r "$req" -t)" ]] || fail "requirement подписи «${dr}» не совпадает с $req"
 }
 
-kc1="$(new_keychain main)"
+new_keychain main
+kc1="$new_kc"
 backup="$tmp/backup/shellio-dev.p12"
 mkdir -p "$tmp/backup"
 req1="$tmp/req1/requirement.txt"
@@ -157,7 +158,8 @@ sign_probe "$kc1" "$sha1" "$req1"
 ok "тестовый бинарь подписывается по SHA-1 и проходит --verify --strict"
 
 # Путь CI: резервная копия импортируется во временный keychain только средствами security.
-kc_ci="$(new_keychain ci)"
+new_keychain ci
+kc_ci="$new_kc"
 security import "$backup" -k "$kc_ci" -f pkcs12 -P "$p12_password" -T /usr/bin/codesign >"$out" 2>&1 ||
   fail "security import резервной копии"
 security set-key-partition-list -S apple-tool:,apple: -s -k "$kc_password" "$kc_ci" >"$out" 2>&1 ||
@@ -179,7 +181,8 @@ security delete-keychain "$kc_ci"
 [[ ! -e "$kc_ci" ]] || fail "временный keychain CI не удалён"
 ok "как в CI: .p12 импортируется во временный keychain, бинарь подписывается, keychain удаляется"
 
-kc_part="$(new_keychain partial)"
+new_keychain partial
+kc_part="$new_kc"
 req_part="$tmp/req-partial.txt"
 expect_fail "настройка, прерванная после импорта" "прервана после импорта" \
   env SHELLIO_SIGNING_TEST_ABORT_AFTER_IMPORT=1 \
@@ -195,13 +198,15 @@ cmp -s "$req_part" "$req1" || fail "--finish записал другой require
 sign_probe "$kc_part" "$sha1" "$req_part"
 ok "после --finish бинарь подписывается без нового сертификата"
 
-kc_restore="$(new_keychain restore)"
+new_keychain restore
+kc_restore="$new_kc"
 expect_ok "восстановление из резервной копии" \
   "$ident" --keychain "$kc_restore" --from-p12 "$backup" --requirement "$req1"
 [[ "$(sha1_from_out)" == "$sha1" ]] || fail "восстановление дало другой SHA-1"
 [[ "$(cat "$req1")" == "$(requirement_for "$sha1")" ]] || fail "восстановление изменило requirement"
 
-kc_wrong="$(new_keychain wrong-p12)"
+new_keychain wrong-p12
+kc_wrong="$new_kc"
 expect_fail "неверный пароль резервной копии" "не читается" \
   env SHELLIO_DEV_P12_PASSWORD=wrong-password "$ident" --keychain "$kc_wrong" --from-p12 "$backup" \
   --requirement "$tmp/req-wrong.txt"
@@ -219,7 +224,8 @@ expect_fail "создание при существующем requirement" "уж
 expect_no_identity "$kc_wrong" "создание при существующем requirement"
 
 # Чужой ключ из .p12 получает ту же метку, и partition list нельзя было бы ограничить ключом Shellio Dev.
-kc_shared="$(new_keychain shared)"
+new_keychain shared
+kc_shared="$new_kc"
 "$openssl" req -x509 -newkey rsa:2048 -noenc -days 1 -subj "/CN=Other" \
   -keyout "$tmp/other-key.pem" -out "$tmp/other-cert.pem" >"$out" 2>&1 || fail "чужой сертификат"
 "$openssl" pkcs12 -export -name Other -inkey "$tmp/other-key.pem" -in "$tmp/other-cert.pem" \
@@ -238,7 +244,8 @@ expect_fail "--finish при общей метке ключей" "нельзя �
 [[ ! -e "$tmp/req-shared.txt" ]] || fail "отказ при общей метке записал requirement"
 
 # Путь владельца: оба пароля вводятся в терминале, пароль keychain запрашивает сам security.
-kc_tty="$(new_keychain tty)"
+new_keychain tty
+kc_tty="$new_kc"
 cat >"$tmp/tty.exp" <<'EOF'
 set timeout 120
 lassign $argv script kc export req
