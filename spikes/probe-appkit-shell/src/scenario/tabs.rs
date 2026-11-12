@@ -24,7 +24,7 @@ use super::{
     Poll, Report, SETTLE_TIMEOUT, Scenario, Settle, Stand, Step, StepFailure, Verdict, poll,
     run_steps,
 };
-use crate::fixtures::{self, TAB_COUNTS};
+use crate::fixtures::{self, TAB_COUNTS, TabStatus};
 use crate::results::{Rect, Snapshot, SnapshotStatus};
 use crate::scene::Scene;
 use crate::tabs::{
@@ -116,6 +116,10 @@ struct StripRead {
     active_layers: Vec<usize>,
     /// У вкладки виден значок с картинкой.
     icons: Vec<bool>,
+    /// Точка статуса каждой вкладки: видна ли и её кадр во вкладке.
+    dots: Vec<(bool, Rect)>,
+    /// Кнопка закрытия каждой вкладки: видна ли и её кадр во вкладке.
+    closes: Vec<(bool, Rect)>,
 }
 
 impl StripRead {
@@ -348,6 +352,22 @@ impl Run {
                 })
             })
             .collect();
+        let part = |view: &NSView| {
+            (
+                !view.isHiddenOrHasHiddenAncestor(),
+                readback::rect(view.frame()),
+            )
+        };
+        let dots = strip
+            .tab_views()
+            .iter()
+            .map(|tab| part(tab.dot()))
+            .collect();
+        let closes = strip
+            .tab_views()
+            .iter()
+            .map(|tab| part(tab.close_button()))
+            .collect();
         let meter = strip.meter();
         let header = strip
             .menu()
@@ -396,6 +416,8 @@ impl Run {
                 .and_then(|layer| readback::layer_state(&layer).background),
             active_layers,
             icons,
+            dots,
+            closes,
         }
     }
 
@@ -504,6 +526,37 @@ impl Run {
                     "ни у одной"
                 }
             ));
+        }
+        for (tab_index, (view, ((dot_visible, dot), tab))) in strip
+            .tab_views()
+            .iter()
+            .zip(read.dots.iter().zip(&read.tabs))
+            .enumerate()
+        {
+            let want_dot = view.status() != TabStatus::None;
+            let fits = |part: &Rect| {
+                part.x >= -TOLERANCE
+                    && part.y >= -TOLERANCE
+                    && part.x + part.width <= tab.width + TOLERANCE
+                    && part.y + part.height <= tab.height + TOLERANCE
+            };
+            if *dot_visible != want_dot || (want_dot && !fits(dot)) {
+                problems.push(format!(
+                    "точка статуса вкладки {tab_index}: видна {dot_visible}, кадр {}, статус {:?}",
+                    describe(*dot),
+                    view.status()
+                ));
+                break;
+            }
+            if strip.active() == Some(tab_index) && strip.place_kind().has_icons() {
+                let (close_visible, close) = read.closes[tab_index];
+                if !close_visible || !fits(&close) {
+                    problems.push(format!(
+                        "кнопка закрытия активной вкладки {tab_index}: видна {close_visible}, кадр {}",
+                        describe(close)
+                    ));
+                }
+            }
         }
         let name = NAMES[index];
         self.regimes

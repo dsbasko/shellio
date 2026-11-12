@@ -523,6 +523,18 @@ impl TabView {
         self.ivars().icon.as_deref()
     }
 
+    pub fn dot(&self) -> &NSView {
+        &self.ivars().dot
+    }
+
+    pub fn close_button(&self) -> &NSButton {
+        &self.ivars().close
+    }
+
+    pub fn status(&self) -> TabStatus {
+        self.ivars().status.get()
+    }
+
     /// Подписи и значки по описанию вкладки; ширина — сумма частей с отступами `.tab`.
     fn configure(&self, index: usize, spec: &TabSpec, tokens: &Tokens) {
         let ivars = self.ivars();
