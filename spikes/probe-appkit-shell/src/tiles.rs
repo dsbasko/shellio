@@ -4,7 +4,8 @@
 //! режима, остальные — вуаль `--dim` внутри своих границ. Навигатор лежит
 //! на фоне окна, вуали и тона не имеет; при фокусе в нём все плитки под вуалью, а выбранная
 //! строка в рамке. Вуаль не принимает щелчок и не элемент доступности. Клавиши вкладок плитка с
-//! фокусом передаёт своей полосе.
+//! фокусом передаёт своей полосе. В центральной и правой плитках под полосой `VirtualList`:
+//! щелчок по строке делает first responder его таблицу, и фокус переходит плитке.
 
 use std::cell::Cell;
 use std::rc::{Rc, Weak};
@@ -15,7 +16,8 @@ use objc2_app_kit::{NSAutoresizingMaskOptions, NSEvent, NSResponder, NSView};
 use objc2_foundation::{NSObject, NSPoint, NSRect, NSSize};
 
 use crate::chrome::{color, fill, label, rect};
-use crate::fixtures::{self, TabSpec};
+use crate::fixtures::{self, SCENE_ROWS, TabSpec};
+use crate::list::{Hooks, VirtualList};
 use crate::scenario::counters::{Live, counter};
 use crate::tabs::{Place, TabStrip};
 use crate::tokens::Tokens;
@@ -160,6 +162,8 @@ pub struct TileIvars {
     owner: Weak<Tiles>,
     strip: Retained<TabStrip>,
     body: Retained<NSView>,
+    /// Список центральной и правой плиток; таблица — first responder плитки.
+    list: Option<VirtualList>,
     veil: Retained<Veil>,
 }
 
@@ -256,6 +260,22 @@ impl Tile {
             ));
         }
 
+        let list = (place != Place::Bottom).then(|| {
+            let list = VirtualList::new(mtm, tokens, body.bounds(), fixtures::list(SCENE_ROWS));
+            let focus_owner = owner.clone();
+            let key_strip = strip.clone();
+            list.set_hooks(Hooks {
+                on_focus: Box::new(move || {
+                    if let Some(owner) = focus_owner.upgrade() {
+                        owner.apply(Focus::Tile(index));
+                    }
+                }),
+                on_key: Box::new(move |event| key_strip.handle_key(event)),
+            });
+            body.addSubview(list.view());
+            list
+        });
+
         let veil = Veil::new(mtm, NSRect::new(NSPoint::ZERO, frame.size));
         let this = Tile::alloc(mtm).set_ivars(TileIvars {
             _live: TILE.live(),
@@ -263,6 +283,7 @@ impl Tile {
             owner: owner.clone(),
             strip,
             body,
+            list,
             veil,
         });
         // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
@@ -300,6 +321,10 @@ impl Tile {
 
     pub fn veil(&self) -> &Veil {
         &self.ivars().veil
+    }
+
+    pub fn list(&self) -> Option<&VirtualList> {
+        self.ivars().list.as_ref()
     }
 
     fn paint_overlay(&self, focused: bool, tokens: &Tokens) {

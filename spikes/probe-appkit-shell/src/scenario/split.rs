@@ -556,8 +556,14 @@ impl Run {
             .is_some_and(|back| events::display_pass_after(back).is_some())
     }
 
+    /// First responder — сам вид или его потомок, например таблица списка плитки.
     fn is_responder(&self, view: &NSView) -> bool {
         events::is_first_responder(self.window(), view)
+            || self
+                .window()
+                .firstResponder()
+                .and_then(|responder| responder.downcast::<NSView>().ok())
+                .is_some_and(|responder| responder.isDescendantOf(view))
     }
 
     /// Цвет слоя вуали плитки.
@@ -1243,8 +1249,17 @@ fn probe_pixels(run: &Run, state: &str) -> Result<(), String> {
         .iter()
         .enumerate()
         .map(|(index, tile)| {
+            // В плитке со списком три строки ниже середины: щелчок «правая плитка» выбирает
+            // строку в середине.
             let body = tile.body();
-            let point = body.convertPoint_toView(events::center(body.bounds()), Some(root));
+            let center = events::center(body.bounds());
+            let shift = if tile.list().is_some() {
+                3.0 * tokens.row
+            } else {
+                0.0
+            };
+            let below = NSPoint::new(center.x, center.y - shift);
+            let point = body.convertPoint_toView(below, Some(root));
             let want = if focus == Focus::Tile(index) {
                 tokens.focused_panel()
             } else {

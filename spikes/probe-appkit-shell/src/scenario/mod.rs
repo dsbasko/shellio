@@ -5,6 +5,7 @@ pub mod counters;
 pub mod events;
 pub mod key_delivery;
 pub mod launch;
+mod list;
 pub mod material;
 pub mod native_menu;
 pub mod parent_click;
@@ -60,10 +61,11 @@ pub enum Scenario {
     WatchdogCheck,
     Split,
     Tabs,
+    List,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 8] = [
+    pub const ALL: [Scenario; 9] = [
         Scenario::Launch,
         Scenario::NativeMenu,
         Scenario::ParentClick,
@@ -72,6 +74,7 @@ impl Scenario {
         Scenario::WatchdogCheck,
         Scenario::Split,
         Scenario::Tabs,
+        Scenario::List,
     ];
 
     pub fn name(self) -> &'static str {
@@ -84,6 +87,7 @@ impl Scenario {
             Scenario::WatchdogCheck => "watchdog-check",
             Scenario::Split => "split",
             Scenario::Tabs => "tabs",
+            Scenario::List => "list",
         }
     }
 
@@ -105,13 +109,14 @@ impl Scenario {
             Scenario::WatchdogCheck => 3,
             Scenario::Split => 150,
             Scenario::Tabs => 150,
+            Scenario::List => 300,
         })
     }
 
     /// Сценарию нужна собранная сцена; стендовые сценарии работают на голом окне.
     pub fn needs_scene(self) -> bool {
         match self {
-            Scenario::Split | Scenario::Tabs => true,
+            Scenario::Split | Scenario::Tabs | Scenario::List => true,
             Scenario::Launch
             | Scenario::NativeMenu
             | Scenario::ParentClick
@@ -144,6 +149,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::WatchdogCheck => watchdog_check::run(stand),
         Scenario::Split => split::run(stand),
         Scenario::Tabs => tabs::run(stand),
+        Scenario::List => list::run(stand),
     }
 }
 

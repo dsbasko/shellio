@@ -4,6 +4,43 @@
 /// Наборы вкладок сценария `tabs`.
 pub const TAB_COUNTS: [usize; 3] = [1, 8, 30];
 
+/// Наборы строк сценария `list`.
+pub const LIST_SIZES: [usize; 3] = [1_000, 10_000, 100_000];
+/// Строк в списках сцены.
+pub const SCENE_ROWS: usize = 1_000;
+
+/// Строка списка. Идентификатор стабилен и не зависит от размера набора.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ListRow {
+    pub id: u64,
+    pub title: String,
+}
+
+/// Короткие слова держат подпись в левой части строки: правая половина строки без текста.
+const LIST_WORDS: [&str; 8] = [
+    "build", "commit", "branch", "review", "agent", "task", "file", "log",
+];
+
+pub fn list_row(index: usize) -> ListRow {
+    ListRow {
+        id: index as u64 + 1,
+        title: format!("{} {index:06}", LIST_WORDS[index % LIST_WORDS.len()]),
+    }
+}
+
+/// Набор из `count` строк.
+pub fn list(count: usize) -> Vec<ListRow> {
+    (0..count).map(list_row).collect()
+}
+
+/// Строка после правки `revision`: идентификатор прежний, подпись новая.
+pub fn edited(row: &ListRow, revision: u32) -> ListRow {
+    ListRow {
+        id: row.id,
+        title: format!("{} *{revision}", row.title),
+    }
+}
+
 /// Тип вкладки: от него зависит значок в центральной и нижней плитках.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TabKind {
@@ -139,5 +176,59 @@ mod tests {
     #[test]
     fn empty_tab_set() {
         assert!(tabs(0).is_empty());
+    }
+
+    #[test]
+    fn list_sets_are_deterministic_prefixes() {
+        for count in LIST_SIZES {
+            let set = list(count);
+            assert_eq!(set.len(), count);
+            assert_eq!(set, list(count), "набор {count}");
+        }
+        assert_eq!(list(1_000)[..], list(10_000)[..1_000]);
+        assert_eq!(list(SCENE_ROWS).len(), LIST_SIZES[0]);
+    }
+
+    #[test]
+    fn list_ids_are_stable_and_unique() {
+        let set = list(10_000);
+        let ids: BTreeSet<u64> = set.iter().map(|row| row.id).collect();
+        let titles: BTreeSet<&str> = set.iter().map(|row| row.title.as_str()).collect();
+        assert_eq!((ids.len(), titles.len()), (10_000, 10_000));
+        assert!(
+            set.iter()
+                .enumerate()
+                .all(|(index, row)| row.id == index as u64 + 1)
+        );
+    }
+
+    #[test]
+    fn list_boundaries() {
+        assert!(list(0).is_empty());
+        assert_eq!(
+            list(1),
+            vec![ListRow {
+                id: 1,
+                title: "build 000000".to_owned()
+            }]
+        );
+        let last = list_row(LIST_SIZES[2] - 1);
+        assert_eq!(last, list(LIST_SIZES[2])[LIST_SIZES[2] - 1]);
+        assert_eq!((last.id, last.title.as_str()), (100_000, "log 099999"));
+        // Подпись короткая и у самой длинной строки набора.
+        let longest = list(LIST_SIZES[2])
+            .iter()
+            .map(|row| row.title.chars().count())
+            .max();
+        assert_eq!(longest, Some(13));
+    }
+
+    #[test]
+    fn edited_row_keeps_id() {
+        let row = list_row(44);
+        let edited = edited(&row, 3);
+        assert_eq!(edited.id, row.id);
+        assert_eq!(edited.title, "agent 000044 *3");
+        assert_ne!(edited.title, row.title);
     }
 }

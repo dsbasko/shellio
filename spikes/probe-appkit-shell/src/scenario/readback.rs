@@ -12,7 +12,7 @@ use objc2::{msg_send, sel};
 use objc2_app_kit::{NSApplication, NSColor, NSColorSpace, NSScreen, NSText, NSView, NSWindow};
 use objc2_core_foundation::CGRect;
 use objc2_core_graphics::{CGColor, CGDisplayIsBuiltin};
-use objc2_foundation::{NSArray, NSProcessInfo, NSRect, NSSize, NSString};
+use objc2_foundation::{NSArray, NSNumber, NSProcessInfo, NSRect, NSSize, NSString};
 use objc2_quartz_core::CALayer;
 use serde::Serialize;
 
@@ -384,12 +384,33 @@ fn ax_bool(object: &AnyObject, selector: Sel) -> Option<bool> {
     Some(value)
 }
 
-fn ax_array(object: &AnyObject, selector: Sel) -> Option<Retained<NSArray<AnyObject>>> {
+pub fn ax_array(object: &AnyObject, selector: Sel) -> Option<Retained<NSArray<AnyObject>>> {
     if !responds(object, selector) {
         return None;
     }
     // SAFETY: атрибуты-массивы `NSAccessibility` возвращают NSArray или nil.
     unsafe { msg_send![object, performSelector: selector] }
+}
+
+/// Индекс строки таблицы у элемента доступности строки.
+/// Элементы строк view-based таблицы (`NSTableRow`) метода `accessibilityIndex` не имеют и
+/// отдают индекс только атрибутом `AXIndex`.
+pub fn ax_index(object: &AnyObject) -> Option<isize> {
+    if responds(object, sel!(accessibilityIndex)) {
+        // SAFETY: `accessibilityIndex` возвращает NSInteger; селектор проверен.
+        let index: isize = unsafe { msg_send![object, accessibilityIndex] };
+        return Some(index);
+    }
+    if !responds(object, sel!(accessibilityAttributeValue:)) {
+        return None;
+    }
+    let name = NSString::from_str("AXIndex");
+    // SAFETY: `accessibilityAttributeValue:` принимает имя атрибута и возвращает объект или nil;
+    // селектор проверен.
+    let value: Option<Retained<AnyObject>> =
+        unsafe { msg_send![object, accessibilityAttributeValue: &*name] };
+    let number = value?.downcast::<NSNumber>().ok()?;
+    Some(number.integerValue())
 }
 
 /// Строка объекта: у NSString — сама строка, у остальных `description`.

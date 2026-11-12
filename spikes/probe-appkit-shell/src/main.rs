@@ -4,6 +4,7 @@
 mod args;
 mod chrome;
 mod fixtures;
+mod list;
 mod results;
 mod scenario;
 mod scene;
