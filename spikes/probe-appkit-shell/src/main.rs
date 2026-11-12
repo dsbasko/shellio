@@ -54,6 +54,7 @@ const ACTIVATION: &str =
     "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching";
 
 fn main() -> ExitCode {
+    scenario::sampler::mark_main_entry();
     let args = match std::env::args_os()
         .skip(1)
         .map(|arg| arg.into_string())

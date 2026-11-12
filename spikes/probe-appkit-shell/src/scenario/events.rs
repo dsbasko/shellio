@@ -520,11 +520,48 @@ pub fn install(
     };
     BENCH.with(|cell| *cell.borrow_mut() = Some(bench));
     passes::install(|| {
-        with_bench(|bench| {
+        if let Some(at) = with_bench(|bench| {
             let at = bench.epoch.elapsed();
             bench.passes.record(at);
-        });
+            at
+        }) {
+            PASS_HOOK.with(|hook| call_hook(hook, |hook| hook(at)));
+        }
     })
+}
+
+type PassHook = Box<dyn FnMut(Duration) -> bool>;
+type ReturnHook = Box<dyn FnMut(u64, Duration) -> bool>;
+
+thread_local! {
+    static PASS_HOOK: RefCell<Option<PassHook>> = const { RefCell::new(None) };
+    static RETURN_HOOK: RefCell<Option<ReturnHook>> = const { RefCell::new(None) };
+}
+
+/// Вызывает перехватчик вне заимствований стенда; `false` снимает его. Перехватчик может
+/// отправлять события и ставить новый перехватчик.
+fn call_hook<H>(slot: &RefCell<Option<H>>, call: impl FnOnce(&mut H) -> bool) {
+    let Some(mut hook) = slot.borrow_mut().take() else {
+        return;
+    };
+    if call(&mut hook) {
+        let mut slot = slot.borrow_mut();
+        if slot.is_none() {
+            *slot = Some(hook);
+        }
+    }
+}
+
+/// Перехватчик конца каждого прохода отображения, сразу после отметки, без ожидания таймера.
+/// Получает время прохода от установки стенда; `false` снимает перехватчик.
+pub fn on_display_pass(hook: impl FnMut(Duration) -> bool + 'static) {
+    PASS_HOOK.with(|slot| *slot.borrow_mut() = Some(Box::new(hook)));
+}
+
+/// Перехватчик возврата `sendEvent` событий стенда: номер события и время возврата; `false`
+/// снимает перехватчик.
+pub fn on_send_return(hook: impl FnMut(u64, Duration) -> bool + 'static) {
+    RETURN_HOOK.with(|slot| *slot.borrow_mut() = Some(Box::new(hook)));
 }
 
 /// Время от установки стенда.
@@ -611,11 +648,15 @@ fn admit(event: &NSEvent) -> Admit {
 }
 
 fn returned(number: u64) {
-    with_bench(|bench| {
+    let at = with_bench(|bench| {
         let at = bench.epoch.elapsed();
         bench.table.mark_return(number, at);
         push_trace(&bench.trace, format!("{} return #{number}", ms(at)));
+        at
     });
+    if let Some(at) = at {
+        RETURN_HOOK.with(|hook| call_hook(hook, |hook| hook(number, at)));
+    }
 }
 
 fn external_input(description: String) {

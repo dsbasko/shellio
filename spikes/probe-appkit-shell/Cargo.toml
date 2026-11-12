@@ -113,6 +113,8 @@ objc2-quartz-core = { version = "0.3.2", default-features = false, features = [
     "objc2-core-foundation",
     "objc2-core-graphics",
     "CAAnimation",
+    "CADisplayLink",
+    "CAFrameRateRange",
     "CALayer",
     "CAMediaTiming",
     "CAShapeLayer",

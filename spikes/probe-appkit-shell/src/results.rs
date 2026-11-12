@@ -287,6 +287,89 @@ pub struct Environment {
     pub fixtures: BTreeMap<String, String>,
 }
 
+/// Допуск расхождения стенной и монотонной длительности старта сверх времени до `main`.
+pub const CLOCK_SLACK_MS: f64 = 50.0;
+/// Бюджет запуска до интерактивного окна из `docs/architecture.md`.
+pub const STARTUP_BUDGET_MS: f64 = 500.0;
+/// Запусков `startup` на вариант сплита; первый из них в агрегаты прогретых не входит.
+pub const STARTUP_RUNS: usize = 21;
+
+/// Отметки старта процесса сценария `startup`. Стенные — мкс от эпохи Unix, монотонные — нс
+/// `CLOCK_UPTIME_RAW`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StartupMarks {
+    /// `p_starttime` из `sysctl` `kern.proc.pid`.
+    pub process_start_wall_us: i64,
+    /// `pbi_start_tvsec` из `proc_pidinfo` для сверки.
+    pub process_start_bsd_wall_us: Option<i64>,
+    /// `ri_proc_start_abstime`.
+    pub process_start_mono_ns: u64,
+    pub main_wall_us: i64,
+    pub main_mono_ns: u64,
+    /// Конец первого прохода отображения с видимым окном.
+    pub first_display_mono_ns: Option<u64>,
+    /// Первый проход, на котором приложение активно и окно сцены — key window.
+    pub ready_mono_ns: Option<u64>,
+    /// Первый `display` key window: конец прохода, на котором окно key, видимо и ничего не ждёт
+    /// отображения. После него отправляется контрольная клавиша.
+    pub key_display_mono_ns: Option<u64>,
+    pub control_posted_mono_ns: Option<u64>,
+    pub control_returned_mono_ns: Option<u64>,
+    /// Контрольная клавиша обработана и её эффект прочитан.
+    pub end_wall_us: i64,
+    pub end_mono_ns: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ClockCheck {
+    Ok,
+    Distorted(String),
+}
+
+fn ns_to_ms(ns: i128) -> f64 {
+    ns as f64 / 1e6
+}
+
+impl StartupMarks {
+    /// Старт по стенным часам: запуск процесса → контрольная клавиша обработана.
+    pub fn wall_ms(&self) -> f64 {
+        (self.end_wall_us - self.process_start_wall_us) as f64 / 1e3
+    }
+
+    /// Монотонная длительность от входа в `main` до конца.
+    pub fn mono_ms(&self) -> f64 {
+        ns_to_ms(i128::from(self.end_mono_ns) - i128::from(self.main_mono_ns))
+    }
+
+    /// Монотонное время от запуска процесса до входа в `main`.
+    pub fn pre_main_ms(&self) -> f64 {
+        ns_to_ms(i128::from(self.main_mono_ns) - i128::from(self.process_start_mono_ns))
+    }
+
+    /// Монотонная отметка относительно входа в `main`, мс.
+    pub fn since_main_ms(&self, mono_ns: Option<u64>) -> Option<f64> {
+        mono_ns.map(|ns| ns_to_ms(i128::from(ns) - i128::from(self.main_mono_ns)))
+    }
+
+    /// Стенная длительность меньше монотонной от `main` или больше неё сверх времени до `main`
+    /// и допуска — прогон искажён скачком системного времени.
+    pub fn clock_check(&self) -> ClockCheck {
+        let (wall, mono, pre_main) = (self.wall_ms(), self.mono_ms(), self.pre_main_ms());
+        if wall < mono {
+            return ClockCheck::Distorted(format!(
+                "стенная длительность {wall:.3} мс меньше монотонной от main {mono:.3} мс"
+            ));
+        }
+        if wall - mono > pre_main + CLOCK_SLACK_MS {
+            return ClockCheck::Distorted(format!(
+                "стенная длительность {wall:.3} мс больше монотонной от main {mono:.3} мс на {:.3} мс при времени до main {pre_main:.3} мс и допуске {CLOCK_SLACK_MS} мс",
+                wall - mono
+            ));
+        }
+        ClockCheck::Ok
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ResultFile {
     pub schema: u32,
@@ -302,6 +385,8 @@ pub struct ResultFile {
     pub findings: Vec<Finding>,
     pub snapshots: Vec<Snapshot>,
     pub diagnostics: Diagnostics,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub startup: Option<StartupMarks>,
 }
 
 /// Итог сценария, который собирают стенд и сценарий.
@@ -318,6 +403,8 @@ pub struct Report {
     pub window: Option<WindowInfo>,
     pub input_source: Option<String>,
     pub fixtures: BTreeMap<String, String>,
+    /// Отметки сценария `startup`.
+    pub startup: Option<StartupMarks>,
 }
 
 impl Report {
@@ -381,6 +468,7 @@ impl ResultFile {
             findings: report.findings,
             snapshots: report.snapshots,
             diagnostics: report.diagnostics,
+            startup: report.startup,
         }
     }
 }
@@ -457,6 +545,8 @@ pub struct ProcessSummary {
     pub findings: Vec<Finding>,
     pub metrics: Vec<MetricSummary>,
     pub snapshots: Vec<SnapshotBrief>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub startup: Option<StartupMarks>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -475,12 +565,199 @@ pub struct SummaryFile {
     pub percentile_method: String,
     pub totals: Totals,
     pub processes: Vec<ProcessSummary>,
-    /// Сводка выводов всех процессов отдельно от исполнения.
+    /// Сводка выводов всех процессов отдельно от исполнения, включая выводы агрегатов.
     pub findings: Vec<RunFinding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub startup: Option<StartupSummary>,
 }
 
-/// Сценарий и вариант по имени каталога `<сценарий>-<вариант>`, который даёт `run.sh`.
+/// Запуск `startup` в агрегатах.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct StartupRun {
+    pub dir: String,
+    pub variant: String,
+    pub wall_ms: f64,
+    pub mono_ms: f64,
+    pub pre_main_ms: f64,
+    pub distorted: bool,
+}
+
+/// Агрегаты старта варианта сплита: первый запуск варианта отдельно, медиана (p50 по
+/// ближайшему рангу) и максимум по остальным без ошибок и искажений.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct StartupAggregate {
+    pub variant: String,
+    pub runs: usize,
+    pub first: Option<StartupRun>,
+    pub warm_count: usize,
+    pub warm_expected: usize,
+    pub warm_ms: Option<Summary>,
+    /// Запуски, искажённые скачком системного времени.
+    pub distorted: Vec<String>,
+    /// Запуски с ошибкой исполнения или без отметок старта.
+    pub errors: Vec<String>,
+    pub budget_ms: f64,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct StartupSummary {
+    /// Первый процесс первого варианта: первый наблюдаемый, не холодный.
+    pub first_observed: Option<StartupRun>,
+    pub variants: Vec<StartupAggregate>,
+}
+
+fn startup_run(process: &ProcessSummary, marks: &StartupMarks) -> StartupRun {
+    StartupRun {
+        dir: process.dir.clone(),
+        variant: process.variant.clone(),
+        wall_ms: marks.wall_ms(),
+        mono_ms: marks.mono_ms(),
+        pre_main_ms: marks.pre_main_ms(),
+        distorted: marks.clock_check() != ClockCheck::Ok,
+    }
+}
+
+/// Агрегаты процессов `startup`. Порядок запусков — по монотонному времени запуска процесса,
+/// а не по именам каталогов: `run.sh` идёт вариантами в своём порядке.
+pub fn startup_summary(processes: &[ProcessSummary]) -> Option<StartupSummary> {
+    let startup: Vec<&ProcessSummary> = processes
+        .iter()
+        .filter(|process| process.scenario == "startup")
+        .collect();
+    if startup.is_empty() {
+        return None;
+    }
+    let mut timed: Vec<(&ProcessSummary, &StartupMarks)> = startup
+        .iter()
+        .filter_map(|process| process.startup.as_ref().map(|marks| (*process, marks)))
+        .collect();
+    timed.sort_by_key(|(_, marks)| marks.process_start_mono_ns);
+    let mut variants: Vec<String> = Vec::new();
+    for (process, _) in &timed {
+        if !variants.contains(&process.variant) {
+            variants.push(process.variant.clone());
+        }
+    }
+    for process in &startup {
+        if !variants.contains(&process.variant) {
+            variants.push(process.variant.clone());
+        }
+    }
+    let first_observed = timed
+        .first()
+        .map(|(process, marks)| startup_run(process, marks));
+    let variants = variants
+        .into_iter()
+        .map(|variant| {
+            let runs: Vec<&(&ProcessSummary, &StartupMarks)> = timed
+                .iter()
+                .filter(|(process, _)| process.variant == variant)
+                .collect();
+            let mut errors: Vec<String> = startup
+                .iter()
+                .filter(|process| process.variant == variant && process.startup.is_none())
+                .map(|process| process.dir.clone())
+                .collect();
+            let mut distorted = Vec::new();
+            let mut warm = Vec::new();
+            for (process, marks) in runs.iter().skip(1) {
+                if marks.clock_check() != ClockCheck::Ok {
+                    distorted.push(process.dir.clone());
+                } else if !process.execution.is_ok() {
+                    errors.push(process.dir.clone());
+                } else {
+                    warm.push(marks.wall_ms());
+                }
+            }
+            StartupAggregate {
+                first: runs
+                    .first()
+                    .map(|(process, marks)| startup_run(process, marks)),
+                runs: runs.len()
+                    + startup
+                        .iter()
+                        .filter(|process| process.variant == variant && process.startup.is_none())
+                        .count(),
+                warm_count: warm.len(),
+                warm_expected: STARTUP_RUNS - 1,
+                warm_ms: stats::summarize(&warm).ok(),
+                distorted,
+                errors,
+                budget_ms: STARTUP_BUDGET_MS,
+                variant,
+            }
+        })
+        .collect();
+    Some(StartupSummary {
+        first_observed,
+        variants,
+    })
+}
+
+/// Вывод по бюджету старта: с бюджетом сравнивается максимум прогретых запусков.
+fn startup_finding(summary: &StartupSummary, aggregate: &StartupAggregate) -> RunFinding {
+    let first = aggregate.first.as_ref().map_or_else(
+        || "нет".to_owned(),
+        |run| format!("{:.1} мс ({})", run.wall_ms, run.dir),
+    );
+    let observed = summary
+        .first_observed
+        .as_ref()
+        .filter(|run| run.variant == aggregate.variant)
+        .map_or_else(String::new, |run| {
+            format!(
+                "; первый наблюдаемый прогона (не холодный) {:.1} мс",
+                run.wall_ms
+            )
+        });
+    let (verdict, reason) = match aggregate.warm_ms {
+        Some(warm) => (
+            if warm.max <= aggregate.budget_ms {
+                Verdict::Pass
+            } else {
+                Verdict::Fail
+            },
+            format!(
+                "максимум прогретых {:.1} мс при бюджете {} мс, медиана {:.1} мс, прогретых {} из {}; первый запуск варианта {first}{observed}; искажённых {}, с ошибкой {}",
+                warm.max,
+                aggregate.budget_ms,
+                warm.p50,
+                aggregate.warm_count,
+                aggregate.warm_expected,
+                aggregate.distorted.len(),
+                aggregate.errors.len()
+            ),
+        ),
+        None => (
+            Verdict::PendingManual,
+            format!(
+                "нет прогретых запусков: всего {}, искажённых {}, с ошибкой {}; первый запуск варианта {first}{observed}",
+                aggregate.runs,
+                aggregate.distorted.len(),
+                aggregate.errors.len()
+            ),
+        ),
+    };
+    RunFinding {
+        scenario: "startup".to_owned(),
+        variant: aggregate.variant.clone(),
+        name: "startup_budget".to_owned(),
+        verdict,
+        reason,
+    }
+}
+
+/// Сценарий и вариант по имени каталога `<сценарий>-<вариант>` или `<сценарий>-<вариант>-<NN>`
+/// у повторных запусков, который даёт `run.sh`.
 pub fn split_dir_name(name: &str) -> (String, String) {
+    let name = match name.rsplit_once('-') {
+        Some((head, run))
+            if head.contains('-') && !run.is_empty() && run.bytes().all(|b| b.is_ascii_digit()) =>
+        {
+            head
+        }
+        _ => name,
+    };
     match name.rsplit_once('-') {
         Some((scenario, variant)) if !scenario.is_empty() && !variant.is_empty() => {
             (scenario.to_owned(), variant.to_owned())
@@ -512,6 +789,7 @@ fn process_summary(dir: &Path, name: String) -> ProcessSummary {
         findings: Vec::new(),
         metrics: Vec::new(),
         snapshots: Vec::new(),
+        startup: None,
     };
     match read_result(dir) {
         Ok(result) => ProcessSummary {
@@ -539,6 +817,7 @@ fn process_summary(dir: &Path, name: String) -> ProcessSummary {
                     reason: snapshot.reason,
                 })
                 .collect(),
+            startup: result.startup,
         },
         Err(ReadError::Missing) => error(match watchdog_reason(dir) {
             Some(reason) => format!("{RESULT_FILE} отсутствует: {reason}"),
@@ -596,6 +875,18 @@ pub fn aggregate(run_dir: &Path) -> Result<SummaryFile, String> {
             .count();
         processes.push(process);
     }
+    let startup = startup_summary(&processes);
+    if let Some(startup) = &startup {
+        for aggregate in &startup.variants {
+            let finding = startup_finding(startup, aggregate);
+            match finding.verdict {
+                Verdict::Pass => totals.pass += 1,
+                Verdict::Fail => totals.fail += 1,
+                Verdict::PendingManual => totals.pending_manual += 1,
+            }
+            findings.push(finding);
+        }
+    }
     Ok(SummaryFile {
         schema: SCHEMA,
         run_dir: run_dir.display().to_string(),
@@ -603,6 +894,7 @@ pub fn aggregate(run_dir: &Path) -> Result<SummaryFile, String> {
         totals,
         processes,
         findings,
+        startup,
     })
 }
 
@@ -620,6 +912,33 @@ pub fn render_summary(summary: &SummaryFile) -> String {
     for process in &summary.processes {
         if let Execution::Error { reason, .. } = &process.execution {
             let _ = writeln!(text, "  ошибка  {}: {reason}", process.dir);
+        }
+    }
+    if let Some(startup) = &summary.startup {
+        if let Some(run) = &startup.first_observed {
+            let _ = writeln!(
+                text,
+                "старт: первый наблюдаемый {:.1} мс ({})",
+                run.wall_ms, run.dir
+            );
+        }
+        for aggregate in &startup.variants {
+            match aggregate.warm_ms {
+                Some(warm) => {
+                    let _ = writeln!(
+                        text,
+                        "старт {}: медиана {:.1} мс, максимум {:.1} мс, прогретых {} из {}",
+                        aggregate.variant,
+                        warm.p50,
+                        warm.max,
+                        aggregate.warm_count,
+                        aggregate.warm_expected
+                    );
+                }
+                None => {
+                    let _ = writeln!(text, "старт {}: прогретых запусков нет", aggregate.variant);
+                }
+            }
         }
     }
     let _ = writeln!(
@@ -833,6 +1152,184 @@ mod tests {
         fs::remove_dir_all(dir).unwrap();
     }
 
+    const EPOCH_US: i64 = 1_794_000_000_000_000;
+
+    /// Отметки запуска, начатого в `start_ms` монотонного времени, длительностью `wall_ms` по
+    /// монотонным часам; стенные часы за время запуска прыгнули на `jump_ms`.
+    fn startup_marks(start_ms: u64, wall_ms: f64, jump_ms: f64) -> StartupMarks {
+        let start_ns = start_ms * 1_000_000;
+        let start_wall = EPOCH_US + start_ms as i64 * 1_000;
+        let pre_main_ns = 30_000_000;
+        let total_ns = (wall_ms * 1e6) as u64;
+        StartupMarks {
+            process_start_wall_us: start_wall,
+            process_start_bsd_wall_us: Some(start_wall),
+            process_start_mono_ns: start_ns,
+            main_wall_us: start_wall + 30_000,
+            main_mono_ns: start_ns + pre_main_ns,
+            first_display_mono_ns: Some(start_ns + total_ns / 2),
+            ready_mono_ns: Some(start_ns + total_ns / 2),
+            key_display_mono_ns: Some(start_ns + total_ns * 3 / 4),
+            control_posted_mono_ns: Some(start_ns + total_ns * 3 / 4),
+            control_returned_mono_ns: Some(start_ns + total_ns),
+            end_wall_us: start_wall + (wall_ms * 1e3) as i64 + (jump_ms * 1e3) as i64,
+            end_mono_ns: start_ns + total_ns,
+        }
+    }
+
+    #[test]
+    fn startup_clock_check() {
+        let normal = startup_marks(1_000, 320.0, 0.0);
+        assert_eq!(normal.clock_check(), ClockCheck::Ok);
+        assert!((normal.wall_ms() - 320.0).abs() < 1e-9);
+        assert!((normal.mono_ms() - 290.0).abs() < 1e-9);
+        assert!((normal.pre_main_ms() - 30.0).abs() < 1e-9);
+        assert_eq!(normal.since_main_ms(Some(normal.end_mono_ns)), Some(290.0));
+        assert_eq!(
+            startup_marks(1_000, 320.0, 40.0).clock_check(),
+            ClockCheck::Ok,
+            "в пределах допуска"
+        );
+        assert!(matches!(
+            startup_marks(1_000, 320.0, 200.0).clock_check(),
+            ClockCheck::Distorted(reason) if reason.contains("больше")
+        ));
+        assert!(matches!(
+            startup_marks(1_000, 320.0, -100.0).clock_check(),
+            ClockCheck::Distorted(reason) if reason.contains("меньше")
+        ));
+    }
+
+    fn startup_sample(variant: &str, marks: StartupMarks) -> ResultFile {
+        let report = Report {
+            startup: Some(marks),
+            ..Report::default()
+        };
+        ResultFile::new("startup", variant, environment(), Execution::Ok, report)
+    }
+
+    /// Прогон в порядке run.sh: сначала 21 запуск sidebar, затем 21 запуск plain. В sidebar
+    /// пятый запуск не записал результат, в plain седьмой искажён скачком часов, а двадцатый
+    /// превысил бюджет.
+    #[test]
+    fn startup_aggregates() {
+        let run = temp_dir("startup");
+        let mut start = 10_000;
+        for (variant, base) in [("sidebar", 300.0), ("plain", 280.0)] {
+            for index in 1..=STARTUP_RUNS {
+                let dir = run.join(format!("startup-{variant}-{index:02}"));
+                fs::create_dir_all(&dir).unwrap();
+                start += 2_000;
+                if variant == "sidebar" && index == 5 {
+                    continue;
+                }
+                let wall = match (variant, index) {
+                    (_, 1) => 450.0,
+                    ("plain", 20) => 600.0,
+                    _ => base + index as f64,
+                };
+                let jump = if variant == "plain" && index == 7 {
+                    -120.0
+                } else {
+                    0.0
+                };
+                write_result(
+                    &dir,
+                    &startup_sample(variant, startup_marks(start, wall, jump)),
+                )
+                .unwrap();
+            }
+        }
+        let summary = aggregate(&run).unwrap();
+        let startup = summary.startup.clone().unwrap();
+        let first = startup.first_observed.clone().unwrap();
+        assert_eq!(
+            first.dir, "startup-sidebar-01",
+            "первый по времени, не по имени"
+        );
+        assert_eq!(first.wall_ms, 450.0);
+
+        let variants: Vec<&str> = startup
+            .variants
+            .iter()
+            .map(|v| v.variant.as_str())
+            .collect();
+        assert_eq!(variants, ["sidebar", "plain"]);
+        let sidebar = &startup.variants[0];
+        assert_eq!(sidebar.runs, STARTUP_RUNS);
+        assert_eq!(sidebar.errors, ["startup-sidebar-05"]);
+        assert_eq!(sidebar.warm_count, 19);
+        assert_eq!(sidebar.warm_expected, 20);
+        let warm = sidebar.warm_ms.unwrap();
+        assert_eq!((warm.p50, warm.max), (312.0, 321.0));
+        assert_eq!(sidebar.first.as_ref().map(|run| run.wall_ms), Some(450.0));
+
+        let plain = &startup.variants[1];
+        assert_eq!(plain.distorted, ["startup-plain-07"]);
+        assert!(plain.errors.is_empty());
+        assert_eq!(plain.warm_count, 19);
+        assert_eq!(plain.warm_ms.unwrap().max, 600.0);
+
+        let verdicts: Vec<(&str, &str, Verdict)> = summary
+            .findings
+            .iter()
+            .filter(|finding| finding.name == "startup_budget")
+            .map(|finding| {
+                (
+                    finding.variant.as_str(),
+                    finding.scenario.as_str(),
+                    finding.verdict,
+                )
+            })
+            .collect();
+        assert_eq!(
+            verdicts,
+            [
+                ("sidebar", "startup", Verdict::Pass),
+                ("plain", "startup", Verdict::Fail)
+            ]
+        );
+        assert!(summary.findings[0].reason.contains("первый наблюдаемый"));
+        assert_eq!((summary.totals.pass, summary.totals.fail), (1, 1));
+        assert_eq!(summary.totals.execution_errors, 1);
+        let missing = summary
+            .processes
+            .iter()
+            .find(|process| process.dir == "startup-sidebar-05")
+            .unwrap();
+        assert_eq!(
+            (missing.scenario.as_str(), missing.variant.as_str()),
+            ("startup", "sidebar")
+        );
+        let text = render_summary(&summary);
+        assert!(text.contains("старт: первый наблюдаемый 450.0 мс (startup-sidebar-01)"));
+        assert!(text.contains("старт sidebar: медиана 312.0 мс, максимум 321.0 мс"));
+        fs::remove_dir_all(run).unwrap();
+    }
+
+    #[test]
+    fn startup_without_warm_runs_is_pending() {
+        let process = |dir: &str, marks: Option<StartupMarks>| ProcessSummary {
+            dir: dir.to_owned(),
+            scenario: "startup".to_owned(),
+            variant: "plain".to_owned(),
+            execution: Execution::Ok,
+            findings: Vec::new(),
+            metrics: Vec::new(),
+            snapshots: Vec::new(),
+            startup: marks,
+        };
+        let processes = [process(
+            "startup-plain-01",
+            Some(startup_marks(1_000, 300.0, 0.0)),
+        )];
+        let startup = startup_summary(&processes).unwrap();
+        assert_eq!(startup.variants[0].warm_ms, None);
+        let finding = startup_finding(&startup, &startup.variants[0]);
+        assert_eq!(finding.verdict, Verdict::PendingManual);
+        assert!(startup_summary(&[]).is_none());
+    }
+
     #[test]
     fn dir_names_split_at_last_dash() {
         assert_eq!(
@@ -842,6 +1339,14 @@ mod tests {
         assert_eq!(
             split_dir_name("launch-sidebar"),
             ("launch".to_owned(), "sidebar".to_owned())
+        );
+        assert_eq!(
+            split_dir_name("startup-sidebar-01"),
+            ("startup".to_owned(), "sidebar".to_owned())
+        );
+        assert_eq!(
+            split_dir_name("launch-07"),
+            ("launch".to_owned(), "07".to_owned())
         );
         assert_eq!(split_dir_name("odd"), ("odd".to_owned(), String::new()));
         assert_eq!(split_dir_name("odd-"), ("odd-".to_owned(), String::new()));

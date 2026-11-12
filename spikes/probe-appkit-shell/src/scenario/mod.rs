@@ -3,6 +3,8 @@
 
 pub mod counters;
 pub mod events;
+mod frames;
+mod idle;
 pub mod key_delivery;
 pub mod launch;
 mod list;
@@ -14,9 +16,11 @@ pub mod parent_click;
 pub mod passes;
 pub mod readback;
 mod readback_check;
+pub mod sampler;
 pub mod snapshot;
 mod split;
 pub mod stand;
+mod startup;
 mod tabs;
 mod theme;
 mod tree;
@@ -70,10 +74,13 @@ pub enum Scenario {
     Palette,
     Menu,
     Theme,
+    Startup,
+    Idle,
+    Frames,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 13] = [
+    pub const ALL: [Scenario; 16] = [
         Scenario::Launch,
         Scenario::NativeMenu,
         Scenario::ParentClick,
@@ -87,6 +94,9 @@ impl Scenario {
         Scenario::Palette,
         Scenario::Menu,
         Scenario::Theme,
+        Scenario::Startup,
+        Scenario::Idle,
+        Scenario::Frames,
     ];
 
     pub fn name(self) -> &'static str {
@@ -104,6 +114,9 @@ impl Scenario {
             Scenario::Palette => "palette",
             Scenario::Menu => "menu",
             Scenario::Theme => "theme",
+            Scenario::Startup => "startup",
+            Scenario::Idle => "idle",
+            Scenario::Frames => "frames",
         }
     }
 
@@ -130,6 +143,9 @@ impl Scenario {
             Scenario::Palette => 300,
             Scenario::Menu => 90,
             Scenario::Theme => 90,
+            Scenario::Startup => 20,
+            Scenario::Idle => 120,
+            Scenario::Frames => frames::PHASES_TIMEOUT.as_secs() + 120,
         })
     }
 
@@ -142,8 +158,12 @@ impl Scenario {
             | Scenario::Tree
             | Scenario::Palette
             | Scenario::Menu
-            | Scenario::Theme => true,
-            Scenario::Launch
+            | Scenario::Theme
+            | Scenario::Startup
+            | Scenario::Frames => true,
+            // Пустое окно — первое состояние памяти, сцену `idle` собирает сам.
+            Scenario::Idle
+            | Scenario::Launch
             | Scenario::NativeMenu
             | Scenario::ParentClick
             | Scenario::KeyDelivery
@@ -180,6 +200,9 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Palette => palette::run(stand),
         Scenario::Menu => menu::run(stand),
         Scenario::Theme => theme::run(stand),
+        Scenario::Startup => startup::run(stand),
+        Scenario::Idle => idle::run(stand),
+        Scenario::Frames => frames::run(stand),
     }
 }
 
