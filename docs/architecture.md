@@ -79,7 +79,7 @@ scripts/
   ghostty/              сборка, сверка и публикация набора libghostty, привязки, аудит линковки
   ghostty-patches/      патчи закреплённой ревизии Ghostty
   signing/              идентичность Shellio Dev, requirement, подпись
-spikes/                 временный код фазы 0
+spikes/                 пробы фазы 0 (ADR-0034), продукт от них не зависит
 vendor/                 собранный набор ghostty, не хранится в git
 ```
 
@@ -88,7 +88,7 @@ vendor/                 собранный набор ghostty, не хранит
 1. `shellio-core` и остальные чистые crate не зависят от AppKit.
 2. Модель плагина зависит от `shellio-plugin-api` и сервисных crate. Фабрика вида выполняется на главном потоке и дополнительно использует безопасные компоненты `shellio-appkit` и `shellio-ghostty`. Зависимость от другого плагина запрещена.
 3. Конкретные плагины знает только `apps/shellio`.
-4. `unsafe` Objective-C находится в `shellio-appkit` и `shellio-ghostty`.
+4. `unsafe` Objective-C находится в `shellio-appkit` и `shellio-ghostty`. Исключение — пробы в `spikes/` ([ADR-0034](adr/0034-probe-code.md)): в них допустим `unsafe` Objective-C и системных C API, а продуктовые crate, плагины и `apps/*` от `spikes/` не зависят.
 5. Плагины взаимодействуют только через команды шины.
 
 ## Поток данных

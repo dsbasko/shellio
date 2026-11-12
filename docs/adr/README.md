@@ -13,7 +13,7 @@
 | № | Решение | Статус | Подтверждается в |
 | --- | --- | --- | --- |
 | [0001](0001-vocabulary.md) | Словарь и иерархия сущностей | Accepted | — |
-| [0002](0002-ui-stack-appkit.md) | UI на Rust через objc2 и AppKit (материал заменён ADR-0023) | Accepted | P0.2, P0.6 |
+| [0002](0002-ui-stack-appkit.md) | UI на Rust через objc2 и AppKit (материал заменён ADR-0023, `unsafe` в пробах дополнено ADR-0034) | Accepted | P0.2, P0.6 |
 | [0003](0003-terminal-libghostty.md) | Терминал на полном libghostty | Accepted | P0.3 |
 | [0004](0004-process-model.md) | Модель процессов и время жизни сессий | Proposed, закрытие nvim заменено ADR-0029 | P0.4, P0.5 |
 | [0005](0005-session-backend.md) | Хост сессии: zmx для пробы, Rust-хост как цель | Proposed | P0.4 |
@@ -32,7 +32,7 @@
 | [0018](0018-storage-and-config.md) | Хранение состояния и конфигурация | Proposed | P1.1 |
 | [0019](0019-distribution-and-updates.md) | Подпись, автообновление, Homebrew | Accepted | P0.5, P5.1–P5.3 |
 | [0020](0020-concurrency.md) | Потоки и асинхронность | Proposed | P1.1 |
-| [0021](0021-testing.md) | Стратегия проверки | Proposed | P0.1, P1.5 |
+| [0021](0021-testing.md) | Стратегия проверки | Proposed, рубеж GUI-проб дополнен ADR-0034 | P0.1, P1.5 |
 | [0022](0022-licensing-and-borrowing.md) | Лицензии и заимствование кода | Accepted | — |
 | [0023](0023-opaque-window-and-shell.md) | Непрозрачное окно и единый каркас интерфейса | Accepted, каркас заменён ADR-0024, состав навигатора ADR-0025, крошки ADR-0026 | P0.2, P1.3 |
 | [0024](0024-main-screen-design.md) | Каркас и оформление по готовому дизайну главного экрана | Accepted, раздел «Навигатор» заменён ADR-0025, крошки ADR-0026, тон фокуса ADR-0027, плитка дополнена ADR-0031 | P1.3 |
@@ -45,3 +45,4 @@
 | [0031](0031-zone-splits.md) | Деление зон: боковые одна над другой, центр и нижняя рядом | Accepted, кнопки в строке вкладок добавлены ADR-0032 | P1.4, P1.5 |
 | [0032](0032-split-and-zoom-buttons.md) | Кнопки деления и разворота в строке вкладок | Accepted | P1.4, P1.5 |
 | [0033](0033-git-history-panel.md) | Панель «История» вместо Blame | Accepted | P3.5, P3.6 |
+| [0034](0034-probe-code.md) | Код проб фазы 0 | Accepted | — |
