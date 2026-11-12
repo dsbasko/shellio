@@ -527,6 +527,10 @@ impl TabView {
         &self.ivars().dot
     }
 
+    pub fn title(&self) -> &NSTextField {
+        &self.ivars().title
+    }
+
     pub fn close_button(&self) -> &NSButton {
         &self.ivars().close
     }
@@ -959,6 +963,15 @@ impl TabStrip {
         self.ivars().tokens.get()
     }
 
+    /// Токены новой ячейки: цвета полосы, вкладок и нагрузки, толщина линии `--focus-h`.
+    pub fn set_tokens(&self, tokens: &Tokens) {
+        self.ivars().tokens.set(*tokens);
+        self.ivars()
+            .meter
+            .setTextColor(Some(&color(tokens.text_3, 1.0)));
+        self.paint();
+    }
+
     /// Вид, которому щелчок и нажатие вкладки сначала передают фокус: плитка полосы.
     pub fn set_focus_target(&self, view: &NSView) {
         *self.ivars().focus_target.borrow_mut() = Some(Weak::new(view));
@@ -1117,6 +1130,11 @@ impl TabStrip {
 
     pub fn line(&self) -> &NSView {
         &self.ivars().line
+    }
+
+    /// Нижняя линия полосы.
+    pub fn border(&self) -> &NSView {
+        &self.ivars().border
     }
 
     pub fn meter(&self) -> &NSTextField {

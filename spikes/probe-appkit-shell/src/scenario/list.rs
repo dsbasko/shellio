@@ -266,7 +266,7 @@ impl Run {
         let (start, length) = self.visible();
         let on_screen = (start..start + length).contains(&want);
         let background = self.row_background(want);
-        let sel = self.scene.tokens.sel;
+        let sel = self.scene.tokens().sel;
         let responder = self.table_is_responder();
         let focus = self.scene.tiles.focus();
         let ok = selected == Some(want)
@@ -554,10 +554,10 @@ pub fn run(stand: Rc<Stand>) {
     if tile.list().is_none() {
         return stand.conclude(report, Err("у центральной плитки нет списка".to_owned()));
     }
-    report.push("cell", scene.cell.name());
+    report.push("cell", scene.cell().name());
     report.push_json("list_sizes", &LIST_SIZES);
     report.push("scene_rows", SCENE_ROWS);
-    report.push("row_height", scene.tokens.row);
+    report.push("row_height", scene.tokens().row);
     report.push(
         "interval_first_screen",
         "reloadData → конец первого прохода отображения после него; это не момент кадра на экране",

@@ -174,6 +174,7 @@ define_class!(
     pub struct TreeCell;
 );
 
+/// Цвета дерева, общие для источника и всех видов строк.
 #[derive(Clone, Copy)]
 struct Paint {
     sel: Rgba,
@@ -183,10 +184,22 @@ struct Paint {
     radius: f64,
 }
 
+impl Paint {
+    fn of(tokens: &Tokens) -> Paint {
+        Paint {
+            sel: tokens.sel,
+            focus: tokens.focus,
+            text: tokens.text,
+            text_2: tokens.text_2,
+            radius: tokens.r_row,
+        }
+    }
+}
+
 pub struct RowIvars {
     _live: Live,
     _tally: Tally,
-    paint: Paint,
+    paint: Rc<Cell<Paint>>,
     /// Фокус в навигаторе: общий для всех строк дерева.
     focused: Rc<Cell<bool>>,
 }
@@ -228,7 +241,7 @@ define_class!(
 impl TreeRowView {
     fn paint(&self) {
         let ivars = self.ivars();
-        let paint = ivars.paint;
+        let paint = ivars.paint.get();
         let selected = self.isSelected();
         if let Some(layer) = self.layer() {
             let background = selected.then(|| color(paint.sel, 1.0).CGColor());
@@ -257,7 +270,7 @@ impl TreeRowView {
 pub struct SourceIvars {
     _live: Live,
     roots: RefCell<Vec<Retained<TreeNode>>>,
-    paint: Paint,
+    paint: Rc<Cell<Paint>>,
     font_size: f64,
     row_height: f64,
     focused: Rc<Cell<bool>>,
@@ -337,13 +350,7 @@ impl TreeSource {
         let this = TreeSource::alloc(mtm).set_ivars(SourceIvars {
             _live: SOURCE.live(),
             roots: RefCell::new(roots),
-            paint: Paint {
-                sel: tokens.sel,
-                focus: tokens.focus,
-                text: tokens.text,
-                text_2: tokens.text_2,
-                radius: tokens.r_row,
-            },
+            paint: Rc::new(Cell::new(Paint::of(tokens))),
             font_size: tokens.t_tab,
             row_height: tokens.row,
             focused: Rc::new(Cell::new(false)),
@@ -396,7 +403,7 @@ impl TreeSource {
         let field: Retained<NSTextField> = label(
             mtm,
             "",
-            ivars.paint.text_2,
+            ivars.paint.get().text_2,
             rect(
                 TEXT_INSET,
                 (ivars.row_height - 18.0) / 2.0,
@@ -417,6 +424,7 @@ impl TreeSource {
         // SAFETY: владелец не нужен: строка создаётся кодом, а не из nib.
         let reused = unsafe { outline.makeViewWithIdentifier_owner(&identifier, None) };
         if let Some(row) = reused.and_then(|view| view.downcast::<TreeRowView>().ok()) {
+            row.paint();
             return row;
         }
         let ivars = self.ivars();
@@ -425,7 +433,7 @@ impl TreeSource {
         let this = TreeRowView::alloc(self.mtm()).set_ivars(RowIvars {
             _live: ROW.live(),
             _tally: Tally::new(&ivars.rows_live),
-            paint: ivars.paint,
+            paint: Rc::clone(&ivars.paint),
             focused: Rc::clone(&ivars.focused),
         });
         // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
@@ -611,6 +619,19 @@ impl TreeList {
         (row >= 0)
             .then(|| self.outline.rowViewAtRow_makeIfNecessary(row, false))
             .flatten()
+    }
+
+    /// Цвета темы: фон дерева `--chrome`, выбор, рамка фокуса и подписи. Виды строк, которые
+    /// дерево держит сейчас, перекрашиваются сразу, виды из очереди — при выдаче.
+    pub fn set_colors(&self, tokens: &Tokens) {
+        self.source.ivars().paint.set(Paint::of(tokens));
+        self.outline.setBackgroundColor(&color(tokens.chrome, 1.0));
+        list::each_row_view(&self.outline, |row| {
+            let object: &AnyObject = row;
+            if let Some(row) = object.downcast_ref::<TreeRowView>() {
+                row.paint();
+            }
+        });
     }
 
     /// Фокус в навигаторе: рамка у выбранной строки.

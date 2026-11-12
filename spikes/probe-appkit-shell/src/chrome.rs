@@ -3,7 +3,7 @@
 //! переключатель темы; пустая часть полосы перетаскивает окно. Окно непрозрачно, его фон без
 //! альфы.
 
-use std::cell::{Cell, OnceCell};
+use std::cell::{Cell, OnceCell, RefCell};
 
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, Sel};
@@ -23,6 +23,7 @@ use objc2_foundation::{
 };
 
 use crate::scenario::counters::{Live, counter};
+use crate::theme::Choice;
 use crate::tokens::{Rgba, Tokens};
 use crate::{DisplayChoice, WINDOW_SIZE, window_frame};
 
@@ -103,19 +104,29 @@ pub fn window(
     window.setTitleVisibility(NSWindowTitleVisibility::Hidden);
     window.setTitlebarAppearsTransparent(true);
     window.setTitlebarSeparatorStyle(NSTitlebarSeparatorStyle::None);
-    window.setBackgroundColor(Some(&color(tokens.chrome, 1.0)));
+    paint_window(&window, tokens);
     window.setOpaque(true);
     window.setCollectionBehavior(NSWindowCollectionBehavior::FullScreenPrimary);
     window.setContentMinSize(WINDOW_SIZE);
     window
 }
 
+/// Непрозрачный фон окна цветом `--chrome`.
+pub fn paint_window(window: &NSWindow, tokens: &Tokens) {
+    window.setBackgroundColor(Some(&color(tokens.chrome, 1.0)));
+}
+
+type AppearanceHook = Box<dyn Fn()>;
+
 pub struct RootIvars {
     _live: Live,
+    on_appearance: RefCell<Option<AppearanceHook>>,
+    appearance_changes: Cell<usize>,
 }
 
 define_class!(
-    /// Содержимое окна: непрозрачный фон `chrome`, координаты сверху вниз.
+    /// Содержимое окна: непрозрачный фон `chrome`, координаты сверху вниз. Смену своего
+    /// оформления сообщает теме сцены.
     #[unsafe(super(NSView, NSResponder, NSObject))]
     #[thread_kind = MainThreadOnly]
     #[name = "ProbeSceneRoot"]
@@ -127,6 +138,17 @@ define_class!(
         fn is_flipped(&self) -> bool {
             true
         }
+
+        #[unsafe(method(viewDidChangeEffectiveAppearance))]
+        fn view_did_change_effective_appearance(&self) {
+            // SAFETY: `viewDidChangeEffectiveAppearance` у NSView без аргументов.
+            let _: () = unsafe { msg_send![super(self), viewDidChangeEffectiveAppearance] };
+            let ivars = self.ivars();
+            ivars.appearance_changes.set(ivars.appearance_changes.get() + 1);
+            if let Some(hook) = ivars.on_appearance.borrow().as_ref() {
+                hook();
+            }
+        }
     }
 );
 
@@ -134,6 +156,8 @@ impl SceneRoot {
     pub fn new(mtm: MainThreadMarker, frame: NSRect, tokens: &Tokens) -> Retained<SceneRoot> {
         let this = SceneRoot::alloc(mtm).set_ivars(RootIvars {
             _live: SCENE_ROOT.live(),
+            on_appearance: RefCell::new(None),
+            appearance_changes: Cell::new(0),
         });
         // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
         let view: Retained<SceneRoot> = unsafe { msg_send![super(this), initWithFrame: frame] };
@@ -143,6 +167,20 @@ impl SceneRoot {
         );
         fill(&view, tokens.chrome, 1.0);
         view
+    }
+
+    /// Вызов при смене оформления корня.
+    pub fn set_on_appearance(&self, hook: AppearanceHook) {
+        *self.ivars().on_appearance.borrow_mut() = Some(hook);
+    }
+
+    /// Сколько раз AppKit сообщил корню о смене оформления.
+    pub fn appearance_changes(&self) -> usize {
+        self.ivars().appearance_changes.get()
+    }
+
+    pub fn set_tokens(&self, tokens: &Tokens) {
+        fill(self, tokens.chrome, 1.0);
     }
 }
 
@@ -175,18 +213,17 @@ define_class!(
             right.setCollapsed(!right.isCollapsed());
         }
 
-        /// Сразу меняет `NSApp.appearance` на противоположную тему. Полная смена ячеек — задача 10.
+        /// Меняет `NSApp.appearance` на противоположную тему; ячейку сцены пересчитывает смена
+        /// оформления корневого вида.
         #[unsafe(method(toggleTheme:))]
         fn toggle_theme(&self, _sender: Option<&AnyObject>) {
             let app = NSApplication::sharedApplication(self.mtm());
             let next = if is_dark(&app.effectiveAppearance()) {
-                // SAFETY: имена оформления — неизменяемые константы AppKit.
-                unsafe { NSAppearanceNameAqua }
+                Choice::Light
             } else {
-                // SAFETY: см. выше.
-                unsafe { NSAppearanceNameDarkAqua }
+                Choice::Dark
             };
-            app.setAppearance(NSAppearance::appearanceNamed(next).as_deref());
+            next.apply(&app);
         }
     }
 );
@@ -220,6 +257,7 @@ pub fn is_dark(appearance: &NSAppearance) -> bool {
 pub struct SearchIvars {
     _live: Live,
     presses: Cell<usize>,
+    hint: Retained<NSTextField>,
 }
 
 define_class!(
@@ -267,20 +305,6 @@ define_class!(
 
 impl SearchField {
     fn new(mtm: MainThreadMarker, tokens: &Tokens) -> Retained<SearchField> {
-        let this = SearchField::alloc(mtm).set_ivars(SearchIvars {
-            _live: SEARCH_FIELD.live(),
-            presses: Cell::new(0),
-        });
-        let frame = rect(0.0, 0.0, SEARCH_MAX, SEARCH_HEIGHT);
-        // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
-        let view: Retained<SearchField> = unsafe { msg_send![super(this), initWithFrame: frame] };
-        fill(&view, tokens.surface, 1.0);
-        if let Some(layer) = view.layer() {
-            layer.setBorderWidth(1.0);
-            layer.setBorderColor(Some(&color(tokens.line, 1.0).CGColor()));
-            layer.setCornerRadius(tokens.r_ctl);
-        }
-        view.setToolTip(Some(ns_string!("Поиск — неактивный образец пробы")));
         let hint = label(
             mtm,
             "Поиск или команда",
@@ -288,8 +312,35 @@ impl SearchField {
             rect(9.0, 4.0, SEARCH_MAX - 18.0, 18.0),
         );
         hint.setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable);
-        view.addSubview(&hint);
+        let this = SearchField::alloc(mtm).set_ivars(SearchIvars {
+            _live: SEARCH_FIELD.live(),
+            presses: Cell::new(0),
+            hint,
+        });
+        let frame = rect(0.0, 0.0, SEARCH_MAX, SEARCH_HEIGHT);
+        // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
+        let view: Retained<SearchField> = unsafe { msg_send![super(this), initWithFrame: frame] };
+        view.set_tokens(tokens);
+        view.setToolTip(Some(ns_string!("Поиск — неактивный образец пробы")));
+        view.addSubview(&view.ivars().hint);
         view
+    }
+
+    /// Фон `--surface`, линия `--line`, радиус `--r-ctl`, подсказка `--text-3`.
+    pub fn set_tokens(&self, tokens: &Tokens) {
+        fill(self, tokens.surface, 1.0);
+        if let Some(layer) = self.layer() {
+            layer.setBorderWidth(1.0);
+            layer.setBorderColor(Some(&color(tokens.line, 1.0).CGColor()));
+            layer.setCornerRadius(tokens.r_ctl);
+        }
+        self.ivars()
+            .hint
+            .setTextColor(Some(&color(tokens.text_3, 1.0)));
+    }
+
+    pub fn hint(&self) -> &NSTextField {
+        &self.ivars().hint
     }
 
     /// Число нажатий кнопки мыши, дошедших до поля.
@@ -469,7 +520,6 @@ impl ChromeBar {
         bar.setAutoresizingMask(
             NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewMaxYMargin,
         );
-        fill(&bar, tokens.chrome, 1.0);
         let target: &AnyObject = target;
         let workspace = button(
             mtm,
@@ -506,7 +556,6 @@ impl ChromeBar {
             ),
             line: NSView::initWithFrame(NSView::alloc(mtm), rect(0.0, 0.0, width, 1.0)),
         };
-        fill(&parts.line, tokens.line, 1.0);
         for view in [
             &*parts.line,
             &parts.workspace,
@@ -518,8 +567,18 @@ impl ChromeBar {
             bar.addSubview(view);
         }
         let _ = bar.ivars().parts.set(parts);
+        bar.set_tokens(tokens);
         bar.place_parts();
         bar
+    }
+
+    /// Фон `--chrome`, нижняя линия `--line` и поле поиска.
+    pub fn set_tokens(&self, tokens: &Tokens) {
+        fill(self, tokens.chrome, 1.0);
+        if let Some(parts) = self.parts() {
+            fill(&parts.line, tokens.line, 1.0);
+            parts.search.set_tokens(tokens);
+        }
     }
 
     pub fn parts(&self) -> Option<&ChromeParts> {

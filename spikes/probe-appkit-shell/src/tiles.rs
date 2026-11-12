@@ -6,17 +6,23 @@
 //! строка в рамке. Вуаль не принимает щелчок и не элемент доступности. Клавиши вкладок плитка с
 //! фокусом передаёт своей полосе. В центральной и правой плитках под полосой `VirtualList`:
 //! щелчок по строке делает first responder его таблицу, и фокус переходит плитке. В навигаторе
-//! `TreeList`: его дерево — first responder навигатора.
+//! `TreeList`: его дерево — first responder навигатора. В нижней плитке индикатор работы:
+//! вращающаяся дуга, при Reduce Motion — неподвижная пунктирная.
 
 use std::cell::Cell;
+use std::f64::consts::PI;
 use std::rc::{Rc, Weak};
 
 use objc2::rc::Retained;
+use objc2::runtime::AnyObject;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::NSTableRowView;
-use objc2_app_kit::{NSAutoresizingMaskOptions, NSEvent, NSResponder, NSView};
-use objc2_foundation::{NSObject, NSPoint, NSRect, NSSize};
+use objc2_app_kit::{NSAutoresizingMaskOptions, NSEvent, NSResponder, NSTextField, NSView};
+use objc2_core_graphics::CGMutablePath;
+use objc2_foundation::{NSArray, NSNumber, NSObject, NSPoint, NSRect, NSSize, NSString};
+use objc2_quartz_core::{CABasicAnimation, CAMediaTiming, CAShapeLayer, kCALineCapRound};
 
+use crate::args::Motion;
 use crate::chrome::{color, fill, label, rect};
 use crate::fixtures::{self, SCENE_ROWS, TREE_BRANCHING, TabSpec};
 use crate::list::{Hooks, ListLook, VirtualList};
@@ -48,6 +54,19 @@ pub const RIGHT: usize = 1;
 pub const BOTTOM: usize = 2;
 /// Вкладки плиток сцены по индексам `CENTER`, `RIGHT`, `BOTTOM`.
 pub const SCENE_TABS: [usize; 3] = [8, 2, 1];
+/// Ключ анимации вращения дуги индикатора.
+pub const SPIN_KEY: &str = "probe.work.spin";
+/// Индикатор как `.st-spin` прототипа: 12 точек, окружность радиуса 4,5, линия 1,6, оборот за
+/// секунду; дорожка — `--run` с непрозрачностью 0,25.
+const SPINNER: f64 = 12.0;
+const SPIN_RADIUS: f64 = 4.5;
+const SPIN_LINE: f64 = 1.6;
+const SPIN_TRACK_ALPHA: f64 = 0.25;
+const SPIN_PERIOD: f64 = 1.0;
+/// Пунктир неподвижной дуги: `stroke-dasharray: 2 2`.
+const SPIN_DASH: f64 = 2.0;
+const STATUS_GAP: f64 = 5.0;
+const RUNNING: &str = "Работа идёт";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Focus {
@@ -64,16 +83,21 @@ pub struct Tiles {
     pub center_host: Retained<ZoneHost>,
     pub right_host: Retained<ZoneHost>,
     focus: Cell<Focus>,
-    tokens: Tokens,
+    tokens: Cell<Tokens>,
 }
 
 impl Tiles {
     /// `sides` — зазоры слева и справа у хостов центра и правой зоны.
-    pub fn new(mtm: MainThreadMarker, tokens: Tokens, sides: [(f64, f64); 2]) -> Rc<Tiles> {
+    pub fn new(
+        mtm: MainThreadMarker,
+        tokens: Tokens,
+        motion: Motion,
+        sides: [(f64, f64); 2],
+    ) -> Rc<Tiles> {
         let tiles = Rc::new_cyclic(|owner: &Weak<Tiles>| {
             let tile = |index: usize, title: &str, place: Place| {
                 let tabs = fixtures::tabs(SCENE_TABS[index]);
-                Tile::new(mtm, index, title, place, tabs, owner, &tokens)
+                Tile::new(mtm, index, title, place, tabs, owner, &tokens, motion)
             };
             let center = tile(CENTER, "Терминал", Place::Center);
             let right = tile(RIGHT, "Изменения", Place::Side);
@@ -92,7 +116,7 @@ impl Tiles {
                 center_host,
                 right_host,
                 focus: Cell::new(Focus::Tile(CENTER)),
-                tokens,
+                tokens: Cell::new(tokens),
             }
         });
         tiles.apply(Focus::Tile(CENTER));
@@ -103,15 +127,209 @@ impl Tiles {
         self.focus.get()
     }
 
+    /// Токены новой ячейки: хосты зон, навигатор, плитки и их слои над содержимым.
+    pub fn set_tokens(&self, tokens: Tokens) {
+        self.tokens.set(tokens);
+        for host in [&self.center_host, &self.right_host] {
+            host.set_tokens(&tokens);
+        }
+        self.navigator.set_tokens(&tokens);
+        for tile in &self.tiles {
+            tile.set_tokens(&tokens);
+        }
+        self.apply(self.focus());
+    }
+
+    /// Движение индикатора работы нижней плитки.
+    pub fn set_motion(&self, motion: Motion) {
+        if let Some(indicator) = self.indicator() {
+            indicator.set_motion(motion);
+        }
+    }
+
+    pub fn indicator(&self) -> Option<&Indicator> {
+        self.tiles.get(BOTTOM).and_then(|tile| tile.indicator())
+    }
+
     /// Тон у плитки с фокусом, вуаль у остальных, рамка у выбранной строки навигатора.
     fn apply(&self, focus: Focus) {
         self.focus.set(focus);
+        let tokens = self.tokens.get();
         for (index, tile) in self.tiles.iter().enumerate() {
             let focused = focus == Focus::Tile(index);
-            tile.paint_overlay(focused, &self.tokens);
+            tile.paint_overlay(focused, &tokens);
             tile.strip().set_focused(focused);
         }
         self.navigator.paint_selection(focus == Focus::Navigator);
+    }
+}
+
+/// Индикатор работы: дорожка и дуга `--run` и подпись. Дуга вращается бесконечной анимацией
+/// слоя; при Reduce Motion анимация снимается, а дуга становится пунктирной и неподвижной, как
+/// у прототипа. Остановленный индикатор скрывается вместе с подписью.
+pub struct Indicator {
+    spinner: Retained<NSView>,
+    track: Retained<CAShapeLayer>,
+    arc: Retained<CAShapeLayer>,
+    status: Retained<NSTextField>,
+    motion: Cell<Motion>,
+    running: Cell<bool>,
+}
+
+impl Indicator {
+    fn new(mtm: MainThreadMarker, tokens: &Tokens, motion: Motion) -> Indicator {
+        let spinner = NSView::initWithFrame(
+            NSView::alloc(mtm),
+            rect(TITLE_INSET, 14.0, SPINNER, SPINNER),
+        );
+        spinner.setWantsLayer(true);
+        let bounds = NSRect::new(NSPoint::ZERO, NSSize::new(SPINNER, SPINNER));
+        let center = SPINNER / 2.0;
+        let circle = CGMutablePath::new();
+        // SAFETY: путь только что создан, преобразования нет.
+        unsafe {
+            CGMutablePath::add_arc(
+                Some(&circle),
+                std::ptr::null(),
+                center,
+                center,
+                SPIN_RADIUS,
+                0.0,
+                2.0 * PI,
+                false,
+            )
+        };
+        let quarter = CGMutablePath::new();
+        // Четверть от верха вправо по часовой стрелке; слой не перевёрнут, верх — π/2.
+        // SAFETY: путь только что создан, преобразования нет.
+        unsafe {
+            CGMutablePath::add_arc(
+                Some(&quarter),
+                std::ptr::null(),
+                center,
+                center,
+                SPIN_RADIUS,
+                PI / 2.0,
+                0.0,
+                true,
+            )
+        };
+        let shape = |path: &CGMutablePath| {
+            let layer = CAShapeLayer::new();
+            layer.setFrame(bounds);
+            layer.setPath(Some(path));
+            layer.setFillColor(None);
+            layer.setLineWidth(SPIN_LINE);
+            // SAFETY: имя окончания линии — неизменяемая константа Core Animation.
+            layer.setLineCap(unsafe { kCALineCapRound });
+            layer
+        };
+        let track = shape(&circle);
+        let arc = shape(&quarter);
+        if let Some(host) = spinner.layer() {
+            host.addSublayer(&track);
+            host.addSublayer(&arc);
+        }
+        let status = label(
+            mtm,
+            RUNNING,
+            tokens.run,
+            rect(TITLE_INSET + SPINNER + STATUS_GAP, 11.0, 200.0, 18.0),
+        );
+        let indicator = Indicator {
+            spinner,
+            track,
+            arc,
+            status,
+            motion: Cell::new(motion),
+            running: Cell::new(true),
+        };
+        indicator.set_tokens(tokens);
+        indicator.update();
+        indicator
+    }
+
+    fn add_to(&self, body: &NSView) {
+        body.addSubview(&self.spinner);
+        body.addSubview(&self.status);
+    }
+
+    /// Дорожка, дуга и подпись цвета `--run`.
+    pub fn set_tokens(&self, tokens: &Tokens) {
+        self.track
+            .setStrokeColor(Some(&color(tokens.run, SPIN_TRACK_ALPHA).CGColor()));
+        self.arc
+            .setStrokeColor(Some(&color(tokens.run, 1.0).CGColor()));
+        self.status.setTextColor(Some(&color(tokens.run, 1.0)));
+    }
+
+    pub fn set_motion(&self, motion: Motion) {
+        self.motion.set(motion);
+        self.update();
+    }
+
+    /// Работа идёт или закончилась; закончившаяся скрывает индикатор.
+    pub fn set_running(&self, running: bool) {
+        self.running.set(running);
+        self.update();
+    }
+
+    pub fn motion(&self) -> Motion {
+        self.motion.get()
+    }
+
+    pub fn spinner(&self) -> &NSView {
+        &self.spinner
+    }
+
+    pub fn track(&self) -> &CAShapeLayer {
+        &self.track
+    }
+
+    /// Слой дуги, который вращается.
+    pub fn arc(&self) -> &CAShapeLayer {
+        &self.arc
+    }
+
+    pub fn status(&self) -> &NSTextField {
+        &self.status
+    }
+
+    fn update(&self) {
+        let running = self.running.get();
+        self.spinner.setHidden(!running);
+        self.status.setHidden(!running);
+        let key = NSString::from_str(SPIN_KEY);
+        let spinning = running && self.motion.get() == Motion::Normal;
+        let dash = (!spinning).then(|| {
+            let step = NSNumber::new_f64(SPIN_DASH);
+            NSArray::from_retained_slice(&[step.clone(), step])
+        });
+        self.arc.setLineDashPattern(dash.as_deref());
+        if !spinning {
+            self.arc.removeAnimationForKey(&key);
+            return;
+        }
+        let present = self
+            .arc
+            .animationKeys()
+            .is_some_and(|keys| keys.iter().any(|existing| *existing == *key));
+        if present {
+            return;
+        }
+        let spin = CABasicAnimation::animationWithKeyPath(Some(&NSString::from_str(
+            "transform.rotation.z",
+        )));
+        let (from, to) = (NSNumber::new_f64(0.0), NSNumber::new_f64(-2.0 * PI));
+        let (from, to): (&AnyObject, &AnyObject) = (&from, &to);
+        // SAFETY: значения анимации поворота — NSNumber.
+        unsafe {
+            spin.setFromValue(Some(from));
+            spin.setToValue(Some(to));
+        }
+        spin.setDuration(SPIN_PERIOD);
+        spin.setRepeatCount(f32::INFINITY);
+        self.arc.addAnimation_forKey(&spin, Some(&key));
     }
 }
 
@@ -162,6 +380,8 @@ pub struct TileIvars {
     body: Retained<NSView>,
     /// Список центральной и правой плиток; таблица — first responder плитки.
     list: Option<VirtualList>,
+    /// Индикатор работы нижней плитки.
+    indicator: Option<Indicator>,
     veil: Retained<Veil>,
 }
 
@@ -217,6 +437,7 @@ define_class!(
 );
 
 impl Tile {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         mtm: MainThreadMarker,
         index: usize,
@@ -225,6 +446,7 @@ impl Tile {
         tabs: Vec<TabSpec>,
         owner: &Weak<Tiles>,
         tokens: &Tokens,
+        motion: Motion,
     ) -> Retained<Tile> {
         let frame = rect(0.0, 0.0, 400.0, 300.0);
         let width = frame.size.width;
@@ -242,21 +464,11 @@ impl Tile {
             NSAutoresizingMaskOptions::ViewWidthSizable
                 | NSAutoresizingMaskOptions::ViewHeightSizable,
         );
-        if place == Place::Bottom {
-            // Заглушка индикатора работы; движение появляется в задаче 10.
-            let dot = NSView::initWithFrame(NSView::alloc(mtm), rect(TITLE_INSET, 16.0, 8.0, 8.0));
-            fill(&dot, tokens.run, 1.0);
-            if let Some(layer) = dot.layer() {
-                layer.setCornerRadius(4.0);
-            }
-            body.addSubview(&dot);
-            body.addSubview(&label(
-                mtm,
-                "Работа идёт",
-                tokens.text_2,
-                rect(TITLE_INSET + 16.0, 11.0, 200.0, 18.0),
-            ));
-        }
+        let indicator = (place == Place::Bottom).then(|| {
+            let indicator = Indicator::new(mtm, tokens, motion);
+            indicator.add_to(&body);
+            indicator
+        });
 
         let list = (place != Place::Bottom).then(|| {
             let list = VirtualList::new(
@@ -288,15 +500,13 @@ impl Tile {
             strip,
             body,
             list,
+            indicator,
             veil,
         });
         // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
         let tile: Retained<Tile> = unsafe { msg_send![super(this), initWithFrame: frame] };
-        fill(&tile, tokens.panel, 1.0);
+        tile.paint_plate(tokens);
         if let Some(layer) = tile.layer() {
-            layer.setBorderWidth(1.0);
-            layer.setBorderColor(Some(&color(tokens.line, 1.0).CGColor()));
-            layer.setCornerRadius(tokens.r_plate);
             layer.setMasksToBounds(true);
         }
         let ivars = tile.ivars();
@@ -329,6 +539,34 @@ impl Tile {
 
     pub fn list(&self) -> Option<&VirtualList> {
         self.ivars().list.as_ref()
+    }
+
+    pub fn indicator(&self) -> Option<&Indicator> {
+        self.ivars().indicator.as_ref()
+    }
+
+    /// Фон `--panel`, линия `--line` и радиус `--r-plate`.
+    fn paint_plate(&self, tokens: &Tokens) {
+        fill(self, tokens.panel, 1.0);
+        if let Some(layer) = self.layer() {
+            layer.setBorderWidth(1.0);
+            layer.setBorderColor(Some(&color(tokens.line, 1.0).CGColor()));
+            layer.setCornerRadius(tokens.r_plate);
+        }
+    }
+
+    /// Токены новой ячейки для плитки, её полосы, списка и индикатора. Слой над содержимым
+    /// перекрашивает владелец плиток по фокусу.
+    fn set_tokens(&self, tokens: &Tokens) {
+        self.paint_plate(tokens);
+        let ivars = self.ivars();
+        ivars.strip.set_tokens(tokens);
+        if let Some(list) = &ivars.list {
+            list.set_colors(tokens, ListLook::tile(tokens).background);
+        }
+        if let Some(indicator) = &ivars.indicator {
+            indicator.set_tokens(tokens);
+        }
     }
 
     fn paint_overlay(&self, focused: bool, tokens: &Tokens) {
@@ -431,6 +669,12 @@ impl Navigator {
         &self.ivars().tree
     }
 
+    /// Фон окна `--chrome` и цвета дерева.
+    fn set_tokens(&self, tokens: &Tokens) {
+        fill(self, tokens.chrome, 1.0);
+        self.ivars().tree.set_colors(tokens);
+    }
+
     /// Вид выбранной строки дерева, если он создан.
     pub fn selected_row(&self) -> Option<Retained<NSTableRowView>> {
         self.ivars().tree.selected_row_view()
@@ -502,6 +746,11 @@ impl ZoneHost {
         }
         view.place();
         view
+    }
+
+    /// Фон окна `--chrome`.
+    fn set_tokens(&self, tokens: &Tokens) {
+        fill(self, tokens.chrome, 1.0);
     }
 
     fn place(&self) {

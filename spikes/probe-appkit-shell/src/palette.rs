@@ -234,6 +234,20 @@ impl PaletteController {
     }
 }
 
+/// Слои тени по токенам `--shadow`: под каждым — поверхность `--surface` с радиусом `--r-float`.
+fn paint_shadows(layers: &[Retained<CALayer>], tokens: &Tokens) {
+    for (layer, shadow) in layers.iter().zip(&tokens.shadow) {
+        layer.setBackgroundColor(Some(&color(tokens.surface, 1.0).CGColor()));
+        layer.setCornerRadius(tokens.r_float);
+        layer.setShadowColor(Some(&color(shadow.color.color, 1.0).CGColor()));
+        layer.setShadowOpacity(shadow.color.alpha as f32);
+        // Размытие CSS — удвоенное стандартное отклонение, радиус слоя — одно.
+        layer.setShadowRadius(shadow.blur / 2.0);
+        // Слой не перевёрнут: отрицательное смещение уводит тень вниз.
+        layer.setShadowOffset(CGSize::new(0.0, -shadow.y));
+    }
+}
+
 /// Палитра сцены; её держит сцена до конца процесса.
 pub struct Palette {
     parent: Retained<NSWindow>,
@@ -303,19 +317,11 @@ impl Palette {
         let (casters, shadows): (Vec<Retained<NSView>>, Vec<Retained<CALayer>>) = tokens
             .shadow
             .iter()
-            .map(|shadow| {
+            .map(|_| {
                 // Тень несёт подслой слоя-хоста: у слоя самого вида AppKit сбрасывает
                 // `shadowOpacity` по `NSView.shadow`.
                 let layer = CALayer::new();
                 layer.setFrame(NSRect::new(NSPoint::ZERO, surface_rect.size));
-                layer.setBackgroundColor(Some(&color(tokens.surface, 1.0).CGColor()));
-                layer.setCornerRadius(tokens.r_float);
-                layer.setShadowColor(Some(&color(shadow.color.color, 1.0).CGColor()));
-                layer.setShadowOpacity(shadow.color.alpha as f32);
-                // Размытие CSS — удвоенное стандартное отклонение, радиус слоя — одно.
-                layer.setShadowRadius(shadow.blur / 2.0);
-                // Слой не перевёрнут: отрицательное смещение уводит тень вниз.
-                layer.setShadowOffset(CGSize::new(0.0, -shadow.y));
                 let host = CALayer::new();
                 host.addSublayer(&layer);
                 let caster = NSView::initWithFrame(NSView::alloc(mtm), surface_rect);
@@ -325,6 +331,7 @@ impl Palette {
                 (caster, layer)
             })
             .unzip();
+        paint_shadows(&shadows, tokens);
         let surface = NSView::initWithFrame(NSView::alloc(mtm), surface_rect);
         fill(&surface, tokens.surface, 1.0);
         if let Some(layer) = surface.layer() {
@@ -474,6 +481,24 @@ impl Palette {
             WIDTH - 2.0 * INPUT_PAD,
             18.0,
         ));
+    }
+
+    /// Цвета темы: поверхность, линии, поле, список, надпись пустого результата и слои тени.
+    /// Поле тени от ячейки не зависит: размытие и смещение у всех ячеек одинаковы.
+    pub fn set_tokens(&self, tokens: &Tokens) {
+        paint_shadows(&self.shadows, tokens);
+        fill(&self.surface, tokens.surface, 1.0);
+        if let Some(layer) = self.surface.layer() {
+            layer.setCornerRadius(tokens.r_float);
+            layer.setBorderWidth(1.0);
+            layer.setBorderColor(Some(&color(tokens.line_2, 1.0).CGColor()));
+        }
+        self.field
+            .setBackgroundColor(Some(&color(tokens.surface, 1.0)));
+        self.field.setTextColor(Some(&color(tokens.text, 1.0)));
+        fill(&self.line, tokens.line, 1.0);
+        self.list.set_colors(tokens, tokens.surface);
+        self.empty.setTextColor(Some(&color(tokens.text_3, 1.0)));
     }
 
     /// Запасной вид, которому уходит фокус, если прежний убран, пока палитра открыта.
@@ -704,6 +729,11 @@ impl Palette {
 
     pub fn field(&self) -> &NSTextField {
         &self.field
+    }
+
+    /// Линия между полем и списком.
+    pub fn separator(&self) -> &NSView {
+        &self.line
     }
 
     pub fn list(&self) -> &VirtualList {

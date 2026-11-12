@@ -5,6 +5,8 @@
 //! обычным элементам, и у свёрнутой зоны тоже; рядом с элементами сайдбара и инспектора его
 //! нет, поэтому зазоры у центра в варианте `sidebar` рисует хост зоны (`zone_sides`).
 
+use std::cell::RefCell;
+
 use objc2::rc::Retained;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
@@ -32,7 +34,7 @@ const CENTER_HOLDING: f32 = 250.0;
 
 pub struct SplitIvars {
     _live: Live,
-    divider: Retained<NSColor>,
+    divider: RefCell<Retained<NSColor>>,
 }
 
 define_class!(
@@ -51,7 +53,7 @@ define_class!(
 
         #[unsafe(method_id(dividerColor))]
         fn divider_color(&self) -> Retained<NSColor> {
-            self.ivars().divider.clone()
+            self.ivars().divider.borrow().clone()
         }
     }
 );
@@ -60,10 +62,16 @@ impl ProbeSplitView {
     fn new(mtm: MainThreadMarker, frame: NSRect, tokens: &Tokens) -> Retained<ProbeSplitView> {
         let this = ProbeSplitView::alloc(mtm).set_ivars(SplitIvars {
             _live: SPLIT_VIEW.live(),
-            divider: color(tokens.chrome, 1.0),
+            divider: RefCell::new(color(tokens.chrome, 1.0)),
         });
         // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
         unsafe { msg_send![super(this), initWithFrame: frame] }
+    }
+
+    /// Делитель цвета окна `--chrome`.
+    pub fn set_tokens(&self, tokens: &Tokens) {
+        *self.ivars().divider.borrow_mut() = color(tokens.chrome, 1.0);
+        self.setNeedsDisplay(true);
     }
 }
 
@@ -121,6 +129,10 @@ impl SplitScene {
             center,
             right,
         }
+    }
+
+    pub fn set_tokens(&self, tokens: &Tokens) {
+        self.split_view.set_tokens(tokens);
     }
 
     /// Настройки элементов и делителя, как их видит AppKit.

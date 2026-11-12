@@ -428,7 +428,7 @@ impl Run {
             actual.content.height,
             !actual.left_collapsed,
             !actual.right_collapsed,
-            &self.scene.tokens,
+            &self.scene.tokens(),
         );
         let mismatches = compare(&zones, &actual);
         let tiles = &self.scene.tiles;
@@ -494,7 +494,7 @@ impl Run {
             (name.to_owned(), frame)
         })
         .collect();
-        let band_bottom = height - self.scene.tokens.titlebar;
+        let band_bottom = height - self.scene.tokens().titlebar;
         let in_band = buttons.iter().all(|(_, frame)| {
             frame.is_some_and(|frame| {
                 frame.y >= band_bottom - GEOMETRY_TOLERANCE
@@ -598,11 +598,11 @@ pub fn run(stand: Rc<Stand>) {
     let Some(scene) = stand.built_scene.clone() else {
         return stand.conclude(report, Err("сцена не собрана".to_owned()));
     };
-    report.push("cell", scene.cell.name());
-    report.push_json("tokens", &scene.tokens.entries());
+    report.push("cell", scene.cell().name());
+    report.push_json("tokens", &scene.tokens().entries());
     report.push_json(
         "tokens_input_mode",
-        &tokens::tokens(scene.cell, InputMode::Input).entries(),
+        &tokens::tokens(scene.cell(), InputMode::Input).entries(),
     );
     report.push_json("split_items", &scene.split.describe());
     let log = WindowLog::new(stand.app.mtm());
@@ -690,7 +690,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
                 run.scan("key");
                 probe_pixels(run, "center-focused")?;
                 let mtm = run.mtm();
-                let tokens = &run.scene.tokens;
+                let tokens = &run.scene.tokens();
                 let baseline = chrome::window(mtm, &run.stand.display, tokens);
                 let root =
                     SceneRoot::new(mtm, NSRect::new(NSPoint::ZERO, crate::WINDOW_SIZE), tokens);
@@ -1028,7 +1028,7 @@ fn check_resize(run: &Run, state: &str, target: Option<NSRect>) {
 
 fn initial_checks(run: &Run) -> Result<(), String> {
     let window = run.window();
-    let tokens = &run.scene.tokens;
+    let tokens = &run.scene.tokens();
     let size = run.content_size();
     let background = readback::srgb(&window.backgroundColor());
     let opaque = window.isOpaque() && background.is_some_and(|color| color.a == 255);
@@ -1125,7 +1125,7 @@ fn check_veil_passthrough(run: &Run) -> Result<(), String> {
 }
 
 fn check_tile_focus(run: &Run, focused: usize, state: &str) {
-    let tokens = &run.scene.tokens;
+    let tokens = &run.scene.tokens();
     let tone = tint_rgba(tokens.tone());
     let dim = tint_rgba(tokens.dim);
     let colors: Vec<Option<Rgba>> = (0..run.scene.tiles.tiles.len())
@@ -1161,7 +1161,7 @@ fn ring(run: &Run) -> Option<(f64, Option<Rgba>)> {
 }
 
 fn check_navigator_focus(run: &Run) {
-    let tokens = &run.scene.tokens;
+    let tokens = &run.scene.tokens();
     let dim = tint_rgba(tokens.dim);
     let colors: Vec<Option<Rgba>> = (0..run.scene.tiles.tiles.len())
         .map(|index| run.veil_color(index))
@@ -1247,7 +1247,7 @@ fn check_search(run: &Run) {
 fn probe_pixels(run: &Run, state: &str) -> Result<(), String> {
     let root = &run.scene.root;
     let render = ViewRender::of(root)?;
-    let tokens = &run.scene.tokens;
+    let tokens = &run.scene.tokens();
     let tiles = &run.scene.tiles;
     let focus = tiles.focus();
     let mut probes: Vec<(String, NSPoint, Rgba)> = tiles
@@ -1427,7 +1427,7 @@ fn conclude_buttons(run: &Run, report: &mut Report) {
         verdict(in_band),
         format!(
             "кадры standardWindowButton в полосе {} точек: {}; в середине полосы (наблюдение, допуск {CENTER_TOLERANCE}): {}; в полноэкранном режиме кнопки в другом окне и в вывод не входят",
-            run.scene.tokens.titlebar,
+            run.scene.tokens().titlebar,
             describe_states(|state| state.in_band),
             describe_states(|state| state.centered)
         ),

@@ -420,7 +420,7 @@ impl Run {
             .selected_row_view()
             .and_then(|view| view.layer())
             .and_then(|layer| readback::layer_state(&layer).background);
-        let tokens = &self.scene.tokens;
+        let tokens = &self.scene.tokens();
         let ring = self.ring();
         let ring_ok = match (focused, ring) {
             (true, Some((width, color))) => width == 1.0 && color == Some(tokens.focus),
@@ -855,11 +855,11 @@ pub fn run(stand: Rc<Stand>) {
     let spec = fixtures::tree(&TREE_BRANCHING);
     let mut reversed_spec = spec.clone();
     reversed_spec.reverse();
-    report.push("cell", scene.cell.name());
+    report.push("cell", scene.cell().name());
     report.push_json("tree_branching", &TREE_BRANCHING);
     report.push("tree_size", fixtures::tree_size(&spec));
     report.push("tree_depth", fixtures::tree_depth(&spec));
-    report.push("row_height", scene.tokens.row);
+    report.push("row_height", scene.tokens().row);
     report.push("indent", tree::INDENT);
     report.push(
         "strongly_references_items",

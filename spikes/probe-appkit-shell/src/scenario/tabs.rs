@@ -320,7 +320,7 @@ impl Run {
 
     /// Вкладка с фоном активной вкладки по слою, первая найденная.
     fn layer_active(&self, strip: usize) -> Option<usize> {
-        let panel = self.scene.tokens.panel;
+        let panel = self.scene.tokens().panel;
         self.strip(strip)
             .tab_views()
             .iter()
@@ -329,7 +329,7 @@ impl Run {
 
     fn read_strip(&self, index: usize) -> StripRead {
         let strip = self.strip(index);
-        let tokens = &self.scene.tokens;
+        let tokens = &self.scene.tokens();
         let size = strip.bounds().size;
         let tabs: Vec<Rect> = strip
             .tab_views()
@@ -426,7 +426,7 @@ impl Run {
     fn check_layout(&self, index: usize, state: &str) -> StripRead {
         let strip = self.strip(index);
         let read = self.read_strip(index);
-        let tokens = &self.scene.tokens;
+        let tokens = &self.scene.tokens();
         let widths: Vec<f64> = read.tabs.iter().map(|tab| tab.width).collect();
         let meter = strip.active_meter();
         let meter_width = meter.as_ref().map(|_| read.meter_fitting + 2.0 * METER_PAD);
@@ -599,7 +599,7 @@ impl Run {
     fn check_selection(&self, index: usize, state: &str, want: Option<usize>) -> bool {
         let strip = self.strip(index);
         let read = self.read_strip(index);
-        let tokens = &self.scene.tokens;
+        let tokens = &self.scene.tokens();
         let mut problems = Vec::new();
         let want_layers: Vec<usize> = want.into_iter().collect();
         if read.active_layers != want_layers {
@@ -843,7 +843,7 @@ impl Run {
     fn probe_pixels(&self) -> Result<(), String> {
         let root = &self.scene.root;
         let render = ViewRender::of(root)?;
-        let tokens = &self.scene.tokens;
+        let tokens = &self.scene.tokens();
         let strip = self.strip(CENTER);
         let views = strip.tab_views();
         let active = strip.active().ok_or("нет активной вкладки")?;
@@ -989,7 +989,7 @@ pub fn run(stand: Rc<Stand>) {
     let Some(scene) = stand.built_scene.clone() else {
         return stand.conclude(report, Err("сцена не собрана".to_owned()));
     };
-    report.push("cell", scene.cell.name());
+    report.push("cell", scene.cell().name());
     report.push_json("tab_counts", &TAB_COUNTS);
     report.push_json("scene_tabs", &SCENE_TABS);
     report.push(

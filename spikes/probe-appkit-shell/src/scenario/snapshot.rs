@@ -206,6 +206,34 @@ impl ViewRender {
         readback::srgb(&color).ok_or_else(|| format!("пиксель {x},{y} без sRGB-представления"))
     }
 
+    /// Наложение `top` с непрозрачностью `alpha` на непрозрачный `base` в компонентах
+    /// пространства bitmap, а не в кодированных значениях sRGB; итог — в sRGB.
+    pub fn blend(&self, base: Rgba, top: Rgba, alpha: f64) -> Option<Rgba> {
+        let space = self.rep.colorSpace();
+        let convert = |rgba: Rgba| {
+            let (r, g, b) = rgba.unit();
+            let color = NSColor::colorWithSRGBRed_green_blue_alpha(r, g, b, 1.0)
+                .colorUsingColorSpace(&space)?;
+            Some([
+                color.redComponent(),
+                color.greenComponent(),
+                color.blueComponent(),
+            ])
+        };
+        let (base, top) = (convert(base)?, convert(top)?);
+        let mix = |index: usize| base[index] * (1.0 - alpha) + top[index] * alpha;
+        let mut components = [mix(0), mix(1), mix(2), 1.0];
+        // SAFETY: четыре компонента — RGB пространства bitmap и альфа.
+        let color = unsafe {
+            NSColor::colorWithColorSpace_components_count(
+                &space,
+                NonNull::from(&mut components).cast(),
+                4,
+            )
+        };
+        readback::srgb(&color)
+    }
+
     /// PNG кодируется на главном потоке, файл пишет рабочий поток.
     pub fn save(&self, out: &Path, name: &str) -> Background<Snapshot> {
         let mut snapshot = Snapshot {

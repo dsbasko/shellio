@@ -223,8 +223,8 @@ impl Run {
         self.palette().panel()
     }
 
-    fn tokens(&self) -> &Tokens {
-        &self.scene.tokens
+    fn tokens(&self) -> Tokens {
+        self.scene.tokens()
     }
 
     fn touch(&self) {
@@ -473,7 +473,7 @@ impl Run {
 
     /// Поверхность непрозрачна, без затемнения окна, тень из токенов, окно без материала.
     fn check_surface(&self) {
-        let tokens = *self.tokens();
+        let tokens = self.tokens();
         let palette = self.palette();
         let surface = palette
             .surface()
@@ -1050,7 +1050,7 @@ pub fn run(stand: Rc<Stand>) {
     let Some(scene) = stand.built_scene.clone() else {
         return stand.conclude(report, Err("сцена не собрана".to_owned()));
     };
-    report.push("cell", scene.cell.name());
+    report.push("cell", scene.cell().name());
     report.push("palette_commands", scene.palette.model().len());
     report.push("palette_commands_fixture", PALETTE_COMMANDS);
     report.push("palette_width", palette::WIDTH);

@@ -13,6 +13,7 @@ mod scene;
 mod split;
 mod stats;
 mod tabs;
+mod theme;
 mod tiles;
 mod tokens;
 mod tree;
@@ -412,7 +413,7 @@ impl AppDelegate {
             .scenario
             .as_ref()
             .is_none_or(|run| run.scenario.needs_scene());
-        let scene = with_scene.then(|| Rc::new(Scene::build(mtm, &display, ivars.scene)));
+        let scene = with_scene.then(|| Scene::build(mtm, &display, ivars.scene));
         let window = match &scene {
             Some(scene) => scene.window.clone(),
             None => main_window(mtm, &display),

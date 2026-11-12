@@ -18,6 +18,7 @@ pub mod snapshot;
 mod split;
 pub mod stand;
 mod tabs;
+mod theme;
 mod tree;
 pub mod watchdog;
 mod watchdog_check;
@@ -68,10 +69,11 @@ pub enum Scenario {
     Tree,
     Palette,
     Menu,
+    Theme,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 12] = [
+    pub const ALL: [Scenario; 13] = [
         Scenario::Launch,
         Scenario::NativeMenu,
         Scenario::ParentClick,
@@ -84,6 +86,7 @@ impl Scenario {
         Scenario::Tree,
         Scenario::Palette,
         Scenario::Menu,
+        Scenario::Theme,
     ];
 
     pub fn name(self) -> &'static str {
@@ -100,6 +103,7 @@ impl Scenario {
             Scenario::Tree => "tree",
             Scenario::Palette => "palette",
             Scenario::Menu => "menu",
+            Scenario::Theme => "theme",
         }
     }
 
@@ -125,6 +129,7 @@ impl Scenario {
             Scenario::Tree => 150,
             Scenario::Palette => 300,
             Scenario::Menu => 90,
+            Scenario::Theme => 90,
         })
     }
 
@@ -136,7 +141,8 @@ impl Scenario {
             | Scenario::List
             | Scenario::Tree
             | Scenario::Palette
-            | Scenario::Menu => true,
+            | Scenario::Menu
+            | Scenario::Theme => true,
             Scenario::Launch
             | Scenario::NativeMenu
             | Scenario::ParentClick
@@ -173,6 +179,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Tree => tree::run(stand),
         Scenario::Palette => palette::run(stand),
         Scenario::Menu => menu::run(stand),
+        Scenario::Theme => theme::run(stand),
     }
 }
 

@@ -2,14 +2,19 @@
 //! отдаёт таблице на переиспользование по идентификатору. Источник данных и делегат —
 //! `MainThreadOnly`, таблица держит их слабо, поэтому владелец списка держит их сам и
 //! отвязывает при освобождении. Выбор рисует слой строки цветом `--sel`, системная подсветка
-//! выключена. Таблица — first responder своей плитки: её фокус сообщается плитке, а клавиши
-//! вкладок сначала предлагаются полосе. Up и Down таблица обрабатывает сама, без анимации.
+//! выключена. Цвета строк общие для всех видов списка, поэтому смена темы доходит и до видов в
+//! очереди переиспользования. Таблица — first responder своей плитки: её фокус сообщается
+//! плитке, а клавиши вкладок сначала предлагаются полосе. Up и Down таблица обрабатывает сама,
+//! без анимации.
 
 use std::cell::{Cell, RefCell};
+use std::ptr::NonNull;
 use std::rc::Rc;
 
+use block2::StackBlock;
+
 use objc2::rc::Retained;
-use objc2::runtime::ProtocolObject;
+use objc2::runtime::{AnyObject, ProtocolObject};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSAutoresizingMaskOptions, NSControl, NSControlTextEditingDelegate, NSEvent,
@@ -125,6 +130,16 @@ define_class!(
     }
 );
 
+/// Каждый вид строки, который таблица держит сейчас, включая подготовленные вне видимой части.
+pub fn each_row_view(table: &NSTableView, visit: impl Fn(&NSTableRowView)) {
+    let visit = &visit;
+    let block = StackBlock::new(move |row: NonNull<NSTableRowView>, _index: NSInteger| {
+        // SAFETY: таблица передаёт живой вид строки на время вызова.
+        visit(unsafe { row.as_ref() });
+    });
+    table.enumerateAvailableRowViewsUsingBlock(&block);
+}
+
 /// Живой вид списка: число уменьшается, когда AppKit освобождает вид.
 struct Tally(Rc<Cell<usize>>);
 
@@ -211,10 +226,17 @@ define_class!(
     pub struct ListCell;
 );
 
+/// Цвета списка, общие для источника и всех видов строк.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Paint {
+    text: Rgba,
+    sel: Rgba,
+}
+
 pub struct RowIvars {
     _live: Live,
     _tally: Tally,
-    sel: Rgba,
+    paint: Rc<Cell<Paint>>,
     radius: f64,
 }
 
@@ -245,11 +267,22 @@ define_class!(
 );
 
 impl ListRowView {
+    /// Фон выбора и цвет подписей ячеек по общим цветам списка.
     fn paint(&self, selected: bool) {
+        let paint = self.ivars().paint.get();
         if let Some(layer) = self.layer() {
-            let background = selected.then(|| color(self.ivars().sel, 1.0).CGColor());
+            let background = selected.then(|| color(paint.sel, 1.0).CGColor());
             layer.setBackgroundColor(background.as_deref());
             layer.setCornerRadius(self.ivars().radius);
+        }
+        let ink = color(paint.text, 1.0);
+        for view in self.subviews() {
+            if let Ok(cell) = view.downcast::<ListCell>()
+                // SAFETY: `textField` у NSTableCellView; поле задано при создании ячейки.
+                && let Some(field) = unsafe { cell.textField() }
+            {
+                field.setTextColor(Some(&ink));
+            }
         }
     }
 }
@@ -257,8 +290,7 @@ impl ListRowView {
 pub struct SourceIvars {
     _live: Live,
     rows: RefCell<Vec<ListRow>>,
-    text: Rgba,
-    sel: Rgba,
+    paint: Rc<Cell<Paint>>,
     look: ListLook,
     cells_created: Cell<usize>,
     rows_created: Cell<usize>,
@@ -317,8 +349,10 @@ impl ListSource {
         let this = ListSource::alloc(mtm).set_ivars(SourceIvars {
             _live: SOURCE.live(),
             rows: RefCell::new(rows),
-            text: tokens.text,
-            sel: tokens.sel,
+            paint: Rc::new(Cell::new(Paint {
+                text: tokens.text,
+                sel: tokens.sel,
+            })),
             look,
             cells_created: Cell::new(0),
             rows_created: Cell::new(0),
@@ -341,6 +375,7 @@ impl ListSource {
         // SAFETY: `textField` у NSTableCellView; поле задано при создании ячейки.
         if let Some(field) = unsafe { cell.textField() } {
             field.setStringValue(&NSString::from_str(&title));
+            field.setTextColor(Some(&color(self.ivars().paint.get().text, 1.0)));
         }
         Some(Retained::into_super(Retained::into_super(cell)))
     }
@@ -367,7 +402,7 @@ impl ListSource {
         let field: Retained<NSTextField> = label(
             mtm,
             "",
-            ivars.text,
+            ivars.paint.get().text,
             rect(
                 look.text_inset,
                 (look.row_height - 18.0) / 2.0,
@@ -388,6 +423,7 @@ impl ListSource {
         // SAFETY: владелец не нужен: строка создаётся кодом, а не из nib.
         let reused = unsafe { table.makeViewWithIdentifier_owner(&identifier, None) };
         if let Some(row) = reused.and_then(|view| view.downcast::<ListRowView>().ok()) {
+            row.paint(row.isSelected());
             return row;
         }
         let ivars = self.ivars();
@@ -396,7 +432,7 @@ impl ListSource {
         let this = ListRowView::alloc(self.mtm()).set_ivars(RowIvars {
             _live: ROW.live(),
             _tally: Tally::new(&ivars.rows_live),
-            sel: ivars.sel,
+            paint: Rc::clone(&ivars.paint),
             radius: ivars.look.selection_radius,
         });
         // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
@@ -487,6 +523,22 @@ impl VirtualList {
 
     pub fn set_hooks(&self, hooks: Hooks) {
         *self.table.ivars().hooks.borrow_mut() = Some(hooks);
+    }
+
+    /// Цвета темы: фон таблицы `background`, подписи `--text`, выбор `--sel`. Виды строк, которые
+    /// таблица держит сейчас, перекрашиваются сразу, виды из очереди — при выдаче.
+    pub fn set_colors(&self, tokens: &Tokens, background: Rgba) {
+        self.source.ivars().paint.set(Paint {
+            text: tokens.text,
+            sel: tokens.sel,
+        });
+        self.table.setBackgroundColor(&color(background, 1.0));
+        each_row_view(&self.table, |row| {
+            let object: &AnyObject = row;
+            if let Some(row) = object.downcast_ref::<ListRowView>() {
+                row.paint(row.isSelected());
+            }
+        });
     }
 
     pub fn len(&self) -> usize {
