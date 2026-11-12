@@ -182,12 +182,15 @@ fn choose_display(mtm: MainThreadMarker) -> Option<DisplayChoice> {
 fn main_window(mtm: MainThreadMarker, display: &DisplayChoice) -> Retained<NSWindow> {
     let screen = display.screen.frame();
     let visible = display.screen.visibleFrame();
-    // С заданным экраном начало прямоугольника отсчитывается от начала этого экрана.
+    // С заданным экраном начало прямоугольника отсчитывается от начала этого экрана. Дробное
+    // начало AppKit округляет, и содержимое вырастает на точку, поэтому оно целое.
     let origin = NSPoint::new(
-        visible.origin.x - screen.origin.x
-            + ((visible.size.width - WINDOW_SIZE.width) / 2.0).max(0.0),
-        visible.origin.y - screen.origin.y
-            + ((visible.size.height - WINDOW_SIZE.height) / 2.0).max(0.0),
+        (visible.origin.x - screen.origin.x
+            + ((visible.size.width - WINDOW_SIZE.width) / 2.0).max(0.0))
+        .floor(),
+        (visible.origin.y - screen.origin.y
+            + ((visible.size.height - WINDOW_SIZE.height) / 2.0).max(0.0))
+        .floor(),
     );
     let style = NSWindowStyleMask::Titled
         | NSWindowStyleMask::Closable
