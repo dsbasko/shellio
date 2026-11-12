@@ -628,7 +628,7 @@ impl Run {
             ..visible.location + visible.length)
             .map(|row| (row, self.row_background(row).map(|color| color.hex())))
             .collect();
-        let ok = selected.is_some()
+        let layers = selected.is_some()
             && rows.iter().all(|(row, background)| {
                 if Some(*row) == selected {
                     background.as_deref() == Some(sel.hex().as_str())
@@ -636,12 +636,34 @@ impl Run {
                     background.as_deref() != Some(sel.hex().as_str())
                 }
             });
+        // Пиксели рендера списка у правого края строки, где нет подписи.
+        let probe = |row: usize| -> Result<Rgba, String> {
+            let frame = table.rectOfRow(row as isize);
+            let point = NSPoint::new(
+                frame.origin.x + frame.size.width - 20.0,
+                frame.origin.y + frame.size.height / 2.0,
+            );
+            ViewRender::of(table)?.pixel(point)
+        };
+        let surface = self.tokens().surface;
+        let other = selected.map(|row| if row == 0 { 1 } else { row - 1 });
+        let picked = selected.map(probe).transpose();
+        let plain = other.map(probe).transpose();
+        let pixels = matches!(
+            (&picked, &plain),
+            (Ok(Some(picked)), Ok(Some(plain)))
+                if picked.distance(sel) <= 1 && plain.distance(surface) <= 1
+        );
         self.report.borrow_mut().finding(
             name,
-            verdict(ok),
+            verdict(layers && pixels),
             format!(
-                "выбрана {selected:?}, фон слоёв видимых строк {rows:?}, у выбранной ожидался --sel {}",
-                sel.hex()
+                "выбрана {selected:?}, фон слоёв видимых строк {rows:?}, у выбранной ожидался --sel {}; пиксель рендера выбранной строки {:?}, соседней {other:?} {:?}, ожидались {} и --surface {}",
+                sel.hex(),
+                picked.map(|color| color.map(Rgba::hex)),
+                plain.map(|color| color.map(Rgba::hex)),
+                sel.hex(),
+                surface.hex()
             ),
         );
     }

@@ -217,6 +217,11 @@ define_class!(
 
         #[unsafe(method(drawSelectionInRect:))]
         fn draw_selection(&self, _rect: NSRect) {}
+
+        /// Фон строки AppKit рисует в содержимое слоя поверх его `backgroundColor`, как у
+        /// строки списка.
+        #[unsafe(method(drawBackgroundInRect:))]
+        fn draw_background(&self, _rect: NSRect) {}
     }
 );
 
