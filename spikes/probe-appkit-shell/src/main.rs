@@ -3,11 +3,13 @@
 
 mod args;
 mod chrome;
+mod fixtures;
 mod results;
 mod scenario;
 mod scene;
 mod split;
 mod stats;
+mod tabs;
 mod tiles;
 mod tokens;
 

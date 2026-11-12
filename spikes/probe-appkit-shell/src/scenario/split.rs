@@ -265,17 +265,17 @@ pub fn compare(expected: &Zones, actual: &Actual) -> Vec<String> {
 }
 
 /// Кадры, которые должны перестать меняться, прежде чем их читать.
-struct Stable {
+pub(super) struct Stable {
     last: Vec<Rect>,
     since: Instant,
     started: Instant,
     /// Изменения кадров после первого чтения и время последнего от начала ожидания.
-    changes: usize,
-    last_change: Option<Duration>,
+    pub(super) changes: usize,
+    pub(super) last_change: Option<Duration>,
 }
 
 impl Stable {
-    fn new() -> Stable {
+    pub(super) fn new() -> Stable {
         let now = Instant::now();
         Stable {
             last: Vec::new(),
@@ -286,7 +286,7 @@ impl Stable {
         }
     }
 
-    fn quiet(&mut self, frames: Vec<Rect>) -> bool {
+    pub(super) fn quiet(&mut self, frames: Vec<Rect>) -> bool {
         if frames != self.last {
             if !self.last.is_empty() {
                 self.changes += 1;

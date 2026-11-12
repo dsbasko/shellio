@@ -490,6 +490,13 @@ pub fn accessibility_children(object: &AnyObject) -> Vec<Retained<AnyObject>> {
         .unwrap_or_default()
 }
 
+/// Дети элемента в порядке навигации; пусто, если элемент порядок не задаёт.
+pub fn accessibility_navigation_children(object: &AnyObject) -> Vec<Retained<AnyObject>> {
+    ax_array(object, sel!(accessibilityChildrenInNavigationOrder))
+        .map(|children| children.to_vec())
+        .unwrap_or_default()
+}
+
 /// Сцена в виде строк для `result.json`.
 pub fn scene_info(scene: SceneOptions) -> SceneInfo {
     SceneInfo {

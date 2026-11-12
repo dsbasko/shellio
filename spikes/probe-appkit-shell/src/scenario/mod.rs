@@ -14,6 +14,7 @@ mod readback_check;
 pub mod snapshot;
 mod split;
 pub mod stand;
+mod tabs;
 pub mod watchdog;
 mod watchdog_check;
 
@@ -58,10 +59,11 @@ pub enum Scenario {
     /// Самопроверка сторожа: главный поток зависает, процесс обязан выйти с кодом 3.
     WatchdogCheck,
     Split,
+    Tabs,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 7] = [
+    pub const ALL: [Scenario; 8] = [
         Scenario::Launch,
         Scenario::NativeMenu,
         Scenario::ParentClick,
@@ -69,6 +71,7 @@ impl Scenario {
         Scenario::ReadbackCheck,
         Scenario::WatchdogCheck,
         Scenario::Split,
+        Scenario::Tabs,
     ];
 
     pub fn name(self) -> &'static str {
@@ -80,6 +83,7 @@ impl Scenario {
             Scenario::ReadbackCheck => "readback-check",
             Scenario::WatchdogCheck => "watchdog-check",
             Scenario::Split => "split",
+            Scenario::Tabs => "tabs",
         }
     }
 
@@ -100,13 +104,14 @@ impl Scenario {
             Scenario::ReadbackCheck => 45,
             Scenario::WatchdogCheck => 3,
             Scenario::Split => 150,
+            Scenario::Tabs => 150,
         })
     }
 
     /// Сценарию нужна собранная сцена; стендовые сценарии работают на голом окне.
     pub fn needs_scene(self) -> bool {
         match self {
-            Scenario::Split => true,
+            Scenario::Split | Scenario::Tabs => true,
             Scenario::Launch
             | Scenario::NativeMenu
             | Scenario::ParentClick
@@ -138,6 +143,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::ReadbackCheck => readback_check::run(stand),
         Scenario::WatchdogCheck => watchdog_check::run(stand),
         Scenario::Split => split::run(stand),
+        Scenario::Tabs => tabs::run(stand),
     }
 }
 

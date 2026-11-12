@@ -1,9 +1,10 @@
 //! Плитки центральной, правой и нижней зон и плоский навигатор слева. Плитка — линия 1 точка,
-//! радиус `--r-plate`, полоса вкладок `--tabbar` внутри; между плитками и у краёв окна зазор
+//! радиус `--r-plate`, `TabStrip` высоты `--tabbar` внутри; между плитками и у краёв окна зазор
 //! `--gap`, его дают делители сплита или зазоры хостов зон. Плитка с фокусом получает тон
 //! режима, остальные — вуаль `--dim` внутри своих границ. Навигатор лежит
 //! на фоне окна, вуали и тона не имеет; при фокусе в нём все плитки под вуалью, а выбранная
-//! строка в рамке. Вуаль не принимает щелчок и не элемент доступности.
+//! строка в рамке. Вуаль не принимает щелчок и не элемент доступности. Клавиши вкладок плитка с
+//! фокусом передаёт своей полосе.
 
 use std::cell::Cell;
 use std::rc::{Rc, Weak};
@@ -14,7 +15,9 @@ use objc2_app_kit::{NSAutoresizingMaskOptions, NSEvent, NSResponder, NSView};
 use objc2_foundation::{NSObject, NSPoint, NSRect, NSSize};
 
 use crate::chrome::{color, fill, label, rect};
+use crate::fixtures::{self, TabSpec};
 use crate::scenario::counters::{Live, counter};
+use crate::tabs::{Place, TabStrip};
 use crate::tokens::Tokens;
 
 counter!(TILE, "ProbeTile");
@@ -42,18 +45,13 @@ const TITLE_INSET: f64 = 12.0;
 pub const CENTER: usize = 0;
 pub const RIGHT: usize = 1;
 pub const BOTTOM: usize = 2;
+/// Вкладки плиток сцены по индексам `CENTER`, `RIGHT`, `BOTTOM`.
+pub const SCENE_TABS: [usize; 3] = [8, 2, 1];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Focus {
     Navigator,
     Tile(usize),
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Kind {
-    Center,
-    Side,
-    Bottom,
 }
 
 /// Плитки, навигатор и хосты зон сцены; держит фокус.
@@ -72,9 +70,13 @@ impl Tiles {
     /// `sides` — зазоры слева и справа у хостов центра и правой зоны.
     pub fn new(mtm: MainThreadMarker, tokens: Tokens, sides: [(f64, f64); 2]) -> Rc<Tiles> {
         let tiles = Rc::new_cyclic(|owner: &Weak<Tiles>| {
-            let center = Tile::new(mtm, CENTER, "Терминал", Kind::Center, owner, &tokens);
-            let right = Tile::new(mtm, RIGHT, "Изменения", Kind::Side, owner, &tokens);
-            let bottom = Tile::new(mtm, BOTTOM, "Задачи", Kind::Bottom, owner, &tokens);
+            let tile = |index: usize, title: &str, place: Place| {
+                let tabs = fixtures::tabs(SCENE_TABS[index]);
+                Tile::new(mtm, index, title, place, tabs, owner, &tokens)
+            };
+            let center = tile(CENTER, "Терминал", Place::Center);
+            let right = tile(RIGHT, "Изменения", Place::Side);
+            let bottom = tile(BOTTOM, "Задачи", Place::Bottom);
             let center_host = ZoneHost::new(
                 mtm,
                 &tokens,
@@ -104,7 +106,9 @@ impl Tiles {
     fn apply(&self, focus: Focus) {
         self.focus.set(focus);
         for (index, tile) in self.tiles.iter().enumerate() {
-            tile.paint_overlay(focus == Focus::Tile(index), &self.tokens);
+            let focused = focus == Focus::Tile(index);
+            tile.paint_overlay(focused, &self.tokens);
+            tile.strip().set_focused(focused);
         }
         self.navigator
             .paint_selection(focus == Focus::Navigator, &self.tokens);
@@ -154,13 +158,13 @@ pub struct TileIvars {
     _live: Live,
     index: usize,
     owner: Weak<Tiles>,
-    head: Retained<NSView>,
+    strip: Retained<TabStrip>,
     body: Retained<NSView>,
     veil: Retained<Veil>,
 }
 
 define_class!(
-    /// Плитка зоны. Щелчок по ней переводит фокус на неё.
+    /// Плитка зоны. Щелчок по ней переводит фокус на неё, клавиши вкладок уходят её полосе.
     #[unsafe(super(NSView, NSResponder, NSObject))]
     #[thread_kind = MainThreadOnly]
     #[name = "ProbeTile"]
@@ -190,6 +194,14 @@ define_class!(
             }
         }
 
+        #[unsafe(method(keyDown:))]
+        fn key_down(&self, event: &NSEvent) {
+            if !self.ivars().strip.handle_key(event) {
+                // SAFETY: `keyDown:` у NSResponder с событием клавиши.
+                let _: () = unsafe { msg_send![super(self), keyDown: event] };
+            }
+        }
+
         #[unsafe(method(becomeFirstResponder))]
         fn become_first_responder(&self) -> bool {
             // SAFETY: `becomeFirstResponder` у NSResponder без аргументов.
@@ -207,31 +219,18 @@ impl Tile {
         mtm: MainThreadMarker,
         index: usize,
         title: &str,
-        kind: Kind,
+        place: Place,
+        tabs: Vec<TabSpec>,
         owner: &Weak<Tiles>,
         tokens: &Tokens,
     ) -> Retained<Tile> {
         let frame = rect(0.0, 0.0, 400.0, 300.0);
         let width = frame.size.width;
-        let head = NSView::initWithFrame(NSView::alloc(mtm), rect(0.0, 0.0, width, tokens.tabbar));
-        head.setAutoresizingMask(
+        let strip = TabStrip::new(mtm, place, title, tokens, width);
+        strip.setAutoresizingMask(
             NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewMaxYMargin,
         );
-        fill(&head, tokens.panel_head, 1.0);
-        // Вид полосы не перевёрнут: нижняя линия у y = 0.
-        let line = NSView::initWithFrame(NSView::alloc(mtm), rect(0.0, 0.0, width, 1.0));
-        line.setAutoresizingMask(
-            NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewMaxYMargin,
-        );
-        fill(&line, tokens.line, 1.0);
-        head.addSubview(&line);
-        let caption = label(
-            mtm,
-            title,
-            tokens.text,
-            rect(TITLE_INSET, (tokens.tabbar - 18.0) / 2.0, 200.0, 18.0),
-        );
-        head.addSubview(&caption);
+        strip.set_tabs(tabs);
 
         let body = NSView::initWithFrame(
             NSView::alloc(mtm),
@@ -241,7 +240,7 @@ impl Tile {
             NSAutoresizingMaskOptions::ViewWidthSizable
                 | NSAutoresizingMaskOptions::ViewHeightSizable,
         );
-        if kind == Kind::Bottom {
+        if place == Place::Bottom {
             // Заглушка индикатора работы; движение появляется в задаче 10.
             let dot = NSView::initWithFrame(NSView::alloc(mtm), rect(TITLE_INSET, 16.0, 8.0, 8.0));
             fill(&dot, tokens.run, 1.0);
@@ -262,7 +261,7 @@ impl Tile {
             _live: TILE.live(),
             index,
             owner: owner.clone(),
-            head,
+            strip,
             body,
             veil,
         });
@@ -276,9 +275,10 @@ impl Tile {
             layer.setMasksToBounds(true);
         }
         let ivars = tile.ivars();
-        tile.addSubview(&ivars.head);
+        tile.addSubview(&ivars.strip);
         tile.addSubview(&ivars.body);
         tile.addSubview(&ivars.veil);
+        ivars.strip.set_focus_target(&tile);
         tile
     }
 
@@ -287,7 +287,11 @@ impl Tile {
     }
 
     pub fn head(&self) -> &NSView {
-        &self.ivars().head
+        &self.ivars().strip
+    }
+
+    pub fn strip(&self) -> &TabStrip {
+        &self.ivars().strip
     }
 
     pub fn body(&self) -> &NSView {
