@@ -10,7 +10,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CARGO="${CARGO:-cargo}"
 BIN="$ROOT/target/release/probe-appkit-shell"
 OUT_BASE="$ROOT/target/probes/appkit-shell"
-ALL_SCENARIOS="launch"
+ALL_SCENARIOS="launch native-menu parent-click key-delivery"
 
 STATE_DIR=""
 

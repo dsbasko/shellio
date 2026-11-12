@@ -8,23 +8,14 @@ use objc2::rc::Retained;
 use objc2_app_kit::NSWindow;
 use objc2_core_graphics::CGDisplayIsBuiltin;
 
-use super::{Outcome, Poll, Report, Session, Stand, wait_until};
-use crate::args::{Contrast, Motion};
+use super::{Poll, Report, Scenario, Stand, wait_until};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 
 pub fn run(stand: Rc<Stand>) {
-    let mut report = Report::default();
-    report.push("scenario", "launch");
-    scene_to(&stand, &mut report);
-
-    let session = match Session::read() {
-        Ok(session) => session,
-        Err(reason) => return stand.finish(Outcome::error(reason, report)),
-    };
-    session.add_to(&mut report);
-    if let Err(reason) = session.check() {
-        return stand.finish(Outcome::error(reason, report));
+    let mut report = stand.report(Scenario::Launch);
+    if let Err(reason) = stand.check_session(&mut report) {
+        return stand.conclude(report, Err(reason));
     }
 
     let observed = Rc::clone(&stand);
@@ -46,12 +37,12 @@ pub fn run(stand: Rc<Stand>) {
                 match input_source(&stand.window) {
                     Some(source) => {
                         report.push("input_source", source);
-                        stand.finish(Outcome::ok(report));
+                        stand.conclude(report, Ok(()));
                     }
-                    None => stand.finish(Outcome::error(
-                        "предусловие: источник ввода не прочитан",
+                    None => stand.conclude(
                         report,
-                    )),
+                        Err("предусловие: источник ввода не прочитан".to_owned()),
+                    ),
                 }
             }
             Err(timeout) => {
@@ -60,14 +51,14 @@ pub fn run(stand: Rc<Stand>) {
                     format!("{:.1}", timeout.waited.as_secs_f64() * 1e3),
                 );
                 display_to(&stand, &mut report);
-                stand.finish(Outcome::error(
-                    format!(
+                stand.conclude(
+                    report,
+                    Err(format!(
                         "нет активности и key window за {} мс; последнее состояние: {}",
                         TIMEOUT.as_millis(),
                         timeout.last_state
-                    ),
-                    report,
-                ));
+                    )),
+                );
             }
         },
     );
@@ -131,28 +122,6 @@ impl Focus {
     }
 }
 
-fn scene_to(stand: &Stand, report: &mut Report) {
-    let scene = &stand.scene;
-    report.push("split", scene.split.name());
-    report.push(
-        "contrast",
-        match scene.contrast {
-            None => "system",
-            Some(Contrast::Normal) => "normal",
-            Some(Contrast::More) => "more",
-        },
-    );
-    report.push(
-        "motion",
-        match scene.motion {
-            None => "system",
-            Some(Motion::Normal) => "normal",
-            Some(Motion::Reduced) => "reduced",
-        },
-    );
-    report.push("activation", stand.activation);
-}
-
 fn display_to(stand: &Stand, report: &mut Report) {
     let window = &stand.window;
     report.push("backing_scale_factor", window.backingScaleFactor());
@@ -201,7 +170,7 @@ fn display_to(stand: &Stand, report: &mut Report) {
 }
 
 /// Источник ввода по field editor окна: у вида без `NSTextInputClient` контекста ввода нет.
-fn input_source(window: &NSWindow) -> Option<String> {
+pub fn input_source(window: &NSWindow) -> Option<String> {
     // SAFETY: `nil` вместо объекта — документированный запрос общего field editor окна.
     let editor = unsafe { window.fieldEditor_forObject(true, None) }?;
     let source = editor.inputContext()?.selectedKeyboardInputSource()?;

@@ -6,8 +6,10 @@ mod scenario;
 
 use std::cell::{OnceCell, RefCell};
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
@@ -23,7 +25,8 @@ use objc2_foundation::{
 };
 
 use args::{Mode, SceneOptions, USAGE};
-use scenario::{EXIT_EXECUTION, Finisher, Outcome, Report, Scenario, Stand};
+use scenario::events::{SharedTrace, TraceRing};
+use scenario::{EXIT_EXECUTION, Finisher, Outcome, Report, Scenario, Stand, events, watchdog};
 
 const PROBE_NAME: &str = "probe-appkit-shell";
 const EXIT_USAGE: u8 = 2;
@@ -62,7 +65,7 @@ fn main() -> ExitCode {
             if !out.is_dir() {
                 return usage_error(&format!("--out {}: каталога нет", out.display()));
             }
-            run_app(Some(scenario), scene)
+            run_app(Some((scenario, out)), scene)
         }
     }
 }
@@ -72,14 +75,42 @@ fn usage_error(message: &str) -> ExitCode {
     ExitCode::from(EXIT_USAGE)
 }
 
-fn run_app(scenario: Option<Scenario>, scene: SceneOptions) -> ExitCode {
+fn run_app(scenario: Option<(Scenario, PathBuf)>, scene: SceneOptions) -> ExitCode {
     let Some(mtm) = MainThreadMarker::new() else {
         return report_outcome(Outcome::error(
             "запуск не на главном потоке",
             Report::default(),
         ));
     };
-    let app = NSApplication::sharedApplication(mtm);
+    let trace: SharedTrace = Arc::new(Mutex::new(TraceRing::default()));
+    // Сторож снимается только после печати итога: зависнуть может и выход из основного цикла.
+    let _watchdog = match &scenario {
+        Some((scenario, out)) => {
+            match watchdog::arm(
+                scenario.name(),
+                scenario.deadline(),
+                out.clone(),
+                trace.clone(),
+            ) {
+                Ok(watchdog) => Some(watchdog),
+                Err(err) => {
+                    return report_outcome(Outcome::error(
+                        format!("сторож не запущен: {err}"),
+                        Report::default(),
+                    ));
+                }
+            }
+        }
+        None => None,
+    };
+    // Демонстрация работает без стенда, сценарий — с подклассом, отмечающим `sendEvent`.
+    let app = match scenario {
+        Some(_) => match events::shared_application(mtm) {
+            Ok(app) => app,
+            Err(reason) => return report_outcome(Outcome::error(reason, Report::default())),
+        },
+        None => NSApplication::sharedApplication(mtm),
+    };
     // У исполняемого файла без Info.plist исходная политика `prohibited`: такое окно не получит
     // ни активности, ни key-статуса.
     if !app.setActivationPolicy(NSApplicationActivationPolicy::Regular) {
@@ -91,7 +122,8 @@ fn run_app(scenario: Option<Scenario>, scene: SceneOptions) -> ExitCode {
     app.setMainMenu(Some(&main_menu(mtm)));
 
     let slot = Rc::new(RefCell::new(None));
-    let delegate = AppDelegate::new(mtm, scenario, scene, Finisher::new(Rc::clone(&slot)));
+    let has_scenario = scenario.is_some();
+    let delegate = AppDelegate::new(mtm, scenario, scene, trace, Finisher::new(Rc::clone(&slot)));
     app.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
     app.run();
     app.setDelegate(None);
@@ -100,7 +132,7 @@ fn run_app(scenario: Option<Scenario>, scene: SceneOptions) -> ExitCode {
     let outcome = slot.borrow_mut().take();
     match outcome {
         Some(outcome) => report_outcome(outcome),
-        None if scenario.is_none() => ExitCode::SUCCESS,
+        None if !has_scenario => ExitCode::SUCCESS,
         None => report_outcome(Outcome::error(
             "основной цикл завершился без итога сценария",
             Report::default(),
@@ -215,8 +247,9 @@ fn main_window(mtm: MainThreadMarker, display: &DisplayChoice) -> Retained<NSWin
 }
 
 struct DelegateIvars {
-    scenario: Option<Scenario>,
+    scenario: Option<(Scenario, PathBuf)>,
     scene: SceneOptions,
+    trace: SharedTrace,
     finisher: Finisher,
     window: OnceCell<Retained<NSWindow>>,
 }
@@ -262,13 +295,15 @@ define_class!(
 impl AppDelegate {
     fn new(
         mtm: MainThreadMarker,
-        scenario: Option<Scenario>,
+        scenario: Option<(Scenario, PathBuf)>,
         scene: SceneOptions,
+        trace: SharedTrace,
         finisher: Finisher,
     ) -> Retained<AppDelegate> {
         let this = AppDelegate::alloc(mtm).set_ivars(DelegateIvars {
             scenario,
             scene,
+            trace,
             finisher,
             window: OnceCell::new(),
         });
@@ -295,7 +330,7 @@ impl AppDelegate {
         app.activateIgnoringOtherApps(true);
         let _ = ivars.window.set(window.clone());
 
-        if let Some(scenario) = ivars.scenario {
+        if let Some((scenario, _)) = &ivars.scenario {
             let stand = Stand {
                 app,
                 window,
@@ -303,8 +338,9 @@ impl AppDelegate {
                 scene: ivars.scene,
                 activation: ACTIVATION,
                 finisher: ivars.finisher.clone(),
+                trace: ivars.trace.clone(),
             };
-            scenario::start(scenario, Rc::new(stand));
+            scenario::start(*scenario, Rc::new(stand));
         }
     }
 }
