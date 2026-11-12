@@ -2,9 +2,14 @@
 //! сцену, со `--scenario` сценарий ведёт процесс изнутри и печатает итог.
 
 mod args;
+mod chrome;
 mod results;
 mod scenario;
+mod scene;
+mod split;
 mod stats;
+mod tiles;
+mod tokens;
 
 use std::cell::{OnceCell, RefCell};
 use std::io::{self, Write};
@@ -33,10 +38,11 @@ use scenario::events::{SharedTrace, TraceRing};
 use scenario::{
     EXIT_EXECUTION, Finisher, Outcome, Report, Scenario, Stand, events, readback, watchdog,
 };
+use scene::Scene;
 
 const PROBE_NAME: &str = "probe-appkit-shell";
 const EXIT_USAGE: u8 = 2;
-const WINDOW_SIZE: NSSize = NSSize::new(1180.0, 720.0);
+pub const WINDOW_SIZE: NSSize = NSSize::new(1180.0, 720.0);
 const ACTIVATION: &str =
     "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching";
 
@@ -280,19 +286,23 @@ fn choose_display(mtm: MainThreadMarker) -> Option<DisplayChoice> {
     }
 }
 
-fn main_window(mtm: MainThreadMarker, display: &DisplayChoice) -> Retained<NSWindow> {
+/// Прямоугольник окна размера `size` по центру видимой области дисплея. С заданным экраном
+/// начало отсчитывается от начала этого экрана. Дробное начало AppKit округляет, и содержимое
+/// вырастает на точку, поэтому оно целое.
+pub fn window_frame(display: &DisplayChoice, size: NSSize) -> NSRect {
     let screen = display.screen.frame();
     let visible = display.screen.visibleFrame();
-    // С заданным экраном начало прямоугольника отсчитывается от начала этого экрана. Дробное
-    // начало AppKit округляет, и содержимое вырастает на точку, поэтому оно целое.
     let origin = NSPoint::new(
-        (visible.origin.x - screen.origin.x
-            + ((visible.size.width - WINDOW_SIZE.width) / 2.0).max(0.0))
-        .floor(),
-        (visible.origin.y - screen.origin.y
-            + ((visible.size.height - WINDOW_SIZE.height) / 2.0).max(0.0))
-        .floor(),
+        (visible.origin.x - screen.origin.x + ((visible.size.width - size.width) / 2.0).max(0.0))
+            .floor(),
+        (visible.origin.y - screen.origin.y + ((visible.size.height - size.height) / 2.0).max(0.0))
+            .floor(),
     );
+    NSRect::new(origin, size)
+}
+
+/// Голое окно сценариев стенда, которым сцена не нужна.
+fn main_window(mtm: MainThreadMarker, display: &DisplayChoice) -> Retained<NSWindow> {
     let style = NSWindowStyleMask::Titled
         | NSWindowStyleMask::Closable
         | NSWindowStyleMask::Miniaturizable
@@ -301,7 +311,7 @@ fn main_window(mtm: MainThreadMarker, display: &DisplayChoice) -> Retained<NSWin
     let window = unsafe {
         NSWindow::initWithContentRect_styleMask_backing_defer_screen(
             NSWindow::alloc(mtm),
-            NSRect::new(origin, WINDOW_SIZE),
+            window_frame(display, WINDOW_SIZE),
             style,
             NSBackingStoreType::Buffered,
             false,
@@ -320,6 +330,8 @@ struct DelegateIvars {
     scene: SceneOptions,
     finisher: Finisher,
     window: OnceCell<Retained<NSWindow>>,
+    /// Собранная сцена держится до конца процесса.
+    built: OnceCell<Rc<Scene>>,
 }
 
 define_class!(
@@ -372,6 +384,7 @@ impl AppDelegate {
             scene,
             finisher,
             window: OnceCell::new(),
+            built: OnceCell::new(),
         });
         // SAFETY: `init` у NSObject без аргументов.
         unsafe { msg_send![super(this), init] }
@@ -388,7 +401,18 @@ impl AppDelegate {
             );
             return;
         };
-        let window = main_window(mtm, &display);
+        let with_scene = ivars
+            .scenario
+            .as_ref()
+            .is_none_or(|run| run.scenario.needs_scene());
+        let scene = with_scene.then(|| Rc::new(Scene::build(mtm, &display, ivars.scene)));
+        let window = match &scene {
+            Some(scene) => scene.window.clone(),
+            None => main_window(mtm, &display),
+        };
+        if let Some(scene) = &scene {
+            let _ = ivars.built.set(Rc::clone(scene));
+        }
         window.makeKeyAndOrderFront(None);
         // Кооперативный `activate()` (macOS 14) отклоняется, пока активен терминал, из которого
         // запущен процесс; устаревший запрос с игнорированием других приложений проходит.
@@ -402,6 +426,7 @@ impl AppDelegate {
                 window,
                 display,
                 scene: ivars.scene,
+                built_scene: scene,
                 activation: ACTIVATION,
                 finisher: ivars.finisher.clone(),
                 trace: run.trace.clone(),

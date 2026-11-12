@@ -5,12 +5,14 @@ pub mod counters;
 pub mod events;
 pub mod key_delivery;
 pub mod launch;
+pub mod material;
 pub mod native_menu;
 pub mod parent_click;
 pub mod passes;
 pub mod readback;
 mod readback_check;
 pub mod snapshot;
+mod split;
 pub mod stand;
 pub mod watchdog;
 mod watchdog_check;
@@ -55,16 +57,18 @@ pub enum Scenario {
     ReadbackCheck,
     /// Самопроверка сторожа: главный поток зависает, процесс обязан выйти с кодом 3.
     WatchdogCheck,
+    Split,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 6] = [
+    pub const ALL: [Scenario; 7] = [
         Scenario::Launch,
         Scenario::NativeMenu,
         Scenario::ParentClick,
         Scenario::KeyDelivery,
         Scenario::ReadbackCheck,
         Scenario::WatchdogCheck,
+        Scenario::Split,
     ];
 
     pub fn name(self) -> &'static str {
@@ -75,6 +79,7 @@ impl Scenario {
             Scenario::KeyDelivery => "key-delivery",
             Scenario::ReadbackCheck => "readback-check",
             Scenario::WatchdogCheck => "watchdog-check",
+            Scenario::Split => "split",
         }
     }
 
@@ -94,7 +99,21 @@ impl Scenario {
             Scenario::KeyDelivery => 40,
             Scenario::ReadbackCheck => 45,
             Scenario::WatchdogCheck => 3,
+            Scenario::Split => 150,
         })
+    }
+
+    /// Сценарию нужна собранная сцена; стендовые сценарии работают на голом окне.
+    pub fn needs_scene(self) -> bool {
+        match self {
+            Scenario::Split => true,
+            Scenario::Launch
+            | Scenario::NativeMenu
+            | Scenario::ParentClick
+            | Scenario::KeyDelivery
+            | Scenario::ReadbackCheck
+            | Scenario::WatchdogCheck => false,
+        }
     }
 }
 
@@ -118,6 +137,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::KeyDelivery => key_delivery::run(stand),
         Scenario::ReadbackCheck => readback_check::run(stand),
         Scenario::WatchdogCheck => watchdog_check::run(stand),
+        Scenario::Split => split::run(stand),
     }
 }
 
@@ -127,6 +147,8 @@ pub struct Stand {
     pub window: Retained<NSWindow>,
     pub display: DisplayChoice,
     pub scene: SceneOptions,
+    /// Собранная сцена, если сценарию она нужна (`Scenario::needs_scene`).
+    pub built_scene: Option<Rc<crate::scene::Scene>>,
     pub activation: &'static str,
     pub finisher: Finisher,
     pub trace: SharedTrace,

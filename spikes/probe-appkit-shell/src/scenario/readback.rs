@@ -14,7 +14,7 @@ use objc2_core_foundation::CGRect;
 use objc2_core_graphics::{CGColor, CGDisplayIsBuiltin};
 use objc2_foundation::{NSArray, NSProcessInfo, NSRect, NSSize, NSString};
 use objc2_quartz_core::CALayer;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::args::SceneOptions;
 use crate::results::{
@@ -46,66 +46,7 @@ fn cg_rect(rect: CGRect) -> Rect {
     }
 }
 
-/// Цвет в sRGB, по 8 бит на канал.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Rgba {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-    pub a: u8,
-}
-
-impl Rgba {
-    pub const fn opaque(r: u8, g: u8, b: u8) -> Rgba {
-        Rgba { r, g, b, a: 255 }
-    }
-
-    /// Каналы 0…1 в 8 бит с округлением.
-    pub fn from_unit(r: f64, g: f64, b: f64, a: f64) -> Rgba {
-        let channel = |value: f64| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
-        Rgba {
-            r: channel(r),
-            g: channel(g),
-            b: channel(b),
-            a: channel(a),
-        }
-    }
-
-    /// Наложение `top` с непрозрачностью `alpha` на непрозрачный `self` в кодированных
-    /// значениях sRGB, как смешивает композитор.
-    pub fn blend(self, top: Rgba, alpha: f64) -> Rgba {
-        let mix = |base: u8, over: u8| {
-            (f64::from(base) * (1.0 - alpha) + f64::from(over) * alpha).round() as u8
-        };
-        Rgba {
-            r: mix(self.r, top.r),
-            g: mix(self.g, top.g),
-            b: mix(self.b, top.b),
-            a: 255,
-        }
-    }
-
-    /// Наибольшее расхождение по каналам цвета и альфе.
-    pub fn distance(self, other: Rgba) -> u8 {
-        [
-            self.r.abs_diff(other.r),
-            self.g.abs_diff(other.g),
-            self.b.abs_diff(other.b),
-            self.a.abs_diff(other.a),
-        ]
-        .into_iter()
-        .max()
-        .unwrap_or(0)
-    }
-
-    pub fn hex(self) -> String {
-        if self.a == 255 {
-            format!("#{:02X}{:02X}{:02X}", self.r, self.g, self.b)
-        } else {
-            format!("#{:02X}{:02X}{:02X}{:02X}", self.r, self.g, self.b, self.a)
-        }
-    }
-}
+pub use crate::tokens::Rgba;
 
 /// Цвет AppKit в sRGB; `None` у цвета без RGB-представления, например шаблона.
 pub fn srgb(color: &NSColor) -> Option<Rgba> {
@@ -667,40 +608,6 @@ mod tests {
             layer: None,
             subviews,
         }
-    }
-
-    #[test]
-    fn rgba_rounding_and_hex() {
-        assert_eq!(
-            Rgba::from_unit(10.0 / 255.0, 9.0 / 255.0, 8.0 / 255.0, 1.0),
-            Rgba::opaque(10, 9, 8)
-        );
-        assert_eq!(Rgba::from_unit(-1.0, 2.0, 0.5, 0.5).hex(), "#00FF8080");
-        assert_eq!(Rgba::opaque(10, 9, 8).hex(), "#0A0908");
-    }
-
-    #[test]
-    fn rgba_blend_and_distance() {
-        let base = Rgba::opaque(128, 128, 128);
-        assert_eq!(
-            base.blend(Rgba::opaque(0, 0, 0), 0.5),
-            Rgba::opaque(64, 64, 64)
-        );
-        assert_eq!(base.blend(Rgba::opaque(255, 0, 0), 0.0), base);
-        assert_eq!(
-            Rgba::opaque(10, 9, 8).blend(Rgba::opaque(0, 0, 0), 1.0),
-            Rgba::opaque(0, 0, 0)
-        );
-        assert_eq!(Rgba::opaque(10, 9, 8).distance(Rgba::opaque(11, 9, 6)), 2);
-        assert_eq!(
-            Rgba::opaque(0, 0, 0).distance(Rgba {
-                r: 0,
-                g: 0,
-                b: 0,
-                a: 250
-            }),
-            5
-        );
     }
 
     fn ax(role: &str, element: bool, children: Vec<AxNode>) -> AxNode {

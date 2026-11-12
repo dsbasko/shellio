@@ -413,6 +413,21 @@ pub fn describe_point(point: NSPoint) -> String {
     format!("{},{}", point.x, point.y)
 }
 
+/// Класс, заголовок, видимость, кадр и родитель окна.
+pub fn describe_window(window: &NSWindow) -> String {
+    format!(
+        "{} «{}» visible={} frame={} parent={}",
+        crate::scenario::readback::class_name(window),
+        window.title(),
+        window.isVisible(),
+        describe_rect(window.frame()),
+        window.parentWindow().map_or_else(
+            || "none".to_owned(),
+            |parent| format!("#{}", parent.windowNumber())
+        )
+    )
+}
+
 // --- AppKit ---------------------------------------------------------------------------------
 
 define_class!(
@@ -910,8 +925,9 @@ pub fn mouse_down(
         })?;
         if !std::ptr::eq(&*window, expected) {
             return Err(format!(
-                "под точкой {} окно #{number}, а ожидалось #{}",
+                "под точкой {} окно #{number} ({}), а ожидалось #{}",
                 describe_point(point),
+                describe_window(&window),
                 expected.windowNumber()
             ));
         }
