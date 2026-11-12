@@ -10,7 +10,7 @@ use std::time::Duration;
 use super::EXIT_EXECUTION;
 use super::events::SharedTrace;
 
-pub const TRACE_FILE: &str = "watchdog.txt";
+use crate::results::WATCHDOG_FILE as TRACE_FILE;
 
 /// Взведённый сторож. Снимается при уничтожении.
 pub struct Watchdog {

@@ -17,11 +17,15 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "objc2-core-graphics",
     "objc2-quartz-core",
     "NSApplication",
+    "NSBitmapImageRep",
     "NSButton",
+    "NSColor",
+    "NSColorSpace",
     "NSControl",
     "NSEvent",
     "NSGraphics",
     "NSGraphicsContext",
+    "NSImageRep",
     "NSMenu",
     "NSMenuItem",
     "NSPanel",
@@ -37,13 +41,16 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
 ] }
 objc2-core-foundation = { version = "0.3.2", default-features = false, features = [
     "std",
+    "block2",
     "CFDictionary",
     "CFNumber",
+    "CFRunLoop",
     "CFString",
 ] }
 objc2-core-graphics = { version = "0.3.2", default-features = false, features = [
     "std",
     "libc",
+    "CGColor",
     "CGDirectDisplay",
     "CGDisplayConfiguration",
     "CGError",
@@ -51,12 +58,15 @@ objc2-core-graphics = { version = "0.3.2", default-features = false, features = 
     "CGEventTypes",
     "CGRemoteOperation",
     "CGSession",
+    "CGWindow",
 ] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "std",
     "block2",
     "NSArray",
+    "NSData",
     "NSDate",
+    "NSDictionary",
     "NSEnumerator",
     "NSGeometry",
     "NSNotification",
@@ -66,8 +76,18 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "NSRunLoop",
     "NSString",
     "NSTimer",
+    "NSValue",
 ] }
-objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["std"] }
+objc2-quartz-core = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "objc2-core-foundation",
+    "objc2-core-graphics",
+    "CAAnimation",
+    "CALayer",
+    "CAMediaTiming",
+] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [lints]
 workspace = true

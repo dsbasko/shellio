@@ -52,6 +52,24 @@ pub struct SceneOptions {
     pub motion: Option<Motion>,
 }
 
+impl SceneOptions {
+    pub fn contrast_name(self) -> &'static str {
+        match self.contrast {
+            None => "system",
+            Some(Contrast::Normal) => "normal",
+            Some(Contrast::More) => "more",
+        }
+    }
+
+    pub fn motion_name(self) -> &'static str {
+        match self.motion {
+            None => "system",
+            Some(Motion::Normal) => "normal",
+            Some(Motion::Reduced) => "reduced",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Mode {
     Help,
@@ -486,6 +504,33 @@ mod tests {
         assert_eq!(
             parse_str(&["--split=plain"]),
             Err(ArgsError::UnknownArgument("--split=plain".to_owned()))
+        );
+    }
+
+    #[test]
+    fn scene_names() {
+        let system = SceneOptions::default();
+        assert_eq!(
+            (system.contrast_name(), system.motion_name()),
+            ("system", "system")
+        );
+        let set = SceneOptions {
+            split: Split::Sidebar,
+            contrast: Some(Contrast::More),
+            motion: Some(Motion::Reduced),
+        };
+        assert_eq!(
+            (set.contrast_name(), set.motion_name()),
+            ("more", "reduced")
+        );
+        let normal = SceneOptions {
+            contrast: Some(Contrast::Normal),
+            motion: Some(Motion::Normal),
+            ..SceneOptions::default()
+        };
+        assert_eq!(
+            (normal.contrast_name(), normal.motion_name()),
+            ("normal", "normal")
         );
     }
 

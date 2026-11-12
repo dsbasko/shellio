@@ -8,7 +8,7 @@ use objc2::rc::Retained;
 use objc2_app_kit::NSWindow;
 use objc2_core_graphics::CGDisplayIsBuiltin;
 
-use super::{Poll, Report, Scenario, Stand, wait_until};
+use super::{Poll, Report, Scenario, Stand, Verdict, wait_until};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -31,7 +31,17 @@ pub fn run(stand: Rc<Stand>) {
         },
         move |result| match result {
             Ok((focus, waited)) => {
-                report.push("wait_ms", format!("{:.1}", waited.as_secs_f64() * 1e3));
+                let wait_ms = waited.as_secs_f64() * 1e3;
+                report.push("wait_ms", format!("{wait_ms:.1}"));
+                report.metric("activation_wait", "ms", vec![wait_ms]);
+                report.finding(
+                    "activation",
+                    Verdict::Pass,
+                    format!(
+                        "isActive и key window — основное окно через {wait_ms:.1} мс после показа, способ: {}",
+                        stand.activation
+                    ),
+                );
                 focus.add_to(&mut report);
                 display_to(&stand, &mut report);
                 match input_source(&stand.window) {

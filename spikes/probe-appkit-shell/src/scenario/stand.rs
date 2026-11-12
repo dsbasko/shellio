@@ -2,13 +2,14 @@
 //! записывает дошедший до него ввод. Сцену пробы они не заменяют.
 
 use std::cell::{Cell, RefCell};
+use std::time::Duration;
 
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, ProtocolObject, Sel};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
-    NSAutoresizingMaskOptions, NSEvent, NSEventModifierFlags, NSMenu, NSMenuDelegate, NSMenuItem,
-    NSResponder, NSView,
+    NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSMenu, NSMenuDelegate,
+    NSMenuItem, NSRectFill, NSResponder, NSView,
 };
 use objc2_foundation::{NSObject, NSObjectProtocol, NSPoint, NSRect, NSString};
 
@@ -16,6 +17,7 @@ use super::counters::{Live, counter};
 
 counter!(STAND_TARGET, "ProbeStandTarget");
 counter!(INPUT_VIEW, "ProbeInputView");
+counter!(DRAW_VIEW, "ProbeDrawView");
 
 pub struct TargetIvars {
     _live: Live,
@@ -251,5 +253,58 @@ impl InputView {
 
     pub fn as_view(&self) -> &NSView {
         self
+    }
+}
+
+pub struct DrawIvars {
+    _live: Live,
+    fill: Retained<NSColor>,
+    draws: Cell<usize>,
+    last_draw: Cell<Option<Duration>>,
+}
+
+define_class!(
+    /// Вид, который заливает себя цветом и считает вызовы `drawRect:` с отметкой времени стенда.
+    #[unsafe(super(NSView, NSResponder, NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "ProbeDrawView"]
+    #[ivars = DrawIvars]
+    pub struct DrawView;
+
+    impl DrawView {
+        #[unsafe(method(drawRect:))]
+        fn draw_rect(&self, _dirty: NSRect) {
+            let ivars = self.ivars();
+            ivars.fill.setFill();
+            NSRectFill(self.bounds());
+            ivars.draws.set(ivars.draws.get() + 1);
+            ivars.last_draw.set(super::events::elapsed());
+        }
+    }
+);
+
+impl DrawView {
+    pub fn new(
+        mtm: MainThreadMarker,
+        frame: NSRect,
+        fill: Retained<NSColor>,
+    ) -> Retained<DrawView> {
+        let this = DrawView::alloc(mtm).set_ivars(DrawIvars {
+            _live: DRAW_VIEW.live(),
+            fill,
+            draws: Cell::new(0),
+            last_draw: Cell::new(None),
+        });
+        // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
+        unsafe { msg_send![super(this), initWithFrame: frame] }
+    }
+
+    pub fn draws(&self) -> usize {
+        self.ivars().draws.get()
+    }
+
+    /// Время последнего `drawRect:` от установки стенда.
+    pub fn last_draw(&self) -> Option<Duration> {
+        self.ivars().last_draw.get()
     }
 }

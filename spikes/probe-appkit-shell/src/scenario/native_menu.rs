@@ -106,10 +106,9 @@ impl Run {
         if let Some(record) = self.down_record()
             && let (Some(start), Some(back)) = (record.dispatch_start, record.send_return)
         {
-            report.push(
-                "mouse_down_send_event_ms",
-                format!("{:.1}", (back - start).as_secs_f64() * 1e3),
-            );
+            let ms = (back - start).as_secs_f64() * 1e3;
+            report.push("mouse_down_send_event_ms", format!("{ms:.1}"));
+            report.metric("mouse_down_dispatch_to_return", "ms", vec![ms]);
         }
     }
 }

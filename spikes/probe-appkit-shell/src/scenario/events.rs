@@ -8,7 +8,6 @@
 
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
-use std::fmt::Write as _;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -24,7 +23,9 @@ use objc2_core_foundation::CGPoint;
 use objc2_core_graphics::{CGEvent, CGEventField, CGWarpMouseCursorPosition};
 use objc2_foundation::{NSObjectProtocol, NSPoint, NSProcessInfo, NSRect, NSString};
 
+use super::passes::{self, PassLog};
 use super::{Finisher, Outcome, Poll, Report, wait_until};
+use crate::results::{EventRecord, StepRecord};
 
 /// Минимальный шаг `timestamp` между отправленными событиями.
 pub const TIMESTAMP_SPACING: f64 = 10e-6;
@@ -140,27 +141,25 @@ pub struct Record {
 }
 
 impl Record {
-    pub fn render(&self) -> String {
-        let mut line = format!(
-            "#{} {} win={} posted={}",
-            self.number,
-            self.label,
-            self.signature.window,
-            ms(self.posted)
-        );
-        match self.dispatch_start {
-            Some(start) => {
-                let _ = write!(line, " dispatch={}", ms(start));
-            }
-            None if self.undispatched => line.push_str(" dispatch=none(вложенный цикл)"),
-            None => line.push_str(" dispatch=none"),
+    /// Запись для `result.json`; `display_pass` — конец первого прохода отображения после
+    /// возврата `sendEvent`.
+    pub fn export(&self, display_pass: Option<Duration>) -> EventRecord {
+        EventRecord {
+            number: self.number,
+            label: self.label.clone(),
+            window: self.signature.window,
+            before: self.before.clone(),
+            posted_ms: to_ms(self.posted),
+            dispatch_start_ms: self.dispatch_start.map(to_ms),
+            send_return_ms: self.send_return.map(to_ms),
+            display_pass_ms: display_pass.map(to_ms),
+            undispatched: self.undispatched,
         }
-        if let Some(back) = self.send_return {
-            let _ = write!(line, " return={}", ms(back));
-        }
-        let _ = write!(line, " before[{}]", self.before);
-        line
     }
+}
+
+pub fn to_ms(duration: Duration) -> f64 {
+    duration.as_secs_f64() * 1e3
 }
 
 fn ms(duration: Duration) -> String {
@@ -474,14 +473,21 @@ pub struct Bench {
     service_traced: usize,
     internal: Vec<String>,
     closers: Vec<Box<dyn FnOnce()>>,
+    passes: PassLog,
+    steps: Vec<StepRecord>,
 }
 
 thread_local! {
     static BENCH: RefCell<Option<Bench>> = const { RefCell::new(None) };
 }
 
-/// Ставит стенд: с этого момента событие ввода вне таблицы — ошибка исполнения.
-pub fn install(app: Retained<NSApplication>, finisher: Finisher, trace: SharedTrace) {
+/// Ставит стенд и наблюдатель конца прохода отображения: с этого момента событие ввода вне
+/// таблицы — ошибка исполнения.
+pub fn install(
+    app: Retained<NSApplication>,
+    finisher: Finisher,
+    trace: SharedTrace,
+) -> Result<(), String> {
     let bench = Bench {
         app,
         finisher,
@@ -493,8 +499,41 @@ pub fn install(app: Retained<NSApplication>, finisher: Finisher, trace: SharedTr
         service_traced: 0,
         internal: Vec::new(),
         closers: Vec::new(),
+        passes: PassLog::default(),
+        steps: Vec::new(),
     };
     BENCH.with(|cell| *cell.borrow_mut() = Some(bench));
+    passes::install(|| {
+        with_bench(|bench| {
+            let at = bench.epoch.elapsed();
+            bench.passes.record(at);
+        });
+    })
+}
+
+/// Время от установки стенда.
+pub fn elapsed() -> Option<Duration> {
+    with_bench(|bench| bench.epoch.elapsed())
+}
+
+/// Конец первого прохода отображения не раньше `after`.
+pub fn display_pass_after(after: Duration) -> Option<Duration> {
+    with_bench(|bench| bench.passes.first_after(after)).flatten()
+}
+
+/// Число отмеченных проходов отображения.
+pub fn display_passes() -> u64 {
+    with_bench(|bench| bench.passes.total()).unwrap_or(0)
+}
+
+/// Отметка шага сценария.
+pub fn step(record: StepRecord) {
+    with_bench(|bench| bench.steps.push(record));
+}
+
+/// Состояние фокуса для отметок шагов.
+pub fn current_state() -> String {
+    with_bench(|bench| focus_state(&bench.app)).unwrap_or_else(no_bench)
 }
 
 fn with_bench<R>(f: impl FnOnce(&mut Bench) -> R) -> Option<R> {
@@ -688,13 +727,20 @@ impl Bench {
     fn add_to(&self, report: &mut Report) {
         report.push("events_posted", self.table.records().len());
         report.push("events_held", self.table.held_count());
-        for record in self.table.records() {
-            report.push("event", record.render());
-        }
-        report.push("appkit_internal_events", self.internal.len());
-        for line in &self.internal {
-            report.push("appkit_internal_event", line);
-        }
+        report.push("display_passes", self.passes.total());
+        report.events = self
+            .table
+            .records()
+            .iter()
+            .map(|record| {
+                let pass = record
+                    .send_return
+                    .and_then(|back| self.passes.first_after(back));
+                record.export(pass)
+            })
+            .collect();
+        report.steps = self.steps.clone();
+        report.diagnostics.appkit_internal_events = self.internal.clone();
     }
 
     fn post(&mut self, label: String, event: Retained<NSEvent>, before: String) -> u64 {
@@ -1194,10 +1240,16 @@ mod tests {
         assert_eq!(table.held_count(), 0);
         assert_eq!(table.record(b).map(|r| r.undispatched), Some(true));
         assert_eq!(table.records().len(), 2);
-        assert!(
-            table
-                .record(b)
-                .is_some_and(|r| r.render().contains("вложенный цикл"))
+        let exported = table
+            .record(a)
+            .map(|r| r.export(Some(Duration::from_millis(5))));
+        assert_eq!(
+            exported.map(|e| (e.dispatch_start_ms, e.send_return_ms, e.display_pass_ms)),
+            Some((Some(3.0), Some(4.0), Some(5.0)))
+        );
+        assert_eq!(
+            table.record(b).map(|r| r.export(None).undispatched),
+            Some(true)
         );
     }
 

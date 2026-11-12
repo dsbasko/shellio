@@ -2,14 +2,17 @@
 //! сцену, со `--scenario` сценарий ведёт процесс изнутри и печатает итог.
 
 mod args;
+mod results;
 mod scenario;
+mod stats;
 
 use std::cell::{OnceCell, RefCell};
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
+use std::thread;
 
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
@@ -25,8 +28,11 @@ use objc2_foundation::{
 };
 
 use args::{Mode, SceneOptions, USAGE};
+use results::ResultFile;
 use scenario::events::{SharedTrace, TraceRing};
-use scenario::{EXIT_EXECUTION, Finisher, Outcome, Report, Scenario, Stand, events, watchdog};
+use scenario::{
+    EXIT_EXECUTION, Finisher, Outcome, Report, Scenario, Stand, events, readback, watchdog,
+};
 
 const PROBE_NAME: &str = "probe-appkit-shell";
 const EXIT_USAGE: u8 = 2;
@@ -52,11 +58,11 @@ fn main() -> ExitCode {
             let _ = writeln!(io::stdout().lock(), "{USAGE}");
             ExitCode::SUCCESS
         }
-        Mode::Aggregate { run_dir } => usage_error(&format!(
-            "--aggregate {}: агрегирование ещё не реализовано",
-            run_dir.display()
-        )),
-        Mode::Demo(scene) => run_app(None, scene),
+        Mode::Aggregate { run_dir } => aggregate(&run_dir),
+        Mode::Demo(scene) => match run_app(None, scene) {
+            None => ExitCode::SUCCESS,
+            Some(outcome) => print_outcome(&outcome),
+        },
         Mode::Scenario {
             scenario,
             scene,
@@ -65,7 +71,92 @@ fn main() -> ExitCode {
             if !out.is_dir() {
                 return usage_error(&format!("--out {}: каталога нет", out.display()));
             }
-            run_app(Some((scenario, out)), scene)
+            run_scenario(scenario, scene, out)
+        }
+    }
+}
+
+/// `summary.json` прогона и сводка в stdout. Ненулевой код — только при ошибке исполнения
+/// хотя бы одного процесса или самого агрегирования; выводы на код не влияют.
+fn aggregate(run_dir: &Path) -> ExitCode {
+    let written = results::aggregate(run_dir)
+        .and_then(|summary| results::write_summary(run_dir, &summary).map(|path| (summary, path)));
+    let (summary, path) = match written {
+        Ok(written) => written,
+        Err(reason) => {
+            let _ = writeln!(io::stderr().lock(), "{PROBE_NAME}: --aggregate: {reason}");
+            return ExitCode::from(EXIT_EXECUTION);
+        }
+    };
+    let mut stdout = io::stdout().lock();
+    let _ = write!(stdout, "{}", results::render_summary(&summary));
+    let _ = writeln!(stdout, "сводка: {}", path.display());
+    if summary.totals.execution_errors > 0 {
+        ExitCode::from(EXIT_EXECUTION)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+/// Процесс сценария: сторож, сцена, затем `result.json` в `--out` и итог в stdout.
+fn run_scenario(scenario: Scenario, scene: SceneOptions, out: PathBuf) -> ExitCode {
+    let environment = readback::static_environment(scene);
+    let trace: SharedTrace = Arc::new(Mutex::new(TraceRing::default()));
+    // Сторож снимается только после записи и печати итога: зависнуть может и выход из цикла.
+    let watchdog = watchdog::arm(
+        scenario.name(),
+        scenario.deadline(),
+        out.clone(),
+        trace.clone(),
+    );
+    let mut outcome = match &watchdog {
+        Ok(_) => run_app(
+            Some(ScenarioRun {
+                scenario,
+                out: out.clone(),
+                trace: trace.clone(),
+            }),
+            scene,
+        )
+        .unwrap_or_else(|| {
+            Outcome::error(
+                "основной цикл завершился без итога сценария",
+                Report::default(),
+            )
+        }),
+        Err(err) => Outcome::error(format!("сторож не запущен: {err}"), Report::default()),
+    };
+    outcome.report.diagnostics.trace = trace
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .lines();
+    let code = print_outcome(&outcome);
+    let result = ResultFile::new(
+        scenario.name(),
+        scene.split.name(),
+        environment,
+        outcome.execution,
+        outcome.report,
+    );
+    // Окно уже не обслуживается; запись идёт в рабочем потоке, главный получает только итог.
+    let written = thread::Builder::new()
+        .name("probe-result".to_owned())
+        .spawn(move || results::write_result(&out, &result))
+        .map_err(|err| format!("рабочий поток не запущен: {err}"))
+        .and_then(|writer| {
+            writer
+                .join()
+                .unwrap_or_else(|_| Err("поток записи упал".to_owned()))
+        });
+    match written {
+        Ok(_) => code,
+        Err(reason) => {
+            let _ = writeln!(
+                io::stdout().lock(),
+                "execution=error\nreason={} не записан: {reason}",
+                results::RESULT_FILE
+            );
+            ExitCode::from(EXIT_EXECUTION)
         }
     }
 }
@@ -75,46 +166,33 @@ fn usage_error(message: &str) -> ExitCode {
     ExitCode::from(EXIT_USAGE)
 }
 
-fn run_app(scenario: Option<(Scenario, PathBuf)>, scene: SceneOptions) -> ExitCode {
+/// Сценарий процесса: его имя, `--out` и след для сторожа.
+struct ScenarioRun {
+    scenario: Scenario,
+    out: PathBuf,
+    trace: SharedTrace,
+}
+
+/// Крутит основной цикл. `None` — демонстрация закончилась без итога, как и должна.
+fn run_app(scenario: Option<ScenarioRun>, scene: SceneOptions) -> Option<Outcome> {
     let Some(mtm) = MainThreadMarker::new() else {
-        return report_outcome(Outcome::error(
+        return Some(Outcome::error(
             "запуск не на главном потоке",
             Report::default(),
         ));
-    };
-    let trace: SharedTrace = Arc::new(Mutex::new(TraceRing::default()));
-    // Сторож снимается только после печати итога: зависнуть может и выход из основного цикла.
-    let _watchdog = match &scenario {
-        Some((scenario, out)) => {
-            match watchdog::arm(
-                scenario.name(),
-                scenario.deadline(),
-                out.clone(),
-                trace.clone(),
-            ) {
-                Ok(watchdog) => Some(watchdog),
-                Err(err) => {
-                    return report_outcome(Outcome::error(
-                        format!("сторож не запущен: {err}"),
-                        Report::default(),
-                    ));
-                }
-            }
-        }
-        None => None,
     };
     // Демонстрация работает без стенда, сценарий — с подклассом, отмечающим `sendEvent`.
     let app = match scenario {
         Some(_) => match events::shared_application(mtm) {
             Ok(app) => app,
-            Err(reason) => return report_outcome(Outcome::error(reason, Report::default())),
+            Err(reason) => return Some(Outcome::error(reason, Report::default())),
         },
         None => NSApplication::sharedApplication(mtm),
     };
     // У исполняемого файла без Info.plist исходная политика `prohibited`: такое окно не получит
     // ни активности, ни key-статуса.
     if !app.setActivationPolicy(NSApplicationActivationPolicy::Regular) {
-        return report_outcome(Outcome::error(
+        return Some(Outcome::error(
             "setActivationPolicy(.regular) отклонён",
             Report::default(),
         ));
@@ -122,26 +200,17 @@ fn run_app(scenario: Option<(Scenario, PathBuf)>, scene: SceneOptions) -> ExitCo
     app.setMainMenu(Some(&main_menu(mtm)));
 
     let slot = Rc::new(RefCell::new(None));
-    let has_scenario = scenario.is_some();
-    let delegate = AppDelegate::new(mtm, scenario, scene, trace, Finisher::new(Rc::clone(&slot)));
+    let delegate = AppDelegate::new(mtm, scenario, scene, Finisher::new(Rc::clone(&slot)));
     app.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
     app.run();
     app.setDelegate(None);
     drop(delegate);
 
-    let outcome = slot.borrow_mut().take();
-    match outcome {
-        Some(outcome) => report_outcome(outcome),
-        None if !has_scenario => ExitCode::SUCCESS,
-        None => report_outcome(Outcome::error(
-            "основной цикл завершился без итога сценария",
-            Report::default(),
-        )),
-    }
+    slot.borrow_mut().take()
 }
 
 /// Печатает итог после остановки основного цикла, когда окно уже не обслуживается.
-fn report_outcome(outcome: Outcome) -> ExitCode {
+fn print_outcome(outcome: &Outcome) -> ExitCode {
     let code = outcome.exit_code();
     let mut stdout = io::stdout().lock();
     if stdout.write_all(outcome.render().as_bytes()).is_err() {
@@ -247,9 +316,8 @@ fn main_window(mtm: MainThreadMarker, display: &DisplayChoice) -> Retained<NSWin
 }
 
 struct DelegateIvars {
-    scenario: Option<(Scenario, PathBuf)>,
+    scenario: Option<ScenarioRun>,
     scene: SceneOptions,
-    trace: SharedTrace,
     finisher: Finisher,
     window: OnceCell<Retained<NSWindow>>,
 }
@@ -295,15 +363,13 @@ define_class!(
 impl AppDelegate {
     fn new(
         mtm: MainThreadMarker,
-        scenario: Option<(Scenario, PathBuf)>,
+        scenario: Option<ScenarioRun>,
         scene: SceneOptions,
-        trace: SharedTrace,
         finisher: Finisher,
     ) -> Retained<AppDelegate> {
         let this = AppDelegate::alloc(mtm).set_ivars(DelegateIvars {
             scenario,
             scene,
-            trace,
             finisher,
             window: OnceCell::new(),
         });
@@ -330,7 +396,7 @@ impl AppDelegate {
         app.activateIgnoringOtherApps(true);
         let _ = ivars.window.set(window.clone());
 
-        if let Some((scenario, _)) = &ivars.scenario {
+        if let Some(run) = &ivars.scenario {
             let stand = Stand {
                 app,
                 window,
@@ -338,9 +404,10 @@ impl AppDelegate {
                 scene: ivars.scene,
                 activation: ACTIVATION,
                 finisher: ivars.finisher.clone(),
-                trace: ivars.trace.clone(),
+                trace: run.trace.clone(),
+                out: run.out.clone(),
             };
-            scenario::start(*scenario, Rc::new(stand));
+            scenario::start(run.scenario, Rc::new(stand));
         }
     }
 }

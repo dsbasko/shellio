@@ -7,13 +7,18 @@ pub mod key_delivery;
 pub mod launch;
 pub mod native_menu;
 pub mod parent_click;
+pub mod passes;
+pub mod readback;
+mod readback_check;
+pub mod snapshot;
 pub mod stand;
 pub mod watchdog;
 mod watchdog_check;
 
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
-use std::fmt::Display;
+use std::fmt::Write as _;
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::ptr::NonNull;
 use std::rc::Rc;
@@ -29,7 +34,9 @@ use objc2_foundation::{
 };
 
 use crate::DisplayChoice;
-use crate::args::{Contrast, Motion, SceneOptions};
+use crate::args::SceneOptions;
+pub use crate::results::{Execution, Report, Verdict};
+use crate::results::{LiveObjects, StepRecord, StepStatus};
 use events::SharedTrace;
 
 /// Код выхода при ошибке исполнения: стенд не дошёл до конца, предусловие не выполнено,
@@ -44,16 +51,19 @@ pub enum Scenario {
     NativeMenu,
     ParentClick,
     KeyDelivery,
+    /// Самопроверка чтения состояния, прохода отображения и снимков на известных ответах.
+    ReadbackCheck,
     /// Самопроверка сторожа: главный поток зависает, процесс обязан выйти с кодом 3.
     WatchdogCheck,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 5] = [
+    pub const ALL: [Scenario; 6] = [
         Scenario::Launch,
         Scenario::NativeMenu,
         Scenario::ParentClick,
         Scenario::KeyDelivery,
+        Scenario::ReadbackCheck,
         Scenario::WatchdogCheck,
     ];
 
@@ -63,6 +73,7 @@ impl Scenario {
             Scenario::NativeMenu => "native-menu",
             Scenario::ParentClick => "parent-click",
             Scenario::KeyDelivery => "key-delivery",
+            Scenario::ReadbackCheck => "readback-check",
             Scenario::WatchdogCheck => "watchdog-check",
         }
     }
@@ -81,23 +92,31 @@ impl Scenario {
             Scenario::NativeMenu => 40,
             Scenario::ParentClick => 25,
             Scenario::KeyDelivery => 40,
+            Scenario::ReadbackCheck => 45,
             Scenario::WatchdogCheck => 3,
         })
     }
 }
 
 pub fn start(scenario: Scenario, stand: Rc<Stand>) {
-    events::install(
+    if let Err(reason) = events::install(
         stand.app.clone(),
         stand.finisher.clone(),
         stand.trace.clone(),
-    );
+    ) {
+        let report = stand.report(scenario);
+        return stand.conclude(
+            report,
+            Err(format!("наблюдатель прохода отображения: {reason}")),
+        );
+    }
     events::note(format!("сценарий {}", scenario.name()));
     match scenario {
         Scenario::Launch => launch::run(stand),
         Scenario::NativeMenu => native_menu::run(stand),
         Scenario::ParentClick => parent_click::run(stand),
         Scenario::KeyDelivery => key_delivery::run(stand),
+        Scenario::ReadbackCheck => readback_check::run(stand),
         Scenario::WatchdogCheck => watchdog_check::run(stand),
     }
 }
@@ -111,6 +130,8 @@ pub struct Stand {
     pub activation: &'static str,
     pub finisher: Finisher,
     pub trace: SharedTrace,
+    /// Каталог `--out` процесса: снимки и `result.json`.
+    pub out: PathBuf,
 }
 
 impl Stand {
@@ -122,36 +143,47 @@ impl Stand {
     pub fn conclude(&self, mut report: Report, result: Result<(), String>) {
         let app = self.app.clone();
         let finisher = self.finisher.clone();
+        self.environment_to(&mut report);
         events::close_then(move |unclosed| {
             events::clear();
             events::add_to(&mut report);
-            for count in counters::snapshot() {
-                report.push(
-                    "live_objects",
-                    format!(
-                        "{} created={} released={} live={}",
-                        count.name,
-                        count.created,
-                        count.released,
-                        count.live()
-                    ),
-                );
-            }
+            report.diagnostics.live_objects = counters::snapshot()
+                .into_iter()
+                .map(|count| LiveObjects {
+                    class: count.name.to_owned(),
+                    created: count.created,
+                    released: count.released,
+                    live: count.live(),
+                })
+                .collect();
             let result = match (result, unclosed) {
                 (Ok(()), Some(unclosed)) => Err(format!("жест не закрыт: {unclosed}")),
                 (result, unclosed) => {
-                    if let Some(unclosed) = unclosed {
-                        report.push("unclosed_dispatch", unclosed);
-                    }
+                    report.diagnostics.unclosed_dispatch = unclosed;
                     result
                 }
             };
             let outcome = match result {
                 Ok(()) => Outcome::ok(report),
-                Err(reason) => Outcome::error(reason, report),
+                Err(reason) => Outcome::error_at(reason, events::focus_state(&app), report),
             };
             finisher.finish(&app, outcome);
         });
+    }
+
+    /// Окружение, которое читается у окна: дисплей, окно и источник ввода.
+    fn environment_to(&self, report: &mut Report) {
+        let screen = self
+            .window
+            .screen()
+            .unwrap_or_else(|| self.display.screen.clone());
+        let mut display = readback::display_info(&screen, self.display.builtin);
+        if screen.CGDirectDisplayID() != self.display.screen.CGDirectDisplayID() {
+            display.chosen = format!("{} (окно на другом дисплее)", display.chosen);
+        }
+        report.display = Some(display);
+        report.window = readback::window_info(&self.window);
+        report.input_source = launch::input_source(&self.window);
     }
 
     /// Начало итога: сценарий и настройки сцены.
@@ -159,22 +191,8 @@ impl Stand {
         let mut report = Report::default();
         report.push("scenario", scenario.name());
         report.push("split", self.scene.split.name());
-        report.push(
-            "contrast",
-            match self.scene.contrast {
-                None => "system",
-                Some(Contrast::Normal) => "normal",
-                Some(Contrast::More) => "more",
-            },
-        );
-        report.push(
-            "motion",
-            match self.scene.motion {
-                None => "system",
-                Some(Motion::Normal) => "normal",
-                Some(Motion::Reduced) => "reduced",
-            },
-        );
+        report.push("contrast", self.scene.contrast_name());
+        report.push("motion", self.scene.motion_name());
         report.push("activation", self.activation);
         report
     }
@@ -185,58 +203,6 @@ impl Stand {
         session.add_to(report);
         session.check()
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Verdict {
-    Pass,
-    Fail,
-    PendingManual,
-}
-
-impl Verdict {
-    pub fn name(self) -> &'static str {
-        match self {
-            Verdict::Pass => "pass",
-            Verdict::Fail => "fail",
-            Verdict::PendingManual => "pending-manual",
-        }
-    }
-}
-
-/// Вывод гипотезы. Он отделён от исполнения: `fail` и `pending-manual` — законченные
-/// наблюдения.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Finding {
-    pub name: &'static str,
-    pub verdict: Verdict,
-    pub reason: String,
-}
-
-/// Упорядоченные пары «ключ=значение» итога сценария и выводы.
-#[derive(Default)]
-pub struct Report {
-    lines: Vec<(&'static str, String)>,
-    findings: Vec<Finding>,
-}
-
-impl Report {
-    pub fn push(&mut self, key: &'static str, value: impl Display) {
-        self.lines.push((key, value.to_string()));
-    }
-
-    pub fn finding(&mut self, name: &'static str, verdict: Verdict, reason: impl Into<String>) {
-        self.findings.push(Finding {
-            name,
-            verdict,
-            reason: reason.into(),
-        });
-    }
-}
-
-pub enum Execution {
-    Ok,
-    Error(String),
 }
 
 pub struct Outcome {
@@ -254,29 +220,117 @@ impl Outcome {
 
     pub fn error(reason: impl Into<String>, report: Report) -> Outcome {
         Outcome {
-            execution: Execution::Error(reason.into()),
+            execution: Execution::Error {
+                reason: reason.into(),
+                last_state: None,
+            },
             report,
         }
     }
 
-    pub fn render(&self) -> String {
-        let mut text = String::new();
-        for (key, value) in &self.report.lines {
-            text.push_str(&format!("{key}={value}\n"));
+    /// Ошибка исполнения с состоянием AppKit, прочитанным в момент ошибки.
+    pub fn error_at(reason: impl Into<String>, last_state: String, report: Report) -> Outcome {
+        Outcome {
+            execution: Execution::Error {
+                reason: reason.into(),
+                last_state: Some(last_state),
+            },
+            report,
         }
-        for finding in &self.report.findings {
-            text.push_str(&format!(
-                "finding.{}={}: {}\n",
+    }
+
+    /// Текстовый итог для stdout; полный итог — `result.json`.
+    pub fn render(&self) -> String {
+        let report = &self.report;
+        let mut text = String::new();
+        for observation in &report.observations {
+            match &observation.value {
+                serde_json::Value::String(value) => {
+                    let _ = writeln!(text, "{}={value}", observation.key);
+                }
+                value => {
+                    let _ = writeln!(text, "{}={value}", observation.key);
+                }
+            }
+        }
+        for step in &report.steps {
+            let _ = writeln!(
+                text,
+                "step.{}={:?} {:.1}ms at={:.1}ms [{}]",
+                step.index, step.status, step.waited_ms, step.at_ms, step.name
+            );
+        }
+        for event in &report.events {
+            let _ = writeln!(text, "event={}", render_event(event));
+        }
+        for line in &report.diagnostics.appkit_internal_events {
+            let _ = writeln!(text, "appkit_internal_event={line}");
+        }
+        for count in &report.diagnostics.live_objects {
+            let _ = writeln!(
+                text,
+                "live_objects={} created={} released={} live={}",
+                count.class, count.created, count.released, count.live
+            );
+        }
+        if let Some(unclosed) = &report.diagnostics.unclosed_dispatch {
+            let _ = writeln!(text, "unclosed_dispatch={unclosed}");
+        }
+        for metric in &report.metrics {
+            match &metric.summary {
+                Some(summary) => {
+                    let _ = writeln!(
+                        text,
+                        "metric.{}=p50 {:.3} p95 {:.3} max {:.3} {} (n={})",
+                        metric.name,
+                        summary.p50,
+                        summary.p95,
+                        summary.max,
+                        metric.unit,
+                        summary.count
+                    );
+                }
+                None => {
+                    let _ = writeln!(
+                        text,
+                        "metric.{}={}",
+                        metric.name,
+                        metric.summary_error.as_deref().unwrap_or("нет замеров")
+                    );
+                }
+            }
+        }
+        for snapshot in &report.snapshots {
+            let _ = writeln!(
+                text,
+                "snapshot.{}={:?} {:?} {}",
+                snapshot.name,
+                snapshot.kind,
+                snapshot.status,
+                snapshot
+                    .file
+                    .as_deref()
+                    .or(snapshot.reason.as_deref())
+                    .unwrap_or("")
+            );
+        }
+        for finding in &report.findings {
+            let _ = writeln!(
+                text,
+                "finding.{}={}: {}",
                 finding.name,
                 finding.verdict.name(),
                 finding.reason
-            ));
+            );
         }
         match &self.execution {
             Execution::Ok => text.push_str("execution=ok\n"),
-            Execution::Error(reason) => {
+            Execution::Error { reason, last_state } => {
                 text.push_str("execution=error\n");
-                text.push_str(&format!("reason={reason}\n"));
+                let _ = writeln!(text, "reason={reason}");
+                if let Some(state) = last_state {
+                    let _ = writeln!(text, "last_state={state}");
+                }
             }
         }
         text
@@ -285,9 +339,29 @@ impl Outcome {
     pub fn exit_code(&self) -> ExitCode {
         match self.execution {
             Execution::Ok => ExitCode::SUCCESS,
-            Execution::Error(_) => ExitCode::from(EXIT_EXECUTION),
+            Execution::Error { .. } => ExitCode::from(EXIT_EXECUTION),
         }
     }
+}
+
+fn render_event(event: &crate::results::EventRecord) -> String {
+    let at =
+        |value: Option<f64>| value.map_or_else(|| "none".to_owned(), |ms| format!("{ms:.3}ms"));
+    let dispatch = match event.dispatch_start_ms {
+        Some(ms) => format!("{ms:.3}ms"),
+        None if event.undispatched => "none(вложенный цикл)".to_owned(),
+        None => "none".to_owned(),
+    };
+    format!(
+        "#{} {} win={} posted={:.3}ms dispatch={dispatch} return={} pass={} before[{}]",
+        event.number,
+        event.label,
+        event.window,
+        event.posted_ms,
+        at(event.send_return_ms),
+        at(event.display_pass_ms),
+        event.before
+    )
 }
 
 /// Записывает первый итог процесса и останавливает основной цикл, чтобы `run()` вернулся.
@@ -453,10 +527,18 @@ fn run_from(mut steps: VecDeque<Step>, index: usize, done: StepsDone) {
                 "шаг «{name}» готов за {:.1} мс",
                 waited.as_secs_f64() * 1e3
             ));
+            let state = events::current_state();
+            let mut record = step_record(index, name, StepStatus::Ready, waited, state);
             match act() {
-                Ok(()) => run_from(steps, index + 1, done),
+                Ok(()) => {
+                    events::step(record);
+                    run_from(steps, index + 1, done)
+                }
                 Err(reason) => {
                     events::note(format!("шаг «{name}»: ошибка действия: {reason}"));
+                    record.status = StepStatus::ActionError;
+                    record.state = format!("{}; ошибка действия: {reason}", record.state);
+                    events::step(record);
                     done(Err(StepFailure {
                         step: name,
                         index,
@@ -467,6 +549,13 @@ fn run_from(mut steps: VecDeque<Step>, index: usize, done: StepsDone) {
         }
         Err(timeout) => {
             events::note(format!("шаг «{name}»: тайм-аут, {}", timeout.last_state));
+            events::step(step_record(
+                index,
+                name,
+                StepStatus::Timeout,
+                timeout.waited,
+                timeout.last_state.clone(),
+            ));
             done(Err(StepFailure {
                 step: name,
                 index,
@@ -474,6 +563,23 @@ fn run_from(mut steps: VecDeque<Step>, index: usize, done: StepsDone) {
             }))
         }
     });
+}
+
+fn step_record(
+    index: usize,
+    name: &str,
+    status: StepStatus,
+    waited: Duration,
+    state: String,
+) -> StepRecord {
+    StepRecord {
+        index,
+        name: name.to_owned(),
+        status,
+        waited_ms: events::to_ms(waited),
+        at_ms: events::elapsed().map_or(0.0, events::to_ms),
+        state,
+    }
 }
 
 /// Срок, за который менеджер окон обязан перестать двигать окна сценария.

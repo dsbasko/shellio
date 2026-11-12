@@ -1,7 +1,8 @@
 #!/bin/bash
 # Сборка и запуск пробы P0.2 probe-appkit-shell (ADR-0034).
 #   run.sh scenarios [сценарий …]   каждый сценарий отдельным процессом под caffeinate,
-#                                   выход в target/probes/appkit-shell/<время>/
+#                                   выход в target/probes/appkit-shell/<время>/, затем
+#                                   --aggregate пишет summary.json и сводку выводов
 #   run.sh demo [аргументы пробы …]  демонстрационная сцена для ручной работы
 # Набор ghostty проба не читает, поэтому блокировка vendor/ghostty.lock не нужна.
 set -euo pipefail
@@ -10,7 +11,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CARGO="${CARGO:-cargo}"
 BIN="$ROOT/target/release/probe-appkit-shell"
 OUT_BASE="$ROOT/target/probes/appkit-shell"
-ALL_SCENARIOS="launch native-menu parent-click key-delivery"
+ALL_SCENARIOS="launch native-menu parent-click key-delivery readback-check"
 
 STATE_DIR=""
 
@@ -28,6 +29,26 @@ trap cleanup EXIT
 
 build() {
     (cd "$ROOT" && "$CARGO" build --release --locked -p probe-appkit-shell)
+}
+
+# Сведения о сборке для environment в result.json: сама проба git и rustc не вызывает.
+export_build_info() {
+    local commit rustc
+    commit="$(git -C "$ROOT" rev-parse --short=12 HEAD 2>/dev/null || true)"
+    if [ -n "$commit" ] && [ -n "$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+        commit="$commit-dirty"
+    fi
+    local rustc_bin=rustc
+    case "$CARGO" in */*) rustc_bin="$(dirname "$CARGO")/rustc" ;; esac
+    rustc="$(cd "$ROOT" && "$rustc_bin" -V 2>/dev/null || true)"
+    PROBE_COMMIT="$commit"
+    PROBE_RUSTC="$rustc"
+    PROBE_OBJC2="$(awk '
+        /^name = "/ { name = $3; gsub(/"/, "", name) }
+        /^version = "/ && name ~ /^(objc2|objc2-[a-z-]+|block2|dispatch2)$/ {
+            version = $3; gsub(/"/, "", version); printf "%s%s %s", sep, name, version; sep = ", "
+        }' "$ROOT/Cargo.lock")"
+    export PROBE_COMMIT PROBE_RUSTC PROBE_OBJC2
 }
 
 new_state_dir() {
@@ -68,10 +89,13 @@ run_scenario() {
     return "$code"
 }
 
+# Ненулевой код только при ошибке исполнения хотя бы одного процесса или агрегирования;
+# fail и pending-manual на код не влияют, их показывает сводка выводов.
 cmd_scenarios() {
     local scenarios="${*:-$ALL_SCENARIOS}"
-    local run_dir scenario variant out code total=0 failed=0
+    local run_dir scenario variant out code total=0 failed=0 aggregate=0
     build
+    export_build_info
     mkdir -p "$OUT_BASE"
     run_dir="$OUT_BASE/$(date +%Y%m%d-%H%M%S)-$$"
     mkdir "$run_dir"
@@ -92,8 +116,13 @@ cmd_scenarios() {
         done
     done
     echo "прогон: $run_dir"
+    echo
+    "$BIN" --aggregate "$run_dir" || aggregate=$?
     if [ "$failed" -ne 0 ]; then
         die "ошибки исполнения: $failed из $total"
+    fi
+    if [ "$aggregate" -ne 0 ]; then
+        die "агрегирование отметило ошибки исполнения (код $aggregate)"
     fi
 }
 
