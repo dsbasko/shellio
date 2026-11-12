@@ -16,6 +16,7 @@ pub mod snapshot;
 mod split;
 pub mod stand;
 mod tabs;
+mod tree;
 pub mod watchdog;
 mod watchdog_check;
 
@@ -62,10 +63,11 @@ pub enum Scenario {
     Split,
     Tabs,
     List,
+    Tree,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 9] = [
+    pub const ALL: [Scenario; 10] = [
         Scenario::Launch,
         Scenario::NativeMenu,
         Scenario::ParentClick,
@@ -75,6 +77,7 @@ impl Scenario {
         Scenario::Split,
         Scenario::Tabs,
         Scenario::List,
+        Scenario::Tree,
     ];
 
     pub fn name(self) -> &'static str {
@@ -88,6 +91,7 @@ impl Scenario {
             Scenario::Split => "split",
             Scenario::Tabs => "tabs",
             Scenario::List => "list",
+            Scenario::Tree => "tree",
         }
     }
 
@@ -110,13 +114,14 @@ impl Scenario {
             Scenario::Split => 150,
             Scenario::Tabs => 150,
             Scenario::List => 300,
+            Scenario::Tree => 150,
         })
     }
 
     /// Сценарию нужна собранная сцена; стендовые сценарии работают на голом окне.
     pub fn needs_scene(self) -> bool {
         match self {
-            Scenario::Split | Scenario::Tabs | Scenario::List => true,
+            Scenario::Split | Scenario::Tabs | Scenario::List | Scenario::Tree => true,
             Scenario::Launch
             | Scenario::NativeMenu
             | Scenario::ParentClick
@@ -150,6 +155,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Split => split::run(stand),
         Scenario::Tabs => tabs::run(stand),
         Scenario::List => list::run(stand),
+        Scenario::Tree => tree::run(stand),
     }
 }
 

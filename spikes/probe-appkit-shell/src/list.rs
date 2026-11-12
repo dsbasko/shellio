@@ -67,7 +67,7 @@ define_class!(
                 .borrow()
                 .as_ref()
                 .is_some_and(|hooks| (hooks.on_key)(event));
-            if !handled && !self.arrow(event) {
+            if !handled && !step_selection(self, event) {
                 // SAFETY: `keyDown:` у NSTableView с событием клавиши.
                 let _: () = unsafe { msg_send![super(self), keyDown: event] };
             }
@@ -115,59 +115,57 @@ impl Drop for Tally {
 const KEY_UP: u16 = 126;
 const KEY_DOWN: u16 = 125;
 
-impl ListTable {
-    /// Up и Down без модификаторов выбора: соседняя строка и прокрутка к ней без анимации.
-    /// Собственная клавиатурная прокрутка AppKit анимирована и при нажатиях с частотой кадра
-    /// перелетает выбранную строку на тысячи строк.
-    fn arrow(&self, event: &NSEvent) -> bool {
-        let step = match event.keyCode() {
-            KEY_UP => -1,
-            KEY_DOWN => 1,
-            _ => return false,
-        };
-        let held = event.modifierFlags()
-            & (NSEventModifierFlags::Shift
-                | NSEventModifierFlags::Command
-                | NSEventModifierFlags::Option
-                | NSEventModifierFlags::Control);
-        let rows = self.numberOfRows();
-        if !held.is_empty() || rows == 0 {
-            return false;
-        }
-        let current = self.selectedRow();
-        let next = if current < 0 {
-            0
-        } else {
-            (current + step).clamp(0, rows - 1)
-        };
-        self.selectRowIndexes_byExtendingSelection(
-            &NSIndexSet::indexSetWithIndex(next as usize),
-            false,
-        );
-        self.reveal(next);
-        true
+/// Up и Down без модификаторов: соседняя строка и прокрутка к ней без анимации. Собственная
+/// клавиатурная прокрутка AppKit анимирована и при нажатиях с частотой кадра перелетает
+/// выбранную строку на тысячи строк. Тем же путём идут стрелки `TreeList`.
+pub fn step_selection(table: &NSTableView, event: &NSEvent) -> bool {
+    let step = match event.keyCode() {
+        KEY_UP => -1,
+        KEY_DOWN => 1,
+        _ => return false,
+    };
+    let held = event.modifierFlags()
+        & (NSEventModifierFlags::Shift
+            | NSEventModifierFlags::Command
+            | NSEventModifierFlags::Option
+            | NSEventModifierFlags::Control);
+    let rows = table.numberOfRows();
+    if !held.is_empty() || rows == 0 {
+        return false;
     }
+    let current = table.selectedRow();
+    let next = if current < 0 {
+        0
+    } else {
+        (current + step).clamp(0, rows - 1)
+    };
+    table.selectRowIndexes_byExtendingSelection(
+        &NSIndexSet::indexSetWithIndex(next as usize),
+        false,
+    );
+    reveal(table, next);
+    true
+}
 
-    /// Прокрутка clip view к строке без анимации: строка встаёт к ближнему краю видимой части.
-    fn reveal(&self, row: NSInteger) {
-        let Some(scroll) = self.enclosingScrollView() else {
-            return;
-        };
-        let clip = scroll.contentView();
-        let visible = clip.bounds();
-        let target = self.rectOfRow(row);
-        let top = visible.origin.y;
-        let bottom = top + visible.size.height;
-        let y = if target.origin.y < top {
-            target.origin.y
-        } else if target.origin.y + target.size.height > bottom {
-            target.origin.y + target.size.height - visible.size.height
-        } else {
-            return;
-        };
-        clip.scrollToPoint(NSPoint::new(visible.origin.x, y));
-        scroll.reflectScrolledClipView(&clip);
-    }
+/// Прокрутка clip view к строке без анимации: строка встаёт к ближнему краю видимой части.
+pub fn reveal(table: &NSTableView, row: NSInteger) {
+    let Some(scroll) = table.enclosingScrollView() else {
+        return;
+    };
+    let clip = scroll.contentView();
+    let visible = clip.bounds();
+    let target = table.rectOfRow(row);
+    let top = visible.origin.y;
+    let bottom = top + visible.size.height;
+    let y = if target.origin.y < top {
+        target.origin.y
+    } else if target.origin.y + target.size.height > bottom {
+        target.origin.y + target.size.height - visible.size.height
+    } else {
+        return;
+    };
+    clip.scrollToPoint(NSPoint::new(visible.origin.x, y));
+    scroll.reflectScrolledClipView(&clip);
 }
 
 pub struct CellIvars {

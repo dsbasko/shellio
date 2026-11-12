@@ -5,22 +5,25 @@
 //! на фоне окна, вуали и тона не имеет; при фокусе в нём все плитки под вуалью, а выбранная
 //! строка в рамке. Вуаль не принимает щелчок и не элемент доступности. Клавиши вкладок плитка с
 //! фокусом передаёт своей полосе. В центральной и правой плитках под полосой `VirtualList`:
-//! щелчок по строке делает first responder его таблицу, и фокус переходит плитке.
+//! щелчок по строке делает first responder его таблицу, и фокус переходит плитке. В навигаторе
+//! `TreeList`: его дерево — first responder навигатора.
 
 use std::cell::Cell;
 use std::rc::{Rc, Weak};
 
 use objc2::rc::Retained;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
+use objc2_app_kit::NSTableRowView;
 use objc2_app_kit::{NSAutoresizingMaskOptions, NSEvent, NSResponder, NSView};
 use objc2_foundation::{NSObject, NSPoint, NSRect, NSSize};
 
 use crate::chrome::{color, fill, label, rect};
-use crate::fixtures::{self, SCENE_ROWS, TabSpec};
+use crate::fixtures::{self, SCENE_ROWS, TREE_BRANCHING, TabSpec};
 use crate::list::{Hooks, VirtualList};
 use crate::scenario::counters::{Live, counter};
 use crate::tabs::{Place, TabStrip};
 use crate::tokens::Tokens;
+use crate::tree::TreeList;
 
 counter!(TILE, "ProbeTile");
 counter!(VEIL, "ProbeVeil");
@@ -29,19 +32,15 @@ counter!(ZONE_HOST, "ProbeZoneHost");
 
 /// Высота нижней зоны.
 pub const BOTTOM_HEIGHT: f64 = 180.0;
-/// Отступ содержимого навигатора слева и сверху, как у `.side` прототипа.
+/// Отступы содержимого навигатора, как `padding: 6px 6px 8px 8px` у `.side` прототипа.
 pub const NAV_PAD_LEFT: f64 = 8.0;
 pub const NAV_PAD_TOP: f64 = 6.0;
-const NAV_ROWS: [&str; 6] = [
-    "shellio",
-    "probe-appkit-shell",
-    "main",
-    "Сессии",
-    "terminal · zsh",
-    "agent · claude",
-];
-/// Выбранная строка навигатора.
-pub const NAV_SELECTED: usize = 2;
+const NAV_PAD_RIGHT: f64 = 6.0;
+const NAV_PAD_BOTTOM: f64 = 8.0;
+/// Корень, раскрытый в начальной сцене.
+pub const NAV_EXPANDED_ROOT: usize = 0;
+/// Выбранная строка начальной сцены: второй ребёнок раскрытого корня.
+pub const NAV_SELECTED: isize = 2;
 const TITLE_INSET: f64 = 12.0;
 
 pub const CENTER: usize = 0;
@@ -112,8 +111,7 @@ impl Tiles {
             tile.paint_overlay(focused, &self.tokens);
             tile.strip().set_focused(focused);
         }
-        self.navigator
-            .paint_selection(focus == Focus::Navigator, &self.tokens);
+        self.navigator.paint_selection(focus == Focus::Navigator);
     }
 }
 
@@ -338,11 +336,11 @@ impl Tile {
 pub struct NavigatorIvars {
     _live: Live,
     owner: Weak<Tiles>,
-    rows: Vec<Retained<NSView>>,
+    tree: TreeList,
 }
 
 define_class!(
-    /// Плоский навигатор на фоне окна. Строки — заглушки до `TreeList` задачи 8.
+    /// Плоский навигатор на фоне окна с `TreeList` внутри отступов.
     #[unsafe(super(NSView, NSResponder, NSObject))]
     #[thread_kind = MainThreadOnly]
     #[name = "ProbeNavigator"]
@@ -365,10 +363,11 @@ define_class!(
             true
         }
 
+        /// Щелчок по отступу навигатора отдаёт фокус дереву.
         #[unsafe(method(mouseDown:))]
         fn mouse_down(&self, _event: &NSEvent) {
             if let Some(window) = self.window() {
-                window.makeFirstResponder(Some(self));
+                window.makeFirstResponder(Some(self.ivars().tree.outline()));
             }
         }
 
@@ -387,70 +386,52 @@ define_class!(
 impl Navigator {
     fn new(mtm: MainThreadMarker, owner: &Weak<Tiles>, tokens: &Tokens) -> Retained<Navigator> {
         let width = crate::split::LEFT_THICKNESS;
-        let rows: Vec<Retained<NSView>> = NAV_ROWS
-            .iter()
-            .enumerate()
-            .map(|(index, title)| {
-                let row = NSView::initWithFrame(
-                    NSView::alloc(mtm),
-                    rect(
-                        NAV_PAD_LEFT,
-                        NAV_PAD_TOP + tokens.row * index as f64,
-                        width - NAV_PAD_LEFT,
-                        tokens.row,
-                    ),
-                );
-                row.setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable);
-                row.setWantsLayer(true);
-                if let Some(layer) = row.layer() {
-                    layer.setCornerRadius(tokens.r_row);
-                    if index == NAV_SELECTED {
-                        layer.setBackgroundColor(Some(&color(tokens.sel, 1.0).CGColor()));
-                    }
-                }
-                row.addSubview(&label(
-                    mtm,
-                    title,
-                    if index == NAV_SELECTED {
-                        tokens.text
-                    } else {
-                        tokens.text_2
-                    },
-                    rect(8.0, (tokens.row - 18.0) / 2.0, width - 24.0, 18.0),
-                ));
-                row
-            })
-            .collect();
+        let height = 600.0;
+        let tree = TreeList::new(
+            mtm,
+            tokens,
+            rect(
+                NAV_PAD_LEFT,
+                NAV_PAD_TOP,
+                width - NAV_PAD_LEFT - NAV_PAD_RIGHT,
+                height - NAV_PAD_TOP - NAV_PAD_BOTTOM,
+            ),
+            &fixtures::tree(&TREE_BRANCHING),
+        );
+        if let Some(root) = tree.roots().get(NAV_EXPANDED_ROOT) {
+            tree.expand(root, false);
+        }
+        tree.select_row(NAV_SELECTED);
+        let focus_owner = owner.clone();
+        tree.set_on_focus(Box::new(move || {
+            if let Some(owner) = focus_owner.upgrade() {
+                owner.apply(Focus::Navigator);
+            }
+        }));
         let this = Navigator::alloc(mtm).set_ivars(NavigatorIvars {
             _live: NAVIGATOR.live(),
             owner: owner.clone(),
-            rows,
+            tree,
         });
-        let frame = NSRect::new(NSPoint::ZERO, NSSize::new(width, 600.0));
+        let frame = NSRect::new(NSPoint::ZERO, NSSize::new(width, height));
         // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
         let view: Retained<Navigator> = unsafe { msg_send![super(this), initWithFrame: frame] };
         fill(&view, tokens.chrome, 1.0);
-        for row in &view.ivars().rows {
-            view.addSubview(row);
-        }
+        view.addSubview(view.ivars().tree.view());
         view
     }
 
-    pub fn selected_row(&self) -> Option<&NSView> {
-        self.ivars().rows.get(NAV_SELECTED).map(|row| &**row)
+    pub fn tree(&self) -> &TreeList {
+        &self.ivars().tree
     }
 
-    fn paint_selection(&self, focused: bool, tokens: &Tokens) {
-        let Some(layer) = self.selected_row().and_then(|row| row.layer()) else {
-            return;
-        };
-        if focused {
-            layer.setBorderWidth(1.0);
-            layer.setBorderColor(Some(&color(tokens.focus, 1.0).CGColor()));
-        } else {
-            layer.setBorderWidth(0.0);
-            layer.setBorderColor(None);
-        }
+    /// Вид выбранной строки дерева, если он создан.
+    pub fn selected_row(&self) -> Option<Retained<NSTableRowView>> {
+        self.ivars().tree.selected_row_view()
+    }
+
+    fn paint_selection(&self, focused: bool) {
+        self.ivars().tree.set_focused(focused);
     }
 }
 

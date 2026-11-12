@@ -379,6 +379,9 @@ fn ax_bool(object: &AnyObject, selector: Sel) -> Option<bool> {
         s if s == sel!(isAccessibilityFocused) => unsafe {
             msg_send![object, isAccessibilityFocused]
         },
+        s if s == sel!(isAccessibilityDisclosed) => unsafe {
+            msg_send![object, isAccessibilityDisclosed]
+        },
         _ => return None,
     };
     Some(value)
@@ -392,6 +395,22 @@ pub fn ax_array(object: &AnyObject, selector: Sel) -> Option<Retained<NSArray<An
     unsafe { msg_send![object, performSelector: selector] }
 }
 
+/// Атрибут доступности по имени через `accessibilityAttributeValue:`. У приватных элементов
+/// строк таблиц и деревьев часть атрибутов есть только так.
+pub fn ax_attribute(object: &AnyObject, name: &str) -> Option<Retained<AnyObject>> {
+    if !responds(object, sel!(accessibilityAttributeValue:)) {
+        return None;
+    }
+    let name = NSString::from_str(name);
+    // SAFETY: `accessibilityAttributeValue:` принимает имя атрибута и возвращает объект или nil;
+    // селектор проверен.
+    unsafe { msg_send![object, accessibilityAttributeValue: &*name] }
+}
+
+fn ax_number(object: &AnyObject, name: &str) -> Option<Retained<NSNumber>> {
+    ax_attribute(object, name)?.downcast::<NSNumber>().ok()
+}
+
 /// Индекс строки таблицы у элемента доступности строки.
 /// Элементы строк view-based таблицы (`NSTableRow`) метода `accessibilityIndex` не имеют и
 /// отдают индекс только атрибутом `AXIndex`.
@@ -401,16 +420,56 @@ pub fn ax_index(object: &AnyObject) -> Option<isize> {
         let index: isize = unsafe { msg_send![object, accessibilityIndex] };
         return Some(index);
     }
-    if !responds(object, sel!(accessibilityAttributeValue:)) {
-        return None;
+    Some(ax_number(object, "AXIndex")?.integerValue())
+}
+
+/// Раскрытость, уровень и выбор строки дерева для доступности и путь, которым они прочитаны:
+/// метод протокола `NSAccessibility` или атрибут по имени.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct AxDisclosure {
+    pub disclosing: Option<bool>,
+    pub level: Option<isize>,
+    pub selected: Option<bool>,
+    pub via: Vec<&'static str>,
+}
+
+pub fn ax_disclosure(object: &AnyObject) -> AxDisclosure {
+    let mut via = Vec::new();
+    let disclosing = match ax_bool(object, sel!(isAccessibilityDisclosed)) {
+        Some(value) => {
+            via.push("isAccessibilityDisclosed");
+            Some(value)
+        }
+        None => {
+            via.push("AXDisclosing");
+            ax_number(object, "AXDisclosing").map(|number| number.boolValue())
+        }
+    };
+    let level = if responds(object, sel!(accessibilityDisclosureLevel)) {
+        via.push("accessibilityDisclosureLevel");
+        // SAFETY: `accessibilityDisclosureLevel` возвращает NSInteger; селектор проверен.
+        let level: isize = unsafe { msg_send![object, accessibilityDisclosureLevel] };
+        Some(level)
+    } else {
+        via.push("AXDisclosureLevel");
+        ax_number(object, "AXDisclosureLevel").map(|number| number.integerValue())
+    };
+    let selected = match ax_bool(object, sel!(isAccessibilitySelected)) {
+        Some(value) => {
+            via.push("isAccessibilitySelected");
+            Some(value)
+        }
+        None => {
+            via.push("AXSelected");
+            ax_number(object, "AXSelected").map(|number| number.boolValue())
+        }
+    };
+    AxDisclosure {
+        disclosing,
+        level,
+        selected,
+        via,
     }
-    let name = NSString::from_str("AXIndex");
-    // SAFETY: `accessibilityAttributeValue:` принимает имя атрибута и возвращает объект или nil;
-    // селектор проверен.
-    let value: Option<Retained<AnyObject>> =
-        unsafe { msg_send![object, accessibilityAttributeValue: &*name] };
-    let number = value?.downcast::<NSNumber>().ok()?;
-    Some(number.integerValue())
 }
 
 /// Строка объекта: у NSString — сама строка, у остальных `description`.

@@ -41,6 +41,98 @@ pub fn edited(row: &ListRow, revision: u32) -> ListRow {
     }
 }
 
+/// Ветвление дерева навигатора по уровням: 100 корней, у каждого 9 детей, у каждого из них 10.
+pub const TREE_BRANCHING: [usize; 3] = [100, 9, 10];
+/// Узлов в дереве навигатора.
+pub const TREE_SIZE: usize = 10_000;
+
+/// Узел дерева. Идентификатор — номер узла в прямом обходе с 1, он задан положением узла в
+/// исходном дереве и не меняется при перестановке.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TreeSpec {
+    pub id: u64,
+    pub title: String,
+    pub children: Vec<TreeSpec>,
+}
+
+/// Слова подписей по уровням; глубже последнего уровня повторяется последнее.
+const TREE_WORDS: [&str; 3] = ["repo", "dir", "file"];
+
+/// Дерево с ветвлением `branching` по уровням. Подпись — слово уровня и путь из номеров с 1.
+pub fn tree(branching: &[usize]) -> Vec<TreeSpec> {
+    let mut next = 1;
+    tree_level(branching, &mut Vec::new(), &mut next)
+}
+
+fn tree_level(branching: &[usize], path: &mut Vec<usize>, next: &mut u64) -> Vec<TreeSpec> {
+    let Some((&count, deeper)) = branching.split_first() else {
+        return Vec::new();
+    };
+    (1..=count)
+        .map(|number| {
+            path.push(number);
+            let id = *next;
+            *next += 1;
+            let word = TREE_WORDS[(path.len() - 1).min(TREE_WORDS.len() - 1)];
+            let steps: Vec<String> = path
+                .iter()
+                .enumerate()
+                .map(|(level, step)| {
+                    if level == 0 {
+                        format!("{step:03}")
+                    } else {
+                        step.to_string()
+                    }
+                })
+                .collect();
+            let title = format!("{word} {}", steps.join("."));
+            let children = tree_level(deeper, path, next);
+            path.pop();
+            TreeSpec {
+                id,
+                title,
+                children,
+            }
+        })
+        .collect()
+}
+
+/// Число узлов дерева.
+pub fn tree_size(nodes: &[TreeSpec]) -> usize {
+    nodes.iter().map(|node| 1 + tree_size(&node.children)).sum()
+}
+
+/// Число уровней дерева; у пустого 0.
+pub fn tree_depth(nodes: &[TreeSpec]) -> usize {
+    nodes
+        .iter()
+        .map(|node| 1 + tree_depth(&node.children))
+        .max()
+        .unwrap_or(0)
+}
+
+/// Видимые строки дерева сверху вниз: идентификатор и уровень. Дети узла видны, если раскрыт
+/// он и все его предки.
+pub fn visible_rows(nodes: &[TreeSpec], expanded: &dyn Fn(u64) -> bool) -> Vec<(u64, usize)> {
+    let mut rows = Vec::new();
+    push_visible(nodes, 0, expanded, &mut rows);
+    rows
+}
+
+fn push_visible(
+    nodes: &[TreeSpec],
+    level: usize,
+    expanded: &dyn Fn(u64) -> bool,
+    rows: &mut Vec<(u64, usize)>,
+) {
+    for node in nodes {
+        rows.push((node.id, level));
+        if expanded(node.id) {
+            push_visible(&node.children, level + 1, expanded, rows);
+        }
+    }
+}
+
 /// Тип вкладки: от него зависит значок в центральной и нижней плитках.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TabKind {
@@ -221,6 +313,81 @@ mod tests {
             .map(|row| row.title.chars().count())
             .max();
         assert_eq!(longest, Some(13));
+    }
+
+    #[test]
+    fn tree_has_fixture_size_and_fixed_depth() {
+        let tree = tree(&TREE_BRANCHING);
+        assert_eq!(tree_size(&tree), TREE_SIZE);
+        assert_eq!(tree.len(), TREE_BRANCHING[0]);
+        assert_eq!(tree_depth(&tree), TREE_BRANCHING.len());
+        // Глубина одинакова у каждой ветви: у каждого узла уровня ровно столько детей,
+        // сколько задано для следующего уровня.
+        fn check(nodes: &[TreeSpec], branching: &[usize]) {
+            assert_eq!(nodes.len(), branching.first().copied().unwrap_or(0));
+            for node in nodes {
+                check(&node.children, &branching[1..]);
+            }
+        }
+        check(&tree, &TREE_BRANCHING);
+    }
+
+    #[test]
+    fn tree_ids_are_stable_preorder_positions() {
+        let first = tree(&TREE_BRANCHING);
+        assert_eq!(first, tree(&TREE_BRANCHING));
+        fn preorder(nodes: &[TreeSpec], out: &mut Vec<u64>) {
+            for node in nodes {
+                out.push(node.id);
+                preorder(&node.children, out);
+            }
+        }
+        let mut ids = Vec::new();
+        preorder(&first, &mut ids);
+        assert_eq!(ids, (1..=TREE_SIZE as u64).collect::<Vec<_>>());
+        assert_eq!((first[0].id, first[0].title.as_str()), (1, "repo 001"));
+        let child = &first[0].children[1];
+        assert_eq!((child.id, child.title.as_str()), (13, "dir 001.2"));
+        let leaf = &first[99].children[8].children[9];
+        assert_eq!((leaf.id, leaf.title.as_str()), (10_000, "file 100.9.10"));
+        // Идентификатор узла задан его положением: у меньшего дерева та же нумерация начала.
+        let small = tree(&[2, 9, 10]);
+        assert_eq!(small[0], first[0]);
+    }
+
+    #[test]
+    fn single_node_and_empty_trees() {
+        let single = tree(&[1]);
+        assert_eq!(
+            single,
+            vec![TreeSpec {
+                id: 1,
+                title: "repo 001".to_owned(),
+                children: Vec::new()
+            }]
+        );
+        assert_eq!((tree_size(&single), tree_depth(&single)), (1, 1));
+        assert_eq!(visible_rows(&single, &|_| true), vec![(1, 0)]);
+        let empty = tree(&[]);
+        assert!(empty.is_empty());
+        assert_eq!((tree_size(&empty), tree_depth(&empty)), (0, 0));
+    }
+
+    #[test]
+    fn visible_rows_follow_expansion() {
+        let tree = tree(&TREE_BRANCHING);
+        let collapsed = visible_rows(&tree, &|_| false);
+        assert_eq!(collapsed.len(), TREE_BRANCHING[0]);
+        assert!(collapsed.iter().all(|(_, level)| *level == 0));
+        let roots: BTreeSet<u64> = tree.iter().map(|node| node.id).collect();
+        let first_level = visible_rows(&tree, &|id| roots.contains(&id));
+        assert_eq!(first_level.len(), 100 + 900);
+        assert_eq!(first_level[1], (2, 1));
+        assert_eq!(first_level[10], (tree[1].id, 0));
+        assert_eq!(visible_rows(&tree, &|_| true).len(), TREE_SIZE);
+        // Раскрытый узел под свёрнутым предком детей не показывает.
+        let deep = tree[0].children[0].id;
+        assert_eq!(visible_rows(&tree, &|id| id == deep).len(), 100);
     }
 
     #[test]

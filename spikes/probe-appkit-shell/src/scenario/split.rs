@@ -37,7 +37,7 @@ use crate::chrome::{self, BUTTON_CENTER_FROM_TOP, SceneRoot};
 use crate::results::{Rect, Size, Snapshot, SnapshotStatus};
 use crate::scene::Scene;
 use crate::split::{LEFT_THICKNESS, RIGHT_THICKNESS};
-use crate::tiles::{BOTTOM, BOTTOM_HEIGHT, CENTER, Focus, NAV_PAD_LEFT, RIGHT};
+use crate::tiles::{BOTTOM, BOTTOM_HEIGHT, CENTER, Focus, RIGHT};
 use crate::tokens::{self, InputMode, Tokens};
 
 counter!(WINDOW_LOG, "ProbeWindowLog");
@@ -1268,11 +1268,14 @@ fn probe_pixels(run: &Run, state: &str) -> Result<(), String> {
             (format!("плитка {index}"), point, want)
         })
         .collect();
+    // Справа внизу навигатора: подписи дерева короткие и туда не доходят, а полоса прокрутки
+    // уже 40 точек.
     let navigator = &tiles.navigator;
-    let below_rows = NSPoint::new(NAV_PAD_LEFT + 40.0, navigator.bounds().size.height - 40.0);
+    let bounds = navigator.bounds().size;
+    let no_text = NSPoint::new(bounds.width - 40.0, bounds.height - 40.0);
     probes.push((
         "навигатор".to_owned(),
-        navigator.convertPoint_toView(below_rows, Some(root)),
+        navigator.convertPoint_toView(no_text, Some(root)),
         tokens.chrome,
     ));
     let mut ok = true;

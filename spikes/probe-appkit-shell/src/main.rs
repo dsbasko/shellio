@@ -13,6 +13,7 @@ mod stats;
 mod tabs;
 mod tiles;
 mod tokens;
+mod tree;
 
 use std::cell::{OnceCell, RefCell};
 use std::io::{self, Write};

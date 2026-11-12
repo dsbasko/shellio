@@ -333,6 +333,7 @@ const ARROW: NSEventModifierFlags =
 impl Key {
     pub const DOWN: Key = Key::special("Down", 125, "\u{F701}", ARROW);
     pub const LEFT: Key = Key::special("Left", 123, "\u{F702}", ARROW);
+    pub const RIGHT: Key = Key::special("Right", 124, "\u{F703}", ARROW);
     pub const RETURN: Key = Key::special("Return", 36, "\r", NSEventModifierFlags::empty());
     /// Cmd-K: эквивалент пункта меню стенда. Символы заданы явно, раскладка их не меняет.
     pub const CMD_K: Key = Key {
