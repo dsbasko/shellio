@@ -70,7 +70,7 @@ define_class!(
     #[thread_kind = MainThreadOnly]
     #[name = "ProbeWindowLog"]
     #[ivars = LogIvars]
-    struct WindowLog;
+    pub(super) struct WindowLog;
 
     unsafe impl NSObjectProtocol for WindowLog {}
 
@@ -103,7 +103,7 @@ define_class!(
 );
 
 impl WindowLog {
-    fn new(mtm: MainThreadMarker) -> Retained<WindowLog> {
+    pub(super) fn new(mtm: MainThreadMarker) -> Retained<WindowLog> {
         let this = WindowLog::alloc(mtm).set_ivars(LogIvars {
             _live: WINDOW_LOG.live(),
             will_move: Cell::new(0),
@@ -114,7 +114,7 @@ impl WindowLog {
         unsafe { msg_send![super(this), init] }
     }
 
-    fn observe(&self, window: &NSWindow) {
+    pub(super) fn observe(&self, window: &NSWindow) {
         let center = NSNotificationCenter::defaultCenter();
         let window: &AnyObject = window;
         // SAFETY: имена уведомлений — неизменяемые константы AppKit.
@@ -138,7 +138,13 @@ impl WindowLog {
         }
     }
 
-    fn stop(&self) {
+    /// Уведомления о входе в полноэкранный режим и выходе из него.
+    pub(super) fn fullscreen_notes(&self) -> (usize, usize) {
+        let ivars = self.ivars();
+        (ivars.entered.get(), ivars.exited.get())
+    }
+
+    pub(super) fn stop(&self) {
         // SAFETY: снимаются все подписки этого наблюдателя.
         unsafe { NSNotificationCenter::defaultCenter().removeObserver(self) };
     }

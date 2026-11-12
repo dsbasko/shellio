@@ -41,6 +41,58 @@ pub fn edited(row: &ListRow, revision: u32) -> ListRow {
     }
 }
 
+/// Команд в палитре сцены.
+pub const PALETTE_COMMANDS: usize = 2_000;
+/// Команда пробы, которую вызывают пункт меню, его сочетание клавиш и палитра. Она первая в
+/// наборе, поэтому при пустом запросе выбрана.
+pub const MARK_COMMAND: u64 = 1;
+pub const MARK_TITLE: &str = "Отметить";
+
+/// Команда палитры. Идентификатор — номер в наборе с 1.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Command {
+    pub id: u64,
+    pub title: String,
+    pub group: &'static str,
+}
+
+const COMMAND_VERBS: [&str; 8] = [
+    "Открыть",
+    "Закрыть",
+    "Показать",
+    "Скрыть",
+    "Запустить",
+    "Остановить",
+    "Перейти к",
+    "Найти",
+];
+const COMMAND_GROUPS: [&str; 5] = ["Панели", "Сессии", "Git", "Агенты", "Вид"];
+
+/// Набор из `count` команд: первая — команда пробы, остальные — глагол, латинское слово и номер.
+/// Латинские слова нужны сценарию: он набирает запрос в латинской раскладке.
+pub fn commands(count: usize) -> Vec<Command> {
+    (0..count)
+        .map(|index| {
+            if index == 0 {
+                return Command {
+                    id: MARK_COMMAND,
+                    title: MARK_TITLE.to_owned(),
+                    group: "Проба",
+                };
+            }
+            Command {
+                id: index as u64 + 1,
+                title: format!(
+                    "{} {} {index:04}",
+                    COMMAND_VERBS[index % COMMAND_VERBS.len()],
+                    LIST_WORDS[(index / COMMAND_VERBS.len()) % LIST_WORDS.len()]
+                ),
+                group: COMMAND_GROUPS[index % COMMAND_GROUPS.len()],
+            }
+        })
+        .collect()
+}
+
 /// Ветвление дерева навигатора по уровням: 100 корней, у каждого 9 детей, у каждого из них 10.
 pub const TREE_BRANCHING: [usize; 3] = [100, 9, 10];
 /// Узлов в дереве навигатора.
@@ -388,6 +440,32 @@ mod tests {
         // Раскрытый узел под свёрнутым предком детей не показывает.
         let deep = tree[0].children[0].id;
         assert_eq!(visible_rows(&tree, &|id| id == deep).len(), 100);
+    }
+
+    #[test]
+    fn command_set_is_deterministic_with_mark_first() {
+        let set = commands(PALETTE_COMMANDS);
+        assert_eq!(set.len(), PALETTE_COMMANDS);
+        assert_eq!(set, commands(PALETTE_COMMANDS));
+        assert_eq!(
+            (set[0].id, set[0].title.as_str()),
+            (MARK_COMMAND, MARK_TITLE)
+        );
+        assert_eq!(set[1].title, "Закрыть build 0001");
+        assert_eq!(set[1_999].title, "Найти commit 1999");
+        let ids: BTreeSet<u64> = set.iter().map(|command| command.id).collect();
+        let titles: BTreeSet<&str> = set.iter().map(|command| command.title.as_str()).collect();
+        assert_eq!(
+            (ids.len(), titles.len()),
+            (PALETTE_COMMANDS, PALETTE_COMMANDS)
+        );
+        assert!(
+            set.iter()
+                .enumerate()
+                .all(|(index, command)| command.id == index as u64 + 1)
+        );
+        assert!(commands(0).is_empty());
+        assert_eq!(commands(1)[0].title, MARK_TITLE);
     }
 
     #[test]

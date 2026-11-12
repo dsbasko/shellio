@@ -29,6 +29,8 @@ const SCREENCAPTURE: &str = "/usr/sbin/screencapture";
 pub const COMPOSITION_MARGIN: f64 = 40.0;
 
 type Slot<T> = Arc<Mutex<Option<Result<T, String>>>>;
+/// Итог `wait_all`: ошибка срока или итог каждой работы по порядку.
+pub type Outcomes<T> = Result<Vec<Result<T, String>>, String>;
 
 /// Работа в рабочем потоке; итог забирает главный поток.
 pub struct Background<T> {
@@ -81,7 +83,7 @@ impl<T: Send + 'static> Background<T> {
 pub fn wait_all<T: Send + 'static>(
     jobs: Vec<Background<T>>,
     timeout: Duration,
-    done: impl FnOnce(Result<Vec<Result<T, String>>, String>) + 'static,
+    done: impl FnOnce(Outcomes<T>) + 'static,
 ) {
     let results: Vec<Option<Result<T, String>>> = jobs.iter().map(|_| None).collect();
     let state = std::cell::RefCell::new((jobs, results));

@@ -5,6 +5,8 @@ mod args;
 mod chrome;
 mod fixtures;
 mod list;
+mod menu;
+mod palette;
 mod results;
 mod scenario;
 mod scene;
@@ -353,9 +355,10 @@ define_class!(
             self.show_scene();
         }
 
+        /// Сценарий заканчивается своим итогом: закрытие окна сценарием процесс не завершает.
         #[unsafe(method(applicationShouldTerminateAfterLastWindowClosed:))]
         fn should_terminate_after_last_window_closed(&self, _sender: &NSApplication) -> bool {
-            true
+            self.ivars().scenario.is_none()
         }
 
         #[unsafe(method(applicationShouldTerminate:))]

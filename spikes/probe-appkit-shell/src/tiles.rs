@@ -19,7 +19,7 @@ use objc2_foundation::{NSObject, NSPoint, NSRect, NSSize};
 
 use crate::chrome::{color, fill, label, rect};
 use crate::fixtures::{self, SCENE_ROWS, TREE_BRANCHING, TabSpec};
-use crate::list::{Hooks, VirtualList};
+use crate::list::{Hooks, ListLook, VirtualList};
 use crate::scenario::counters::{Live, counter};
 use crate::tabs::{Place, TabStrip};
 use crate::tokens::Tokens;
@@ -259,7 +259,13 @@ impl Tile {
         }
 
         let list = (place != Place::Bottom).then(|| {
-            let list = VirtualList::new(mtm, tokens, body.bounds(), fixtures::list(SCENE_ROWS));
+            let list = VirtualList::new(
+                mtm,
+                tokens,
+                body.bounds(),
+                fixtures::list(SCENE_ROWS),
+                ListLook::tile(tokens),
+            );
             let focus_owner = owner.clone();
             let key_strip = strip.clone();
             list.set_hooks(Hooks {

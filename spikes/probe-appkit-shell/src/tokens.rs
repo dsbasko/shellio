@@ -190,6 +190,10 @@ pub struct Tokens {
     pub t_tab: f64,
     /// Кегль нагрузки и служебных подписей.
     pub t_meta: f64,
+    /// Кегль основного текста, строк палитры.
+    pub t_body: f64,
+    /// Кегль поля палитры.
+    pub t_title: f64,
 }
 
 /// Значение токена для сверки и записи в итог.
@@ -236,6 +240,8 @@ impl Tokens {
             ("--tabbar", Px(self.tabbar)),
             ("--t-tab", Px(self.t_tab)),
             ("--t-meta", Px(self.t_meta)),
+            ("--t-body", Px(self.t_body)),
+            ("--t-title", Px(self.t_title)),
         ]
     }
 
@@ -318,6 +324,8 @@ pub fn tokens(cell: Cell, mode: InputMode) -> Tokens {
         tabbar: 34.0,
         t_tab: 12.5,
         t_meta: 11.5,
+        t_body: 13.0,
+        t_title: 15.0,
     };
     let light = Tokens {
         chrome: Rgba::from_hex(0xEFEDE8),

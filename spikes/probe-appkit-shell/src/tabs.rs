@@ -1133,6 +1133,15 @@ impl TabStrip {
         &self.ivars().menu
     }
 
+    /// Пункты сцены в конце меню «…» после разделителя.
+    pub fn add_menu_items(&self, items: &[Retained<NSMenuItem>]) {
+        let menu = &self.ivars().menu;
+        menu.addItem(&NSMenuItem::separatorItem(self.mtm()));
+        for item in items {
+            menu.addItem(item);
+        }
+    }
+
     /// Цвета по токенам, выбор, нагрузка и заголовок меню; затем раскладка.
     fn paint(&self) {
         let ivars = self.ivars();

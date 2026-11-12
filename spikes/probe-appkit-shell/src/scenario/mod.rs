@@ -7,7 +7,9 @@ pub mod key_delivery;
 pub mod launch;
 mod list;
 pub mod material;
+mod menu;
 pub mod native_menu;
+mod palette;
 pub mod parent_click;
 pub mod passes;
 pub mod readback;
@@ -64,10 +66,12 @@ pub enum Scenario {
     Tabs,
     List,
     Tree,
+    Palette,
+    Menu,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 10] = [
+    pub const ALL: [Scenario; 12] = [
         Scenario::Launch,
         Scenario::NativeMenu,
         Scenario::ParentClick,
@@ -78,6 +82,8 @@ impl Scenario {
         Scenario::Tabs,
         Scenario::List,
         Scenario::Tree,
+        Scenario::Palette,
+        Scenario::Menu,
     ];
 
     pub fn name(self) -> &'static str {
@@ -92,6 +98,8 @@ impl Scenario {
             Scenario::Tabs => "tabs",
             Scenario::List => "list",
             Scenario::Tree => "tree",
+            Scenario::Palette => "palette",
+            Scenario::Menu => "menu",
         }
     }
 
@@ -115,13 +123,20 @@ impl Scenario {
             Scenario::Tabs => 150,
             Scenario::List => 300,
             Scenario::Tree => 150,
+            Scenario::Palette => 300,
+            Scenario::Menu => 90,
         })
     }
 
     /// Сценарию нужна собранная сцена; стендовые сценарии работают на голом окне.
     pub fn needs_scene(self) -> bool {
         match self {
-            Scenario::Split | Scenario::Tabs | Scenario::List | Scenario::Tree => true,
+            Scenario::Split
+            | Scenario::Tabs
+            | Scenario::List
+            | Scenario::Tree
+            | Scenario::Palette
+            | Scenario::Menu => true,
             Scenario::Launch
             | Scenario::NativeMenu
             | Scenario::ParentClick
@@ -156,6 +171,8 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Tabs => tabs::run(stand),
         Scenario::List => list::run(stand),
         Scenario::Tree => tree::run(stand),
+        Scenario::Palette => palette::run(stand),
+        Scenario::Menu => menu::run(stand),
     }
 }
 

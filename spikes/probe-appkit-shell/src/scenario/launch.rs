@@ -179,10 +179,45 @@ fn display_to(stand: &Stand, report: &mut Report) {
     );
 }
 
+/// Латинские раскладки, в которых сценарии набирают текст.
+const LATIN_SOURCES: [&str; 6] = [
+    "com.apple.keylayout.ABC",
+    "com.apple.keylayout.US",
+    "com.apple.keylayout.USExtended",
+    "com.apple.keylayout.USInternational-PC",
+    "com.apple.keylayout.British",
+    "com.apple.keylayout.British-PC",
+];
+
+/// Предусловие сценариев с вводом текста: источник ввода — латинская раскладка.
+pub fn require_latin(source: Option<&str>) -> Result<(), String> {
+    match source {
+        Some(source) if LATIN_SOURCES.contains(&source) => Ok(()),
+        Some(source) => Err(format!(
+            "предусловие: источник ввода {source} не латинская раскладка; сценарию с вводом текста нужна ABC или US"
+        )),
+        None => Err("предусловие: источник ввода не прочитан".to_owned()),
+    }
+}
+
 /// Источник ввода по field editor окна: у вида без `NSTextInputClient` контекста ввода нет.
 pub fn input_source(window: &NSWindow) -> Option<String> {
     // SAFETY: `nil` вместо объекта — документированный запрос общего field editor окна.
     let editor = unsafe { window.fieldEditor_forObject(true, None) }?;
     let source = editor.inputContext()?.selectedKeyboardInputSource()?;
     Some(source.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn latin_precondition() {
+        assert!(require_latin(Some("com.apple.keylayout.ABC")).is_ok());
+        assert!(require_latin(Some("com.apple.keylayout.US")).is_ok());
+        let russian = require_latin(Some("com.apple.keylayout.RussianWin"));
+        assert!(russian.is_err_and(|reason| reason.contains("RussianWin")));
+        assert!(require_latin(None).is_err());
+    }
 }

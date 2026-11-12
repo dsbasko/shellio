@@ -5,11 +5,14 @@ use std::rc::Rc;
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
-use objc2_app_kit::{NSApplication, NSWindow, NSWorkspace};
+use objc2_app_kit::{NSApplication, NSMenu, NSWindow, NSWorkspace};
 use objc2_foundation::{NSPoint, NSRect};
 
 use crate::args::{Contrast, SceneOptions};
 use crate::chrome::{self, ChromeBar, ChromeTarget, SceneRoot};
+use crate::fixtures::{self, MARK_COMMAND, MARK_TITLE, PALETTE_COMMANDS};
+use crate::menu::{self, CommandTarget, Commands, MARK_KEY};
+use crate::palette::Palette;
 use crate::split::{self, SplitScene};
 use crate::tiles::{CENTER, Tiles};
 use crate::tokens::{self, Cell, InputMode, Theme, Tokens};
@@ -23,8 +26,14 @@ pub struct Scene {
     pub chrome: Retained<ChromeBar>,
     pub split: SplitScene,
     pub tiles: Rc<Tiles>,
+    pub palette: Rc<Palette>,
+    pub commands: Rc<Commands>,
+    /// Меню «Правка» в главном меню.
+    pub edit_menu: Option<Retained<NSMenu>>,
     /// Цель кнопок заголовка: кнопки её не удерживают.
     _target: Retained<ChromeTarget>,
+    /// Цель пунктов команд: пункты её не удерживают.
+    _commands_target: Retained<CommandTarget>,
 }
 
 impl Scene {
@@ -53,6 +62,25 @@ impl Scene {
         root.addSubview(&chrome);
         window.setContentView(Some(&root));
         window.makeFirstResponder(Some(&tiles.tiles[CENTER]));
+
+        let commands = Rc::new(Commands::default());
+        let palette = Palette::new(
+            mtm,
+            &window,
+            &tokens,
+            Rc::clone(&commands),
+            fixtures::commands(PALETTE_COMMANDS),
+        );
+        palette.set_fallback(&tiles.tiles[CENTER]);
+        let commands_target =
+            CommandTarget::new(mtm, Rc::clone(&commands), Rc::downgrade(&palette));
+        let edit_menu = NSApplication::sharedApplication(mtm)
+            .mainMenu()
+            .map(|bar| menu::install(mtm, &bar, &commands_target, (MARK_COMMAND, MARK_TITLE)));
+        for tile in &tiles.tiles {
+            let item = commands_target.command_item(mtm, MARK_COMMAND, MARK_TITLE, MARK_KEY);
+            tile.strip().add_menu_items(&[item]);
+        }
         Scene {
             window,
             cell,
@@ -61,7 +89,11 @@ impl Scene {
             chrome,
             split,
             tiles,
+            palette,
+            commands,
+            edit_menu,
             _target: target,
+            _commands_target: commands_target,
         }
     }
 }

@@ -39,6 +39,29 @@ const COLUMN_ID: &str = "probe.list.title";
 /// Отступ подписи от левого края строки.
 pub const TEXT_INSET: f64 = 12.0;
 
+/// Вид списка: фон, высота строки, кегль и отступ подписи, радиус выбора.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ListLook {
+    pub background: Rgba,
+    pub row_height: f64,
+    pub font_size: f64,
+    pub text_inset: f64,
+    pub selection_radius: f64,
+}
+
+impl ListLook {
+    /// Список плитки: фон `--panel`, строка `--row`, выбор во всю ширину.
+    pub fn tile(tokens: &Tokens) -> ListLook {
+        ListLook {
+            background: tokens.panel,
+            row_height: tokens.row,
+            font_size: tokens.t_tab,
+            text_inset: TEXT_INSET,
+            selection_radius: 0.0,
+        }
+    }
+}
+
 /// Связь таблицы с плиткой: фокус и клавиши вкладок.
 pub struct Hooks {
     pub on_focus: Box<dyn Fn()>,
@@ -71,6 +94,12 @@ define_class!(
                 // SAFETY: `keyDown:` у NSTableView с событием клавиши.
                 let _: () = unsafe { msg_send![super(self), keyDown: event] };
             }
+        }
+
+        /// Щелчок по окну без key-статуса, например при открытой палитре, сразу выбирает строку.
+        #[unsafe(method(acceptsFirstMouse:))]
+        fn accepts_first_mouse(&self, _event: Option<&NSEvent>) -> bool {
+            true
         }
 
         /// Щелчок по подписи ячейки фокус таблице сам не передаёт: окно отдаёт его только
@@ -186,6 +215,7 @@ pub struct RowIvars {
     _live: Live,
     _tally: Tally,
     sel: Rgba,
+    radius: f64,
 }
 
 define_class!(
@@ -214,6 +244,7 @@ impl ListRowView {
         if let Some(layer) = self.layer() {
             let background = selected.then(|| color(self.ivars().sel, 1.0).CGColor());
             layer.setBackgroundColor(background.as_deref());
+            layer.setCornerRadius(self.ivars().radius);
         }
     }
 }
@@ -223,8 +254,7 @@ pub struct SourceIvars {
     rows: RefCell<Vec<ListRow>>,
     text: Rgba,
     sel: Rgba,
-    font_size: f64,
-    row_height: f64,
+    look: ListLook,
     cells_created: Cell<usize>,
     rows_created: Cell<usize>,
     cells_live: Rc<Cell<usize>>,
@@ -273,14 +303,18 @@ define_class!(
 );
 
 impl ListSource {
-    fn new(mtm: MainThreadMarker, tokens: &Tokens, rows: Vec<ListRow>) -> Retained<ListSource> {
+    fn new(
+        mtm: MainThreadMarker,
+        tokens: &Tokens,
+        rows: Vec<ListRow>,
+        look: ListLook,
+    ) -> Retained<ListSource> {
         let this = ListSource::alloc(mtm).set_ivars(SourceIvars {
             _live: SOURCE.live(),
             rows: RefCell::new(rows),
             text: tokens.text,
             sel: tokens.sel,
-            font_size: tokens.t_tab,
-            row_height: tokens.row,
+            look,
             cells_created: Cell::new(0),
             rows_created: Cell::new(0),
             cells_live: Rc::new(Cell::new(0)),
@@ -316,7 +350,8 @@ impl ListSource {
         let mtm = self.mtm();
         let ivars = self.ivars();
         ivars.cells_created.set(ivars.cells_created.get() + 1);
-        let frame = rect(0.0, 0.0, 200.0, ivars.row_height);
+        let look = ivars.look;
+        let frame = rect(0.0, 0.0, 200.0, look.row_height);
         let this = ListCell::alloc(mtm).set_ivars(CellIvars {
             _live: CELL.live(),
             _tally: Tally::new(&ivars.cells_live),
@@ -329,13 +364,13 @@ impl ListSource {
             "",
             ivars.text,
             rect(
-                TEXT_INSET,
-                (ivars.row_height - 18.0) / 2.0,
-                200.0 - 2.0 * TEXT_INSET,
+                look.text_inset,
+                (look.row_height - 18.0) / 2.0,
+                200.0 - 2.0 * look.text_inset,
                 18.0,
             ),
         );
-        field.setFont(Some(&NSFont::systemFontOfSize(ivars.font_size)));
+        field.setFont(Some(&NSFont::systemFontOfSize(look.font_size)));
         field.setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable);
         cell.addSubview(&field);
         // SAFETY: поле — подвид ячейки и живёт вместе с ней.
@@ -352,11 +387,12 @@ impl ListSource {
         }
         let ivars = self.ivars();
         ivars.rows_created.set(ivars.rows_created.get() + 1);
-        let frame = rect(0.0, 0.0, 200.0, ivars.row_height);
+        let frame = rect(0.0, 0.0, 200.0, ivars.look.row_height);
         let this = ListRowView::alloc(self.mtm()).set_ivars(RowIvars {
             _live: ROW.live(),
             _tally: Tally::new(&ivars.rows_live),
             sel: ivars.sel,
+            radius: ivars.look.selection_radius,
         });
         // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
         let row: Retained<ListRowView> = unsafe { msg_send![super(this), initWithFrame: frame] };
@@ -379,8 +415,9 @@ impl VirtualList {
         tokens: &Tokens,
         frame: NSRect,
         rows: Vec<ListRow>,
+        look: ListLook,
     ) -> VirtualList {
-        let source = ListSource::new(mtm, tokens, rows);
+        let source = ListSource::new(mtm, tokens, rows, look);
         let this = ListTable::alloc(mtm).set_ivars(TableIvars {
             _live: TABLE.live(),
             hooks: RefCell::new(None),
@@ -393,10 +430,10 @@ impl VirtualList {
         table.setHeaderView(None);
         table.setIntercellSpacing(NSSize::new(0.0, 0.0));
         table.setUsesAutomaticRowHeights(false);
-        table.setRowHeight(tokens.row);
+        table.setRowHeight(look.row_height);
         table.setAllowsTypeSelect(false);
         table.setUsesAlternatingRowBackgroundColors(false);
-        table.setBackgroundColor(&color(tokens.panel, 1.0));
+        table.setBackgroundColor(&color(look.background, 1.0));
         table.setFocusRingType(NSFocusRingType::None);
         table.setColumnAutoresizingStyle(
             NSTableViewColumnAutoresizingStyle::UniformColumnAutoresizingStyle,
@@ -458,6 +495,28 @@ impl VirtualList {
             .selectRowIndexes_byExtendingSelection(&NSIndexSet::new(), false);
         self.table.reloadData();
         self.table.scrollRowToVisible(0);
+    }
+
+    /// Выбранная строка; без выбора `None`.
+    pub fn selected(&self) -> Option<usize> {
+        usize::try_from(self.table.selectedRow()).ok()
+    }
+
+    /// Выбор строки и прокрутка к ней без анимации.
+    pub fn select(&self, row: usize) {
+        self.table
+            .selectRowIndexes_byExtendingSelection(&NSIndexSet::indexSetWithIndex(row), false);
+        reveal(&self.table, row as NSInteger);
+    }
+
+    /// Идентификатор строки модели.
+    pub fn id(&self, index: usize) -> Option<u64> {
+        self.source
+            .ivars()
+            .rows
+            .borrow()
+            .get(index)
+            .map(|row| row.id)
     }
 
     /// Правка строк модели с перезагрузкой только их.
