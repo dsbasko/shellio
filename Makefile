@@ -18,12 +18,13 @@ GHOSTTY_LINK_AUDIT := scripts/ghostty/link-audit.sh
 BUNDLE := scripts/bundle.sh
 CHECK_BUNDLE := scripts/check-bundle.sh
 TEST_BUNDLE := scripts/test-bundle.sh
+PROBE_APPKIT := spikes/probe-appkit-shell/run.sh
 
 # Цели, читающие vendor/ghostty/, выполняют весь рецепт под одной блокировкой набора: рецепт цели X
 # лежит во внутренней цели locked-X и запускается вложенным make. Вторая такая цель сразу получает отказ.
 LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run test-bundle
 
-.PHONY: setup test-scripts $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
+.PHONY: setup test-scripts probe-appkit probe-appkit-demo $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
 
 # Под make -j цели одного вызова иначе столкнулись бы на собственной блокировке.
 .NOTPARALLEL:
@@ -95,3 +96,11 @@ locked-test-bundle:
 test-scripts:
 	scripts/ghostty/test-publish.sh
 	scripts/signing/test-identity.sh
+
+# Пробы фазы 0 (ADR-0034) набор ghostty не читают, поэтому идут без блокировки и вне check.
+# SCENARIOS — имена сценариев через пробел, пусто — все; ARGS — флаги демонстрации.
+probe-appkit:
+	CARGO=$(CARGO) $(PROBE_APPKIT) scenarios $(SCENARIOS)
+
+probe-appkit-demo:
+	CARGO=$(CARGO) $(PROBE_APPKIT) demo $(ARGS)
