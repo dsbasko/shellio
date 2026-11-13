@@ -373,17 +373,17 @@ impl Run {
             focus: tiles.focus(),
             responder: self.parent_responder(),
             active: tiles
-                .tiles
+                .all()
                 .iter()
                 .map(|tile| tile.strip().active())
                 .collect(),
             keys: tiles
-                .tiles
+                .all()
                 .iter()
                 .map(|tile| tile.strip().keys_handled())
                 .collect(),
             lists: tiles
-                .tiles
+                .all()
                 .iter()
                 .map(|tile| tile.list().and_then(|list| list.selected()))
                 .collect(),
@@ -956,9 +956,8 @@ impl Run {
 
     /// Центр строки правого списка на экране.
     fn right_row_point(&self, row: isize) -> Result<NSPoint, String> {
-        let list = self.scene.tiles.tiles[RIGHT]
-            .list()
-            .ok_or("у правой плитки нет списка")?;
+        let tile = self.scene.tiles.tile(RIGHT);
+        let list = tile.list().ok_or("у правой плитки нет списка")?;
         let table = list.table();
         let frame = table.rectOfRow(row);
         let in_window = table.convertPoint_toView(events::center(frame), None);
@@ -1335,7 +1334,10 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
             STEP_TIMEOUT,
             |run| {
                 run.click_done()
-                    && run.scene.tiles.tiles[RIGHT]
+                    && run
+                        .scene
+                        .tiles
+                        .tile(RIGHT)
                         .list()
                         .is_some_and(|list| events::is_first_responder(run.window(), list.table()))
             },
@@ -1350,9 +1352,8 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
             STEP_TIMEOUT,
             |run| run.keys_done() && run.opened(),
             |run| {
-                let list = run.scene.tiles.tiles[RIGHT]
-                    .list()
-                    .ok_or("у правой плитки нет списка")?;
+                let tile = run.scene.tiles.tile(RIGHT);
+                let list = tile.list().ok_or("у правой плитки нет списка")?;
                 let view: Retained<NSView> = Retained::into_super(list.view().retain());
                 view.removeFromSuperview();
                 *run.removed.borrow_mut() = Some(view);
@@ -1365,7 +1366,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
             STEP_TIMEOUT,
             |run| run.keys_done() && run.closed(),
             |run| {
-                let fallback = address(&*run.scene.tiles.tiles[CENTER]);
+                let fallback = address(&*run.scene.tiles.tile(CENTER));
                 run.check_closed("fallback", Close::Escape, Restore::Fallback, fallback, true);
                 let focus = run.scene.tiles.focus();
                 run.report
@@ -1376,7 +1377,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
                     .borrow_mut()
                     .take()
                     .ok_or("вид списка не убран")?;
-                run.scene.tiles.tiles[RIGHT].body().addSubview(&view);
+                run.scene.tiles.tile(RIGHT).body().addSubview(&view);
                 run.previous.set(run.parent_responder());
                 run.press(Key::CMD_K)
             },
@@ -1400,7 +1401,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
             |run| run.click_done() && run.closed(),
             |run| {
                 let last = run.palette().closes().last().copied();
-                let to_click = run.scene.tiles.tiles[RIGHT].list().is_some_and(|list| {
+                let to_click = run.scene.tiles.tile(RIGHT).list().is_some_and(|list| {
                     events::is_first_responder(run.window(), list.table())
                         && list.selected() == usize::try_from(PARENT_CLICK_ROW).ok()
                 });
@@ -1694,7 +1695,7 @@ fn finish(run: Rc<Run>, result: Result<(), StepFailure>) {
     report.push("palette_closes", format!("{:?}", run.palette().closes()));
     report.push("commands_log", format!("{:?}", run.scene.commands.log()));
     if let Some(view) = run.removed.borrow_mut().take() {
-        run.scene.tiles.tiles[RIGHT].body().addSubview(&view);
+        run.scene.tiles.tile(RIGHT).body().addSubview(&view);
     }
     let result = result.map_err(|failure| failure.describe());
     drop(run);

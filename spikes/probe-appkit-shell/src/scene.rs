@@ -4,8 +4,8 @@
 
 use std::rc::Rc;
 
-use objc2::MainThreadMarker;
 use objc2::rc::Retained;
+use objc2::{MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{NSApplication, NSMenu, NSWindow};
 use objc2_foundation::{NSPoint, NSRect};
 use objc2_quartz_core::CATransaction;
@@ -15,9 +15,10 @@ use crate::chrome::{self, ChromeBar, ChromeTarget, SceneRoot};
 use crate::fixtures::{self, MARK_COMMAND, MARK_TITLE, PALETTE_COMMANDS};
 use crate::menu::{self, CommandTarget, Commands, MARK_KEY};
 use crate::palette::Palette;
+use crate::scenario::counters;
 use crate::split::{self, SplitScene};
 use crate::theme::{Overrides, SceneTheme, Selection};
-use crate::tiles::{CENTER, Tiles};
+use crate::tiles::{CENTER, Focus, Tile, Tiles};
 use crate::tokens::{self, Cell, InputMode, Tokens};
 use crate::{DisplayChoice, WINDOW_SIZE};
 
@@ -32,6 +33,8 @@ pub struct Scene {
     pub commands: Rc<Commands>,
     /// Меню «Правка» в главном меню.
     pub edit_menu: Option<Retained<NSMenu>>,
+    /// Пункты сцены в главном меню; сцена снимает их при освобождении.
+    menus: Option<menu::Installed>,
     /// Цель кнопок заголовка: кнопки её не удерживают.
     _target: Retained<ChromeTarget>,
     /// Цель пунктов команд: пункты её не удерживают.
@@ -78,7 +81,7 @@ impl Scene {
         root.addSubview(&split.view());
         root.addSubview(&chrome);
         window.setContentView(Some(&root));
-        window.makeFirstResponder(Some(&tiles.tiles[CENTER]));
+        window.makeFirstResponder(Some(&tiles.tile(CENTER)));
 
         let commands = Rc::new(Commands::default());
         let palette = Palette::new(
@@ -88,15 +91,15 @@ impl Scene {
             Rc::clone(&commands),
             fixtures::commands(PALETTE_COMMANDS),
         );
-        palette.set_fallback(&tiles.tiles[CENTER]);
+        palette.set_fallback(&tiles.tile(CENTER));
         let commands_target =
             CommandTarget::new(mtm, Rc::clone(&commands), Rc::downgrade(&palette));
-        let edit_menu = NSApplication::sharedApplication(mtm)
+        let menus = NSApplication::sharedApplication(mtm)
             .mainMenu()
             .map(|bar| menu::install(mtm, &bar, &commands_target, (MARK_COMMAND, MARK_TITLE)));
-        for tile in &tiles.tiles {
-            let item = commands_target.command_item(mtm, MARK_COMMAND, MARK_TITLE, MARK_KEY);
-            tile.strip().add_menu_items(&[item]);
+        let edit_menu = menus.as_ref().map(|menus| menus.edit.clone());
+        for tile in tiles.all() {
+            add_tile_items(mtm, &commands_target, &tile);
         }
         let scene = Rc::new(Scene {
             window,
@@ -108,19 +111,20 @@ impl Scene {
             palette,
             commands,
             edit_menu,
+            menus,
             _target: target,
             _commands_target: commands_target,
         });
         let owner = Rc::downgrade(&scene);
         scene.theme.set_listener(Box::new(move |selection| {
-            if let Some(scene) = owner.upgrade() {
+            if let Some(scene) = counters::owner("Scene.theme.listener", owner.upgrade()) {
                 scene.apply(selection);
             }
         }));
         scene.theme.attach(&scene.root);
         let theme = Rc::downgrade(&scene.theme);
         scene.root.set_on_appearance(Box::new(move || {
-            if let Some(theme) = theme.upgrade() {
+            if let Some(theme) = counters::owner("SceneRoot.on_appearance", theme.upgrade()) {
                 theme.refresh();
             }
         }));
@@ -131,6 +135,21 @@ impl Scene {
 
     pub fn cell(&self) -> Cell {
         self.theme.cell()
+    }
+
+    /// Закрывает плитку `index` и открывает на её месте новую: пункт команды пробы в меню её
+    /// полосы, запасной вид палитры у центральной плитки и фокус, если он был у прежней.
+    pub fn reopen_tile(&self, index: usize) -> Retained<Tile> {
+        let focused = self.tiles.focus() == Focus::Tile(index);
+        let tile = self.tiles.reopen(index);
+        add_tile_items(self.window.mtm(), &self._commands_target, &tile);
+        if index == CENTER {
+            self.palette.set_fallback(&tile);
+        }
+        if focused {
+            self.window.makeFirstResponder(Some(&tile));
+        }
+        tile
     }
 
     pub fn tokens(&self) -> Tokens {
@@ -152,4 +171,19 @@ impl Scene {
         self.palette.set_tokens(&tokens);
         CATransaction::commit();
     }
+}
+
+impl Drop for Scene {
+    fn drop(&mut self) {
+        let app = NSApplication::sharedApplication(self.window.mtm());
+        if let (Some(menus), Some(bar)) = (&self.menus, app.mainMenu()) {
+            menus.uninstall(&bar);
+        }
+    }
+}
+
+/// Пункт команды пробы в меню «…» полосы плитки.
+fn add_tile_items(mtm: MainThreadMarker, target: &CommandTarget, tile: &Tile) {
+    let item = target.command_item(mtm, MARK_COMMAND, MARK_TITLE, MARK_KEY);
+    tile.strip().add_menu_items(&[item]);
 }

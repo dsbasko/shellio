@@ -89,7 +89,7 @@ pub fn run(stand: Rc<Stand>) {
     if let Err(reason) = events::warp_cursor_outside(stand.app.mtm(), &stand.app) {
         return stand.conclude(report, Err(reason));
     }
-    let tile = scene.tiles.tiles[CENTER].clone();
+    let tile = scene.tiles.tile(CENTER).clone();
     let initial = tile.strip().active();
     let (key, target) = if initial == Some(1) {
         (DIGIT_KEYS[1], 2)

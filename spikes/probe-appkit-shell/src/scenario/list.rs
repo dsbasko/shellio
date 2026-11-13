@@ -550,7 +550,7 @@ pub fn run(stand: Rc<Stand>) {
     let Some(scene) = stand.built_scene.clone() else {
         return stand.conclude(report, Err("сцена не собрана".to_owned()));
     };
-    let tile = scene.tiles.tiles[CENTER].clone();
+    let tile = scene.tiles.tile(CENTER).clone();
     if tile.list().is_none() {
         return stand.conclude(report, Err("у центральной плитки нет списка".to_owned()));
     }

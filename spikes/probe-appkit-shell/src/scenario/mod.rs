@@ -2,6 +2,7 @@
 //! предусловия.
 
 pub mod counters;
+mod cycles;
 pub mod events;
 mod frames;
 mod idle;
@@ -77,10 +78,11 @@ pub enum Scenario {
     Startup,
     Idle,
     Frames,
+    Cycles,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 16] = [
+    pub const ALL: [Scenario; 17] = [
         Scenario::Launch,
         Scenario::NativeMenu,
         Scenario::ParentClick,
@@ -97,6 +99,7 @@ impl Scenario {
         Scenario::Startup,
         Scenario::Idle,
         Scenario::Frames,
+        Scenario::Cycles,
     ];
 
     pub fn name(self) -> &'static str {
@@ -117,6 +120,7 @@ impl Scenario {
             Scenario::Startup => "startup",
             Scenario::Idle => "idle",
             Scenario::Frames => "frames",
+            Scenario::Cycles => "cycles",
         }
     }
 
@@ -146,6 +150,7 @@ impl Scenario {
             Scenario::Startup => 20,
             Scenario::Idle => 120,
             Scenario::Frames => frames::PHASES_TIMEOUT.as_secs() + 120,
+            Scenario::Cycles => 420,
         })
     }
 
@@ -161,8 +166,10 @@ impl Scenario {
             | Scenario::Theme
             | Scenario::Startup
             | Scenario::Frames => true,
-            // Пустое окно — первое состояние памяти, сцену `idle` собирает сам.
+            // Пустое окно — первое состояние памяти, сцену `idle` собирает сам. `cycles` тоже
+            // собирает сцену сам, чтобы закрыть её окно и освободить сцену.
             Scenario::Idle
+            | Scenario::Cycles
             | Scenario::Launch
             | Scenario::NativeMenu
             | Scenario::ParentClick
@@ -203,6 +210,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Startup => startup::run(stand),
         Scenario::Idle => idle::run(stand),
         Scenario::Frames => frames::run(stand),
+        Scenario::Cycles => cycles::run(stand),
     }
 }
 

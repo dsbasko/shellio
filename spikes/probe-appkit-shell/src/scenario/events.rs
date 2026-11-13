@@ -908,6 +908,19 @@ pub fn press(key: Key) -> Result<Vec<u64>, String> {
     Ok(numbers)
 }
 
+/// `flagsChanged` без модификаторов: после возврата его `sendEvent` пул autorelease итерации
+/// `NSApplication.run` опустошён. Ни одна клавиша не нажимается.
+pub fn nudge() -> Result<u64, String> {
+    post_key(
+        NSEventType::FlagsChanged,
+        "flagsChanged (опустошение пула)",
+        56,
+        "",
+        "",
+        NSEventModifierFlags::empty(),
+    )
+}
+
 fn post_key(
     kind: NSEventType,
     label: &str,

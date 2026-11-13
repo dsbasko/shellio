@@ -214,7 +214,8 @@ impl Run {
         let Some(mark) = self.mark.get() else {
             return false;
         };
-        let Some(list) = self.scene.tiles.tiles[CENTER].list() else {
+        let tile = self.scene.tiles.tile(CENTER);
+        let Some(list) = tile.list() else {
             return false;
         };
         events::display_pass_after(mark).is_some()
@@ -274,7 +275,8 @@ impl Run {
 
     /// Сдвиг прокрутки; `true`, когда список уже в конце.
     fn scroll_step(&self) -> bool {
-        let Some(list) = self.scene.tiles.tiles[CENTER].list() else {
+        let tile = self.scene.tiles.tile(CENTER);
+        let Some(list) = tile.list() else {
             return true;
         };
         let scroll = list.view();
@@ -427,9 +429,8 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
                 })
             },
             move || {
-                let list = load.scene.tiles.tiles[CENTER]
-                    .list()
-                    .ok_or("у центральной плитки нет списка")?;
+                let tile = load.scene.tiles.tile(CENTER);
+                let list = tile.list().ok_or("у центральной плитки нет списка")?;
                 load.touch();
                 list.set_rows(fixtures::list(LIST_ROWS));
                 Ok(())

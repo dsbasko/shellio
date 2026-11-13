@@ -9,7 +9,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use objc2::rc::Retained;
-use objc2::{MainThreadMarker, MainThreadOnly, msg_send};
+use objc2::{MainThreadMarker, MainThreadOnly, Message, msg_send};
 use objc2_app_kit::{NSEventModifierFlags, NSView, NSWindow};
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 use serde::Serialize;
@@ -198,8 +198,8 @@ impl Run {
         &self.scene.window
     }
 
-    fn strip(&self, index: usize) -> &TabStrip {
-        self.scene.tiles.tiles[index].strip()
+    fn strip(&self, index: usize) -> Retained<TabStrip> {
+        self.scene.tiles.tile(index).strip().retain()
     }
 
     fn state(&self) -> String {
@@ -228,7 +228,7 @@ impl Run {
         let mut frames = vec![readback::rect(self.window().frame())];
         for index in 0..3 {
             let strip = self.strip(index);
-            frames.push(readback::frame_in_window(strip));
+            frames.push(readback::frame_in_window(&strip));
             frames.push(readback::rect(strip.scroll().frame()));
             frames.push(readback::rect(strip.scroll().documentVisibleRect()));
         }
@@ -629,7 +629,7 @@ impl Run {
                 "доступность: выбраны {selected:?}, значение 1 у {valued:?}"
             ));
         }
-        let tile = &self.scene.tiles.tiles[index];
+        let tile = &self.scene.tiles.tile(index);
         let focused = events::is_first_responder(self.window(), tile);
         match want
             .and_then(|want| read.tabs.get(want))
@@ -702,7 +702,7 @@ impl Run {
                 group.element, group.role
             ));
         }
-        let tile = &self.scene.tiles.tiles[index];
+        let tile = &self.scene.tiles.tile(index);
         let reachable = readback::accessibility_tree(tile, 8)
             .walk()
             .iter()
@@ -967,7 +967,7 @@ impl Run {
     }
 }
 
-fn tab_background(view: &NSView) -> Option<Rgba> {
+pub(super) fn tab_background(view: &NSView) -> Option<Rgba> {
     view.layer()
         .and_then(|layer| readback::layer_state(&layer).background)
 }
@@ -1088,7 +1088,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
             poll(
                 app.isActive()
                     && key.is_some_and(|key| events::same(&*key, run.window()))
-                    && events::is_first_responder(run.window(), &run.scene.tiles.tiles[CENTER]),
+                    && events::is_first_responder(run.window(), &run.scene.tiles.tile(CENTER)),
                 || run.state(),
             )
         }
@@ -1276,7 +1276,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
             |run| {
                 let last = run.strip(CENTER).len().saturating_sub(1);
                 run.check_key_target("center-H-wrap", CENTER, last);
-                scroll_to(run.strip(CENTER), false);
+                scroll_to(&run.strip(CENTER), false);
                 run.touch();
                 Ok(())
             },
@@ -1318,7 +1318,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
                 *run.off_edge.borrow_mut() = (0..read.tabs.len())
                     .filter(|tab| read.visible_part(*tab) <= 0.0)
                     .collect();
-                scroll_to(run.strip(CENTER), true);
+                scroll_to(&run.strip(CENTER), true);
                 run.touch();
                 Ok(())
             },
@@ -1366,7 +1366,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
                 let focus = run.scene.tiles.focus();
                 let responder = events::is_first_responder(
                     run.window(),
-                    &run.scene.tiles.tiles[RIGHT],
+                    &run.scene.tiles.tile(RIGHT),
                 );
                 run.report.borrow_mut().finding(
                     "click_focuses_tile",
@@ -1435,7 +1435,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
             STEP_TIMEOUT,
             Run::click_done,
             |run| {
-                if !events::is_first_responder(run.window(), &run.scene.tiles.tiles[RIGHT]) {
+                if !events::is_first_responder(run.window(), &run.scene.tiles.tile(RIGHT)) {
                     return Err("правая плитка не стала first responder".to_owned());
                 }
                 run.scene.split.right.setCollapsed(true);
@@ -1450,7 +1450,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
             |run| run.scene.split.right.isCollapsed() && run.settled(),
             |run| {
                 let right = run.strip(RIGHT);
-                let tile = &run.scene.tiles.tiles[RIGHT];
+                let tile = &run.scene.tiles.tile(RIGHT);
                 run.report.borrow_mut().push(
                     "collapsed_right",
                     format!(
@@ -1478,7 +1478,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
                 let allowed: Vec<usize> = [CENTER, BOTTOM]
                     .into_iter()
                     .filter(|index| {
-                        events::is_first_responder(run.window(), &run.scene.tiles.tiles[*index])
+                        events::is_first_responder(run.window(), &run.scene.tiles.tile(*index))
                     })
                     .collect();
                 let ok = !changed[RIGHT]
@@ -1504,7 +1504,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
             LAYOUT_TIMEOUT,
             |run| !run.scene.split.right.isCollapsed() && run.settled(),
             |run| {
-                scroll_to(run.strip(CENTER), false);
+                scroll_to(&run.strip(CENTER), false);
                 run.touch();
                 Ok(())
             },
@@ -1543,7 +1543,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
             |run| {
                 let target = run.target.get().ok_or("нет вкладки нажатия")?;
                 let focused =
-                    events::is_first_responder(run.window(), &run.scene.tiles.tiles[CENTER]);
+                    events::is_first_responder(run.window(), &run.scene.tiles.tile(CENTER));
                 run.report.borrow_mut().finding(
                     "ax_press_focuses_tile",
                     verdict(focused),

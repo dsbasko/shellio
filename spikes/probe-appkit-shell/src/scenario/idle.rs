@@ -125,7 +125,7 @@ impl Run {
         match self.scene.borrow().as_ref() {
             Some(scene) => {
                 frames.push(readback::rect(scene.window.frame()));
-                if let Some(list) = scene.tiles.tiles[CENTER].list() {
+                if let Some(list) = scene.tiles.tile(CENTER).list() {
                     frames.push(readback::rect(list.view().documentVisibleRect()));
                 }
             }
@@ -159,9 +159,8 @@ impl Run {
 
     fn list_rows(&self, rows: usize) -> Result<(), String> {
         let scene = self.scene()?;
-        let list = scene.tiles.tiles[CENTER]
-            .list()
-            .ok_or("у центральной плитки нет списка")?;
+        let tile = scene.tiles.tile(CENTER);
+        let list = tile.list().ok_or("у центральной плитки нет списка")?;
         self.touch();
         list.set_rows(fixtures::list(rows));
         Ok(())
@@ -169,9 +168,8 @@ impl Run {
 
     fn scroll_to(&self, row: usize) -> Result<(), String> {
         let scene = self.scene()?;
-        let list = scene.tiles.tiles[CENTER]
-            .list()
-            .ok_or("у центральной плитки нет списка")?;
+        let tile = scene.tiles.tile(CENTER);
+        let list = tile.list().ok_or("у центральной плитки нет списка")?;
         self.touch();
         list.table().scrollRowToVisible(row as isize);
         Ok(())
@@ -291,9 +289,8 @@ fn before_window(run: &Rc<Run>) -> Vec<Step> {
         step(run, "память сцены", Run::held, |run| {
             run.memory.borrow_mut().end();
             let scene = run.scene()?;
-            let indicator = scene.tiles.tiles[BOTTOM]
-                .indicator()
-                .ok_or("у нижней плитки нет индикатора")?;
+            let bottom = scene.tiles.tile(BOTTOM);
+            let indicator = bottom.indicator().ok_or("у нижней плитки нет индикатора")?;
             run.touch();
             indicator.set_running(false);
             Ok(())
@@ -303,7 +300,9 @@ fn before_window(run: &Rc<Run>) -> Vec<Step> {
             "индикатор остановлен, сцена неподвижна",
             |run| {
                 let stopped = run.scene.borrow().as_ref().is_some_and(|scene| {
-                    scene.tiles.tiles[BOTTOM]
+                    scene
+                        .tiles
+                        .tile(BOTTOM)
                         .indicator()
                         .is_some_and(|indicator| {
                             indicator.spinner().isHidden()

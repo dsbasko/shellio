@@ -12,7 +12,7 @@ use objc2_app_kit::{NSEventModifierFlags, NSMenu, NSMenuItem};
 use objc2_foundation::{NSObject, NSObjectProtocol, NSString};
 
 use crate::palette::Palette;
-use crate::scenario::counters::{Live, counter};
+use crate::scenario::counters::{self, Live, counter};
 
 counter!(COMMAND_TARGET, "ProbeCommandTarget");
 
@@ -106,7 +106,9 @@ define_class!(
 
         #[unsafe(method(showPalette:))]
         fn show_palette(&self, _sender: Option<&AnyObject>) {
-            if let Some(palette) = self.ivars().palette.upgrade() {
+            if let Some(palette) =
+                counters::owner("ProbeCommandTarget.showPalette", self.ivars().palette.upgrade())
+            {
                 palette.open();
             }
         }
@@ -150,8 +152,8 @@ impl CommandTarget {
     ) -> Retained<NSMenuItem> {
         let item = menu_item(mtm, title, action, key);
         let target: &AnyObject = self;
-        // SAFETY: действия `runCommand:` и `showPalette:` реализованы этим классом, а цель живёт
-        // дольше меню: её держит сцена до конца процесса.
+        // SAFETY: действия `runCommand:` и `showPalette:` реализованы этим классом; пункт держит
+        // цель слабо, сцена держит её, пока её меню стоят в главном меню и в полосах вкладок.
         unsafe { item.setTarget(Some(target)) };
         item
     }
@@ -175,13 +177,34 @@ fn menu_item(mtm: MainThreadMarker, title: &str, action: Sel, key: &str) -> Reta
     item
 }
 
-fn submenu(mtm: MainThreadMarker, bar: &NSMenu, title: &str) -> Retained<NSMenu> {
+fn submenu(
+    mtm: MainThreadMarker,
+    bar: &NSMenu,
+    title: &str,
+) -> (Retained<NSMenu>, Retained<NSMenuItem>) {
     let menu = NSMenu::initWithTitle(NSMenu::alloc(mtm), &NSString::from_str(title));
     let item = NSMenuItem::new(mtm);
     item.setTitle(&NSString::from_str(title));
     item.setSubmenu(Some(&menu));
     bar.addItem(&item);
-    menu
+    (menu, item)
+}
+
+/// Меню сцены в главном меню: «Правка» и пункты строки меню, которые снимает `uninstall`.
+pub struct Installed {
+    pub edit: Retained<NSMenu>,
+    items: Vec<Retained<NSMenuItem>>,
+}
+
+impl Installed {
+    /// Убирает пункты сцены из строки меню `bar`.
+    pub fn uninstall(&self, bar: &NSMenu) {
+        for item in &self.items {
+            if bar.indexOfItem(item) >= 0 {
+                bar.removeItem(item);
+            }
+        }
+    }
 }
 
 /// Добавляет в главное меню «Правку» и «Команды» с палитрой и командой пробы `mark`.
@@ -190,19 +213,22 @@ pub fn install(
     bar: &NSMenu,
     target: &CommandTarget,
     mark: (u64, &str),
-) -> Retained<NSMenu> {
-    let edit = submenu(mtm, bar, EDIT_MENU);
+) -> Installed {
+    let (edit, edit_item) = submenu(mtm, bar, EDIT_MENU);
     for (index, (title, action, key)) in edit_items().into_iter().enumerate() {
         if index == 2 {
             edit.addItem(&NSMenuItem::separatorItem(mtm));
         }
         edit.addItem(&menu_item(mtm, title, action, key));
     }
-    let commands = submenu(mtm, bar, COMMANDS_MENU);
+    let (commands, commands_item) = submenu(mtm, bar, COMMANDS_MENU);
     commands.addItem(&target.item(mtm, PALETTE_ITEM, sel!(showPalette:), PALETTE_KEY));
     commands.addItem(&NSMenuItem::separatorItem(mtm));
     commands.addItem(&target.command_item(mtm, mark.0, mark.1, MARK_KEY));
-    edit
+    Installed {
+        edit,
+        items: vec![edit_item, commands_item],
+    }
 }
 
 #[cfg(test)]

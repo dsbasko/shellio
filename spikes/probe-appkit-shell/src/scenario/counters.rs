@@ -4,6 +4,10 @@
 //!
 //! Подключение к классу — поле `live: Live` в данных экземпляра, заполненное `COUNTER.live()`,
 //! где `COUNTER` объявлен рядом с классом через `counter!`.
+//!
+//! Поздний обратный вызов — вызов метода или замыкания, который не нашёл своего владельца
+//! живым: владелец освобождён, а объект, через который пришёл вызов, ещё нет. Места таких
+//! вызовов отмечает `owner`.
 
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -81,6 +85,50 @@ impl Count {
     }
 }
 
+static LATE: Mutex<Vec<(&'static str, usize)>> = Mutex::new(Vec::new());
+
+/// Владелец обратного вызова в месте `site`; `None` отмечается как поздний вызов.
+pub fn owner<T>(site: &'static str, owner: Option<T>) -> Option<T> {
+    if owner.is_none() {
+        let mut late = LATE.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        match late.iter_mut().find(|(known, _)| *known == site) {
+            Some((_, count)) => *count += 1,
+            None => late.push((site, 1)),
+        }
+    }
+    owner
+}
+
+/// Поздние обратные вызовы по местам.
+pub fn late_calls() -> Vec<(&'static str, usize)> {
+    LATE.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
+}
+
+/// Классы, у которых число живых экземпляров в `actual` отличается от `expected`: имя, живых
+/// в `expected` и в `actual`. Класса, которого нет в снимке, в нём ноль живых.
+pub fn live_changes(expected: &[Count], actual: &[Count]) -> Vec<(&'static str, usize, usize)> {
+    let live = |counts: &[Count], name: &str| {
+        counts
+            .iter()
+            .find(|count| count.name == name)
+            .map_or(0, Count::live)
+    };
+    let mut names: Vec<&'static str> = expected
+        .iter()
+        .chain(actual)
+        .map(|count| count.name)
+        .collect();
+    names.sort_unstable();
+    names.dedup();
+    names
+        .into_iter()
+        .map(|name| (name, live(expected, name), live(actual, name)))
+        .filter(|(_, before, after)| before != after)
+        .collect()
+}
+
 /// Счётчики всех классов, у которых был хотя бы один экземпляр, по имени.
 pub fn snapshot() -> Vec<Count> {
     let mut counts: Vec<Count> = REGISTRY
@@ -129,6 +177,46 @@ mod tests {
         let mut sorted = names.clone();
         sorted.sort_unstable();
         assert_eq!(names, sorted);
+    }
+
+    fn count(name: &'static str, created: usize, released: usize) -> Count {
+        Count {
+            name,
+            created,
+            released,
+        }
+    }
+
+    #[test]
+    fn live_changes_compare_live_not_created() {
+        let tenth = [count("A", 5, 2), count("B", 1, 0)];
+        let hundredth = [count("A", 50, 47), count("B", 1, 0)];
+        assert_eq!(live_changes(&tenth, &hundredth), vec![]);
+        let leaked = [count("A", 50, 40), count("B", 1, 0)];
+        assert_eq!(live_changes(&tenth, &leaked), vec![("A", 3, 10)]);
+    }
+
+    #[test]
+    fn live_changes_treat_missing_class_as_zero() {
+        let baseline = [count("Stand", 1, 0)];
+        let closed = [count("Scene", 2, 2), count("Stand", 1, 0)];
+        assert_eq!(live_changes(&baseline, &closed), vec![]);
+        let leaked = [count("Scene", 2, 1), count("Stand", 1, 0)];
+        assert_eq!(live_changes(&baseline, &leaked), vec![("Scene", 0, 1)]);
+        assert_eq!(live_changes(&leaked, &baseline), vec![("Scene", 1, 0)]);
+    }
+
+    #[test]
+    fn owner_counts_only_missing_owners() {
+        assert_eq!(owner("test.alive", Some(1)), Some(1));
+        assert_eq!(owner::<u8>("test.gone", None), None);
+        assert_eq!(owner::<u8>("test.gone", None), None);
+        let late = late_calls();
+        assert!(late.contains(&("test.gone", 2)), "{late:?}");
+        assert!(
+            !late.iter().any(|(site, _)| *site == "test.alive"),
+            "{late:?}"
+        );
     }
 
     #[test]

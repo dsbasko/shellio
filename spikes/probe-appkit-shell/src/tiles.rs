@@ -9,7 +9,7 @@
 //! `TreeList`: его дерево — first responder навигатора. В нижней плитке индикатор работы:
 //! вращающаяся дуга, при Reduce Motion — неподвижная пунктирная.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::f64::consts::PI;
 use std::rc::{Rc, Weak};
 
@@ -26,7 +26,7 @@ use crate::args::Motion;
 use crate::chrome::{color, fill, label, rect};
 use crate::fixtures::{self, SCENE_ROWS, TREE_BRANCHING, TabSpec};
 use crate::list::{Hooks, ListLook, VirtualList};
-use crate::scenario::counters::{Live, counter};
+use crate::scenario::counters::{self, Live, counter};
 use crate::tabs::{Place, TabStrip};
 use crate::tokens::Tokens;
 use crate::tree::TreeList;
@@ -77,13 +77,24 @@ pub enum Focus {
 /// Плитки, навигатор и хосты зон сцены; держит фокус.
 pub struct Tiles {
     pub navigator: Retained<Navigator>,
-    /// По индексам `CENTER`, `RIGHT`, `BOTTOM`.
-    pub tiles: Vec<Retained<Tile>>,
+    /// По индексам `CENTER`, `RIGHT`, `BOTTOM`; плитку можно закрыть и открыть заново.
+    tiles: RefCell<Vec<Retained<Tile>>>,
     /// Хост центральной колонки (центр и низ) и хост правой зоны.
     pub center_host: Retained<ZoneHost>,
     pub right_host: Retained<ZoneHost>,
     focus: Cell<Focus>,
     tokens: Cell<Tokens>,
+    motion: Cell<Motion>,
+    owner: Weak<Tiles>,
+}
+
+/// Заголовок и место плитки сцены по индексу.
+fn tile_spec(index: usize) -> (&'static str, Place) {
+    match index {
+        CENTER => ("Терминал", Place::Center),
+        RIGHT => ("Изменения", Place::Side),
+        _ => ("Задачи", Place::Bottom),
+    }
 }
 
 impl Tiles {
@@ -95,13 +106,10 @@ impl Tiles {
         sides: [(f64, f64); 2],
     ) -> Rc<Tiles> {
         let tiles = Rc::new_cyclic(|owner: &Weak<Tiles>| {
-            let tile = |index: usize, title: &str, place: Place| {
-                let tabs = fixtures::tabs(SCENE_TABS[index]);
-                Tile::new(mtm, index, title, place, tabs, owner, &tokens, motion)
-            };
-            let center = tile(CENTER, "Терминал", Place::Center);
-            let right = tile(RIGHT, "Изменения", Place::Side);
-            let bottom = tile(BOTTOM, "Задачи", Place::Bottom);
+            let tile = |index: usize| Tile::scene(mtm, index, owner, &tokens, motion);
+            let center = tile(CENTER);
+            let right = tile(RIGHT);
+            let bottom = tile(BOTTOM);
             let center_host = ZoneHost::new(
                 mtm,
                 &tokens,
@@ -112,15 +120,31 @@ impl Tiles {
             let right_host = ZoneHost::new(mtm, &tokens, vec![right.clone()], None, sides[1]);
             Tiles {
                 navigator: Navigator::new(mtm, owner, &tokens),
-                tiles: vec![center, right, bottom],
+                tiles: RefCell::new(vec![center, right, bottom]),
                 center_host,
                 right_host,
                 focus: Cell::new(Focus::Tile(CENTER)),
                 tokens: Cell::new(tokens),
+                motion: Cell::new(motion),
+                owner: owner.clone(),
             }
         });
         tiles.apply(Focus::Tile(CENTER));
         tiles
+    }
+
+    /// Плитка по индексу `CENTER`, `RIGHT` или `BOTTOM`.
+    pub fn tile(&self, index: usize) -> Retained<Tile> {
+        self.tiles.borrow()[index].clone()
+    }
+
+    /// Все плитки по индексам.
+    pub fn all(&self) -> Vec<Retained<Tile>> {
+        self.tiles.borrow().clone()
+    }
+
+    pub fn len(&self) -> usize {
+        self.tiles.borrow().len()
     }
 
     pub fn focus(&self) -> Focus {
@@ -134,7 +158,7 @@ impl Tiles {
             host.set_tokens(&tokens);
         }
         self.navigator.set_tokens(&tokens);
-        for tile in &self.tiles {
+        for tile in self.all() {
             tile.set_tokens(&tokens);
         }
         self.apply(self.focus());
@@ -142,20 +166,40 @@ impl Tiles {
 
     /// Движение индикатора работы нижней плитки.
     pub fn set_motion(&self, motion: Motion) {
-        if let Some(indicator) = self.indicator() {
+        self.motion.set(motion);
+        if let Some(indicator) = self.tile(BOTTOM).indicator() {
             indicator.set_motion(motion);
         }
     }
 
-    pub fn indicator(&self) -> Option<&Indicator> {
-        self.tiles.get(BOTTOM).and_then(|tile| tile.indicator())
+    /// Закрывает плитку `index` и открывает на её месте новую с вкладками и списком сцены и
+    /// текущими токенами. Прежняя плитка уходит из хоста зоны и из набора; её освобождает
+    /// последний владелец. Возвращает новую плитку.
+    pub fn reopen(&self, index: usize) -> Retained<Tile> {
+        let old = self.tile(index);
+        let host = if index == RIGHT {
+            &self.right_host
+        } else {
+            &self.center_host
+        };
+        let tile = Tile::scene(
+            old.mtm(),
+            index,
+            &self.owner,
+            &self.tokens.get(),
+            self.motion.get(),
+        );
+        host.replace(&old, tile.clone());
+        self.tiles.borrow_mut()[index] = tile.clone();
+        self.apply(self.focus());
+        tile
     }
 
     /// Тон у плитки с фокусом, вуаль у остальных, рамка у выбранной строки навигатора.
     fn apply(&self, focus: Focus) {
         self.focus.set(focus);
         let tokens = self.tokens.get();
-        for (index, tile) in self.tiles.iter().enumerate() {
+        for (index, tile) in self.all().iter().enumerate() {
             let focused = focus == Focus::Tile(index);
             tile.paint_overlay(focused, &tokens);
             tile.strip().set_focused(focused);
@@ -428,7 +472,9 @@ define_class!(
         fn become_first_responder(&self) -> bool {
             // SAFETY: `becomeFirstResponder` у NSResponder без аргументов.
             let accepted: bool = unsafe { msg_send![super(self), becomeFirstResponder] };
-            if accepted && let Some(owner) = self.ivars().owner.upgrade() {
+            if accepted
+                && let Some(owner) = counters::owner("ProbeTile.becomeFirstResponder", self.ivars().owner.upgrade())
+            {
                 owner.apply(Focus::Tile(self.ivars().index));
             }
             accepted
@@ -437,6 +483,19 @@ define_class!(
 );
 
 impl Tile {
+    /// Плитка сцены с индексом `index`: заголовок, место и вкладки по сцене.
+    fn scene(
+        mtm: MainThreadMarker,
+        index: usize,
+        owner: &Weak<Tiles>,
+        tokens: &Tokens,
+        motion: Motion,
+    ) -> Retained<Tile> {
+        let (title, place) = tile_spec(index);
+        let tabs = fixtures::tabs(SCENE_TABS[index]);
+        Tile::new(mtm, index, title, place, tabs, owner, tokens, motion)
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn new(
         mtm: MainThreadMarker,
@@ -482,7 +541,9 @@ impl Tile {
             let key_strip = strip.clone();
             list.set_hooks(Hooks {
                 on_focus: Box::new(move || {
-                    if let Some(owner) = focus_owner.upgrade() {
+                    if let Some(owner) =
+                        counters::owner("ProbeTile.list.on_focus", focus_owner.upgrade())
+                    {
                         owner.apply(Focus::Tile(index));
                     }
                 }),
@@ -619,7 +680,9 @@ define_class!(
         fn become_first_responder(&self) -> bool {
             // SAFETY: `becomeFirstResponder` у NSResponder без аргументов.
             let accepted: bool = unsafe { msg_send![super(self), becomeFirstResponder] };
-            if accepted && let Some(owner) = self.ivars().owner.upgrade() {
+            if accepted
+                && let Some(owner) = counters::owner("ProbeNavigator.becomeFirstResponder", self.ivars().owner.upgrade())
+            {
                 owner.apply(Focus::Navigator);
             }
             accepted
@@ -648,7 +711,9 @@ impl Navigator {
         tree.select_row(NAV_SELECTED);
         let focus_owner = owner.clone();
         tree.set_on_focus(Box::new(move || {
-            if let Some(owner) = focus_owner.upgrade() {
+            if let Some(owner) =
+                counters::owner("ProbeNavigator.tree.on_focus", focus_owner.upgrade())
+            {
                 owner.apply(Focus::Navigator);
             }
         }));
@@ -687,7 +752,7 @@ impl Navigator {
 
 pub struct HostIvars {
     _live: Live,
-    tiles: Vec<Retained<Tile>>,
+    tiles: RefCell<Vec<Retained<Tile>>>,
     bottom: Option<f64>,
     gap: f64,
     /// Зазоры слева и справа.
@@ -732,7 +797,7 @@ impl ZoneHost {
     ) -> Retained<ZoneHost> {
         let this = ZoneHost::alloc(mtm).set_ivars(HostIvars {
             _live: ZONE_HOST.live(),
-            tiles,
+            tiles: RefCell::new(tiles),
             bottom,
             gap: tokens.gap,
             sides,
@@ -741,11 +806,25 @@ impl ZoneHost {
         // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
         let view: Retained<ZoneHost> = unsafe { msg_send![super(this), initWithFrame: frame] };
         fill(&view, tokens.chrome, 1.0);
-        for tile in &view.ivars().tiles {
+        for tile in view.ivars().tiles.borrow().iter() {
             view.addSubview(tile);
         }
         view.place();
         view
+    }
+
+    /// Плитка `tile` на месте `old`: прежняя уходит из иерархии видов и из хоста.
+    fn replace(&self, old: &Tile, tile: Retained<Tile>) {
+        {
+            let mut tiles = self.ivars().tiles.borrow_mut();
+            let Some(slot) = tiles.iter_mut().find(|slot| std::ptr::eq(&***slot, old)) else {
+                return;
+            };
+            *slot = tile.clone();
+        }
+        old.removeFromSuperview();
+        self.addSubview(&tile);
+        self.place();
     }
 
     /// Фон окна `--chrome`.
@@ -756,7 +835,7 @@ impl ZoneHost {
     fn place(&self) {
         let ivars = self.ivars();
         let frames = zone_frames(self.bounds().size, ivars.sides, ivars.gap, ivars.bottom);
-        for (tile, rect) in ivars.tiles.iter().zip(frames) {
+        for (tile, rect) in ivars.tiles.borrow().iter().zip(frames) {
             if tile.frame() != rect {
                 tile.setFrame(rect);
             }

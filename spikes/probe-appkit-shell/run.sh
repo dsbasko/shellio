@@ -11,7 +11,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CARGO="${CARGO:-cargo}"
 BIN="$ROOT/target/release/probe-appkit-shell"
 OUT_BASE="$ROOT/target/probes/appkit-shell"
-ALL_SCENARIOS="startup launch native-menu parent-click key-delivery readback-check split tabs list tree palette menu theme idle frames"
+ALL_SCENARIOS="startup launch native-menu parent-click key-delivery readback-check split tabs list tree palette menu theme idle frames cycles"
 # Запусков startup на вариант: первый в агрегаты прогретых не входит (results::STARTUP_RUNS).
 STARTUP_RUNS=21
 

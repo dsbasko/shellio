@@ -385,7 +385,7 @@ impl Run {
         ];
         frames.extend(
             tiles
-                .tiles
+                .all()
                 .iter()
                 .map(|tile| readback::frame_in_window(tile)),
         );
@@ -412,10 +412,10 @@ impl Run {
             chrome: readback::frame_in_window(&self.scene.chrome),
             navigator: readback::frame_in_window(&tiles.navigator),
             navigator_hidden: tiles.navigator.isHiddenOrHasHiddenAncestor(),
-            center: readback::frame_in_window(&tiles.tiles[CENTER]),
-            bottom: readback::frame_in_window(&tiles.tiles[BOTTOM]),
-            right: readback::frame_in_window(&tiles.tiles[RIGHT]),
-            right_hidden: tiles.tiles[RIGHT].isHiddenOrHasHiddenAncestor(),
+            center: readback::frame_in_window(&tiles.tile(CENTER)),
+            bottom: readback::frame_in_window(&tiles.tile(BOTTOM)),
+            right: readback::frame_in_window(&tiles.tile(RIGHT)),
+            right_hidden: tiles.tile(RIGHT).isHiddenOrHasHiddenAncestor(),
             left_collapsed: self.scene.split.left.isCollapsed(),
             right_collapsed: self.scene.split.right.isCollapsed(),
         }
@@ -574,7 +574,9 @@ impl Run {
 
     /// Цвет слоя вуали плитки.
     fn veil_color(&self, index: usize) -> Option<Rgba> {
-        self.scene.tiles.tiles[index]
+        self.scene
+            .tiles
+            .tile(index)
             .veil()
             .layer()
             .and_then(|layer| readback::layer_state(&layer).background)
@@ -659,7 +661,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
             poll(
                 app.isActive()
                     && key.is_some_and(|key| events::same(&*key, run.window()))
-                    && run.is_responder(&run.scene.tiles.tiles[CENTER]),
+                    && run.is_responder(&run.scene.tiles.tile(CENTER)),
                 || run.state(),
             )
         }
@@ -783,7 +785,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
             |run| {
                 check_navigator_focus(run);
                 probe_pixels(run, "navigator-focused")?;
-                let body = run.scene.tiles.tiles[RIGHT].body().retain();
+                let body = run.scene.tiles.tile(RIGHT).body().retain();
                 run.click(&body, "правая плитка")
             },
         ),
@@ -795,7 +797,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
             |run| {
                 check_tile_focus(run, RIGHT, "right");
                 probe_pixels(run, "right-focused")?;
-                let body = run.scene.tiles.tiles[CENTER].body().retain();
+                let body = run.scene.tiles.tile(CENTER).body().retain();
                 run.click(&body, "центральная плитка")
             },
         ),
@@ -1049,7 +1051,7 @@ fn initial_checks(run: &Run) -> Result<(), String> {
         ),
     );
     let mut problems = Vec::new();
-    for tile in &run.scene.tiles.tiles {
+    for tile in run.scene.tiles.all() {
         let layer = tile.layer().ok_or("у плитки нет слоя")?;
         let state = readback::layer_state(&layer);
         if state.border_width != 1.0
@@ -1095,7 +1097,7 @@ fn check_veil_passthrough(run: &Run) -> Result<(), String> {
     let content = window.contentView().ok_or("у окна нет contentView")?;
     // SAFETY: `superview` у вида, который держит окно.
     let frame_view = unsafe { content.superview() }.ok_or("у contentView нет superview")?;
-    let right = &run.scene.tiles.tiles[RIGHT];
+    let right = &run.scene.tiles.tile(RIGHT);
     let point = right
         .body()
         .convertPoint_toView(events::center(right.body().bounds()), None);
@@ -1128,10 +1130,10 @@ fn check_tile_focus(run: &Run, focused: usize, state: &str) {
     let tokens = &run.scene.tokens();
     let tone = tint_rgba(tokens.tone());
     let dim = tint_rgba(tokens.dim);
-    let colors: Vec<Option<Rgba>> = (0..run.scene.tiles.tiles.len())
+    let colors: Vec<Option<Rgba>> = (0..run.scene.tiles.len())
         .map(|index| run.veil_color(index))
         .collect();
-    let responder = run.is_responder(&run.scene.tiles.tiles[focused]);
+    let responder = run.is_responder(&run.scene.tiles.tile(focused));
     let ok = responder
         && run.scene.tiles.focus() == Focus::Tile(focused)
         && colors.iter().enumerate().all(|(index, color)| {
@@ -1163,7 +1165,7 @@ fn ring(run: &Run) -> Option<(f64, Option<Rgba>)> {
 fn check_navigator_focus(run: &Run) {
     let tokens = &run.scene.tokens();
     let dim = tint_rgba(tokens.dim);
-    let colors: Vec<Option<Rgba>> = (0..run.scene.tiles.tiles.len())
+    let colors: Vec<Option<Rgba>> = (0..run.scene.tiles.len())
         .map(|index| run.veil_color(index))
         .collect();
     let all_dim = colors
@@ -1219,7 +1221,7 @@ fn check_search(run: &Run) {
     let held_ms = down.as_ref().and_then(|record| {
         Some(events::to_ms(record.send_return?) - events::to_ms(record.dispatch_start?))
     });
-    let responder_kept = run.is_responder(&run.scene.tiles.tiles[CENTER]);
+    let responder_kept = run.is_responder(&run.scene.tiles.tile(CENTER));
     let mut report = run.report.borrow_mut();
     if let Some(held) = held_ms {
         report.metric("search_mousedown_dispatch_to_return", "ms", vec![held]);
@@ -1251,7 +1253,7 @@ fn probe_pixels(run: &Run, state: &str) -> Result<(), String> {
     let tiles = &run.scene.tiles;
     let focus = tiles.focus();
     let mut probes: Vec<(String, NSPoint, Rgba)> = tiles
-        .tiles
+        .all()
         .iter()
         .enumerate()
         .map(|(index, tile)| {

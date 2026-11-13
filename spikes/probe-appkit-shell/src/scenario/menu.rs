@@ -58,8 +58,8 @@ struct Run {
 }
 
 impl Run {
-    fn menu(&self) -> &NSMenu {
-        self.scene.tiles.tiles[CENTER].strip().menu()
+    fn menu(&self) -> Retained<NSMenu> {
+        self.scene.tiles.tile(CENTER).strip().menu().retain()
     }
 
     fn count(&self) -> usize {
@@ -270,7 +270,8 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
                     vec![events::to_ms(back.saturating_sub(start))],
                 );
             }
-            let strip = run.scene.tiles.tiles[CENTER].strip();
+            let tile = run.scene.tiles.tile(CENTER);
+            let strip = tile.strip();
             let more = strip.buttons()[2];
             let in_window = more.convertRect_toView(more.bounds(), None);
             let point = events::center(run.scene.window.convertRectToScreen(in_window));

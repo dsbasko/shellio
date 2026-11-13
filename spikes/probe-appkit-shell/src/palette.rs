@@ -36,7 +36,7 @@ use crate::chrome::{color, fill, label, rect};
 use crate::fixtures::{Command, ListRow};
 use crate::list::{Hooks, ListLook, VirtualList};
 use crate::menu::{Commands, Via};
-use crate::scenario::counters::{Live, counter};
+use crate::scenario::counters::{self, Live, counter};
 use crate::tokens::Tokens;
 
 counter!(PANEL, "ProbePalettePanel");
@@ -230,7 +230,10 @@ impl PaletteController {
     }
 
     fn owner(&self) -> Option<Rc<Palette>> {
-        self.ivars().owner.borrow().upgrade()
+        counters::owner(
+            "ProbePaletteController",
+            self.ivars().owner.borrow().upgrade(),
+        )
     }
 }
 
@@ -418,8 +421,7 @@ impl Palette {
         self.list.set_hooks(Hooks {
             on_focus: Box::new(|| {}),
             on_key: Box::new(move |event| {
-                owner
-                    .upgrade()
+                counters::owner("Palette.list.on_key", owner.upgrade())
                     .is_some_and(|palette| palette.list_key(event))
             }),
         });

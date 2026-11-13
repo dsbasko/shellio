@@ -27,7 +27,7 @@ use serde::Serialize;
 
 use crate::chrome::{color, fill, label, rect};
 use crate::fixtures::{Meter, TabKind, TabSpec, TabStatus};
-use crate::scenario::counters::{Live, counter};
+use crate::scenario::counters::{self, Live, counter};
 use crate::tokens::{Rgba, Tokens};
 
 counter!(TAB_STRIP, "ProbeTabStrip");
@@ -344,7 +344,7 @@ define_class!(
 
         #[unsafe(method(mouseDown:))]
         fn mouse_down(&self, _event: &NSEvent) {
-            if let Some(strip) = self.ivars().strip.load() {
+            if let Some(strip) = counters::owner("ProbeTab.mouseDown", self.ivars().strip.load()) {
                 strip.press(self.index());
             }
         }
@@ -506,7 +506,10 @@ impl TabView {
 
     /// Нажатие доступности идёт тем же путём, что щелчок.
     fn press(&self) -> bool {
-        match self.ivars().strip.load() {
+        match counters::owner(
+            "ProbeTab.accessibilityPerformPress",
+            self.ivars().strip.load(),
+        ) {
             Some(strip) => {
                 strip.press(self.index());
                 true
@@ -599,7 +602,7 @@ impl TabView {
     }
 
     fn restyle(&self) {
-        if let Some(strip) = self.ivars().strip.load() {
+        if let Some(strip) = counters::owner("ProbeTab.restyle", self.ivars().strip.load()) {
             self.paint(&strip.tokens());
         }
     }
@@ -1044,7 +1047,7 @@ impl TabStrip {
             .focus_target
             .borrow()
             .as_ref()
-            .and_then(Weak::load);
+            .and_then(|target| counters::owner("ProbeTabStrip.press", target.load()));
         if let (Some(target), Some(window)) = (target, self.window()) {
             window.makeFirstResponder(Some(&target));
         }

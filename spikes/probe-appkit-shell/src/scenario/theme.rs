@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
-use objc2::{MainThreadOnly, msg_send};
+use objc2::{MainThreadOnly, Message, msg_send};
 use objc2_app_kit::{
     NSAppearance, NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
     NSTableCellView, NSTableView, NSTextField, NSView, NSWorkspace,
@@ -38,7 +38,7 @@ use crate::chrome::is_dark;
 use crate::fixtures::{self, SCENE_ROWS};
 use crate::scene::Scene;
 use crate::theme::{self, Choice, Overrides};
-use crate::tiles::{CENTER, Focus, SPIN_KEY};
+use crate::tiles::{BOTTOM, CENTER, Focus, SPIN_KEY, Tile};
 use crate::tokens::{self, Cell as ThemeCell, InputMode, Theme, Tint, Tokens};
 
 const STEP_TIMEOUT: Duration = Duration::from_secs(5);
@@ -408,14 +408,15 @@ impl Run {
         Ok(())
     }
 
-    fn center_list(&self) -> Option<&crate::list::VirtualList> {
-        self.scene.tiles.tiles[CENTER].list()
+    fn center(&self) -> Retained<Tile> {
+        self.scene.tiles.tile(CENTER)
     }
 
     /// Виды строк, которые таблица центрального списка держит сейчас.
     fn available_rows(&self) -> usize {
         let count = Cell::new(0);
-        if let Some(list) = self.center_list() {
+        let center = self.center();
+        if let Some(list) = center.list() {
             crate::list::each_row_view(list.table(), |_| count.set(count.get() + 1));
         }
         count.get()
@@ -423,7 +424,8 @@ impl Run {
 
     /// Строки центрального списка убираются: виды уходят в очередь переиспользования.
     fn empty_center(&self) {
-        if let Some(list) = self.center_list() {
+        let center = self.center();
+        if let Some(list) = center.list() {
             self.created_before_empty.set(Some(list.created()));
             list.set_rows(Vec::new());
         }
@@ -440,7 +442,8 @@ impl Run {
 
     /// Строки возвращаются после смены ячейки; выбор — прежняя строка.
     fn refill_center(&self) {
-        if let Some(list) = self.center_list() {
+        let center = self.center();
+        if let Some(list) = center.list() {
             list.set_rows(fixtures::list(SCENE_ROWS));
             list.select(SELECTED_ROW);
         }
@@ -448,7 +451,7 @@ impl Run {
     }
 
     fn center_refilled(&self) -> bool {
-        let shown = self.center_list().is_some_and(|list| {
+        let shown = self.center().list().is_some_and(|list| {
             list.table()
                 .rowViewAtRow_makeIfNecessary(SELECTED_ROW as isize, false)
                 .is_some()
@@ -465,7 +468,8 @@ impl Run {
     /// или созданы заново, решает AppKit; итог записывается рядом.
     fn check_reuse(&self, index: usize) {
         let want = tokens::tokens(self.expected_cell(index), InputMode::Navigation);
-        let Some(list) = self.center_list() else {
+        let center = self.center();
+        let Some(list) = center.list() else {
             return;
         };
         let table = list.table();
@@ -571,7 +575,7 @@ impl Run {
             want.text_2,
         ));
         let focus = tiles.focus();
-        for (index, tile) in tiles.tiles.iter().enumerate() {
+        for (index, tile) in tiles.all().iter().enumerate() {
             checks.push(Check::new(
                 format!("плитка {index}"),
                 background(tile),
@@ -657,7 +661,8 @@ impl Run {
                 }
             }
         }
-        if let Some(indicator) = tiles.indicator() {
+        let bottom = tiles.tile(BOTTOM);
+        if let Some(indicator) = bottom.indicator() {
             checks.push(Check::new(
                 "дорожка индикатора",
                 indicator
@@ -752,7 +757,8 @@ impl Run {
             );
             return false;
         };
-        let line = self.scene.tiles.tiles[focused].strip().line();
+        let tile = self.scene.tiles.tile(focused);
+        let line = tile.strip().line();
         let height = line.frame().size.height;
         let color = background(line);
         let ok = !line.isHiddenOrHasHiddenAncestor()
@@ -780,7 +786,7 @@ impl Run {
         let tiles = &self.scene.tiles;
         let focus = tiles.focus();
         let mut probes: Vec<(String, NSPoint, Rgba, Option<Rgba>)> = tiles
-            .tiles
+            .all()
             .iter()
             .enumerate()
             .map(|(index, tile)| {
@@ -844,16 +850,17 @@ impl Run {
         Ok(ok)
     }
 
-    fn arc(&self) -> Option<&objc2_quartz_core::CAShapeLayer> {
+    fn arc(&self) -> Option<Retained<objc2_quartz_core::CAShapeLayer>> {
         self.scene
             .tiles
+            .tile(BOTTOM)
             .indicator()
-            .map(|indicator| indicator.arc())
+            .map(|indicator| indicator.arc().retain())
     }
 
     fn arc_keys(&self) -> Vec<String> {
         self.arc()
-            .map(|arc| readback::animation_keys(arc))
+            .map(|arc| readback::animation_keys(&arc))
             .unwrap_or_default()
     }
 
@@ -868,7 +875,7 @@ impl Run {
                 now
             }
         };
-        let angle = self.arc().and_then(|arc| presented_angle(arc));
+        let angle = self.arc().and_then(|arc| presented_angle(&arc));
         self.angles.borrow_mut().push(angle);
         started.elapsed() >= WATCH
     }
@@ -882,7 +889,7 @@ impl Run {
             .and_then(events::display_pass_after)
             .is_some();
         if !passed {
-            let angle = self.arc().and_then(|arc| presented_angle(arc));
+            let angle = self.arc().and_then(|arc| presented_angle(&arc));
             self.before_pass.borrow_mut().push(angle);
             return false;
         }
@@ -925,7 +932,8 @@ impl Run {
         let keys_now = self.arc_keys();
         let keys_at_switch = self.keys_after_reduce.borrow().clone();
         let before_pass = self.before_pass.borrow().clone();
-        let Some(indicator) = self.scene.tiles.indicator() else {
+        let bottom = self.scene.tiles.tile(BOTTOM);
+        let Some(indicator) = bottom.indicator() else {
             self.report.borrow_mut().finding(
                 "reduce_motion_static",
                 Verdict::Fail,
@@ -983,7 +991,8 @@ impl Run {
 
     /// Обычное движение возвращает анимацию, остановка скрывает индикатор вместе с подписью.
     fn check_restart_and_stop(&self) {
-        let Some(indicator) = self.scene.tiles.indicator() else {
+        let bottom = self.scene.tiles.tile(BOTTOM);
+        let Some(indicator) = bottom.indicator() else {
             return;
         };
         self.scene.theme.set_motion(Some(Motion::Normal));
@@ -1208,7 +1217,7 @@ fn steps(run: &Rc<Run>) -> Vec<Step> {
                         tiles.focus()
                     ));
                 }
-                if let Some(list) = tiles.tiles[CENTER].list() {
+                if let Some(list) = tiles.tile(CENTER).list() {
                     list.select(SELECTED_ROW);
                 }
                 run.request(0);

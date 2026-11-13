@@ -18,7 +18,7 @@ use objc2_foundation::{NSNotification, NSObject, NSObjectProtocol};
 
 use crate::args::{Contrast, Motion};
 use crate::chrome::is_dark;
-use crate::scenario::counters::{Live, counter};
+use crate::scenario::counters::{self, Live, counter};
 use crate::tokens::{self, Cell, InputMode, Theme, Tokens};
 
 counter!(THEME_OBSERVER, "ProbeThemeObserver");
@@ -118,7 +118,7 @@ define_class!(
         #[unsafe(method(displayOptionsChanged:))]
         fn display_options_changed(&self, _notification: &NSNotification) {
             let owner = self.ivars().owner.borrow().upgrade();
-            if let Some(owner) = owner {
+            if let Some(owner) = counters::owner("ProbeThemeObserver.displayOptionsChanged", owner) {
                 owner.display_options_changed();
             }
         }
