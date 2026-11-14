@@ -91,7 +91,7 @@ pub fn run(stand: Rc<Stand>) {
                 ),
                 (
                     "marked_note",
-                    "открытие палитры при marked text — командой (как из меню): composition снимается без коммита; Cmd-K при marked text по приоритету ADR-0010 уходит в composition",
+                    "открытие палитры при marked text — командой (как из меню): composition снимается без коммита; Cmd-K при marked text палитра и маршрутизатор пропускают к composition, что дальше делает вид (привязка ghostty super+k — clear_screen), автоматически не проверено",
                 ),
             ],
             build,
