@@ -13,6 +13,7 @@ pub mod snapshot;
 pub mod stand;
 pub mod startup;
 pub mod surface_env;
+pub mod visibility;
 pub mod watchdog;
 pub mod window;
 pub mod zones;
@@ -59,10 +60,11 @@ pub enum Scenario {
     Chord,
     Palette,
     GpuCalibration,
+    Visibility,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 10] = [
+    pub const ALL: [Scenario; 11] = [
         Scenario::Window,
         Scenario::SurfaceEnv,
         Scenario::Startup,
@@ -73,6 +75,7 @@ impl Scenario {
         Scenario::Chord,
         Scenario::Palette,
         Scenario::GpuCalibration,
+        Scenario::Visibility,
     ];
 
     pub fn name(self) -> &'static str {
@@ -87,6 +90,7 @@ impl Scenario {
             Scenario::Chord => "chord",
             Scenario::Palette => "palette",
             Scenario::GpuCalibration => "gpu-calibration",
+            Scenario::Visibility => "visibility",
         }
     }
 
@@ -101,7 +105,8 @@ impl Scenario {
             | Scenario::Input
             | Scenario::Ime
             | Scenario::Chord
-            | Scenario::Palette => true,
+            | Scenario::Palette
+            | Scenario::Visibility => true,
             Scenario::Startup | Scenario::StartupLs => variant != startup::BARE,
         }
     }
@@ -126,6 +131,7 @@ impl Scenario {
             Scenario::Chord => 240,
             Scenario::Palette => 300,
             Scenario::GpuCalibration => 270,
+            Scenario::Visibility => 480,
         })
     }
 }
@@ -150,6 +156,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Chord => chord::run(stand),
         Scenario::Palette => palette::run(stand),
         Scenario::GpuCalibration => gpu_calibration::run(stand),
+        Scenario::Visibility => visibility::run(stand),
     }
 }
 

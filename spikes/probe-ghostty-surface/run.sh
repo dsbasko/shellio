@@ -19,7 +19,7 @@ VENDOR="${SHELLIO_GHOSTTY_VENDOR:-$ROOT/vendor/ghostty}"
 REQUIREMENT="$ROOT/scripts/signing/requirement.txt"
 KEYCHAIN="${SHELLIO_SIGNING_KEYCHAIN:-}"
 BUNDLE_ID="io.github.dsbasko.shellio.probe.ghostty-surface"
-ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette gpu-calibration"
+ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette gpu-calibration visibility"
 # Запусков сценариев старта на вариант: первый в агрегаты прогретых не входит
 # (results::STARTUP_SCENARIOS).
 STARTUP_RUNS=21
@@ -27,7 +27,7 @@ STARTUP_LS_RUNS=11
 # Диагностический вариант startup с недопустимым LANG: один запуск без агрегатов (env.rs).
 BAD_LANG_VARIANT=badlang
 # Сценарии, которым служба footprint снимает footprint процесса пробы по запросу (gpu.rs).
-FOOTPRINT_SCENARIOS="gpu-calibration"
+FOOTPRINT_SCENARIOS="gpu-calibration visibility"
 FOOTPRINT_SERVICE=""
 
 die() {
@@ -150,6 +150,8 @@ variants_of() {
         surface-env) echo "light dark" ;;
         startup) echo "surface bare $BAD_LANG_VARIANT" ;;
         startup-ls) echo "surface bare" ;;
+        # Наборы обходов agterm (visibility.rs, Workarounds::VARIANTS).
+        visibility) echo "base bounds defer syncdraw all" ;;
         *) echo "base" ;;
     esac
 }

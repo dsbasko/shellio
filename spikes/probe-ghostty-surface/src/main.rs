@@ -18,6 +18,7 @@ mod scene;
 mod stats;
 mod utf16;
 mod view;
+mod visibility;
 
 use std::cell::{OnceCell, RefCell};
 use std::io::{self, Write};

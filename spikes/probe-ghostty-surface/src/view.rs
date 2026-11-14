@@ -25,24 +25,35 @@
 //!   повтор аккорда выхода приходит через [`SurfaceView::replay`]. Потерю фокуса и закрытие вид
 //!   сообщает маршрутизатору: это снимает ожидание второго аккорда.
 //!
+//! Видимость (задача 12, включается [`crate::visibility::enable`]): вид читает признаки сцены и
+//! окна (`isVisible`, `occlusionState`, свёрнутость, скрытие приложения, скрытый предок, окно) и
+//! подаёт `ghostty_surface_set_occlusion` только на фронте ([`crate::visibility::Edges`]). Подписки
+//! на окно переустанавливаются в `viewDidMoveToWindow`, скрытие предка приходит в `viewDidHide`.
+//! После `detach` вид ничего не подаёт, журнал остаётся для итога.
+//!
 //! `NSTextInputClient`: документ клиента — только marked text, отправленный текст уже в PTY и не
 //! редактируется. `markedRange` и `selectedRange` считают единицы UTF-16 marked text; без него оба
 //! `{NSNotFound, 0}`. Смена фокуса при marked text снимает его без коммита: `discardMarkedText`
 //! просит метод ввода забыть composition, поэтому повторного коммита нет.
 
 use std::cell::{Cell, RefCell};
+use std::ptr::NonNull;
 
+use block2::RcBlock;
 use objc2::rc::{Retained, Weak};
 use objc2::runtime::{AnyObject, Sel};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_class, msg_send, sel};
 use objc2_app_kit::{
-    NSEvent, NSEventModifierFlags, NSEventType, NSResponder, NSTextInputClient, NSView,
-    NSWindowDidBecomeKeyNotification, NSWindowDidChangeScreenNotification,
-    NSWindowDidResignKeyNotification,
+    NSApplication, NSApplicationDidHideNotification, NSApplicationDidUnhideNotification, NSEvent,
+    NSEventModifierFlags, NSEventType, NSResponder, NSTextInputClient, NSView,
+    NSWindowDidBecomeKeyNotification, NSWindowDidChangeOcclusionStateNotification,
+    NSWindowDidChangeScreenNotification, NSWindowDidDeminiaturizeNotification,
+    NSWindowDidMiniaturizeNotification, NSWindowDidResignKeyNotification, NSWindowOcclusionState,
 };
 use objc2_foundation::{
     NSArray, NSAttributedString, NSAttributedStringKey, NSNotification, NSNotificationCenter,
-    NSObject, NSPoint, NSRange, NSRangePointer, NSRect, NSSize, NSString, NSUInteger,
+    NSObject, NSPoint, NSRange, NSRangePointer, NSRect, NSRunLoop, NSRunLoopCommonModes, NSSize,
+    NSString, NSTimer, NSUInteger,
 };
 use objc2_quartz_core::CATransaction;
 use serde::Serialize;
@@ -53,8 +64,12 @@ use crate::ghostty::surface::{Handle, SurfaceKey};
 use crate::keys::{self, Action, EventKey, KeyDown, KeyInput, NO_PHYSICAL_KEY, Owners};
 use crate::scenario::counters::{Live, counter};
 use crate::utf16::{self, Range16, Surrogates};
+use crate::visibility::{self, Action as VisAction, Edges, Front, Signals};
 
 counter!(SURFACE_VIEW, "ProbeSurfaceView");
+
+/// Шаг проверки первого кадра, пока скрытие отложено обходом `defer`.
+const FIRST_FRAME_POLL: f64 = 0.005;
 
 /// Предел каждой записи журнала ввода.
 const LOG_LIMIT: usize = 4000;
@@ -144,8 +159,18 @@ struct Marked {
     selected: Range16,
 }
 
+/// Модель видимости вида: фронты, журнал и проверка первого кадра при отложенном скрытии.
+struct Visibility {
+    edges: Edges,
+    log: visibility::Log,
+    /// Поверхность снята: подачи прекращены, журнал хранится для итога.
+    active: bool,
+    first_frame_timer: Option<Retained<NSTimer>>,
+}
+
 pub struct ViewIvars {
     _live: Live,
+    visibility: RefCell<Option<Visibility>>,
     handle: Cell<Option<Handle>>,
     /// Поколение живой поверхности: по нему маршрутизатор узнаёт своего получателя.
     key: Cell<Option<SurfaceKey>>,
@@ -239,6 +264,26 @@ define_class!(
             self.feed_display();
             self.backing_changed();
             self.refresh_focus();
+            self.evaluate_visibility("move-to-window");
+        }
+
+        #[unsafe(method(viewDidHide))]
+        fn view_did_hide(&self) {
+            // SAFETY: вызов реализации суперкласса без аргументов.
+            let () = unsafe { msg_send![super(self), viewDidHide] };
+            self.evaluate_visibility("view-hidden");
+        }
+
+        #[unsafe(method(viewDidUnhide))]
+        fn view_did_unhide(&self) {
+            // SAFETY: вызов реализации суперкласса без аргументов.
+            let () = unsafe { msg_send![super(self), viewDidUnhide] };
+            self.evaluate_visibility("view-unhidden");
+        }
+
+        #[unsafe(method(visibilityChanged:))]
+        fn visibility_changed(&self, _notification: &NSNotification) {
+            self.evaluate_visibility("window-or-app");
         }
 
         #[unsafe(method(windowDidChangeScreen:))]
@@ -551,6 +596,7 @@ impl SurfaceView {
     pub fn new(mtm: MainThreadMarker, frame: NSRect) -> Retained<SurfaceView> {
         let this = SurfaceView::alloc(mtm).set_ivars(ViewIvars {
             _live: SURFACE_VIEW.live(),
+            visibility: RefCell::new(None),
             handle: Cell::new(None),
             key: Cell::new(None),
             responder: Cell::new(false),
@@ -628,10 +674,34 @@ impl SurfaceView {
         self.feed_size();
         self.feed_display();
         self.feed_focus(self.effective_focus());
+        if let Some(workarounds) = visibility::enabled() {
+            *self.ivars().visibility.borrow_mut() = Some(Visibility {
+                edges: Edges::new(workarounds),
+                log: visibility::Log {
+                    workarounds: workarounds.names(),
+                    ..visibility::Log::default()
+                },
+                active: true,
+                first_frame_timer: None,
+            });
+            self.evaluate_visibility("attach");
+        }
     }
 
     /// Ручка снимается до `ghostty_surface_free`.
     pub fn detach(&self) {
+        let timer = self
+            .ivars()
+            .visibility
+            .borrow_mut()
+            .as_mut()
+            .and_then(|state| {
+                state.active = false;
+                state.first_frame_timer.take()
+            });
+        if let Some(timer) = timer {
+            timer.invalidate();
+        }
         let key = self.ivars().key.take();
         self.ivars().handle.set(None);
         OWNERS.with(|owners| {
@@ -753,8 +823,26 @@ impl SurfaceView {
                 NSWindowDidChangeScreenNotification,
                 NSWindowDidBecomeKeyNotification,
                 NSWindowDidResignKeyNotification,
+                NSWindowDidChangeOcclusionStateNotification,
+                NSWindowDidMiniaturizeNotification,
+                NSWindowDidDeminiaturizeNotification,
+                NSApplicationDidHideNotification,
+                NSApplicationDidUnhideNotification,
             ] {
                 center.removeObserver_name_object(self, Some(name), None);
+            }
+            if visibility::enabled().is_some() {
+                for name in [
+                    NSApplicationDidHideNotification,
+                    NSApplicationDidUnhideNotification,
+                ] {
+                    center.addObserver_selector_name_object(
+                        self,
+                        sel!(visibilityChanged:),
+                        Some(name),
+                        None,
+                    );
+                }
             }
             if let Some(window) = self.window() {
                 center.addObserver_selector_name_object(
@@ -774,8 +862,218 @@ impl SurfaceView {
                         Some(&window),
                     );
                 }
+                if visibility::enabled().is_some() {
+                    for name in [
+                        NSWindowDidChangeOcclusionStateNotification,
+                        NSWindowDidMiniaturizeNotification,
+                        NSWindowDidDeminiaturizeNotification,
+                    ] {
+                        center.addObserver_selector_name_object(
+                            self,
+                            sel!(visibilityChanged:),
+                            Some(name),
+                            Some(&window),
+                        );
+                    }
+                }
             }
         }
+    }
+
+    // ---- видимость ----
+
+    /// Журнал модели видимости; `None` — модель не включена.
+    pub fn visibility_log(&self) -> Option<visibility::Log> {
+        self.ivars()
+            .visibility
+            .borrow()
+            .as_ref()
+            .map(|state| state.log.clone())
+    }
+
+    /// Последняя подача `set_occlusion` (с начальным `true`) и отложено ли скрытие.
+    pub fn visibility_fed(&self) -> Option<(bool, bool)> {
+        self.ivars()
+            .visibility
+            .borrow()
+            .as_ref()
+            .map(|state| (state.edges.fed(), state.edges.deferred()))
+    }
+
+    /// Признаки видимости по фактическому состоянию AppKit.
+    pub fn visibility_signals(&self) -> Signals {
+        let window = self.window();
+        let app = NSApplication::sharedApplication(self.mtm());
+        Signals {
+            in_window: window.is_some(),
+            hidden_ancestor: self.isHiddenOrHasHiddenAncestor(),
+            window_visible: window.as_ref().is_some_and(|window| window.isVisible()),
+            window_miniaturized: window
+                .as_ref()
+                .is_some_and(|window| window.isMiniaturized()),
+            window_occluded: window.as_ref().is_some_and(|window| {
+                visibility::occluded(
+                    window
+                        .occlusionState()
+                        .contains(NSWindowOcclusionState::Visible),
+                    visibility::occlusion_masked(),
+                )
+            }),
+            app_hidden: app.isHidden(),
+            overlay_partial: crate::palette::is_open(),
+            occlusion_masked: visibility::occlusion_masked(),
+        }
+    }
+
+    /// У слоя поверхности есть `contents`: libghostty показала хотя бы один кадр.
+    pub fn has_contents(&self) -> bool {
+        // SAFETY: чтение свойства слоя на главном потоке; объект не разыменовывается.
+        self.layer()
+            .is_some_and(|layer| unsafe { layer.contents() }.is_some())
+    }
+
+    fn evaluate_visibility(&self, from: &'static str) {
+        let Some(handle) = self.ivars().handle.get() else {
+            return;
+        };
+        let signals = self.visibility_signals();
+        let contents = self.has_contents();
+        let actions = {
+            let mut slot = self.ivars().visibility.borrow_mut();
+            let Some(state) = slot.as_mut().filter(|state| state.active) else {
+                return;
+            };
+            state.log.evaluations += 1;
+            state.log.last_signals = Some(signals);
+            let visible = signals.visible();
+            let mut actions = Vec::new();
+            if !visible && contents && !state.edges.has_first_frame() {
+                actions.extend(state.edges.first_frame());
+            }
+            actions.extend(state.edges.update(visible));
+            actions
+        };
+        self.apply_visibility(handle, &actions, from, &signals, contents);
+    }
+
+    /// Действия по фронту вне заимствования: `set_occlusion` и `draw` идут в libghostty.
+    fn apply_visibility(
+        &self,
+        handle: Handle,
+        actions: &[VisAction],
+        from: &'static str,
+        signals: &Signals,
+        contents: bool,
+    ) {
+        for action in actions {
+            match *action {
+                VisAction::Feed(visible) => {
+                    let at_ns = clock::uptime_ns();
+                    // SAFETY: ручка снимается до освобождения поверхности, вызов на главном потоке.
+                    unsafe { handle.set_occlusion(visible) };
+                    self.with_log(|log| {
+                        push_limited(
+                            &mut log.fed,
+                            Front {
+                                visible,
+                                at_ns,
+                                from,
+                                reasons: signals.reasons(),
+                                contents,
+                            },
+                        )
+                    });
+                }
+                VisAction::BoundsRedraw(on) => {
+                    if let Some(layer) = self.layer() {
+                        layer.setNeedsDisplayOnBoundsChange(on);
+                    }
+                    self.with_log(|log| push_limited(&mut log.bounds_redraw, on));
+                }
+                VisAction::SyncDraw => {
+                    let at_ns = clock::uptime_ns();
+                    // SAFETY: ручка снимается до освобождения поверхности, вызов на главном потоке;
+                    // модель только что подала `true`.
+                    unsafe { handle.draw() };
+                    let ms = clock::interval_ms(at_ns, clock::uptime_ns());
+                    self.with_log(|log| {
+                        push_limited(&mut log.sync_draws, visibility::SyncDraw { at_ns, ms })
+                    });
+                }
+                VisAction::DeferHide => {
+                    self.with_log(|log| push_limited(&mut log.deferred_ns, clock::uptime_ns()));
+                    self.watch_first_frame();
+                }
+            }
+        }
+    }
+
+    fn with_log(&self, f: impl FnOnce(&mut visibility::Log)) {
+        if let Some(state) = self.ivars().visibility.borrow_mut().as_mut() {
+            f(&mut state.log);
+        }
+    }
+
+    /// Таймер в общих режимах цикла ждёт первый кадр, пока скрытие отложено.
+    fn watch_first_frame(&self) {
+        let running = self
+            .ivars()
+            .visibility
+            .borrow()
+            .as_ref()
+            .is_some_and(|state| state.first_frame_timer.is_some());
+        if running {
+            return;
+        }
+        let weak = Weak::new(self);
+        let block = RcBlock::new(move |timer: NonNull<NSTimer>| {
+            // SAFETY: таймер жив, пока вызывается его блок.
+            let timer = unsafe { timer.as_ref() };
+            match weak.load() {
+                Some(view) => {
+                    if view.first_frame_tick() {
+                        timer.invalidate();
+                    }
+                }
+                None => timer.invalidate(),
+            }
+        });
+        // SAFETY: таймер добавляется в цикл главного потока и снимается там же, поэтому блок
+        // вызывается и освобождается только на главном потоке.
+        let timer =
+            unsafe { NSTimer::timerWithTimeInterval_repeats_block(FIRST_FRAME_POLL, true, &block) };
+        // SAFETY: `NSRunLoopCommonModes` — неизменяемая константа Foundation.
+        unsafe { NSRunLoop::currentRunLoop().addTimer_forMode(&timer, NSRunLoopCommonModes) };
+        if let Some(state) = self.ivars().visibility.borrow_mut().as_mut() {
+            state.first_frame_timer = Some(timer);
+        }
+    }
+
+    /// Шаг ожидания первого кадра. `true` — ждать больше нечего.
+    fn first_frame_tick(&self) -> bool {
+        let Some(handle) = self.ivars().handle.get() else {
+            return true;
+        };
+        let contents = self.has_contents();
+        let actions = {
+            let mut slot = self.ivars().visibility.borrow_mut();
+            let Some(state) = slot.as_mut().filter(|state| state.active) else {
+                return true;
+            };
+            if !state.edges.deferred() {
+                state.first_frame_timer = None;
+                return true;
+            }
+            if !contents {
+                return false;
+            }
+            state.log.first_frame_ns = Some(clock::uptime_ns());
+            state.first_frame_timer = None;
+            state.edges.first_frame()
+        };
+        let signals = self.visibility_signals();
+        self.apply_visibility(handle, &actions, "first-frame", &signals, contents);
+        true
     }
 
     // ---- клавиатура ----

@@ -716,6 +716,99 @@ pub fn settled_sample(series: &[Sample], since_ns: u64, settled: bool) -> Option
     })
 }
 
+/// Серия замеров после барьера в `since_ns` до устоявшихся счётчиков, по правилам калибровки:
+/// `footprint` от службы `run.sh` и `currentAllocatedSize` устройств, шаг `SETTLE_PACE_NS`, окно
+/// тишины `SETTLE_WINDOW_NS`, предел `SETTLE_CAP_NS`. Главный поток только опрашивает её.
+pub struct Series {
+    out: std::path::PathBuf,
+    pid: i32,
+    label: String,
+    since_ns: u64,
+    devices: std::rc::Rc<Vec<Device>>,
+    renderer: usize,
+    samples: Vec<Sample>,
+    pending: Option<(FootprintRequest, BTreeMap<String, i64>, u64)>,
+    next_ns: u64,
+    pub roundtrips_ms: Vec<f64>,
+}
+
+impl Series {
+    pub fn start(
+        out: &Path,
+        pid: i32,
+        label: &str,
+        devices: std::rc::Rc<Vec<Device>>,
+        renderer: usize,
+    ) -> Series {
+        Series {
+            out: out.to_path_buf(),
+            pid,
+            label: label.to_owned(),
+            since_ns: clock::uptime_ns(),
+            devices,
+            renderer,
+            samples: Vec::new(),
+            pending: None,
+            next_ns: 0,
+            roundtrips_ms: Vec::new(),
+        }
+    }
+
+    /// `None` — серия идёт; иначе устоявшийся (или упёршийся в предел) замер.
+    pub fn poll(&mut self) -> Option<Result<Sample, String>> {
+        if let Some((request, _, _)) = &self.pending {
+            let result = request.take()?;
+            let (_, mut counters, at_ns) = self.pending.take()?;
+            let reply = match result {
+                Ok(reply) => reply,
+                Err(reason) => return Some(Err(format!("{}: {reason}", self.label))),
+            };
+            self.roundtrips_ms
+                .push(clock::interval_ms(reply.requested_ns, reply.replied_ns));
+            counters.extend(footprint_counters(&reply.footprint));
+            self.samples.push(Sample {
+                label: self.label.clone(),
+                at_ns,
+                counters,
+                ..Sample::default()
+            });
+            let settled = match settle(&self.samples, self.since_ns) {
+                Settle::Pending => {
+                    self.next_ns = at_ns + SETTLE_PACE_NS;
+                    return None;
+                }
+                Settle::Settled => true,
+                Settle::Capped => false,
+            };
+            return Some(
+                settled_sample(&self.samples, self.since_ns, settled)
+                    .ok_or_else(|| format!("{}: пустая серия замеров", self.label)),
+            );
+        }
+        let now = clock::uptime_ns();
+        if now < self.next_ns {
+            return None;
+        }
+        let counters = allocated_counters(&self.devices, self.renderer);
+        let label = format!("{}-{:02}", self.label, self.samples.len());
+        self.pending = Some((
+            request_footprint(&self.out, self.pid, &label),
+            counters,
+            now,
+        ));
+        None
+    }
+
+    pub fn describe(&self) -> String {
+        format!(
+            "серия «{}»: замеров {}, запрос в работе {}",
+            self.label,
+            self.samples.len(),
+            self.pending.is_some()
+        )
+    }
+}
+
 /// Изменение счётчика относительно объёма ресурса события.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]

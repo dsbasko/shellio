@@ -326,6 +326,25 @@ impl Handle {
         unsafe { sys::ghostty_surface_set_content_scale(self.0, x, y) }
     }
 
+    /// Видимость поверхности: параметр `ghostty_surface_set_occlusion` означает `visible`.
+    ///
+    /// # Safety
+    /// Поверхность жива.
+    pub unsafe fn set_occlusion(self, visible: bool) {
+        // SAFETY: по контракту поверхность жива.
+        unsafe { sys::ghostty_surface_set_occlusion(self.0, visible) }
+    }
+
+    /// Синхронный кадр на главном потоке: `drawFrame(true)` без проверки видимости, поэтому
+    /// строит swap chain заново.
+    ///
+    /// # Safety
+    /// Поверхность жива, вызов на главном потоке.
+    pub unsafe fn draw(self) {
+        // SAFETY: по контракту поверхность жива.
+        unsafe { sys::ghostty_surface_draw(self.0) }
+    }
+
     /// # Safety
     /// Поверхность жива.
     pub unsafe fn set_focus(self, focused: bool) {
