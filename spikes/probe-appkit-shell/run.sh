@@ -1,7 +1,7 @@
 #!/bin/bash
 # Сборка и запуск пробы P0.2 probe-appkit-shell (ADR-0034).
 #   run.sh scenarios [сценарий …]   каждый сценарий отдельным процессом под caffeinate,
-#                                   выход в target/probes/appkit-shell/<время>/, затем
+#                                   выход в target/probes/appkit-shell/<время>-<pid>/, затем
 #                                   --aggregate пишет summary.json и сводку выводов
 #   run.sh demo [аргументы пробы …]  демонстрационная сцена для ручной работы
 # Набор ghostty проба не читает, поэтому блокировка vendor/ghostty.lock не нужна.

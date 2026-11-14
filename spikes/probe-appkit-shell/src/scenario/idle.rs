@@ -516,4 +516,56 @@ mod tests {
         assert_eq!(median_max(&[4, 1, 3, 2]), Some((2, 4)));
         assert_eq!(median_max(&[9, 1, 5]), Some((5, 9)));
     }
+
+    fn memory(list: Vec<u64>, closed: Option<Vec<u64>>) -> Memory {
+        let mut states = vec![
+            (EMPTY, vec![30_000_000]),
+            (SCENE, vec![40_000_000]),
+            (LIST, list),
+        ];
+        states.extend(closed.map(|samples| (CLOSED, samples)));
+        Memory {
+            states,
+            ..Memory::default()
+        }
+    }
+
+    fn memory_verdict(report: &Report) -> Option<Verdict> {
+        report
+            .findings
+            .iter()
+            .find(|finding| finding.name == "memory_budget")
+            .map(|finding| finding.verdict)
+    }
+
+    #[test]
+    fn missing_state_is_execution_error() {
+        let mut report = Report::default();
+        let result = record_memory(&mut report, &memory(vec![50_000_000], None));
+        assert!(result.is_err_and(|reason| reason.contains(CLOSED)));
+        assert_eq!(memory_verdict(&report), None);
+    }
+
+    #[test]
+    fn budget_compares_list_maximum() {
+        let cases = [
+            (vec![MEMORY_BUDGET], Verdict::Pass),
+            (vec![MEMORY_BUDGET + 1], Verdict::Fail),
+            (
+                vec![60_000_000, 60_000_000, MEMORY_BUDGET + 1],
+                Verdict::Fail,
+            ),
+        ];
+        for (list, want) in cases {
+            let mut report = Report::default();
+            record_memory(&mut report, &memory(list.clone(), Some(vec![41_048_576]))).unwrap();
+            assert_eq!(memory_verdict(&report), Some(want), "{list:?}");
+            let closed = report
+                .observations
+                .iter()
+                .find(|observation| observation.key == "footprint_closed_vs_scene_mib")
+                .map(|observation| observation.value.clone());
+            assert_eq!(closed, Some("1.00".into()), "{list:?}");
+        }
+    }
 }

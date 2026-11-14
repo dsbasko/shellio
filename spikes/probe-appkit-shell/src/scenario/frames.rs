@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use block2::RcBlock;
 use objc2::rc::Retained;
-use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
+use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_class, msg_send, sel};
 use objc2_core_graphics::CGDisplayIsBuiltin;
 use objc2_foundation::{
     NSObject, NSObjectProtocol, NSPoint, NSRect, NSRunLoop, NSRunLoopCommonModes, NSTimer,
@@ -136,6 +136,7 @@ type TickHandler = Box<dyn FnMut(&CADisplayLink)>;
 pub struct DriverIvars {
     _live: Live,
     handler: RefCell<Option<TickHandler>>,
+    cleared: Cell<bool>,
 }
 
 define_class!(
@@ -151,12 +152,14 @@ define_class!(
     impl FrameDriver {
         #[unsafe(method(tick:))]
         fn tick(&self, link: &CADisplayLink) {
+            // `stop` внутри обработчика инвалидирует ссылку и отпускает последний `Retained`
+            // цели, поэтому цель удерживается до конца вызова.
+            let _keep = self.retain();
             let handler = self.ivars().handler.borrow_mut().take();
             if let Some(mut handler) = handler {
                 handler(link);
-                let mut slot = self.ivars().handler.borrow_mut();
-                if slot.is_none() {
-                    *slot = Some(handler);
+                if !self.ivars().cleared.get() {
+                    *self.ivars().handler.borrow_mut() = Some(handler);
                 }
             }
         }
@@ -168,13 +171,16 @@ impl FrameDriver {
         let this = FrameDriver::alloc(mtm).set_ivars(DriverIvars {
             _live: FRAME_DRIVER.live(),
             handler: RefCell::new(Some(handler)),
+            cleared: Cell::new(false),
         });
         // SAFETY: `init` у NSObject без аргументов.
         unsafe { msg_send![super(this), init] }
     }
 
-    /// Снимает обработчик: замыкание держит сценарий, а `displayLink` — цель.
+    /// Снимает обработчик: замыкание держит сценарий, а `displayLink` — цель. Вызов из
+    /// обработчика снимает его после возврата из `tick:`.
     fn clear(&self) {
+        self.ivars().cleared.set(true);
         drop(self.ivars().handler.borrow_mut().take());
     }
 }

@@ -565,3 +565,49 @@ fn capture(run: Rc<Run>, mut report: Report, render: ViewRender) {
         stand.conclude(report, Ok(()));
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const VIEW: Rect = Rect {
+        x: 100.0,
+        y: 200.0,
+        width: 300.0,
+        height: 24.0,
+    };
+
+    /// Кадр элемента, отошедший от краёв вида на `left`, `bottom`, `right`, `top`.
+    fn grown(left: f64, bottom: f64, right: f64, top: f64) -> Rect {
+        Rect {
+            x: VIEW.x - left,
+            y: VIEW.y - bottom,
+            width: VIEW.width + left + right,
+            height: VIEW.height + bottom + top,
+        }
+    }
+
+    #[test]
+    fn encloses_within_slack_on_every_edge() {
+        assert!(encloses(VIEW, VIEW));
+        let slack = AX_FRAME_SLACK;
+        assert!(encloses(grown(slack, slack, slack, slack), VIEW));
+        let over = slack + 1e-4;
+        for frame in [
+            grown(over, 0.0, 0.0, 0.0),
+            grown(0.0, over, 0.0, 0.0),
+            grown(0.0, 0.0, over, 0.0),
+            grown(0.0, 0.0, 0.0, over),
+        ] {
+            assert!(!encloses(frame, VIEW), "{frame:?}");
+        }
+        for frame in [
+            grown(-0.5, 0.0, 0.0, 0.0),
+            grown(0.0, -0.5, 0.0, 0.0),
+            grown(0.0, 0.0, -0.5, 0.0),
+            grown(0.0, 0.0, 0.0, -0.5),
+        ] {
+            assert!(!encloses(frame, VIEW), "внутрь вида: {frame:?}");
+        }
+    }
+}

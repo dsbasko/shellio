@@ -141,14 +141,14 @@ impl Scenario {
             Scenario::ReadbackCheck => 45,
             Scenario::WatchdogCheck => 3,
             Scenario::Split => 150,
-            Scenario::Tabs => 150,
+            Scenario::Tabs => 180,
             Scenario::List => 300,
-            Scenario::Tree => 150,
-            Scenario::Palette => 300,
+            Scenario::Tree => 210,
+            Scenario::Palette => 360,
             Scenario::Menu => 90,
             Scenario::Theme => 90,
             Scenario::Startup => 20,
-            Scenario::Idle => 120,
+            Scenario::Idle => 180,
             Scenario::Frames => frames::PHASES_TIMEOUT.as_secs() + 120,
             Scenario::Cycles => 420,
         })
@@ -805,5 +805,63 @@ impl Session {
     pub fn add_to(&self, report: &mut Report) {
         report.push("session_on_console", self.on_console);
         report.push("session_locked", self.locked);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::results::{STARTUP_RUNS, Verdict};
+
+    #[test]
+    fn exit_code_follows_execution_not_findings() {
+        let mut report = Report::default();
+        report.finding("budget", Verdict::Fail, "превышен");
+        assert_eq!(
+            format!("{:?}", Outcome::ok(report).exit_code()),
+            format!("{:?}", ExitCode::SUCCESS)
+        );
+        assert_eq!(
+            format!(
+                "{:?}",
+                Outcome::error("тайм-аут", Report::default()).exit_code()
+            ),
+            format!("{:?}", ExitCode::from(EXIT_EXECUTION))
+        );
+    }
+
+    #[test]
+    fn session_precondition() {
+        let session = |on_console, locked| Session { on_console, locked }.check();
+        assert_eq!(session(true, false), Ok(()));
+        assert!(session(false, false).is_err_and(|reason| reason.contains("консоли")));
+        assert!(session(true, true).is_err_and(|reason| reason.contains("заблокирован")));
+    }
+
+    /// `run.sh` перечисляет сценарии общего прогона и число запусков `startup` сам; они должны
+    /// совпадать с перечнем сценариев без самопроверки сторожа и с `results::STARTUP_RUNS`.
+    #[test]
+    fn run_script_matches_scenarios() {
+        let script = include_str!("../../run.sh");
+        let value = |name: &str| {
+            script
+                .lines()
+                .find_map(|line| line.strip_prefix(&format!("{name}=")))
+                .map(|value| value.trim_matches('"').to_owned())
+                .unwrap_or_else(|| panic!("в run.sh нет {name}"))
+        };
+        let mut listed: Vec<String> = value("ALL_SCENARIOS")
+            .split_whitespace()
+            .map(str::to_owned)
+            .collect();
+        listed.sort();
+        let mut expected: Vec<String> = Scenario::ALL
+            .into_iter()
+            .filter(|scenario| *scenario != Scenario::WatchdogCheck)
+            .map(|scenario| scenario.name().to_owned())
+            .collect();
+        expected.sort();
+        assert_eq!(listed, expected);
+        assert_eq!(value("STARTUP_RUNS"), STARTUP_RUNS.to_string());
     }
 }

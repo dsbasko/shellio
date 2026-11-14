@@ -271,3 +271,103 @@ fn conclude(
         )),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const WALL_US: i64 = 1_794_000_000_000_000;
+    const MONO_NS: u64 = 5_000_000_000;
+
+    fn start() -> ProcessStart {
+        ProcessStart {
+            wall_us: WALL_US,
+            bsd_wall_us: Some(WALL_US),
+            mono_ns: MONO_NS,
+        }
+    }
+
+    fn entry() -> Entry {
+        Entry {
+            wall_us: WALL_US + 30_000,
+            mono_ns: MONO_NS + 30_000_000,
+        }
+    }
+
+    /// Запуск длительностью 320 мс с прочитанной вкладкой `effect`; стенные часы к концу
+    /// сдвинулись на `jump_us`.
+    fn marks(effect: Option<usize>, jump_us: i64) -> Marks {
+        Marks {
+            end: Some((WALL_US + 320_000 + jump_us, MONO_NS + 320_000_000)),
+            effect: Some(effect),
+            ..Marks::default()
+        }
+    }
+
+    fn effect_verdict(report: &Report) -> Option<Verdict> {
+        report
+            .findings
+            .iter()
+            .find(|finding| finding.name == "control_effect")
+            .map(|finding| finding.verdict)
+    }
+
+    #[test]
+    fn clean_run_keeps_marks() {
+        let mut report = Report::default();
+        assert_eq!(
+            conclude(&mut report, entry(), start(), &marks(Some(1), 0), 1),
+            Ok(())
+        );
+        let startup = report.startup.unwrap();
+        assert_eq!(startup.clock_check(), ClockCheck::Ok);
+        assert!((startup.wall_ms() - 320.0).abs() < 1e-9);
+        assert_eq!(effect_verdict(&report), Some(Verdict::Pass));
+    }
+
+    #[test]
+    fn stand_error_and_missing_end_leave_no_marks() {
+        let mut report = Report::default();
+        let failed = Marks {
+            error: Some("сбой стенда".to_owned()),
+            ..marks(Some(1), 0)
+        };
+        assert_eq!(
+            conclude(&mut report, entry(), start(), &failed, 1),
+            Err("сбой стенда".to_owned())
+        );
+        let no_end = Marks {
+            end: None,
+            ..marks(Some(1), 0)
+        };
+        assert!(conclude(&mut report, entry(), start(), &no_end, 1).is_err());
+        assert!(report.startup.is_none());
+        assert!(report.findings.is_empty());
+    }
+
+    #[test]
+    fn wrong_or_unread_effect_keeps_marks_and_fails_execution() {
+        for effect in [Some(0), None] {
+            let mut report = Report::default();
+            let result = conclude(&mut report, entry(), start(), &marks(effect, 0), 1);
+            assert!(
+                result.is_err_and(|reason| reason.contains("эффект")),
+                "{effect:?}"
+            );
+            assert!(report.startup.is_some(), "{effect:?}");
+            assert_eq!(effect_verdict(&report), Some(Verdict::Fail), "{effect:?}");
+        }
+    }
+
+    #[test]
+    fn distorted_clock_keeps_marks_and_fails_execution() {
+        let mut report = Report::default();
+        let result = conclude(&mut report, entry(), start(), &marks(Some(1), -100_000), 1);
+        assert!(result.is_err_and(|reason| reason.contains("искажён")));
+        assert!(matches!(
+            report.startup.unwrap().clock_check(),
+            ClockCheck::Distorted(_)
+        ));
+        assert_eq!(effect_verdict(&report), Some(Verdict::Pass));
+    }
+}

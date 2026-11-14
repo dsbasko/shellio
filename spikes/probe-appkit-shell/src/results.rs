@@ -1200,17 +1200,19 @@ mod tests {
         ));
     }
 
-    fn startup_sample(variant: &str, marks: StartupMarks) -> ResultFile {
+    fn startup_sample(variant: &str, marks: StartupMarks, execution: Execution) -> ResultFile {
         let report = Report {
             startup: Some(marks),
             ..Report::default()
         };
-        ResultFile::new("startup", variant, environment(), Execution::Ok, report)
+        ResultFile::new("startup", variant, environment(), execution, report)
     }
 
     /// Прогон в порядке run.sh: сначала 21 запуск sidebar, затем 21 запуск plain. В sidebar
-    /// пятый запуск не записал результат, в plain седьмой искажён скачком часов, а двадцатый
-    /// превысил бюджет.
+    /// пятый запуск не записал результат, а максимум прогретых ровно равен бюджету. В plain
+    /// седьмой искажён скачком часов, девятый записал отметки с ошибкой исполнения, как при
+    /// непрочитанном эффекте контрольной клавиши, а двадцатый превысил бюджет. Сценарий пишет
+    /// отметки и в искажённом запуске, и в запуске с ошибкой, а исполнение у обоих — ошибка.
     #[test]
     fn startup_aggregates() {
         let run = temp_dir("startup");
@@ -1225,6 +1227,7 @@ mod tests {
                 }
                 let wall = match (variant, index) {
                     (_, 1) => 450.0,
+                    ("sidebar", 21) => STARTUP_BUDGET_MS,
                     ("plain", 20) => 600.0,
                     _ => base + index as f64,
                 };
@@ -1233,9 +1236,17 @@ mod tests {
                 } else {
                     0.0
                 };
+                let execution = if variant == "plain" && matches!(index, 7 | 9) {
+                    Execution::Error {
+                        reason: "запуск не закончился".to_owned(),
+                        last_state: None,
+                    }
+                } else {
+                    Execution::Ok
+                };
                 write_result(
                     &dir,
-                    &startup_sample(variant, startup_marks(start, wall, jump)),
+                    &startup_sample(variant, startup_marks(start, wall, jump), execution),
                 )
                 .unwrap();
             }
@@ -1261,13 +1272,14 @@ mod tests {
         assert_eq!(sidebar.warm_count, 19);
         assert_eq!(sidebar.warm_expected, 20);
         let warm = sidebar.warm_ms.unwrap();
-        assert_eq!((warm.p50, warm.max), (312.0, 321.0));
+        assert_eq!((warm.p50, warm.max), (312.0, STARTUP_BUDGET_MS));
         assert_eq!(sidebar.first.as_ref().map(|run| run.wall_ms), Some(450.0));
 
         let plain = &startup.variants[1];
         assert_eq!(plain.distorted, ["startup-plain-07"]);
-        assert!(plain.errors.is_empty());
-        assert_eq!(plain.warm_count, 19);
+        assert_eq!(plain.errors, ["startup-plain-09"]);
+        assert_eq!(plain.runs, STARTUP_RUNS);
+        assert_eq!(plain.warm_count, 18);
         assert_eq!(plain.warm_ms.unwrap().max, 600.0);
 
         let verdicts: Vec<(&str, &str, Verdict)> = summary
@@ -1291,7 +1303,7 @@ mod tests {
         );
         assert!(summary.findings[0].reason.contains("первый наблюдаемый"));
         assert_eq!((summary.totals.pass, summary.totals.fail), (1, 1));
-        assert_eq!(summary.totals.execution_errors, 1);
+        assert_eq!(summary.totals.execution_errors, 3);
         let missing = summary
             .processes
             .iter()
@@ -1303,7 +1315,7 @@ mod tests {
         );
         let text = render_summary(&summary);
         assert!(text.contains("старт: первый наблюдаемый 450.0 мс (startup-sidebar-01)"));
-        assert!(text.contains("старт sidebar: медиана 312.0 мс, максимум 321.0 мс"));
+        assert!(text.contains("старт sidebar: медиана 312.0 мс, максимум 500.0 мс"));
         fs::remove_dir_all(run).unwrap();
     }
 

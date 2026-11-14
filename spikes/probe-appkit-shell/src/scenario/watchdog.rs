@@ -182,4 +182,29 @@ mod tests {
         assert!(text.contains("post #1 keyDown Down"), "{text}");
         fs::remove_dir_all(dir).unwrap();
     }
+
+    #[test]
+    fn expiry_exits_even_when_trace_is_not_written() {
+        let dir = temp_dir("unwritable");
+        let missing = dir.join("missing");
+        let trace: SharedTrace = Arc::new(Mutex::new(TraceRing::default()));
+        let (exited, seen) = mpsc::channel();
+        let watchdog = arm_with(
+            "launch",
+            Duration::from_millis(1),
+            missing.clone(),
+            trace,
+            move |code| {
+                let _ = exited.send(code);
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            seen.recv_timeout(Duration::from_secs(30)),
+            Ok(i32::from(EXIT_EXECUTION))
+        );
+        drop(watchdog);
+        assert!(!missing.exists());
+        fs::remove_dir_all(dir).unwrap();
+    }
 }
