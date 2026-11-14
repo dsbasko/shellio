@@ -35,6 +35,12 @@
 //! в окне: поверхность, создание которой сорвалось на спящем дисплее, повторяет его
 //! (`runtime::layout_changed`).
 //!
+//! Доступность (H13, модель текста — [`crate::a11y`]): вид — элемент с ролью текстовой области,
+//! пока он в окне, видим и с поверхностью; скрытый вид не элемент и в дерево доступности не входит.
+//! Атрибуты текста читают экран через `ghostty_surface_read_text` только по запросу клиента
+//! доступности, уведомления об изменении отправляет [`SurfaceView::a11y_refresh`], которую зовёт
+//! стенд или таймер демонстрации, а не `tick`. Рамка диапазона — рамка вида на экране.
+//!
 //! `NSTextInputClient`: документ клиента — только marked text, отправленный текст уже в PTY и не
 //! редактируется. `markedRange` и `selectedRange` считают единицы UTF-16 marked text; без него оба
 //! `{NSNotFound, 0}`. Смена фокуса при marked text снимает его без коммита: `discardMarkedText`
@@ -42,27 +48,32 @@
 
 use std::cell::{Cell, RefCell};
 use std::ptr::NonNull;
+use std::rc::Rc;
 
 use block2::RcBlock;
 use objc2::rc::{Retained, Weak};
 use objc2::runtime::{AnyObject, Sel};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_class, msg_send, sel};
 use objc2_app_kit::{
-    NSApplication, NSApplicationDidHideNotification, NSApplicationDidUnhideNotification, NSEvent,
-    NSEventModifierFlags, NSEventType, NSResponder, NSTextInputClient, NSView,
-    NSWindowDidBecomeKeyNotification, NSWindowDidChangeOcclusionStateNotification,
-    NSWindowDidChangeScreenNotification, NSWindowDidDeminiaturizeNotification,
-    NSWindowDidMiniaturizeNotification, NSWindowDidResignKeyNotification, NSWindowOcclusionState,
+    NSAccessibilityNotificationName, NSAccessibilityPostNotification,
+    NSAccessibilitySelectedTextChangedNotification, NSAccessibilityTextAreaRole,
+    NSAccessibilityValueChangedNotification, NSApplication, NSApplicationDidHideNotification,
+    NSApplicationDidUnhideNotification, NSEvent, NSEventModifierFlags, NSEventType, NSResponder,
+    NSTextInputClient, NSView, NSWindowDidBecomeKeyNotification,
+    NSWindowDidChangeOcclusionStateNotification, NSWindowDidChangeScreenNotification,
+    NSWindowDidDeminiaturizeNotification, NSWindowDidMiniaturizeNotification,
+    NSWindowDidResignKeyNotification, NSWindowOcclusionState,
 };
 use objc2_foundation::{
-    NSArray, NSAttributedString, NSAttributedStringKey, NSNotification, NSNotificationCenter,
-    NSObject, NSPoint, NSRange, NSRangePointer, NSRect, NSRunLoop, NSRunLoopCommonModes, NSSize,
-    NSString, NSTimer, NSUInteger,
+    NSArray, NSAttributedString, NSAttributedStringKey, NSInteger, NSNotification,
+    NSNotificationCenter, NSObject, NSPoint, NSRange, NSRangePointer, NSRect, NSRunLoop,
+    NSRunLoopCommonModes, NSSize, NSString, NSTimer, NSUInteger,
 };
 use objc2_quartz_core::CATransaction;
 use serde::Serialize;
 use shellio_sys_ghostty as sys;
 
+use crate::a11y;
 use crate::clock;
 use crate::ghostty::surface::{Handle, SurfaceKey};
 use crate::keys::{self, Action, EventKey, KeyDown, KeyInput, NO_PHYSICAL_KEY, Owners};
@@ -165,6 +176,17 @@ struct Marked {
     selected: Range16,
 }
 
+/// Метка доступности по умолчанию.
+const A11Y_LABEL: &str = "Терминал";
+
+/// Доступность вида: снимок текста со временем сборки, что видел клиент при последнем обновлении,
+/// журнал.
+struct A11y {
+    cache: Option<(u64, Rc<a11y::Snapshot>)>,
+    last: Option<a11y::Signature>,
+    log: a11y::Log,
+}
+
 /// Модель видимости вида: фронты, журнал и проверка первого кадра при отложенном скрытии.
 struct Visibility {
     edges: Edges,
@@ -192,6 +214,7 @@ pub struct ViewIvars {
     /// Коды клавиш, нажатие которых ушло в ghostty физической клавишей.
     sent_down: RefCell<Vec<u16>>,
     log: RefCell<InputLog>,
+    a11y: RefCell<A11y>,
 }
 
 define_class!(
@@ -407,6 +430,115 @@ define_class!(
             unsafe { handle.mouse_pressure(stage, f64::from(event.pressure())) };
             self.ivars().log.borrow_mut().pressures += 1;
         }
+
+        #[unsafe(method(isAccessibilityElement))]
+        fn is_accessibility_element(&self) -> bool {
+            a11y::on_main() && self.input_handle().is_some()
+        }
+
+        #[unsafe(method_id(accessibilityRole))]
+        fn accessibility_role(&self) -> Option<Retained<NSString>> {
+            // SAFETY: неизменяемая константа AppKit.
+            Some(unsafe { NSAccessibilityTextAreaRole }.retain())
+        }
+
+        #[unsafe(method_id(accessibilityLabel))]
+        fn accessibility_label(&self) -> Option<Retained<NSString>> {
+            a11y::on_main()
+                .then(|| NSString::from_str(&self.ivars().a11y.borrow().log.label))
+        }
+
+        #[unsafe(method_id(accessibilityValue))]
+        fn accessibility_value(&self) -> Option<Retained<AnyObject>> {
+            let text = self
+                .a11y_read("AXValue", |snapshot| snapshot.value.text.clone())
+                .unwrap_or_default();
+            Some(Retained::into_super(Retained::into_super(NSString::from_str(&text))))
+        }
+
+        #[unsafe(method(accessibilityNumberOfCharacters))]
+        fn accessibility_number_of_characters(&self) -> NSInteger {
+            let len = self.a11y_read("AXNumberOfCharacters", |snapshot| snapshot.value.len16);
+            to_ns_integer(len.unwrap_or(0))
+        }
+
+        #[unsafe(method(accessibilityVisibleCharacterRange))]
+        fn accessibility_visible_character_range(&self) -> NSRange {
+            let len = self.a11y_read("AXVisibleCharacterRange", |snapshot| snapshot.value.len16);
+            NSRange::new(0, len.unwrap_or(0))
+        }
+
+        #[unsafe(method_id(accessibilitySelectedText))]
+        fn accessibility_selected_text(&self) -> Option<Retained<NSString>> {
+            self.a11y_read("AXSelectedText", a11y::Snapshot::selected_text)
+                .flatten()
+                .map(|text| NSString::from_str(&text))
+        }
+
+        #[unsafe(method(accessibilitySelectedTextRange))]
+        fn accessibility_selected_text_range(&self) -> NSRange {
+            let range = self.a11y_read("AXSelectedTextRange", a11y::Snapshot::selected_range);
+            to_ns_range(range.unwrap_or(Range16::new(0, 0)))
+        }
+
+        #[unsafe(method(accessibilityInsertionPointLineNumber))]
+        fn accessibility_insertion_point_line_number(&self) -> NSInteger {
+            let line = self.a11y_read("AXInsertionPointLineNumber", |snapshot| {
+                snapshot.value.line_for_index(snapshot.selected_range().location)
+            });
+            to_ns_integer(line.unwrap_or(0))
+        }
+
+        #[unsafe(method(accessibilityLineForIndex:))]
+        fn accessibility_line_for_index(&self, index: NSInteger) -> NSInteger {
+            let index = usize::try_from(index).unwrap_or(0);
+            let line = self.a11y_read("AXLineForIndex", |snapshot| {
+                snapshot.value.line_for_index(index)
+            });
+            to_ns_integer(line.unwrap_or(0))
+        }
+
+        #[unsafe(method(accessibilityRangeForLine:))]
+        fn accessibility_range_for_line(&self, line: NSInteger) -> NSRange {
+            let range = usize::try_from(line).ok().and_then(|line| {
+                self.a11y_read("AXRangeForLine", |snapshot| snapshot.value.range_for_line(line))
+                    .flatten()
+            });
+            to_ns_range(range.unwrap_or(Range16::NONE))
+        }
+
+        #[unsafe(method_id(accessibilityStringForRange:))]
+        fn accessibility_string_for_range(&self, range: NSRange) -> Option<Retained<NSString>> {
+            self.a11y_read("AXStringForRange", |snapshot| {
+                snapshot.value.substring(from_ns_range(range))
+            })
+            .flatten()
+            .map(|text| NSString::from_str(&text))
+        }
+
+        #[unsafe(method_id(accessibilityAttributedStringForRange:))]
+        fn accessibility_attributed_string_for_range(
+            &self,
+            range: NSRange,
+        ) -> Option<Retained<NSAttributedString>> {
+            self.a11y_read("AXAttributedStringForRange", |snapshot| {
+                snapshot.value.substring(from_ns_range(range))
+            })
+            .flatten()
+            .map(|text| NSAttributedString::from_nsstring(&NSString::from_str(&text)))
+        }
+
+        #[unsafe(method(accessibilityFrameForRange:))]
+        fn accessibility_frame_for_range(&self, _range: NSRange) -> NSRect {
+            if !a11y::on_main() {
+                return NSRect::ZERO;
+            }
+            let in_window = self.convertRect_toView(self.bounds(), None);
+            match self.window() {
+                Some(window) => window.convertRectToScreen(in_window),
+                None => NSRect::ZERO,
+            }
+        }
     }
 
     unsafe impl NSTextInputClient for SurfaceView {
@@ -473,6 +605,58 @@ define_class!(
 
 fn to_ns_range(range: Range16) -> NSRange {
     NSRange::new(range.location, range.length)
+}
+
+fn to_ns_integer(value: usize) -> NSInteger {
+    NSInteger::try_from(value).unwrap_or(NSInteger::MAX)
+}
+
+/// Чтения поверхности для снимка доступности. Между чтениями терминал может измениться:
+/// несогласованные чтения выделения ловит [`a11y::selection_range`].
+///
+/// # Safety
+/// Поверхность жива, вызов на главном потоке.
+unsafe fn read_accessibility(handle: Handle) -> a11y::Reading {
+    let mut reading = a11y::Reading {
+        read_calls: 1,
+        ..a11y::Reading::default()
+    };
+    // SAFETY: по контракту поверхность жива.
+    let Some(viewport) = (unsafe { handle.viewport_text() }) else {
+        return reading;
+    };
+    reading.viewport = viewport;
+    // SAFETY: по контракту поверхность жива.
+    if !unsafe { handle.has_selection() } {
+        return reading;
+    }
+    reading.read_calls += 1;
+    // SAFETY: по контракту поверхность жива.
+    let Some(selection) = (unsafe { handle.selection() }) else {
+        return reading;
+    };
+    if !selection.in_viewport {
+        reading.selection = Some(Err(a11y::Mismatch::NotInViewport));
+        return reading;
+    }
+    // SAFETY: по контракту поверхность жива.
+    let columns = unsafe { handle.size() }.columns;
+    let Some((column, row)) = a11y::end_cell(selection.offset_start, selection.offset_len, columns)
+    else {
+        reading.selection = Some(Err(a11y::Mismatch::EndCell));
+        return reading;
+    };
+    reading.read_calls += 1;
+    // SAFETY: по контракту поверхность жива.
+    let Some(prefix) = (unsafe { handle.text_to(column, row) }) else {
+        reading.selection = Some(Err(a11y::Mismatch::PrefixUnread));
+        return reading;
+    };
+    reading.selection = Some(
+        a11y::selection_range(&reading.viewport, &prefix, &selection.text)
+            .map(|range| (selection.text, range)),
+    );
+    reading
 }
 
 fn from_ns_range(range: NSRange) -> Range16 {
@@ -615,6 +799,14 @@ impl SurfaceView {
             surrogates: RefCell::new(Surrogates::default()),
             sent_down: RefCell::new(Vec::new()),
             log: RefCell::new(InputLog::default()),
+            a11y: RefCell::new(A11y {
+                cache: None,
+                last: None,
+                log: a11y::Log {
+                    label: A11Y_LABEL.to_owned(),
+                    ..a11y::Log::default()
+                },
+            }),
         });
         // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
         unsafe { msg_send![super(this), initWithFrame: frame] }
@@ -712,6 +904,7 @@ impl SurfaceView {
         }
         let key = self.ivars().key.take();
         self.ivars().handle.set(None);
+        self.ivars().a11y.borrow_mut().cache = None;
         OWNERS.with(|owners| {
             owners.borrow_mut().forget(|owner| match owner {
                 Owner::Surface(weak) => weak
@@ -1082,6 +1275,134 @@ impl SurfaceView {
         let signals = self.visibility_signals();
         self.apply_visibility(handle, &actions, "first-frame", &signals, contents);
         true
+    }
+
+    // ---- доступность ----
+
+    pub fn set_a11y_label(&self, label: &str) {
+        label.clone_into(&mut self.ivars().a11y.borrow_mut().log.label);
+    }
+
+    pub fn a11y_log(&self) -> a11y::Log {
+        self.ivars().a11y.borrow().log.clone()
+    }
+
+    /// Стенд сбрасывает снимок перед запросом клиента: ответ собирается по этому запросу.
+    pub fn a11y_forget(&self) {
+        self.ivars().a11y.borrow_mut().cache = None;
+    }
+
+    /// Атрибут текста по снимку; `None` — вид не элемент доступности, экран не читался.
+    fn a11y_read<T>(&self, attribute: &str, read: impl FnOnce(&a11y::Snapshot) -> T) -> Option<T> {
+        if !a11y::on_main() {
+            return None;
+        }
+        let external = !a11y::from_stand();
+        {
+            let mut state = self.ivars().a11y.borrow_mut();
+            state.log.requests += 1;
+            if external {
+                state.log.external_requests += 1;
+            }
+        }
+        a11y::client_request();
+        let snapshot = self.a11y_snapshot(attribute, external);
+        if snapshot.is_none() {
+            self.ivars().a11y.borrow_mut().log.absent_requests += 1;
+        }
+        snapshot.map(|snapshot| read(&snapshot))
+    }
+
+    /// Снимок из кэша в пределах срока или новое чтение экрана вне заимствования состояния.
+    fn a11y_snapshot(&self, cause: &str, external: bool) -> Option<Rc<a11y::Snapshot>> {
+        let handle = self.input_handle()?;
+        let started = clock::uptime_ns();
+        {
+            let mut state = self.ivars().a11y.borrow_mut();
+            let fresh = state
+                .cache
+                .as_ref()
+                .filter(|(built, _)| started.saturating_sub(*built) < a11y::SNAPSHOT_TTL_NS)
+                .map(|(_, snapshot)| Rc::clone(snapshot));
+            if let Some(snapshot) = fresh {
+                state.log.cache_hits += 1;
+                return Some(snapshot);
+            }
+        }
+        // SAFETY: ручка снимается до освобождения поверхности, вызов на главном потоке.
+        let reading = unsafe { read_accessibility(handle) };
+        let snapshot = Rc::new(a11y::Snapshot::new(&reading));
+        let done = clock::uptime_ns();
+        let mut state = self.ivars().a11y.borrow_mut();
+        state.log.push_build(a11y::Build {
+            at_ns: started,
+            ms: clock::interval_ms(started, done),
+            read_calls: reading.read_calls,
+            cause: cause.to_owned(),
+            external,
+            value_len16: snapshot.value.len16,
+            truncated: snapshot.value.truncated,
+            selection: snapshot.selection,
+            mismatch: snapshot.mismatch,
+        });
+        state.cache = Some((done, Rc::clone(&snapshot)));
+        Some(snapshot)
+    }
+
+    /// Обновление доступности: свежий снимок и уведомления об изменении значения и выделения с
+    /// прошлого обновления. Вид, который не элемент доступности, уведомлений не шлёт.
+    pub fn a11y_refresh(&self, reason: &str) -> a11y::Refresh {
+        {
+            let mut state = self.ivars().a11y.borrow_mut();
+            state.log.refreshes += 1;
+            state.cache = None;
+        }
+        let Some(snapshot) = self.a11y_snapshot(&format!("refresh:{reason}"), false) else {
+            self.ivars().a11y.borrow_mut().log.absent_refreshes += 1;
+            return a11y::Refresh::default();
+        };
+        let signature = snapshot.signature();
+        let (value_changed, selection_changed) = {
+            let mut state = self.ivars().a11y.borrow_mut();
+            let changes = a11y::changes(state.last.as_ref(), &signature);
+            state.last = Some(signature);
+            changes
+        };
+        // SAFETY: неизменяемые константы AppKit.
+        let (value, selected) = unsafe {
+            (
+                NSAccessibilityValueChangedNotification,
+                NSAccessibilitySelectedTextChangedNotification,
+            )
+        };
+        if value_changed {
+            self.a11y_post(value, "AXValueChanged", reason);
+        }
+        if selection_changed {
+            self.a11y_post(selected, "AXSelectedTextChanged", reason);
+        }
+        a11y::Refresh {
+            present: true,
+            value_changed,
+            selection_changed,
+        }
+    }
+
+    /// Уведомление вне заимствования: AppKit может спросить атрибуты синхронно.
+    fn a11y_post(
+        &self,
+        notification: &NSAccessibilityNotificationName,
+        name: &'static str,
+        reason: &str,
+    ) {
+        let element: &AnyObject = self.as_ref();
+        // SAFETY: элемент — живой вид на главном потоке, имя — константа AppKit.
+        unsafe { NSAccessibilityPostNotification(element, notification) };
+        self.ivars().a11y.borrow_mut().log.push_post(a11y::Post {
+            at_ns: clock::uptime_ns(),
+            notification: name,
+            reason: reason.to_owned(),
+        });
     }
 
     // ---- клавиатура ----

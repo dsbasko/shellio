@@ -597,17 +597,72 @@ impl Handle {
     /// # Safety
     /// Поверхность жива.
     pub unsafe fn viewport_text(self) -> Option<String> {
-        let point = |coord| sys::ghostty_point_s {
-            tag: sys::ghostty_point_tag_e_GHOSTTY_POINT_VIEWPORT,
-            coord,
-            x: 0,
-            y: 0,
-        };
         let selection = sys::ghostty_selection_s {
-            top_left: point(sys::ghostty_point_coord_e_GHOSTTY_POINT_COORD_TOP_LEFT),
-            bottom_right: point(sys::ghostty_point_coord_e_GHOSTTY_POINT_COORD_BOTTOM_RIGHT),
+            top_left: viewport_point(
+                sys::ghostty_point_coord_e_GHOSTTY_POINT_COORD_TOP_LEFT,
+                0,
+                0,
+            ),
+            bottom_right: viewport_point(
+                sys::ghostty_point_coord_e_GHOSTTY_POINT_COORD_BOTTOM_RIGHT,
+                0,
+                0,
+            ),
             rectangle: false,
         };
+        // SAFETY: по контракту поверхность жива.
+        unsafe { self.read_text(selection) }.map(|(text, _)| text)
+    }
+
+    /// Текст видимой области от левого верхнего угла до клетки `column`, `row` включительно.
+    ///
+    /// # Safety
+    /// Поверхность жива.
+    pub unsafe fn text_to(self, column: u32, row: u32) -> Option<String> {
+        let selection = sys::ghostty_selection_s {
+            top_left: viewport_point(
+                sys::ghostty_point_coord_e_GHOSTTY_POINT_COORD_TOP_LEFT,
+                0,
+                0,
+            ),
+            bottom_right: viewport_point(
+                sys::ghostty_point_coord_e_GHOSTTY_POINT_COORD_EXACT,
+                column,
+                row,
+            ),
+            rectangle: false,
+        };
+        // SAFETY: по контракту поверхность жива.
+        unsafe { self.read_text(selection) }.map(|(text, _)| text)
+    }
+
+    /// Выделение пользователя по `ghostty_surface_read_selection`; `None` — выделения нет.
+    ///
+    /// # Safety
+    /// Поверхность жива.
+    pub unsafe fn selection(self) -> Option<SelectionText> {
+        let mut text = empty_text();
+        // SAFETY: по контракту поверхность жива; `text` живёт на время вызова.
+        if !unsafe { sys::ghostty_surface_read_selection(self.0, &mut text) } {
+            return None;
+        }
+        // SAFETY: успешное чтение заполнило `text` строкой библиотеки длины `text_len`.
+        let copy = unsafe { super::copy_bytes(text.text, text.text_len) };
+        let selection = SelectionText {
+            text: copy.unwrap_or_default(),
+            offset_start: text.offset_start,
+            offset_len: text.offset_len,
+            // Без части в видимой области библиотека отдаёт `tl_px_x = -1` и нулевые смещения.
+            in_viewport: text.tl_px_x >= 0.0,
+        };
+        // SAFETY: текст выделен этим чтением и освобождается один раз.
+        unsafe { sys::ghostty_surface_free_text(self.0, &mut text) };
+        Some(selection)
+    }
+
+    /// # Safety
+    /// Поверхность жива.
+    unsafe fn read_text(self, selection: sys::ghostty_selection_s) -> Option<(String, (f64, f64))> {
         let mut text = empty_text();
         // SAFETY: по контракту поверхность жива; `text` живёт на время вызова.
         if !unsafe { sys::ghostty_surface_read_text(self.0, selection, &mut text) } {
@@ -615,9 +670,10 @@ impl Handle {
         }
         // SAFETY: успешное чтение заполнило `text` строкой библиотеки длины `text_len`.
         let copy = unsafe { super::copy_bytes(text.text, text.text_len) };
+        let corner = (text.tl_px_x, text.tl_px_y);
         // SAFETY: текст выделен этим чтением и освобождается один раз.
         unsafe { sys::ghostty_surface_free_text(self.0, &mut text) };
-        copy
+        copy.map(|copy| (copy, corner))
     }
 
     /// # Safety
@@ -773,32 +829,32 @@ impl Handle {
     /// # Safety
     /// Поверхность жива.
     pub unsafe fn cell(self, column: u32, row: u32) -> Option<Cell> {
-        let point = sys::ghostty_point_s {
-            tag: sys::ghostty_point_tag_e_GHOSTTY_POINT_VIEWPORT,
-            coord: sys::ghostty_point_coord_e_GHOSTTY_POINT_COORD_EXACT,
-            x: column,
-            y: row,
-        };
+        let point = viewport_point(
+            sys::ghostty_point_coord_e_GHOSTTY_POINT_COORD_EXACT,
+            column,
+            row,
+        );
         let selection = sys::ghostty_selection_s {
             top_left: point,
             bottom_right: point,
             rectangle: false,
         };
-        let mut text = empty_text();
-        // SAFETY: по контракту поверхность жива; `text` живёт на время вызова.
-        if !unsafe { sys::ghostty_surface_read_text(self.0, selection, &mut text) } {
-            return None;
-        }
-        // SAFETY: успешное чтение заполнило `text` строкой библиотеки длины `text_len`.
-        let copy = unsafe { super::copy_bytes(text.text, text.text_len) };
-        let cell = Cell {
-            text: copy.unwrap_or_default(),
-            x: text.tl_px_x,
-            baseline_y: text.tl_px_y,
-        };
-        // SAFETY: текст выделен этим чтением и освобождается один раз.
-        unsafe { sys::ghostty_surface_free_text(self.0, &mut text) };
-        Some(cell)
+        // SAFETY: по контракту поверхность жива.
+        let (text, (x, baseline_y)) = unsafe { self.read_text(selection) }?;
+        Some(Cell {
+            text,
+            x,
+            baseline_y,
+        })
+    }
+}
+
+fn viewport_point(coord: sys::ghostty_point_coord_e, x: u32, y: u32) -> sys::ghostty_point_s {
+    sys::ghostty_point_s {
+        tag: sys::ghostty_point_tag_e_GHOSTTY_POINT_VIEWPORT,
+        coord,
+        x,
+        y,
     }
 }
 
@@ -828,6 +884,16 @@ pub struct Cell {
     pub text: String,
     pub x: f64,
     pub baseline_y: f64,
+}
+
+/// Выделение пользователя: текст и линейные смещения клеток в видимой области
+/// (`строка × столбцы + столбец`, длина до последней клетки включительно).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SelectionText {
+    pub text: String,
+    pub offset_start: u32,
+    pub offset_len: u32,
+    pub in_viewport: bool,
 }
 
 /// Контекст `userdata` поверхности: живёт до возврата `ghostty_surface_free`.

@@ -17,6 +17,9 @@ pub const USAGE: &str = "\
       сводка результатов прогона без окна
   probe-ghostty-surface --fixture --channel <сокет> --nonce <строка>
       фикстура в PTY, без AppKit и без ghostty_init
+  probe-ghostty-surface --ax-client <запрос JSON>
+      клиент доступности сценария a11y: читает процесс пробы через AXUIElement API, ответ JSON
+      в stdout, без AppKit и без ghostty_init
   probe-ghostty-surface --launch --app <бандл> [--route …] [--set ИМЯ=ЗНАЧЕНИЕ]… -- [аргументы пробы]
       демонстрация или сценарий из бандла с построенным окружением и внешним сторожем
 
@@ -103,6 +106,10 @@ pub enum Mode {
         channel: PathBuf,
         nonce: String,
     },
+    /// Клиент доступности сценария `a11y`: запрос — JSON `scenario::ax::Request`.
+    AxClient {
+        request: String,
+    },
     Launch(Launch),
 }
 
@@ -188,10 +195,11 @@ enum Flag {
     Set,
     Config,
     DeferCreate,
+    AxClient,
 }
 
 impl Flag {
-    const ALL: [Flag; 13] = [
+    const ALL: [Flag; 14] = [
         Flag::Scenario,
         Flag::Variant,
         Flag::Out,
@@ -205,6 +213,7 @@ impl Flag {
         Flag::Set,
         Flag::Config,
         Flag::DeferCreate,
+        Flag::AxClient,
     ];
 
     fn name(self) -> &'static str {
@@ -222,6 +231,7 @@ impl Flag {
             Flag::Set => "--set",
             Flag::Config => "--config",
             Flag::DeferCreate => "--defer-create",
+            Flag::AxClient => "--ax-client",
         }
     }
 
@@ -250,6 +260,7 @@ struct Raw {
     set: Vec<(String, String)>,
     config: Option<PathBuf>,
     defer_create_s: Option<u32>,
+    ax_client: Option<String>,
 }
 
 impl Raw {
@@ -283,6 +294,12 @@ pub fn parse(args: &[String]) -> Result<Mode, ArgsError> {
         return match raw.extra(&[Flag::Aggregate]) {
             Some(flag) => Err(not_with(Flag::Aggregate, flag)),
             None => Ok(Mode::Aggregate { run_dir }),
+        };
+    }
+    if let Some(request) = raw.ax_client.clone() {
+        return match raw.extra(&[Flag::AxClient]) {
+            Some(flag) => Err(not_with(Flag::AxClient, flag)),
+            None => Ok(Mode::AxClient { request }),
         };
     }
     if raw.fixture {
@@ -413,6 +430,7 @@ fn parse_flags(args: &[String]) -> Result<Raw, ArgsError> {
                     .ok_or_else(|| invalid(flag, value, "целое число секунд от 1 до 3600"))?;
                 raw.defer_create_s = Some(seconds);
             }
+            Flag::AxClient => raw.ax_client = Some(value.to_owned()),
             Flag::Config => raw.config = Some(path(flag, value)?),
             Flag::Out => raw.out = Some(path(flag, value)?),
             Flag::Aggregate => raw.aggregate = Some(path(flag, value)?),
@@ -446,7 +464,11 @@ fn launch(raw: Raw, tail: &[String]) -> Result<Mode, ArgsError> {
             variant,
             out,
         },
-        Mode::Help | Mode::Aggregate { .. } | Mode::Fixture { .. } | Mode::Launch(_) => {
+        Mode::Help
+        | Mode::Aggregate { .. }
+        | Mode::Fixture { .. }
+        | Mode::AxClient { .. }
+        | Mode::Launch(_) => {
             return Err(ArgsError::LaunchTarget);
         }
     };
@@ -693,6 +715,31 @@ mod tests {
                 mode: "--channel",
                 flag: "--fixture"
             })
+        );
+    }
+
+    #[test]
+    fn ax_client_takes_the_request_alone() {
+        assert_eq!(
+            parse_str(&["--ax-client", "{\"pid\":1}"]),
+            Ok(Mode::AxClient {
+                request: "{\"pid\":1}".to_owned(),
+            })
+        );
+        assert_eq!(
+            parse_str(&["--ax-client", "{}", "--out", "o"]),
+            Err(ArgsError::NotWith {
+                mode: "--ax-client",
+                flag: "--out"
+            })
+        );
+        assert_eq!(
+            parse_str(&["--ax-client"]),
+            Err(ArgsError::MissingValue("--ax-client"))
+        );
+        assert_eq!(
+            parse_str(&["--launch", "--app", "a.app", "--", "--ax-client", "{}"]),
+            Err(ArgsError::LaunchTarget)
         );
     }
 

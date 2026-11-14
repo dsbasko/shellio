@@ -1,7 +1,8 @@
 //! Проба P0.3 `probe-ghostty-surface` (ADR-0034). Без `--scenario` показывает демонстрационную
 //! сцену, со `--scenario` сценарий ведёт процесс изнутри и печатает итог. `--launch`,
-//! `--aggregate` и `--fixture` работают без AppKit.
+//! `--aggregate`, `--fixture` и `--ax-client` работают без AppKit.
 
+mod a11y;
 mod args;
 mod clock;
 mod demo;
@@ -89,6 +90,7 @@ fn main() -> ExitCode {
         Mode::Aggregate { run_dir } => aggregate(&run_dir),
         Mode::Launch(launch) => launch::run(launch),
         Mode::Fixture { channel, nonce } => fixture::main(&channel, &nonce, entry_env),
+        Mode::AxClient { request } => scenario::ax::client_main(&request),
         Mode::Demo(demo) => {
             let check = env::check(&entry_env, env::Lang::of(demo.run.route, None, None));
             if !check.violations.is_empty() {

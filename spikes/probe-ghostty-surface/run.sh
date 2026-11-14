@@ -20,7 +20,7 @@ VENDOR="${SHELLIO_GHOSTTY_VENDOR:-$ROOT/vendor/ghostty}"
 REQUIREMENT="$ROOT/scripts/signing/requirement.txt"
 KEYCHAIN="${SHELLIO_SIGNING_KEYCHAIN:-}"
 BUNDLE_ID="io.github.dsbasko.shellio.probe.ghostty-surface"
-ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette gpu-calibration visibility teardown latency memory idle nvim"
+ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette gpu-calibration visibility teardown latency memory idle nvim a11y"
 # Запусков сценариев старта на вариант: первый в агрегаты прогретых не входит
 # (results::STARTUP_SCENARIOS).
 STARTUP_RUNS=21

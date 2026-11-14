@@ -6,13 +6,13 @@
 
 use std::ops::Range;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// `NSNotFound`.
 pub const NOT_FOUND: usize = isize::MAX as usize;
 
 /// Диапазон в единицах UTF-16, как `NSRange`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Range16 {
     pub location: usize,
     pub length: usize,

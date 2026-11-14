@@ -5,6 +5,10 @@
 //!
 //! `ghostty_init` вызывает `main` до `NSApplication`; здесь — конфигурация, runtime и поверхность.
 //! Маршрутизатора режимов, палитры и модели видимости в демонстрации пока нет (задача 19).
+//!
+//! Доступность: вид поверхности получает уведомления об изменении по таймеру обновления
+//! доступности, который запускает первый запрос доступности при включённом VoiceOver
+//! ([`crate::a11y::enable_demo`]).
 
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
@@ -65,6 +69,8 @@ pub fn start(
     runtime::start(config, scheme, app.isActive())?;
     let view = SurfaceView::new(window.mtm(), NSRect::ZERO);
     scene.add_tab(Zone::Center, 0, "shell", &view)?;
+    view.set_a11y_label("Терминал shell");
+    crate::a11y::enable_demo(&view);
     window.makeFirstResponder(Some(&view));
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_owned());
     let spec = Spec {
@@ -141,6 +147,7 @@ fn report(id: SurfaceId, timer: &NSTimer) {
 
 /// Завершение runtime при выходе из демонстрации: поверхность освобождается, shell завершается.
 pub fn shutdown() {
+    crate::a11y::shutdown_demo();
     TIMERS.with(|timers| {
         for timer in timers.borrow_mut().drain(..) {
             timer.invalidate();

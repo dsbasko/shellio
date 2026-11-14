@@ -1,6 +1,8 @@
 //! Перечень сценариев и общая часть стенда: итог процесса, ожидание предиката, цепочка шагов и
 //! предусловия.
 
+pub mod a11y;
+pub mod ax;
 pub mod channel;
 pub mod chord;
 pub mod counters;
@@ -71,10 +73,11 @@ pub enum Scenario {
     Memory,
     Idle,
     Nvim,
+    A11y,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 16] = [
+    pub const ALL: [Scenario; 17] = [
         Scenario::Window,
         Scenario::SurfaceEnv,
         Scenario::Startup,
@@ -91,6 +94,7 @@ impl Scenario {
         Scenario::Memory,
         Scenario::Idle,
         Scenario::Nvim,
+        Scenario::A11y,
     ];
 
     pub fn name(self) -> &'static str {
@@ -111,6 +115,7 @@ impl Scenario {
             Scenario::Memory => "memory",
             Scenario::Idle => "idle",
             Scenario::Nvim => "nvim",
+            Scenario::A11y => "a11y",
         }
     }
 
@@ -130,7 +135,8 @@ impl Scenario {
             | Scenario::Teardown
             | Scenario::Latency
             | Scenario::Idle
-            | Scenario::Nvim => true,
+            | Scenario::Nvim
+            | Scenario::A11y => true,
             Scenario::Startup | Scenario::StartupLs => variant != startup::BARE,
             Scenario::Memory => variant != memory::BARE,
         }
@@ -167,6 +173,8 @@ impl Scenario {
             Scenario::Idle => 420,
             // Запуск nvim, запись, :terminal с аккордом, ресайз и выход: шаги до 15 с.
             Scenario::Nvim => 180,
+            // Обвязка input, два выделения, поток вывода и скрытие B: шаги до 12 с.
+            Scenario::A11y => 120,
         })
     }
 }
@@ -197,6 +205,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Memory => memory::run(stand),
         Scenario::Idle => idle::run(stand),
         Scenario::Nvim => nvim::run(stand),
+        Scenario::A11y => a11y::run(stand),
     }
 }
 
