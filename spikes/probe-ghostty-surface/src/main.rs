@@ -6,10 +6,12 @@ mod args;
 mod clock;
 mod env;
 mod fixture;
+mod ghostty;
 mod launch;
 mod results;
 mod scenario;
 mod stats;
+mod view;
 
 use std::cell::{OnceCell, RefCell};
 use std::io::{self, Write};
@@ -36,9 +38,11 @@ use args::{Mode, Route, Run, USAGE};
 use results::ResultFile;
 use scenario::events::{SharedTrace, TraceRing};
 use scenario::stand::StandView;
-use scenario::{EXIT_EXECUTION, Finisher, Outcome, Report, Scenario, Stand, events, watchdog};
+use scenario::{
+    EXIT_EXECUTION, Finisher, Outcome, Prelude, Report, Scenario, Stand, events, watchdog,
+};
 
-const PROBE_NAME: &str = "probe-ghostty-surface";
+pub const PROBE_NAME: &str = "probe-ghostty-surface";
 const EXIT_USAGE: u8 = 2;
 pub const WINDOW_SIZE: NSSize = NSSize::new(1180.0, 720.0);
 const ACTIVATION: &str =
@@ -143,6 +147,16 @@ fn run_scenario(
     );
     let environment = scenario::window::static_environment(process);
     let trace: SharedTrace = Arc::new(Mutex::new(TraceRing::default()));
+    // Сокет фикстур и `ghostty_init` — до первого рабочего потока: сторож ниже уже поток. Зависание
+    // в `ghostty_init` снимает внешний сторож `--launch`.
+    let prelude = if check.violations.is_empty() {
+        Prelude::prepare(scenario, variant, &out, run.nonce.clone())
+    } else {
+        Err(format!(
+            "предусловие: окружение процесса: {}",
+            check.violations.join("; ")
+        ))
+    };
     // Сторож снимается только после записи и печати итога: зависнуть может и выход из цикла.
     let watchdog = watchdog::arm(
         scenario.name(),
@@ -150,19 +164,14 @@ fn run_scenario(
         out.clone(),
         trace.clone(),
     );
-    let mut outcome = match &watchdog {
-        Err(err) => Outcome::error(format!("сторож не запущен: {err}"), Report::default()),
-        Ok(_) if !check.violations.is_empty() => Outcome::error(
-            format!(
-                "предусловие: окружение процесса: {}",
-                check.violations.join("; ")
-            ),
-            Report::default(),
-        ),
-        Ok(_) => run_app(
+    let mut outcome = match (&watchdog, prelude) {
+        (Err(err), _) => Outcome::error(format!("сторож не запущен: {err}"), Report::default()),
+        (Ok(_), Err(reason)) => Outcome::error(reason, Report::default()),
+        (Ok(_), Ok(prelude)) => run_app(
             Some(ScenarioRun {
                 scenario,
                 trace: trace.clone(),
+                prelude: RefCell::new(Some(prelude)),
             }),
             run.route,
         )
@@ -214,10 +223,11 @@ fn usage_error(message: &str) -> ExitCode {
     ExitCode::from(EXIT_USAGE)
 }
 
-/// Сценарий процесса и след для сторожа.
+/// Сценарий процесса, след для сторожа и то, что сделано до `NSApplication`.
 struct ScenarioRun {
     scenario: Scenario,
     trace: SharedTrace,
+    prelude: RefCell<Option<Prelude>>,
 }
 
 /// Крутит основной цикл. `None` — демонстрация закончилась без итога, как и должна.
@@ -462,6 +472,13 @@ impl AppDelegate {
         let _ = ivars.window.set(window.clone());
 
         if let Some(run) = &ivars.scenario {
+            let Some(prelude) = run.prelude.borrow_mut().take() else {
+                ivars.finisher.finish(
+                    &app,
+                    Outcome::error("окно сценария открыто второй раз", Report::default()),
+                );
+                return;
+            };
             let stand = Stand {
                 app,
                 window,
@@ -471,6 +488,7 @@ impl AppDelegate {
                 activation: ACTIVATION,
                 finisher: ivars.finisher.clone(),
                 trace: run.trace.clone(),
+                prelude,
             };
             scenario::start(run.scenario, Rc::new(stand));
         }

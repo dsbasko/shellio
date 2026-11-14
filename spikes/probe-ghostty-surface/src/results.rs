@@ -374,6 +374,31 @@ impl Report {
     pub fn metric(&mut self, name: &str, unit: &str, samples: Vec<f64>) {
         self.metrics.push(Metric::new(name, unit, samples));
     }
+
+    /// Прочитанное состояние как структура JSON.
+    pub fn push_json(&mut self, key: &str, value: &impl Serialize) {
+        let value = serde_json::to_value(value)
+            .unwrap_or_else(|err| Value::String(format!("не сериализуется: {err}")));
+        self.observations.push(Observation {
+            key: key.to_owned(),
+            value,
+        });
+    }
+
+    pub fn finding(
+        &mut self,
+        name: &str,
+        requirement: Requirement,
+        verdict: Verdict,
+        reason: impl Into<String>,
+    ) {
+        self.findings.push(Finding {
+            name: name.to_owned(),
+            requirement,
+            verdict,
+            reason: reason.into(),
+        });
+    }
 }
 
 impl ResultFile {

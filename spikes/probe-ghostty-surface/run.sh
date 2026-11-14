@@ -18,7 +18,7 @@ VENDOR="${SHELLIO_GHOSTTY_VENDOR:-$ROOT/vendor/ghostty}"
 REQUIREMENT="$ROOT/scripts/signing/requirement.txt"
 KEYCHAIN="${SHELLIO_SIGNING_KEYCHAIN:-}"
 BUNDLE_ID="io.github.dsbasko.shellio.probe.ghostty-surface"
-ALL_SCENARIOS="window"
+ALL_SCENARIOS="window surface-env"
 
 die() {
     echo "run.sh: $*" >&2
@@ -135,7 +135,24 @@ bundle() {
 
 # Варианты сценария: имя варианта — строчные буквы и цифры, оно входит в имя каталога.
 variants_of() {
-    echo "base"
+    case "$1" in
+        surface-env) echo "light dark" ;;
+        *) echo "base" ;;
+    esac
+}
+
+# Конфигурация libghostty процесса сценария в его --out (ghostty/config.rs читает её оттуда).
+# Пользовательский ghostty.conf проба не читает; тема условная, схему выбирает вариант.
+write_config() {
+    cat >"$1/ghostty.conf" <<'EOF_CONFIG'
+font-family = Menlo
+font-size = 13
+scrollback-limit-bytes = 10000000
+theme = light:Builtin Light,dark:Builtin Dark
+cursor-style-blink = true
+confirm-close-surface = false
+clipboard-paste-protection = false
+EOF_CONFIG
 }
 
 # Код возврата — код --launch: ошибка запуска, процесса пробы или оставшиеся процессы.
@@ -161,6 +178,7 @@ cmd_scenarios() {
         for variant in $(variants_of "$scenario"); do
             out="$run_dir/$scenario-$variant"
             mkdir "$out"
+            write_config "$out"
             total=$((total + 1))
             code=0
             run_scenario "$scenario" "$variant" "$out" || code=$?

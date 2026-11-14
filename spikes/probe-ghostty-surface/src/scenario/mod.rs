@@ -1,15 +1,18 @@
 //! Перечень сценариев и общая часть стенда: итог процесса, ожидание предиката, цепочка шагов и
 //! предусловия.
 
+pub mod channel;
 pub mod counters;
 pub mod events;
 pub mod stand;
+pub mod surface_env;
 pub mod watchdog;
 pub mod window;
 
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::fmt::Write as _;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::ptr::NonNull;
 use std::rc::Rc;
@@ -24,6 +27,7 @@ use objc2_foundation::{NSPoint, NSRunLoop, NSRunLoopCommonModes, NSTimer};
 
 use crate::DisplayChoice;
 use crate::args::Route;
+use crate::ghostty::init::InitRecord;
 pub use crate::results::{Execution, Report};
 use crate::results::{LiveObjects, StepRecord, StepStatus};
 use events::SharedTrace;
@@ -38,14 +42,25 @@ const POLL_INTERVAL: Duration = Duration::from_millis(5);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Scenario {
     Window,
+    SurfaceEnv,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 1] = [Scenario::Window];
+    pub const ALL: [Scenario; 2] = [Scenario::Window, Scenario::SurfaceEnv];
 
     pub fn name(self) -> &'static str {
         match self {
             Scenario::Window => "window",
+            Scenario::SurfaceEnv => "surface-env",
+        }
+    }
+
+    /// Сценарию нужны `ghostty_init` и сокет фикстур до первого рабочего потока. `window` —
+    /// базовая линия без libghostty.
+    pub fn uses_ghostty(self) -> bool {
+        match self {
+            Scenario::Window => false,
+            Scenario::SurfaceEnv => true,
         }
     }
 
@@ -61,6 +76,7 @@ impl Scenario {
     pub fn deadline(self) -> Duration {
         Duration::from_secs(match self {
             Scenario::Window => 20,
+            Scenario::SurfaceEnv => 50,
         })
     }
 }
@@ -77,6 +93,58 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
     events::note(format!("сценарий {}", scenario.name()));
     match scenario {
         Scenario::Window => window::run(stand),
+        Scenario::SurfaceEnv => surface_env::run(stand),
+    }
+}
+
+/// Часть процесса сценария, которая выполняется до первого рабочего потока: сокет фикстур
+/// привязывается сменой рабочего каталога, `ghostty_init` касается всего процесса.
+pub struct GhosttyPrelude {
+    pub init: InitRecord,
+    pub hub: channel::Hub,
+}
+
+/// Параметры процесса сценария и то, что сделано до `NSApplication`.
+pub struct Prelude {
+    pub out: PathBuf,
+    pub variant: String,
+    /// Nonce запуска от `--launch` или собственный, если процесс запущен вручную.
+    pub nonce: String,
+    pub ghostty: RefCell<Option<GhosttyPrelude>>,
+}
+
+impl Prelude {
+    /// Вызывается до сторожа и окна: оба создают потоки.
+    pub fn prepare(
+        scenario: Scenario,
+        variant: &str,
+        out: &Path,
+        nonce: Option<String>,
+    ) -> Result<Prelude, String> {
+        let nonce = match nonce {
+            Some(nonce) => nonce,
+            None => crate::launch::nonce()?,
+        };
+        let ghostty = if scenario.uses_ghostty() {
+            let hub = channel::Hub::bind(out)?;
+            let init = crate::ghostty::init::init_once(crate::PROBE_NAME)?;
+            if init.code != 0 {
+                return Err(format!(
+                    "ghostty_init вернул {}; изменения окружения: {}",
+                    init.code,
+                    init.env_changes().join(", ")
+                ));
+            }
+            Some(GhosttyPrelude { init, hub })
+        } else {
+            None
+        };
+        Ok(Prelude {
+            out: out.to_path_buf(),
+            variant: variant.to_owned(),
+            nonce,
+            ghostty: RefCell::new(ghostty),
+        })
     }
 }
 
@@ -90,6 +158,7 @@ pub struct Stand {
     pub activation: &'static str,
     pub finisher: Finisher,
     pub trace: SharedTrace,
+    pub prelude: Prelude,
 }
 
 impl Stand {

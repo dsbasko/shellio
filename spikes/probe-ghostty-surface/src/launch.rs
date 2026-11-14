@@ -421,7 +421,7 @@ fn say(text: &str) {
     let _ = writeln!(io::stderr().lock(), "{text}");
 }
 
-fn nonce() -> Result<String, String> {
+pub fn nonce() -> Result<String, String> {
     let mut bytes = [0u8; 8];
     // SAFETY: буфер на стеке длиной 8 байт, `getentropy` пишет не больше указанной длины.
     let status = unsafe { libc::getentropy(bytes.as_mut_ptr().cast(), bytes.len()) };

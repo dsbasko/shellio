@@ -346,10 +346,6 @@ impl FrameReader {
 
 /// Команда поверхности для запуска `program` с `args`: один простой вызов, каждое слово в
 /// одинарных кавычках. libghostty сама ставит перед ней `exec -l` и исполняет через shell.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "команду поверхности собирает задача 5")
-)]
 pub fn shell_command(program: &str, args: &[&str]) -> String {
     std::iter::once(program)
         .chain(args.iter().copied())
@@ -1370,7 +1366,7 @@ fn stdio_pty() -> Result<PtyIo, String> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum ChannelRoute {
+pub enum ChannelRoute {
     Direct,
     /// Путь длиннее `sun_path`: подключение по имени из родительского каталога.
     ViaParent {
@@ -1379,7 +1375,7 @@ enum ChannelRoute {
     },
 }
 
-fn channel_route(path: &Path) -> Result<ChannelRoute, String> {
+pub fn channel_route(path: &Path) -> Result<ChannelRoute, String> {
     if path.as_os_str().len() <= SUN_PATH_MAX {
         return Ok(ChannelRoute::Direct);
     }
