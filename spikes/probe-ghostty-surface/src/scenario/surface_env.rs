@@ -115,6 +115,55 @@ pub(super) fn prepare_in(
     scheme: ColorScheme,
     place: impl FnOnce(&SurfaceView) -> Result<(), String>,
 ) -> Result<State, String> {
+    let Runtime { hub, init, started } = start_runtime(stand, report, scheme)?;
+
+    let resources = NSBundle::mainBundle()
+        .resourcePath()
+        .map(|path| PathBuf::from(path.to_string()))
+        .ok_or("у бандла нет Resources")?;
+    let exe = std::env::current_exe().map_err(|err| format!("путь исполняемого файла: {err}"))?;
+    let exe = fs::canonicalize(&exe).unwrap_or(exe);
+    let (spec, fixture_nonce, env_nonce) = fixture_spec(stand, &exe, hub.path(), "s1")?;
+    report.push("surface_command", &spec.command);
+    report.push("fixture_nonce", &fixture_nonce);
+    report.push("env_nonce", &env_nonce);
+
+    let view = SurfaceView::new(stand.view.mtm(), NSRect::ZERO);
+    place(&view)?;
+    stand.window.makeFirstResponder(Some(&view));
+    let id = runtime::add_surface(view.clone(), spec)?;
+    Ok(State {
+        hub,
+        view,
+        id,
+        exe,
+        resources,
+        fixture_nonce,
+        env_nonce,
+        init,
+        started,
+        created_at_ns: None,
+        created_end_ns: None,
+        ready: None,
+        ready_t_ns: None,
+        reading: None,
+    })
+}
+
+/// Запущенный runtime без поверхностей: сокет фикстур принимает соединения.
+pub(super) struct Runtime {
+    pub(super) hub: Hub,
+    pub(super) init: InitRecord,
+    pub(super) started: StartRecord,
+}
+
+/// Проверки H1 до первой поверхности — `ghostty_init`, версия, конфигурация без диагностик —
+/// и запуск runtime со схемой цвета `scheme`.
+pub(super) fn start_runtime(
+    stand: &Stand,
+    report: &mut Report,
+    scheme: ColorScheme,
+) -> Result<Runtime, String> {
     let prelude = stand
         .prelude
         .ghostty
@@ -176,38 +225,7 @@ pub(super) fn prepare_in(
     hub.start()?;
     let started = runtime::start(config, scheme, stand.app.isActive())?;
     report.push_json("ghostty_runtime_start", &started);
-
-    let resources = NSBundle::mainBundle()
-        .resourcePath()
-        .map(|path| PathBuf::from(path.to_string()))
-        .ok_or("у бандла нет Resources")?;
-    let exe = std::env::current_exe().map_err(|err| format!("путь исполняемого файла: {err}"))?;
-    let exe = fs::canonicalize(&exe).unwrap_or(exe);
-    let (spec, fixture_nonce, env_nonce) = fixture_spec(stand, &exe, hub.path(), "s1")?;
-    report.push("surface_command", &spec.command);
-    report.push("fixture_nonce", &fixture_nonce);
-    report.push("env_nonce", &env_nonce);
-
-    let view = SurfaceView::new(stand.view.mtm(), NSRect::ZERO);
-    place(&view)?;
-    stand.window.makeFirstResponder(Some(&view));
-    let id = runtime::add_surface(view.clone(), spec)?;
-    Ok(State {
-        hub,
-        view,
-        id,
-        exe,
-        resources,
-        fixture_nonce,
-        env_nonce,
-        init,
-        started,
-        created_at_ns: None,
-        created_end_ns: None,
-        ready: None,
-        ready_t_ns: None,
-        reading: None,
-    })
+    Ok(Runtime { hub, init, started })
 }
 
 /// Команда поверхности с фикстурой: nonce фикстуры — `<nonce запуска>-<suffix>`, nonce окружения

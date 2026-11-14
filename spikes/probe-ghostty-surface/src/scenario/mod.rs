@@ -11,6 +11,7 @@ pub mod ime;
 pub mod input;
 pub mod latency;
 pub mod memory;
+pub mod nvim;
 pub mod palette;
 pub mod snapshot;
 pub mod stand;
@@ -69,10 +70,11 @@ pub enum Scenario {
     Latency,
     Memory,
     Idle,
+    Nvim,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 15] = [
+    pub const ALL: [Scenario; 16] = [
         Scenario::Window,
         Scenario::SurfaceEnv,
         Scenario::Startup,
@@ -88,6 +90,7 @@ impl Scenario {
         Scenario::Latency,
         Scenario::Memory,
         Scenario::Idle,
+        Scenario::Nvim,
     ];
 
     pub fn name(self) -> &'static str {
@@ -107,6 +110,7 @@ impl Scenario {
             Scenario::Latency => "latency",
             Scenario::Memory => "memory",
             Scenario::Idle => "idle",
+            Scenario::Nvim => "nvim",
         }
     }
 
@@ -125,7 +129,8 @@ impl Scenario {
             | Scenario::Visibility
             | Scenario::Teardown
             | Scenario::Latency
-            | Scenario::Idle => true,
+            | Scenario::Idle
+            | Scenario::Nvim => true,
             Scenario::Startup | Scenario::StartupLs => variant != startup::BARE,
             Scenario::Memory => variant != memory::BARE,
         }
@@ -160,6 +165,8 @@ impl Scenario {
             Scenario::Memory => 300,
             // До пяти окон по пять повторов по 10 с, потоки вывода и самопроверка мигания.
             Scenario::Idle => 420,
+            // Запуск nvim, запись, :terminal с аккордом, ресайз и выход: шаги до 15 с.
+            Scenario::Nvim => 180,
         })
     }
 }
@@ -189,6 +196,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Latency => latency::run(stand),
         Scenario::Memory => memory::run(stand),
         Scenario::Idle => idle::run(stand),
+        Scenario::Nvim => nvim::run(stand),
     }
 }
 

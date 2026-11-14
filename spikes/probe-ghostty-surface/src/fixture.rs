@@ -1416,7 +1416,7 @@ fn connect(path: &Path) -> Result<UnixStream, String> {
     }
 }
 
-fn winsize(fd: BorrowedFd<'_>) -> Option<Winsize> {
+pub fn winsize(fd: BorrowedFd<'_>) -> Option<Winsize> {
     let mut size = libc::winsize {
         ws_row: 0,
         ws_col: 0,
