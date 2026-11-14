@@ -357,13 +357,23 @@ fn menu_item(
     }
 }
 
-/// Дисплей окна: встроенный, если он есть, иначе главный.
+/// Дисплей окна: встроенный, если он есть, иначе главный; внешний — только у варианта
+/// `external` сценария `latency`.
 pub struct DisplayChoice {
     pub screen: Retained<NSScreen>,
     pub builtin: bool,
 }
 
-fn choose_display(mtm: MainThreadMarker) -> Option<DisplayChoice> {
+fn choose_display(mtm: MainThreadMarker, external: bool) -> Option<DisplayChoice> {
+    if external {
+        return NSScreen::screens(mtm)
+            .iter()
+            .find(|screen| !CGDisplayIsBuiltin(screen.CGDirectDisplayID()))
+            .map(|screen| DisplayChoice {
+                screen,
+                builtin: false,
+            });
+    }
     let builtin = NSScreen::screens(mtm)
         .iter()
         .find(|screen| CGDisplayIsBuiltin(screen.CGDirectDisplayID()));
@@ -508,11 +518,23 @@ impl AppDelegate {
         let mtm = self.mtm();
         let app = NSApplication::sharedApplication(mtm);
         let ivars = self.ivars();
-        let Some(display) = choose_display(mtm) else {
-            ivars.finisher.finish(
-                &app,
-                Outcome::error("предусловие: нет дисплея", Report::default()),
-            );
+        let external = ivars.scenario.as_ref().is_some_and(|run| {
+            run.scenario == Scenario::Latency
+                && run
+                    .prelude
+                    .borrow()
+                    .as_ref()
+                    .is_some_and(|prelude| prelude.variant == scenario::latency::EXTERNAL)
+        });
+        let Some(display) = choose_display(mtm, external) else {
+            let reason = if external {
+                "предусловие: нет внешнего дисплея; владелец подключает дисплей 60 Гц и повторяет прогон"
+            } else {
+                "предусловие: нет дисплея"
+            };
+            ivars
+                .finisher
+                .finish(&app, Outcome::error(reason, Report::default()));
             return;
         };
         let (window, view) = main_window(mtm, &display);

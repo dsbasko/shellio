@@ -35,8 +35,8 @@ pub const TAB_BAR: f64 = 34.0;
 pub const RADIUS: f64 = 7.0;
 const LINE: f64 = 1.0;
 /// Линия под активной вкладкой плитки с фокусом.
-const FOCUS_LINE: f64 = 2.0;
-const TAB_WIDTH: f64 = 132.0;
+pub const FOCUS_LINE: f64 = 2.0;
+pub const TAB_WIDTH: f64 = 132.0;
 const TAB_INSET: f64 = 12.0;
 const TAB_FONT: f64 = 12.0;
 /// Доля тона режима в полосе вкладок плитки с фокусом. Значение пробы: тон должен различаться на

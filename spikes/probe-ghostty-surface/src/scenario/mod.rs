@@ -8,6 +8,7 @@ pub mod events;
 pub mod gpu_calibration;
 pub mod ime;
 pub mod input;
+pub mod latency;
 pub mod palette;
 pub mod snapshot;
 pub mod stand;
@@ -63,10 +64,11 @@ pub enum Scenario {
     GpuCalibration,
     Visibility,
     Teardown,
+    Latency,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 12] = [
+    pub const ALL: [Scenario; 13] = [
         Scenario::Window,
         Scenario::SurfaceEnv,
         Scenario::Startup,
@@ -79,6 +81,7 @@ impl Scenario {
         Scenario::GpuCalibration,
         Scenario::Visibility,
         Scenario::Teardown,
+        Scenario::Latency,
     ];
 
     pub fn name(self) -> &'static str {
@@ -95,6 +98,7 @@ impl Scenario {
             Scenario::GpuCalibration => "gpu-calibration",
             Scenario::Visibility => "visibility",
             Scenario::Teardown => "teardown",
+            Scenario::Latency => "latency",
         }
     }
 
@@ -111,7 +115,8 @@ impl Scenario {
             | Scenario::Chord
             | Scenario::Palette
             | Scenario::Visibility
-            | Scenario::Teardown => true,
+            | Scenario::Teardown
+            | Scenario::Latency => true,
             Scenario::Startup | Scenario::StartupLs => variant != startup::BARE,
         }
     }
@@ -139,6 +144,8 @@ impl Scenario {
             Scenario::Visibility => 480,
             // 103 цикла создать-закрыть (под MallocScribble медленнее) и пять частей закрытия.
             Scenario::Teardown => 420,
+            // Четыре фазы по 110 повторов, самопроверка навигации и частота displayLink.
+            Scenario::Latency => 360,
         })
     }
 }
@@ -165,6 +172,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::GpuCalibration => gpu_calibration::run(stand),
         Scenario::Visibility => visibility::run(stand),
         Scenario::Teardown => teardown::run(stand),
+        Scenario::Latency => latency::run(stand),
     }
 }
 

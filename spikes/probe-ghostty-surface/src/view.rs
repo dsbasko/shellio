@@ -114,6 +114,8 @@ pub struct Sent {
     pub input: KeyInput,
     pub handled: Result<bool, String>,
     pub at_ns: u64,
+    /// Возврат из `ghostty_surface_key`.
+    pub done_ns: u64,
 }
 
 /// Клавиша или текст, которые вид не отправил.
@@ -1119,11 +1121,13 @@ impl SurfaceView {
         let at_ns = clock::uptime_ns();
         // SAFETY: ручка снимается до освобождения поверхности, вызов на главном потоке.
         let handled = unsafe { handle.key(input) };
+        let done_ns = clock::uptime_ns();
         let sent = Sent {
             from,
             input: input.clone(),
             handled,
             at_ns,
+            done_ns,
         };
         push_limited(&mut self.ivars().log.borrow_mut().sent, sent);
     }

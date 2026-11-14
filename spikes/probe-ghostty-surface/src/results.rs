@@ -452,6 +452,9 @@ pub struct ResultFile {
     /// Отметки сценариев старта.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub startup: Option<StartupMarks>,
+    /// Отметки сценария `latency`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latency: Option<LatencyMarks>,
 }
 
 /// Итог сценария, который собирают стенд и сценарий.
@@ -469,6 +472,7 @@ pub struct Report {
     pub window: Option<WindowInfo>,
     pub input_source: Option<String>,
     pub startup: Option<StartupMarks>,
+    pub latency: Option<LatencyMarks>,
 }
 
 impl Report {
@@ -537,6 +541,7 @@ impl ResultFile {
             snapshots: report.snapshots,
             diagnostics: report.diagnostics,
             startup: report.startup,
+            latency: report.latency,
         }
     }
 }
@@ -673,6 +678,8 @@ pub struct ProcessSummary {
     /// Отметка `--launch` перед запуском процесса или `open` из `launch.json`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spawn_uptime_ns: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latency: Option<LatencyMarks>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -696,6 +703,8 @@ pub struct SummaryFile {
     pub findings: Vec<RunFinding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub startup: Option<StartupSummary>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latency: Option<LatencySummary>,
 }
 
 /// Запуск сценария старта в агрегатах.
@@ -978,6 +987,210 @@ fn startup_finding(summary: &StartupSummary, aggregate: &StartupAggregate) -> Ru
     }
 }
 
+// ---- задержка ----
+
+pub const LATENCY_SCENARIO: &str = "latency";
+/// Бюджет реакции на клавишу `Navigation`, мс: с ним сравнивается p95 участка N без фона, как
+/// в P0.2, и только при пройденной самопроверке.
+pub const LATENCY_BUDGET_MS: f64 = 16.0;
+/// Префикс метрик участков: `latency.<участок>.<нагрузка>`.
+pub const LATENCY_PREFIX: &str = "latency.";
+pub const LATENCY_NAV: &str = "n";
+pub const LATENCY_QUIET: &str = "quiet";
+
+/// Отметки сценария `latency`, которые нужны агрегатам; сами значения — в метриках.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LatencyMarks {
+    /// Вариант: `builtin` или `external`.
+    pub display: String,
+    /// Окно стояло на встроенном дисплее.
+    pub builtin: bool,
+    /// Частота по ритму `displayLink`, Гц.
+    pub measured_hz: Option<f64>,
+    /// Самопроверка N: смена тона зафиксирована в слое к отметке и видна на снимке окна.
+    pub self_check: bool,
+    pub self_check_reason: String,
+}
+
+/// p50, p95 и max участка.
+fn latency_text(summary: Option<Summary>) -> String {
+    summary.map_or_else(
+        || "нет замеров".to_owned(),
+        |summary| {
+            format!(
+                "p50 {:.2}, p95 {:.2}, max {:.2} мс (n={})",
+                summary.p50, summary.p95, summary.max, summary.count
+            )
+        },
+    )
+}
+
+/// Участок и нагрузка из имени метрики `latency.<участок>.<нагрузка>`.
+pub fn latency_metric(name: &str) -> Option<(&str, &str)> {
+    let rest = name.strip_prefix(LATENCY_PREFIX)?;
+    let (segment, load) = rest.rsplit_once('.')?;
+    (!segment.is_empty() && !load.is_empty()).then_some((segment, load))
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LatencyRow {
+    pub dir: String,
+    pub display: String,
+    pub segment: String,
+    pub load: String,
+    pub unit: String,
+    pub summary: Option<Summary>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LatencyDisplay {
+    pub dir: String,
+    pub display: String,
+    pub builtin: bool,
+    pub measured_hz: Option<f64>,
+    pub self_check: bool,
+    pub self_check_reason: String,
+    pub execution_ok: bool,
+}
+
+/// Агрегаты задержки: p50, p95 и max по участкам, нагрузкам и дисплеям.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LatencySummary {
+    pub displays: Vec<LatencyDisplay>,
+    pub rows: Vec<LatencyRow>,
+}
+
+pub fn latency_summary(processes: &[ProcessSummary]) -> Option<LatencySummary> {
+    let mut summary = LatencySummary {
+        displays: Vec::new(),
+        rows: Vec::new(),
+    };
+    for process in processes
+        .iter()
+        .filter(|process| process.scenario == LATENCY_SCENARIO)
+    {
+        let marks = process.latency.as_ref();
+        let display = marks.map_or_else(|| process.variant.clone(), |marks| marks.display.clone());
+        summary.displays.push(LatencyDisplay {
+            dir: process.dir.clone(),
+            display: display.clone(),
+            builtin: marks.is_some_and(|marks| marks.builtin),
+            measured_hz: marks.and_then(|marks| marks.measured_hz),
+            self_check: marks.is_some_and(|marks| marks.self_check),
+            self_check_reason: marks.map_or_else(
+                || "нет отметок задержки".to_owned(),
+                |marks| marks.self_check_reason.clone(),
+            ),
+            execution_ok: process.execution.is_ok() && marks.is_some(),
+        });
+        for metric in &process.metrics {
+            if let Some((segment, load)) = latency_metric(&metric.name) {
+                summary.rows.push(LatencyRow {
+                    dir: process.dir.clone(),
+                    display: display.clone(),
+                    segment: segment.to_owned(),
+                    load: load.to_owned(),
+                    unit: metric.unit.clone(),
+                    summary: metric.summary,
+                });
+            }
+        }
+    }
+    (!summary.displays.is_empty()).then_some(summary)
+}
+
+/// Выводы агрегатов задержки: участки — наблюдения; N без фона сравнивается с бюджетом по p95
+/// только при пройденной самопроверке; без прогона на внешнем дисплее проверка 60 Гц не
+/// проведена.
+pub fn latency_findings(summary: &LatencySummary) -> Vec<RunFinding> {
+    let mut findings = Vec::new();
+    for display in &summary.displays {
+        let rows: Vec<&LatencyRow> = summary
+            .rows
+            .iter()
+            .filter(|row| row.dir == display.dir)
+            .collect();
+        let hz = display.measured_hz.map_or_else(
+            || "частота не измерена".to_owned(),
+            |hz| format!("{hz:.1} Гц по displayLink"),
+        );
+        let segments = rows
+            .iter()
+            .map(|row| {
+                format!(
+                    "{} {}: {}",
+                    row.segment,
+                    row.load,
+                    latency_text(row.summary)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
+        let finding = |name: &str, verdict: Verdict, reason: String| RunFinding {
+            scenario: LATENCY_SCENARIO.to_owned(),
+            variant: display.display.clone(),
+            name: name.to_owned(),
+            requirement: Requirement::Required,
+            verdict,
+            reason,
+        };
+        if !display.execution_ok {
+            findings.push(finding(
+                "latency-segments",
+                Verdict::Fail,
+                format!("процесс {} без итога задержки", display.dir),
+            ));
+            continue;
+        }
+        findings.push(finding(
+            "latency-segments",
+            Verdict::Observed,
+            format!("{hz}; {segments}; время до фотона не измерено"),
+        ));
+        let nav = rows
+            .iter()
+            .find(|row| row.segment == LATENCY_NAV && row.load == LATENCY_QUIET)
+            .and_then(|row| row.summary);
+        let (verdict, reason) = match (nav, display.self_check) {
+            (None, _) => (Verdict::Fail, "нет замеров участка N без фона".to_owned()),
+            (Some(nav), false) => (
+                Verdict::Observed,
+                format!(
+                    "N без фона p95 {:.2} мс записан наблюдением; вердикт по бюджету {LATENCY_BUDGET_MS} мс не вынесен: {}",
+                    nav.p95, display.self_check_reason
+                ),
+            ),
+            (Some(nav), true) => (
+                if nav.p95 <= LATENCY_BUDGET_MS {
+                    Verdict::Pass
+                } else {
+                    Verdict::Fail
+                },
+                format!(
+                    "p95 N без фона {:.2} мс при бюджете {LATENCY_BUDGET_MS} мс (t_post → конец прохода отображения, по определению P0.2; {hz}); самопроверка: {}",
+                    nav.p95, display.self_check_reason
+                ),
+            ),
+        };
+        findings.push(finding("latency-n-budget", verdict, reason));
+    }
+    let external = summary
+        .displays
+        .iter()
+        .any(|display| display.execution_ok && !display.builtin);
+    if !external {
+        findings.push(RunFinding {
+            scenario: LATENCY_SCENARIO.to_owned(),
+            variant: "external".to_owned(),
+            name: "latency-external-60hz".to_owned(),
+            requirement: Requirement::Required,
+            verdict: Verdict::PendingManual,
+            reason: "нет прогона на внешнем дисплее 60 Гц: владелец подключает дисплей, прогон с LATENCY_DISPLAYS=\"builtin external\" (задача 19)".to_owned(),
+        });
+    }
+    findings
+}
+
 /// Сценарий и вариант по имени каталога `<сценарий>-<вариант>` или `<сценарий>-<вариант>-<NN>`
 /// у повторных запусков, который даёт `run.sh`. Имя варианта дефиса не содержит.
 pub fn split_dir_name(name: &str) -> (String, String) {
@@ -1020,6 +1233,7 @@ fn process_summary(dir: &Path, name: String) -> ProcessSummary {
         snapshots: Vec::new(),
         startup: None,
         spawn_uptime_ns: None,
+        latency: None,
     };
     let mut reasons = Vec::new();
     match read_result(dir) {
@@ -1028,6 +1242,7 @@ fn process_summary(dir: &Path, name: String) -> ProcessSummary {
             summary.variant = result.variant;
             summary.route = Some(result.environment.process.route);
             summary.startup = result.startup;
+            summary.latency = result.latency;
             if let Execution::Error { reason, .. } = result.execution {
                 reasons.push(reason);
             }
@@ -1128,6 +1343,10 @@ pub fn aggregate(run_dir: &Path) -> Result<SummaryFile, String> {
             findings.push(startup_finding(startup, aggregate));
         }
     }
+    let latency = latency_summary(&processes);
+    if let Some(latency) = &latency {
+        findings.extend(latency_findings(latency));
+    }
     for finding in &findings {
         match finding.verdict {
             Verdict::Pass => totals.pass += 1,
@@ -1149,6 +1368,7 @@ pub fn aggregate(run_dir: &Path) -> Result<SummaryFile, String> {
         processes,
         findings,
         startup,
+        latency,
     })
 }
 
@@ -1188,6 +1408,33 @@ pub fn render_summary(summary: &SummaryFile) -> String {
                 aggregate.warm_expected,
                 summary_text(aggregate.warm_spawn_to_end_ms)
             );
+        }
+    }
+    if let Some(latency) = &summary.latency {
+        for display in &latency.displays {
+            let _ = writeln!(
+                text,
+                "задержка {} {} ({}; частота displayLink {}):",
+                display.display,
+                display.dir,
+                if display.self_check {
+                    "самопроверка N пройдена"
+                } else {
+                    "самопроверка N не пройдена"
+                },
+                display
+                    .measured_hz
+                    .map_or_else(|| "не измерена".to_owned(), |hz| format!("{hz:.1} Гц"))
+            );
+            for row in latency.rows.iter().filter(|row| row.dir == display.dir) {
+                let _ = writeln!(
+                    text,
+                    "  {:<18} {:<10} {}",
+                    row.segment,
+                    row.load,
+                    latency_text(row.summary)
+                );
+            }
         }
     }
     let _ = writeln!(
@@ -1931,5 +2178,118 @@ mod tests {
         let run = temp_dir("absent");
         fs::remove_dir_all(&run).unwrap();
         assert!(aggregate(&run).is_err());
+    }
+
+    fn latency_metric_summary(name: &str, p95: f64) -> MetricSummary {
+        MetricSummary {
+            name: name.to_owned(),
+            unit: "ms".to_owned(),
+            summary: Some(Summary {
+                count: 100,
+                p50: p95 / 2.0,
+                p95,
+                max: p95 + 1.0,
+            }),
+        }
+    }
+
+    fn latency_process(dir: &str, display: &str, self_check: bool, n_p95: f64) -> ProcessSummary {
+        ProcessSummary {
+            dir: dir.to_owned(),
+            scenario: LATENCY_SCENARIO.to_owned(),
+            variant: display.to_owned(),
+            route: Some("direct".to_owned()),
+            execution: Execution::Ok,
+            findings: Vec::new(),
+            metrics: vec![
+                latency_metric_summary("latency.b.quiet", 1.5),
+                latency_metric_summary("latency.c-upper.background", 9.0),
+                latency_metric_summary("latency.n.quiet", n_p95),
+                latency_metric_summary("latency.n.background", n_p95 + 4.0),
+                latency_metric_summary("other", 3.0),
+            ],
+            snapshots: Vec::new(),
+            startup: None,
+            spawn_uptime_ns: None,
+            latency: Some(LatencyMarks {
+                display: display.to_owned(),
+                builtin: display == "builtin",
+                measured_hz: Some(if display == "builtin" { 120.0 } else { 60.0 }),
+                self_check,
+                self_check_reason: "проверено".to_owned(),
+            }),
+        }
+    }
+
+    #[test]
+    fn latency_metric_names_split_into_segment_and_load() {
+        assert_eq!(
+            latency_metric("latency.a-queue.quiet"),
+            Some(("a-queue", "quiet"))
+        );
+        assert_eq!(
+            latency_metric("latency.n.background"),
+            Some(("n", "background"))
+        );
+        assert_eq!(latency_metric("latency.n"), None);
+        assert_eq!(latency_metric("palette_open"), None);
+    }
+
+    #[test]
+    fn latency_aggregates_by_segment_and_display() {
+        let processes = vec![
+            latency_process("latency-builtin", "builtin", true, 9.5),
+            latency_process("latency-external", "external", true, 18.0),
+        ];
+        let summary = latency_summary(&processes).unwrap();
+        assert_eq!(summary.displays.len(), 2);
+        assert_eq!(summary.rows.len(), 8);
+        let row = summary
+            .rows
+            .iter()
+            .find(|row| row.display == "external" && row.segment == "n" && row.load == "quiet")
+            .unwrap();
+        assert_eq!(row.summary.unwrap().p95, 18.0);
+        let findings = latency_findings(&summary);
+        let budget = |variant: &str| {
+            findings
+                .iter()
+                .find(|finding| finding.variant == variant && finding.name == "latency-n-budget")
+                .unwrap()
+                .verdict
+        };
+        assert_eq!(budget("builtin"), Verdict::Pass);
+        assert_eq!(budget("external"), Verdict::Fail);
+        assert!(
+            !findings
+                .iter()
+                .any(|finding| finding.name == "latency-external-60hz")
+        );
+        assert_eq!(
+            findings
+                .iter()
+                .filter(|finding| finding.name == "latency-segments")
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn latency_budget_needs_self_check_and_external_run() {
+        let processes = vec![latency_process("latency-builtin", "builtin", false, 9.5)];
+        let findings = latency_findings(&latency_summary(&processes).unwrap());
+        let budget = findings
+            .iter()
+            .find(|finding| finding.name == "latency-n-budget")
+            .unwrap();
+        assert_eq!(budget.verdict, Verdict::Observed);
+        assert!(budget.reason.contains("не вынесен"));
+        let external = findings
+            .iter()
+            .find(|finding| finding.name == "latency-external-60hz")
+            .unwrap();
+        assert_eq!(external.verdict, Verdict::PendingManual);
+        assert_eq!(external.requirement, Requirement::Required);
+        assert!(latency_summary(&[]).is_none());
     }
 }

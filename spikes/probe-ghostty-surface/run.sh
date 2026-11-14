@@ -20,7 +20,7 @@ VENDOR="${SHELLIO_GHOSTTY_VENDOR:-$ROOT/vendor/ghostty}"
 REQUIREMENT="$ROOT/scripts/signing/requirement.txt"
 KEYCHAIN="${SHELLIO_SIGNING_KEYCHAIN:-}"
 BUNDLE_ID="io.github.dsbasko.shellio.probe.ghostty-surface"
-ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette gpu-calibration visibility teardown"
+ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette gpu-calibration visibility teardown latency"
 # Запусков сценариев старта на вариант: первый в агрегаты прогретых не входит
 # (results::STARTUP_SCENARIOS).
 STARTUP_RUNS=21
@@ -157,6 +157,9 @@ variants_of() {
         visibility) echo "base bounds defer syncdraw all" ;;
         # Обычный прогон и с MallocScribble=1 (teardown.rs, SCRIBBLE).
         teardown) echo "base $SCRIBBLE_VARIANT" ;;
+        # Дисплей окна (latency.rs, DISPLAYS): по умолчанию встроенный; внешний 60 Гц —
+        # LATENCY_DISPLAYS="builtin external", когда дисплей подключён.
+        latency) echo "${LATENCY_DISPLAYS:-builtin}" ;;
         *) echo "base" ;;
     esac
 }

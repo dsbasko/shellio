@@ -337,7 +337,7 @@ fn read_frame(view: &SurfaceView, area: Option<(u32, u32)>) -> Result<Option<Fra
 
 /// Цвет sRGB в кодированных значениях Display P3 (та же передаточная функция). Ghostty может
 /// рисовать в `IOSurface` с цветовым пространством окна, поэтому маркер сравнивается с обоими.
-fn display_p3(rgb: Rgb) -> Rgb {
+pub(super) fn display_p3(rgb: Rgb) -> Rgb {
     let decode = |value: u8| {
         let c = f64::from(value) / 255.0;
         if c <= 0.04045 {
@@ -363,7 +363,7 @@ fn display_p3(rgb: Rgb) -> Rgb {
     )
 }
 
-fn near(sample: Rgb, expected: Rgb) -> bool {
+pub(super) fn near(sample: Rgb, expected: Rgb) -> bool {
     snapshot::distance(sample, expected) <= NEAR
         || snapshot::distance(sample, display_p3(expected)) <= NEAR
 }

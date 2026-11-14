@@ -169,6 +169,8 @@ pub(super) struct Input {
     /// Метрики сценария: имя, единица, значения.
     pub(super) metrics: Vec<(String, &'static str, Vec<f64>)>,
     pub(super) snapshots: Vec<crate::results::Snapshot>,
+    /// Отметки задержки для агрегатов (`latency`).
+    pub(super) latency: Option<crate::results::LatencyMarks>,
 }
 
 type Shared = Rc<RefCell<Input>>;
@@ -227,10 +229,26 @@ impl Input {
     }
 
     pub(super) fn send(&mut self, which: usize, command: Command) -> Result<(), String> {
+        self.send_id(which, command).map(|_| ())
+    }
+
+    /// Команда фикстуре с ожиданием её `ack`; возвращает номер команды.
+    pub(super) fn send_id(&mut self, which: usize, command: Command) -> Result<u64, String> {
         let nonce = self.nonce(which);
         let id = self.env.hub.send(&nonce, command)?;
         self.ack = Some((which, id));
-        Ok(())
+        Ok(id)
+    }
+
+    /// Квитанции фикстуры по порядку прихода.
+    pub(super) fn receipts(&mut self, which: usize) -> Vec<fixture::Receipt> {
+        self.env.hub.poll();
+        let nonce = self.nonce(which);
+        self.env
+            .hub
+            .by_nonce(&nonce)
+            .map(|conn| conn.receipts.clone())
+            .unwrap_or_default()
     }
 
     pub(super) fn acked(&mut self) -> Poll<()> {
@@ -655,6 +673,7 @@ pub(super) fn run_harness(stand: Rc<Stand>, harness: Harness) {
         findings: Vec::new(),
         metrics: Vec::new(),
         snapshots: Vec::new(),
+        latency: None,
     }));
     let mut plan = Plan {
         stand: Rc::clone(&stand),
@@ -687,6 +706,7 @@ pub(super) fn run_harness(stand: Rc<Stand>, harness: Harness) {
             report.metric(&name, unit, values);
         }
         report.snapshots.append(&mut input.snapshots);
+        report.latency = input.latency.take();
         report.push_json("checks", &input.checks);
         for (key, value) in std::mem::take(&mut input.observations) {
             report.push_json(&key, &value);
