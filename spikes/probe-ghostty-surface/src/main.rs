@@ -4,6 +4,7 @@
 
 mod args;
 mod clock;
+mod demo;
 mod env;
 mod fixture;
 mod ghostty;
@@ -87,8 +88,8 @@ fn main() -> ExitCode {
         Mode::Aggregate { run_dir } => aggregate(&run_dir),
         Mode::Launch(launch) => launch::run(launch),
         Mode::Fixture { channel, nonce } => fixture::main(&channel, &nonce, entry_env),
-        Mode::Demo(run) => {
-            let check = env::check(&entry_env, env::Lang::of(run.route, None, None));
+        Mode::Demo(demo) => {
+            let check = env::check(&entry_env, env::Lang::of(demo.run.route, None, None));
             if !check.violations.is_empty() {
                 let _ = writeln!(
                     io::stderr().lock(),
@@ -97,7 +98,29 @@ fn main() -> ExitCode {
                 );
                 return ExitCode::from(EXIT_EXECUTION);
             }
-            match run_app(None, run.route) {
+            // Живой поверхности нужен `ghostty_init` до `NSApplication` и рабочих потоков.
+            let surface = match demo.config {
+                Some(config) => match ghostty::init::init_once(PROBE_NAME) {
+                    Ok(init) if init.code == 0 => Some(demo::DemoSurface {
+                        config,
+                        defer_create_s: demo.defer_create_s,
+                    }),
+                    Ok(init) => {
+                        let _ = writeln!(
+                            io::stderr().lock(),
+                            "{PROBE_NAME}: ghostty_init вернул {}",
+                            init.code
+                        );
+                        return ExitCode::from(EXIT_EXECUTION);
+                    }
+                    Err(reason) => {
+                        let _ = writeln!(io::stderr().lock(), "{PROBE_NAME}: {reason}");
+                        return ExitCode::from(EXIT_EXECUTION);
+                    }
+                },
+                None => None,
+            };
+            match run_app(None, demo.run.route, surface) {
                 None => ExitCode::SUCCESS,
                 Some(outcome) => print_outcome(&outcome),
             }
@@ -186,6 +209,7 @@ fn run_scenario(
                 prelude: RefCell::new(Some(prelude)),
             }),
             run.route,
+            None,
         )
         .unwrap_or_else(|| {
             Outcome::error(
@@ -243,7 +267,11 @@ struct ScenarioRun {
 }
 
 /// Крутит основной цикл. `None` — демонстрация закончилась без итога, как и должна.
-fn run_app(scenario: Option<ScenarioRun>, route: Route) -> Option<Outcome> {
+fn run_app(
+    scenario: Option<ScenarioRun>,
+    route: Route,
+    demo: Option<demo::DemoSurface>,
+) -> Option<Outcome> {
     let Some(mtm) = MainThreadMarker::new() else {
         return Some(Outcome::error(
             "запуск не на главном потоке",
@@ -271,7 +299,7 @@ fn run_app(scenario: Option<ScenarioRun>, route: Route) -> Option<Outcome> {
     app.setMainMenu(Some(&main_menu(mtm)));
 
     let slot = Rc::new(RefCell::new(None));
-    let delegate = AppDelegate::new(mtm, scenario, route, Finisher::new(Rc::clone(&slot)));
+    let delegate = AppDelegate::new(mtm, scenario, demo, route, Finisher::new(Rc::clone(&slot)));
     app.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
     app.run();
     app.setDelegate(None);
@@ -400,6 +428,8 @@ fn main_window(
 
 struct DelegateIvars {
     scenario: Option<ScenarioRun>,
+    /// Живая поверхность демонстрации.
+    demo: Option<demo::DemoSurface>,
     route: Route,
     finisher: Finisher,
     /// Окно держится до конца процесса.
@@ -429,6 +459,13 @@ define_class!(
             self.ivars().scenario.is_none()
         }
 
+        #[unsafe(method(applicationWillTerminate:))]
+        fn will_terminate(&self, _notification: &NSNotification) {
+            if self.ivars().scenario.is_none() {
+                demo::shutdown();
+            }
+        }
+
         #[unsafe(method(applicationShouldTerminate:))]
         fn should_terminate(&self, sender: &NSApplication) -> NSApplicationTerminateReply {
             if self.ivars().scenario.is_none() {
@@ -451,11 +488,13 @@ impl AppDelegate {
     fn new(
         mtm: MainThreadMarker,
         scenario: Option<ScenarioRun>,
+        demo: Option<demo::DemoSurface>,
         route: Route,
         finisher: Finisher,
     ) -> Retained<AppDelegate> {
         let this = AppDelegate::alloc(mtm).set_ivars(DelegateIvars {
             scenario,
+            demo,
             route,
             finisher,
             window: OnceCell::new(),
@@ -486,9 +525,14 @@ impl AppDelegate {
 
         if ivars.scenario.is_none() {
             let dark = scene::is_dark(&app.effectiveAppearance());
-            let demo = scene::Scene::new(mtm, dark);
-            demo.install(&view, &window);
-            let _ = ivars.scene.set(demo);
+            let scene = scene::Scene::new(mtm, dark);
+            scene.install(&view, &window);
+            if let Some(surface) = &ivars.demo
+                && let Err(reason) = demo::start(&scene, &window, &app, surface)
+            {
+                println!("демонстрация: живая поверхность не запущена: {reason}");
+            }
+            let _ = ivars.scene.set(scene);
         }
         if let Some(run) = &ivars.scenario {
             let Some(prelude) = run.prelude.borrow_mut().take() else {

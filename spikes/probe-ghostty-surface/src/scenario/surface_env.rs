@@ -272,10 +272,13 @@ impl State {
 /// Создание дополнительной поверхности; реестр обязан разрешить его.
 pub(super) fn create_extra(extra: &Extra) -> Result<(), String> {
     match runtime::create(extra.id)? {
-        Created::Created { key, new_ms } => {
+        Created::Live { key, new_ms } => {
             super::events::note(format!("поверхность {key} создана за {new_ms:.1} мс"));
             Ok(())
         }
+        Created::Failed { key, failure, .. } => Err(format!(
+            "ghostty_surface_new вернул NULL для {key}: {failure:?}"
+        )),
         Created::Waiting(decision) => Err(format!(
             "реестр не разрешил создание {}: {decision:?}",
             extra.fixture_nonce
@@ -366,7 +369,7 @@ pub(super) fn create(state: &Rc<RefCell<State>>) -> Result<(), String> {
     let id = state.borrow().id;
     let started = clock::uptime_ns();
     match runtime::create(id)? {
-        Created::Created { key, new_ms } => {
+        Created::Live { key, new_ms } => {
             let finished = clock::uptime_ns();
             super::events::note(format!("поверхность {key} создана за {new_ms:.1} мс"));
             let mut state = state.borrow_mut();
@@ -374,6 +377,9 @@ pub(super) fn create(state: &Rc<RefCell<State>>) -> Result<(), String> {
             state.created_end_ns = Some(finished);
             Ok(())
         }
+        Created::Failed { key, failure, .. } => Err(format!(
+            "ghostty_surface_new вернул NULL для {key}: {failure:?}"
+        )),
         Created::Waiting(decision) => Err(format!("реестр не разрешил создание: {decision:?}")),
     }
 }
@@ -422,7 +428,7 @@ pub(super) fn freed(state: &mut State) -> Poll<()> {
     })
 }
 
-fn process_alive(pid: i32) -> bool {
+pub(super) fn process_alive(pid: i32) -> bool {
     // SAFETY: сигнал 0 только проверяет существование процесса.
     let status = unsafe { libc::kill(pid, 0) };
     status == 0 || std::io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH)

@@ -13,6 +13,7 @@ pub mod snapshot;
 pub mod stand;
 pub mod startup;
 pub mod surface_env;
+pub mod teardown;
 pub mod visibility;
 pub mod watchdog;
 pub mod window;
@@ -61,10 +62,11 @@ pub enum Scenario {
     Palette,
     GpuCalibration,
     Visibility,
+    Teardown,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 11] = [
+    pub const ALL: [Scenario; 12] = [
         Scenario::Window,
         Scenario::SurfaceEnv,
         Scenario::Startup,
@@ -76,6 +78,7 @@ impl Scenario {
         Scenario::Palette,
         Scenario::GpuCalibration,
         Scenario::Visibility,
+        Scenario::Teardown,
     ];
 
     pub fn name(self) -> &'static str {
@@ -91,6 +94,7 @@ impl Scenario {
             Scenario::Palette => "palette",
             Scenario::GpuCalibration => "gpu-calibration",
             Scenario::Visibility => "visibility",
+            Scenario::Teardown => "teardown",
         }
     }
 
@@ -106,7 +110,8 @@ impl Scenario {
             | Scenario::Ime
             | Scenario::Chord
             | Scenario::Palette
-            | Scenario::Visibility => true,
+            | Scenario::Visibility
+            | Scenario::Teardown => true,
             Scenario::Startup | Scenario::StartupLs => variant != startup::BARE,
         }
     }
@@ -132,6 +137,8 @@ impl Scenario {
             Scenario::Palette => 300,
             Scenario::GpuCalibration => 270,
             Scenario::Visibility => 480,
+            // 103 цикла создать-закрыть (под MallocScribble медленнее) и пять частей закрытия.
+            Scenario::Teardown => 420,
         })
     }
 }
@@ -157,6 +164,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Palette => palette::run(stand),
         Scenario::GpuCalibration => gpu_calibration::run(stand),
         Scenario::Visibility => visibility::run(stand),
+        Scenario::Teardown => teardown::run(stand),
     }
 }
 

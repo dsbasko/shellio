@@ -3,8 +3,14 @@
 //! [`release`].
 //!
 //! Жизненный цикл — модель [`Registry`] без libghostty, она же стоит под настоящим реестром:
-//! ожидание размера → живая → закрывается (намерение принято) → освобождена на следующем проходе
-//! главного потока. Сообщение для поколения, которого больше нет, отбрасывается.
+//! ожидание размера → создаётся (`ghostty_surface_new` идёт вне заимствования) → живая →
+//! закрывается (намерение принято) → освобождена на следующем проходе главного потока. Сообщение
+//! для поколения, которого больше нет, отбрасывается. NULL из `ghostty_surface_new` сжигает
+//! поколение: сообщения неудачной попытки не попадут к следующей.
+//!
+//! Сбой создания классифицирует [`classify`]: при спящем дисплее он повторяемый, иначе нет.
+//! Повторяемый сбой ждёт пробуждения экранов или пути раскладки ([`Retry`]); оба пути сливаются в
+//! одну попытку, а состояние «создаётся» не даёт повторному входу создать вторую поверхность.
 
 use std::collections::BTreeMap;
 use std::ffi::{CString, c_void};
@@ -40,6 +46,8 @@ impl fmt::Display for SurfaceKey {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Phase {
     WaitingSize,
+    /// `ghostty_surface_new` в работе.
+    Creating,
     Live,
     Closing,
     Freed,
@@ -49,6 +57,7 @@ impl Phase {
     pub fn name(self) -> &'static str {
         match self {
             Phase::WaitingSize => "waiting-size",
+            Phase::Creating => "creating",
             Phase::Live => "live",
             Phase::Closing => "closing",
             Phase::Freed => "freed",
@@ -58,6 +67,7 @@ impl Phase {
 
 enum State<H> {
     WaitingSize,
+    Creating,
     Live(H),
     Closing { handle: H, since_pass: u64 },
     Freed,
@@ -100,6 +110,7 @@ pub enum Close {
 pub struct Registry<H> {
     slots: Vec<Slot<H>>,
     created: usize,
+    failed: usize,
     freed: usize,
     dropped: usize,
     close_intents: usize,
@@ -110,6 +121,7 @@ impl<H> Default for Registry<H> {
         Registry {
             slots: Vec::new(),
             created: 0,
+            failed: 0,
             freed: 0,
             dropped: 0,
             close_intents: 0,
@@ -130,6 +142,7 @@ impl<H: Copy> Registry<H> {
     pub fn phase(&self, id: SurfaceId) -> Option<Phase> {
         self.slots.get(id.0 as usize).map(|slot| match slot.state {
             State::WaitingSize => Phase::WaitingSize,
+            State::Creating => Phase::Creating,
             State::Live(_) => Phase::Live,
             State::Closing { .. } => Phase::Closing,
             State::Freed => Phase::Freed,
@@ -148,21 +161,44 @@ impl<H: Copy> Registry<H> {
                 id,
                 generation: slot.generation + 1,
             })),
+            State::Creating => Ok(Decision::Exists(Phase::Creating)),
             State::Live(_) => Ok(Decision::Exists(Phase::Live)),
             State::Closing { .. } => Ok(Decision::Exists(Phase::Closing)),
         }
     }
 
-    pub fn created(&mut self, key: SurfaceKey, handle: H) -> Result<(), String> {
+    /// Начало `ghostty_surface_new` по решению [`Registry::decide`]: поколение занято, повторный
+    /// вход видит «создаётся».
+    pub fn begin(&mut self, key: SurfaceKey) -> Result<(), String> {
         let slot = self.slot_mut(key.id)?;
         if !matches!(slot.state, State::WaitingSize | State::Freed)
             || key.generation != slot.generation + 1
         {
-            return Err(format!("поверхность {key} создана вне решения реестра"));
+            return Err(format!("поверхность {key} создаётся вне решения реестра"));
         }
         slot.generation = key.generation;
+        slot.state = State::Creating;
+        Ok(())
+    }
+
+    pub fn created(&mut self, key: SurfaceKey, handle: H) -> Result<(), String> {
+        let slot = self.slot_mut(key.id)?;
+        if !matches!(slot.state, State::Creating) || key.generation != slot.generation {
+            return Err(format!("поверхность {key} создана вне решения реестра"));
+        }
         slot.state = State::Live(handle);
         self.created += 1;
+        Ok(())
+    }
+
+    /// `ghostty_surface_new` вернул NULL: поверхность снова ждёт, поколение сожжено.
+    pub fn failed(&mut self, key: SurfaceKey) -> Result<(), String> {
+        let slot = self.slot_mut(key.id)?;
+        if !matches!(slot.state, State::Creating) || key.generation != slot.generation {
+            return Err(format!("сбой создания {key} вне решения реестра"));
+        }
+        slot.state = State::WaitingSize;
+        self.failed += 1;
         Ok(())
     }
 
@@ -193,7 +229,7 @@ impl<H: Copy> Registry<H> {
             Some(slot) if slot.generation == key.generation => match slot.state {
                 State::Live(handle) => Route::Live(handle),
                 State::Closing { handle, .. } => Route::Closing(handle),
-                State::WaitingSize | State::Freed => Route::Stale,
+                State::WaitingSize | State::Creating | State::Freed => Route::Stale,
             },
             _ => Route::Stale,
         };
@@ -233,6 +269,14 @@ impl<H: Copy> Registry<H> {
 
     pub fn created_count(&self) -> usize {
         self.created
+    }
+
+    pub fn generation(&self, id: SurfaceId) -> Option<u32> {
+        self.slots.get(id.0 as usize).map(|slot| slot.generation)
+    }
+
+    pub fn failed_count(&self) -> usize {
+        self.failed
     }
 
     pub fn freed_count(&self) -> usize {
@@ -278,6 +322,146 @@ impl<H: Copy> Registry<H> {
         self.slots
             .get_mut(id.0 as usize)
             .ok_or(format!("нет поверхности s{}", id.0))
+    }
+}
+
+// ---- сбой создания и повтор ----
+
+/// Предел попыток `ghostty_surface_new` на поверхность, включая первую.
+pub const RETRY_LIMIT: u32 = 4;
+/// Предел записей журнала поводов повтора.
+const TRIGGER_LOG_LIMIT: usize = 32;
+
+/// Сбой `ghostty_surface_new`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Failure {
+    /// Дисплей спит (`CGDisplayIsAsleep`): повторяется после пробуждения или раскладки.
+    DisplayAsleep,
+    /// Сбой при бодрствующем дисплее (конфигурация, ресурсы, Metal): не повторяется.
+    Permanent,
+}
+
+pub fn classify(display_asleep: bool) -> Failure {
+    if display_asleep {
+        Failure::DisplayAsleep
+    } else {
+        Failure::Permanent
+    }
+}
+
+/// Повод повторить создание.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Trigger {
+    /// Первая попытка сценария или демонстрации.
+    Initial,
+    /// `NSWorkspaceScreensDidWakeNotification`.
+    Wake,
+    /// Путь раскладки: вид получил размер или окно.
+    Layout,
+}
+
+/// Что делать после сбоя.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AfterFailure {
+    /// Ждать пробуждения экранов или пути раскладки.
+    WaitTrigger,
+    GiveUp,
+}
+
+/// Повтор создания одной поверхности: ограниченное число попыток, поводы сливаются в одну
+/// попытку на следующем проходе главного потока.
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+pub struct Retry {
+    pub limit: u32,
+    /// Попытки, дошедшие до `ghostty_surface_new`.
+    pub attempts: u32,
+    pub failures: Vec<Failure>,
+    /// Повторяемый сбой ждёт повода.
+    pub armed: bool,
+    /// Повод принят, попытка — на следующем проходе.
+    pub due: Option<Trigger>,
+    /// Повод и что он сделал: `scheduled`, `coalesced`, `not-armed`, `created`.
+    pub triggers: Vec<(Trigger, &'static str)>,
+    pub gave_up: Option<&'static str>,
+    pub created: bool,
+}
+
+impl Retry {
+    pub fn new(limit: u32) -> Retry {
+        Retry {
+            limit,
+            attempts: 0,
+            failures: Vec::new(),
+            armed: false,
+            due: None,
+            triggers: Vec::new(),
+            gave_up: None,
+            created: false,
+        }
+    }
+
+    /// Попытка начинается: повод израсходован.
+    pub fn attempt(&mut self) {
+        self.attempts += 1;
+        self.armed = false;
+        self.due = None;
+    }
+
+    pub fn succeeded(&mut self) {
+        self.created = true;
+        self.armed = false;
+        self.due = None;
+    }
+
+    pub fn failed(&mut self, failure: Failure) -> AfterFailure {
+        self.failures.push(failure);
+        let reason = match failure {
+            Failure::Permanent => Some("неповторяемый сбой"),
+            Failure::DisplayAsleep if self.attempts >= self.limit => {
+                Some("исчерпан предел попыток")
+            }
+            Failure::DisplayAsleep => None,
+        };
+        match reason {
+            Some(reason) => {
+                self.armed = false;
+                self.gave_up = Some(reason);
+                AfterFailure::GiveUp
+            }
+            None => {
+                self.armed = true;
+                AfterFailure::WaitTrigger
+            }
+        }
+    }
+
+    /// Повод повторить. `true` — назначена попытка; второй повод до неё сливается с первым.
+    pub fn trigger(&mut self, trigger: Trigger) -> bool {
+        let outcome = if self.created {
+            "created"
+        } else if !self.armed {
+            "not-armed"
+        } else if self.due.is_some() {
+            "coalesced"
+        } else {
+            self.due = Some(trigger);
+            "scheduled"
+        };
+        if self.triggers.len() < TRIGGER_LOG_LIMIT {
+            self.triggers.push((trigger, outcome));
+        }
+        outcome == "scheduled"
+    }
+
+    /// Назначенная попытка, ровно один раз.
+    pub fn take_due(&mut self) -> Option<Trigger> {
+        if !self.armed {
+            return None;
+        }
+        self.due.take()
     }
 }
 
@@ -476,6 +660,16 @@ impl Handle {
         }
     }
 
+    /// Действие привязки ghostty по имени, например `paste_from_clipboard`.
+    ///
+    /// # Safety
+    /// Поверхность жива; вызов на главном потоке вне заимствований: библиотека синхронно зовёт
+    /// колбэки действий и буфера обмена.
+    pub unsafe fn binding_action(self, action: &str) -> bool {
+        // SAFETY: по контракту поверхность жива; байты живут на время вызова, длина явная.
+        unsafe { sys::ghostty_surface_binding_action(self.0, action.as_ptr().cast(), action.len()) }
+    }
+
     /// Модификаторы перевода символов с учётом `macos-option-as-alt`.
     ///
     /// # Safety
@@ -666,7 +860,9 @@ impl SurfaceContext {
 /// Что запускает поверхность.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Spec {
-    /// Команда для shell libghostty (`exec -l` она добавляет сама).
+    /// Команда для shell libghostty (`exec -l` она добавляет сама); пустая — shell пользователя.
+    /// Непустая команда включает `wait-after-command` независимо от `wait_after_command`
+    /// (`src/apprt/embedded.zig:568–574`).
     pub command: String,
     pub working_directory: String,
     pub env: Vec<(String, String)>,
@@ -675,7 +871,8 @@ pub struct Spec {
 
 /// Строки C параметров поверхности: живут до освобождения поверхности.
 struct Buffers {
-    command: CString,
+    /// `None` — пустая команда: libghostty запускает shell пользователя.
+    command: Option<CString>,
     working_directory: CString,
     _env_strings: Vec<CString>,
     env_vars: Vec<sys::ghostty_env_var_s>,
@@ -696,7 +893,11 @@ impl Buffers {
             env_strings.push(value);
         }
         Ok(Buffers {
-            command: super::c_string("команда поверхности", &spec.command)?,
+            command: if spec.command.is_empty() {
+                None
+            } else {
+                Some(super::c_string("команда поверхности", &spec.command)?)
+            },
             working_directory: super::c_string("рабочий каталог", &spec.working_directory)?,
             _env_strings: env_strings,
             env_vars,
@@ -709,6 +910,7 @@ struct Entry {
     spec: Spec,
     context: Option<Box<SurfaceContext>>,
     buffers: Option<Buffers>,
+    retry: Retry,
 }
 
 /// Подготовленное создание: параметры указывают в `context` и `buffers`, которые лежат в куче и
@@ -733,10 +935,20 @@ pub struct Released {
 #[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct ReleaseRecord {
     pub key: String,
+    /// Номер прохода главного потока, на котором шло освобождение; 0 — завершение runtime.
+    pub pass: u64,
     pub free_ms: f64,
+    pub started_ns: u64,
+    pub finished_ns: u64,
     /// Запросы буфера обмена, отклонённые последней проверкой перед `free`.
     pub clipboard_denied_before_free: usize,
+    /// Запросы, оставшиеся в реестре после `free`.
+    pub clipboard_pending_after_free: usize,
     pub clipboard: Option<clipboard::Stats>,
+    /// Сообщения колбэков, принятые за время `free` с любого потока.
+    pub messages_during_free: u64,
+    /// Из них отброшены у источника: контекст снят.
+    pub dropped_during_free: u64,
 }
 
 /// Настоящий реестр: модель жизненного цикла и данные каждой поверхности.
@@ -756,25 +968,42 @@ impl Surfaces {
                 spec,
                 context: None,
                 buffers: None,
+                retry: Retry::new(RETRY_LIMIT),
             },
         );
         id
     }
 
-    /// Параметры `ghostty_surface_new`, если реестр разрешает создание.
+    /// Параметры `ghostty_surface_new`, если реестр разрешает создание; поколение занимается до
+    /// вызова, попытка засчитывается в [`Retry`].
     pub fn prepare(
-        &self,
+        &mut self,
         id: SurfaceId,
         shared: &Arc<Shared>,
     ) -> Result<Result<Prepared, Decision>, String> {
-        let entry = self
+        let pixels = self
             .entries
             .get(&id)
-            .ok_or(format!("нет поверхности s{}", id.0))?;
-        let key = match self.registry.decide(id, entry.view.pixel_size())? {
+            .ok_or(format!("нет поверхности s{}", id.0))?
+            .view
+            .pixel_size();
+        let key = match self.registry.decide(id, pixels)? {
             Decision::Create(key) => key,
             other => return Ok(Err(other)),
         };
+        let prepared = self.prepare_key(key, shared)?;
+        self.registry.begin(key)?;
+        if let Some(entry) = self.entries.get_mut(&id) {
+            entry.retry.attempt();
+        }
+        Ok(Ok(prepared))
+    }
+
+    fn prepare_key(&self, key: SurfaceKey, shared: &Arc<Shared>) -> Result<Prepared, String> {
+        let entry = self
+            .entries
+            .get(&key.id)
+            .ok_or(format!("нет поверхности {key}"))?;
         let context = Box::new(SurfaceContext {
             key,
             shared: Arc::clone(shared),
@@ -796,21 +1025,24 @@ impl Surfaces {
         config.scale_factor = entry.view.backing_scale();
         config.font_size = 0.0;
         config.working_directory = buffers.working_directory.as_ptr();
-        config.command = buffers.command.as_ptr();
+        config.command = buffers
+            .command
+            .as_ref()
+            .map_or(std::ptr::null(), |command| command.as_ptr());
         config.env_vars = buffers.env_vars.as_mut_ptr();
         config.env_var_count = buffers.env_vars.len();
         config.initial_input = std::ptr::null();
         config.wait_after_command = entry.spec.wait_after_command;
         config.context = sys::ghostty_surface_context_e_GHOSTTY_SURFACE_CONTEXT_WINDOW;
-        Ok(Ok(Prepared {
+        Ok(Prepared {
             key,
             config,
             context,
             buffers,
-        }))
+        })
     }
 
-    /// Принимает результат `ghostty_surface_new`. NULL оставляет поверхность в ожидании.
+    /// Принимает живую поверхность из `ghostty_surface_new`.
     pub fn commit(
         &mut self,
         prepared: Prepared,
@@ -828,7 +1060,84 @@ impl Surfaces {
             .ok_or(format!("нет поверхности {key}"))?;
         entry.context = Some(prepared.context);
         entry.buffers = Some(prepared.buffers);
+        entry.retry.succeeded();
         Ok((entry.view.clone(), handle))
+    }
+
+    /// NULL из `ghostty_surface_new`: поколение сожжено, контекст и строки неудачной попытки
+    /// освобождаются (библиотека их не сохранила), сбой уходит в [`Retry`].
+    pub fn fail(&mut self, prepared: Prepared, failure: Failure) -> Result<AfterFailure, String> {
+        let key = prepared.key;
+        self.registry.failed(key)?;
+        drop(prepared);
+        let entry = self
+            .entries
+            .get_mut(&key.id)
+            .ok_or(format!("нет поверхности {key}"))?;
+        Ok(entry.retry.failed(failure))
+    }
+
+    pub fn retry(&self, id: SurfaceId) -> Option<Retry> {
+        self.entries.get(&id).map(|entry| entry.retry.clone())
+    }
+
+    /// Повод повторить у всех поверхностей, ждущих его; `true` — назначена хотя бы одна попытка.
+    pub fn trigger_all(&mut self, trigger: Trigger) -> bool {
+        let mut scheduled = false;
+        for entry in self.entries.values_mut() {
+            if entry.retry.armed {
+                scheduled |= entry.retry.trigger(trigger);
+            }
+        }
+        scheduled
+    }
+
+    /// Повод повторить у поверхности вида `view`, если она ждёт его.
+    pub fn trigger_view(&mut self, view: *const SurfaceView, trigger: Trigger) -> bool {
+        self.entries
+            .values_mut()
+            .find(|entry| std::ptr::eq(Retained::as_ptr(&entry.view), view))
+            .is_some_and(|entry| entry.retry.armed && entry.retry.trigger(trigger))
+    }
+
+    /// Назначенные попытки, каждая ровно один раз.
+    pub fn take_retries(&mut self) -> Vec<(SurfaceId, Trigger)> {
+        self.entries
+            .iter_mut()
+            .filter_map(|(id, entry)| entry.retry.take_due().map(|trigger| (*id, trigger)))
+            .collect()
+    }
+
+    /// Экран вида поверхности для классификации сбоя.
+    pub fn view(&self, id: SurfaceId) -> Option<Retained<SurfaceView>> {
+        self.entries.get(&id).map(|entry| entry.view.clone())
+    }
+
+    /// Поколение слота, в том числе закрывающейся поверхности.
+    pub fn generation(&self, id: SurfaceId) -> Option<u32> {
+        self.registry.generation(id)
+    }
+
+    /// Снят ли контекст поверхности этого поколения; `None` — контекста нет.
+    pub fn context_retired(&self, key: SurfaceKey) -> Option<bool> {
+        self.context(key)
+            .map(|context| context.retired.load(Ordering::Acquire))
+    }
+
+    /// Сообщение через контекст поверхности, как из колбэка C.
+    pub fn push_via_context(&self, key: SurfaceKey, event: Event) -> bool {
+        match self.context(key) {
+            Some(context) => {
+                context.push(event);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Записей поверхностей в реестре: освобождённые снимаются.
+    pub fn entry_count(&self) -> usize {
+        self.entries.len()
     }
 
     /// Снимает контекст: намерение закрыть принято. Возвращает реестр буфера обмена, ожидающие
@@ -862,17 +1171,18 @@ impl Surfaces {
         self.detach(all)
     }
 
+    /// Снимает записи освобождаемых поверхностей: вид и строки больше не держатся реестром.
     fn detach(&mut self, taken: Vec<(SurfaceKey, Handle)>) -> Vec<Released> {
         taken
             .into_iter()
             .filter_map(|(key, handle)| {
-                let entry = self.entries.get_mut(&key.id)?;
+                let entry = self.entries.remove(&key.id)?;
                 Some(Released {
                     key,
                     handle,
-                    view: entry.view.clone(),
-                    context: entry.context.take(),
-                    buffers: entry.buffers.take(),
+                    view: entry.view,
+                    context: entry.context,
+                    buffers: entry.buffers,
                 })
             })
             .collect()
@@ -882,7 +1192,7 @@ impl Surfaces {
 /// Единственное место освобождения поверхности. Вызывается на главном потоке вне стека `tick` и
 /// `ghostty_surface_key`, без заимствования состояния runtime: `free` ждёт рабочие потоки и
 /// синхронно зовёт колбэки.
-pub fn release(released: Released) -> ReleaseRecord {
+pub fn release(released: Released, pass: u64) -> ReleaseRecord {
     released.view.detach();
     // Ожидающие запросы буфера обмена отклоняются на ещё живой поверхности ровно один раз.
     let handle = released.handle;
@@ -894,18 +1204,34 @@ pub fn release(released: Released) -> ReleaseRecord {
         // SAFETY: токены реестра принадлежат этой поверхности, она ещё не освобождена.
         requests.close(|token| unsafe { handle.deny_clipboard(token) })
     });
+    let shared = released
+        .context
+        .as_ref()
+        .map(|context| Arc::clone(&context.shared));
+    let before = shared.as_ref().map(|shared| shared.counts());
     let started = clock::uptime_ns();
     // SAFETY: ручка снята с реестра ровно один раз; вид её больше не держит.
     unsafe { sys::ghostty_surface_free(released.handle.0) };
     let finished = clock::uptime_ns();
+    let after = shared.as_ref().map(|shared| shared.counts());
     // Контекст и строки нужны библиотеке до возврата `free`.
     drop(released.context);
     drop(released.buffers);
+    let (messages_during_free, dropped_during_free) = match (before, after) {
+        (Some(before), Some(after)) => (after.0 - before.0, after.1 - before.1),
+        _ => (0, 0),
+    };
     ReleaseRecord {
         key: released.key.to_string(),
+        pass,
         free_ms: clock::interval_ms(started, finished),
+        started_ns: started,
+        finished_ns: finished,
         clipboard_denied_before_free,
+        clipboard_pending_after_free: requests.as_ref().map_or(0, |requests| requests.pending()),
         clipboard: requests.map(|requests| requests.stats()),
+        messages_during_free,
+        dropped_during_free,
     }
 }
 
@@ -920,6 +1246,7 @@ mod tests {
         let Ok(Decision::Create(key)) = registry.decide(id, SIZE) else {
             panic!("ожидалось создание");
         };
+        registry.begin(key).unwrap();
         registry.created(key, handle).unwrap();
         key
     }
@@ -935,6 +1262,8 @@ mod tests {
             panic!("ожидалось создание");
         };
         assert_eq!(key.generation, 1);
+        registry.begin(key).unwrap();
+        assert_eq!(registry.phase(id), Some(Phase::Creating));
         registry.created(key, 7).unwrap();
         assert_eq!(registry.phase(id), Some(Phase::Live));
         assert_eq!(registry.current(id), Some((key, 7)));
@@ -988,6 +1317,7 @@ mod tests {
         let Ok(Decision::Create(second)) = registry.decide(first.id, SIZE) else {
             panic!("ожидалось создание");
         };
+        registry.begin(second).unwrap();
         registry.created(second, 2).unwrap();
         assert_eq!(registry.route(first), Route::Stale, "старое поколение");
         assert_eq!(registry.route(second), Route::Live(2));
@@ -1020,6 +1350,120 @@ mod tests {
         registry.close_intent(b, 9);
         assert_eq!(registry.live_handles(), [(a, 1)]);
         assert_eq!(registry.phase(waiting), Some(Phase::WaitingSize));
+    }
+
+    #[test]
+    fn failure_on_a_sleeping_display_is_retryable_others_are_not() {
+        assert_eq!(classify(true), Failure::DisplayAsleep);
+        assert_eq!(classify(false), Failure::Permanent);
+    }
+
+    #[test]
+    fn retry_is_bounded_by_the_attempt_limit() {
+        let mut retry = Retry::new(3);
+        assert!(!retry.trigger(Trigger::Wake), "до сбоя повода нет");
+        retry.attempt();
+        assert_eq!(
+            retry.failed(Failure::DisplayAsleep),
+            AfterFailure::WaitTrigger
+        );
+        assert_eq!(retry.take_due(), None, "без повода попытки нет");
+        assert!(retry.trigger(Trigger::Wake));
+        assert_eq!(retry.take_due(), Some(Trigger::Wake));
+        retry.attempt();
+        assert_eq!(
+            retry.failed(Failure::DisplayAsleep),
+            AfterFailure::WaitTrigger
+        );
+        assert!(retry.trigger(Trigger::Layout));
+        assert_eq!(retry.take_due(), Some(Trigger::Layout));
+        retry.attempt();
+        assert_eq!(retry.failed(Failure::DisplayAsleep), AfterFailure::GiveUp);
+        assert_eq!(retry.gave_up, Some("исчерпан предел попыток"));
+        assert!(!retry.trigger(Trigger::Wake));
+        assert_eq!(retry.take_due(), None);
+        assert_eq!(retry.attempts, 3);
+        assert_eq!(retry.failures.len(), 3);
+    }
+
+    #[test]
+    fn permanent_failure_is_not_retried() {
+        let mut retry = Retry::new(RETRY_LIMIT);
+        retry.attempt();
+        assert_eq!(retry.failed(Failure::Permanent), AfterFailure::GiveUp);
+        assert_eq!(retry.gave_up, Some("неповторяемый сбой"));
+        assert!(!retry.trigger(Trigger::Wake));
+        assert!(!retry.trigger(Trigger::Layout));
+        assert_eq!(retry.take_due(), None);
+        assert_eq!(
+            retry.triggers,
+            [(Trigger::Wake, "not-armed"), (Trigger::Layout, "not-armed")]
+        );
+    }
+
+    #[test]
+    fn wake_and_layout_together_give_one_attempt_and_one_surface() {
+        let mut registry = Registry::<u32>::default();
+        let mut retry = Retry::new(RETRY_LIMIT);
+        let id = registry.add();
+        let Ok(Decision::Create(first)) = registry.decide(id, SIZE) else {
+            panic!("ожидалось создание");
+        };
+        registry.begin(first).unwrap();
+        retry.attempt();
+        assert_eq!(
+            registry.decide(id, SIZE),
+            Ok(Decision::Exists(Phase::Creating)),
+            "повторный вход во время ghostty_surface_new вторую поверхность не создаёт"
+        );
+        registry.failed(first).unwrap();
+        assert_eq!(registry.phase(id), Some(Phase::WaitingSize));
+        assert_eq!(
+            retry.failed(Failure::DisplayAsleep),
+            AfterFailure::WaitTrigger
+        );
+
+        assert!(retry.trigger(Trigger::Wake));
+        assert!(!retry.trigger(Trigger::Layout), "второй путь сливается");
+        assert_eq!(retry.take_due(), Some(Trigger::Wake));
+        assert_eq!(retry.take_due(), None, "попытка одна");
+
+        let Ok(Decision::Create(second)) = registry.decide(id, SIZE) else {
+            panic!("после сбоя создание снова разрешено");
+        };
+        assert_eq!(second.generation, 2, "поколение неудачной попытки сожжено");
+        registry.begin(second).unwrap();
+        retry.attempt();
+        registry.created(second, 9).unwrap();
+        retry.succeeded();
+        assert_eq!(registry.route(first), Route::Stale);
+        assert!(!retry.trigger(Trigger::Layout), "поверхность уже есть");
+        assert_eq!(registry.decide(id, SIZE), Ok(Decision::Exists(Phase::Live)));
+        assert_eq!(registry.created_count(), 1);
+        assert_eq!(registry.failed_count(), 1);
+        assert_eq!(retry.attempts, 2);
+        assert_eq!(
+            retry.triggers,
+            [
+                (Trigger::Wake, "scheduled"),
+                (Trigger::Layout, "coalesced"),
+                (Trigger::Layout, "created")
+            ]
+        );
+    }
+
+    #[test]
+    fn failure_outside_creating_is_rejected() {
+        let mut registry = Registry::<u32>::default();
+        let key = live(&mut registry, 1);
+        assert!(registry.failed(key).is_err());
+        let id = registry.add();
+        let waiting = SurfaceKey { id, generation: 1 };
+        assert!(registry.failed(waiting).is_err());
+        assert!(
+            registry.created(waiting, 2).is_err(),
+            "без begin создание не принимается"
+        );
     }
 
     #[test]

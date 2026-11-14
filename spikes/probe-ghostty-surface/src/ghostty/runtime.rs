@@ -14,6 +14,11 @@
 //! подтверждение — OSC 52, kitty, небезопасная вставка — отклоняется на следующем проходе; запись
 //! без подтверждения кладёт текст на доску, запись с подтверждением отклоняется (не выполняется).
 //! Намерение закрыть отклоняет ожидающие запросы, пока поверхность жива.
+//!
+//! Сбой `ghostty_surface_new` классифицируется по `CGDisplayIsAsleep` экрана вида: повторяемый сбой
+//! ждёт `NSWorkspaceScreensDidWakeNotification` или пути раскладки вида, оба повода сливаются в
+//! одну попытку на следующем проходе. Стенду доступны швы для гонок закрытия: удержание выдачи и
+//! отклонения буфера обмена, удержание освобождения и однократная имитация NULL.
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -26,8 +31,9 @@ use objc2::rc::Retained;
 use objc2::{MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSApplicationDidBecomeActiveNotification, NSApplicationDidResignActiveNotification,
-    NSEventTrackingRunLoopMode,
+    NSEventTrackingRunLoopMode, NSWorkspace, NSWorkspaceScreensDidWakeNotification,
 };
+use objc2_core_graphics::{CGDisplayIsAsleep, CGMainDisplayID};
 use objc2_foundation::{NSNotification, NSNotificationCenter, NSObject, NSRunLoop};
 use serde::Serialize;
 use shellio_sys_ghostty as sys;
@@ -35,14 +41,16 @@ use shellio_sys_ghostty as sys;
 use super::clipboard::{self, ReadDecision, RequestId, Requests, Served};
 use super::config::{ColorScheme, Config};
 use super::surface::{
-    self, Close, Decision, GridSize, Handle, Phase, ReleaseRecord, Route, Spec, SurfaceContext,
-    SurfaceId, SurfaceKey, Surfaces,
+    self, AfterFailure, Close, Decision, Failure, GridSize, Handle, Phase, ReleaseRecord, Retry,
+    Route, Spec, SurfaceContext, SurfaceId, SurfaceKey, Surfaces, Trigger,
 };
 use crate::clock;
+use crate::keys::{Action, KeyInput};
 use crate::scenario::counters::{Live, counter};
 use crate::view::SurfaceView;
 
 counter!(APP_ACTIVITY, "ProbeAppActivity");
+counter!(SCREEN_WAKE, "ProbeScreenWake");
 
 /// Сколько строк журнала сообщений хранится для итога.
 const LOG_LIMIT: usize = 400;
@@ -169,6 +177,8 @@ pub struct Shared {
     post: fn(),
     dropped_at_source: AtomicU64,
     wakeups: AtomicU64,
+    /// Сообщения, принятые в очередь.
+    pushed: AtomicU64,
 }
 
 impl Shared {
@@ -179,6 +189,7 @@ impl Shared {
             post,
             dropped_at_source: AtomicU64::new(0),
             wakeups: AtomicU64::new(0),
+            pushed: AtomicU64::new(0),
         }
     }
 
@@ -191,6 +202,7 @@ impl Shared {
     }
 
     pub fn push(&self, message: Message) {
+        self.pushed.fetch_add(1, Ordering::Relaxed);
         self.inbox
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -200,6 +212,14 @@ impl Shared {
 
     pub fn dropped_at_source(&self) {
         self.dropped_at_source.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Принятые и отброшенные у источника сообщения: окно вокруг `ghostty_surface_free`.
+    pub fn counts(&self) -> (u64, u64) {
+        (
+            self.pushed.load(Ordering::Relaxed),
+            self.dropped_at_source.load(Ordering::Relaxed),
+        )
     }
 
     fn take(&self) -> Vec<Message> {
@@ -485,7 +505,47 @@ pub struct Stats {
     /// Живые смены схемы: схема и число поверхностей, получивших её.
     pub scheme_changes: Vec<(&'static str, usize)>,
     pub releases: Vec<ReleaseRecord>,
+    /// Попытки `ghostty_surface_new`.
+    pub creations: Vec<CreateRecord>,
+    pub surfaces_failed: usize,
+    /// Выдачи и отклонения буфера обмена, задержанные швом стенда.
+    pub clipboard_held: u64,
+    /// `NSWorkspaceScreensDidWakeNotification`, принятые наблюдателем.
+    pub screen_wakes: u64,
+    /// Поводы пути раскладки, назначившие попытку.
+    pub layout_retries: u64,
+    /// Проходы, на которых освобождение задержано швом стенда.
+    pub frees_held_passes: u64,
+    pub messages_pushed: u64,
+    /// Намерения закрыть по источнику и исходу: `<источник>:<исход>`.
+    pub close_sources: BTreeMap<String, u64>,
     pub log: Vec<String>,
+}
+
+/// Попытка `ghostty_surface_new`.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct CreateRecord {
+    pub key: String,
+    pub trigger: Trigger,
+    pub pass: u64,
+    pub started_ns: u64,
+    pub finished_ns: u64,
+    pub new_ms: f64,
+    pub created: bool,
+    pub failure: Option<Failure>,
+    pub after: Option<AfterFailure>,
+    /// Экран вида и `CGDisplayIsAsleep`, прочитанные сразу после NULL.
+    pub display_id: Option<u32>,
+    pub display_asleep: Option<bool>,
+    /// NULL имитирован стендом: `ghostty_surface_new` не вызывался, сон дисплея задан стендом.
+    pub injected: Option<bool>,
+}
+
+/// Шов стенда: задержать выдачу чтений и отклонение подтверждений буфера обмена.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct Hold {
+    pub serves: bool,
+    pub denies: bool,
 }
 
 struct Runtime {
@@ -499,6 +559,15 @@ struct Runtime {
     stats: Stats,
     /// Наблюдатель активности приложения; снимается в `shutdown`.
     activity: Option<Retained<AppActivity>>,
+    /// Наблюдатель пробуждения экранов; снимается в `shutdown`.
+    screen_wake: Option<Retained<ScreenWake>>,
+    hold: Hold,
+    held_serves: Vec<Pending>,
+    held_denies: Vec<Pending>,
+    /// Шов стенда: освобождение ждёт снятия удержания.
+    hold_frees: bool,
+    /// Шов стенда: следующая попытка создания — NULL без вызова, сон дисплея задан значением.
+    inject_null: Option<bool>,
 }
 
 thread_local! {
@@ -563,7 +632,9 @@ pub fn start(config: Config, scheme: ColorScheme, focused: bool) -> Result<Start
         sys::ghostty_app_update_config(app, config.raw());
         (reloads, shared.count("config-change") - before)
     };
-    let activity = MainThreadMarker::new().map(AppActivity::observe);
+    let mtm = MainThreadMarker::new();
+    let activity = mtm.map(AppActivity::observe);
+    let screen_wake = mtm.map(ScreenWake::observe);
     RUNTIME.with(|cell| {
         *cell.borrow_mut() = Some(Runtime {
             app,
@@ -574,6 +645,12 @@ pub fn start(config: Config, scheme: ColorScheme, focused: bool) -> Result<Start
             pass: 0,
             stats: Stats::default(),
             activity,
+            screen_wake,
+            hold: Hold::default(),
+            held_serves: Vec::new(),
+            held_denies: Vec::new(),
+            hold_frees: false,
+            inject_null: None,
         })
     });
     shared.request_pass();
@@ -651,17 +728,35 @@ pub fn add_surface(view: Retained<SurfaceView>, spec: Spec) -> Result<SurfaceId,
 /// Итог попытки создания.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Created {
-    Created { key: SurfaceKey, new_ms: f64 },
+    /// Поверхность создана и живёт.
+    Live {
+        key: SurfaceKey,
+        new_ms: f64,
+    },
     Waiting(Decision),
+    /// `ghostty_surface_new` вернул NULL; повторяемый сбой ждёт повода.
+    Failed {
+        key: SurfaceKey,
+        failure: Failure,
+        after: AfterFailure,
+    },
 }
 
 /// Создаёт поверхность, если реестр разрешает. `ghostty_surface_new` вызывается без
 /// заимствования состояния: внутри неё библиотека зовёт `action_cb`.
 pub fn create(id: SurfaceId) -> Result<Created, String> {
-    let (prepared, app) = with(|rt| {
-        rt.surfaces
-            .prepare(id, &rt.shared)
-            .map(|prepared| (prepared, rt.app))
+    create_with(id, Trigger::Initial)
+}
+
+fn create_with(id: SurfaceId, trigger: Trigger) -> Result<Created, String> {
+    let (prepared, app, inject, pass) = with(|rt| {
+        rt.surfaces.prepare(id, &rt.shared).map(|prepared| {
+            let inject = match prepared {
+                Ok(_) => rt.inject_null.take(),
+                Err(_) => None,
+            };
+            (prepared, rt.app, inject, rt.pass)
+        })
     })
     .ok_or_else(not_started)??;
     let prepared = match prepared {
@@ -670,14 +765,202 @@ pub fn create(id: SurfaceId) -> Result<Created, String> {
     };
     let key = prepared.key;
     let started = clock::uptime_ns();
-    // SAFETY: приложение живо; параметры указывают в контекст и строки, которые реестр держит
-    // до освобождения поверхности.
-    let raw = unsafe { sys::ghostty_surface_new(app, &prepared.config) };
-    let new_ms = clock::interval_ms(started, clock::uptime_ns());
-    let (view, handle) = with(|rt| rt.surfaces.commit(prepared, raw)).ok_or_else(not_started)??;
+    let raw = match inject {
+        Some(_) => std::ptr::null_mut(),
+        // SAFETY: приложение живо; параметры указывают в контекст и строки, которые реестр
+        // держит до освобождения поверхности.
+        None => unsafe { sys::ghostty_surface_new(app, &prepared.config) },
+    };
+    let finished = clock::uptime_ns();
+    let mut record = CreateRecord {
+        key: key.to_string(),
+        trigger,
+        pass,
+        started_ns: started,
+        finished_ns: finished,
+        new_ms: clock::interval_ms(started, finished),
+        created: !raw.is_null(),
+        failure: None,
+        after: None,
+        display_id: None,
+        display_asleep: None,
+        injected: None,
+    };
+    if raw.is_null() {
+        let display = with(|rt| rt.surfaces.view(id))
+            .flatten()
+            .map(|view| display_of(&view));
+        let asleep = match inject {
+            Some(asleep) => asleep,
+            None => display.is_some_and(|display| CGDisplayIsAsleep(display)),
+        };
+        let failure = surface::classify(asleep);
+        let after = with(|rt| rt.surfaces.fail(prepared, failure)).ok_or_else(not_started)??;
+        record.failure = Some(failure);
+        record.after = Some(after);
+        record.display_id = display;
+        record.display_asleep = Some(asleep);
+        record.injected = Some(inject.is_some());
+        with(|rt| rt.stats.creations.push(record));
+        return Ok(Created::Failed {
+            key,
+            failure,
+            after,
+        });
+    }
+    let (view, handle) = with(|rt| {
+        rt.stats.creations.push(record.clone());
+        rt.surfaces.commit(prepared, raw)
+    })
+    .ok_or_else(not_started)??;
     view.attach(key, handle);
     request_pass();
-    Ok(Created::Created { key, new_ms })
+    Ok(Created::Live {
+        key,
+        new_ms: record.new_ms,
+    })
+}
+
+/// Экран окна вида или главный экран, если вида нет в окне.
+fn display_of(view: &SurfaceView) -> u32 {
+    view.window()
+        .and_then(|window| window.screen())
+        .map_or_else(|| CGMainDisplayID(), |screen| screen.CGDirectDisplayID())
+}
+
+/// Повод повторить создание у всех поверхностей, ждущих его.
+fn retry_trigger(trigger: Trigger) {
+    let scheduled = with(|rt| {
+        if trigger == Trigger::Wake {
+            rt.stats.screen_wakes += 1;
+        }
+        rt.surfaces.trigger_all(trigger)
+    });
+    if scheduled == Some(true) {
+        request_pass();
+    }
+}
+
+/// Путь раскладки: вид получил ненулевой размер в окне. Повторный вход во время заимствования
+/// пропускается — повод придёт со следующей раскладкой или пробуждением.
+pub fn layout_changed(view: &SurfaceView) {
+    let (width, height) = view.pixel_size();
+    if width == 0 || height == 0 || view.window().is_none() {
+        return;
+    }
+    let pointer = std::ptr::from_ref(view);
+    let scheduled = RUNTIME.with(|cell| {
+        let Ok(mut runtime) = cell.try_borrow_mut() else {
+            return false;
+        };
+        let Some(rt) = runtime.as_mut() else {
+            return false;
+        };
+        let scheduled = rt.surfaces.trigger_view(pointer, Trigger::Layout);
+        if scheduled {
+            rt.stats.layout_retries += 1;
+        }
+        scheduled
+    });
+    if scheduled {
+        request_pass();
+    }
+}
+
+/// Состояние повтора поверхности.
+pub fn retry_state(id: SurfaceId) -> Option<Retry> {
+    with(|rt| rt.surfaces.retry(id)).flatten()
+}
+
+/// Шов стенда: следующая попытка создания вернёт NULL без вызова `ghostty_surface_new`, сон
+/// дисплея при классификации — `asleep`.
+pub fn inject_null(asleep: bool) -> Result<(), String> {
+    with(|rt| rt.inject_null = Some(asleep)).ok_or_else(not_started)
+}
+
+/// Шов стенда: удержание выдачи и отклонения буфера обмена. Снятие отдаёт задержанное на
+/// следующем проходе.
+pub fn hold_clipboard(hold: Hold) -> Result<(), String> {
+    with(|rt| rt.hold = hold).ok_or_else(not_started)?;
+    request_pass();
+    Ok(())
+}
+
+/// Шов стенда: освобождение закрывающихся поверхностей ждёт снятия удержания.
+pub fn hold_frees(hold: bool) -> Result<(), String> {
+    with(|rt| rt.hold_frees = hold).ok_or_else(not_started)?;
+    request_pass();
+    Ok(())
+}
+
+/// Действие привязки ghostty у живой поверхности, например `paste_from_clipboard`.
+pub fn binding_action(id: SurfaceId, action: &str) -> Result<bool, String> {
+    let handle = live_or_closing(id).ok_or(format!("поверхности s{} нет", id.0))?;
+    // SAFETY: поверхность не освобождена (освобождение идёт только на главном потоке), вызов на
+    // главном потоке вне заимствования.
+    Ok(unsafe { handle.binding_action(action) })
+}
+
+/// Текстовое событие клавиши без физической клавиши: ввод в PTY поверхности.
+pub fn type_text(id: SurfaceId, text: &str) -> Result<bool, String> {
+    let handle = live_or_closing(id).ok_or(format!("поверхности s{} нет", id.0))?;
+    let press = KeyInput::committed(Action::Press, text);
+    // SAFETY: см. `binding_action`.
+    unsafe { handle.key(&press) }
+}
+
+/// Ручка живой или закрывающейся, но ещё не освобождённой поверхности.
+fn live_or_closing(id: SurfaceId) -> Option<Handle> {
+    with(|rt| {
+        let phase = rt.surfaces.registry.phase(id)?;
+        let key = SurfaceKey {
+            id,
+            generation: rt.generation_of(id)?,
+        };
+        match (phase, rt.surfaces.registry.route(key)) {
+            (Phase::Live | Phase::Closing, Route::Live(handle) | Route::Closing(handle)) => {
+                Some(handle)
+            }
+            _ => None,
+        }
+    })
+    .flatten()
+}
+
+/// Шов стенда: сообщение колбэка для поверхности `key` тем же путём, что колбэки C — через её
+/// контекст, если он ещё есть (снятый контекст отбрасывает сообщение у источника), иначе прямо в
+/// очередь, как сообщение, пережившее освобождение. Возвращает, через что оно прошло.
+pub fn inject_event(key: SurfaceKey, event: Event) -> Result<&'static str, String> {
+    let (shared, via) = with(|rt| {
+        let via = match rt.surfaces.context_retired(key) {
+            Some(true) => "retired-context",
+            Some(false) => "live-context",
+            None => "no-context",
+        };
+        if via != "no-context" {
+            rt.surfaces.push_via_context(key, event.clone());
+        }
+        (Arc::clone(&rt.shared), via)
+    })
+    .ok_or_else(not_started)?;
+    if via == "no-context" {
+        shared.push(Message {
+            target: Target::Surface(key),
+            t_ns: clock::uptime_ns(),
+            event,
+        });
+    }
+    Ok(via)
+}
+
+/// Принятые и отброшенные у источника сообщения.
+pub fn message_counts() -> Option<(u64, u64)> {
+    with(|rt| rt.shared.counts())
+}
+
+/// Записей поверхностей в реестре.
+pub fn entry_count() -> Option<usize> {
+    with(|rt| rt.surfaces.entry_count())
 }
 
 /// Намерение закрыть от самой пробы: идёт тем же путём, что и колбэки.
@@ -797,6 +1080,71 @@ impl AppActivity {
     }
 }
 
+/// Наблюдатель `NSWorkspaceScreensDidWakeNotification`: оно приходит в центр уведомлений
+/// `NSWorkspace`, а не в общий.
+pub struct ScreenWakeIvars {
+    _live: Live,
+}
+
+define_class!(
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "ProbeScreenWake"]
+    #[ivars = ScreenWakeIvars]
+    pub struct ScreenWake;
+
+    impl ScreenWake {
+        #[unsafe(method(screensDidWake:))]
+        fn screens_did_wake(&self, _notification: &NSNotification) {
+            retry_trigger(Trigger::Wake);
+        }
+    }
+);
+
+impl ScreenWake {
+    fn observe(mtm: MainThreadMarker) -> Retained<ScreenWake> {
+        let this = ScreenWake::alloc(mtm).set_ivars(ScreenWakeIvars {
+            _live: SCREEN_WAKE.live(),
+        });
+        // SAFETY: `init` у NSObject без аргументов.
+        let this: Retained<ScreenWake> = unsafe { msg_send![super(this), init] };
+        // SAFETY: имя уведомления — неизменяемая константа AppKit; селектор реализован классом;
+        // подписка снимается в `forget`.
+        unsafe {
+            NSWorkspace::sharedWorkspace()
+                .notificationCenter()
+                .addObserver_selector_name_object(
+                    &this,
+                    sel!(screensDidWake:),
+                    Some(NSWorkspaceScreensDidWakeNotification),
+                    None,
+                );
+        }
+        this
+    }
+
+    fn forget(&self) {
+        // SAFETY: снятие всех подписок этого наблюдателя в центре `NSWorkspace`.
+        unsafe {
+            NSWorkspace::sharedWorkspace()
+                .notificationCenter()
+                .removeObserver(self)
+        };
+    }
+}
+
+/// Шов стенда: синтетическое `NSWorkspaceScreensDidWakeNotification` в центр `NSWorkspace`.
+pub fn post_screens_did_wake() {
+    // SAFETY: имя уведомления — неизменяемая константа AppKit.
+    let name = unsafe { NSWorkspaceScreensDidWakeNotification };
+    // SAFETY: уведомление без объекта и словаря.
+    unsafe {
+        NSWorkspace::sharedWorkspace()
+            .notificationCenter()
+            .postNotificationName_object(name, None)
+    };
+}
+
 /// Чтения живой поверхности, которые проверяют сценарии.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct SurfaceReading {
@@ -824,7 +1172,8 @@ pub fn viewport_text(id: SurfaceId) -> Option<String> {
     unsafe { handle.viewport_text() }
 }
 
-fn request_pass() {
+/// Проход главного потока по запросу.
+pub fn request_pass() {
     if let Some(shared) = with(|rt| Arc::clone(&rt.shared)) {
         shared.request_pass();
     }
@@ -840,11 +1189,38 @@ impl Runtime {
         let registry = &self.surfaces.registry;
         stats.wakeups = self.shared.wakeups.load(Ordering::Relaxed);
         stats.dropped_at_source = self.shared.dropped_at_source.load(Ordering::Relaxed);
+        stats.messages_pushed = self.shared.pushed.load(Ordering::Relaxed);
         stats.dropped_stale = registry.dropped_count();
         stats.close_intents = registry.close_intent_count();
         stats.surfaces_created = registry.created_count();
+        stats.surfaces_failed = registry.failed_count();
         stats.surfaces_freed = registry.freed_count();
         stats
+    }
+
+    /// Текущее поколение слота, в том числе закрывающейся поверхности.
+    fn generation_of(&self, id: SurfaceId) -> Option<u32> {
+        self.surfaces.generation(id)
+    }
+
+    /// Удержание выдачи и отклонения: задержанное копится, снятое удержание отдаёт его в работу.
+    fn apply_hold(&mut self, work: &mut Work) {
+        if self.hold.serves {
+            self.stats.clipboard_held += work.serves.len() as u64;
+            self.held_serves.append(&mut work.serves);
+        } else if !self.held_serves.is_empty() {
+            let mut held = std::mem::take(&mut self.held_serves);
+            held.append(&mut work.serves);
+            work.serves = held;
+        }
+        if self.hold.denies {
+            self.stats.clipboard_held += work.denies.len() as u64;
+            self.held_denies.append(&mut work.denies);
+        } else if !self.held_denies.is_empty() {
+            let mut held = std::mem::take(&mut self.held_denies);
+            held.append(&mut work.denies);
+            work.denies = held;
+        }
     }
 
     fn log(&mut self, line: String) {
@@ -861,14 +1237,15 @@ impl Runtime {
             self.stats.messages += 1;
             let kind = message.event.kind();
             let outcome = match (message.target, &message.event) {
-                (Target::Surface(key), Event::CloseIntent { .. }) => {
+                (Target::Surface(key), Event::CloseIntent { source, .. }) => {
+                    let source = *source;
                     let live = self
                         .surfaces
                         .registry
                         .current(key.id)
                         .filter(|(current, _)| *current == key)
                         .map(|(_, handle)| handle);
-                    match self.surfaces.registry.close_intent(key, self.pass) {
+                    let outcome = match self.surfaces.registry.close_intent(key, self.pass) {
                         Close::Scheduled => {
                             if let (Some(requests), Some(handle)) =
                                 (self.surfaces.retire(key), live)
@@ -880,7 +1257,13 @@ impl Runtime {
                         }
                         Close::AlreadyClosing => "already-closing",
                         Close::Stale => "stale",
-                    }
+                    };
+                    *self
+                        .stats
+                        .close_sources
+                        .entry(format!("{source}:{outcome}"))
+                        .or_default() += 1;
+                    outcome
                 }
                 (Target::Surface(key), Event::ClipboardConfirm { id, .. }) => {
                     match self.surfaces.registry.route(key) {
@@ -994,10 +1377,11 @@ struct Work {
 /// только на главном потоке в начале прохода, поэтому ручки здесь живы.
 fn drain(shared: &Shared) {
     let messages = shared.take();
-    if messages.is_empty() {
-        return;
-    }
-    let Some(work) = with(|rt| rt.accept(messages)) else {
+    let Some(work) = with(|rt| {
+        let mut work = rt.accept(messages);
+        rt.apply_hold(&mut work);
+        work
+    }) else {
         return;
     };
     if !work.reloads.is_empty()
@@ -1065,18 +1449,30 @@ fn main_pass() {
     };
     shared.wake.begin_pass();
     let tracking = in_tracking_mode();
-    let due = with(|rt| {
+    let (due, pass) = with(|rt| {
         rt.pass += 1;
         rt.stats.passes += 1;
         if tracking {
             rt.stats.passes_tracking += 1;
         }
-        rt.surfaces.take_due(rt.pass)
+        let due = if rt.hold_frees {
+            rt.stats.frees_held_passes += 1;
+            Vec::new()
+        } else {
+            rt.surfaces.take_due(rt.pass)
+        };
+        (due, rt.pass)
     })
     .unwrap_or_default();
     for released in due {
-        let record = surface::release(released);
+        let record = surface::release(released, pass);
         with(|rt| rt.stats.releases.push(record));
+    }
+    let retries = with(|rt| rt.surfaces.take_retries()).unwrap_or_default();
+    for (id, trigger) in retries {
+        if let Err(reason) = create_with(id, trigger) {
+            with(|rt| rt.log(format!("pass={pass} повтор создания s{}: {reason}", id.0)));
+        }
     }
     // SAFETY: приложение живо, пока runtime стоит в потоке; вызов идёт вне заимствования.
     unsafe { sys::ghostty_app_tick(app) };
@@ -1105,7 +1501,7 @@ pub fn shutdown() -> Result<ShutdownRecord, String> {
     drain(&shared);
     let remaining = with(|rt| rt.surfaces.take_all()).unwrap_or_default();
     for released in remaining {
-        let record = surface::release(released);
+        let record = surface::release(released, 0);
         with(|rt| rt.stats.releases.push(record));
     }
     let mut runtime = RUNTIME
@@ -1113,6 +1509,9 @@ pub fn shutdown() -> Result<ShutdownRecord, String> {
         .ok_or_else(not_started)?;
     if let Some(activity) = runtime.activity.take() {
         activity.forget();
+    }
+    if let Some(wake) = runtime.screen_wake.take() {
+        wake.forget();
     }
     let stats = runtime.snapshot();
     let started = clock::uptime_ns();

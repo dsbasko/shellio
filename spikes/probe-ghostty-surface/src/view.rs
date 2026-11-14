@@ -31,6 +31,10 @@
 //! на окно переустанавливаются в `viewDidMoveToWindow`, скрытие предка приходит в `viewDidHide`.
 //! После `detach` вид ничего не подаёт, журнал остаётся для итога.
 //!
+//! Путь раскладки (`setFrameSize`, `viewDidMoveToWindow`) сообщает runtime, что вид получил размер
+//! в окне: поверхность, создание которой сорвалось на спящем дисплее, повторяет его
+//! (`runtime::layout_changed`).
+//!
 //! `NSTextInputClient`: документ клиента — только marked text, отправленный текст уже в PTY и не
 //! редактируется. `markedRange` и `selectedRange` считают единицы UTF-16 marked text; без него оба
 //! `{NSNotFound, 0}`. Смена фокуса при marked text снимает его без коммита: `discardMarkedText`
@@ -235,6 +239,7 @@ define_class!(
             // SAFETY: вызов реализации суперкласса с тем же размером.
             let () = unsafe { msg_send![super(self), setFrameSize: size] };
             self.feed_size();
+            crate::ghostty::runtime::layout_changed(self);
         }
 
         #[unsafe(method(viewDidChangeBackingProperties))]
@@ -265,6 +270,7 @@ define_class!(
             self.backing_changed();
             self.refresh_focus();
             self.evaluate_visibility("move-to-window");
+            crate::ghostty::runtime::layout_changed(self);
         }
 
         #[unsafe(method(viewDidHide))]

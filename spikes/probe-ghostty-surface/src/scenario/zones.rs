@@ -498,10 +498,13 @@ fn steps(stand: &Rc<Stand>, zones: &Shared, other: Option<&Retained<NSScreen>>) 
         move || {
             let id = creating.borrow().env.id;
             match runtime::create(id)? {
-                Created::Created { key, new_ms } => {
+                Created::Live { key, new_ms } => {
                     events::note(format!("поверхность {key} создана за {new_ms:.1} мс"));
                     Ok(())
                 }
+                Created::Failed { key, failure, .. } => Err(format!(
+                    "ghostty_surface_new вернул NULL для {key}: {failure:?}"
+                )),
                 Created::Waiting(decision) => {
                     Err(format!("реестр не разрешил создание: {decision:?}"))
                 }

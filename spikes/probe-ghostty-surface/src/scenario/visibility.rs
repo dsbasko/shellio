@@ -440,7 +440,7 @@ fn start_watch(watch: &Rc<RefCell<Watch>>) -> Retained<NSTimer> {
 
 /// Чужое окно выше окна пробы, которое накрывает его целиком.
 #[derive(Clone, Debug, PartialEq, Serialize)]
-struct Shield {
+pub(super) struct Shield {
     owner: String,
     pid: i64,
     layer: i64,
@@ -931,41 +931,10 @@ fn steps(stand: &Rc<Stand>, vis: &Shared) -> Vec<Step> {
         move || focused(&focus, &focus_vis.borrow().env.view),
         || Ok(()),
     ));
-    let (occluded, masking, masking_stand) = (Rc::clone(stand), Rc::clone(vis), Rc::clone(stand));
-    let mut since: Option<Instant> = None;
-    steps.push(Step::new(
-        "окно видимо по occlusionState или опознан щит",
-        STATE_TIMEOUT,
-        move || {
-            let started = *since.get_or_insert_with(Instant::now);
-            let state = occluded.window.occlusionState();
-            let visible = state.contains(NSWindowOcclusionState::Visible);
-            poll(visible || started.elapsed() >= OCCLUSION_LIMIT, || {
-                format!("occlusionState {:#x}", state.0)
-            })
-        },
-        move || {
-            let window = &masking_stand.window;
-            let state = window.occlusionState();
-            if state.contains(NSWindowOcclusionState::Visible) {
-                return Ok(());
-            }
-            let shield = foreign_cover(window).ok_or_else(|| {
-                format!(
-                    "предусловие: WindowServer считает окно пробы перекрытым (occlusionState {:#x}, isVisible {}), а чужого окна поверх него в списке окон нет",
-                    state.0,
-                    window.isVisible()
-                )
-            })?;
-            events::note(format!(
-                "окно перекрыто щитом {} (pid {}, уровень {}): occlusionState исключён из признаков",
-                shield.owner, shield.pid, shield.layer
-            ));
-            visibility::mask_occlusion();
-            masking.borrow_mut().shield = Some(shield);
-            Ok(())
-        },
-    ));
+    let masking = Rc::clone(vis);
+    steps.push(shield_step(stand, move |shield| {
+        masking.borrow_mut().shield = Some(shield);
+    }));
     let (sized, creating) = (Rc::clone(vis), Rc::clone(vis));
     steps.push(Step::new(
         "ненулевой размер вида в пикселях",
@@ -979,10 +948,13 @@ fn steps(stand: &Rc<Stand>, vis: &Shared) -> Vec<Step> {
         move || {
             let id = creating.borrow().env.id;
             match runtime::create(id)? {
-                Created::Created { key, new_ms } => {
+                Created::Live { key, new_ms } => {
                     events::note(format!("поверхность {key} создана за {new_ms:.1} мс"));
                     Ok(())
                 }
+                Created::Failed { key, failure, .. } => Err(format!(
+                    "ghostty_surface_new вернул NULL для {key}: {failure:?}"
+                )),
                 Created::Waiting(decision) => {
                     Err(format!("реестр не разрешил создание: {decision:?}"))
                 }
@@ -1038,6 +1010,46 @@ fn steps(stand: &Rc<Stand>, vis: &Shared) -> Vec<Step> {
         || Ok(()),
     ));
     steps
+}
+
+/// Шаг «окно видимо по `occlusionState` или опознан щит»: под чужим окном поверх окна пробы
+/// `occlusionState` исключается из признаков видимости, иначе — ошибка исполнения.
+pub(super) fn shield_step(stand: &Rc<Stand>, store: impl FnOnce(Shield) + 'static) -> Step {
+    let (occluded, masking_stand) = (Rc::clone(stand), Rc::clone(stand));
+    let mut since: Option<Instant> = None;
+    Step::new(
+        "окно видимо по occlusionState или опознан щит",
+        STATE_TIMEOUT,
+        move || {
+            let started = *since.get_or_insert_with(Instant::now);
+            let state = occluded.window.occlusionState();
+            let visible = state.contains(NSWindowOcclusionState::Visible);
+            poll(visible || started.elapsed() >= OCCLUSION_LIMIT, || {
+                format!("occlusionState {:#x}", state.0)
+            })
+        },
+        move || {
+            let window = &masking_stand.window;
+            let state = window.occlusionState();
+            if state.contains(NSWindowOcclusionState::Visible) {
+                return Ok(());
+            }
+            let shield = foreign_cover(window).ok_or_else(|| {
+                format!(
+                    "предусловие: WindowServer считает окно пробы перекрытым (occlusionState {:#x}, isVisible {}), а чужого окна поверх него в списке окон нет",
+                    state.0,
+                    window.isVisible()
+                )
+            })?;
+            events::note(format!(
+                "окно перекрыто щитом {} (pid {}, уровень {}): occlusionState исключён из признаков",
+                shield.owner, shield.pid, shield.layer
+            ));
+            visibility::mask_occlusion();
+            store(shield);
+            Ok(())
+        },
+    )
 }
 
 /// Маркер нового цвета на видимой поверхности; подтверждение ждёт [`warm_step`].
@@ -1370,8 +1382,13 @@ fn hide_cold(stand: &Stand, vis: &mut Vis) -> Result<(), String> {
     let extra = vis.env.add_fixture(stand, "c", view.clone())?;
     let hide_ns = clock::uptime_ns();
     match runtime::create(extra.id)? {
-        Created::Created { key, new_ms } => {
+        Created::Live { key, new_ms } => {
             events::note(format!("поверхность C {key} создана за {new_ms:.1} мс"));
+        }
+        Created::Failed { key, failure, .. } => {
+            return Err(format!(
+                "ghostty_surface_new вернул NULL для {key}: {failure:?}"
+            ));
         }
         Created::Waiting(decision) => {
             return Err(format!("реестр не разрешил создание C: {decision:?}"));

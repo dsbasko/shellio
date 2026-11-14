@@ -746,7 +746,7 @@ fn setup(plan: &mut Plan) {
     );
     plan.act("создание A и B", |_, input| {
         let created = runtime::create(input.id(A))?;
-        if !matches!(created, runtime::Created::Created { .. }) {
+        if !matches!(created, runtime::Created::Live { .. }) {
             return Err(format!("A не создана: {created:?}"));
         }
         surface_env::create_extra(&input.b)

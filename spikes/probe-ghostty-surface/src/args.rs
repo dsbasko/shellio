@@ -8,8 +8,9 @@ use crate::scenario::Scenario;
 
 pub const USAGE: &str = "\
 использование:
-  probe-ghostty-surface [--route direct|launch-services] [--nonce <строка>]
-      демонстрационная сцена для ручной работы
+  probe-ghostty-surface [--config <ghostty.conf> [--defer-create <секунды>]] [--route …] [--nonce …]
+      демонстрационная сцена для ручной работы; с --config в центре живая поверхность с shell,
+      --defer-create создаёт её через заданное время (проверка сна дисплея)
   probe-ghostty-surface --scenario <имя> --out <каталог> [--variant <имя>] [--route …] [--nonce …]
       сценарий стенда, итог в <каталог>
   probe-ghostty-surface --aggregate <каталог прогона>
@@ -50,6 +51,19 @@ pub struct Run {
     pub nonce: Option<String>,
 }
 
+/// Демонстрация: без конфигурации — сцена без поверхности.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Demo {
+    pub run: Run,
+    /// Конфигурация libghostty живой поверхности демонстрации.
+    pub config: Option<PathBuf>,
+    /// Отложенное создание поверхности, секунды.
+    pub defer_create_s: Option<u32>,
+}
+
+/// Предел отложенного создания.
+pub const DEFER_CREATE_MAX_S: u32 = 3600;
+
 /// Что запускает `--launch`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Target {
@@ -75,7 +89,7 @@ pub struct Launch {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Mode {
     Help,
-    Demo(Run),
+    Demo(Demo),
     Scenario {
         scenario: Scenario,
         variant: String,
@@ -172,10 +186,12 @@ enum Flag {
     Launch,
     App,
     Set,
+    Config,
+    DeferCreate,
 }
 
 impl Flag {
-    const ALL: [Flag; 11] = [
+    const ALL: [Flag; 13] = [
         Flag::Scenario,
         Flag::Variant,
         Flag::Out,
@@ -187,6 +203,8 @@ impl Flag {
         Flag::Launch,
         Flag::App,
         Flag::Set,
+        Flag::Config,
+        Flag::DeferCreate,
     ];
 
     fn name(self) -> &'static str {
@@ -202,6 +220,8 @@ impl Flag {
             Flag::Launch => "--launch",
             Flag::App => "--app",
             Flag::Set => "--set",
+            Flag::Config => "--config",
+            Flag::DeferCreate => "--defer-create",
         }
     }
 
@@ -228,6 +248,8 @@ struct Raw {
     launch: bool,
     app: Option<PathBuf>,
     set: Vec<(String, String)>,
+    config: Option<PathBuf>,
+    defer_create_s: Option<u32>,
 }
 
 impl Raw {
@@ -271,6 +293,16 @@ pub fn parse(args: &[String]) -> Result<Mode, ArgsError> {
         let nonce = raw.nonce.ok_or(requires(Flag::Fixture, Flag::Nonce))?;
         return Ok(Mode::Fixture { channel, nonce });
     }
+    if raw.scenario.is_some() || raw.out.is_some() {
+        for flag in [Flag::Config, Flag::DeferCreate] {
+            if raw.seen.contains(&flag) {
+                return Err(not_with(Flag::Scenario, flag));
+            }
+        }
+    }
+    if raw.defer_create_s.is_some() && raw.config.is_none() {
+        return Err(requires(Flag::DeferCreate, Flag::Config));
+    }
     for flag in [Flag::Channel, Flag::App, Flag::Set] {
         if raw.seen.contains(&flag) {
             let mode = match flag {
@@ -295,7 +327,11 @@ pub fn parse(args: &[String]) -> Result<Mode, ArgsError> {
         (Some(_), None) => Err(requires(Flag::Scenario, Flag::Out)),
         (None, Some(_)) => Err(requires(Flag::Out, Flag::Scenario)),
         (None, None) if raw.variant.is_some() => Err(requires(Flag::Variant, Flag::Scenario)),
-        (None, None) => Ok(Mode::Demo(run)),
+        (None, None) => Ok(Mode::Demo(Demo {
+            run,
+            config: raw.config,
+            defer_create_s: raw.defer_create_s,
+        })),
     }
 }
 
@@ -369,6 +405,15 @@ fn parse_flags(args: &[String]) -> Result<Raw, ArgsError> {
                 }
                 raw.set.push((name.to_owned(), assigned.to_owned()));
             }
+            Flag::DeferCreate => {
+                let seconds = value
+                    .parse::<u32>()
+                    .ok()
+                    .filter(|seconds| (1..=DEFER_CREATE_MAX_S).contains(seconds))
+                    .ok_or_else(|| invalid(flag, value, "целое число секунд от 1 до 3600"))?;
+                raw.defer_create_s = Some(seconds);
+            }
+            Flag::Config => raw.config = Some(path(flag, value)?),
             Flag::Out => raw.out = Some(path(flag, value)?),
             Flag::Aggregate => raw.aggregate = Some(path(flag, value)?),
             Flag::Channel => raw.channel = Some(path(flag, value)?),
@@ -457,7 +502,7 @@ mod tests {
 
     #[test]
     fn no_arguments_is_demo_with_direct_route() {
-        assert_eq!(parse_str(&[]), Ok(Mode::Demo(Run::default())));
+        assert_eq!(parse_str(&[]), Ok(Mode::Demo(Demo::default())));
         assert_eq!(Run::default().route, Route::Direct);
     }
 
@@ -465,11 +510,59 @@ mod tests {
     fn demo_accepts_route_and_nonce() {
         assert_eq!(
             parse_str(&["--route", "launch-services", "--nonce", "a1-b2"]),
-            Ok(Mode::Demo(Run {
-                route: Route::LaunchServices,
-                nonce: Some("a1-b2".to_owned()),
+            Ok(Mode::Demo(Demo {
+                run: Run {
+                    route: Route::LaunchServices,
+                    nonce: Some("a1-b2".to_owned()),
+                },
+                ..Demo::default()
             }))
         );
+    }
+
+    #[test]
+    fn demo_with_live_surface_and_deferred_creation() {
+        assert_eq!(
+            parse_str(&["--config", "/tmp/demo/ghostty.conf", "--defer-create", "15"]),
+            Ok(Mode::Demo(Demo {
+                run: Run::default(),
+                config: Some(PathBuf::from("/tmp/demo/ghostty.conf")),
+                defer_create_s: Some(15),
+            }))
+        );
+        assert_eq!(
+            parse_str(&["--defer-create", "15"]),
+            Err(ArgsError::Requires {
+                mode: "--defer-create",
+                flag: "--config"
+            })
+        );
+        for value in ["0", "3601", "-1", "x"] {
+            assert!(
+                matches!(
+                    parse_str(&["--config", "c", "--defer-create", value]),
+                    Err(ArgsError::InvalidValue {
+                        flag: "--defer-create",
+                        ..
+                    }) | Err(ArgsError::MissingValue("--defer-create"))
+                ),
+                "{value:?}"
+            );
+        }
+        assert_eq!(
+            parse_str(&["--scenario", "window", "--out", "o", "--config", "c"]),
+            Err(ArgsError::NotWith {
+                mode: "--scenario",
+                flag: "--config"
+            })
+        );
+        assert!(matches!(
+            parse_str(&["--launch", "--app", "p.app", "--", "--config", "c"]),
+            Ok(Mode::Launch(Launch {
+                target: Target::Demo,
+                ..
+            }))
+        ));
     }
 
     #[test]

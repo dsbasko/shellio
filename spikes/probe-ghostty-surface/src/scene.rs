@@ -1073,6 +1073,7 @@ mod tests {
         let Ok(Decision::Create(key)) = registry.decide(id, center) else {
             panic!("ожидалось создание");
         };
+        registry.begin(key).unwrap();
         registry.created(key, 1).unwrap();
         assert_eq!(
             registry.decide(id, (0, 0)),

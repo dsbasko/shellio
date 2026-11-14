@@ -4,7 +4,8 @@
 #                                   выход в target/probes/ghostty-surface/<время>-<pid>/, затем
 #                                   --aggregate пишет summary.json и сводку выводов; startup
 #                                   идёт первым процессом сразу после сборки
-#   run.sh demo [аргументы пробы …]  бандл, затем демонстрационная сцена через --launch
+#   run.sh demo [аргументы пробы …]  бандл, затем демонстрационная сцена через --launch с живой
+#                                   поверхностью; --defer-create <секунды> откладывает её создание
 # Скрипт читает набор ghostty, а блокировку vendor/ghostty.lock на весь рецепт держит цель make.
 # Окружение процесса пробы строит --launch: run.sh его не задаёт.
 set -euo pipefail
@@ -19,13 +20,15 @@ VENDOR="${SHELLIO_GHOSTTY_VENDOR:-$ROOT/vendor/ghostty}"
 REQUIREMENT="$ROOT/scripts/signing/requirement.txt"
 KEYCHAIN="${SHELLIO_SIGNING_KEYCHAIN:-}"
 BUNDLE_ID="io.github.dsbasko.shellio.probe.ghostty-surface"
-ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette gpu-calibration visibility"
+ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette gpu-calibration visibility teardown"
 # Запусков сценариев старта на вариант: первый в агрегаты прогретых не входит
 # (results::STARTUP_SCENARIOS).
 STARTUP_RUNS=21
 STARTUP_LS_RUNS=11
 # Диагностический вариант startup с недопустимым LANG: один запуск без агрегатов (env.rs).
 BAD_LANG_VARIANT=badlang
+# Вариант teardown с переменной варианта MallocScribble=1 (teardown.rs, SCRIBBLE).
+SCRIBBLE_VARIANT=scribble
 # Сценарии, которым служба footprint снимает footprint процесса пробы по запросу (gpu.rs).
 FOOTPRINT_SCENARIOS="gpu-calibration visibility"
 FOOTPRINT_SERVICE=""
@@ -152,6 +155,8 @@ variants_of() {
         startup-ls) echo "surface bare" ;;
         # Наборы обходов agterm (visibility.rs, Workarounds::VARIANTS).
         visibility) echo "base bounds defer syncdraw all" ;;
+        # Обычный прогон и с MallocScribble=1 (teardown.rs, SCRIBBLE).
+        teardown) echo "base $SCRIBBLE_VARIANT" ;;
         *) echo "base" ;;
     esac
 }
@@ -251,13 +256,22 @@ stop_footprint_service() {
     FOOTPRINT_SERVICE=""
 }
 
+# Переменные варианта для --launch --set: scribble у teardown запускается с MallocScribble=1.
+set_args_of() {
+    case "$1:$2" in
+        teardown:"$SCRIBBLE_VARIANT") echo "--set MallocScribble=1" ;;
+    esac
+}
+
 # Код возврата — код --launch: ошибка запуска, процесса пробы или оставшиеся процессы.
 run_scenario() {
-    local scenario="$1" variant="$2" out="$3" code=0
+    local scenario="$1" variant="$2" out="$3" code=0 set_args
     if needs_footprint "$scenario"; then
         start_footprint_service "$out"
     fi
-    caffeinate -dimsu "$BIN" --launch --app "$APP" --route "$(route_of "$scenario")" \
+    set_args="$(set_args_of "$scenario" "$variant")"
+    # shellcheck disable=SC2086 # аргументы --set разделяются пробелами
+    caffeinate -dimsu "$BIN" --launch --app "$APP" --route "$(route_of "$scenario")" $set_args \
         -- --scenario "$scenario" --variant "$variant" --out "$out" \
         >"$out/stdout.txt" 2>"$out/stderr.txt" || code=$?
     if needs_footprint "$scenario"; then
@@ -311,10 +325,17 @@ cmd_scenarios() {
     fi
 }
 
+# Демонстрация с живой поверхностью: конфигурация libghostty в своём каталоге прогона.
 cmd_demo() {
+    local demo_dir
     build
     bundle
-    "$BIN" --launch --app "$APP" -- "$@"
+    mkdir -p "$OUT_BASE/demo"
+    demo_dir="$OUT_BASE/demo/$(date +%Y%m%d-%H%M%S)-$$"
+    mkdir "$demo_dir"
+    write_config "$demo_dir" demo
+    echo "демонстрация: конфигурация $demo_dir/ghostty.conf"
+    "$BIN" --launch --app "$APP" -- --config "$demo_dir/ghostty.conf" "$@"
 }
 
 case "${1:-}" in
