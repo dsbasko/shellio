@@ -45,7 +45,16 @@ mod tests {
             ghostty_selection_s,
             *mut ghostty_text_s,
         ) -> bool = ghostty_surface_read_text;
-        std::hint::black_box((init, app_new, surface_new, surface_free, read_text));
+        let deny_clipboard: unsafe extern "C" fn(ghostty_surface_t, *mut std::os::raw::c_void) =
+            ghostty_surface_deny_clipboard_request;
+        std::hint::black_box((
+            init,
+            app_new,
+            surface_new,
+            surface_free,
+            read_text,
+            deny_clipboard,
+        ));
     }
 
     #[test]
