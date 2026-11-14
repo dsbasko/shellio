@@ -6,7 +6,7 @@
 //! который рисуется позже. Само присутствие класса ничего не доказывает (Context плана), поэтому
 //! итог варианта строится как разница с пустым окном той же конфигурации.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use objc2::msg_send;
 use objc2::rc::Retained;
@@ -197,12 +197,20 @@ pub fn outcome<'a>(found: impl IntoIterator<Item = &'a Found>) -> Outcome {
         .fold(Outcome::None, Outcome::worst)
 }
 
-/// Находки сцены, которых нет среди находок пустого окна.
+/// Находки сцены, которых нет среди находок пустого окна. Видимую находку сцены вычитает только
+/// видимая находка пустого окна: материал, скрытый или перекрытый в пустом окне и видимый в сцене,
+/// остаётся в разнице.
 pub fn difference<'a>(scene: &'a [Found], baseline: &[Found]) -> Vec<&'a Found> {
-    let known: HashSet<_> = baseline.iter().map(Found::key).collect();
+    let mut known: HashMap<_, bool> = HashMap::new();
+    for found in baseline {
+        *known.entry(found.key()).or_default() |= found.state == State::Visible;
+    }
     scene
         .iter()
-        .filter(|found| !known.contains(&found.key()))
+        .filter(|found| match known.get(&found.key()) {
+            None => true,
+            Some(&baseline_visible) => found.state == State::Visible && !baseline_visible,
+        })
         .collect()
 }
 
@@ -493,6 +501,26 @@ mod tests {
             outcome(difference(&visible, &baseline)),
             Outcome::VisibleMaterial
         );
+        // Скрытый или перекрытый в пустом окне материал, видимый в сцене, остаётся в разнице.
+        for hidden in [State::Hidden, State::Covered, State::ZeroSize] {
+            let baseline = vec![found("NSVisualEffectView", 0.0, hidden)];
+            let shown = vec![found("NSVisualEffectView", 0.0, State::Visible)];
+            let diff = difference(&shown, &baseline);
+            assert_eq!(diff.len(), 1);
+            assert_eq!(outcome(diff), Outcome::VisibleMaterial);
+        }
+        // Видимый в пустом окне материал вычитается в любом состоянии сцены.
+        let shown = vec![found("NSVisualEffectView", 0.0, State::Visible)];
+        for state in [State::Visible, State::Hidden, State::Covered] {
+            let scene = vec![found("NSVisualEffectView", 0.0, state)];
+            assert_eq!(outcome(difference(&scene, &shown)), Outcome::None);
+        }
+        // Тот же ключ в пустом окне и скрытым, и видимым: видимая находка сцены вычитается.
+        let mixed = vec![
+            found("NSVisualEffectView", 0.0, State::Hidden),
+            found("NSVisualEffectView", 0.0, State::Visible),
+        ];
+        assert_eq!(outcome(difference(&shown, &mixed)), Outcome::None);
         assert_eq!(
             Outcome::HiddenOnly.worst(Outcome::None),
             Outcome::HiddenOnly
