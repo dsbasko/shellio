@@ -5,6 +5,7 @@
 //! ресурсов в бандле, поэтому окружение не наследуется, а собирается по белому списку.
 
 use crate::args::Route;
+use crate::scenario::Scenario;
 
 /// Переменные, которые берутся из окружения запуска как есть.
 pub const INHERITED: [&str; 6] = ["HOME", "USER", "LOGNAME", "PATH", "TMPDIR", "SHELL"];
@@ -20,6 +21,45 @@ pub const VARIANT_VARS: [&str; 1] = ["MallocScribble"];
 pub const FORBIDDEN_PREFIXES: [&str; 5] = ["GHOSTTY_", "TERM", "LC_", "AGTERM_", "NVIM"];
 /// Переменные языка, которых нет на маршруте LaunchServices: путь Cocoa выбирает язык сам.
 const LANGUAGE_VARS: [&str; 2] = ["LANG", "LANGUAGE"];
+/// Вариант `startup` для диагностического запуска с недопустимым непустым `LANG`.
+pub const INVALID_LANG_VARIANT: &str = "badlang";
+/// Недопустимый непустой `LANG` диагностического запуска: такой локали в системе нет.
+pub const INVALID_LANG: &str = "xx_XX.UTF-8";
+
+/// Каким должен быть `LANG` процесса пробы.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Lang {
+    /// Прямой маршрут: явный допустимый `LANG_VALUE`.
+    Valid,
+    /// Маршрут LaunchServices: переменных языка нет, язык выбирает путь Cocoa в `ghostty_init`.
+    Absent,
+    /// Диагностический запуск: `INVALID_LANG`.
+    Invalid,
+}
+
+impl Lang {
+    /// Одно правило для `--launch`, который строит окружение, и процесса пробы, который его
+    /// проверяет. Сценарий и вариант известны только у запуска сценария.
+    pub fn of(route: Route, scenario: Option<Scenario>, variant: Option<&str>) -> Lang {
+        match route {
+            Route::LaunchServices => Lang::Absent,
+            Route::Direct
+                if scenario == Some(Scenario::Startup) && variant == Some(INVALID_LANG_VARIANT) =>
+            {
+                Lang::Invalid
+            }
+            Route::Direct => Lang::Valid,
+        }
+    }
+
+    fn value(self) -> Option<&'static str> {
+        match self {
+            Lang::Valid => Some(LANG_VALUE),
+            Lang::Absent => None,
+            Lang::Invalid => Some(INVALID_LANG),
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EnvError {
@@ -40,7 +80,7 @@ impl std::fmt::Display for EnvError {
 /// Окружение процесса пробы. `inherited` читает окружение запуска.
 pub fn build(
     inherited: impl Fn(&str) -> Option<String>,
-    route: Route,
+    lang: Lang,
     state_dir: &str,
     variant: &[(String, String)],
 ) -> Result<Vec<(String, String)>, EnvError> {
@@ -53,9 +93,8 @@ pub fn build(
         }
     }
     env.push((STATE_DIR.to_owned(), state_dir.to_owned()));
-    match route {
-        Route::Direct => env.push((LANG.to_owned(), LANG_VALUE.to_owned())),
-        Route::LaunchServices => {}
+    if let Some(value) = lang.value() {
+        env.push((LANG.to_owned(), value.to_owned()));
     }
     for (name, value) in variant {
         if !VARIANT_VARS.contains(&name.as_str()) {
@@ -75,8 +114,8 @@ pub struct Check {
     pub extra: Vec<String>,
 }
 
-/// Сверяет фактическое окружение с маршрутом.
-pub fn check(env: &[(String, String)], route: Route) -> Check {
+/// Сверяет фактическое окружение с правилом `LANG`.
+pub fn check(env: &[(String, String)], lang: Lang) -> Check {
     let mut result = Check::default();
     let lookup = |name: &str| {
         env.iter()
@@ -99,11 +138,11 @@ pub fn check(env: &[(String, String)], route: Route) -> Check {
             result.extra.push(name.clone());
         }
     }
-    match route {
-        Route::Direct => {
-            if lookup(LANG) != Some(LANG_VALUE) {
+    match lang.value() {
+        Some(expected) => {
+            if lookup(LANG) != Some(expected) {
                 result.violations.push(format!(
-                    "LANG={}: прямой маршрут требует {LANG_VALUE}",
+                    "LANG={}: прямой маршрут требует {expected}",
                     lookup(LANG).unwrap_or("<нет>")
                 ));
             }
@@ -113,7 +152,7 @@ pub fn check(env: &[(String, String)], route: Route) -> Check {
                     .push("LANGUAGE: вне белого списка прямого маршрута".to_owned());
             }
         }
-        Route::LaunchServices => {
+        None => {
             for name in LANGUAGE_VARS {
                 if let Some(value) = lookup(name) {
                     result.violations.push(format!(
@@ -167,7 +206,7 @@ mod tests {
 
     #[test]
     fn direct_route_takes_whitelist_and_explicit_lang() {
-        let env = build(parent, Route::Direct, "/tmp/state.x", &[]).unwrap();
+        let env = build(parent, Lang::Valid, "/tmp/state.x", &[]).unwrap();
         assert_eq!(
             names(&env),
             [
@@ -178,28 +217,67 @@ mod tests {
         assert_eq!(value(&env, STATE_DIR), Some("/tmp/state.x"));
         assert_eq!(value(&env, "GHOSTTY_RESOURCES_DIR"), None);
         assert_eq!(value(&env, "MallocScribble"), None, "только через --set");
-        assert_eq!(check(&env, Route::Direct), Check::default());
+        assert_eq!(check(&env, Lang::Valid), Check::default());
     }
 
     #[test]
     fn launch_services_route_has_no_language() {
-        let env = build(parent, Route::LaunchServices, "/tmp/state.y", &[]).unwrap();
+        let env = build(parent, Lang::Absent, "/tmp/state.y", &[]).unwrap();
         assert_eq!(value(&env, LANG), None);
         assert_eq!(value(&env, "LANGUAGE"), None);
         assert!(!names(&env).iter().any(|name| name.starts_with("LC_")));
-        assert_eq!(check(&env, Route::LaunchServices), Check::default());
+        assert_eq!(check(&env, Lang::Absent), Check::default());
+    }
+
+    #[test]
+    fn lang_rule_follows_route_scenario_and_variant() {
+        let startup = Some(Scenario::Startup);
+        assert_eq!(Lang::of(Route::Direct, None, None), Lang::Valid);
+        assert_eq!(
+            Lang::of(Route::Direct, startup, Some("surface")),
+            Lang::Valid
+        );
+        assert_eq!(
+            Lang::of(Route::Direct, startup, Some(INVALID_LANG_VARIANT)),
+            Lang::Invalid
+        );
+        assert_eq!(
+            Lang::of(
+                Route::Direct,
+                Some(Scenario::SurfaceEnv),
+                Some(INVALID_LANG_VARIANT)
+            ),
+            Lang::Valid,
+            "диагностика только у startup"
+        );
+        assert_eq!(
+            Lang::of(Route::LaunchServices, startup, Some(INVALID_LANG_VARIANT)),
+            Lang::Absent
+        );
+    }
+
+    #[test]
+    fn invalid_lang_is_built_and_expected() {
+        let env = build(parent, Lang::Invalid, "/tmp/s", &[]).unwrap();
+        assert_eq!(value(&env, LANG), Some(INVALID_LANG));
+        assert_eq!(check(&env, Lang::Invalid), Check::default());
+        let violations = check(&env, Lang::Valid).violations;
+        assert_eq!(violations.len(), 1);
+        assert!(violations[0].starts_with(&format!("LANG={INVALID_LANG}")));
+        let valid = build(parent, Lang::Valid, "/tmp/s", &[]).unwrap();
+        assert_eq!(check(&valid, Lang::Invalid).violations.len(), 1);
     }
 
     #[test]
     fn variant_variable_passes_through() {
         let variant = [("MallocScribble".to_owned(), "1".to_owned())];
-        let env = build(parent, Route::Direct, "/tmp/s", &variant).unwrap();
+        let env = build(parent, Lang::Valid, "/tmp/s", &variant).unwrap();
         assert_eq!(value(&env, "MallocScribble"), Some("1"));
-        assert_eq!(check(&env, Route::Direct), Check::default());
+        assert_eq!(check(&env, Lang::Valid), Check::default());
         assert_eq!(
             build(
                 parent,
-                Route::Direct,
+                Lang::Valid,
                 "/tmp/s",
                 &[("LANG".into(), "C".into())]
             ),
@@ -211,14 +289,14 @@ mod tests {
     fn missing_required_variable_is_an_error() {
         let without_home = |name: &str| (name != "HOME").then(|| parent(name)).flatten();
         assert_eq!(
-            build(without_home, Route::Direct, "/tmp/s", &[]),
+            build(without_home, Lang::Valid, "/tmp/s", &[]),
             Err(EnvError::Missing("HOME"))
         );
         let minimal = |name: &str| match name {
             "HOME" | "PATH" => parent(name),
             _ => None,
         };
-        let env = build(minimal, Route::Direct, "/tmp/s", &[]).unwrap();
+        let env = build(minimal, Lang::Valid, "/tmp/s", &[]).unwrap();
         assert_eq!(names(&env), ["HOME", "PATH", STATE_DIR, LANG]);
     }
 
@@ -239,7 +317,7 @@ mod tests {
         .map(|name| (name.to_owned(), parent(name).unwrap_or_default()))
         .chain([(STATE_DIR.to_owned(), "/tmp/s".to_owned())])
         .collect();
-        let result = check(&env, Route::Direct);
+        let result = check(&env, Lang::Valid);
         let flagged: Vec<&str> = result
             .violations
             .iter()
@@ -270,13 +348,13 @@ mod tests {
                 .collect()
         };
         let added = base(&[("__CFBundleIdentifier", "x"), ("XPC_FLAGS", "0x0")]);
-        let result = check(&added, Route::LaunchServices);
+        let result = check(&added, Lang::Absent);
         assert!(result.violations.is_empty(), "{result:?}");
         assert_eq!(result.extra, ["__CFBundleIdentifier", "XPC_FLAGS"]);
-        let with_lang = check(&base(&[("LANG", "en_US.UTF-8")]), Route::LaunchServices);
+        let with_lang = check(&base(&[("LANG", "en_US.UTF-8")]), Lang::Absent);
         assert_eq!(with_lang.violations.len(), 1);
         assert!(with_lang.violations[0].starts_with("LANG="));
-        let without_state = check(&[("LANG".into(), LANG_VALUE.into())], Route::Direct);
+        let without_state = check(&[("LANG".into(), LANG_VALUE.into())], Lang::Valid);
         assert!(
             without_state
                 .violations

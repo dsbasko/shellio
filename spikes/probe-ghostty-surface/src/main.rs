@@ -49,7 +49,9 @@ const ACTIVATION: &str =
     "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching";
 
 fn main() -> ExitCode {
-    // Окружение снимается первым действием процесса: позже его меняют AppKit и ghostty.
+    // Вход в `main` — граница сценариев старта, затем окружение: позже его меняют AppKit и
+    // ghostty.
+    clock::mark_main_entry();
     let entry_env: Vec<(String, String)> = std::env::vars_os()
         .map(|(name, value)| {
             (
@@ -79,7 +81,7 @@ fn main() -> ExitCode {
         Mode::Launch(launch) => launch::run(launch),
         Mode::Fixture { channel, nonce } => fixture::main(&channel, &nonce, entry_env),
         Mode::Demo(run) => {
-            let check = env::check(&entry_env, run.route);
+            let check = env::check(&entry_env, env::Lang::of(run.route, None, None));
             if !check.violations.is_empty() {
                 let _ = writeln!(
                     io::stderr().lock(),
@@ -138,7 +140,10 @@ fn run_scenario(
     run: Run,
     entry_env: &[(String, String)],
 ) -> ExitCode {
-    let check = env::check(entry_env, run.route);
+    let check = env::check(
+        entry_env,
+        env::Lang::of(run.route, Some(scenario), Some(variant)),
+    );
     let process = scenario::window::process_info(
         run.route.name(),
         run.nonce.clone(),

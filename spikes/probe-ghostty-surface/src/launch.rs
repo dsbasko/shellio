@@ -108,6 +108,17 @@ pub fn parse_procargs(bytes: &[u8]) -> Option<Vec<String>> {
     Some(args)
 }
 
+/// Аргументы процесса пробы с абсолютным `--out`.
+pub fn absolute_out(args: &[String], out: &Path) -> Vec<String> {
+    let mut args = args.to_vec();
+    if let Some(index) = args.iter().position(|arg| arg == "--out")
+        && let Some(value) = args.get_mut(index + 1)
+    {
+        *value = out.display().to_string();
+    }
+    args
+}
+
 /// Аргументы содержат nonce.
 pub fn carries_nonce(args: &[String], nonce: &str) -> bool {
     args.iter().any(|arg| arg.contains(nonce))
@@ -185,10 +196,12 @@ fn execute(launch: Launch) -> Result<ExitCode, String> {
     let (out, deadline) = match &launch.target {
         Target::Demo => (None, None),
         Target::Scenario { scenario, out, .. } => {
-            if !out.is_dir() {
-                return Err(format!("--out {}: каталога нет", out.display()));
-            }
-            (Some(out.clone()), Some(scenario.deadline() + MARGIN))
+            // Приложение, открытое через LaunchServices, стартует с рабочим каталогом `/`.
+            let out = fs::canonicalize(out)
+                .ok()
+                .filter(|out| out.is_dir())
+                .ok_or_else(|| format!("--out {}: каталога нет", out.display()))?;
+            (Some(out), Some(scenario.deadline() + MARGIN))
         }
     };
     let nonce = nonce()?;
@@ -313,17 +326,27 @@ fn supervise(
     nonce: &str,
     state_dir: &Path,
 ) -> Result<Supervised, String> {
+    let lang = match &launch.target {
+        Target::Demo => env::Lang::of(launch.route, None, None),
+        Target::Scenario {
+            scenario, variant, ..
+        } => env::Lang::of(launch.route, Some(*scenario), Some(variant.as_str())),
+    };
     let env = env::build(
         |name| std::env::var(name).ok(),
-        launch.route,
+        lang,
         &state_dir.display().to_string(),
         &launch.set,
     )
     .map_err(|err| err.to_string())?;
+    let args = match out {
+        Some(out) => absolute_out(&launch.args, out),
+        None => launch.args.clone(),
+    };
     let plan = plan(
         app,
         launch.route,
-        probe_args(&launch.args, launch.route, nonce),
+        probe_args(&args, launch.route, nonce),
         out,
     );
     if launch.route == Route::Direct && !plan.program.is_file() {
@@ -635,6 +658,35 @@ mod tests {
                 "--nonce",
                 "ab12"
             ])
+        );
+    }
+
+    #[test]
+    fn out_is_made_absolute() {
+        assert_eq!(
+            absolute_out(
+                &strings(&[
+                    "--scenario",
+                    "window",
+                    "--out",
+                    "rel/o",
+                    "--variant",
+                    "base"
+                ]),
+                Path::new("/abs/o")
+            ),
+            strings(&[
+                "--scenario",
+                "window",
+                "--out",
+                "/abs/o",
+                "--variant",
+                "base"
+            ])
+        );
+        assert_eq!(
+            absolute_out(&strings(&["--route", "x"]), Path::new("/abs/o")),
+            strings(&["--route", "x"])
         );
     }
 

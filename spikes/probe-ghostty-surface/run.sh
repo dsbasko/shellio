@@ -2,7 +2,8 @@
 # Сборка, подпись и запуск пробы P0.3 probe-ghostty-surface (ADR-0034).
 #   run.sh scenarios [сценарий …]   бандл, затем каждый сценарий через --launch под caffeinate,
 #                                   выход в target/probes/ghostty-surface/<время>-<pid>/, затем
-#                                   --aggregate пишет summary.json и сводку выводов
+#                                   --aggregate пишет summary.json и сводку выводов; startup
+#                                   идёт первым процессом сразу после сборки
 #   run.sh demo [аргументы пробы …]  бандл, затем демонстрационная сцена через --launch
 # Скрипт читает набор ghostty, а блокировку vendor/ghostty.lock на весь рецепт держит цель make.
 # Окружение процесса пробы строит --launch: run.sh его не задаёт.
@@ -18,7 +19,13 @@ VENDOR="${SHELLIO_GHOSTTY_VENDOR:-$ROOT/vendor/ghostty}"
 REQUIREMENT="$ROOT/scripts/signing/requirement.txt"
 KEYCHAIN="${SHELLIO_SIGNING_KEYCHAIN:-}"
 BUNDLE_ID="io.github.dsbasko.shellio.probe.ghostty-surface"
-ALL_SCENARIOS="window surface-env"
+ALL_SCENARIOS="startup startup-ls window surface-env"
+# Запусков сценариев старта на вариант: первый в агрегаты прогретых не входит
+# (results::STARTUP_SCENARIOS).
+STARTUP_RUNS=21
+STARTUP_LS_RUNS=11
+# Диагностический вариант startup с недопустимым LANG: один запуск без агрегатов (env.rs).
+BAD_LANG_VARIANT=badlang
 
 die() {
     echo "run.sh: $*" >&2
@@ -133,12 +140,47 @@ bundle() {
     echo "бандл $APP собран и подписан ($BUNDLE_ID)"
 }
 
-# Варианты сценария: имя варианта — строчные буквы и цифры, оно входит в имя каталога.
+# Варианты сценария: имя варианта — строчные буквы и цифры, оно входит в имя каталога. У
+# сценариев старта вариант с поверхностью идёт перед базовой линией без неё.
 variants_of() {
     case "$1" in
         surface-env) echo "light dark" ;;
+        startup) echo "surface bare $BAD_LANG_VARIANT" ;;
+        startup-ls) echo "surface bare" ;;
         *) echo "base" ;;
     esac
+}
+
+# Номера запусков: у сценариев старта по числу запусков на вариант (каталоги
+# <сценарий>-<вариант>-NN), у остальных и у диагностического варианта один запуск без номера («_»).
+runs_of() {
+    case "$1:$2" in
+        startup:"$BAD_LANG_VARIANT") echo _ ;;
+        startup:*) seq -f '%02g' 1 "$STARTUP_RUNS" ;;
+        startup-ls:*) seq -f '%02g' 1 "$STARTUP_LS_RUNS" ;;
+        *) echo _ ;;
+    esac
+}
+
+# Маршрут запуска процесса пробы.
+route_of() {
+    case "$1" in
+        startup-ls) echo launch-services ;;
+        *) echo direct ;;
+    esac
+}
+
+# startup идёт первым процессом сразу после сборки, остальные — в заданном порядке.
+startup_first() {
+    local scenario rest=""
+    for scenario in "$@"; do
+        if [ "$scenario" = startup ]; then
+            echo startup
+        else
+            rest="$rest $scenario"
+        fi
+    done
+    echo "$rest"
 }
 
 # Конфигурация libghostty процесса сценария в его --out (ghostty/config.rs читает её оттуда).
@@ -158,7 +200,7 @@ EOF_CONFIG
 # Код возврата — код --launch: ошибка запуска, процесса пробы или оставшиеся процессы.
 run_scenario() {
     local scenario="$1" variant="$2" out="$3" code=0
-    caffeinate -dimsu "$BIN" --launch --app "$APP" \
+    caffeinate -dimsu "$BIN" --launch --app "$APP" --route "$(route_of "$scenario")" \
         -- --scenario "$scenario" --variant "$variant" --out "$out" \
         >"$out/stdout.txt" 2>"$out/stderr.txt" || code=$?
     return "$code"
@@ -168,27 +210,31 @@ run_scenario() {
 # fail и pending-manual на код не влияют, их показывает сводка выводов.
 cmd_scenarios() {
     local scenarios="${*:-$ALL_SCENARIOS}"
-    local run_dir scenario variant out code total=0 failed=0 aggregate=0
+    local run_dir scenario variant index out code total=0 failed=0 aggregate=0
     build
     bundle
     mkdir -p "$OUT_BASE"
     run_dir="$OUT_BASE/$(date +%Y%m%d-%H%M%S)-$$"
     mkdir "$run_dir"
-    for scenario in $scenarios; do
+    # shellcheck disable=SC2086 # имена сценариев разделяются пробелами
+    for scenario in $(startup_first $scenarios); do
         for variant in $(variants_of "$scenario"); do
-            out="$run_dir/$scenario-$variant"
-            mkdir "$out"
-            write_config "$out"
-            total=$((total + 1))
-            code=0
-            run_scenario "$scenario" "$variant" "$out" || code=$?
-            if [ "$code" -eq 0 ]; then
-                echo "ok      $scenario $variant"
-            else
-                failed=$((failed + 1))
-                echo "ошибка  $scenario $variant (код $code)"
-                sed 's/^/    /' "$out/stdout.txt" "$out/stderr.txt"
-            fi
+            for index in $(runs_of "$scenario" "$variant"); do
+                [ "$index" = _ ] && index=""
+                out="$run_dir/$scenario-$variant${index:+-$index}"
+                mkdir "$out"
+                write_config "$out"
+                total=$((total + 1))
+                code=0
+                run_scenario "$scenario" "$variant" "$out" || code=$?
+                if [ "$code" -eq 0 ]; then
+                    echo "ok      $scenario $variant${index:+ $index}"
+                else
+                    failed=$((failed + 1))
+                    echo "ошибка  $scenario $variant${index:+ $index} (код $code)"
+                    sed 's/^/    /' "$out/stdout.txt" "$out/stderr.txt"
+                fi
+            done
         done
     done
     echo "прогон: $run_dir"

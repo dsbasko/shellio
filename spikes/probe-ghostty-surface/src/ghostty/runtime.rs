@@ -437,6 +437,9 @@ pub struct StartRecord {
     pub reload_config_from_scheme: usize,
     /// `config_change`, пришедшие из `ghostty_app_update_config`.
     pub config_change_from_update: usize,
+    /// Отметки `CLOCK_UPTIME_RAW` вокруг `ghostty_app_new`.
+    pub app_new_started_ns: u64,
+    pub app_new_finished_ns: u64,
 }
 
 /// Создаёт приложение и выставляет схему цвета до первой поверхности. `set_color_scheme` меняет
@@ -458,9 +461,11 @@ pub fn start(config: Config, scheme: ColorScheme, focused: bool) -> Result<Start
         write_clipboard_cb: Some(write_clipboard_cb),
         close_surface_cb: Some(close_surface_cb),
     };
+    let app_new_started_ns = clock::uptime_ns();
     // SAFETY: параметры живут на время вызова, конфигурация финализирована; `userdata` живёт до
     // `ghostty_app_free`.
     let app = unsafe { sys::ghostty_app_new(&runtime_config, config.raw()) };
+    let app_new_finished_ns = clock::uptime_ns();
     if app.is_null() {
         // SAFETY: указатель из `Arc::into_raw` выше, библиотека его не сохранила.
         drop(unsafe { Arc::from_raw(app_userdata) });
@@ -493,6 +498,8 @@ pub fn start(config: Config, scheme: ColorScheme, focused: bool) -> Result<Start
         app_focused: focused,
         reload_config_from_scheme: reloads,
         config_change_from_update: changes,
+        app_new_started_ns,
+        app_new_finished_ns,
     })
 }
 

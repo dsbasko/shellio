@@ -434,6 +434,50 @@ pub struct Bench {
 
 thread_local! {
     static BENCH: RefCell<Option<Bench>> = const { RefCell::new(None) };
+    static HOOKS: RefCell<Hooks> = RefCell::new(Hooks::default());
+}
+
+type PassHook = Box<dyn FnMut(u64) -> bool>;
+type ReturnHook = Box<dyn FnMut(u64, u64) -> bool>;
+
+/// Обработчики, которые вызываются сразу в конце прохода отображения и после возврата
+/// `sendEvent` события из таблицы, без ожидания таймера. Они живут отдельно от стенда и
+/// вызываются вне его заимствования, поэтому могут отправлять события и читать таблицу.
+#[derive(Default)]
+struct Hooks {
+    pass: Vec<PassHook>,
+    returned: Vec<ReturnHook>,
+}
+
+/// Вызывается в конце каждого прохода отображения с его отметкой, пока возвращает `true`.
+pub fn on_display_pass(hook: impl FnMut(u64) -> bool + 'static) {
+    HOOKS.with(|hooks| hooks.borrow_mut().pass.push(Box::new(hook)));
+}
+
+/// Вызывается после возврата `sendEvent` каждого события таблицы с его номером и отметкой
+/// возврата, пока возвращает `true`.
+pub fn on_send_return(hook: impl FnMut(u64, u64) -> bool + 'static) {
+    HOOKS.with(|hooks| hooks.borrow_mut().returned.push(Box::new(hook)));
+}
+
+fn run_pass_hooks(at: u64) {
+    let mut running = HOOKS.with(|hooks| std::mem::take(&mut hooks.borrow_mut().pass));
+    running.retain_mut(|hook| hook(at));
+    HOOKS.with(|hooks| {
+        let mut hooks = hooks.borrow_mut();
+        running.append(&mut hooks.pass);
+        hooks.pass = running;
+    });
+}
+
+fn run_return_hooks(number: u64, at: u64) {
+    let mut running = HOOKS.with(|hooks| std::mem::take(&mut hooks.borrow_mut().returned));
+    running.retain_mut(|hook| hook(number, at));
+    HOOKS.with(|hooks| {
+        let mut hooks = hooks.borrow_mut();
+        running.append(&mut hooks.returned);
+        hooks.returned = running;
+    });
 }
 
 /// Ставит стенд и наблюдатель конца прохода отображения: с этого момента событие ввода вне
@@ -459,7 +503,9 @@ pub fn install(
     BENCH.with(|cell| *cell.borrow_mut() = Some(bench));
     let block = RcBlock::new(
         move |_observer: *mut CFRunLoopObserver, _activity: CFRunLoopActivity| {
-            with_bench(|bench| bench.passes.record(clock::uptime_ns()));
+            let at = clock::uptime_ns();
+            with_bench(|bench| bench.passes.record(at));
+            run_pass_hooks(at);
         },
     );
     // SAFETY: распределитель по умолчанию, блок жив на время вызова и копируется наблюдателем.
@@ -564,14 +610,15 @@ fn admit(event: &NSEvent) -> Admit {
 }
 
 fn returned(number: u64) {
+    let at = clock::uptime_ns();
     with_bench(|bench| {
-        let at = clock::uptime_ns();
         bench.table.mark_return(number, at);
         push_trace(
             &bench.trace,
             format!("{} return #{number}", since(bench, at)),
         );
     });
+    run_return_hooks(number, at);
 }
 
 fn external_input(description: String) {
@@ -819,6 +866,40 @@ fn post_key(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hooks_run_outside_borrow_and_keep_new_ones() {
+        let calls = std::rc::Rc::new(RefCell::new(Vec::new()));
+        let outer = std::rc::Rc::clone(&calls);
+        on_display_pass(move |at| {
+            outer.borrow_mut().push(("first", at));
+            let inner = std::rc::Rc::clone(&outer);
+            // Регистрация изнутри обработчика не теряется и не встречает заимствование.
+            on_display_pass(move |at| {
+                inner.borrow_mut().push(("second", at));
+                true
+            });
+            false
+        });
+        run_pass_hooks(1);
+        run_pass_hooks(2);
+        run_pass_hooks(3);
+        assert_eq!(
+            *calls.borrow(),
+            [("first", 1), ("second", 2), ("second", 3)]
+        );
+        let returns = std::rc::Rc::new(RefCell::new(Vec::new()));
+        let seen = std::rc::Rc::clone(&returns);
+        on_send_return(move |number, at| {
+            seen.borrow_mut().push((number, at));
+            number != 7
+        });
+        run_return_hooks(5, 10);
+        run_return_hooks(7, 20);
+        run_return_hooks(8, 30);
+        assert_eq!(*returns.borrow(), [(5, 10), (7, 20)]);
+        HOOKS.with(|hooks| *hooks.borrow_mut() = Hooks::default());
+    }
 
     fn signature(kind: NSEventType, timestamp: f64) -> Signature {
         Signature {

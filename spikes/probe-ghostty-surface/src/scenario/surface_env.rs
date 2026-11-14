@@ -21,7 +21,8 @@ use super::channel::Hub;
 use super::{Poll, Report, Scenario, Stand, Step, StepFailure, poll, run_steps, window};
 use crate::fixture::{self, Ready};
 use crate::ghostty::config::{self, ColorScheme, Config};
-use crate::ghostty::runtime::{self, Created, SurfaceReading};
+use crate::ghostty::init::InitRecord;
+use crate::ghostty::runtime::{self, Created, StartRecord, SurfaceReading};
 use crate::ghostty::surface::{Phase, Spec, SurfaceId};
 use crate::results::{Requirement, Verdict};
 use crate::view::SurfaceView;
@@ -35,17 +36,22 @@ const READY_STEP: &str = "готовность фикстуры в поверх�
 const VIEWPORT_LIMIT: usize = 600;
 const EXPECTED_TERM: &str = "xterm-ghostty";
 
-struct State {
-    hub: Hub,
-    view: objc2::rc::Retained<SurfaceView>,
-    id: SurfaceId,
+/// Одна поверхность с фикстурой; её же использует сценарий старта.
+pub(super) struct State {
+    pub(super) hub: Hub,
+    pub(super) view: objc2::rc::Retained<SurfaceView>,
+    pub(super) id: SurfaceId,
     exe: PathBuf,
     resources: PathBuf,
-    fixture_nonce: String,
+    pub(super) fixture_nonce: String,
     env_nonce: String,
-    created_at_ns: Option<u64>,
-    ready: Option<Ready>,
-    ready_t_ns: Option<u64>,
+    pub(super) init: InitRecord,
+    pub(super) started: StartRecord,
+    pub(super) created_at_ns: Option<u64>,
+    /// Возврат из `ghostty_surface_new`.
+    pub(super) created_end_ns: Option<u64>,
+    pub(super) ready: Option<Ready>,
+    pub(super) ready_t_ns: Option<u64>,
     reading: Option<SurfaceReading>,
 }
 
@@ -63,7 +69,12 @@ pub fn run(stand: Rc<Stand>) {
             Err(format!("не бандл пробы: {}", problems.join("; "))),
         );
     }
-    let state = match prepare(&stand, &mut report) {
+    let variant = &stand.prelude.variant;
+    let Some(scheme) = ColorScheme::from_variant(variant) else {
+        let reason = format!("предусловие: вариант {variant}, ожидается light или dark");
+        return stand.conclude(report, Err(reason));
+    };
+    let state = match prepare(&stand, &mut report, scheme) {
         Ok(state) => Rc::new(RefCell::new(state)),
         Err(reason) => return finish(&stand, report, Err(reason)),
     };
@@ -80,11 +91,11 @@ pub fn run(stand: Rc<Stand>) {
 }
 
 /// Инициализация, конфигурация, приложение и вид до первой поверхности.
-fn prepare(stand: &Stand, report: &mut Report) -> Result<State, String> {
-    let variant = &stand.prelude.variant;
-    let scheme = ColorScheme::from_variant(variant).ok_or(format!(
-        "предусловие: вариант {variant}, ожидается light или dark"
-    ))?;
+pub(super) fn prepare(
+    stand: &Stand,
+    report: &mut Report,
+    scheme: ColorScheme,
+) -> Result<State, String> {
     let prelude = stand
         .prelude
         .ghostty
@@ -191,7 +202,10 @@ fn prepare(stand: &Stand, report: &mut Report) -> Result<State, String> {
         resources,
         fixture_nonce,
         env_nonce,
+        init,
+        started,
         created_at_ns: None,
+        created_end_ns: None,
         ready: None,
         ready_t_ns: None,
         reading: None,
@@ -277,20 +291,23 @@ fn focused(stand: &Stand, view: &SurfaceView) -> Poll<()> {
     )
 }
 
-fn create(state: &Rc<RefCell<State>>) -> Result<(), String> {
+pub(super) fn create(state: &Rc<RefCell<State>>) -> Result<(), String> {
     let id = state.borrow().id;
     let started = clock::uptime_ns();
     match runtime::create(id)? {
         Created::Created { key, new_ms } => {
+            let finished = clock::uptime_ns();
             super::events::note(format!("поверхность {key} создана за {new_ms:.1} мс"));
-            state.borrow_mut().created_at_ns = Some(started);
+            let mut state = state.borrow_mut();
+            state.created_at_ns = Some(started);
+            state.created_end_ns = Some(finished);
             Ok(())
         }
         Created::Waiting(decision) => Err(format!("реестр не разрешил создание: {decision:?}")),
     }
 }
 
-fn ready(state: &mut State) -> Poll<()> {
+pub(super) fn ready(state: &mut State) -> Poll<()> {
     state.hub.poll();
     let nonce = state.fixture_nonce.clone();
     let found = state.hub.by_nonce(&nonce).map(|conn| {
@@ -315,7 +332,7 @@ fn ready(state: &mut State) -> Poll<()> {
     ))
 }
 
-fn freed(state: &mut State) -> Poll<()> {
+pub(super) fn freed(state: &mut State) -> Poll<()> {
     state.hub.poll();
     let phase = runtime::phase(state.id);
     let nonce = state.fixture_nonce.clone();
@@ -490,7 +507,7 @@ fn truncate(text: &str, limit: usize) -> String {
 }
 
 /// Завершение runtime, если он запущен, и итог. Освобождение поверхности останавливает фикстуру.
-fn finish(stand: &Stand, mut report: Report, verdict: Result<(), String>) {
+pub(super) fn finish(stand: &Stand, mut report: Report, verdict: Result<(), String>) {
     let mut verdict = verdict;
     match runtime::shutdown() {
         Ok(record) => {

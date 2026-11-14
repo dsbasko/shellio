@@ -5,6 +5,7 @@ pub mod channel;
 pub mod counters;
 pub mod events;
 pub mod stand;
+pub mod startup;
 pub mod surface_env;
 pub mod watchdog;
 pub mod window;
@@ -43,24 +44,34 @@ const POLL_INTERVAL: Duration = Duration::from_millis(5);
 pub enum Scenario {
     Window,
     SurfaceEnv,
+    Startup,
+    StartupLs,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 2] = [Scenario::Window, Scenario::SurfaceEnv];
+    pub const ALL: [Scenario; 4] = [
+        Scenario::Window,
+        Scenario::SurfaceEnv,
+        Scenario::Startup,
+        Scenario::StartupLs,
+    ];
 
     pub fn name(self) -> &'static str {
         match self {
             Scenario::Window => "window",
             Scenario::SurfaceEnv => "surface-env",
+            Scenario::Startup => "startup",
+            Scenario::StartupLs => "startup-ls",
         }
     }
 
-    /// Сценарию нужны `ghostty_init` и сокет фикстур до первого рабочего потока. `window` —
-    /// базовая линия без libghostty.
-    pub fn uses_ghostty(self) -> bool {
+    /// Сценарию нужны `ghostty_init` и сокет фикстур до первого рабочего потока. `window` и
+    /// вариант `bare` сценариев старта — базовая линия без libghostty.
+    pub fn uses_ghostty(self, variant: &str) -> bool {
         match self {
             Scenario::Window => false,
             Scenario::SurfaceEnv => true,
+            Scenario::Startup | Scenario::StartupLs => variant != startup::BARE,
         }
     }
 
@@ -77,6 +88,7 @@ impl Scenario {
         Duration::from_secs(match self {
             Scenario::Window => 20,
             Scenario::SurfaceEnv => 50,
+            Scenario::Startup | Scenario::StartupLs => 40,
         })
     }
 }
@@ -94,6 +106,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
     match scenario {
         Scenario::Window => window::run(stand),
         Scenario::SurfaceEnv => surface_env::run(stand),
+        Scenario::Startup | Scenario::StartupLs => startup::run(stand, scenario),
     }
 }
 
@@ -125,7 +138,7 @@ impl Prelude {
             Some(nonce) => nonce,
             None => crate::launch::nonce()?,
         };
-        let ghostty = if scenario.uses_ghostty() {
+        let ghostty = if scenario.uses_ghostty(variant) {
             let hub = channel::Hub::bind(out)?;
             let init = crate::ghostty::init::init_once(crate::PROBE_NAME)?;
             if init.code != 0 {

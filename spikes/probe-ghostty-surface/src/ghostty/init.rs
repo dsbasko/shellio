@@ -72,6 +72,9 @@ pub struct InitRecord {
     pub before: ProcessState,
     pub after: ProcessState,
     pub duration_ms: f64,
+    /// Отметки `CLOCK_UPTIME_RAW` вокруг вызова.
+    pub started_ns: u64,
+    pub finished_ns: u64,
 }
 
 impl InitRecord {
@@ -103,6 +106,8 @@ pub fn init_once(program: &str) -> Result<InitRecord, String> {
         before,
         after: ProcessState::read(),
         duration_ms: clock::interval_ms(started, finished),
+        started_ns: started,
+        finished_ns: finished,
     })
 }
 
