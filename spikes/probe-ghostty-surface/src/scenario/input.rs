@@ -140,8 +140,8 @@ struct Pending {
 pub(super) struct Input {
     /// Префикс выводов проверок: `h2` у `input`, `h3` у `ime`.
     prefix: &'static str,
-    env: State,
-    b: Extra,
+    pub(super) env: State,
+    pub(super) b: Extra,
     pub(super) scene: Rc<Scene>,
     board: String,
     pending: Option<Pending>,
@@ -164,6 +164,11 @@ pub(super) struct Input {
     early_failures: Vec<String>,
     /// Номера отправленных событий, возврат которых из `sendEvent` ждёт сценарий.
     pub(super) posted: Vec<u64>,
+    /// Выводы сценария сверх проверок с оградой: имя, обязательность, итог, причина.
+    pub(super) findings: Vec<(String, Requirement, Verdict, String)>,
+    /// Метрики сценария: имя, единица, значения.
+    pub(super) metrics: Vec<(String, &'static str, Vec<f64>)>,
+    pub(super) snapshots: Vec<crate::results::Snapshot>,
 }
 
 type Shared = Rc<RefCell<Input>>;
@@ -647,6 +652,9 @@ pub(super) fn run_harness(stand: Rc<Stand>, harness: Harness) {
         early_notes: Vec::new(),
         early_failures: Vec::new(),
         posted: Vec::new(),
+        findings: Vec::new(),
+        metrics: Vec::new(),
+        snapshots: Vec::new(),
     }));
     let mut plan = Plan {
         stand: Rc::clone(&stand),
@@ -668,7 +676,17 @@ pub(super) fn run_harness(stand: Rc<Stand>, harness: Harness) {
         if let Some(router) = crate::router::uninstall() {
             report.push_json("router", &router);
         }
+        if let Some(palette) = crate::palette::uninstall() {
+            report.push_json("palette", &palette);
+        }
         let mut input = input.borrow_mut();
+        for (name, requirement, verdict, reason) in std::mem::take(&mut input.findings) {
+            report.finding(&name, requirement, verdict, reason);
+        }
+        for (name, unit, values) in std::mem::take(&mut input.metrics) {
+            report.metric(&name, unit, values);
+        }
+        report.snapshots.append(&mut input.snapshots);
         report.push_json("checks", &input.checks);
         for (key, value) in std::mem::take(&mut input.observations) {
             report.push_json(&key, &value);
@@ -1282,7 +1300,7 @@ fn moved(plan: &mut Plan) {
 }
 
 /// Точка клетки поверхности в координатах экрана; `fraction` — доля ширины клетки слева.
-fn cell_point(
+pub(super) fn cell_point(
     input: &mut Input,
     which: usize,
     column: u32,
@@ -1310,7 +1328,7 @@ fn cell_point(
 }
 
 /// Точка вида от левого верхнего угла в координатах экрана.
-fn screen_point(view: &SurfaceView, x: f64, y_top: f64) -> Result<NSPoint, String> {
+pub(super) fn screen_point(view: &SurfaceView, x: f64, y_top: f64) -> Result<NSPoint, String> {
     let window = view.window().ok_or("вид вне окна")?;
     let point = NSPoint::new(x, view.bounds().size.height - y_top);
     Ok(window.convertPointToScreen(view.convertPoint_toView(point, None)))

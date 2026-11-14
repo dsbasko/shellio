@@ -181,6 +181,13 @@ impl<H: Copy> Registry<H> {
         }
     }
 
+    /// Все живые поверхности по порядку слотов.
+    pub fn live_handles(&self) -> Vec<(SurfaceKey, H)> {
+        (0..self.slots.len())
+            .filter_map(|index| self.current(SurfaceId(index as u32)))
+            .collect()
+    }
+
     pub fn route(&mut self, key: SurfaceKey) -> Route<H> {
         let route = match self.slots.get(key.id.0 as usize) {
             Some(slot) if slot.generation == key.generation => match slot.state {
@@ -324,6 +331,24 @@ impl Handle {
     pub unsafe fn set_focus(self, focused: bool) {
         // SAFETY: по контракту поверхность жива.
         unsafe { sys::ghostty_surface_set_focus(self.0, focused) }
+    }
+
+    /// Условное состояние темы поверхности; ядро просит `reload_config` поверхности.
+    ///
+    /// # Safety
+    /// Поверхность жива, вызов вне заимствования состояния runtime.
+    pub unsafe fn set_color_scheme(self, scheme: sys::ghostty_color_scheme_e) {
+        // SAFETY: по контракту поверхность жива.
+        unsafe { sys::ghostty_surface_set_color_scheme(self.0, scheme) }
+    }
+
+    /// Мягкая перезагрузка: поверхность применяет к конфигурации своё условное состояние.
+    ///
+    /// # Safety
+    /// Поверхность и конфигурация живы, вызов вне заимствования состояния runtime.
+    pub unsafe fn update_config(self, config: sys::ghostty_config_t) {
+        // SAFETY: по контракту поверхность и конфигурация живы.
+        unsafe { sys::ghostty_surface_update_config(self.0, config) }
     }
 
     /// # Safety
@@ -965,6 +990,17 @@ mod tests {
         assert_eq!(registry.close_intent(key, 3), Close::Stale);
         assert_eq!(registry.freed_count(), 1);
         assert_eq!(registry.close_intent_count(), 4);
+    }
+
+    #[test]
+    fn live_handles_skip_waiting_and_closing() {
+        let mut registry = Registry::<u32>::default();
+        let a = live(&mut registry, 1);
+        let b = live(&mut registry, 2);
+        let waiting = registry.add();
+        registry.close_intent(b, 9);
+        assert_eq!(registry.live_handles(), [(a, 1)]);
+        assert_eq!(registry.phase(waiting), Some(Phase::WaitingSize));
     }
 
     #[test]

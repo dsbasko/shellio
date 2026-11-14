@@ -7,6 +7,8 @@ pub mod counters;
 pub mod events;
 pub mod ime;
 pub mod input;
+pub mod palette;
+pub mod snapshot;
 pub mod stand;
 pub mod startup;
 pub mod surface_env;
@@ -54,10 +56,11 @@ pub enum Scenario {
     Input,
     Ime,
     Chord,
+    Palette,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 8] = [
+    pub const ALL: [Scenario; 9] = [
         Scenario::Window,
         Scenario::SurfaceEnv,
         Scenario::Startup,
@@ -66,6 +69,7 @@ impl Scenario {
         Scenario::Input,
         Scenario::Ime,
         Scenario::Chord,
+        Scenario::Palette,
     ];
 
     pub fn name(self) -> &'static str {
@@ -78,6 +82,7 @@ impl Scenario {
             Scenario::Input => "input",
             Scenario::Ime => "ime",
             Scenario::Chord => "chord",
+            Scenario::Palette => "palette",
         }
     }
 
@@ -90,7 +95,8 @@ impl Scenario {
             | Scenario::Zones
             | Scenario::Input
             | Scenario::Ime
-            | Scenario::Chord => true,
+            | Scenario::Chord
+            | Scenario::Palette => true,
             Scenario::Startup | Scenario::StartupLs => variant != startup::BARE,
         }
     }
@@ -113,6 +119,7 @@ impl Scenario {
             Scenario::Input => 240,
             Scenario::Ime => 90,
             Scenario::Chord => 240,
+            Scenario::Palette => 300,
         })
     }
 }
@@ -135,6 +142,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Input => input::run(stand),
         Scenario::Ime => ime::run(stand),
         Scenario::Chord => chord::run(stand),
+        Scenario::Palette => palette::run(stand),
     }
 }
 

@@ -89,6 +89,43 @@ impl ColorScheme {
             ColorScheme::Dark => sys::ghostty_color_scheme_e_GHOSTTY_COLOR_SCHEME_DARK,
         }
     }
+
+    pub fn is_dark(self) -> bool {
+        self == ColorScheme::Dark
+    }
+}
+
+/// Встроенные темы пробы для светлой и тёмной схемы.
+pub const LIGHT_THEME: &str = "Builtin Light";
+pub const DARK_THEME: &str = "Builtin Dark";
+
+/// Значение ключа `theme` условной темы: `light:<светлая>,dark:<тёмная>`. Имена с запятой или
+/// двоеточием ghostty не разберёт, поэтому они отвергаются.
+pub fn conditional_theme(light: &str, dark: &str) -> Result<String, String> {
+    for name in [light, dark] {
+        if name.trim().is_empty() || name.contains([',', ':', '\n']) {
+            return Err(format!("имя темы {name:?} не годится для условной темы"));
+        }
+    }
+    Ok(format!("light:{},dark:{}", light.trim(), dark.trim()))
+}
+
+/// Тема, которую условная тема выбирает для схемы.
+pub fn theme_for(scheme: ColorScheme, light: &str, dark: &str) -> String {
+    match scheme {
+        ColorScheme::Light => light.to_owned(),
+        ColorScheme::Dark => dark.to_owned(),
+    }
+}
+
+/// Значение ключа `theme` в тексте конфигурации: последняя строка `theme = …`.
+pub fn theme_value(text: &str) -> Option<String> {
+    text.lines()
+        .filter_map(|line| {
+            let (key, value) = line.split_once('=')?;
+            (key.trim() == "theme").then(|| value.trim().to_owned())
+        })
+        .next_back()
 }
 
 #[cfg(test)]
@@ -102,5 +139,50 @@ mod tests {
         assert_eq!(ColorScheme::from_variant("base"), None);
         assert_ne!(ColorScheme::Light.raw(), ColorScheme::Dark.raw());
         assert_eq!(ColorScheme::Dark.name(), "dark");
+    }
+
+    #[test]
+    fn scheme_darkness() {
+        assert!(ColorScheme::Dark.is_dark());
+        assert!(!ColorScheme::Light.is_dark());
+    }
+
+    #[test]
+    fn theme_is_chosen_by_scheme() {
+        assert_eq!(
+            theme_for(ColorScheme::Light, LIGHT_THEME, DARK_THEME),
+            "Builtin Light"
+        );
+        assert_eq!(
+            theme_for(ColorScheme::Dark, LIGHT_THEME, DARK_THEME),
+            "Builtin Dark"
+        );
+    }
+
+    #[test]
+    fn conditional_theme_line_is_built_and_validated() {
+        assert_eq!(
+            conditional_theme(LIGHT_THEME, DARK_THEME).as_deref(),
+            Ok("light:Builtin Light,dark:Builtin Dark")
+        );
+        assert_eq!(
+            conditional_theme(" A ", "B").as_deref(),
+            Ok("light:A,dark:B")
+        );
+        assert!(conditional_theme("", "B").is_err());
+        assert!(conditional_theme("A,B", "C").is_err());
+        assert!(conditional_theme("A", "dark:C").is_err());
+    }
+
+    #[test]
+    fn theme_value_reads_the_last_theme_line() {
+        let text = "font-size = 13\ntheme = light:X,dark:Y\ncursor-style-blink = true\n";
+        assert_eq!(theme_value(text).as_deref(), Some("light:X,dark:Y"));
+        assert_eq!(
+            theme_value("theme = a\ntheme = light:B,dark:C").as_deref(),
+            Some("light:B,dark:C")
+        );
+        assert_eq!(theme_value("font-size = 13"), None);
+        assert_eq!(theme_value("themes = x"), None);
     }
 }

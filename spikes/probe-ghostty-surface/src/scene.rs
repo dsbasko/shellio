@@ -286,7 +286,7 @@ fn fill(view: &NSView, color: Rgb) {
 
 pub struct SplitIvars {
     _live: Live,
-    divider: Retained<NSColor>,
+    divider: RefCell<Retained<NSColor>>,
 }
 
 define_class!(
@@ -305,7 +305,7 @@ define_class!(
 
         #[unsafe(method_id(dividerColor))]
         fn divider_color(&self) -> Retained<NSColor> {
-            self.ivars().divider.clone()
+            self.ivars().divider.borrow().clone()
         }
     }
 );
@@ -314,13 +314,18 @@ impl ProbeSplitView {
     fn new(mtm: MainThreadMarker, vertical: bool, palette: &Palette) -> Retained<ProbeSplitView> {
         let this = ProbeSplitView::alloc(mtm).set_ivars(SplitIvars {
             _live: SPLIT_VIEW.live(),
-            divider: palette.chrome.color(),
+            divider: RefCell::new(palette.chrome.color()),
         });
         // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
         let split: Retained<ProbeSplitView> =
             unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] };
         split.setVertical(vertical);
         split
+    }
+
+    fn set_divider_color(&self, color: Rgb) {
+        *self.ivars().divider.borrow_mut() = color.color();
+        self.setNeedsDisplay(true);
     }
 }
 
@@ -876,6 +881,19 @@ impl Scene {
             for (part, tile) in host.tiles().iter().enumerate() {
                 tile.set_focused(focused == Some((host.zone(), part)));
             }
+        }
+    }
+
+    /// Палитра сцены по оформлению: окно, делители и виды зон. Плитки следуют оформлению сами
+    /// (`viewDidChangeEffectiveAppearance`).
+    pub fn apply_appearance(&self, window: &NSWindow, dark: bool) {
+        let palette = Palette::of(dark);
+        self.palette.set(palette);
+        window.setBackgroundColor(Some(&palette.chrome.color()));
+        self.root_split.set_divider_color(palette.chrome);
+        self.column_split.set_divider_color(palette.chrome);
+        for host in &self.hosts {
+            fill(host, palette.chrome);
         }
     }
 

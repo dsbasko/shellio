@@ -17,8 +17,10 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "objc2-core-foundation",
     "objc2-core-graphics",
     "objc2-quartz-core",
+    "NSAccessibility",
     "NSAppearance",
     "NSApplication",
+    "NSBitmapImageRep",
     "NSColor",
     "NSColorSpace",
     "NSControl",
@@ -26,9 +28,11 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "NSFont",
     "NSGraphics",
     "NSGraphicsContext",
+    "NSImageRep",
     "NSLayoutConstraint",
     "NSMenu",
     "NSMenuItem",
+    "NSPanel",
     "NSPasteboard",
     "NSResponder",
     "NSRunningApplication",
@@ -44,6 +48,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "NSView",
     "NSViewController",
     "NSWindow",
+    "NSWorkspace",
 ] }
 objc2-core-foundation = { version = "0.3.2", default-features = false, features = [
     "std",
@@ -62,6 +67,7 @@ objc2-core-graphics = { version = "0.3.2", default-features = false, features = 
     "CGEvent",
     "CGEventTypes",
     "CGSession",
+    "CGWindow",
 ] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "std",
@@ -69,6 +75,7 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "NSArray",
     "NSAttributedString",
     "NSBundle",
+    "NSData",
     "NSDate",
     "NSDictionary",
     "NSEnumerator",

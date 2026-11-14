@@ -245,6 +245,7 @@ pub(super) struct Extra {
     pub(super) view: objc2::rc::Retained<SurfaceView>,
     pub(super) id: SurfaceId,
     pub(super) fixture_nonce: String,
+    pub(super) env_nonce: String,
 }
 
 impl State {
@@ -256,12 +257,14 @@ impl State {
         suffix: &str,
         view: objc2::rc::Retained<SurfaceView>,
     ) -> Result<Extra, String> {
-        let (spec, fixture_nonce, _) = fixture_spec(stand, &self.exe, self.hub.path(), suffix)?;
+        let (spec, fixture_nonce, env_nonce) =
+            fixture_spec(stand, &self.exe, self.hub.path(), suffix)?;
         let id = runtime::add_surface(view.clone(), spec)?;
         Ok(Extra {
             view,
             id,
             fixture_nonce,
+            env_nonce,
         })
     }
 }

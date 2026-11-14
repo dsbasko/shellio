@@ -330,13 +330,13 @@ unsafe fn decode_action(target: Target, action: &sys::ghostty_action_s) -> (Even
                 },
                 false,
             ),
-            // Перезагрузку приложения выполняет `start` сразу после смены схемы; перезагрузка
-            // поверхности на этом шаге не поддержана.
+            // Перезагрузку приложения выполняет вызывающий смену схемы приложения сразу после
+            // неё; мягкую перезагрузку поверхности — следующий проход (`update_config`).
             sys::ghostty_action_tag_e_GHOSTTY_ACTION_RELOAD_CONFIG => (
                 Event::ReloadConfig {
                     soft: payload.reload_config.soft,
                 },
-                !surface,
+                !surface || payload.reload_config.soft,
             ),
             sys::ghostty_action_tag_e_GHOSTTY_ACTION_CONFIG_CHANGE => (Event::ConfigChange, true),
             tag => (Event::Unsupported { tag }, false),
@@ -480,6 +480,10 @@ pub struct Stats {
     pub clipboard_write_confirm_denied: u64,
     /// Подачи `ghostty_app_set_focus` после `start`: активность приложения.
     pub app_focus: Vec<bool>,
+    /// `ghostty_surface_update_config` в ответ на мягкий `reload_config` поверхности.
+    pub surface_config_updates: u64,
+    /// Живые смены схемы: схема и число поверхностей, получивших её.
+    pub scheme_changes: Vec<(&'static str, usize)>,
     pub releases: Vec<ReleaseRecord>,
     pub log: Vec<String>,
 }
@@ -580,6 +584,63 @@ pub fn start(config: Config, scheme: ColorScheme, focused: bool) -> Result<Start
         config_change_from_update: changes,
         app_new_started_ns,
         app_new_finished_ns,
+    })
+}
+
+/// Итог живой смены схемы.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct SchemeRecord {
+    pub scheme: &'static str,
+    pub reload_config_from_app: usize,
+    pub config_change_from_update: usize,
+    /// Живые поверхности, которым подана схема.
+    pub surfaces: usize,
+    pub started_ns: u64,
+    pub finished_ns: u64,
+}
+
+/// Живая смена схемы: приложению, как в `start`, затем каждой живой поверхности. Поверхность
+/// хранит своё условное состояние и просит мягкий `reload_config`; его выполняет следующий проход
+/// через `ghostty_surface_update_config`, иначе тема поверхности не сменится.
+pub fn set_color_scheme(scheme: ColorScheme) -> Result<SchemeRecord, String> {
+    let (app, shared, config, handles) = with(|rt| {
+        let handles: Vec<Handle> = rt
+            .surfaces
+            .registry
+            .live_handles()
+            .into_iter()
+            .map(|(_, handle)| handle)
+            .collect();
+        (rt.app, Arc::clone(&rt.shared), rt._config.raw(), handles)
+    })
+    .ok_or_else(not_started)?;
+    let started_ns = clock::uptime_ns();
+    // SAFETY: приложение, конфигурация и поверхности живы; вызовы вне заимствования, колбэки
+    // только кладут сообщения.
+    let (reloads, changes) = unsafe {
+        let before = shared.count("reload-config");
+        sys::ghostty_app_set_color_scheme(app, scheme.raw());
+        let reloads = shared.count("reload-config") - before;
+        let before = shared.count("config-change");
+        sys::ghostty_app_update_config(app, config);
+        let changes = shared.count("config-change") - before;
+        for handle in &handles {
+            handle.set_color_scheme(scheme.raw());
+        }
+        (reloads, changes)
+    };
+    let finished_ns = clock::uptime_ns();
+    with(|rt| {
+        rt.stats.scheme_changes.push((scheme.name(), handles.len()));
+    });
+    shared.request_pass();
+    Ok(SchemeRecord {
+        scheme: scheme.name(),
+        reload_config_from_app: reloads,
+        config_change_from_update: changes,
+        surfaces: handles.len(),
+        started_ns,
+        finished_ns,
     })
 }
 
@@ -877,6 +938,16 @@ impl Runtime {
                     Route::Closing(_) => "closing",
                     Route::Stale => "stale",
                 },
+                (Target::Surface(key), Event::ReloadConfig { soft: true }) => {
+                    match self.surfaces.registry.route(key) {
+                        Route::Live(handle) => {
+                            work.reloads.push(handle);
+                            "update-config"
+                        }
+                        Route::Closing(_) => "closing",
+                        Route::Stale => "stale",
+                    }
+                }
                 (Target::Surface(key), _) => match self.surfaces.registry.route(key) {
                     Route::Live(_) => "delivered",
                     Route::Closing(_) => "closing",
@@ -914,6 +985,8 @@ struct Work {
     /// Намерение закрыть: ожидающие запросы отклоняются, пока поверхность жива.
     closes: Vec<(Handle, Arc<Requests>)>,
     writes: Vec<String>,
+    /// Мягкий `reload_config` живой поверхности.
+    reloads: Vec<Handle>,
     again: bool,
 }
 
@@ -927,6 +1000,17 @@ fn drain(shared: &Shared) {
     let Some(work) = with(|rt| rt.accept(messages)) else {
         return;
     };
+    if !work.reloads.is_empty()
+        && let Some(config) = with(|rt| rt._config.raw())
+    {
+        for handle in &work.reloads {
+            // SAFETY: поверхность жива (освобождение идёт только в начале прохода), конфигурация
+            // принадлежит runtime; вызов вне заимствования, колбэки только кладут сообщения.
+            unsafe { handle.update_config(config) };
+        }
+        let count = work.reloads.len() as u64;
+        with(|rt| rt.stats.surface_config_updates += count);
+    }
     let mut written = 0;
     for text in &work.writes {
         if clipboard::write_text(text) {

@@ -19,7 +19,7 @@ VENDOR="${SHELLIO_GHOSTTY_VENDOR:-$ROOT/vendor/ghostty}"
 REQUIREMENT="$ROOT/scripts/signing/requirement.txt"
 KEYCHAIN="${SHELLIO_SIGNING_KEYCHAIN:-}"
 BUNDLE_ID="io.github.dsbasko.shellio.probe.ghostty-surface"
-ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord"
+ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette"
 # Запусков сценариев старта на вариант: первый в агрегаты прогретых не входит
 # (results::STARTUP_SCENARIOS).
 STARTUP_RUNS=21
@@ -184,7 +184,9 @@ startup_first() {
 }
 
 # Конфигурация libghostty процесса сценария в его --out (ghostty/config.rs читает её оттуда).
-# Пользовательский ghostty.conf проба не читает; тема условная, схему выбирает вариант.
+# Пользовательский ghostty.conf проба не читает; тема условная (ghostty::config::conditional_theme),
+# схему выбирает вариант. palette продлевает цвет крайних клеток в поля поверхности, чтобы углы
+# плитки на снимке показывали содержимое терминала, а не фон полей.
 write_config() {
     cat >"$1/ghostty.conf" <<'EOF_CONFIG'
 font-family = Menlo
@@ -195,6 +197,9 @@ cursor-style-blink = true
 confirm-close-surface = false
 clipboard-paste-protection = false
 EOF_CONFIG
+    if [ "${2:-}" = palette ]; then
+        echo "window-padding-color = extend-always" >>"$1/ghostty.conf"
+    fi
 }
 
 # Код возврата — код --launch: ошибка запуска, процесса пробы или оставшиеся процессы.
@@ -223,7 +228,7 @@ cmd_scenarios() {
                 [ "$index" = _ ] && index=""
                 out="$run_dir/$scenario-$variant${index:+-$index}"
                 mkdir "$out"
-                write_config "$out"
+                write_config "$out" "$scenario"
                 total=$((total + 1))
                 code=0
                 run_scenario "$scenario" "$variant" "$out" || code=$?

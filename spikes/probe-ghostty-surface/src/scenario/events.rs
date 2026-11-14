@@ -396,11 +396,15 @@ define_class!(
 );
 
 impl ProbeApplication {
-    /// Сначала маршрутизатор режимов (`router::intercept`), затем `keyUp` и автоповтор нажатия,
-    /// съеденного видом поверхности, — его владельцу мимо обычной цепочки
-    /// (`view::before_dispatch`), затем обычная доставка.
+    /// Сначала палитра (`palette::intercept`), затем маршрутизатор режимов
+    /// (`router::intercept`), затем `keyUp` и автоповтор нажатия, съеденного видом поверхности, —
+    /// его владельцу мимо обычной цепочки (`view::before_dispatch`), затем обычная доставка.
+    /// Composition IME стоит раньше обоих: при marked text они нажатие пропускают.
     fn dispatch(&self, event: &NSEvent) {
-        if crate::router::intercept(event) || crate::view::before_dispatch(event) {
+        if crate::palette::intercept(event)
+            || crate::router::intercept(event)
+            || crate::view::before_dispatch(event)
+        {
             return;
         }
         // SAFETY: вызов реализации `sendEvent:` суперкласса с тем же событием.

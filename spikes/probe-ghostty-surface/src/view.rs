@@ -454,6 +454,8 @@ enum Owner {
     Surface(Weak<SurfaceView>),
     /// `keyDown` съел маршрутизатор режимов: его `keyUp` и автоповтор не доставляются.
     Router,
+    /// `keyDown` съела палитра: его `keyUp` и автоповтор не доставляются.
+    Palette,
     /// `keyDown` съел не вид поверхности: меню, вид стенда, окно.
     Elsewhere,
 }
@@ -468,7 +470,7 @@ fn owner_is(code: u16, view: &SurfaceView) -> Option<bool> {
             Owner::Surface(weak) => weak
                 .load()
                 .is_some_and(|owner| std::ptr::addr_eq(Retained::as_ptr(&owner), view)),
-            Owner::Router | Owner::Elsewhere => false,
+            Owner::Router | Owner::Palette | Owner::Elsewhere => false,
         })
     })
 }
@@ -486,6 +488,23 @@ pub fn router_owns(code: u16) -> bool {
 /// Отпускание нажатия, которое съел маршрутизатор.
 pub fn release_router(code: u16) {
     if router_owns(code) {
+        OWNERS.with(|owners| owners.borrow_mut().release(code));
+    }
+}
+
+/// Нажатие съела палитра: прежний владелец того же кода заменяется.
+pub fn claim_for_palette(code: u16) {
+    OWNERS.with(|owners| owners.borrow_mut().claim(code, Owner::Palette));
+}
+
+/// Владелец нажатия — палитра.
+pub fn palette_owns(code: u16) -> bool {
+    OWNERS.with(|owners| matches!(owners.borrow().owner(code), Some(Owner::Palette)))
+}
+
+/// Отпускание нажатия, которое съела палитра.
+pub fn release_palette(code: u16) {
+    if palette_owns(code) {
         OWNERS.with(|owners| owners.borrow_mut().release(code));
     }
 }
@@ -620,7 +639,7 @@ impl SurfaceView {
                 Owner::Surface(weak) => weak
                     .load()
                     .is_none_or(|owner| std::ptr::addr_eq(Retained::as_ptr(&owner), self)),
-                Owner::Router | Owner::Elsewhere => false,
+                Owner::Router | Owner::Palette | Owner::Elsewhere => false,
             })
         });
         if let Some(key) = key {
@@ -1144,6 +1163,11 @@ impl SurfaceView {
         if had && !self.in_key_down() {
             self.sync_preedit(true);
         }
+    }
+
+    /// Наложение забирает ввод: composition снимается без коммита, как при смене фокуса.
+    pub fn discard_composition(&self) {
+        self.discard_marked();
     }
 
     /// Смена фокуса или отмена при marked text: метод ввода забывает composition, вид снимает

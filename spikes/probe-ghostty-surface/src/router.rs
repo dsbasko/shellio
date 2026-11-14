@@ -359,8 +359,6 @@ impl<T> Router<T> {
         }
     }
 
-    // Наложение подключает задача 10 (палитра); до неё переходы проверяют только юнит-тесты.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub fn overlay_opened(&mut self) {
         if self.before_overlay.is_none() {
             self.before_overlay = Some(self.mode);
@@ -368,7 +366,6 @@ impl<T> Router<T> {
         self.cancel("overlay-opened", Cancel::Overlay);
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     pub fn overlay_closed(&mut self) {
         let (from, waiting) = (self.mode, self.waiting.is_some());
         if let Some(mode) = self.before_overlay.take() {
@@ -895,6 +892,19 @@ pub fn focus_lost(view: &SurfaceView) {
             glue.router.focus_lost();
         }
     });
+}
+
+/// Наложение открывается: ожидание снимается, режим запоминается до закрытия. Вызывается до
+/// того, как наложение станет key, иначе потеря фокуса вида снимет ожидание раньше.
+pub fn overlay_opened() {
+    with(|glue| glue.router.overlay_opened());
+    sync_tone();
+}
+
+/// Наложение закрыто: возвращается режим до открытия.
+pub fn overlay_closed() {
+    with(|glue| glue.router.overlay_closed());
+    sync_tone();
 }
 
 /// Поверхность освобождается: ожидание её второго аккорда снимается.

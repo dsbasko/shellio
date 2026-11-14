@@ -9,6 +9,7 @@ mod fixture;
 mod ghostty;
 mod keys;
 mod launch;
+mod palette;
 mod results;
 mod router;
 mod scenario;
