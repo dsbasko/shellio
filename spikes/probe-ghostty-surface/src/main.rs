@@ -10,6 +10,7 @@ mod ghostty;
 mod launch;
 mod results;
 mod scenario;
+mod scene;
 mod stats;
 mod view;
 
@@ -399,6 +400,8 @@ struct DelegateIvars {
     finisher: Finisher,
     /// Окно держится до конца процесса.
     window: OnceCell<Retained<NSWindow>>,
+    /// Сцена четырёх зон демонстрации; сценарий строит сцену сам.
+    scene: OnceCell<scene::Scene>,
 }
 
 define_class!(
@@ -452,6 +455,7 @@ impl AppDelegate {
             route,
             finisher,
             window: OnceCell::new(),
+            scene: OnceCell::new(),
         });
         // SAFETY: `init` у NSObject без аргументов.
         unsafe { msg_send![super(this), init] }
@@ -476,6 +480,12 @@ impl AppDelegate {
         app.activateIgnoringOtherApps(true);
         let _ = ivars.window.set(window.clone());
 
+        if ivars.scenario.is_none() {
+            let dark = scene::is_dark(&app.effectiveAppearance());
+            let demo = scene::Scene::new(mtm, dark);
+            demo.install(&view, &window);
+            let _ = ivars.scene.set(demo);
+        }
         if let Some(run) = &ivars.scenario {
             let Some(prelude) = run.prelude.borrow_mut().take() else {
                 ivars.finisher.finish(

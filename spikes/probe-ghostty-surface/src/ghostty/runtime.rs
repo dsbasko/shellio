@@ -19,6 +19,8 @@ use std::sync::{Arc, Mutex};
 
 use dispatch2::DispatchQueue;
 use objc2::rc::Retained;
+use objc2_app_kit::NSEventTrackingRunLoopMode;
+use objc2_foundation::NSRunLoop;
 use serde::Serialize;
 use shellio_sys_ghostty as sys;
 
@@ -393,6 +395,8 @@ unsafe extern "C" fn close_surface_cb(userdata: *mut c_void, process_alive: bool
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct Stats {
     pub passes: u64,
+    /// Проходы, выполненные в режиме цикла `NSEventTrackingRunLoopMode`.
+    pub passes_tracking: u64,
     pub wakeups: u64,
     pub messages: u64,
     /// Принятые сообщения по виду.
@@ -562,6 +566,16 @@ pub fn phase(id: SurfaceId) -> Option<Phase> {
     with(|rt| rt.surfaces.registry.phase(id)).flatten()
 }
 
+/// Ключ и ручка живой поверхности.
+pub fn current(id: SurfaceId) -> Option<(SurfaceKey, Handle)> {
+    with(|rt| rt.surfaces.registry.current(id)).flatten()
+}
+
+/// Счётчики runtime посреди сценария.
+pub fn stats() -> Option<Stats> {
+    with(|rt| rt.snapshot())
+}
+
 fn live_handle(id: SurfaceId) -> Option<Handle> {
     with(|rt| rt.surfaces.registry.current(id).map(|(_, handle)| handle)).flatten()
 }
@@ -704,9 +718,13 @@ fn main_pass() {
         return;
     };
     shared.wake.begin_pass();
+    let tracking = in_tracking_mode();
     let due = with(|rt| {
         rt.pass += 1;
         rt.stats.passes += 1;
+        if tracking {
+            rt.stats.passes_tracking += 1;
+        }
         rt.surfaces.take_due(rt.pass)
     })
     .unwrap_or_default();
@@ -717,6 +735,14 @@ fn main_pass() {
     // SAFETY: приложение живо, пока runtime стоит в потоке; вызов идёт вне заимствования.
     unsafe { sys::ghostty_app_tick(app) };
     drain(&shared);
+}
+
+/// Главный цикл крутится в режиме отслеживания: ресайз окна, меню, перетаскивание.
+pub fn in_tracking_mode() -> bool {
+    let mode = NSRunLoop::currentRunLoop().currentMode();
+    // SAFETY: `NSEventTrackingRunLoopMode` — неизменяемая константа AppKit.
+    let tracking = unsafe { NSEventTrackingRunLoopMode };
+    mode.is_some_and(|mode| mode.isEqualToString(tracking))
 }
 
 /// Итог завершения runtime.

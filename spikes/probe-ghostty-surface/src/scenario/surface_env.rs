@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use objc2::MainThreadOnly;
 use objc2_app_kit::NSAutoresizingMaskOptions;
-use objc2_foundation::NSBundle;
+use objc2_foundation::{NSBundle, NSRect};
 
 use super::channel::Hub;
 use super::{Poll, Report, Scenario, Stand, Step, StepFailure, poll, run_steps, window};
@@ -76,7 +76,7 @@ pub fn run(stand: Rc<Stand>) {
     };
     let state = match prepare(&stand, &mut report, scheme) {
         Ok(state) => Rc::new(RefCell::new(state)),
-        Err(reason) => return finish(&stand, report, Err(reason)),
+        Err(reason) => return finish(&stand, report, Err(reason), None),
     };
     run_steps(steps(&stand, &state), move |result| {
         let verdict = match result {
@@ -86,15 +86,34 @@ pub fn run(stand: Rc<Stand>) {
             }
             Err(failure) => classify(&state, &failure, &mut report),
         };
-        finish(&stand, report, verdict);
+        let view = state.borrow().view.clone();
+        finish(&stand, report, verdict, Some(view));
     });
 }
 
-/// Инициализация, конфигурация, приложение и вид до первой поверхности.
+/// Инициализация, конфигурация, приложение и вид до первой поверхности; вид заполняет вид стенда.
 pub(super) fn prepare(
     stand: &Stand,
     report: &mut Report,
     scheme: ColorScheme,
+) -> Result<State, String> {
+    prepare_in(stand, report, scheme, |view| {
+        view.setFrame(stand.view.bounds());
+        view.setAutoresizingMask(
+            NSAutoresizingMaskOptions::ViewWidthSizable
+                | NSAutoresizingMaskOptions::ViewHeightSizable,
+        );
+        stand.view.addSubview(view);
+        Ok(())
+    })
+}
+
+/// То же, но вид кладёт в окно `place`; затем вид становится first responder окна.
+pub(super) fn prepare_in(
+    stand: &Stand,
+    report: &mut Report,
+    scheme: ColorScheme,
+    place: impl FnOnce(&SurfaceView) -> Result<(), String>,
 ) -> Result<State, String> {
     let prelude = stand
         .prelude
@@ -187,11 +206,8 @@ pub(super) fn prepare(
     report.push("fixture_nonce", &fixture_nonce);
     report.push("env_nonce", &env_nonce);
 
-    let view = SurfaceView::new(stand.view.mtm(), stand.view.bounds());
-    view.setAutoresizingMask(
-        NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable,
-    );
-    stand.view.addSubview(&view);
+    let view = SurfaceView::new(stand.view.mtm(), NSRect::ZERO);
+    place(&view)?;
     stand.window.makeFirstResponder(Some(&view));
     let id = runtime::add_surface(view.clone(), spec)?;
     Ok(State {
@@ -507,7 +523,13 @@ fn truncate(text: &str, limit: usize) -> String {
 }
 
 /// Завершение runtime, если он запущен, и итог. Освобождение поверхности останавливает фикстуру.
-pub(super) fn finish(stand: &Stand, mut report: Report, verdict: Result<(), String>) {
+/// Без `view` вид поверхности ищется среди дочерних видов вида стенда.
+pub(super) fn finish(
+    stand: &Stand,
+    mut report: Report,
+    verdict: Result<(), String>,
+    view: Option<objc2::rc::Retained<SurfaceView>>,
+) {
     let mut verdict = verdict;
     match runtime::shutdown() {
         Ok(record) => {
@@ -536,12 +558,14 @@ pub(super) fn finish(stand: &Stand, mut report: Report, verdict: Result<(), Stri
         }
         Err(reason) => report.push("ghostty_runtime", reason),
     }
-    if let Some(view) = stand
-        .view
-        .subviews()
-        .iter()
-        .find_map(|view| view.downcast::<SurfaceView>().ok())
-    {
+    let view = view.or_else(|| {
+        stand
+            .view
+            .subviews()
+            .iter()
+            .find_map(|view| view.downcast::<SurfaceView>().ok())
+    });
+    if let Some(view) = view {
         report.push_json("surface_view_feeds", &view.feeds());
         if view.is_attached() && verdict.is_ok() {
             verdict = Err("вид держит ручку поверхности после освобождения".to_owned());

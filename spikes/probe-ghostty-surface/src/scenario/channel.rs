@@ -1,27 +1,40 @@
-//! Сокет фикстур на стороне пробы: слушатель в `--out`, рабочие потоки приёма и чтения и разобранные
-//! квитанции, которые главный поток забирает сам. Один слушатель на процесс; соединение узнаётся
-//! по nonce из квитанции готовности. Команды фикстуре этот шаг ещё не шлёт.
+//! Сокет фикстур на стороне пробы: слушатель в `--out`, рабочие потоки приёма, чтения и записи и
+//! разобранные квитанции, которые главный поток забирает сам. Один слушатель на процесс; соединение
+//! узнаётся по nonce из квитанции готовности. Команды главный поток только кладёт в очередь потока
+//! записи соединения и сам в сокет не пишет; `ack` фикстуры значит «байты команды записаны в PTY».
 //!
 //! Путь в `--out` длиннее `sun_path`, поэтому сокет привязывается по имени из своего каталога со
 //! сменой рабочего каталога. Это действие на весь процесс, поэтому [`Hub::bind`] вызывается, пока
 //! потоков ещё нет, а потоки приёма запускает [`Hub::start`].
 
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 
-use crate::fixture::{self, ChannelRoute, Event, FrameReader, Ready, Receipt};
+use crate::fixture::{self, ChannelRoute, Command, Event, FrameReader, Ready, Receipt, Request};
 
 /// Имя сокета в `--out`.
 pub const SOCKET: &str = "fixture.sock";
 
 enum HubEvent {
-    Connected { conn: u64 },
-    Receipt { conn: u64, receipt: Box<Receipt> },
-    Corrupt { conn: u64, error: String },
-    Closed { conn: u64, error: Option<String> },
+    Connected {
+        conn: u64,
+        writer: Result<Sender<Vec<u8>>, String>,
+    },
+    Receipt {
+        conn: u64,
+        receipt: Box<Receipt>,
+    },
+    Corrupt {
+        conn: u64,
+        error: String,
+    },
+    Closed {
+        conn: u64,
+        error: Option<String>,
+    },
 }
 
 /// Соединение одной фикстуры.
@@ -33,6 +46,31 @@ pub struct Conn {
     pub exit: Option<(String, u8)>,
     pub closed: bool,
     pub errors: Vec<String>,
+    /// Очередь потока записи; `None`, если поток не запущен.
+    writer: Option<Sender<Vec<u8>>>,
+}
+
+impl Conn {
+    /// Квитанция `ack` команды с этим номером: (байты, ошибка).
+    pub fn ack(&self, id: u64) -> Option<(u64, Option<String>)> {
+        self.receipts
+            .iter()
+            .find_map(|receipt| match &receipt.event {
+                Event::Ack {
+                    id: acked,
+                    bytes,
+                    error,
+                } if *acked == id => Some((*bytes, error.clone())),
+                _ => None,
+            })
+    }
+
+    /// Квитанции `winch` по порядку.
+    pub fn winches(&self) -> impl Iterator<Item = &Receipt> {
+        self.receipts
+            .iter()
+            .filter(|receipt| matches!(receipt.event, Event::Winch { .. }))
+    }
 }
 
 pub struct Hub {
@@ -40,6 +78,7 @@ pub struct Hub {
     listener: Option<UnixListener>,
     receiver: Option<Receiver<HubEvent>>,
     conns: Vec<Conn>,
+    next_request: u64,
 }
 
 impl Hub {
@@ -66,6 +105,7 @@ impl Hub {
             listener: Some(listener),
             receiver: None,
             conns: Vec::new(),
+            next_request: 0,
         })
     }
 
@@ -117,14 +157,21 @@ impl Hub {
 
     fn apply(&mut self, event: HubEvent) {
         match event {
-            HubEvent::Connected { conn } => self.conns.push(Conn {
-                id: conn,
-                receipts: Vec::new(),
-                ready: None,
-                exit: None,
-                closed: false,
-                errors: Vec::new(),
-            }),
+            HubEvent::Connected { conn, writer } => {
+                let (writer, errors) = match writer {
+                    Ok(writer) => (Some(writer), Vec::new()),
+                    Err(error) => (None, vec![error]),
+                };
+                self.conns.push(Conn {
+                    id: conn,
+                    receipts: Vec::new(),
+                    ready: None,
+                    exit: None,
+                    closed: false,
+                    errors,
+                    writer,
+                });
+            }
             HubEvent::Receipt { conn, receipt } => {
                 if let Some(conn) = self.conn_mut(conn) {
                     match &receipt.event {
@@ -164,6 +211,33 @@ impl Hub {
         })
     }
 
+    /// Число соединений, приславших готовность.
+    pub fn ready_count(&self) -> usize {
+        self.conns
+            .iter()
+            .filter(|conn| conn.ready.is_some())
+            .count()
+    }
+
+    /// Ставит команду в очередь записи фикстуры с этим nonce и возвращает номер команды для
+    /// поиска её `ack`. Главный поток в сокет не пишет.
+    pub fn send(&mut self, nonce: &str, command: Command) -> Result<u64, String> {
+        self.next_request += 1;
+        let id = self.next_request;
+        let frame = fixture::encode(&Request { id, command })?;
+        let conn = self
+            .by_nonce(nonce)
+            .ok_or(format!("нет соединения фикстуры {nonce}"))?;
+        let writer = conn
+            .writer
+            .as_ref()
+            .ok_or(format!("у соединения #{} нет потока записи", conn.id))?;
+        writer
+            .send(frame)
+            .map_err(|_| format!("поток записи соединения #{} завершён", conn.id))?;
+        Ok(id)
+    }
+
     /// Краткое состояние для сообщения о тайм-ауте.
     pub fn describe(&self) -> String {
         let conns: Vec<String> = self
@@ -198,7 +272,11 @@ fn accept_loop(listener: UnixListener, sender: Sender<HubEvent>) {
         };
         next += 1;
         let conn = next;
-        if sender.send(HubEvent::Connected { conn }).is_err() {
+        let writer = stream
+            .try_clone()
+            .map_err(|err| format!("сокет для записи: {err}"))
+            .and_then(|stream| spawn_writer(conn, stream));
+        if sender.send(HubEvent::Connected { conn, writer }).is_err() {
             return;
         }
         let reader = sender.clone();
@@ -212,6 +290,22 @@ fn accept_loop(listener: UnixListener, sender: Sender<HubEvent>) {
             });
         }
     }
+}
+
+/// Поток записи команд соединения: завершается, когда закрыта очередь или сокет.
+fn spawn_writer(conn: u64, mut stream: UnixStream) -> Result<Sender<Vec<u8>>, String> {
+    let (sender, receiver) = mpsc::channel::<Vec<u8>>();
+    thread::Builder::new()
+        .name(format!("probe-fixture-write-{conn}"))
+        .spawn(move || {
+            for frame in receiver {
+                if stream.write_all(&frame).is_err() {
+                    return;
+                }
+            }
+        })
+        .map_err(|err| format!("поток записи не запущен: {err}"))?;
+    Ok(sender)
 }
 
 fn read_loop(conn: u64, mut stream: UnixStream, sender: Sender<HubEvent>) {
@@ -247,7 +341,6 @@ fn read_loop(conn: u64, mut stream: UnixStream, sender: Sender<HubEvent>) {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
     use std::time::Duration;
 
     use super::*;
@@ -297,10 +390,49 @@ mod tests {
         assert!(hub.by_nonce("other").is_none());
         let conn = hub.by_nonce("run-s1").unwrap();
         assert_eq!(conn.ready.as_ref().unwrap().pid, 10);
+        assert_eq!(hub.ready_count(), 1);
 
-        let exit = Receipt {
+        // Команда уходит потоком записи, `ack` находится по её номеру.
+        assert!(hub.send("other", Command::StopStream).is_err());
+        let id = hub.send("run-s1", Command::StopStream).unwrap();
+        let mut frames = FrameReader::default();
+        let mut buf = [0u8; 512];
+        let request = loop {
+            if let Some(frame) = frames.next_frame() {
+                break fixture::decode::<Request>(&frame.unwrap()).unwrap();
+            }
+            let read = client.read(&mut buf).unwrap();
+            assert!(read > 0, "сокет закрыт до команды");
+            frames.push(&buf[..read]);
+        };
+        assert_eq!(
+            request,
+            Request {
+                id,
+                command: Command::StopStream
+            }
+        );
+        let ack = Receipt {
             seq: 2,
             t_ns: 6,
+            event: Event::Ack {
+                id,
+                bytes: 0,
+                error: Some("потока нет".to_owned()),
+            },
+        };
+        client.write_all(&fixture::encode(&ack).unwrap()).unwrap();
+        while hub.by_nonce("run-s1").unwrap().ack(id).is_none() {
+            assert!(hub.poll_for(WAIT), "нет ack: {}", hub.describe());
+        }
+        assert_eq!(
+            hub.by_nonce("run-s1").unwrap().ack(id),
+            Some((0, Some("потока нет".to_owned())))
+        );
+
+        let exit = Receipt {
+            seq: 3,
+            t_ns: 7,
             event: Event::Exit {
                 reason: "hangup".to_owned(),
                 detail: None,
@@ -313,7 +445,7 @@ mod tests {
             assert!(hub.poll_for(WAIT), "нет закрытия: {}", hub.describe());
         }
         assert_eq!(hub.conns[0].exit, Some(("hangup".to_owned(), 0)));
-        assert_eq!(hub.conns[0].receipts.len(), 2);
+        assert_eq!(hub.conns[0].receipts.len(), 3);
         let socket = hub.path().to_path_buf();
         drop(hub);
         assert!(!socket.exists());

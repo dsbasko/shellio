@@ -2,7 +2,8 @@
 //! `ghostty_surface_new` (`platform.macos.nsview`). Вид сам `layer` и `wantsLayer` не ставит.
 //!
 //! Вид подаёт поверхности размер и масштаб в пикселях с `refresh` после каждой подачи размера,
-//! фокус и `set_display_id`. Ручку поверхности вид получает в [`SurfaceView::attach`] и снимает в
+//! фокус и `set_display_id`. Вне окна размер и масштаб не подаются: у вида без окна нет своей
+//! подложки, и подача дала бы ребёнку лишний `SIGWINCH`. Ручку поверхности вид получает в [`SurfaceView::attach`] и снимает в
 //! [`SurfaceView::detach`] до освобождения; состояние runtime он не трогает.
 
 use std::cell::{Cell, RefCell};
@@ -26,6 +27,8 @@ pub struct Feeds {
     pub refreshes: u64,
     /// Подачи, пропущенные из-за нулевого размера в пикселях.
     pub zero_size_skipped: u64,
+    /// Подачи размера и масштаба, пропущенные, пока вид вне окна.
+    pub detached_skipped: u64,
     pub last_size_px: Option<(u32, u32)>,
     pub scale_feeds: u64,
     pub last_scale: Option<(f64, f64)>,
@@ -123,15 +126,7 @@ impl SurfaceView {
 
     /// Размер содержимого в пикселях подложки, с отбрасыванием дробной части.
     pub fn pixel_size(&self) -> (u32, u32) {
-        let backing = self.convertSizeToBacking(self.bounds().size);
-        let pixels = |value: f64| {
-            if value.is_finite() && value > 0.0 {
-                value.floor() as u32
-            } else {
-                0
-            }
-        };
-        (pixels(backing.width), pixels(backing.height))
+        crate::scene::to_pixels(self.bounds().size, self.backing_scale())
     }
 
     /// Масштаб подложки окна или главного экрана, если окна ещё нет.
@@ -183,8 +178,18 @@ impl SurfaceView {
         self.ivars().feeds.borrow_mut().focus.push(focused);
     }
 
+    /// Ручка для подачи размера и масштаба: только пока вид в окне.
+    fn sized_handle(&self) -> Option<Handle> {
+        let handle = self.ivars().handle.get()?;
+        if self.window().is_none() {
+            self.ivars().feeds.borrow_mut().detached_skipped += 1;
+            return None;
+        }
+        Some(handle)
+    }
+
     fn feed_size(&self) {
-        let Some(handle) = self.ivars().handle.get() else {
+        let Some(handle) = self.sized_handle() else {
             return;
         };
         let (width, height) = self.pixel_size();
@@ -204,7 +209,7 @@ impl SurfaceView {
     }
 
     fn feed_scale(&self) {
-        let Some(handle) = self.ivars().handle.get() else {
+        let Some(handle) = self.sized_handle() else {
             return;
         };
         let frame = self.frame();

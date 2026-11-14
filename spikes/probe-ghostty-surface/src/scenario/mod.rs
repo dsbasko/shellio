@@ -9,6 +9,7 @@ pub mod startup;
 pub mod surface_env;
 pub mod watchdog;
 pub mod window;
+pub mod zones;
 
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -46,14 +47,16 @@ pub enum Scenario {
     SurfaceEnv,
     Startup,
     StartupLs,
+    Zones,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 4] = [
+    pub const ALL: [Scenario; 5] = [
         Scenario::Window,
         Scenario::SurfaceEnv,
         Scenario::Startup,
         Scenario::StartupLs,
+        Scenario::Zones,
     ];
 
     pub fn name(self) -> &'static str {
@@ -62,6 +65,7 @@ impl Scenario {
             Scenario::SurfaceEnv => "surface-env",
             Scenario::Startup => "startup",
             Scenario::StartupLs => "startup-ls",
+            Scenario::Zones => "zones",
         }
     }
 
@@ -70,7 +74,7 @@ impl Scenario {
     pub fn uses_ghostty(self, variant: &str) -> bool {
         match self {
             Scenario::Window => false,
-            Scenario::SurfaceEnv => true,
+            Scenario::SurfaceEnv | Scenario::Zones => true,
             Scenario::Startup | Scenario::StartupLs => variant != startup::BARE,
         }
     }
@@ -89,6 +93,7 @@ impl Scenario {
             Scenario::Window => 20,
             Scenario::SurfaceEnv => 50,
             Scenario::Startup | Scenario::StartupLs => 40,
+            Scenario::Zones => 300,
         })
     }
 }
@@ -107,6 +112,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Window => window::run(stand),
         Scenario::SurfaceEnv => surface_env::run(stand),
         Scenario::Startup | Scenario::StartupLs => startup::run(stand, scenario),
+        Scenario::Zones => zones::run(stand),
     }
 }
 

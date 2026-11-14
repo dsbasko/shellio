@@ -146,7 +146,7 @@ pub fn run(stand: Rc<Stand>, scenario: Scenario) {
         Kind::Surface | Kind::InvalidLang => {
             match surface_env::prepare(&stand, &mut report, ColorScheme::Light) {
                 Ok(state) => Some(Rc::new(RefCell::new(state))),
-                Err(reason) => return surface_env::finish(&stand, report, Err(reason)),
+                Err(reason) => return surface_env::finish(&stand, report, Err(reason), None),
             }
         }
     };
@@ -160,7 +160,8 @@ pub fn run(stand: Rc<Stand>, scenario: Scenario) {
             surface_env::create(state)
         };
         if let Err(reason) = created {
-            return surface_env::finish(&stand, report, Err(reason));
+            let view = state.borrow().view.clone();
+            return surface_env::finish(&stand, report, Err(reason), Some(view));
         }
     }
 
@@ -177,7 +178,10 @@ pub fn run(stand: Rc<Stand>, scenario: Scenario) {
             Err(failure) => Err(failure.describe()),
         };
         match surface {
-            Some(_) => surface_env::finish(&stand, report, verdict),
+            Some(state) => {
+                let view = state.borrow().view.clone();
+                surface_env::finish(&stand, report, verdict, Some(view))
+            }
             None => stand.conclude(report, verdict),
         }
     });

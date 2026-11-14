@@ -833,6 +833,48 @@ pub fn press(key: Key) -> Result<Vec<u64>, String> {
     Ok(numbers)
 }
 
+/// Кнопка или перетаскивание левой кнопкой мыши в точке экрана `point` (координаты AppKit).
+/// Точка переводится в координаты окна в момент отправки: окно могло сдвинуться или вырасти.
+/// Курсор системы не двигается.
+pub fn post_mouse(
+    kind: NSEventType,
+    window: &NSWindow,
+    point: NSPoint,
+    label: &str,
+) -> Result<u64, String> {
+    with_bench(|bench| {
+        let before = focus_state(&bench.app);
+        let location = window.convertPointFromScreen(point);
+        let timestamp = bench.timestamp();
+        let number = bench.table.peek_number();
+        let event_number =
+            isize::try_from(number).map_err(|_| format!("номер события {number} вне isize"))?;
+        let pressure = if kind == NSEventType::LeftMouseUp {
+            0.0
+        } else {
+            1.0
+        };
+        let event = NSEvent::mouseEventWithType_location_modifierFlags_timestamp_windowNumber_context_eventNumber_clickCount_pressure(
+            kind,
+            location,
+            NSEventModifierFlags::empty(),
+            timestamp,
+            window.windowNumber(),
+            None,
+            event_number,
+            1,
+            pressure,
+        )
+        .ok_or_else(|| format!("NSEvent не создал событие {label}"))?;
+        Ok(bench.post(
+            format!("{label} at {:.0},{:.0}", point.x, point.y),
+            event,
+            before,
+        ))
+    })
+    .unwrap_or_else(|| Err(no_bench()))
+}
+
 fn post_key(
     kind: NSEventType,
     label: &str,

@@ -291,6 +291,11 @@ pub struct GridSize {
 }
 
 impl Handle {
+    /// Адрес поверхности для сверки идентичности; не разыменовывается.
+    pub fn addr(self) -> usize {
+        self.0 as usize
+    }
+
     /// # Safety
     /// Поверхность жива.
     pub unsafe fn set_size(self, width: u32, height: u32) {
