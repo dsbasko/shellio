@@ -28,7 +28,9 @@ use objc2_app_kit::{
 use objc2_core_foundation::{
     CFIndex, CFRunLoop, CFRunLoopActivity, CFRunLoopObserver, kCFRunLoopCommonModes,
 };
-use objc2_core_graphics::{CGEvent, CGEventField};
+use objc2_core_graphics::{
+    CGDisplayBounds, CGEvent, CGEventField, CGMainDisplayID, CGScrollEventUnit,
+};
 use objc2_foundation::{NSObjectProtocol, NSPoint, NSProcessInfo, NSString};
 
 use super::{Finisher, Outcome, Report};
@@ -394,15 +396,17 @@ define_class!(
 );
 
 impl ProbeApplication {
-    /// `keyUp` и автоповтор нажатия, съеденного видом поверхности, уходят его владельцу мимо
-    /// обычной цепочки (`view::before_dispatch`).
+    /// Сначала маршрутизатор режимов (`router::intercept`), затем `keyUp` и автоповтор нажатия,
+    /// съеденного видом поверхности, — его владельцу мимо обычной цепочки
+    /// (`view::before_dispatch`), затем обычная доставка.
     fn dispatch(&self, event: &NSEvent) {
-        if crate::view::before_dispatch(event) {
+        if crate::router::intercept(event) || crate::view::before_dispatch(event) {
             return;
         }
         // SAFETY: вызов реализации `sendEvent:` суперкласса с тем же событием.
         let () = unsafe { msg_send![super(self), sendEvent: event] };
         crate::view::after_dispatch(event);
+        crate::router::after_dispatch(event);
     }
 }
 
@@ -913,6 +917,57 @@ pub fn key_down(key: Key, repeat: bool) -> Result<u64, String> {
         repeat,
         None,
     )
+}
+
+/// `flagsChanged` клавиши модификатора `code`; `flags` — модификаторы после изменения.
+pub fn modifier(code: u16, flags: NSEventModifierFlags) -> Result<u64, String> {
+    let sign = if flags.is_empty() { '-' } else { '+' };
+    post_key(
+        NSEventType::FlagsChanged,
+        &format!("flagsChanged{sign}{code}"),
+        code,
+        "",
+        "",
+        flags,
+    )
+}
+
+/// Прокрутка на одну строку вниз в точке экрана `point` (координаты AppKit). У `NSEvent` нет
+/// конструктора прокрутки, поэтому событие строится из `CGEvent`; в таблицу идёт сигнатура
+/// готового `NSEvent`. Такое событие приходит без окна (номер 0), и AppKit до вида его не
+/// доводит. Курсор системы не двигается.
+pub fn post_scroll(point: NSPoint, label: &str) -> Result<u64, String> {
+    with_bench(|bench| {
+        let before = focus_state(&bench.app);
+        let cg = CGEvent::new_scroll_wheel_event2(None, CGScrollEventUnit::Line, 1, -1, 0, 0)
+            .ok_or_else(|| format!("CGEvent не создал прокрутку {label}"))?;
+        let primary = CGDisplayBounds(CGMainDisplayID());
+        CGEvent::set_location(
+            Some(&cg),
+            NSPoint::new(point.x, primary.size.height - point.y),
+        );
+        let event = NSEvent::eventWithCGEvent(&cg)
+            .ok_or_else(|| format!("NSEvent не создал прокрутку {label}"))?;
+        let timestamp = event.timestamp();
+        if let Some(last) = bench.last_timestamp
+            && (timestamp - last).abs() < TIMESTAMP_SPACING
+        {
+            return Err(format!(
+                "timestamp прокрутки {timestamp:.6} ближе {TIMESTAMP_SPACING} к соседнему {last:.6}"
+            ));
+        }
+        bench.last_timestamp = Some(
+            bench
+                .last_timestamp
+                .map_or(timestamp, |last| last.max(timestamp)),
+        );
+        Ok(bench.post(
+            format!("{label} at {:.0},{:.0}", point.x, point.y),
+            event,
+            before,
+        ))
+    })
+    .unwrap_or_else(|| Err(no_bench()))
 }
 
 /// Одно отпускание клавиши.

@@ -10,6 +10,7 @@ mod ghostty;
 mod keys;
 mod launch;
 mod results;
+mod router;
 mod scenario;
 mod scene;
 mod stats;

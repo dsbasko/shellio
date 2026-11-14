@@ -2,6 +2,7 @@
 //! предусловия.
 
 pub mod channel;
+pub mod chord;
 pub mod counters;
 pub mod events;
 pub mod ime;
@@ -52,10 +53,11 @@ pub enum Scenario {
     Zones,
     Input,
     Ime,
+    Chord,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 7] = [
+    pub const ALL: [Scenario; 8] = [
         Scenario::Window,
         Scenario::SurfaceEnv,
         Scenario::Startup,
@@ -63,6 +65,7 @@ impl Scenario {
         Scenario::Zones,
         Scenario::Input,
         Scenario::Ime,
+        Scenario::Chord,
     ];
 
     pub fn name(self) -> &'static str {
@@ -74,6 +77,7 @@ impl Scenario {
             Scenario::Zones => "zones",
             Scenario::Input => "input",
             Scenario::Ime => "ime",
+            Scenario::Chord => "chord",
         }
     }
 
@@ -82,7 +86,11 @@ impl Scenario {
     pub fn uses_ghostty(self, variant: &str) -> bool {
         match self {
             Scenario::Window => false,
-            Scenario::SurfaceEnv | Scenario::Zones | Scenario::Input | Scenario::Ime => true,
+            Scenario::SurfaceEnv
+            | Scenario::Zones
+            | Scenario::Input
+            | Scenario::Ime
+            | Scenario::Chord => true,
             Scenario::Startup | Scenario::StartupLs => variant != startup::BARE,
         }
     }
@@ -104,6 +112,7 @@ impl Scenario {
             Scenario::Zones => 300,
             Scenario::Input => 240,
             Scenario::Ime => 90,
+            Scenario::Chord => 240,
         })
     }
 }
@@ -125,6 +134,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Zones => zones::run(stand),
         Scenario::Input => input::run(stand),
         Scenario::Ime => ime::run(stand),
+        Scenario::Chord => chord::run(stand),
     }
 }
 

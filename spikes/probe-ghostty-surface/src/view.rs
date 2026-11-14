@@ -20,7 +20,10 @@
 //! - клавиша действует на видимое: вид вне окна, скрытый или без поверхности ввод не отправляет;
 //!   новое нажатие и коммит вне `keyDown` — только у вида с фокусом клавиатуры, отпускание и
 //!   автоповтор — у владельца нажатия;
-//! - фокус поверхности — first responder своего окна, когда окно key.
+//! - фокус поверхности — first responder своего окна, когда окно key;
+//! - маршрутизатор режимов (`router`) стоит перед видом: съеденные им нажатия вид не получает,
+//!   повтор аккорда выхода приходит через [`SurfaceView::replay`]. Потерю фокуса и закрытие вид
+//!   сообщает маршрутизатору: это снимает ожидание второго аккорда.
 //!
 //! `NSTextInputClient`: документ клиента — только marked text, отправленный текст уже в PTY и не
 //! редактируется. `markedRange` и `selectedRange` считают единицы UTF-16 marked text; без него оба
@@ -46,7 +49,7 @@ use serde::Serialize;
 use shellio_sys_ghostty as sys;
 
 use crate::clock;
-use crate::ghostty::surface::Handle;
+use crate::ghostty::surface::{Handle, SurfaceKey};
 use crate::keys::{self, Action, EventKey, KeyDown, KeyInput, NO_PHYSICAL_KEY, Owners};
 use crate::scenario::counters::{Live, counter};
 use crate::utf16::{self, Range16, Surrogates};
@@ -144,6 +147,8 @@ struct Marked {
 pub struct ViewIvars {
     _live: Live,
     handle: Cell<Option<Handle>>,
+    /// Поколение живой поверхности: по нему маршрутизатор узнаёт своего получателя.
+    key: Cell<Option<SurfaceKey>>,
     /// Вид — first responder своего окна (по `become`/`resign`).
     responder: Cell<bool>,
     /// Последняя поданная фокусность.
@@ -195,6 +200,7 @@ define_class!(
                 self.discard_marked();
                 self.ivars().responder.set(false);
                 self.refresh_focus();
+                crate::router::focus_lost(self);
             }
             accepted
         }
@@ -244,6 +250,9 @@ define_class!(
         #[unsafe(method(windowKeyChanged:))]
         fn window_key_changed(&self, _notification: &NSNotification) {
             self.refresh_focus();
+            if !self.effective_focus() {
+                crate::router::focus_lost(self);
+            }
         }
 
         #[unsafe(method(keyDown:))]
@@ -443,6 +452,8 @@ fn string_of(text: Option<Retained<NSString>>) -> Option<String> {
 #[derive(Debug)]
 enum Owner {
     Surface(Weak<SurfaceView>),
+    /// `keyDown` съел маршрутизатор режимов: его `keyUp` и автоповтор не доставляются.
+    Router,
     /// `keyDown` съел не вид поверхности: меню, вид стенда, окно.
     Elsewhere,
 }
@@ -457,9 +468,26 @@ fn owner_is(code: u16, view: &SurfaceView) -> Option<bool> {
             Owner::Surface(weak) => weak
                 .load()
                 .is_some_and(|owner| std::ptr::addr_eq(Retained::as_ptr(&owner), view)),
-            Owner::Elsewhere => false,
+            Owner::Router | Owner::Elsewhere => false,
         })
     })
+}
+
+/// Нажатие съел маршрутизатор: прежний владелец того же кода заменяется.
+pub fn claim_for_router(code: u16) {
+    OWNERS.with(|owners| owners.borrow_mut().claim(code, Owner::Router));
+}
+
+/// Владелец нажатия — маршрутизатор.
+pub fn router_owns(code: u16) -> bool {
+    OWNERS.with(|owners| matches!(owners.borrow().owner(code), Some(Owner::Router)))
+}
+
+/// Отпускание нажатия, которое съел маршрутизатор.
+pub fn release_router(code: u16) {
+    if router_owns(code) {
+        OWNERS.with(|owners| owners.borrow_mut().release(code));
+    }
 }
 
 /// Вызывается `sendEvent` до обычной доставки. Нажатие без повтора начинает с владельца
@@ -505,6 +533,7 @@ impl SurfaceView {
         let this = SurfaceView::alloc(mtm).set_ivars(ViewIvars {
             _live: SURFACE_VIEW.live(),
             handle: Cell::new(None),
+            key: Cell::new(None),
             responder: Cell::new(false),
             fed_focus: Cell::new(None),
             feeds: RefCell::new(Feeds::default()),
@@ -562,10 +591,20 @@ impl SurfaceView {
         self.ivars().handle.get()
     }
 
+    pub fn surface_key(&self) -> Option<SurfaceKey> {
+        self.ivars().key.get()
+    }
+
+    /// Идёт composition: у вида marked text.
+    pub fn is_composing(&self) -> bool {
+        self.has_marked()
+    }
+
     /// Поверхность создана: рождённая с размером 800×600, она сразу получает масштаб, размер в
     /// пикселях с `refresh`, дисплей и фокус.
-    pub fn attach(&self, handle: Handle) {
+    pub fn attach(&self, key: SurfaceKey, handle: Handle) {
         self.ivars().handle.set(Some(handle));
+        self.ivars().key.set(Some(key));
         self.feed_scale();
         self.feed_size();
         self.feed_display();
@@ -574,19 +613,23 @@ impl SurfaceView {
 
     /// Ручка снимается до `ghostty_surface_free`.
     pub fn detach(&self) {
+        let key = self.ivars().key.take();
         self.ivars().handle.set(None);
         OWNERS.with(|owners| {
             owners.borrow_mut().forget(|owner| match owner {
                 Owner::Surface(weak) => weak
                     .load()
                     .is_none_or(|owner| std::ptr::addr_eq(Retained::as_ptr(&owner), self)),
-                Owner::Elsewhere => false,
+                Owner::Router | Owner::Elsewhere => false,
             })
         });
+        if let Some(key) = key {
+            crate::router::receiver_gone(key);
+        }
     }
 
     /// Фокус поверхности: first responder окна, которое сейчас key.
-    fn effective_focus(&self) -> bool {
+    pub fn effective_focus(&self) -> bool {
         self.ivars().responder.get() && self.window().is_some_and(|window| window.isKeyWindow())
     }
 
@@ -812,6 +855,48 @@ impl SurfaceView {
         .unwrap_or_else(|| event.retain())
     }
 
+    /// Событие клавиши с символами по модификаторам перевода ghostty и событие перевода для
+    /// `interpretKeyEvents`.
+    fn translate(&self, handle: Handle, event: &NSEvent) -> (EventKey, Retained<NSEvent>) {
+        let flags = flags_of(event);
+        // SAFETY: ручка снимается до освобождения поверхности, вызов на главном потоке.
+        let translation_mods = unsafe { handle.key_translation_mods(keys::mods_from_flags(flags)) };
+        let translation_flags = keys::translation_flags(flags, translation_mods);
+        let translation = self.translation_event(event, translation_flags);
+        let event_key = self.event_key(event, &translation, translation_flags);
+        (event_key, translation)
+    }
+
+    /// Логическое нажатие и отпускание аккорда, как их собрал бы `keyDown` вне composition, в
+    /// собственных данных: маршрутизатор хранит их до второго аккорда. Отпускание выводится из
+    /// того же события, а не из настоящего `keyUp`.
+    pub fn chord_inputs(&self, event: &NSEvent) -> Option<(KeyInput, KeyInput)> {
+        let handle = self.input_handle()?;
+        let (event_key, _) = self.translate(handle, event);
+        let press = keys::plan_key_down(&KeyDown {
+            event: event_key.clone(),
+            ..KeyDown::default()
+        })
+        .into_iter()
+        .next()?;
+        Some((press, keys::key_up(&event_key)))
+    }
+
+    /// Повтор аккорда выхода прежнему получателю: те же события через `ghostty_surface_key`,
+    /// только если поверхность того же поколения жива и видима.
+    pub fn replay(&self, key: SurfaceKey, inputs: &[KeyInput]) -> Result<(), &'static str> {
+        if self.ivars().key.get() != Some(key) {
+            return Err("поверхность освобождена или сменила поколение");
+        }
+        let handle = self
+            .input_handle()
+            .ok_or("вид вне окна, скрыт или без поверхности")?;
+        for input in inputs {
+            self.send("chord-replay", handle, input);
+        }
+        Ok(())
+    }
+
     fn on_key_down(&self, event: &NSEvent, owned: bool) {
         self.arrive("keyDown", event, owned);
         let code = event.keyCode();
@@ -832,12 +917,7 @@ impl SurfaceView {
                     .claim(code, Owner::Surface(Weak::new(self)))
             });
         }
-        let flags = flags_of(event);
-        // SAFETY: ручка снимается до освобождения поверхности, вызов на главном потоке.
-        let translation_mods = unsafe { handle.key_translation_mods(keys::mods_from_flags(flags)) };
-        let translation_flags = keys::translation_flags(flags, translation_mods);
-        let translation = self.translation_event(event, translation_flags);
-        let event_key = self.event_key(event, &translation, translation_flags);
+        let (event_key, translation) = self.translate(handle, event);
         let marked_before = self.has_marked();
         *self.ivars().accumulator.borrow_mut() = Some(Vec::new());
         self.interpretKeyEvents(&NSArray::from_retained_slice(&[translation]));

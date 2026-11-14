@@ -10,8 +10,9 @@
 //! Сочетания `Cmd` проходят `performKeyEquivalent`, вставка — привязку `Cmd-V` и выдачу с
 //! именованной доски на следующем проходе, мышь — события окна с положением курсора.
 //!
-//! Обвязку — сцену, две фикстуры в raw-режиме, проверки с оградой и итог — переиспользует
-//! сценарий `ime` ([`run_harness`]).
+//! Обвязку — сцену, две фикстуры в raw-режиме, проверки с оградой и итог — переиспользуют
+//! сценарии `ime` и `chord` ([`run_harness`]). Маршрутизатор режимов ставит только `chord`; итог
+//! обвязки снимает его в любом случае.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -141,7 +142,7 @@ pub(super) struct Input {
     prefix: &'static str,
     env: State,
     b: Extra,
-    scene: Scene,
+    pub(super) scene: Rc<Scene>,
     board: String,
     pending: Option<Pending>,
     checks: Vec<CheckRecord>,
@@ -203,6 +204,16 @@ impl Input {
             })
             .flatten()
             .collect()
+    }
+
+    /// Соединение фикстуры закрыто: она вышла.
+    pub(super) fn fixture_closed(&mut self, which: usize) -> bool {
+        self.env.hub.poll();
+        let nonce = self.nonce(which);
+        self.env
+            .hub
+            .by_nonce(&nonce)
+            .is_some_and(|conn| conn.closed)
     }
 
     pub(super) fn observe(&mut self, key: &str, value: impl Serialize) {
@@ -480,12 +491,22 @@ impl Plan {
 
     /// Ожидание байтов, ограда, тишина и итог.
     pub(super) fn finish(&mut self) {
-        self.step(
+        self.expect_bytes();
+        self.fence();
+    }
+
+    /// Ожидаемые байты получателя пришли или вышел внутренний предел.
+    pub(super) fn expect_bytes(&mut self) {
+        self.wait(
             "ожидаемые байты",
             BYTES_TIMEOUT,
             |_, input| input.expected_arrived(),
-            |_, _| events::press(FENCE).map(|_| ()),
         );
+    }
+
+    /// Ограда получателю, тишина другой фикстуры и итог проверки.
+    pub(super) fn fence(&mut self) {
+        self.act("ограда", |_, _| events::press(FENCE).map(|_| ()));
         self.step(
             "ограда и тишина другой фикстуры",
             FENCE_TIMEOUT,
@@ -582,7 +603,7 @@ pub(super) fn run_harness(stand: Rc<Stand>, harness: Harness) {
     clipboard::use_board(Board::Named(board.clone()));
     report.push("pasteboard", &board);
     let mtm = stand.view.mtm();
-    let scene = Scene::new(mtm, false);
+    let scene = Rc::new(Scene::new(mtm, false));
     scene.install(&stand.view, &stand.window);
     let env = surface_env::prepare_in(&stand, &mut report, ColorScheme::Light, |view| {
         scene.add_tab(Zone::Center, 0, "A", view)
@@ -644,6 +665,9 @@ pub(super) fn run_harness(stand: Rc<Stand>, harness: Harness) {
             }
             Err(failure) => Err(failure.describe()),
         };
+        if let Some(router) = crate::router::uninstall() {
+            report.push_json("router", &router);
+        }
         let mut input = input.borrow_mut();
         report.push_json("checks", &input.checks);
         for (key, value) in std::mem::take(&mut input.observations) {
@@ -667,12 +691,16 @@ fn build_input(plan: &mut Plan) {
     routing(plan);
 }
 
+/// Поверхность, которую сценарий уже закрыл сам (`chord`), второй раз не закрывается.
 fn close(plan: &mut Plan) {
     plan.act(
         "закрытие обеих поверхностей",
         |_, input| {
-            runtime::request_close(input.id(A))?;
-            runtime::request_close(input.id(B))?;
+            for which in [A, B] {
+                if runtime::phase(input.id(which)) != Some(Phase::Freed) {
+                    runtime::request_close(input.id(which))?;
+                }
+            }
             Ok(())
         },
     );
@@ -682,13 +710,7 @@ fn close(plan: &mut Plan) {
         |_, input| {
             let ready = [A, B].map(|which| {
                 let phase = runtime::phase(input.id(which));
-                let nonce = input.nonce(which);
-                input.env.hub.poll();
-                let closed = input
-                    .env
-                    .hub
-                    .by_nonce(&nonce)
-                    .is_some_and(|conn| conn.closed);
+                let closed = input.fixture_closed(which);
                 (phase == Some(Phase::Freed) && closed, phase)
             });
             poll(ready[A].0 && ready[B].0, || {

@@ -614,7 +614,7 @@ pub fn create(id: SurfaceId) -> Result<Created, String> {
     let raw = unsafe { sys::ghostty_surface_new(app, &prepared.config) };
     let new_ms = clock::interval_ms(started, clock::uptime_ns());
     let (view, handle) = with(|rt| rt.surfaces.commit(prepared, raw)).ok_or_else(not_started)??;
-    view.attach(handle);
+    view.attach(key, handle);
     request_pass();
     Ok(Created::Created { key, new_ms })
 }

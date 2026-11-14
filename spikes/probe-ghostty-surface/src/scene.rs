@@ -3,7 +3,8 @@
 //! второго сплита внутри колонки. Зона делится на части по одной оси (ADR-0031): левая и правая
 //! одна над другой, центр и нижняя рядом. Часть — плитка с линией 1 точка, скруглением 7 точек и
 //! полосой вкладок 34 точки (ADR-0024); вкладка показывает свой вид в теле плитки. Плитка с
-//! фокусом выделена тоном полосы вкладок и линией под активной вкладкой.
+//! фокусом выделена тоном полосы вкладок и линией под активной вкладкой цвета режима: зелёного во
+//! `Input`, синего в `Navigation` (токены `--inp-line` и `--nav-line` прототипа).
 //!
 //! Перенос вкладки между зонами меняет родителя того же `NSView`, ничего не пересоздавая.
 //! Расположение вида читается по фактической цепочке `superview`, а не по учёту сцены.
@@ -17,9 +18,11 @@ use objc2_app_kit::{
     NSAutoresizingMaskOptions, NSColor, NSFont, NSResponder, NSSplitView, NSSplitViewController,
     NSSplitViewItem, NSTextField, NSView, NSViewController, NSWindow,
 };
+use objc2_core_graphics::CGColor;
 use objc2_foundation::{NSArray, NSObject, NSPoint, NSRect, NSSize, NSString};
 use serde::Serialize;
 
+use crate::router::Mode;
 use crate::scenario::counters::{Live, counter};
 
 counter!(SPLIT_VIEW, "ProbeSplitView");
@@ -204,7 +207,8 @@ impl Rgb {
     }
 }
 
-/// Цвета сцены в одной теме: значения токенов прототипа, тон — цвет режима «Ввод».
+/// Цвета сцены в одной теме: значения токенов прототипа; `input` и `navigation` — цвета
+/// режимов.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 pub struct Palette {
     pub chrome: Rgb,
@@ -213,7 +217,8 @@ pub struct Palette {
     pub line: Rgb,
     pub text: Rgb,
     pub text_2: Rgb,
-    pub focus: Rgb,
+    pub input: Rgb,
+    pub navigation: Rgb,
 }
 
 impl Palette {
@@ -224,7 +229,8 @@ impl Palette {
         line: Rgb::hex(0xDDD9D1),
         text: Rgb::hex(0x1F1D1A),
         text_2: Rgb::hex(0x4F4B44),
-        focus: Rgb::hex(0x4D7553),
+        input: Rgb::hex(0x4D7553),
+        navigation: Rgb::hex(0x48678C),
     };
 
     pub const DARK: Palette = Palette {
@@ -234,17 +240,25 @@ impl Palette {
         line: Rgb::hex(0x302E2B),
         text: Rgb::hex(0xE6E1D8),
         text_2: Rgb::hex(0xABA59A),
-        focus: Rgb::hex(0x8DB08F),
+        input: Rgb::hex(0x8DB08F),
+        navigation: Rgb::hex(0x7F9BC0),
     };
 
     pub fn of(dark: bool) -> Palette {
         if dark { Palette::DARK } else { Palette::LIGHT }
     }
 
+    pub fn mode_color(&self, mode: Mode) -> Rgb {
+        match mode {
+            Mode::Input => self.input,
+            Mode::Navigation => self.navigation,
+        }
+    }
+
     /// Полоса вкладок: у плитки с фокусом с тоном режима.
-    pub fn strip(&self, focused: bool) -> Rgb {
+    pub fn strip(&self, focused: bool, mode: Mode) -> Rgb {
         if focused {
-            self.panel_head.mix(self.focus, FOCUS_TONE)
+            self.panel_head.mix(self.mode_color(mode), FOCUS_TONE)
         } else {
             self.panel_head
         }
@@ -406,6 +420,7 @@ pub struct TileIvars {
     content: Retained<NSView>,
     labels: RefCell<Vec<Retained<NSTextField>>>,
     focused: Cell<bool>,
+    mode: Cell<Mode>,
     palette: Cell<Palette>,
 }
 
@@ -443,7 +458,7 @@ define_class!(
 );
 
 impl Tile {
-    fn new(mtm: MainThreadMarker, palette: &Palette) -> Retained<Tile> {
+    fn new(mtm: MainThreadMarker, palette: &Palette, mode: Mode) -> Retained<Tile> {
         let strip = NSView::new(mtm);
         let underline = NSView::new(mtm);
         let content = NSView::new(mtm);
@@ -456,6 +471,7 @@ impl Tile {
             content: content.clone(),
             labels: RefCell::new(Vec::new()),
             focused: Cell::new(false),
+            mode: Cell::new(mode),
             palette: Cell::new(*palette),
         });
         // SAFETY: `initWithFrame:` — назначенный инициализатор NSView.
@@ -500,10 +516,40 @@ impl Tile {
         self.ivars().focused.get()
     }
 
+    /// Палитра текущего оформления плитки.
+    pub fn palette(&self) -> Palette {
+        self.ivars().palette.get()
+    }
+
     pub fn set_focused(&self, focused: bool) {
         if self.ivars().focused.replace(focused) != focused {
             self.recolor();
         }
+    }
+
+    /// Режим переживает смену оформления: палитра перестраивается, режим хранится отдельно.
+    fn set_mode(&self, mode: Mode) {
+        if self.ivars().mode.replace(mode) != mode {
+            self.recolor();
+        }
+    }
+
+    /// Фактический цвет полосы вкладок, прочитанный у её слоя.
+    pub fn strip_rgb(&self) -> Option<Rgb> {
+        let color = self.ivars().strip.layer()?.backgroundColor()?;
+        let count = CGColor::number_of_components(Some(&color));
+        let components = CGColor::components(Some(&color));
+        if count < 3 || components.is_null() {
+            return None;
+        }
+        // SAFETY: Core Graphics отдаёт `count` компонентов цвета, живого на время чтения.
+        let values = unsafe { std::slice::from_raw_parts(components, count) };
+        let channel = |value: f64| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
+        Some(Rgb(
+            channel(values[0]),
+            channel(values[1]),
+            channel(values[2]),
+        ))
     }
 
     /// Новая вкладка становится активной: её вид меняет родителя на тело плитки. Вид прежней
@@ -606,13 +652,14 @@ impl Tile {
         let ivars = self.ivars();
         let palette = ivars.palette.get();
         let focused = ivars.focused.get();
+        let mode = ivars.mode.get();
         if let Some(layer) = self.layer() {
             layer.setBackgroundColor(Some(&palette.panel.color().CGColor()));
             layer.setBorderColor(Some(&palette.line.color().CGColor()));
         }
         fill(&ivars.content, palette.panel);
-        fill(&ivars.strip, palette.strip(focused));
-        fill(&ivars.underline, palette.focus);
+        fill(&ivars.strip, palette.strip(focused, mode));
+        fill(&ivars.underline, palette.mode_color(mode));
         ivars
             .underline
             .setHidden(!focused || ivars.active.get().is_none());
@@ -641,12 +688,21 @@ pub struct PartInfo {
     pub focused: bool,
 }
 
+/// Плитка, в которую может перейти фокус.
+pub struct TileTarget {
+    pub zone: Zone,
+    pub part: usize,
+    pub frame: NSRect,
+    pub view: Retained<NSView>,
+}
+
 pub struct Scene {
     pub root: Retained<NSSplitViewController>,
     pub root_split: Retained<ProbeSplitView>,
     pub column_split: Retained<ProbeSplitView>,
     hosts: Vec<Retained<ZoneHost>>,
     palette: Cell<Palette>,
+    mode: Cell<Mode>,
 }
 
 impl Scene {
@@ -657,7 +713,7 @@ impl Scene {
             .into_iter()
             .map(|zone| {
                 let host = ZoneHost::new(mtm, zone, &palette);
-                host.add_tile(Tile::new(mtm, &palette));
+                host.add_tile(Tile::new(mtm, &palette, Mode::Input));
                 host
             })
             .collect();
@@ -690,6 +746,7 @@ impl Scene {
             column_split,
             hosts,
             palette: Cell::new(palette),
+            mode: Cell::new(Mode::Input),
         }
     }
 
@@ -731,7 +788,7 @@ impl Scene {
     /// Новая часть зоны после последней, по оси зоны. Возвращает её номер.
     pub fn split(&self, zone: Zone) -> usize {
         let host = self.host(zone);
-        host.add_tile(Tile::new(host.mtm(), &self.palette.get()))
+        host.add_tile(Tile::new(host.mtm(), &self.palette.get(), self.mode.get()))
     }
 
     /// Убирает пустую часть зоны, кроме последней оставшейся.
@@ -820,6 +877,37 @@ impl Scene {
                 tile.set_focused(focused == Some((host.zone(), part)));
             }
         }
+    }
+
+    /// Режим ввода показывается тоном плитки с фокусом и линией под её активной вкладкой.
+    pub fn set_mode(&self, mode: Mode) {
+        self.mode.set(mode);
+        for host in &self.hosts {
+            for tile in host.tiles() {
+                tile.set_mode(mode);
+            }
+        }
+    }
+
+    /// Плитки с видом активной вкладки: зона, часть, рамка в координатах окна и вид.
+    pub fn targets(&self) -> Vec<TileTarget> {
+        self.hosts
+            .iter()
+            .flat_map(|host| {
+                host.tiles()
+                    .into_iter()
+                    .enumerate()
+                    .filter_map(|(part, tile)| {
+                        Some(TileTarget {
+                            zone: host.zone(),
+                            part,
+                            frame: tile.convertRect_toView(tile.bounds(), None),
+                            view: tile.active_view()?,
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect()
     }
 
     /// Положение делителя по фактическим рамкам элементов сплита: у сплита рядом — правый край
@@ -980,8 +1068,18 @@ mod tests {
     #[test]
     fn focus_tone_is_opaque_mix_of_mode_color() {
         let light = Palette::LIGHT;
-        assert_eq!(light.strip(false), light.panel_head);
-        assert_ne!(light.strip(true), light.panel_head);
+        assert_eq!(light.strip(false, Mode::Input), light.panel_head);
+        assert_eq!(light.strip(false, Mode::Navigation), light.panel_head);
+        assert_ne!(light.strip(true, Mode::Input), light.panel_head);
+        assert_ne!(
+            light.strip(true, Mode::Input),
+            light.strip(true, Mode::Navigation),
+            "режимы различаются тоном"
+        );
+        for palette in [Palette::LIGHT, Palette::DARK] {
+            assert_eq!(palette.mode_color(Mode::Input), palette.input);
+            assert_eq!(palette.mode_color(Mode::Navigation), palette.navigation);
+        }
         assert_eq!(
             Rgb::hex(0x000000).mix(Rgb::hex(0xFFFFFF), 0.5),
             Rgb(128, 128, 128)
