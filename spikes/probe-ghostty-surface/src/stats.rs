@@ -50,6 +50,42 @@ pub fn summarize(samples: &[f64]) -> Result<Summary, StatsError> {
     })
 }
 
+/// Повторы одного окна замера: медиана (при чётном числе — среднее двух средних), крайние
+/// значения и разброс `max − min`.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Repeats {
+    pub count: usize,
+    pub median: f64,
+    pub min: f64,
+    pub max: f64,
+    pub spread: f64,
+}
+
+pub fn repeats(samples: &[f64]) -> Result<Repeats, StatsError> {
+    if samples.is_empty() {
+        return Err(StatsError::Empty);
+    }
+    if let Some(index) = samples.iter().position(|value| !value.is_finite()) {
+        return Err(StatsError::NotFinite(index));
+    }
+    let mut sorted = samples.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    let n = sorted.len();
+    let median = if n % 2 == 1 {
+        sorted[n / 2]
+    } else {
+        (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
+    };
+    let (min, max) = (sorted[0], sorted[n - 1]);
+    Ok(Repeats {
+        count: n,
+        median,
+        min,
+        max,
+        spread: max - min,
+    })
+}
+
 /// Значение ранга `⌈q·n⌉` в непустом упорядоченном наборе.
 fn nearest_rank(sorted: &[f64], q: f64) -> f64 {
     let rank = (q * sorted.len() as f64).ceil() as usize;
@@ -111,6 +147,30 @@ mod tests {
         assert_eq!((summary.p50, summary.p95, summary.max), (10.0, 19.0, 20.0));
         let two = summarize(&[10.0, 20.0]).unwrap();
         assert_eq!((two.p50, two.p95), (10.0, 20.0));
+    }
+
+    #[test]
+    fn repeats_median_and_spread() {
+        let five = repeats(&[0.75, 0.5, 0.625, 1.5, 0.5625]).unwrap();
+        assert_eq!(
+            five,
+            Repeats {
+                count: 5,
+                median: 0.625,
+                min: 0.5,
+                max: 1.5,
+                spread: 1.0
+            }
+        );
+        let four = repeats(&[4.0, 1.0, 3.0, 2.0]).unwrap();
+        assert_eq!((four.median, four.spread), (2.5, 3.0));
+        let one = repeats(&[-2.0]).unwrap();
+        assert_eq!(
+            (one.median, one.min, one.max, one.spread),
+            (-2.0, -2.0, -2.0, 0.0)
+        );
+        assert_eq!(repeats(&[]), Err(StatsError::Empty));
+        assert_eq!(repeats(&[1.0, f64::NAN]), Err(StatsError::NotFinite(1)));
     }
 
     #[test]

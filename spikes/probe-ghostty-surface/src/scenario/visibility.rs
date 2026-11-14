@@ -243,7 +243,7 @@ struct Frame {
     samples: Vec<Rgb>,
 }
 
-fn contents_ptr(view: &SurfaceView) -> usize {
+pub(super) fn contents_ptr(view: &SurfaceView) -> usize {
     view.layer()
         // SAFETY: чтение свойства слоя на главном потоке; объект не разыменовывается.
         .and_then(|layer| unsafe { layer.contents() })

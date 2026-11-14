@@ -20,7 +20,7 @@ VENDOR="${SHELLIO_GHOSTTY_VENDOR:-$ROOT/vendor/ghostty}"
 REQUIREMENT="$ROOT/scripts/signing/requirement.txt"
 KEYCHAIN="${SHELLIO_SIGNING_KEYCHAIN:-}"
 BUNDLE_ID="io.github.dsbasko.shellio.probe.ghostty-surface"
-ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette gpu-calibration visibility teardown latency"
+ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette gpu-calibration visibility teardown latency memory idle"
 # Запусков сценариев старта на вариант: первый в агрегаты прогретых не входит
 # (results::STARTUP_SCENARIOS).
 STARTUP_RUNS=21
@@ -29,6 +29,8 @@ STARTUP_LS_RUNS=11
 BAD_LANG_VARIANT=badlang
 # Вариант teardown с переменной варианта MallocScribble=1 (teardown.rs, SCRIBBLE).
 SCRIBBLE_VARIANT=scribble
+# Вариант idle без мигания курсора (idle.rs, NOBLINK): cursor-style-blink = false.
+NOBLINK_VARIANT=noblink
 # Сценарии, которым служба footprint снимает footprint процесса пробы по запросу (gpu.rs).
 FOOTPRINT_SCENARIOS="gpu-calibration visibility"
 FOOTPRINT_SERVICE=""
@@ -160,6 +162,10 @@ variants_of() {
         # Дисплей окна (latency.rs, DISPLAYS): по умолчанию встроенный; внешний 60 Гц —
         # LATENCY_DISPLAYS="builtin external", когда дисплей подключён.
         latency) echo "${LATENCY_DISPLAYS:-builtin}" ;;
+        # Пустое окно без libghostty, циклы поверхностей и scrollback в свежем процессе (memory.rs, VARIANTS).
+        memory) echo "bare base scrollback" ;;
+        # Обычная конфигурация с миганием курсора и без него (idle.rs, VARIANTS).
+        idle) echo "blink $NOBLINK_VARIANT" ;;
         *) echo "base" ;;
     esac
 }
@@ -199,14 +205,19 @@ startup_first() {
 # Конфигурация libghostty процесса сценария в его --out (ghostty/config.rs читает её оттуда).
 # Пользовательский ghostty.conf проба не читает; тема условная (ghostty::config::conditional_theme),
 # схему выбирает вариант. palette продлевает цвет крайних клеток в поля поверхности, чтобы углы
-# плитки на снимке показывали содержимое терминала, а не фон полей.
+# плитки на снимке показывали содержимое терминала, а не фон полей. Курсор мигает везде, кроме
+# варианта idle без мигания.
 write_config() {
-    cat >"$1/ghostty.conf" <<'EOF_CONFIG'
+    local blink=true
+    if [ "${2:-}:${3:-}" = "idle:$NOBLINK_VARIANT" ]; then
+        blink=false
+    fi
+    cat >"$1/ghostty.conf" <<EOF_CONFIG
 font-family = Menlo
 font-size = 13
 scrollback-limit-bytes = 10000000
 theme = light:Builtin Light,dark:Builtin Dark
-cursor-style-blink = true
+cursor-style-blink = $blink
 confirm-close-surface = false
 clipboard-paste-protection = false
 EOF_CONFIG
@@ -303,7 +314,7 @@ cmd_scenarios() {
                 [ "$index" = _ ] && index=""
                 out="$run_dir/$scenario-$variant${index:+-$index}"
                 mkdir "$out"
-                write_config "$out" "$scenario"
+                write_config "$out" "$scenario" "$variant"
                 total=$((total + 1))
                 code=0
                 run_scenario "$scenario" "$variant" "$out" || code=$?

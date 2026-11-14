@@ -6,9 +6,11 @@ pub mod chord;
 pub mod counters;
 pub mod events;
 pub mod gpu_calibration;
+pub mod idle;
 pub mod ime;
 pub mod input;
 pub mod latency;
+pub mod memory;
 pub mod palette;
 pub mod snapshot;
 pub mod stand;
@@ -65,10 +67,12 @@ pub enum Scenario {
     Visibility,
     Teardown,
     Latency,
+    Memory,
+    Idle,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 13] = [
+    pub const ALL: [Scenario; 15] = [
         Scenario::Window,
         Scenario::SurfaceEnv,
         Scenario::Startup,
@@ -82,6 +86,8 @@ impl Scenario {
         Scenario::Visibility,
         Scenario::Teardown,
         Scenario::Latency,
+        Scenario::Memory,
+        Scenario::Idle,
     ];
 
     pub fn name(self) -> &'static str {
@@ -99,12 +105,14 @@ impl Scenario {
             Scenario::Visibility => "visibility",
             Scenario::Teardown => "teardown",
             Scenario::Latency => "latency",
+            Scenario::Memory => "memory",
+            Scenario::Idle => "idle",
         }
     }
 
     /// Сценарию нужны `ghostty_init` и сокет фикстур до первого рабочего потока. `window` и
-    /// вариант `bare` сценариев старта — базовая линия без libghostty, `gpu-calibration`
-    /// калибрует наблюдатель на собственных ресурсах.
+    /// варианты `bare` сценариев старта и `memory` — базовая линия без libghostty,
+    /// `gpu-calibration` калибрует наблюдатель на собственных ресурсах.
     pub fn uses_ghostty(self, variant: &str) -> bool {
         match self {
             Scenario::Window | Scenario::GpuCalibration => false,
@@ -116,8 +124,10 @@ impl Scenario {
             | Scenario::Palette
             | Scenario::Visibility
             | Scenario::Teardown
-            | Scenario::Latency => true,
+            | Scenario::Latency
+            | Scenario::Idle => true,
             Scenario::Startup | Scenario::StartupLs => variant != startup::BARE,
+            Scenario::Memory => variant != memory::BARE,
         }
     }
 
@@ -146,6 +156,10 @@ impl Scenario {
             Scenario::Teardown => 420,
             // Четыре фазы по 110 повторов, самопроверка навигации и частота displayLink.
             Scenario::Latency => 360,
+            // Три цикла 0 → 8 → 0, вариант со scrollback и до 21 серии замеров по 6 с.
+            Scenario::Memory => 300,
+            // До пяти окон по пять повторов по 10 с, потоки вывода и самопроверка мигания.
+            Scenario::Idle => 420,
         })
     }
 }
@@ -173,6 +187,8 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Visibility => visibility::run(stand),
         Scenario::Teardown => teardown::run(stand),
         Scenario::Latency => latency::run(stand),
+        Scenario::Memory => memory::run(stand),
+        Scenario::Idle => idle::run(stand),
     }
 }
 

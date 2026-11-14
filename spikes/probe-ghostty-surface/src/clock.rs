@@ -99,7 +99,7 @@ fn start_abstime(pid: libc::c_int) -> Result<u64, String> {
 /// Тики `mach_absolute_time` в наносекундах. libc помечает привязки Mach устаревшими в пользу
 /// отдельного crate, сама системная функция не устарела.
 #[allow(deprecated)]
-fn mach_to_ns(ticks: u64) -> u64 {
+pub fn mach_to_ns(ticks: u64) -> u64 {
     static TIMEBASE: OnceLock<(u32, u32)> = OnceLock::new();
     let (numer, denom) = *TIMEBASE.get_or_init(|| {
         let mut info = libc::mach_timebase_info { numer: 0, denom: 0 };

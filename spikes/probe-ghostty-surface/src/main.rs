@@ -14,6 +14,7 @@ mod launch;
 mod palette;
 mod results;
 mod router;
+mod sampler;
 mod scenario;
 mod scene;
 mod stats;
