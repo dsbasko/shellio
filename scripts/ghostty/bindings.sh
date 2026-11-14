@@ -16,6 +16,69 @@ source "$here/pin"
 vendor="${SHELLIO_GHOSTTY_VENDOR:-$root/vendor/ghostty}"
 target_file="$root/crates/shellio-sys-ghostty/src/bindings.rs"
 
+# Встраивание поверхности, которое проверяет проба P0.3. Инспектор, разбиения, quicklook, ghostty_benchmark_cli,
+# ghostty_set_window_background_blur и чтение пользовательской конфигурации не входят. Типы bindgen тянет из сигнатур.
+functions=(
+  ghostty_info
+  ghostty_init
+  ghostty_string_free
+  ghostty_config_new
+  ghostty_config_free
+  ghostty_config_load_file
+  ghostty_config_finalize
+  ghostty_config_diagnostics_count
+  ghostty_config_get_diagnostic
+  ghostty_app_new
+  ghostty_app_free
+  ghostty_app_tick
+  ghostty_app_userdata
+  ghostty_app_set_focus
+  ghostty_app_keyboard_changed
+  ghostty_app_update_config
+  ghostty_app_set_color_scheme
+  ghostty_surface_config_new
+  ghostty_surface_new
+  ghostty_surface_free
+  ghostty_surface_userdata
+  ghostty_surface_update_config
+  ghostty_surface_process_exited
+  ghostty_surface_refresh
+  ghostty_surface_draw
+  ghostty_surface_set_content_scale
+  ghostty_surface_set_focus
+  ghostty_surface_set_occlusion
+  ghostty_surface_set_size
+  ghostty_surface_size
+  ghostty_surface_foreground_pid
+  ghostty_surface_tty_name
+  ghostty_surface_set_color_scheme
+  ghostty_surface_key_translation_mods
+  ghostty_surface_key
+  ghostty_surface_key_is_binding
+  ghostty_surface_text
+  ghostty_surface_paste_text
+  ghostty_surface_preedit
+  ghostty_surface_mouse_captured
+  ghostty_surface_mouse_button
+  ghostty_surface_mouse_pos
+  ghostty_surface_mouse_scroll
+  ghostty_surface_mouse_pressure
+  ghostty_surface_ime_point
+  ghostty_surface_request_close
+  ghostty_surface_binding_action
+  ghostty_surface_complete_clipboard_request
+  ghostty_surface_deny_clipboard_request
+  ghostty_surface_has_selection
+  ghostty_surface_read_selection
+  ghostty_surface_read_text
+  ghostty_surface_free_text
+  ghostty_surface_set_display_id
+)
+# Фазу инерции прокрутки libghostty принимает упакованной в int, поэтому до перечисления сигнатуры не доходят.
+types=(
+  ghostty_input_mouse_momentum_e
+)
+
 die() {
   echo "error: $*" >&2
   exit 1
@@ -29,7 +92,8 @@ value_of() {
 }
 
 generate() {
-  local out="$1" bindgen clang sdk rustfmt rust_version edition min_macos header="$vendor/include/ghostty.h"
+  local out="$1" bindgen clang sdk rustfmt rust_version edition min_macos header="$vendor/include/ghostty.h" name
+  local allowlist=()
   [[ -f "$header" ]] || die "в наборе нет include/ghostty.h, выполните make ghostty"
   bindgen="$("$here/tools.sh" bindgen-path)"
   clang="$(xcrun --find clang)" || die "xcrun не нашёл clang: выберите Xcode через xcode-select"
@@ -39,6 +103,12 @@ generate() {
   edition="$(value_of "$root/Cargo.toml" 's/^edition = "\([0-9]*\)"$/\1/p' "в Cargo.toml нет edition")"
   min_macos="$(value_of "$root/.cargo/config.toml" 's/^MACOSX_DEPLOYMENT_TARGET = { value = "\([0-9.]*\)".*/\1/p' \
     "в .cargo/config.toml нет MACOSX_DEPLOYMENT_TARGET")"
+  for name in "${functions[@]}"; do
+    allowlist+=(--allowlist-function "^$name\$")
+  done
+  for name in "${types[@]}"; do
+    allowlist+=(--allowlist-type "^$name\$")
+  done
 
   {
     echo "// Привязки к libghostty для shellio-sys-ghostty. Файл генерирует make bindings, вручную не правится."
@@ -47,9 +117,7 @@ generate() {
     LIBCLANG_PATH="$(dirname "$clang")/../lib" RUSTFMT="$rustfmt" "$bindgen" "$header" \
       --rust-target "$rust_version" \
       --rust-edition "$edition" \
-      --allowlist-function '^ghostty_info$' \
-      --allowlist-type '^ghostty_info_s$' \
-      --allowlist-type '^ghostty_build_mode_e$' \
+      "${allowlist[@]}" \
       --formatter rustfmt \
       -- -target "arm64-apple-macos$min_macos" -isysroot "$sdk"
   } >"$out" || die "bindgen не сгенерировал привязки"
