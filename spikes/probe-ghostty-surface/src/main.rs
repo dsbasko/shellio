@@ -5,6 +5,7 @@
 mod args;
 mod clock;
 mod env;
+mod fixture;
 mod launch;
 mod results;
 mod scenario;
@@ -72,13 +73,7 @@ fn main() -> ExitCode {
         }
         Mode::Aggregate { run_dir } => aggregate(&run_dir),
         Mode::Launch(launch) => launch::run(launch),
-        Mode::Fixture { .. } => {
-            let _ = writeln!(
-                io::stderr().lock(),
-                "{PROBE_NAME}: --fixture: фикстура в PTY ещё не собрана в этой сборке пробы"
-            );
-            ExitCode::from(EXIT_EXECUTION)
-        }
+        Mode::Fixture { channel, nonce } => fixture::main(&channel, &nonce, entry_env),
         Mode::Demo(run) => {
             let check = env::check(&entry_env, run.route);
             if !check.violations.is_empty() {
