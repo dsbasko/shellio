@@ -107,6 +107,7 @@ fn main() -> ExitCode {
                     Ok(init) if init.code == 0 => Some(demo::DemoSurface {
                         config,
                         defer_create_s: demo.defer_create_s,
+                        visibility: demo.visibility.clone(),
                     }),
                     Ok(init) => {
                         let _ = writeln!(
@@ -448,7 +449,7 @@ struct DelegateIvars {
     /// Окно держится до конца процесса.
     window: OnceCell<Retained<NSWindow>>,
     /// Сцена четырёх зон демонстрации; сценарий строит сцену сам.
-    scene: OnceCell<scene::Scene>,
+    scene: OnceCell<Rc<scene::Scene>>,
 }
 
 define_class!(
@@ -550,7 +551,7 @@ impl AppDelegate {
 
         if ivars.scenario.is_none() {
             let dark = scene::is_dark(&app.effectiveAppearance());
-            let scene = scene::Scene::new(mtm, dark);
+            let scene = Rc::new(scene::Scene::new(mtm, dark));
             scene.install(&view, &window);
             if let Some(surface) = &ivars.demo
                 && let Err(reason) = demo::start(&scene, &window, &app, surface)

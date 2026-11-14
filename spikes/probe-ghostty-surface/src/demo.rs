@@ -1,10 +1,11 @@
-//! Живая поверхность демонстрации: shell пользователя во вкладке центральной плитки. Флаг
-//! `--defer-create` откладывает создание, чтобы владелец успел усыпить дисплей
+//! Живые поверхности демонстрации: shell пользователя во вкладках центральной и нижней плиток.
+//! Флаг `--defer-create` откладывает создание центральной, чтобы владелец успел усыпить дисплей
 //! (`pmset displaysleepnow`): сбой на спящем дисплее повторяется по пробуждению экранов или пути
 //! раскладки. Каждая попытка и итог печатаются в stdout.
 //!
-//! `ghostty_init` вызывает `main` до `NSApplication`; здесь — конфигурация, runtime и поверхность.
-//! Маршрутизатора режимов, палитры и модели видимости в демонстрации пока нет (задача 19).
+//! `ghostty_init` вызывает `main` до `NSApplication`; здесь — конфигурация, runtime, поверхности,
+//! маршрутизатор режимов (`Ctrl-\`, в `Navigation` — `h/j/k/l`, `Ctrl-o`, `i`), палитра (`Cmd-K`)
+//! и модель видимости с вариантом обходов из `--visibility` для ручного прохода задачи 19.
 //!
 //! Доступность: вид поверхности получает уведомления об изменении по таймеру обновления
 //! доступности, который запускает первый запрос доступности при включённом VoiceOver
@@ -20,11 +21,14 @@ use objc2::rc::Retained;
 use objc2_app_kit::{NSApplication, NSWindow};
 use objc2_foundation::{NSRect, NSRunLoop, NSRunLoopCommonModes, NSTimer};
 
+use std::rc::Rc;
+
 use crate::ghostty::config::{ColorScheme, Config};
 use crate::ghostty::runtime::{self, Created};
 use crate::ghostty::surface::{Phase, Spec, SurfaceId};
 use crate::scene::{self, Scene, Zone};
 use crate::view::SurfaceView;
+use crate::visibility::{self, Workarounds};
 
 /// Шаг ожидания ненулевого размера вида и шаг отчёта о повторах.
 const POLL_S: f64 = 0.1;
@@ -34,10 +38,12 @@ const REPORT_S: f64 = 1.0;
 pub struct DemoSurface {
     pub config: PathBuf,
     pub defer_create_s: Option<u32>,
+    /// Вариант обходов видимости; `None` — `base`.
+    pub visibility: Option<String>,
 }
 
 thread_local! {
-    static SURFACE: Cell<Option<SurfaceId>> = const { Cell::new(None) };
+    static SURFACES: RefCell<Vec<SurfaceId>> = const { RefCell::new(Vec::new()) };
     static TIMERS: RefCell<Vec<Retained<NSTimer>>> = const { RefCell::new(Vec::new()) };
 }
 
@@ -45,13 +51,17 @@ fn say(line: &str) {
     println!("демонстрация: {line}");
 }
 
-/// Запускает runtime и регистрирует поверхность в центральной плитке.
+/// Запускает runtime, регистрирует поверхности в центральной и нижней плитках и ставит
+/// маршрутизатор режимов, палитру и модель видимости.
 pub fn start(
-    scene: &Scene,
+    scene: &Rc<Scene>,
     window: &NSWindow,
     app: &NSApplication,
     demo: &DemoSurface,
 ) -> Result<(), String> {
+    let variant = demo.visibility.as_deref().unwrap_or("base");
+    let workarounds = Workarounds::from_variant(variant)
+        .ok_or(format!("неизвестный вариант видимости {variant}"))?;
     let config = Config::load(&demo.config)?;
     let diagnostics = config.diagnostics();
     if !diagnostics.is_empty() {
@@ -66,12 +76,45 @@ pub fn start(
     } else {
         ColorScheme::Light
     };
+    // Модель видимости действует на виды, которые получат поверхность после включения.
+    visibility::enable(workarounds);
     runtime::start(config, scheme, app.isActive())?;
+    let center = add_shell(scene, window, Zone::Center, "Терминал shell, центр")?;
+    let bottom = add_shell(scene, window, Zone::Bottom, "Терминал shell, низ")?;
+    crate::router::install(Rc::clone(scene), window);
+    crate::palette::install(window, Some(Rc::clone(scene)));
+    scene.focus(window, center.view.as_ref());
+    say(&format!(
+        "видимость: вариант {variant}, обходы {:?}; маршрутизатор: Ctrl-\\ — Navigation, \
+         в Navigation h/j/k/l — фокус, Ctrl-o — возврат к источнику, i или Enter — Input, \
+         второй Ctrl-\\ подряд уходит в терминал; палитра — Cmd-K",
+        workarounds.names()
+    ));
+    let delay = demo.defer_create_s.map_or(0.0, f64::from);
+    if let Some(seconds) = demo.defer_create_s {
+        say(&format!(
+            "центральная поверхность создаётся через {seconds} с; усыпите дисплей (pmset displaysleepnow) и разбудите его после этого срока"
+        ));
+    }
+    let id = center.id;
+    schedule(delay, false, move |_| create_when_sized(id));
+    schedule(REPORT_S, true, move |timer| report(id, timer));
+    let id = bottom.id;
+    schedule(0.0, false, move |_| create_when_sized(id));
+    Ok(())
+}
+
+struct Shell {
+    id: SurfaceId,
+    view: Retained<SurfaceView>,
+}
+
+/// Вид поверхности с shell пользователя во вкладке первой части зоны.
+fn add_shell(scene: &Scene, window: &NSWindow, zone: Zone, label: &str) -> Result<Shell, String> {
     let view = SurfaceView::new(window.mtm(), NSRect::ZERO);
-    scene.add_tab(Zone::Center, 0, "shell", &view)?;
-    view.set_a11y_label("Терминал shell");
+    scene.add_tab(zone, 0, "shell", &view)?;
+    view.set_a11y_label(label);
     crate::a11y::enable_demo(&view);
-    window.makeFirstResponder(Some(&view));
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_owned());
     let spec = Spec {
         command: String::new(),
@@ -79,17 +122,9 @@ pub fn start(
         env: Vec::new(),
         wait_after_command: false,
     };
-    let id = runtime::add_surface(view, spec)?;
-    SURFACE.with(|cell| cell.set(Some(id)));
-    let delay = demo.defer_create_s.map_or(0.0, f64::from);
-    if let Some(seconds) = demo.defer_create_s {
-        say(&format!(
-            "поверхность создаётся через {seconds} с; усыпите дисплей (pmset displaysleepnow) и разбудите его после этого срока"
-        ));
-    }
-    schedule(delay, false, move |_| create_when_sized(id));
-    schedule(REPORT_S, true, move |timer| report(id, timer));
-    Ok(())
+    let id = runtime::add_surface(view.clone(), spec)?;
+    SURFACES.with(|cell| cell.borrow_mut().push(id));
+    Ok(Shell { id, view })
 }
 
 /// Первая попытка, когда у вида появился размер; при нулевом размере — ещё шаг.
@@ -148,12 +183,17 @@ fn report(id: SurfaceId, timer: &NSTimer) {
 /// Завершение runtime при выходе из демонстрации: поверхность освобождается, shell завершается.
 pub fn shutdown() {
     crate::a11y::shutdown_demo();
+    let _ = crate::router::uninstall();
+    let _ = crate::palette::uninstall();
     TIMERS.with(|timers| {
         for timer in timers.borrow_mut().drain(..) {
             timer.invalidate();
         }
     });
-    if SURFACE.with(Cell::take).is_some() {
+    if !SURFACES
+        .with(|cell| std::mem::take(&mut *cell.borrow_mut()))
+        .is_empty()
+    {
         match runtime::shutdown() {
             Ok(record) => say(&format!(
                 "runtime завершён: создано {}, освобождено {}, сбоев создания {}",

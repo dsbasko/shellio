@@ -8,9 +8,12 @@ use crate::scenario::Scenario;
 
 pub const USAGE: &str = "\
 использование:
-  probe-ghostty-surface [--config <ghostty.conf> [--defer-create <секунды>]] [--route …] [--nonce …]
-      демонстрационная сцена для ручной работы; с --config в центре живая поверхность с shell,
-      --defer-create создаёт её через заданное время (проверка сна дисплея)
+  probe-ghostty-surface [--config <ghostty.conf> [--defer-create <секунды>] [--visibility <вариант>]]
+                        [--route …] [--nonce …]
+      демонстрационная сцена для ручной работы; с --config в центральной и нижней зонах живые
+      поверхности с shell, маршрутизатор режимов, палитра (Cmd-K) и модель видимости;
+      --defer-create создаёт центральную через заданное время (проверка сна дисплея),
+      --visibility выбирает обходы видимости: base (по умолчанию), bounds, defer, syncdraw, all
   probe-ghostty-surface --scenario <имя> --out <каталог> [--variant <имя>] [--route …] [--nonce …]
       сценарий стенда, итог в <каталог>
   probe-ghostty-surface --aggregate <каталог прогона>
@@ -62,6 +65,8 @@ pub struct Demo {
     pub config: Option<PathBuf>,
     /// Отложенное создание поверхности, секунды.
     pub defer_create_s: Option<u32>,
+    /// Вариант обходов модели видимости (`visibility::Workarounds::VARIANTS`), `None` — `base`.
+    pub visibility: Option<String>,
 }
 
 /// Предел отложенного создания.
@@ -196,10 +201,11 @@ enum Flag {
     Config,
     DeferCreate,
     AxClient,
+    Visibility,
 }
 
 impl Flag {
-    const ALL: [Flag; 14] = [
+    const ALL: [Flag; 15] = [
         Flag::Scenario,
         Flag::Variant,
         Flag::Out,
@@ -214,6 +220,7 @@ impl Flag {
         Flag::Config,
         Flag::DeferCreate,
         Flag::AxClient,
+        Flag::Visibility,
     ];
 
     fn name(self) -> &'static str {
@@ -232,6 +239,7 @@ impl Flag {
             Flag::Config => "--config",
             Flag::DeferCreate => "--defer-create",
             Flag::AxClient => "--ax-client",
+            Flag::Visibility => "--visibility",
         }
     }
 
@@ -261,6 +269,7 @@ struct Raw {
     config: Option<PathBuf>,
     defer_create_s: Option<u32>,
     ax_client: Option<String>,
+    visibility: Option<String>,
 }
 
 impl Raw {
@@ -311,7 +320,7 @@ pub fn parse(args: &[String]) -> Result<Mode, ArgsError> {
         return Ok(Mode::Fixture { channel, nonce });
     }
     if raw.scenario.is_some() || raw.out.is_some() {
-        for flag in [Flag::Config, Flag::DeferCreate] {
+        for flag in [Flag::Config, Flag::DeferCreate, Flag::Visibility] {
             if raw.seen.contains(&flag) {
                 return Err(not_with(Flag::Scenario, flag));
             }
@@ -319,6 +328,9 @@ pub fn parse(args: &[String]) -> Result<Mode, ArgsError> {
     }
     if raw.defer_create_s.is_some() && raw.config.is_none() {
         return Err(requires(Flag::DeferCreate, Flag::Config));
+    }
+    if raw.visibility.is_some() && raw.config.is_none() {
+        return Err(requires(Flag::Visibility, Flag::Config));
     }
     for flag in [Flag::Channel, Flag::App, Flag::Set] {
         if raw.seen.contains(&flag) {
@@ -348,6 +360,7 @@ pub fn parse(args: &[String]) -> Result<Mode, ArgsError> {
             run,
             config: raw.config,
             defer_create_s: raw.defer_create_s,
+            visibility: raw.visibility,
         })),
     }
 }
@@ -431,6 +444,16 @@ fn parse_flags(args: &[String]) -> Result<Raw, ArgsError> {
                 raw.defer_create_s = Some(seconds);
             }
             Flag::AxClient => raw.ax_client = Some(value.to_owned()),
+            Flag::Visibility => {
+                if crate::visibility::Workarounds::from_variant(value).is_none() {
+                    return Err(invalid(
+                        flag,
+                        value,
+                        "base, bounds, defer, syncdraw или all",
+                    ));
+                }
+                raw.visibility = Some(value.to_owned());
+            }
             Flag::Config => raw.config = Some(path(flag, value)?),
             Flag::Out => raw.out = Some(path(flag, value)?),
             Flag::Aggregate => raw.aggregate = Some(path(flag, value)?),
@@ -550,6 +573,7 @@ mod tests {
                 run: Run::default(),
                 config: Some(PathBuf::from("/tmp/demo/ghostty.conf")),
                 defer_create_s: Some(15),
+                visibility: None,
             }))
         );
         assert_eq!(
@@ -585,6 +609,37 @@ mod tests {
                 ..
             }))
         ));
+    }
+
+    #[test]
+    fn demo_visibility_variant_needs_config_and_a_known_name() {
+        assert_eq!(
+            parse_str(&["--config", "c", "--visibility", "all"]),
+            Ok(Mode::Demo(Demo {
+                run: Run::default(),
+                config: Some(PathBuf::from("c")),
+                defer_create_s: None,
+                visibility: Some("all".to_owned()),
+            }))
+        );
+        for variant in crate::visibility::Workarounds::VARIANTS {
+            assert!(parse_str(&["--config", "c", "--visibility", variant]).is_ok());
+        }
+        assert_eq!(
+            parse_str(&["--visibility", "base"]),
+            Err(ArgsError::Requires {
+                mode: "--visibility",
+                flag: "--config"
+            })
+        );
+        assert!(matches!(
+            parse_str(&["--config", "c", "--visibility", "none"]),
+            Err(ArgsError::InvalidValue {
+                flag: "--visibility",
+                ..
+            })
+        ));
+        assert!(parse_str(&["--scenario", "window", "--out", "o", "--visibility", "all"]).is_err());
     }
 
     #[test]
