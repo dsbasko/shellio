@@ -1,0 +1,3578 @@
+{
+  "schema": 1,
+  "scenario": "readback-check",
+  "variant": "plain",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "cc81b21e03bb",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-quartz-core 0.3.2",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "scene": {
+      "split": "plain",
+      "contrast": "system",
+      "motion": "system"
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "visible_frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 949.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC",
+    "fixtures": {}
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "окно неподвижно, активность, key window и поле в фокусе",
+      "status": "ready",
+      "waited_ms": 500.604959,
+      "at_ms": 511.557833,
+      "state": "isActive=true keyWindow=#33545 mainWindow=#33545 firstResponder=field-editor(NSTextView) cursor=1508,4"
+    },
+    {
+      "index": 1,
+      "name": "курсор вне окон",
+      "status": "ready",
+      "waited_ms": 5.653833,
+      "at_ms": 517.374042,
+      "state": "isActive=true keyWindow=#33545 mainWindow=#33545 firstResponder=field-editor(NSTextView) cursor=1508,4"
+    },
+    {
+      "index": 2,
+      "name": "проход отображения после setNeedsDisplay",
+      "status": "ready",
+      "waited_ms": 5.677541000000001,
+      "at_ms": 523.1258330000001,
+      "state": "isActive=true keyWindow=#33545 mainWindow=#33545 firstResponder=field-editor(NSTextView) cursor=1508,4"
+    },
+    {
+      "index": 3,
+      "name": "Left обработана, проход отображения отмечен",
+      "status": "ready",
+      "waited_ms": 9.490416999999999,
+      "at_ms": 532.830333,
+      "state": "isActive=true keyWindow=#33545 mainWindow=#33545 firstResponder=field-editor(NSTextView) cursor=1508,4"
+    }
+  ],
+  "events": [
+    {
+      "number": 1,
+      "label": "keyDown Left",
+      "window": 33545,
+      "before": "isActive=true keyWindow=#33545 mainWindow=#33545 firstResponder=field-editor(NSTextView) cursor=1508,4",
+      "posted_ms": 523.15225,
+      "dispatch_start_ms": 526.967625,
+      "send_return_ms": 531.667125,
+      "display_pass_ms": 532.8033330000001,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "keyUp Left",
+      "window": 33545,
+      "before": "isActive=true keyWindow=#33545 mainWindow=#33545 firstResponder=field-editor(NSTextView) cursor=1508,4",
+      "posted_ms": 523.319333,
+      "dispatch_start_ms": 531.755667,
+      "send_return_ms": 531.828208,
+      "display_pass_ms": 532.8033330000001,
+      "undispatched": false
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "readback-check"
+    },
+    {
+      "key": "split",
+      "value": "plain"
+    },
+    {
+      "key": "contrast",
+      "value": "system"
+    },
+    {
+      "key": "motion",
+      "value": "system"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "window_frames_initial",
+      "value": "166,114 1180x752"
+    },
+    {
+      "key": "window_frames_settled",
+      "value": "166,114 1180x752"
+    },
+    {
+      "key": "window_frame_changes",
+      "value": "0"
+    },
+    {
+      "key": "main_runloop_observers",
+      "value": [
+        {
+          "activities": 1,
+          "callout": "_ZN2UC16LoopTapCFRunLoop7onEntryEP19__CFRunLoopObservermPv",
+          "order": 0
+        },
+        {
+          "activities": 68,
+          "callout": "__CFRunLoopObserverWithHandlerPerform",
+          "order": 0
+        },
+        {
+          "activities": 1,
+          "callout": "__CFRunLoopObserverWithHandlerPerform",
+          "order": 0
+        },
+        {
+          "activities": 160,
+          "callout": "_ZN2CA11Transaction17observer_callbackEP19__CFRunLoopObservermPv",
+          "order": 2000000
+        },
+        {
+          "activities": 32,
+          "callout": "__CFRunLoopObserverWithHandlerPerform",
+          "order": 2100000
+        }
+      ]
+    },
+    {
+      "key": "before_waiting_after_probe",
+      "value": []
+    },
+    {
+      "key": "windows",
+      "value": [
+        {
+          "alpha": 1.0,
+          "background": {
+            "a": 255,
+            "b": 30,
+            "g": 30,
+            "r": 30
+          },
+          "class": "NSWindow",
+          "frame": {
+            "height": 752.0,
+            "width": 1180.0,
+            "x": 166.0,
+            "y": 114.0
+          },
+          "key": true,
+          "main": true,
+          "number": 33545,
+          "opaque": true,
+          "root": {
+            "alpha": 1.0,
+            "class": "NSThemeFrame",
+            "frame_in_window": {
+              "height": 752.0,
+              "width": 1180.0,
+              "x": 0.0,
+              "y": 0.0
+            },
+            "hidden": false,
+            "hidden_or_ancestor": false,
+            "layer": {
+              "animation_keys": [],
+              "background": null,
+              "border": {
+                "a": 255,
+                "b": 0,
+                "g": 0,
+                "r": 0
+              },
+              "border_width": 0.0,
+              "class": "NSViewBackingLayer",
+              "corner_radius": 0.0,
+              "frame": {
+                "height": 752.0,
+                "width": 1180.0,
+                "x": 0.0,
+                "y": 0.0
+              },
+              "hidden": false,
+              "opacity": 1.0,
+              "sublayers": [
+                {
+                  "animation_keys": [],
+                  "background": {
+                    "a": 255,
+                    "b": 30,
+                    "g": 30,
+                    "r": 30
+                  },
+                  "border": {
+                    "a": 255,
+                    "b": 0,
+                    "g": 0,
+                    "r": 0
+                  },
+                  "border_width": 0.0,
+                  "class": "CUIWindowFrameLayer",
+                  "corner_radius": 0.0,
+                  "frame": {
+                    "height": 752.0,
+                    "width": 1180.0,
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  "hidden": false,
+                  "opacity": 1.0,
+                  "sublayers": [
+                    {
+                      "animation_keys": [],
+                      "background": null,
+                      "border": {
+                        "a": 255,
+                        "b": 0,
+                        "g": 0,
+                        "r": 0
+                      },
+                      "border_width": 0.0,
+                      "class": "CALayer",
+                      "corner_radius": 0.0,
+                      "frame": {
+                        "height": 752.0,
+                        "width": 1180.0,
+                        "x": 0.0,
+                        "y": 0.0
+                      },
+                      "hidden": false,
+                      "opacity": 0.0
+                    }
+                  ]
+                },
+                {
+                  "animation_keys": [],
+                  "background": null,
+                  "border": {
+                    "a": 255,
+                    "b": 0,
+                    "g": 0,
+                    "r": 0
+                  },
+                  "border_width": 0.0,
+                  "class": "CALayer",
+                  "corner_radius": 0.0,
+                  "frame": {
+                    "height": 80.0,
+                    "width": 296.0,
+                    "x": -8.0,
+                    "y": 112.0
+                  },
+                  "hidden": false,
+                  "opacity": 1.0
+                }
+              ]
+            },
+            "subviews": [
+              {
+                "alpha": 1.0,
+                "class": "NSVisualEffectView",
+                "frame_in_window": {
+                  "height": 752.0,
+                  "width": 1180.0,
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "hidden": false,
+                "hidden_or_ancestor": false,
+                "layer": {
+                  "animation_keys": [],
+                  "background": null,
+                  "border": {
+                    "a": 255,
+                    "b": 0,
+                    "g": 0,
+                    "r": 0
+                  },
+                  "border_width": 0.0,
+                  "class": "NSViewBackingLayer",
+                  "corner_radius": 0.0,
+                  "frame": {
+                    "height": 752.0,
+                    "width": 1180.0,
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  "hidden": false,
+                  "opacity": 1.0,
+                  "sublayers": [
+                    {
+                      "animation_keys": [],
+                      "background": null,
+                      "border": {
+                        "a": 255,
+                        "b": 0,
+                        "g": 0,
+                        "r": 0
+                      },
+                      "border_width": 0.0,
+                      "class": "CALayer",
+                      "corner_radius": 0.0,
+                      "frame": {
+                        "height": 752.0,
+                        "width": 1180.0,
+                        "x": 0.0,
+                        "y": 0.0
+                      },
+                      "hidden": false,
+                      "opacity": 1.0,
+                      "sublayers": [
+                        {
+                          "animation_keys": [],
+                          "background": {
+                            "a": 255,
+                            "b": 30,
+                            "g": 30,
+                            "r": 30
+                          },
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "CALayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 752.0,
+                            "width": 1180.0,
+                            "x": 0.0,
+                            "y": 0.0
+                          },
+                          "hidden": false,
+                          "opacity": 1.0
+                        },
+                        {
+                          "animation_keys": [],
+                          "background": {
+                            "a": 0,
+                            "b": 174,
+                            "g": 113,
+                            "r": 181
+                          },
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "CAChameleonLayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 752.0,
+                            "width": 1180.0,
+                            "x": 0.0,
+                            "y": 0.0
+                          },
+                          "hidden": false,
+                          "opacity": 0.10000000149011612
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "alpha": 1.0,
+                "class": "_TtCC6AppKit14NSScrollPocketP33_EC3F85FAB7755D56E669206D2B17725B12BackdropView",
+                "frame_in_window": {
+                  "height": 0.0,
+                  "width": 0.0,
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "hidden": false,
+                "hidden_or_ancestor": false,
+                "layer": {
+                  "animation_keys": [],
+                  "background": null,
+                  "border": {
+                    "a": 255,
+                    "b": 0,
+                    "g": 0,
+                    "r": 0
+                  },
+                  "border_width": 0.0,
+                  "class": "CABackdropLayer",
+                  "corner_radius": 0.0,
+                  "frame": {
+                    "height": 0.0,
+                    "width": 0.0,
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  "hidden": false,
+                  "opacity": 1.0
+                }
+              },
+              {
+                "alpha": 1.0,
+                "class": "NSView",
+                "frame_in_window": {
+                  "height": 720.0,
+                  "width": 1180.0,
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "hidden": false,
+                "hidden_or_ancestor": false,
+                "layer": {
+                  "animation_keys": [],
+                  "background": null,
+                  "border": {
+                    "a": 255,
+                    "b": 0,
+                    "g": 0,
+                    "r": 0
+                  },
+                  "border_width": 0.0,
+                  "class": "NSViewBackingLayer",
+                  "corner_radius": 0.0,
+                  "frame": {
+                    "height": 720.0,
+                    "width": 1180.0,
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  "hidden": false,
+                  "opacity": 1.0
+                },
+                "subviews": [
+                  {
+                    "alpha": 1.0,
+                    "class": "NSView",
+                    "frame_in_window": {
+                      "height": 80.0,
+                      "width": 120.0,
+                      "x": 20.0,
+                      "y": 20.0
+                    },
+                    "hidden": false,
+                    "hidden_or_ancestor": false,
+                    "layer": {
+                      "animation_keys": [],
+                      "background": {
+                        "a": 255,
+                        "b": 8,
+                        "g": 9,
+                        "r": 10
+                      },
+                      "border": {
+                        "a": 255,
+                        "b": 0,
+                        "g": 0,
+                        "r": 0
+                      },
+                      "border_width": 0.0,
+                      "class": "NSViewBackingLayer",
+                      "corner_radius": 0.0,
+                      "frame": {
+                        "height": 80.0,
+                        "width": 120.0,
+                        "x": 20.0,
+                        "y": 20.0
+                      },
+                      "hidden": false,
+                      "opacity": 1.0
+                    }
+                  },
+                  {
+                    "alpha": 1.0,
+                    "class": "NSView",
+                    "frame_in_window": {
+                      "height": 80.0,
+                      "width": 120.0,
+                      "x": 160.0,
+                      "y": 20.0
+                    },
+                    "hidden": false,
+                    "hidden_or_ancestor": false,
+                    "layer": {
+                      "animation_keys": [],
+                      "background": {
+                        "a": 255,
+                        "b": 128,
+                        "g": 128,
+                        "r": 128
+                      },
+                      "border": {
+                        "a": 255,
+                        "b": 0,
+                        "g": 0,
+                        "r": 0
+                      },
+                      "border_width": 0.0,
+                      "class": "NSViewBackingLayer",
+                      "corner_radius": 0.0,
+                      "frame": {
+                        "height": 80.0,
+                        "width": 120.0,
+                        "x": 160.0,
+                        "y": 20.0
+                      },
+                      "hidden": false,
+                      "opacity": 1.0
+                    },
+                    "subviews": [
+                      {
+                        "alpha": 1.0,
+                        "class": "NSView",
+                        "frame_in_window": {
+                          "height": 80.0,
+                          "width": 120.0,
+                          "x": 160.0,
+                          "y": 20.0
+                        },
+                        "hidden": false,
+                        "hidden_or_ancestor": false,
+                        "layer": {
+                          "animation_keys": [],
+                          "background": {
+                            "a": 128,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "NSViewBackingLayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 80.0,
+                            "width": 120.0,
+                            "x": 0.0,
+                            "y": 0.0
+                          },
+                          "hidden": false,
+                          "opacity": 1.0
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "alpha": 1.0,
+                    "class": "ProbeDrawView",
+                    "frame_in_window": {
+                      "height": 80.0,
+                      "width": 120.0,
+                      "x": 300.0,
+                      "y": 20.0
+                    },
+                    "hidden": false,
+                    "hidden_or_ancestor": false,
+                    "layer": {
+                      "animation_keys": [],
+                      "background": null,
+                      "border": {
+                        "a": 255,
+                        "b": 0,
+                        "g": 0,
+                        "r": 0
+                      },
+                      "border_width": 0.0,
+                      "class": "NSViewBackingLayer",
+                      "corner_radius": 0.0,
+                      "frame": {
+                        "height": 80.0,
+                        "width": 120.0,
+                        "x": 300.0,
+                        "y": 20.0
+                      },
+                      "hidden": false,
+                      "opacity": 1.0,
+                      "sublayers": [
+                        {
+                          "animation_keys": [],
+                          "background": null,
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "_TtCC6AppKit26NSViewBackingLayerContentsP33_936B6E90B4E319ADDB011517F9EF5EC612ContentLayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 80.0,
+                            "width": 120.0,
+                            "x": 0.0,
+                            "y": 0.0
+                          },
+                          "hidden": false,
+                          "opacity": 1.0
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "alpha": 1.0,
+                    "class": "NSView",
+                    "frame_in_window": {
+                      "height": 40.0,
+                      "width": 40.0,
+                      "x": 440.0,
+                      "y": 20.0
+                    },
+                    "hidden": false,
+                    "hidden_or_ancestor": false,
+                    "layer": {
+                      "animation_keys": [
+                        "probe-pulse"
+                      ],
+                      "background": {
+                        "a": 255,
+                        "b": 128,
+                        "g": 128,
+                        "r": 128
+                      },
+                      "border": {
+                        "a": 255,
+                        "b": 0,
+                        "g": 0,
+                        "r": 0
+                      },
+                      "border_width": 0.0,
+                      "class": "NSViewBackingLayer",
+                      "corner_radius": 0.0,
+                      "frame": {
+                        "height": 40.0,
+                        "width": 40.0,
+                        "x": 440.0,
+                        "y": 20.0
+                      },
+                      "hidden": false,
+                      "opacity": 1.0
+                    }
+                  },
+                  {
+                    "alpha": 1.0,
+                    "class": "NSTextField",
+                    "frame_in_window": {
+                      "height": 24.0,
+                      "width": 240.0,
+                      "x": 20.0,
+                      "y": 140.0
+                    },
+                    "hidden": false,
+                    "hidden_or_ancestor": false,
+                    "layer": {
+                      "animation_keys": [],
+                      "background": null,
+                      "border": {
+                        "a": 255,
+                        "b": 0,
+                        "g": 0,
+                        "r": 0
+                      },
+                      "border_width": 0.0,
+                      "class": "NSViewBackingLayer",
+                      "corner_radius": 0.0,
+                      "frame": {
+                        "height": 24.0,
+                        "width": 240.0,
+                        "x": 20.0,
+                        "y": 140.0
+                      },
+                      "hidden": false,
+                      "opacity": 1.0
+                    },
+                    "subviews": [
+                      {
+                        "alpha": 1.0,
+                        "class": "_TtGC6AppKit18_NSCoreHostingViewVS_15AppKitTextField_",
+                        "frame_in_window": {
+                          "height": 24.0,
+                          "width": 240.0,
+                          "x": 20.0,
+                          "y": 140.0
+                        },
+                        "hidden": false,
+                        "hidden_or_ancestor": false,
+                        "layer": {
+                          "animation_keys": [],
+                          "background": null,
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "NSViewBackingLayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 24.0,
+                            "width": 240.0,
+                            "x": 0.0,
+                            "y": 0.0
+                          },
+                          "hidden": false,
+                          "opacity": 1.0,
+                          "sublayers": [
+                            {
+                              "animation_keys": [],
+                              "background": {
+                                "a": 217,
+                                "b": 22,
+                                "g": 22,
+                                "r": 22
+                              },
+                              "border": null,
+                              "border_width": 0.0,
+                              "class": "CALayer",
+                              "corner_radius": 6.0,
+                              "frame": {
+                                "height": 24.0,
+                                "width": 240.0,
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "hidden": false,
+                              "opacity": 1.0
+                            },
+                            {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 12,
+                                "b": 255,
+                                "g": 255,
+                                "r": 255
+                              },
+                              "border_width": 1.0,
+                              "class": "CALayer",
+                              "corner_radius": 7.0,
+                              "frame": {
+                                "height": 26.0,
+                                "width": 242.0,
+                                "x": -1.0,
+                                "y": -1.0
+                              },
+                              "hidden": false,
+                              "opacity": 1.0
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "alpha": 1.0,
+                        "class": "_NSKeyboardFocusClipView",
+                        "frame_in_window": {
+                          "height": 16.0,
+                          "width": 232.0,
+                          "x": 24.0,
+                          "y": 144.0
+                        },
+                        "hidden": false,
+                        "hidden_or_ancestor": false,
+                        "layer": {
+                          "animation_keys": [],
+                          "background": null,
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "NSViewBackingLayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 16.0,
+                            "width": 232.0,
+                            "x": 4.0,
+                            "y": 4.0
+                          },
+                          "hidden": false,
+                          "opacity": 1.0
+                        },
+                        "subviews": [
+                          {
+                            "alpha": 1.0,
+                            "class": "NSTextView",
+                            "frame_in_window": {
+                              "height": 16.0,
+                              "width": 232.0,
+                              "x": 24.0,
+                              "y": 144.0
+                            },
+                            "hidden": false,
+                            "hidden_or_ancestor": false,
+                            "layer": {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "NSViewBackingLayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 16.0,
+                                "width": 232.0,
+                                "x": 4.0,
+                                "y": 4.0
+                              },
+                              "hidden": false,
+                              "opacity": 1.0
+                            },
+                            "subviews": [
+                              {
+                                "alpha": 1.0,
+                                "class": "_NSTextSelectionView",
+                                "frame_in_window": {
+                                  "height": 16.0,
+                                  "width": 232.0,
+                                  "x": 24.0,
+                                  "y": 144.0
+                                },
+                                "hidden": true,
+                                "hidden_or_ancestor": true,
+                                "layer": {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "NSViewBackingLayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 16.0,
+                                    "width": 232.0,
+                                    "x": 0.0,
+                                    "y": 0.0
+                                  },
+                                  "hidden": true,
+                                  "opacity": 1.0
+                                },
+                                "subviews": [
+                                  {
+                                    "alpha": 1.0,
+                                    "class": "_NSTextViewportSelectionLineView",
+                                    "frame_in_window": {
+                                      "height": 16.0,
+                                      "width": 22.2041015625,
+                                      "x": 26.0,
+                                      "y": 144.0
+                                    },
+                                    "hidden": true,
+                                    "hidden_or_ancestor": true,
+                                    "layer": {
+                                      "animation_keys": [],
+                                      "background": {
+                                        "a": 255,
+                                        "b": 139,
+                                        "g": 99,
+                                        "r": 63
+                                      },
+                                      "border": {
+                                        "a": 255,
+                                        "b": 0,
+                                        "g": 0,
+                                        "r": 0
+                                      },
+                                      "border_width": 0.0,
+                                      "class": "NSViewBackingLayer",
+                                      "corner_radius": 0.0,
+                                      "frame": {
+                                        "height": 16.0,
+                                        "width": 22.2041015625,
+                                        "x": 2.0,
+                                        "y": 0.0
+                                      },
+                                      "hidden": true,
+                                      "opacity": 1.0
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "alpha": 1.0,
+                                "class": "_NSTextRenderingSurfacesGroupView",
+                                "frame_in_window": {
+                                  "height": 16.0,
+                                  "width": 232.0,
+                                  "x": 24.0,
+                                  "y": 144.0
+                                },
+                                "hidden": false,
+                                "hidden_or_ancestor": false,
+                                "layer": {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "NSViewBackingLayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 16.0,
+                                    "width": 232.0,
+                                    "x": 0.0,
+                                    "y": 0.0
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0
+                                }
+                              },
+                              {
+                                "alpha": 1.0,
+                                "class": "_NSTextContentView",
+                                "frame_in_window": {
+                                  "height": 16.0,
+                                  "width": 232.0,
+                                  "x": 24.0,
+                                  "y": 144.0
+                                },
+                                "hidden": false,
+                                "hidden_or_ancestor": false,
+                                "layer": {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "NSViewBackingLayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 16.0,
+                                    "width": 232.0,
+                                    "x": 0.0,
+                                    "y": 0.0
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0
+                                },
+                                "subviews": [
+                                  {
+                                    "alpha": 1.0,
+                                    "class": "_NSTextViewportElementView",
+                                    "frame_in_window": {
+                                      "height": 17.0,
+                                      "width": 57.0,
+                                      "x": 17.0,
+                                      "y": 143.0
+                                    },
+                                    "hidden": false,
+                                    "hidden_or_ancestor": false,
+                                    "layer": {
+                                      "animation_keys": [],
+                                      "background": null,
+                                      "border": {
+                                        "a": 255,
+                                        "b": 0,
+                                        "g": 0,
+                                        "r": 0
+                                      },
+                                      "border_width": 0.0,
+                                      "class": "NSViewBackingLayer",
+                                      "corner_radius": 0.0,
+                                      "frame": {
+                                        "height": 17.0,
+                                        "width": 57.0,
+                                        "x": -7.0,
+                                        "y": 0.0
+                                      },
+                                      "hidden": false,
+                                      "opacity": 1.0,
+                                      "sublayers": [
+                                        {
+                                          "animation_keys": [],
+                                          "background": null,
+                                          "border": {
+                                            "a": 255,
+                                            "b": 0,
+                                            "g": 0,
+                                            "r": 0
+                                          },
+                                          "border_width": 0.0,
+                                          "class": "_TtCC6AppKit26NSViewBackingLayerContentsP33_936B6E90B4E319ADDB011517F9EF5EC612ContentLayer",
+                                          "corner_radius": 0.0,
+                                          "frame": {
+                                            "height": 17.0,
+                                            "width": 57.0,
+                                            "x": -9.0,
+                                            "y": 0.0
+                                          },
+                                          "hidden": false,
+                                          "opacity": 1.0
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "alpha": 1.0,
+                        "class": "NSTextIndicatorOverlay",
+                        "frame_in_window": {
+                          "height": 16.0,
+                          "width": 232.0,
+                          "x": 24.0,
+                          "y": 144.0
+                        },
+                        "hidden": false,
+                        "hidden_or_ancestor": false,
+                        "layer": {
+                          "animation_keys": [],
+                          "background": null,
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "NSViewBackingLayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 16.0,
+                            "width": 232.0,
+                            "x": 4.0,
+                            "y": 4.0
+                          },
+                          "hidden": false,
+                          "opacity": 1.0
+                        },
+                        "subviews": [
+                          {
+                            "alpha": 1.0,
+                            "class": "NSTextInsertionIndicator",
+                            "frame_in_window": {
+                              "height": 16.0,
+                              "width": 0.0,
+                              "x": 26.0,
+                              "y": 144.0
+                            },
+                            "hidden": false,
+                            "hidden_or_ancestor": false,
+                            "layer": {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "NSViewBackingLayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 16.0,
+                                "width": 0.0,
+                                "x": 2.0,
+                                "y": 0.0
+                              },
+                              "hidden": false,
+                              "opacity": 1.0,
+                              "sublayers": [
+                                {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "CALayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 24.0,
+                                    "width": 10.0,
+                                    "x": -5.0,
+                                    "y": -4.0
+                                  },
+                                  "hidden": true,
+                                  "opacity": 0.0,
+                                  "sublayers": [
+                                    {
+                                      "animation_keys": [],
+                                      "background": {
+                                        "a": 255,
+                                        "b": 255,
+                                        "g": 122,
+                                        "r": 0
+                                      },
+                                      "border": {
+                                        "a": 255,
+                                        "b": 0,
+                                        "g": 0,
+                                        "r": 0
+                                      },
+                                      "border_width": 0.0,
+                                      "class": "CAShapeLayer",
+                                      "corner_radius": 0.0,
+                                      "frame": {
+                                        "height": 24.0,
+                                        "width": 10.0,
+                                        "x": 0.0,
+                                        "y": 0.0
+                                      },
+                                      "hidden": false,
+                                      "opacity": 1.0
+                                    }
+                                  ]
+                                },
+                                {
+                                  "animation_keys": [
+                                    "opacity"
+                                  ],
+                                  "background": {
+                                    "a": 255,
+                                    "b": 255,
+                                    "g": 122,
+                                    "r": 0
+                                  },
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "CALayer",
+                                  "corner_radius": 1.1,
+                                  "frame": {
+                                    "height": 16.0,
+                                    "width": 2.0,
+                                    "x": -1.0,
+                                    "y": 0.0
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "alpha": 1.0,
+                        "class": "AppKit.NSSimpleLabel",
+                        "frame_in_window": {
+                          "height": 16.0,
+                          "width": 232.0,
+                          "x": 24.0,
+                          "y": 144.0
+                        },
+                        "hidden": true,
+                        "hidden_or_ancestor": true,
+                        "layer": {
+                          "animation_keys": [],
+                          "background": null,
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "NSViewBackingLayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 16.0,
+                            "width": 232.0,
+                            "x": 4.0,
+                            "y": 4.0
+                          },
+                          "hidden": true,
+                          "opacity": 1.0
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "alpha": 1.0,
+                "class": "NSTitlebarContainerView",
+                "frame_in_window": {
+                  "height": 32.0,
+                  "width": 1180.0,
+                  "x": 0.0,
+                  "y": 720.0
+                },
+                "hidden": false,
+                "hidden_or_ancestor": false,
+                "layer": {
+                  "animation_keys": [],
+                  "background": null,
+                  "border": {
+                    "a": 255,
+                    "b": 0,
+                    "g": 0,
+                    "r": 0
+                  },
+                  "border_width": 0.0,
+                  "class": "NSViewBackingLayer",
+                  "corner_radius": 0.0,
+                  "frame": {
+                    "height": 32.0,
+                    "width": 1180.0,
+                    "x": 0.0,
+                    "y": 720.0
+                  },
+                  "hidden": false,
+                  "opacity": 1.0
+                },
+                "subviews": [
+                  {
+                    "alpha": 1.0,
+                    "class": "NSTitlebarBackgroundView",
+                    "frame_in_window": {
+                      "height": 32.0,
+                      "width": 1180.0,
+                      "x": 0.0,
+                      "y": 720.0
+                    },
+                    "hidden": false,
+                    "hidden_or_ancestor": false,
+                    "layer": {
+                      "animation_keys": [],
+                      "background": null,
+                      "border": {
+                        "a": 255,
+                        "b": 0,
+                        "g": 0,
+                        "r": 0
+                      },
+                      "border_width": 0.0,
+                      "class": "NSViewBackingLayer",
+                      "corner_radius": 0.0,
+                      "frame": {
+                        "height": 32.0,
+                        "width": 1180.0,
+                        "x": 0.0,
+                        "y": 0.0
+                      },
+                      "hidden": false,
+                      "opacity": 1.0
+                    },
+                    "subviews": [
+                      {
+                        "alpha": 1.0,
+                        "class": "NSScrollPocket",
+                        "frame_in_window": {
+                          "height": 32.0,
+                          "width": 1180.0,
+                          "x": 0.0,
+                          "y": 720.0
+                        },
+                        "hidden": false,
+                        "hidden_or_ancestor": false,
+                        "layer": {
+                          "animation_keys": [],
+                          "background": null,
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "NSViewBackingLayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 32.0,
+                            "width": 1180.0,
+                            "x": 0.0,
+                            "y": 0.0
+                          },
+                          "hidden": false,
+                          "opacity": 1.0,
+                          "sublayers": [
+                            {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "CALayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 32.0,
+                                "width": 1180.0,
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "hidden": false,
+                              "opacity": 1.0,
+                              "sublayers": [
+                                {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "CABackdropLayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 32.0,
+                                    "width": 1180.0,
+                                    "x": 0.0,
+                                    "y": 0.0
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0,
+                                  "sublayers": [
+                                    {
+                                      "animation_keys": [],
+                                      "background": null,
+                                      "border": {
+                                        "a": 255,
+                                        "b": 0,
+                                        "g": 0,
+                                        "r": 0
+                                      },
+                                      "border_width": 0.0,
+                                      "class": "CAGradientLayer",
+                                      "corner_radius": 0.0,
+                                      "frame": {
+                                        "height": 32.0,
+                                        "width": 1180.0,
+                                        "x": 0.0,
+                                        "y": 0.0
+                                      },
+                                      "hidden": true,
+                                      "opacity": 1.0
+                                    }
+                                  ]
+                                },
+                                {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "CABackdropLayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 32.0,
+                                    "width": 1180.0,
+                                    "x": 0.0,
+                                    "y": 0.0
+                                  },
+                                  "hidden": false,
+                                  "opacity": 0.8245000243186951,
+                                  "sublayers": [
+                                    {
+                                      "animation_keys": [],
+                                      "background": null,
+                                      "border": {
+                                        "a": 255,
+                                        "b": 0,
+                                        "g": 0,
+                                        "r": 0
+                                      },
+                                      "border_width": 0.0,
+                                      "class": "CALayer",
+                                      "corner_radius": 0.0,
+                                      "frame": {
+                                        "height": 32.0,
+                                        "width": 1180.0,
+                                        "x": 0.0,
+                                        "y": 0.0
+                                      },
+                                      "hidden": false,
+                                      "opacity": 1.0,
+                                      "sublayers": [
+                                        {
+                                          "animation_keys": [],
+                                          "background": {
+                                            "a": 255,
+                                            "b": 30,
+                                            "g": 30,
+                                            "r": 30
+                                          },
+                                          "border": {
+                                            "a": 255,
+                                            "b": 0,
+                                            "g": 0,
+                                            "r": 0
+                                          },
+                                          "border_width": 0.0,
+                                          "class": "CALayer",
+                                          "corner_radius": 0.0,
+                                          "frame": {
+                                            "height": 32.0,
+                                            "width": 1180.0,
+                                            "x": 0.0,
+                                            "y": 0.0
+                                          },
+                                          "hidden": false,
+                                          "opacity": 1.0
+                                        },
+                                        {
+                                          "animation_keys": [],
+                                          "background": {
+                                            "a": 0,
+                                            "b": 174,
+                                            "g": 113,
+                                            "r": 181
+                                          },
+                                          "border": {
+                                            "a": 255,
+                                            "b": 0,
+                                            "g": 0,
+                                            "r": 0
+                                          },
+                                          "border_width": 0.0,
+                                          "class": "CAChameleonLayer",
+                                          "corner_radius": 0.0,
+                                          "frame": {
+                                            "height": 32.0,
+                                            "width": 1180.0,
+                                            "x": 0.0,
+                                            "y": 0.0
+                                          },
+                                          "hidden": false,
+                                          "opacity": 0.10000000149011612
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "animation_keys": [],
+                                      "background": null,
+                                      "border": {
+                                        "a": 255,
+                                        "b": 0,
+                                        "g": 0,
+                                        "r": 0
+                                      },
+                                      "border_width": 0.0,
+                                      "class": "CAGradientLayer",
+                                      "corner_radius": 0.0,
+                                      "frame": {
+                                        "height": 32.0,
+                                        "width": 1180.0,
+                                        "x": 0.0,
+                                        "y": 0.0
+                                      },
+                                      "hidden": true,
+                                      "opacity": 1.0
+                                    }
+                                  ]
+                                },
+                                {
+                                  "animation_keys": [],
+                                  "background": {
+                                    "a": 18,
+                                    "b": 255,
+                                    "g": 255,
+                                    "r": 255
+                                  },
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "CALayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 0.5,
+                                    "width": 1180.0,
+                                    "x": 0.0,
+                                    "y": -0.5
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "subviews": [
+                          {
+                            "alpha": 1.0,
+                            "class": "_TtCC6AppKit14NSScrollPocketP33_EC3F85FAB7755D56E669206D2B17725B10PocketMask",
+                            "frame_in_window": {
+                              "height": 0.0,
+                              "width": 0.0,
+                              "x": 0.0,
+                              "y": 720.0
+                            },
+                            "hidden": true,
+                            "hidden_or_ancestor": true,
+                            "layer": {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "NSViewBackingLayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 0.0,
+                                "width": 0.0,
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "hidden": true,
+                              "opacity": 1.0
+                            },
+                            "subviews": [
+                              {
+                                "alpha": 1.0,
+                                "class": "NSView",
+                                "frame_in_window": {
+                                  "height": 0.0,
+                                  "width": 0.0,
+                                  "x": 0.0,
+                                  "y": 720.0
+                                },
+                                "hidden": false,
+                                "hidden_or_ancestor": true,
+                                "layer": {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "NSViewBackingLayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 0.0,
+                                    "width": 0.0,
+                                    "x": 0.0,
+                                    "y": 0.0
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0
+                                },
+                                "subviews": [
+                                  {
+                                    "alpha": 1.0,
+                                    "class": "NSView",
+                                    "frame_in_window": {
+                                      "height": 0.0,
+                                      "width": 0.0,
+                                      "x": 0.0,
+                                      "y": 720.0
+                                    },
+                                    "hidden": true,
+                                    "hidden_or_ancestor": true,
+                                    "layer": {
+                                      "animation_keys": [],
+                                      "background": {
+                                        "a": 255,
+                                        "b": 0,
+                                        "g": 0,
+                                        "r": 0
+                                      },
+                                      "border": {
+                                        "a": 255,
+                                        "b": 0,
+                                        "g": 0,
+                                        "r": 0
+                                      },
+                                      "border_width": 0.0,
+                                      "class": "NSViewBackingLayer",
+                                      "corner_radius": 0.0,
+                                      "frame": {
+                                        "height": 0.0,
+                                        "width": 0.0,
+                                        "x": 0.0,
+                                        "y": 0.0
+                                      },
+                                      "hidden": true,
+                                      "opacity": 1.0
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "alpha": 1.0,
+                            "class": "_TtCC6AppKit14NSScrollPocketP33_EC3F85FAB7755D56E669206D2B17725B10PocketBlur",
+                            "frame_in_window": {
+                              "height": 0.0,
+                              "width": 0.0,
+                              "x": 0.0,
+                              "y": 720.0
+                            },
+                            "hidden": true,
+                            "hidden_or_ancestor": true,
+                            "layer": {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "CABackdropLayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 0.0,
+                                "width": 0.0,
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "hidden": true,
+                              "opacity": 1.0
+                            },
+                            "subviews": [
+                              {
+                                "alpha": 1.0,
+                                "class": "_TtCC6AppKit14NSScrollPocketP33_EC3F85FAB7755D56E669206D2B17725B10PortalView",
+                                "frame_in_window": {
+                                  "height": 0.0,
+                                  "width": 0.0,
+                                  "x": 0.0,
+                                  "y": 720.0
+                                },
+                                "hidden": false,
+                                "hidden_or_ancestor": true,
+                                "layer": {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "CAPortalLayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 0.0,
+                                    "width": 0.0,
+                                    "x": 0.0,
+                                    "y": 0.0
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "alpha": 1.0,
+                            "class": "NSHardPocketView",
+                            "frame_in_window": {
+                              "height": 0.0,
+                              "width": 0.0,
+                              "x": 0.0,
+                              "y": 720.0
+                            },
+                            "hidden": true,
+                            "hidden_or_ancestor": true,
+                            "layer": {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "NSViewBackingLayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 0.0,
+                                "width": 0.0,
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "hidden": true,
+                              "opacity": 1.0,
+                              "sublayers": [
+                                {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "CALayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 0.0,
+                                    "width": 0.0,
+                                    "x": 0.0,
+                                    "y": 0.0
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0,
+                                  "sublayers": [
+                                    {
+                                      "animation_keys": [],
+                                      "background": null,
+                                      "border": {
+                                        "a": 255,
+                                        "b": 0,
+                                        "g": 0,
+                                        "r": 0
+                                      },
+                                      "border_width": 0.0,
+                                      "class": "CABackdropLayer",
+                                      "corner_radius": 0.0,
+                                      "frame": {
+                                        "height": 0.0,
+                                        "width": 0.0,
+                                        "x": 0.0,
+                                        "y": 0.0
+                                      },
+                                      "hidden": false,
+                                      "opacity": 1.0,
+                                      "sublayers": [
+                                        {
+                                          "animation_keys": [],
+                                          "background": null,
+                                          "border": {
+                                            "a": 255,
+                                            "b": 0,
+                                            "g": 0,
+                                            "r": 0
+                                          },
+                                          "border_width": 0.0,
+                                          "class": "CAGradientLayer",
+                                          "corner_radius": 0.0,
+                                          "frame": {
+                                            "height": 0.0,
+                                            "width": 0.0,
+                                            "x": 0.0,
+                                            "y": 0.0
+                                          },
+                                          "hidden": true,
+                                          "opacity": 1.0
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "animation_keys": [],
+                                      "background": null,
+                                      "border": {
+                                        "a": 255,
+                                        "b": 0,
+                                        "g": 0,
+                                        "r": 0
+                                      },
+                                      "border_width": 0.0,
+                                      "class": "CABackdropLayer",
+                                      "corner_radius": 0.0,
+                                      "frame": {
+                                        "height": 0.0,
+                                        "width": 0.0,
+                                        "x": 0.0,
+                                        "y": 0.0
+                                      },
+                                      "hidden": false,
+                                      "opacity": 0.8245000243186951,
+                                      "sublayers": [
+                                        {
+                                          "animation_keys": [],
+                                          "background": null,
+                                          "border": {
+                                            "a": 255,
+                                            "b": 0,
+                                            "g": 0,
+                                            "r": 0
+                                          },
+                                          "border_width": 0.0,
+                                          "class": "CALayer",
+                                          "corner_radius": 0.0,
+                                          "frame": {
+                                            "height": 0.0,
+                                            "width": 0.0,
+                                            "x": 0.0,
+                                            "y": 0.0
+                                          },
+                                          "hidden": false,
+                                          "opacity": 1.0,
+                                          "sublayers": [
+                                            {
+                                              "animation_keys": [],
+                                              "background": {
+                                                "a": 255,
+                                                "b": 30,
+                                                "g": 30,
+                                                "r": 30
+                                              },
+                                              "border": {
+                                                "a": 255,
+                                                "b": 0,
+                                                "g": 0,
+                                                "r": 0
+                                              },
+                                              "border_width": 0.0,
+                                              "class": "CALayer",
+                                              "corner_radius": 0.0,
+                                              "frame": {
+                                                "height": 0.0,
+                                                "width": 0.0,
+                                                "x": 0.0,
+                                                "y": 0.0
+                                              },
+                                              "hidden": false,
+                                              "opacity": 1.0
+                                            },
+                                            {
+                                              "animation_keys": [],
+                                              "background": {
+                                                "a": 0,
+                                                "b": 174,
+                                                "g": 113,
+                                                "r": 181
+                                              },
+                                              "border": {
+                                                "a": 255,
+                                                "b": 0,
+                                                "g": 0,
+                                                "r": 0
+                                              },
+                                              "border_width": 0.0,
+                                              "class": "CAChameleonLayer",
+                                              "corner_radius": 0.0,
+                                              "frame": {
+                                                "height": 0.0,
+                                                "width": 0.0,
+                                                "x": 0.0,
+                                                "y": 0.0
+                                              },
+                                              "hidden": false,
+                                              "opacity": 0.10000000149011612
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "animation_keys": [],
+                                          "background": null,
+                                          "border": {
+                                            "a": 255,
+                                            "b": 0,
+                                            "g": 0,
+                                            "r": 0
+                                          },
+                                          "border_width": 0.0,
+                                          "class": "CAGradientLayer",
+                                          "corner_radius": 0.0,
+                                          "frame": {
+                                            "height": 0.0,
+                                            "width": 0.0,
+                                            "x": 0.0,
+                                            "y": 0.0
+                                          },
+                                          "hidden": true,
+                                          "opacity": 1.0
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "animation_keys": [],
+                                      "background": {
+                                        "a": 18,
+                                        "b": 255,
+                                        "g": 255,
+                                        "r": 255
+                                      },
+                                      "border": {
+                                        "a": 255,
+                                        "b": 0,
+                                        "g": 0,
+                                        "r": 0
+                                      },
+                                      "border_width": 0.0,
+                                      "class": "CALayer",
+                                      "corner_radius": 0.0,
+                                      "frame": {
+                                        "height": 0.5,
+                                        "width": 0.0,
+                                        "x": 0.0,
+                                        "y": -0.5
+                                      },
+                                      "hidden": false,
+                                      "opacity": 1.0
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            "subviews": [
+                              {
+                                "alpha": 1.0,
+                                "class": "_TtC6AppKitP33_EC3F85FAB7755D56E669206D2B17725B26_NSLayerBasedFillColorView",
+                                "frame_in_window": {
+                                  "height": 1.0,
+                                  "width": 0.0,
+                                  "x": 0.0,
+                                  "y": 720.0
+                                },
+                                "hidden": false,
+                                "hidden_or_ancestor": true,
+                                "layer": {
+                                  "animation_keys": [],
+                                  "background": {
+                                    "a": 13,
+                                    "b": 255,
+                                    "g": 255,
+                                    "r": 255
+                                  },
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "NSViewBackingLayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 1.0,
+                                    "width": 0.0,
+                                    "x": 0.0,
+                                    "y": 0.0
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "alpha": 1.0,
+                            "class": "_TtCC6AppKit14NSScrollPocketP33_EC3F85FAB7755D56E669206D2B17725B19LuminanceAdjustment",
+                            "frame_in_window": {
+                              "height": 0.0,
+                              "width": 0.0,
+                              "x": 0.0,
+                              "y": 720.0
+                            },
+                            "hidden": true,
+                            "hidden_or_ancestor": true,
+                            "layer": {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "NSViewBackingLayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 0.0,
+                                "width": 0.0,
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "hidden": true,
+                              "opacity": 1.0
+                            },
+                            "subviews": [
+                              {
+                                "alpha": 1.0,
+                                "class": "NSView",
+                                "frame_in_window": {
+                                  "height": 0.0,
+                                  "width": 0.0,
+                                  "x": 0.0,
+                                  "y": 720.0
+                                },
+                                "hidden": false,
+                                "hidden_or_ancestor": true,
+                                "layer": {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "NSViewBackingLayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 0.0,
+                                    "width": 0.0,
+                                    "x": 0.0,
+                                    "y": 0.0
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0
+                                },
+                                "subviews": [
+                                  {
+                                    "alpha": 1.0,
+                                    "class": "NSView",
+                                    "frame_in_window": {
+                                      "height": 0.0,
+                                      "width": 0.0,
+                                      "x": 0.0,
+                                      "y": 720.0
+                                    },
+                                    "hidden": false,
+                                    "hidden_or_ancestor": true,
+                                    "layer": {
+                                      "animation_keys": [],
+                                      "background": null,
+                                      "border": {
+                                        "a": 255,
+                                        "b": 0,
+                                        "g": 0,
+                                        "r": 0
+                                      },
+                                      "border_width": 0.0,
+                                      "class": "NSViewBackingLayer",
+                                      "corner_radius": 0.0,
+                                      "frame": {
+                                        "height": 0.0,
+                                        "width": 0.0,
+                                        "x": 0.0,
+                                        "y": 0.0
+                                      },
+                                      "hidden": false,
+                                      "opacity": 1.0
+                                    },
+                                    "subviews": [
+                                      {
+                                        "alpha": 0.6,
+                                        "class": "_TtCC6AppKit14NSScrollPocketP33_EC3F85FAB7755D56E669206D2B17725B12BackdropView",
+                                        "frame_in_window": {
+                                          "height": 0.0,
+                                          "width": 0.0,
+                                          "x": 0.0,
+                                          "y": 720.0
+                                        },
+                                        "hidden": true,
+                                        "hidden_or_ancestor": true,
+                                        "layer": {
+                                          "animation_keys": [],
+                                          "background": null,
+                                          "border": {
+                                            "a": 255,
+                                            "b": 0,
+                                            "g": 0,
+                                            "r": 0
+                                          },
+                                          "border_width": 0.0,
+                                          "class": "CABackdropLayer",
+                                          "corner_radius": 0.0,
+                                          "frame": {
+                                            "height": 0.0,
+                                            "width": 0.0,
+                                            "x": 0.0,
+                                            "y": 0.0
+                                          },
+                                          "hidden": true,
+                                          "opacity": 0.6000000238418579
+                                        }
+                                      },
+                                      {
+                                        "alpha": 0.6,
+                                        "class": "_NSScrollViewContentBackgroundView",
+                                        "frame_in_window": {
+                                          "height": 0.0,
+                                          "width": 0.0,
+                                          "x": 0.0,
+                                          "y": 720.0
+                                        },
+                                        "hidden": false,
+                                        "hidden_or_ancestor": true,
+                                        "layer": {
+                                          "animation_keys": [],
+                                          "background": null,
+                                          "border": {
+                                            "a": 255,
+                                            "b": 0,
+                                            "g": 0,
+                                            "r": 0
+                                          },
+                                          "border_width": 0.0,
+                                          "class": "NSViewBackingLayer",
+                                          "corner_radius": 0.0,
+                                          "frame": {
+                                            "height": 0.0,
+                                            "width": 0.0,
+                                            "x": 0.0,
+                                            "y": 0.0
+                                          },
+                                          "hidden": false,
+                                          "opacity": 0.6000000238418579
+                                        },
+                                        "subviews": [
+                                          {
+                                            "alpha": 1.0,
+                                            "class": "NSVisualEffectView",
+                                            "frame_in_window": {
+                                              "height": 0.0,
+                                              "width": 0.0,
+                                              "x": 0.0,
+                                              "y": 720.0
+                                            },
+                                            "hidden": false,
+                                            "hidden_or_ancestor": true,
+                                            "layer": {
+                                              "animation_keys": [],
+                                              "background": null,
+                                              "border": {
+                                                "a": 255,
+                                                "b": 0,
+                                                "g": 0,
+                                                "r": 0
+                                              },
+                                              "border_width": 0.0,
+                                              "class": "NSViewBackingLayer",
+                                              "corner_radius": 0.0,
+                                              "frame": {
+                                                "height": 0.0,
+                                                "width": 0.0,
+                                                "x": 0.0,
+                                                "y": 0.0
+                                              },
+                                              "hidden": false,
+                                              "opacity": 1.0,
+                                              "sublayers": [
+                                                {
+                                                  "animation_keys": [],
+                                                  "background": null,
+                                                  "border": {
+                                                    "a": 255,
+                                                    "b": 0,
+                                                    "g": 0,
+                                                    "r": 0
+                                                  },
+                                                  "border_width": 0.0,
+                                                  "class": "CALayer",
+                                                  "corner_radius": 0.0,
+                                                  "frame": {
+                                                    "height": 0.0,
+                                                    "width": 0.0,
+                                                    "x": 0.0,
+                                                    "y": 0.0
+                                                  },
+                                                  "hidden": false,
+                                                  "opacity": 1.0,
+                                                  "sublayers": [
+                                                    {
+                                                      "animation_keys": [],
+                                                      "background": {
+                                                        "a": 255,
+                                                        "b": 30,
+                                                        "g": 30,
+                                                        "r": 30
+                                                      },
+                                                      "border": {
+                                                        "a": 255,
+                                                        "b": 0,
+                                                        "g": 0,
+                                                        "r": 0
+                                                      },
+                                                      "border_width": 0.0,
+                                                      "class": "CALayer",
+                                                      "corner_radius": 0.0,
+                                                      "frame": {
+                                                        "height": 0.0,
+                                                        "width": 0.0,
+                                                        "x": 0.0,
+                                                        "y": 0.0
+                                                      },
+                                                      "hidden": false,
+                                                      "opacity": 1.0
+                                                    },
+                                                    {
+                                                      "animation_keys": [],
+                                                      "background": {
+                                                        "a": 0,
+                                                        "b": 174,
+                                                        "g": 113,
+                                                        "r": 181
+                                                      },
+                                                      "border": {
+                                                        "a": 255,
+                                                        "b": 0,
+                                                        "g": 0,
+                                                        "r": 0
+                                                      },
+                                                      "border_width": 0.0,
+                                                      "class": "CAChameleonLayer",
+                                                      "corner_radius": 0.0,
+                                                      "frame": {
+                                                        "height": 0.0,
+                                                        "width": 0.0,
+                                                        "x": 0.0,
+                                                        "y": 0.0
+                                                      },
+                                                      "hidden": false,
+                                                      "opacity": 0.10000000149011612
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "alpha": 1.0,
+                                    "class": "NSView",
+                                    "frame_in_window": {
+                                      "height": 0.0,
+                                      "width": 0.0,
+                                      "x": 0.0,
+                                      "y": 720.0
+                                    },
+                                    "hidden": false,
+                                    "hidden_or_ancestor": true,
+                                    "layer": {
+                                      "animation_keys": [],
+                                      "background": null,
+                                      "border": {
+                                        "a": 255,
+                                        "b": 0,
+                                        "g": 0,
+                                        "r": 0
+                                      },
+                                      "border_width": 0.0,
+                                      "class": "NSViewBackingLayer",
+                                      "corner_radius": 0.0,
+                                      "frame": {
+                                        "height": 0.0,
+                                        "width": 0.0,
+                                        "x": 0.0,
+                                        "y": 0.0
+                                      },
+                                      "hidden": false,
+                                      "opacity": 1.0
+                                    },
+                                    "subviews": [
+                                      {
+                                        "alpha": 0.0,
+                                        "class": "NSView",
+                                        "frame_in_window": {
+                                          "height": 0.0,
+                                          "width": 0.0,
+                                          "x": 0.0,
+                                          "y": 720.0
+                                        },
+                                        "hidden": false,
+                                        "hidden_or_ancestor": true,
+                                        "layer": {
+                                          "animation_keys": [],
+                                          "background": {
+                                            "a": 255,
+                                            "b": 0,
+                                            "g": 0,
+                                            "r": 0
+                                          },
+                                          "border": {
+                                            "a": 255,
+                                            "b": 0,
+                                            "g": 0,
+                                            "r": 0
+                                          },
+                                          "border_width": 0.0,
+                                          "class": "NSViewBackingLayer",
+                                          "corner_radius": 0.0,
+                                          "frame": {
+                                            "height": 0.0,
+                                            "width": 0.0,
+                                            "x": 0.0,
+                                            "y": 0.0
+                                          },
+                                          "hidden": false,
+                                          "opacity": 0.0
+                                        }
+                                      },
+                                      {
+                                        "alpha": 0.0,
+                                        "class": "NSView",
+                                        "frame_in_window": {
+                                          "height": 0.0,
+                                          "width": 0.0,
+                                          "x": 0.0,
+                                          "y": 720.0
+                                        },
+                                        "hidden": false,
+                                        "hidden_or_ancestor": true,
+                                        "layer": {
+                                          "animation_keys": [],
+                                          "background": {
+                                            "a": 255,
+                                            "b": 255,
+                                            "g": 255,
+                                            "r": 255
+                                          },
+                                          "border": {
+                                            "a": 255,
+                                            "b": 0,
+                                            "g": 0,
+                                            "r": 0
+                                          },
+                                          "border_width": 0.0,
+                                          "class": "NSViewBackingLayer",
+                                          "corner_radius": 0.0,
+                                          "frame": {
+                                            "height": 0.0,
+                                            "width": 0.0,
+                                            "x": 0.0,
+                                            "y": 0.0
+                                          },
+                                          "hidden": false,
+                                          "opacity": 0.0
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ]
+                              },
+                              {
+                                "alpha": 1.0,
+                                "class": "_TtCC6AppKit14NSScrollPocketP33_EC3F85FAB7755D56E669206D2B17725B10PortalView",
+                                "frame_in_window": {
+                                  "height": 0.0,
+                                  "width": 0.0,
+                                  "x": 0.0,
+                                  "y": 720.0
+                                },
+                                "hidden": false,
+                                "hidden_or_ancestor": true,
+                                "layer": {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "CAPortalLayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 0.0,
+                                    "width": 0.0,
+                                    "x": 0.0,
+                                    "y": 0.0
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "alpha": 1.0,
+                    "class": "NSTitlebarView",
+                    "frame_in_window": {
+                      "height": 32.0,
+                      "width": 1180.0,
+                      "x": 0.0,
+                      "y": 720.0
+                    },
+                    "hidden": false,
+                    "hidden_or_ancestor": false,
+                    "layer": {
+                      "animation_keys": [],
+                      "background": null,
+                      "border": {
+                        "a": 255,
+                        "b": 0,
+                        "g": 0,
+                        "r": 0
+                      },
+                      "border_width": 0.0,
+                      "class": "NSViewBackingLayer",
+                      "corner_radius": 0.0,
+                      "frame": {
+                        "height": 32.0,
+                        "width": 1180.0,
+                        "x": 0.0,
+                        "y": 0.0
+                      },
+                      "hidden": false,
+                      "opacity": 1.0
+                    },
+                    "subviews": [
+                      {
+                        "alpha": 1.0,
+                        "class": "NSView",
+                        "frame_in_window": {
+                          "height": 32.0,
+                          "width": 1180.0,
+                          "x": 0.0,
+                          "y": 720.0
+                        },
+                        "hidden": false,
+                        "hidden_or_ancestor": false,
+                        "layer": {
+                          "animation_keys": [],
+                          "background": null,
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "CABackdropLayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 32.0,
+                            "width": 1180.0,
+                            "x": 0.0,
+                            "y": 0.0
+                          },
+                          "hidden": false,
+                          "opacity": 1.0
+                        }
+                      },
+                      {
+                        "alpha": 1.0,
+                        "class": "NSTextField",
+                        "frame_in_window": {
+                          "height": 16.0,
+                          "width": 126.0,
+                          "x": 82.0,
+                          "y": 728.0
+                        },
+                        "hidden": false,
+                        "hidden_or_ancestor": false,
+                        "layer": {
+                          "animation_keys": [],
+                          "background": null,
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "NSViewBackingLayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 16.0,
+                            "width": 126.0,
+                            "x": 82.0,
+                            "y": 8.0
+                          },
+                          "hidden": false,
+                          "opacity": 1.0
+                        },
+                        "subviews": [
+                          {
+                            "alpha": 1.0,
+                            "class": "_TtC6AppKitP33_72EBFCF981BE77E1C6F26FD717D0893922NSTextFieldSimpleLabel",
+                            "frame_in_window": {
+                              "height": 16.0,
+                              "width": 126.0,
+                              "x": 82.0,
+                              "y": 728.0
+                            },
+                            "hidden": false,
+                            "hidden_or_ancestor": false,
+                            "layer": {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "NSViewBackingLayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 16.0,
+                                "width": 126.0,
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "hidden": false,
+                              "opacity": 1.0,
+                              "sublayers": [
+                                {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "_TtCC6AppKit26NSViewBackingLayerContentsP33_936B6E90B4E319ADDB011517F9EF5EC612ContentLayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 26.5,
+                                    "width": 169.0,
+                                    "x": -11.5,
+                                    "y": -4.5
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "alpha": 1.0,
+                        "class": "_NSThemeCloseWidget",
+                        "frame_in_window": {
+                          "height": 14.0,
+                          "width": 14.0,
+                          "x": 9.0,
+                          "y": 729.0
+                        },
+                        "hidden": false,
+                        "hidden_or_ancestor": false,
+                        "layer": {
+                          "animation_keys": [],
+                          "background": null,
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "NSViewBackingLayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 14.0,
+                            "width": 14.0,
+                            "x": 9.0,
+                            "y": 9.0
+                          },
+                          "hidden": false,
+                          "opacity": 1.0
+                        },
+                        "subviews": [
+                          {
+                            "alpha": 1.0,
+                            "class": "_TtGC6AppKit18_NSCoreHostingViewVS_15ThemeWidgetView_",
+                            "frame_in_window": {
+                              "height": 14.0,
+                              "width": 14.0,
+                              "x": 9.0,
+                              "y": 729.0
+                            },
+                            "hidden": false,
+                            "hidden_or_ancestor": false,
+                            "layer": {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "NSViewBackingLayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 14.0,
+                                "width": 14.0,
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "hidden": false,
+                              "opacity": 1.0,
+                              "sublayers": [
+                                {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "SwiftUI.ImageLayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 22.0,
+                                    "width": 22.0,
+                                    "x": -4.0,
+                                    "y": -4.0
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "alpha": 1.0,
+                        "class": "_NSThemeZoomWidget",
+                        "frame_in_window": {
+                          "height": 14.0,
+                          "width": 14.0,
+                          "x": 55.0,
+                          "y": 729.0
+                        },
+                        "hidden": false,
+                        "hidden_or_ancestor": false,
+                        "layer": {
+                          "animation_keys": [],
+                          "background": null,
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "NSViewBackingLayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 14.0,
+                            "width": 14.0,
+                            "x": 55.0,
+                            "y": 9.0
+                          },
+                          "hidden": false,
+                          "opacity": 1.0
+                        },
+                        "subviews": [
+                          {
+                            "alpha": 1.0,
+                            "class": "_TtGC6AppKit18_NSCoreHostingViewVS_15ThemeWidgetView_",
+                            "frame_in_window": {
+                              "height": 14.0,
+                              "width": 14.0,
+                              "x": 55.0,
+                              "y": 729.0
+                            },
+                            "hidden": false,
+                            "hidden_or_ancestor": false,
+                            "layer": {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "NSViewBackingLayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 14.0,
+                                "width": 14.0,
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "hidden": false,
+                              "opacity": 1.0,
+                              "sublayers": [
+                                {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "SwiftUI.ImageLayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 22.0,
+                                    "width": 22.0,
+                                    "x": -4.0,
+                                    "y": -4.0
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "alpha": 1.0,
+                        "class": "_NSThemeWidget",
+                        "frame_in_window": {
+                          "height": 14.0,
+                          "width": 14.0,
+                          "x": 32.0,
+                          "y": 729.0
+                        },
+                        "hidden": false,
+                        "hidden_or_ancestor": false,
+                        "layer": {
+                          "animation_keys": [],
+                          "background": null,
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "NSViewBackingLayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 14.0,
+                            "width": 14.0,
+                            "x": 32.0,
+                            "y": 9.0
+                          },
+                          "hidden": false,
+                          "opacity": 1.0
+                        },
+                        "subviews": [
+                          {
+                            "alpha": 1.0,
+                            "class": "_TtGC6AppKit18_NSCoreHostingViewVS_15ThemeWidgetView_",
+                            "frame_in_window": {
+                              "height": 14.0,
+                              "width": 14.0,
+                              "x": 32.0,
+                              "y": 729.0
+                            },
+                            "hidden": false,
+                            "hidden_or_ancestor": false,
+                            "layer": {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "NSViewBackingLayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 14.0,
+                                "width": 14.0,
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "hidden": false,
+                              "opacity": 1.0,
+                              "sublayers": [
+                                {
+                                  "animation_keys": [],
+                                  "background": null,
+                                  "border": {
+                                    "a": 255,
+                                    "b": 0,
+                                    "g": 0,
+                                    "r": 0
+                                  },
+                                  "border_width": 0.0,
+                                  "class": "SwiftUI.ImageLayer",
+                                  "corner_radius": 0.0,
+                                  "frame": {
+                                    "height": 22.0,
+                                    "width": 22.0,
+                                    "x": -4.0,
+                                    "y": -4.0
+                                  },
+                                  "hidden": false,
+                                  "opacity": 1.0
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "alpha": 1.0,
+                    "class": "_NSTitlebarDecorationView",
+                    "frame_in_window": {
+                      "height": 32.0,
+                      "width": 1180.0,
+                      "x": 0.0,
+                      "y": 720.0
+                    },
+                    "hidden": false,
+                    "hidden_or_ancestor": false,
+                    "layer": {
+                      "animation_keys": [],
+                      "background": null,
+                      "border": {
+                        "a": 255,
+                        "b": 0,
+                        "g": 0,
+                        "r": 0
+                      },
+                      "border_width": 0.0,
+                      "class": "NSViewBackingLayer",
+                      "corner_radius": 0.0,
+                      "frame": {
+                        "height": 32.0,
+                        "width": 1180.0,
+                        "x": 0.0,
+                        "y": 0.0
+                      },
+                      "hidden": false,
+                      "opacity": 1.0,
+                      "sublayers": [
+                        {
+                          "animation_keys": [],
+                          "background": null,
+                          "border": {
+                            "a": 255,
+                            "b": 0,
+                            "g": 0,
+                            "r": 0
+                          },
+                          "border_width": 0.0,
+                          "class": "CUIWindowFrameLayer",
+                          "corner_radius": 0.0,
+                          "frame": {
+                            "height": 32.0,
+                            "width": 1180.0,
+                            "x": 0.0,
+                            "y": 0.0
+                          },
+                          "hidden": false,
+                          "opacity": 1.0,
+                          "sublayers": [
+                            {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "CAGradientLayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 32.0,
+                                "width": 1180.0,
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "hidden": true,
+                              "opacity": 0.0
+                            },
+                            {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "CALayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 32.0,
+                                "width": 1180.0,
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "hidden": true,
+                              "opacity": 0.0
+                            },
+                            {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "CALayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 1.0,
+                                "width": 1181.0,
+                                "x": -1.0,
+                                "y": 31.0
+                              },
+                              "hidden": false,
+                              "opacity": 1.0
+                            },
+                            {
+                              "animation_keys": [],
+                              "background": null,
+                              "border": {
+                                "a": 255,
+                                "b": 0,
+                                "g": 0,
+                                "r": 0
+                              },
+                              "border_width": 0.0,
+                              "class": "CALayer",
+                              "corner_radius": 0.0,
+                              "frame": {
+                                "height": 32.0,
+                                "width": 1180.0,
+                                "x": 0.0,
+                                "y": 0.0
+                              },
+                              "hidden": true,
+                              "opacity": 1.0
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "title": "probe-appkit-shell",
+          "visible": true
+        },
+        {
+          "alpha": 1.0,
+          "background": {
+            "a": 0,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "class": "TUINSWindow",
+          "frame": {
+            "height": 500.0,
+            "width": 500.0,
+            "x": 0.0,
+            "y": 0.0
+          },
+          "key": false,
+          "main": false,
+          "number": 33546,
+          "opaque": false,
+          "root": {
+            "alpha": 1.0,
+            "class": "NSNextStepFrame",
+            "frame_in_window": {
+              "height": 500.0,
+              "width": 500.0,
+              "x": 0.0,
+              "y": 0.0
+            },
+            "hidden": false,
+            "hidden_or_ancestor": false,
+            "layer": {
+              "animation_keys": [],
+              "background": {
+                "a": 0,
+                "b": 0,
+                "g": 0,
+                "r": 0
+              },
+              "border": {
+                "a": 255,
+                "b": 0,
+                "g": 0,
+                "r": 0
+              },
+              "border_width": 0.0,
+              "class": "NSViewBackingLayer",
+              "corner_radius": 0.0,
+              "frame": {
+                "height": 500.0,
+                "width": 500.0,
+                "x": 0.0,
+                "y": 0.0
+              },
+              "hidden": false,
+              "opacity": 1.0
+            },
+            "subviews": [
+              {
+                "alpha": 1.0,
+                "class": "NSView",
+                "frame_in_window": {
+                  "height": 500.0,
+                  "width": 500.0,
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "hidden": false,
+                "hidden_or_ancestor": false,
+                "layer": {
+                  "animation_keys": [],
+                  "background": null,
+                  "border": {
+                    "a": 255,
+                    "b": 0,
+                    "g": 0,
+                    "r": 0
+                  },
+                  "border_width": 0.0,
+                  "class": "NSViewBackingLayer",
+                  "corner_radius": 0.0,
+                  "frame": {
+                    "height": 500.0,
+                    "width": 500.0,
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  "hidden": false,
+                  "opacity": 1.0
+                },
+                "subviews": [
+                  {
+                    "alpha": 1.0,
+                    "class": "NSRemoteView",
+                    "frame_in_window": {
+                      "height": 64.0,
+                      "width": 64.0,
+                      "x": 0.0,
+                      "y": 0.0
+                    },
+                    "hidden": false,
+                    "hidden_or_ancestor": false,
+                    "layer": {
+                      "animation_keys": [],
+                      "background": null,
+                      "border": {
+                        "a": 255,
+                        "b": 0,
+                        "g": 0,
+                        "r": 0
+                      },
+                      "border_width": 0.0,
+                      "class": "NSVBCALayerHost",
+                      "corner_radius": 0.0,
+                      "frame": {
+                        "height": 64.0,
+                        "width": 64.0,
+                        "x": 0.0,
+                        "y": 0.0
+                      },
+                      "hidden": false,
+                      "opacity": 1.0
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "title": "",
+          "visible": false
+        },
+        {
+          "alpha": 1.0,
+          "background": {
+            "a": 0,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "class": "SPRoundedWindow",
+          "frame": {
+            "height": 237.0,
+            "width": 312.0,
+            "x": 174.0,
+            "y": 12.0
+          },
+          "key": true,
+          "main": false,
+          "number": 33554,
+          "opaque": true,
+          "root": {
+            "alpha": 1.0,
+            "class": "NSNextStepFrame",
+            "frame_in_window": {
+              "height": 237.0,
+              "width": 312.0,
+              "x": 0.0,
+              "y": 0.0
+            },
+            "hidden": false,
+            "hidden_or_ancestor": false,
+            "layer": {
+              "animation_keys": [],
+              "background": {
+                "a": 0,
+                "b": 0,
+                "g": 0,
+                "r": 0
+              },
+              "border": {
+                "a": 255,
+                "b": 0,
+                "g": 0,
+                "r": 0
+              },
+              "border_width": 0.0,
+              "class": "NSViewBackingLayer",
+              "corner_radius": 0.0,
+              "frame": {
+                "height": 237.0,
+                "width": 312.0,
+                "x": 0.0,
+                "y": 0.0
+              },
+              "hidden": false,
+              "opacity": 1.0
+            },
+            "subviews": [
+              {
+                "alpha": 1.0,
+                "class": "NSRemoteView",
+                "frame_in_window": {
+                  "height": 237.0,
+                  "width": 312.0,
+                  "x": 0.0,
+                  "y": 0.0
+                },
+                "hidden": false,
+                "hidden_or_ancestor": false,
+                "layer": {
+                  "animation_keys": [],
+                  "background": null,
+                  "border": {
+                    "a": 255,
+                    "b": 0,
+                    "g": 0,
+                    "r": 0
+                  },
+                  "border_width": 0.0,
+                  "class": "NSVBCALayerHost",
+                  "corner_radius": 0.0,
+                  "frame": {
+                    "height": 237.0,
+                    "width": 312.0,
+                    "x": 0.0,
+                    "y": 0.0
+                  },
+                  "hidden": false,
+                  "opacity": 1.0
+                }
+              }
+            ]
+          },
+          "title": "",
+          "visible": false
+        }
+      ]
+    },
+    {
+      "key": "focus",
+      "value": {
+        "active": true,
+        "first_responder": {
+          "class": "NSTextView",
+          "field_editor": true,
+          "logical_class": "NSTextField"
+        },
+        "key_window": 33545,
+        "main_window": 33545
+      }
+    },
+    {
+      "key": "field_accessibility",
+      "value": {
+        "actions": [],
+        "children": [
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXConfirm"
+            ],
+            "children": 0,
+            "class": "NSTextFieldCell",
+            "disclosure_level": 0,
+            "element": true,
+            "enabled": true,
+            "expanded": false,
+            "focused": true,
+            "frame": {
+              "height": 26.0,
+              "width": 242.0,
+              "x": 185.0,
+              "y": 253.0
+            },
+            "help": null,
+            "identifier": null,
+            "label": null,
+            "navigation_children": 0,
+            "role": "AXTextField",
+            "role_description": "text field",
+            "selected": false,
+            "subrole": null,
+            "title": null,
+            "value": "abc"
+          }
+        ],
+        "class": "NSTextField",
+        "disclosure_level": 0,
+        "element": false,
+        "enabled": true,
+        "expanded": false,
+        "focused": false,
+        "frame": {
+          "height": 26.0,
+          "width": 242.0,
+          "x": 185.0,
+          "y": 253.0
+        },
+        "help": null,
+        "identifier": null,
+        "label": null,
+        "navigation_children": 1,
+        "role": "AXUnknown",
+        "role_description": "unknown",
+        "selected": false,
+        "subrole": null,
+        "title": null,
+        "value": "abc"
+      }
+    },
+    {
+      "key": "swatch_accessibility",
+      "value": {
+        "actions": [],
+        "children": 0,
+        "class": "NSView",
+        "disclosure_level": 0,
+        "element": false,
+        "enabled": false,
+        "expanded": false,
+        "focused": false,
+        "frame": {
+          "height": 80.0,
+          "width": 120.0,
+          "x": 186.0,
+          "y": 134.0
+        },
+        "help": null,
+        "identifier": null,
+        "label": null,
+        "navigation_children": 0,
+        "role": "AXUnknown",
+        "role_description": "unknown",
+        "selected": false,
+        "subrole": null,
+        "title": null,
+        "value": null
+      }
+    },
+    {
+      "key": "render_color_space",
+      "value": "Color LCD"
+    },
+    {
+      "key": "render_format",
+      "value": "8 бит × 4 сэмпла, формат 0x0, альфа true"
+    },
+    {
+      "key": "events_posted",
+      "value": "2"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "234"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "set_needs_display_to_display_pass",
+      "unit": "ms",
+      "samples": [
+        0.06475000000000364
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 0.06475000000000364,
+        "p95": 0.06475000000000364,
+        "max": 0.06475000000000364
+      }
+    },
+    {
+      "name": "keydown_post_to_display_pass",
+      "unit": "ms",
+      "samples": [
+        9.651083000000085
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 9.651083000000085,
+        "p95": 9.651083000000085,
+        "max": 9.651083000000085
+      }
+    },
+    {
+      "name": "keydown_dispatch_to_return",
+      "unit": "ms",
+      "samples": [
+        4.699500000000057
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 4.699500000000057,
+        "p95": 4.699500000000057,
+        "max": 4.699500000000057
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "display_pass_order",
+      "verdict": "fail",
+      "reason": "setNeedsDisplay в 517.374 мс, drawRect: в 518.710 мс (отрисовок 1 → 2), конец прохода в 517.439 мс; наблюдатель с порядком 2100000, после него на BeforeWaiting: []"
+    },
+    {
+      "name": "display_pass_after_event",
+      "verdict": "pass",
+      "reason": "keyDown Left: postEvent 523.152 мс, возврат sendEvent 531.667 мс, конец прохода отображения 532.803 мс"
+    },
+    {
+      "name": "readback_hierarchy",
+      "verdict": "pass",
+      "reason": "окон 3, корень основного окна NSThemeFrame, не найдено: [], вуаль внутри своей плитки: true"
+    },
+    {
+      "name": "readback_layer",
+      "verdict": "pass",
+      "reason": "фон плитки #0A0908 (ожидался #0A0908), фон вуали #00000080 (ожидался #00000080), ключи анимаций Some([\"probe-pulse\"]), после снятия Some([])"
+    },
+    {
+      "name": "readback_first_responder",
+      "verdict": "pass",
+      "reason": "first responder Some(Responder { class: \"NSTextView\", field_editor: true, logical_class: \"NSTextField\" }), логическое поле — поле сцены: true"
+    },
+    {
+      "name": "readback_accessibility",
+      "verdict": "pass",
+      "reason": "элемент AXTextField в поддереве поля: NSTextFieldCell, значение Some(\"abc\"), фокус Some(true), кадр Some(Rect { x: 185.0, y: 253.0, width: 242.0, height: 26.0 }) охватывает вид Some(Rect { x: 186.0, y: 254.0, width: 240.0, height: 24.0 }): true; вид поля: роль Some(\"AXUnknown\"), элемент Some(false); простой вид элементом: Some(false)"
+    },
+    {
+      "name": "readback_render_pixel",
+      "verdict": "pass",
+      "reason": "рендер вида 2360x1440 px: слой #0A0908 (ожидался #0A0908), вуаль #404040 (ожидался #404040), drawRect #2E6FEB (ожидался #2F6FEB); допуск 1"
+    },
+    {
+      "name": "screen_capture",
+      "verdict": "pass",
+      "reason": "снимки окна и композиции записаны, screencapture завершился успешно"
+    }
+  ],
+  "snapshots": [
+    {
+      "name": "readback-content",
+      "kind": "view-render",
+      "status": "ok",
+      "file": "readback-content.png",
+      "rect_points": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "color_space": "Color LCD"
+    },
+    {
+      "name": "readback-window",
+      "kind": "window",
+      "status": "ok",
+      "file": "readback-window.png",
+      "rect_points": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      }
+    },
+    {
+      "name": "readback-composition",
+      "kind": "composition",
+      "status": "ok",
+      "file": "readback-composition.png",
+      "rect_points": {
+        "x": 126.0,
+        "y": 74.0,
+        "width": 1260.0,
+        "height": 832.0
+      }
+    }
+  ],
+  "diagnostics": {
+    "trace": [
+      "0.009ms сценарий readback-check",
+      "35.956ms служебное событие type=13 window=0 timestamp=328834.556177 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "93.580ms служебное событие type=13 window=33545 timestamp=328834.649485 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "93.608ms служебное событие type=13 window=33545 timestamp=328834.649512 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "93.614ms служебное событие type=13 window=33545 timestamp=328834.649523 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "135.150ms служебное событие type=13 window=33546 timestamp=328834.591270 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "135.170ms служебное событие type=13 window=33545 timestamp=328834.591301 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "201.805ms служебное событие type=13 window=33545 timestamp=328834.757766 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "201.825ms служебное событие type=13 window=33545 timestamp=328834.757816 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "201.831ms служебное событие type=13 window=33554 timestamp=328834.757945 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "201.836ms служебное событие type=13 window=33554 timestamp=328834.757953 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "273.300ms служебное событие type=13 window=33554 timestamp=328834.757872 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "511.539ms шаг «окно неподвижно, активность, key window и поле в фокусе» готов за 500.6 мс",
+      "511.691ms курсор уведён в 1508,4",
+      "517.361ms шаг «курсор вне окон» готов за 5.7 мс",
+      "523.106ms шаг «проход отображения после setNeedsDisplay» готов за 5.7 мс",
+      "523.152ms post #1 keyDown Left",
+      "523.319ms post #2 keyUp Left",
+      "526.968ms dispatch #1",
+      "531.667ms return #1",
+      "531.756ms dispatch #2",
+      "531.828ms return #2",
+      "532.825ms шаг «Left обработана, проход отображения отмечен» готов за 9.5 мс",
+      "799.653ms служебное событие type=15 window=0 timestamp=0.000000 keyCode=None eventNumber=None source_pid=9013 source_state=0"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeDrawView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      }
+    ],
+    "notes": []
+  }
+}

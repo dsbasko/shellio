@@ -1,0 +1,4119 @@
+{
+  "schema": 1,
+  "scenario": "tree",
+  "variant": "plain",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "cc81b21e03bb",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-quartz-core 0.3.2",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "scene": {
+      "split": "plain",
+      "contrast": "system",
+      "motion": "system"
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "visible_frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 949.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC",
+    "fixtures": {}
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "окно неподвижно, активность и key window",
+      "status": "ready",
+      "waited_ms": 500.30691699999994,
+      "at_ms": 502.53608299999996,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTile cursor=1508,4"
+    },
+    {
+      "index": 1,
+      "name": "курсор вне окон",
+      "status": "ready",
+      "waited_ms": 5.6965,
+      "at_ms": 508.418292,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTile cursor=1508,4"
+    },
+    {
+      "index": 2,
+      "name": "дерево загружено",
+      "status": "ready",
+      "waited_ms": 505.555417,
+      "at_ms": 1014.0113749999999,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTile cursor=1508,4"
+    },
+    {
+      "index": 3,
+      "name": "перезагрузка без изменений",
+      "status": "ready",
+      "waited_ms": 525.544583,
+      "at_ms": 1541.797417,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTile cursor=1508,4"
+    },
+    {
+      "index": 4,
+      "name": "щелчок по корню обработан",
+      "status": "ready",
+      "waited_ms": 15.660250000000001,
+      "at_ms": 1567.463208,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4"
+    },
+    {
+      "index": 5,
+      "name": "Right обработана",
+      "status": "ready",
+      "waited_ms": 530.699083,
+      "at_ms": 2098.3942500000003,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4"
+    },
+    {
+      "index": 6,
+      "name": "Left обработана",
+      "status": "ready",
+      "waited_ms": 700.149417,
+      "at_ms": 2799.164083,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4"
+    },
+    {
+      "index": 7,
+      "name": "щелчок по треугольнику обработан",
+      "status": "ready",
+      "waited_ms": 520.144083,
+      "at_ms": 3320.3447920000003,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4"
+    },
+    {
+      "index": 8,
+      "name": "второй щелчок по треугольнику обработан",
+      "status": "ready",
+      "waited_ms": 705.6675409999999,
+      "at_ms": 4029.1889579999997,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4"
+    },
+    {
+      "index": 9,
+      "name": "раскрытие и свёртка всех корней",
+      "status": "ready",
+      "waited_ms": 1235.48925,
+      "at_ms": 5264.869375,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4"
+    },
+    {
+      "index": 10,
+      "name": "корни свёрнуты",
+      "status": "ready",
+      "waited_ms": 505.28495799999996,
+      "at_ms": 5770.201667,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4"
+    },
+    {
+      "index": 11,
+      "name": "первый уровень раскрыт",
+      "status": "ready",
+      "waited_ms": 515.632125,
+      "at_ms": 6316.86425,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4"
+    },
+    {
+      "index": 12,
+      "name": "щелчок по первой строке обработан",
+      "status": "ready",
+      "waited_ms": 10.166708,
+      "at_ms": 6328.4375,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4"
+    },
+    {
+      "index": 13,
+      "name": "110 перемещений Down",
+      "status": "ready",
+      "waited_ms": 920.593375,
+      "at_ms": 7249.078625,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4"
+    },
+    {
+      "index": 14,
+      "name": "прокрутка после перемещений установилась",
+      "status": "ready",
+      "waited_ms": 510.66333399999996,
+      "at_ms": 7759.808,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4"
+    },
+    {
+      "index": 15,
+      "name": "перезагрузка с обратным порядком корней",
+      "status": "ready",
+      "waited_ms": 520.329041,
+      "at_ms": 8311.317332999999,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4"
+    },
+    {
+      "index": 16,
+      "name": "Down к первому ребёнку",
+      "status": "ready",
+      "waited_ms": 515.6879170000001,
+      "at_ms": 8829.621041999999,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4"
+    },
+    {
+      "index": 17,
+      "name": "свёртка над выбранным ребёнком",
+      "status": "ready",
+      "waited_ms": 510.612167,
+      "at_ms": 9343.783792,
+      "state": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4"
+    }
+  ],
+  "events": [
+    {
+      "number": 1,
+      "label": "mouseDown строка 10 at 282,515",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 1551.68625,
+      "dispatch_start_ms": 1552.794625,
+      "send_return_ms": 1558.361542,
+      "display_pass_ms": 1562.082625,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "mouseUp строка 10 at 282,515",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 1551.765458,
+      "dispatch_start_ms": null,
+      "send_return_ms": null,
+      "display_pass_ms": null,
+      "undispatched": true
+    },
+    {
+      "number": 3,
+      "label": "keyDown Right",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 1567.510333,
+      "dispatch_start_ms": 1569.5232919999999,
+      "send_return_ms": 1581.932,
+      "display_pass_ms": 1590.533875,
+      "undispatched": false
+    },
+    {
+      "number": 4,
+      "label": "keyUp Right",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 1567.6271669999999,
+      "dispatch_start_ms": 1582.360958,
+      "send_return_ms": 1582.4367499999998,
+      "display_pass_ms": 1590.533875,
+      "undispatched": false
+    },
+    {
+      "number": 5,
+      "label": "keyDown Left",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 2098.805375,
+      "dispatch_start_ms": 2102.9067499999996,
+      "send_return_ms": 2117.424792,
+      "display_pass_ms": 2126.988833,
+      "undispatched": false
+    },
+    {
+      "number": 6,
+      "label": "keyUp Left",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 2098.945292,
+      "dispatch_start_ms": 2117.726625,
+      "send_return_ms": 2117.7902080000003,
+      "display_pass_ms": 2126.988833,
+      "undispatched": false
+    },
+    {
+      "number": 7,
+      "label": "mouseDown треугольник строки 10 at 182,515",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 2800.075917,
+      "dispatch_start_ms": 2800.2709999999997,
+      "send_return_ms": 2801.4625,
+      "display_pass_ms": 2819.089542,
+      "undispatched": false
+    },
+    {
+      "number": 8,
+      "label": "mouseUp треугольник строки 10 at 182,515",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 2800.1329579999997,
+      "dispatch_start_ms": 2801.5533330000003,
+      "send_return_ms": 2811.532125,
+      "display_pass_ms": 2819.089542,
+      "undispatched": false
+    },
+    {
+      "number": 9,
+      "label": "mouseDown треугольник строки 10 at 182,515",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 3323.39525,
+      "dispatch_start_ms": 3327.7975,
+      "send_return_ms": 3328.897125,
+      "display_pass_ms": 3349.111542,
+      "undispatched": false
+    },
+    {
+      "number": 10,
+      "label": "mouseUp треугольник строки 10 at 182,515",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 3323.451,
+      "dispatch_start_ms": 3329.0772500000003,
+      "send_return_ms": 3339.726458,
+      "display_pass_ms": 3349.111542,
+      "undispatched": false
+    },
+    {
+      "number": 11,
+      "label": "mouseDown строка 0 at 282,775",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6318.219125,
+      "dispatch_start_ms": 6319.455917,
+      "send_return_ms": 6323.421583,
+      "display_pass_ms": 6326.1230829999995,
+      "undispatched": false
+    },
+    {
+      "number": 12,
+      "label": "mouseUp строка 0 at 282,775",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6318.246417,
+      "dispatch_start_ms": null,
+      "send_return_ms": null,
+      "display_pass_ms": null,
+      "undispatched": true
+    },
+    {
+      "number": 13,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6334.185791999999,
+      "dispatch_start_ms": 6336.123792,
+      "send_return_ms": 6337.336917,
+      "display_pass_ms": 6339.58025,
+      "undispatched": false
+    },
+    {
+      "number": 14,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6334.2530830000005,
+      "dispatch_start_ms": 6337.395042,
+      "send_return_ms": 6337.435083,
+      "display_pass_ms": 6339.58025,
+      "undispatched": false
+    },
+    {
+      "number": 15,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6343.995083000001,
+      "dispatch_start_ms": 6344.4635,
+      "send_return_ms": 6345.602208,
+      "display_pass_ms": 6348.168000000001,
+      "undispatched": false
+    },
+    {
+      "number": 16,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6344.034208,
+      "dispatch_start_ms": 6345.662833,
+      "send_return_ms": 6345.703333,
+      "display_pass_ms": 6348.168000000001,
+      "undispatched": false
+    },
+    {
+      "number": 17,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6349.026542,
+      "dispatch_start_ms": 6352.819042,
+      "send_return_ms": 6354.0662919999995,
+      "display_pass_ms": 6356.835458,
+      "undispatched": false
+    },
+    {
+      "number": 18,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6349.093625,
+      "dispatch_start_ms": 6354.135292,
+      "send_return_ms": 6354.179667,
+      "display_pass_ms": 6356.835458,
+      "undispatched": false
+    },
+    {
+      "number": 19,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6358.745917,
+      "dispatch_start_ms": 6361.126417,
+      "send_return_ms": 6362.0250829999995,
+      "display_pass_ms": 6364.063083,
+      "undispatched": false
+    },
+    {
+      "number": 20,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6358.79925,
+      "dispatch_start_ms": 6362.071916999999,
+      "send_return_ms": 6362.100583,
+      "display_pass_ms": 6364.063083,
+      "undispatched": false
+    },
+    {
+      "number": 21,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6364.105333,
+      "dispatch_start_ms": 6369.441625,
+      "send_return_ms": 6370.346750000001,
+      "display_pass_ms": 6372.393167,
+      "undispatched": false
+    },
+    {
+      "number": 22,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6364.15625,
+      "dispatch_start_ms": 6370.381625,
+      "send_return_ms": 6370.404167000001,
+      "display_pass_ms": 6372.393167,
+      "undispatched": false
+    },
+    {
+      "number": 23,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6374.0915,
+      "dispatch_start_ms": 6377.791333,
+      "send_return_ms": 6378.64875,
+      "display_pass_ms": 6381.409125,
+      "undispatched": false
+    },
+    {
+      "number": 24,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6374.136417,
+      "dispatch_start_ms": 6378.701666999999,
+      "send_return_ms": 6378.728042,
+      "display_pass_ms": 6381.409125,
+      "undispatched": false
+    },
+    {
+      "number": 25,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6383.813832999999,
+      "dispatch_start_ms": 6386.124750000001,
+      "send_return_ms": 6387.10325,
+      "display_pass_ms": 6389.330333,
+      "undispatched": false
+    },
+    {
+      "number": 26,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6383.865542,
+      "dispatch_start_ms": 6387.1386250000005,
+      "send_return_ms": 6387.158833,
+      "display_pass_ms": 6389.330333,
+      "undispatched": false
+    },
+    {
+      "number": 27,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6389.3655,
+      "dispatch_start_ms": 6394.444792,
+      "send_return_ms": 6395.3643329999995,
+      "display_pass_ms": 6397.58775,
+      "undispatched": false
+    },
+    {
+      "number": 28,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6389.41275,
+      "dispatch_start_ms": 6395.396292,
+      "send_return_ms": 6395.416792,
+      "display_pass_ms": 6397.58775,
+      "undispatched": false
+    },
+    {
+      "number": 29,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6398.644458,
+      "dispatch_start_ms": 6402.782958000001,
+      "send_return_ms": 6403.563542,
+      "display_pass_ms": 6406.020458000001,
+      "undispatched": false
+    },
+    {
+      "number": 30,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6398.6939999999995,
+      "dispatch_start_ms": 6403.59425,
+      "send_return_ms": 6403.614874999999,
+      "display_pass_ms": 6406.020458000001,
+      "undispatched": false
+    },
+    {
+      "number": 31,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6406.057,
+      "dispatch_start_ms": 6411.122667,
+      "send_return_ms": 6412.107375,
+      "display_pass_ms": 6414.693583,
+      "undispatched": false
+    },
+    {
+      "number": 32,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6406.102333,
+      "dispatch_start_ms": 6412.15625,
+      "send_return_ms": 6412.189833,
+      "display_pass_ms": 6414.693583,
+      "undispatched": false
+    },
+    {
+      "number": 33,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6419.04125,
+      "dispatch_start_ms": 6419.446167,
+      "send_return_ms": 6420.388,
+      "display_pass_ms": 6423.006417,
+      "undispatched": false
+    },
+    {
+      "number": 34,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6419.083458,
+      "dispatch_start_ms": 6420.437083000001,
+      "send_return_ms": 6420.4694580000005,
+      "display_pass_ms": 6423.006417,
+      "undispatched": false
+    },
+    {
+      "number": 35,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6424.112583,
+      "dispatch_start_ms": 6427.768792,
+      "send_return_ms": 6428.688,
+      "display_pass_ms": 6431.315542,
+      "undispatched": false
+    },
+    {
+      "number": 36,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6424.156417,
+      "dispatch_start_ms": 6428.735208,
+      "send_return_ms": 6428.768,
+      "display_pass_ms": 6431.315542,
+      "undispatched": false
+    },
+    {
+      "number": 37,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6433.833292,
+      "dispatch_start_ms": 6436.1475,
+      "send_return_ms": 6437.103333,
+      "display_pass_ms": 6439.663875,
+      "undispatched": false
+    },
+    {
+      "number": 38,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6433.878874999999,
+      "dispatch_start_ms": 6437.152417,
+      "send_return_ms": 6437.186750000001,
+      "display_pass_ms": 6439.663875,
+      "undispatched": false
+    },
+    {
+      "number": 39,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6444.042625,
+      "dispatch_start_ms": 6444.434333,
+      "send_return_ms": 6445.443958,
+      "display_pass_ms": 6448.266875,
+      "undispatched": false
+    },
+    {
+      "number": 40,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6444.095375,
+      "dispatch_start_ms": 6445.495250000001,
+      "send_return_ms": 6445.53425,
+      "display_pass_ms": 6448.266875,
+      "undispatched": false
+    },
+    {
+      "number": 41,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6449.127125,
+      "dispatch_start_ms": 6452.774791999999,
+      "send_return_ms": 6453.758458,
+      "display_pass_ms": 6455.952958,
+      "undispatched": false
+    },
+    {
+      "number": 42,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6449.173375,
+      "dispatch_start_ms": 6453.808,
+      "send_return_ms": 6453.840999999999,
+      "display_pass_ms": 6455.952958,
+      "undispatched": false
+    },
+    {
+      "number": 43,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6458.851583000001,
+      "dispatch_start_ms": 6461.108917,
+      "send_return_ms": 6462.0511670000005,
+      "display_pass_ms": 6464.45075,
+      "undispatched": false
+    },
+    {
+      "number": 44,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6458.903083,
+      "dispatch_start_ms": 6462.111,
+      "send_return_ms": 6462.138708,
+      "display_pass_ms": 6464.45075,
+      "undispatched": false
+    },
+    {
+      "number": 45,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6468.8544170000005,
+      "dispatch_start_ms": 6469.4540830000005,
+      "send_return_ms": 6470.498292,
+      "display_pass_ms": 6473.261875,
+      "undispatched": false
+    },
+    {
+      "number": 46,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6468.900333,
+      "dispatch_start_ms": 6470.551917,
+      "send_return_ms": 6470.58775,
+      "display_pass_ms": 6473.261875,
+      "undispatched": false
+    },
+    {
+      "number": 47,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6474.108042,
+      "dispatch_start_ms": 6477.809708,
+      "send_return_ms": 6478.769583,
+      "display_pass_ms": 6481.544792000001,
+      "undispatched": false
+    },
+    {
+      "number": 48,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6474.154291999999,
+      "dispatch_start_ms": 6478.8240000000005,
+      "send_return_ms": 6478.858333,
+      "display_pass_ms": 6481.544792000001,
+      "undispatched": false
+    },
+    {
+      "number": 49,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6483.791333,
+      "dispatch_start_ms": 6486.121958,
+      "send_return_ms": 6487.144333,
+      "display_pass_ms": 6489.818833,
+      "undispatched": false
+    },
+    {
+      "number": 50,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6483.839667,
+      "dispatch_start_ms": 6487.19675,
+      "send_return_ms": 6487.2315419999995,
+      "display_pass_ms": 6489.818833,
+      "undispatched": false
+    },
+    {
+      "number": 51,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6494.030833,
+      "dispatch_start_ms": 6494.454917,
+      "send_return_ms": 6495.5094579999995,
+      "display_pass_ms": 6498.32975,
+      "undispatched": false
+    },
+    {
+      "number": 52,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6494.090458,
+      "dispatch_start_ms": 6495.5629579999995,
+      "send_return_ms": 6495.597,
+      "display_pass_ms": 6498.32975,
+      "undispatched": false
+    },
+    {
+      "number": 53,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6498.558,
+      "dispatch_start_ms": 6502.791375,
+      "send_return_ms": 6503.85725,
+      "display_pass_ms": 6506.645375,
+      "undispatched": false
+    },
+    {
+      "number": 54,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6498.603708,
+      "dispatch_start_ms": 6503.9115,
+      "send_return_ms": 6503.949375,
+      "display_pass_ms": 6506.645375,
+      "undispatched": false
+    },
+    {
+      "number": 55,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6506.706333,
+      "dispatch_start_ms": 6511.134958,
+      "send_return_ms": 6512.288124999999,
+      "display_pass_ms": 6515.085208,
+      "undispatched": false
+    },
+    {
+      "number": 56,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6506.758707999999,
+      "dispatch_start_ms": 6512.345708,
+      "send_return_ms": 6512.38425,
+      "display_pass_ms": 6515.085208,
+      "undispatched": false
+    },
+    {
+      "number": 57,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6518.967124999999,
+      "dispatch_start_ms": 6519.438667,
+      "send_return_ms": 6520.481708,
+      "display_pass_ms": 6523.016625,
+      "undispatched": false
+    },
+    {
+      "number": 58,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6519.024042,
+      "dispatch_start_ms": 6520.531916999999,
+      "send_return_ms": 6520.565042,
+      "display_pass_ms": 6523.016625,
+      "undispatched": false
+    },
+    {
+      "number": 59,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6524.14325,
+      "dispatch_start_ms": 6527.844667,
+      "send_return_ms": 6528.784542,
+      "display_pass_ms": 6530.88125,
+      "undispatched": false
+    },
+    {
+      "number": 60,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6524.201083,
+      "dispatch_start_ms": 6528.831582999999,
+      "send_return_ms": 6528.8610419999995,
+      "display_pass_ms": 6530.88125,
+      "undispatched": false
+    },
+    {
+      "number": 61,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6533.872125,
+      "dispatch_start_ms": 6536.11875,
+      "send_return_ms": 6537.267124999999,
+      "display_pass_ms": 6540.350667000001,
+      "undispatched": false
+    },
+    {
+      "number": 62,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6533.901708,
+      "dispatch_start_ms": 6537.310332999999,
+      "send_return_ms": 6537.336542,
+      "display_pass_ms": 6540.350667000001,
+      "undispatched": false
+    },
+    {
+      "number": 63,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6543.984917,
+      "dispatch_start_ms": 6544.438375000001,
+      "send_return_ms": 6546.373375,
+      "display_pass_ms": 6549.475042,
+      "undispatched": false
+    },
+    {
+      "number": 64,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6544.0185,
+      "dispatch_start_ms": 6546.4069580000005,
+      "send_return_ms": 6546.431541999999,
+      "display_pass_ms": 6549.475042,
+      "undispatched": false
+    },
+    {
+      "number": 65,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6549.49875,
+      "dispatch_start_ms": 6552.808167,
+      "send_return_ms": 6554.160875,
+      "display_pass_ms": 6556.80675,
+      "undispatched": false
+    },
+    {
+      "number": 66,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6549.5227079999995,
+      "dispatch_start_ms": 6554.186707999999,
+      "send_return_ms": 6554.2057079999995,
+      "display_pass_ms": 6556.80675,
+      "undispatched": false
+    },
+    {
+      "number": 67,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6556.824208,
+      "dispatch_start_ms": 6561.107208,
+      "send_return_ms": 6562.414333,
+      "display_pass_ms": 6564.956458000001,
+      "undispatched": false
+    },
+    {
+      "number": 68,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6556.844583,
+      "dispatch_start_ms": 6562.438583,
+      "send_return_ms": 6562.457208,
+      "display_pass_ms": 6564.956458000001,
+      "undispatched": false
+    },
+    {
+      "number": 69,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6564.971125,
+      "dispatch_start_ms": 6569.430542,
+      "send_return_ms": 6570.692125,
+      "display_pass_ms": 6573.206042,
+      "undispatched": false
+    },
+    {
+      "number": 70,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6564.990124999999,
+      "dispatch_start_ms": 6570.71525,
+      "send_return_ms": 6570.732583,
+      "display_pass_ms": 6573.206042,
+      "undispatched": false
+    },
+    {
+      "number": 71,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6574.16625,
+      "dispatch_start_ms": 6577.796542,
+      "send_return_ms": 6578.955917,
+      "display_pass_ms": 6581.391458,
+      "undispatched": false
+    },
+    {
+      "number": 72,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6574.193458,
+      "dispatch_start_ms": 6578.97825,
+      "send_return_ms": 6578.995125,
+      "display_pass_ms": 6581.391458,
+      "undispatched": false
+    },
+    {
+      "number": 73,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6581.405375,
+      "dispatch_start_ms": 6586.092457999999,
+      "send_return_ms": 6587.404542,
+      "display_pass_ms": 6589.623083,
+      "undispatched": false
+    },
+    {
+      "number": 74,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6581.423958,
+      "dispatch_start_ms": 6587.428792,
+      "send_return_ms": 6587.446166999999,
+      "display_pass_ms": 6589.623083,
+      "undispatched": false
+    },
+    {
+      "number": 75,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6589.636083,
+      "dispatch_start_ms": 6594.4147920000005,
+      "send_return_ms": 6595.462875,
+      "display_pass_ms": 6597.533167,
+      "undispatched": false
+    },
+    {
+      "number": 76,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6589.651792,
+      "dispatch_start_ms": 6595.481458,
+      "send_return_ms": 6595.496042,
+      "display_pass_ms": 6597.533167,
+      "undispatched": false
+    },
+    {
+      "number": 77,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6599.128833,
+      "dispatch_start_ms": 6602.765917,
+      "send_return_ms": 6603.806833000001,
+      "display_pass_ms": 6605.93025,
+      "undispatched": false
+    },
+    {
+      "number": 78,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6599.154583,
+      "dispatch_start_ms": 6603.826042,
+      "send_return_ms": 6603.84,
+      "display_pass_ms": 6605.93025,
+      "undispatched": false
+    },
+    {
+      "number": 79,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6605.953292,
+      "dispatch_start_ms": 6611.100292,
+      "send_return_ms": 6612.527499999999,
+      "display_pass_ms": 6615.0515829999995,
+      "undispatched": false
+    },
+    {
+      "number": 80,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6605.980708,
+      "dispatch_start_ms": 6612.556500000001,
+      "send_return_ms": 6612.5779170000005,
+      "display_pass_ms": 6615.0515829999995,
+      "undispatched": false
+    },
+    {
+      "number": 81,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6615.0675,
+      "dispatch_start_ms": 6619.431125,
+      "send_return_ms": 6620.648792,
+      "display_pass_ms": 6622.911417,
+      "undispatched": false
+    },
+    {
+      "number": 82,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6615.0885,
+      "dispatch_start_ms": 6620.673417,
+      "send_return_ms": 6620.69175,
+      "display_pass_ms": 6622.911417,
+      "undispatched": false
+    },
+    {
+      "number": 83,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6624.1762499999995,
+      "dispatch_start_ms": 6627.812667,
+      "send_return_ms": 6628.980291999999,
+      "display_pass_ms": 6631.225958,
+      "undispatched": false
+    },
+    {
+      "number": 84,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6624.202958,
+      "dispatch_start_ms": 6629.001792,
+      "send_return_ms": 6629.026125,
+      "display_pass_ms": 6631.225958,
+      "undispatched": false
+    },
+    {
+      "number": 85,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6631.2405,
+      "dispatch_start_ms": 6636.116666999999,
+      "send_return_ms": 6637.286333000001,
+      "display_pass_ms": 6639.647708,
+      "undispatched": false
+    },
+    {
+      "number": 86,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6631.258958,
+      "dispatch_start_ms": 6637.310624999999,
+      "send_return_ms": 6637.327292,
+      "display_pass_ms": 6639.647708,
+      "undispatched": false
+    },
+    {
+      "number": 87,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6639.669707999999,
+      "dispatch_start_ms": 6644.424083,
+      "send_return_ms": 6645.522208,
+      "display_pass_ms": 6647.675458,
+      "undispatched": false
+    },
+    {
+      "number": 88,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6639.690458,
+      "dispatch_start_ms": 6645.542583,
+      "send_return_ms": 6645.5587080000005,
+      "display_pass_ms": 6647.675458,
+      "undispatched": false
+    },
+    {
+      "number": 89,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6649.090208,
+      "dispatch_start_ms": 6652.792042,
+      "send_return_ms": 6653.850958,
+      "display_pass_ms": 6656.084083,
+      "undispatched": false
+    },
+    {
+      "number": 90,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6649.111458,
+      "dispatch_start_ms": 6653.87,
+      "send_return_ms": 6653.884417,
+      "display_pass_ms": 6656.084083,
+      "undispatched": false
+    },
+    {
+      "number": 91,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6656.101917,
+      "dispatch_start_ms": 6661.1318329999995,
+      "send_return_ms": 6662.113667,
+      "display_pass_ms": 6664.305208,
+      "undispatched": false
+    },
+    {
+      "number": 92,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6656.118542,
+      "dispatch_start_ms": 6662.132167000001,
+      "send_return_ms": 6662.146500000001,
+      "display_pass_ms": 6664.305208,
+      "undispatched": false
+    },
+    {
+      "number": 93,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6664.324041999999,
+      "dispatch_start_ms": 6669.421042,
+      "send_return_ms": 6670.761875,
+      "display_pass_ms": 6673.285417,
+      "undispatched": false
+    },
+    {
+      "number": 94,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6664.3402080000005,
+      "dispatch_start_ms": 6670.788208,
+      "send_return_ms": 6670.807708,
+      "display_pass_ms": 6673.285417,
+      "undispatched": false
+    },
+    {
+      "number": 95,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6674.064083,
+      "dispatch_start_ms": 6677.774042,
+      "send_return_ms": 6678.833541999999,
+      "display_pass_ms": 6681.01425,
+      "undispatched": false
+    },
+    {
+      "number": 96,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6674.078791999999,
+      "dispatch_start_ms": 6678.85225,
+      "send_return_ms": 6678.867167,
+      "display_pass_ms": 6681.01425,
+      "undispatched": false
+    },
+    {
+      "number": 97,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6681.037625,
+      "dispatch_start_ms": 6686.142167,
+      "send_return_ms": 6687.664833000001,
+      "display_pass_ms": 6690.334457999999,
+      "undispatched": false
+    },
+    {
+      "number": 98,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6681.067958,
+      "dispatch_start_ms": 6687.694917,
+      "send_return_ms": 6687.717292,
+      "display_pass_ms": 6690.334457999999,
+      "undispatched": false
+    },
+    {
+      "number": 99,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6690.366166999999,
+      "dispatch_start_ms": 6694.4427080000005,
+      "send_return_ms": 6695.7035000000005,
+      "display_pass_ms": 6698.07875,
+      "undispatched": false
+    },
+    {
+      "number": 100,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6690.392625,
+      "dispatch_start_ms": 6695.730458,
+      "send_return_ms": 6695.750083,
+      "display_pass_ms": 6698.07875,
+      "undispatched": false
+    },
+    {
+      "number": 101,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6699.129875,
+      "dispatch_start_ms": 6702.806167000001,
+      "send_return_ms": 6703.952,
+      "display_pass_ms": 6706.124292,
+      "undispatched": false
+    },
+    {
+      "number": 102,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6699.154917,
+      "dispatch_start_ms": 6703.974416999999,
+      "send_return_ms": 6703.992083,
+      "display_pass_ms": 6706.124292,
+      "undispatched": false
+    },
+    {
+      "number": 103,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6706.1359170000005,
+      "dispatch_start_ms": 6711.130917,
+      "send_return_ms": 6711.978375000001,
+      "display_pass_ms": 6713.531875000001,
+      "undispatched": false
+    },
+    {
+      "number": 104,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6706.150708,
+      "dispatch_start_ms": 6711.998667,
+      "send_return_ms": 6712.013792000001,
+      "display_pass_ms": 6713.531875000001,
+      "undispatched": false
+    },
+    {
+      "number": 105,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6714.109542,
+      "dispatch_start_ms": 6719.412917,
+      "send_return_ms": 6720.068458,
+      "display_pass_ms": 6721.542542,
+      "undispatched": false
+    },
+    {
+      "number": 106,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6714.125167,
+      "dispatch_start_ms": 6720.088417,
+      "send_return_ms": 6720.103166999999,
+      "display_pass_ms": 6721.542542,
+      "undispatched": false
+    },
+    {
+      "number": 107,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6724.100333,
+      "dispatch_start_ms": 6727.807375,
+      "send_return_ms": 6728.604958,
+      "display_pass_ms": 6730.158417000001,
+      "undispatched": false
+    },
+    {
+      "number": 108,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6724.120417,
+      "dispatch_start_ms": 6728.626333,
+      "send_return_ms": 6728.642333,
+      "display_pass_ms": 6730.158417000001,
+      "undispatched": false
+    },
+    {
+      "number": 109,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6730.171375,
+      "dispatch_start_ms": 6736.121,
+      "send_return_ms": 6736.84675,
+      "display_pass_ms": 6738.326749999999,
+      "undispatched": false
+    },
+    {
+      "number": 110,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6730.186833000001,
+      "dispatch_start_ms": 6736.867583,
+      "send_return_ms": 6736.883208,
+      "display_pass_ms": 6738.326749999999,
+      "undispatched": false
+    },
+    {
+      "number": 111,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6739.101667,
+      "dispatch_start_ms": 6744.425958,
+      "send_return_ms": 6745.508708,
+      "display_pass_ms": 6747.464417,
+      "undispatched": false
+    },
+    {
+      "number": 112,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6739.135333,
+      "dispatch_start_ms": 6745.537792,
+      "send_return_ms": 6745.558875000001,
+      "display_pass_ms": 6747.464417,
+      "undispatched": false
+    },
+    {
+      "number": 113,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6749.0035419999995,
+      "dispatch_start_ms": 6752.7469169999995,
+      "send_return_ms": 6753.519958,
+      "display_pass_ms": 6755.235833000001,
+      "undispatched": false
+    },
+    {
+      "number": 114,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6749.031875,
+      "dispatch_start_ms": 6753.54475,
+      "send_return_ms": 6753.562833,
+      "display_pass_ms": 6755.235833000001,
+      "undispatched": false
+    },
+    {
+      "number": 115,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6755.249167,
+      "dispatch_start_ms": 6761.137208,
+      "send_return_ms": 6761.992292000001,
+      "display_pass_ms": 6763.727,
+      "undispatched": false
+    },
+    {
+      "number": 116,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6755.272917,
+      "dispatch_start_ms": 6762.014833,
+      "send_return_ms": 6762.031999999999,
+      "display_pass_ms": 6763.727,
+      "undispatched": false
+    },
+    {
+      "number": 117,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6764.10425,
+      "dispatch_start_ms": 6769.422208,
+      "send_return_ms": 6770.270208,
+      "display_pass_ms": 6772.0015,
+      "undispatched": false
+    },
+    {
+      "number": 118,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6764.124125,
+      "dispatch_start_ms": 6770.292792,
+      "send_return_ms": 6770.309917,
+      "display_pass_ms": 6772.0015,
+      "undispatched": false
+    },
+    {
+      "number": 119,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6774.0854580000005,
+      "dispatch_start_ms": 6777.749583000001,
+      "send_return_ms": 6778.576582999999,
+      "display_pass_ms": 6780.268167,
+      "undispatched": false
+    },
+    {
+      "number": 120,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6774.109042,
+      "dispatch_start_ms": 6778.599,
+      "send_return_ms": 6778.615625,
+      "display_pass_ms": 6780.268167,
+      "undispatched": false
+    },
+    {
+      "number": 121,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6780.282167,
+      "dispatch_start_ms": 6786.126958,
+      "send_return_ms": 6786.969583,
+      "display_pass_ms": 6788.678124999999,
+      "undispatched": false
+    },
+    {
+      "number": 122,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6780.300167,
+      "dispatch_start_ms": 6786.992458000001,
+      "send_return_ms": 6787.008833,
+      "display_pass_ms": 6788.678124999999,
+      "undispatched": false
+    },
+    {
+      "number": 123,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6789.096292,
+      "dispatch_start_ms": 6794.433542,
+      "send_return_ms": 6795.394792,
+      "display_pass_ms": 6797.2365,
+      "undispatched": false
+    },
+    {
+      "number": 124,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6789.1215,
+      "dispatch_start_ms": 6795.418125,
+      "send_return_ms": 6795.435833,
+      "display_pass_ms": 6797.2365,
+      "undispatched": false
+    },
+    {
+      "number": 125,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6799.091542,
+      "dispatch_start_ms": 6802.758292,
+      "send_return_ms": 6803.577542,
+      "display_pass_ms": 6805.3255,
+      "undispatched": false
+    },
+    {
+      "number": 126,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6799.116458,
+      "dispatch_start_ms": 6803.600167,
+      "send_return_ms": 6803.616583,
+      "display_pass_ms": 6805.3255,
+      "undispatched": false
+    },
+    {
+      "number": 127,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6805.339708,
+      "dispatch_start_ms": 6811.126208,
+      "send_return_ms": 6812.08525,
+      "display_pass_ms": 6814.0771669999995,
+      "undispatched": false
+    },
+    {
+      "number": 128,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6805.358042,
+      "dispatch_start_ms": 6812.1100830000005,
+      "send_return_ms": 6812.129083000001,
+      "display_pass_ms": 6814.0771669999995,
+      "undispatched": false
+    },
+    {
+      "number": 129,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6814.094083,
+      "dispatch_start_ms": 6819.4325,
+      "send_return_ms": 6820.462541999999,
+      "display_pass_ms": 6822.533,
+      "undispatched": false
+    },
+    {
+      "number": 130,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6814.120792,
+      "dispatch_start_ms": 6820.488625,
+      "send_return_ms": 6820.506082999999,
+      "display_pass_ms": 6822.533,
+      "undispatched": false
+    },
+    {
+      "number": 131,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6824.099417,
+      "dispatch_start_ms": 6827.777042,
+      "send_return_ms": 6828.837917,
+      "display_pass_ms": 6830.669542,
+      "undispatched": false
+    },
+    {
+      "number": 132,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6824.136042,
+      "dispatch_start_ms": 6828.86275,
+      "send_return_ms": 6828.880125,
+      "display_pass_ms": 6830.669542,
+      "undispatched": false
+    },
+    {
+      "number": 133,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6830.688083,
+      "dispatch_start_ms": 6836.097125,
+      "send_return_ms": 6836.928999999999,
+      "display_pass_ms": 6838.617042,
+      "undispatched": false
+    },
+    {
+      "number": 134,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6830.7072499999995,
+      "dispatch_start_ms": 6836.949750000001,
+      "send_return_ms": 6836.96825,
+      "display_pass_ms": 6838.617042,
+      "undispatched": false
+    },
+    {
+      "number": 135,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6839.081333,
+      "dispatch_start_ms": 6844.421542,
+      "send_return_ms": 6845.2329580000005,
+      "display_pass_ms": 6846.909625,
+      "undispatched": false
+    },
+    {
+      "number": 136,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6839.102042,
+      "dispatch_start_ms": 6845.253875,
+      "send_return_ms": 6845.269958,
+      "display_pass_ms": 6846.909625,
+      "undispatched": false
+    },
+    {
+      "number": 137,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6849.085666999999,
+      "dispatch_start_ms": 6852.760042,
+      "send_return_ms": 6853.5626250000005,
+      "display_pass_ms": 6855.347042,
+      "undispatched": false
+    },
+    {
+      "number": 138,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6849.106667,
+      "dispatch_start_ms": 6853.583333,
+      "send_return_ms": 6853.598292,
+      "display_pass_ms": 6855.347042,
+      "undispatched": false
+    },
+    {
+      "number": 139,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6855.369458,
+      "dispatch_start_ms": 6861.118375,
+      "send_return_ms": 6862.175625,
+      "display_pass_ms": 6864.248542,
+      "undispatched": false
+    },
+    {
+      "number": 140,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6855.394375000001,
+      "dispatch_start_ms": 6862.202792,
+      "send_return_ms": 6862.22275,
+      "display_pass_ms": 6864.248542,
+      "undispatched": false
+    },
+    {
+      "number": 141,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6864.272833,
+      "dispatch_start_ms": 6869.422917,
+      "send_return_ms": 6870.329667,
+      "display_pass_ms": 6872.110125,
+      "undispatched": false
+    },
+    {
+      "number": 142,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6864.298083,
+      "dispatch_start_ms": 6870.3529579999995,
+      "send_return_ms": 6870.37075,
+      "display_pass_ms": 6872.110125,
+      "undispatched": false
+    },
+    {
+      "number": 143,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6873.712417,
+      "dispatch_start_ms": 6877.744542,
+      "send_return_ms": 6878.640833,
+      "display_pass_ms": 6880.402458,
+      "undispatched": false
+    },
+    {
+      "number": 144,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6873.734332999999,
+      "dispatch_start_ms": 6878.661792,
+      "send_return_ms": 6878.678042,
+      "display_pass_ms": 6880.402458,
+      "undispatched": false
+    },
+    {
+      "number": 145,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6880.417917,
+      "dispatch_start_ms": 6886.127417,
+      "send_return_ms": 6886.920542000001,
+      "display_pass_ms": 6888.601875,
+      "undispatched": false
+    },
+    {
+      "number": 146,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6880.434958000001,
+      "dispatch_start_ms": 6886.941708,
+      "send_return_ms": 6886.9605,
+      "display_pass_ms": 6888.601875,
+      "undispatched": false
+    },
+    {
+      "number": 147,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6889.0872500000005,
+      "dispatch_start_ms": 6894.462583,
+      "send_return_ms": 6895.249792,
+      "display_pass_ms": 6896.889958,
+      "undispatched": false
+    },
+    {
+      "number": 148,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6889.104833,
+      "dispatch_start_ms": 6895.269625,
+      "send_return_ms": 6895.285125,
+      "display_pass_ms": 6896.889958,
+      "undispatched": false
+    },
+    {
+      "number": 149,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6899.12925,
+      "dispatch_start_ms": 6902.79125,
+      "send_return_ms": 6903.705666999999,
+      "display_pass_ms": 6905.630292,
+      "undispatched": false
+    },
+    {
+      "number": 150,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6899.151167,
+      "dispatch_start_ms": 6903.7294170000005,
+      "send_return_ms": 6903.748291999999,
+      "display_pass_ms": 6905.630292,
+      "undispatched": false
+    },
+    {
+      "number": 151,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6905.644708,
+      "dispatch_start_ms": 6911.120583,
+      "send_return_ms": 6912.015458,
+      "display_pass_ms": 6913.996667,
+      "undispatched": false
+    },
+    {
+      "number": 152,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6905.6698750000005,
+      "dispatch_start_ms": 6912.0404579999995,
+      "send_return_ms": 6912.059292,
+      "display_pass_ms": 6913.996667,
+      "undispatched": false
+    },
+    {
+      "number": 153,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6914.081958,
+      "dispatch_start_ms": 6919.417958,
+      "send_return_ms": 6920.255667,
+      "display_pass_ms": 6921.954042,
+      "undispatched": false
+    },
+    {
+      "number": 154,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6914.099458,
+      "dispatch_start_ms": 6920.276083,
+      "send_return_ms": 6920.291042,
+      "display_pass_ms": 6921.954042,
+      "undispatched": false
+    },
+    {
+      "number": 155,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6923.697792000001,
+      "dispatch_start_ms": 6927.779458,
+      "send_return_ms": 6928.569083,
+      "display_pass_ms": 6930.219,
+      "undispatched": false
+    },
+    {
+      "number": 156,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6923.715875,
+      "dispatch_start_ms": 6928.588957999999,
+      "send_return_ms": 6928.60425,
+      "display_pass_ms": 6930.219,
+      "undispatched": false
+    },
+    {
+      "number": 157,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6930.233792,
+      "dispatch_start_ms": 6936.086125,
+      "send_return_ms": 6937.014167,
+      "display_pass_ms": 6938.966875,
+      "undispatched": false
+    },
+    {
+      "number": 158,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6930.250417,
+      "dispatch_start_ms": 6937.038125,
+      "send_return_ms": 6937.056250000001,
+      "display_pass_ms": 6938.966875,
+      "undispatched": false
+    },
+    {
+      "number": 159,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6939.087917,
+      "dispatch_start_ms": 6944.415542,
+      "send_return_ms": 6945.331292,
+      "display_pass_ms": 6947.32125,
+      "undispatched": false
+    },
+    {
+      "number": 160,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6939.108292,
+      "dispatch_start_ms": 6945.354832999999,
+      "send_return_ms": 6945.372708,
+      "display_pass_ms": 6947.32125,
+      "undispatched": false
+    },
+    {
+      "number": 161,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6948.676375,
+      "dispatch_start_ms": 6952.783708,
+      "send_return_ms": 6953.727917,
+      "display_pass_ms": 6955.689667,
+      "undispatched": false
+    },
+    {
+      "number": 162,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6948.697458,
+      "dispatch_start_ms": 6953.7515,
+      "send_return_ms": 6953.770292,
+      "display_pass_ms": 6955.689667,
+      "undispatched": false
+    },
+    {
+      "number": 163,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6955.710625,
+      "dispatch_start_ms": 6961.095625000001,
+      "send_return_ms": 6962.163417,
+      "display_pass_ms": 6964.193333,
+      "undispatched": false
+    },
+    {
+      "number": 164,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6955.73,
+      "dispatch_start_ms": 6962.189458,
+      "send_return_ms": 6962.208542,
+      "display_pass_ms": 6964.193333,
+      "undispatched": false
+    },
+    {
+      "number": 165,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6964.209333000001,
+      "dispatch_start_ms": 6969.433999999999,
+      "send_return_ms": 6970.3705,
+      "display_pass_ms": 6972.321457999999,
+      "undispatched": false
+    },
+    {
+      "number": 166,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6964.22775,
+      "dispatch_start_ms": 6970.396250000001,
+      "send_return_ms": 6970.4151249999995,
+      "display_pass_ms": 6972.321457999999,
+      "undispatched": false
+    },
+    {
+      "number": 167,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6973.6650420000005,
+      "dispatch_start_ms": 6977.750667,
+      "send_return_ms": 6978.810958,
+      "display_pass_ms": 6980.8179580000005,
+      "undispatched": false
+    },
+    {
+      "number": 168,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6973.685875,
+      "dispatch_start_ms": 6978.840166999999,
+      "send_return_ms": 6978.862125,
+      "display_pass_ms": 6980.8179580000005,
+      "undispatched": false
+    },
+    {
+      "number": 169,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6980.836375,
+      "dispatch_start_ms": 6986.087958,
+      "send_return_ms": 6986.964708,
+      "display_pass_ms": 6988.723792,
+      "undispatched": false
+    },
+    {
+      "number": 170,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6980.854708,
+      "dispatch_start_ms": 6986.987499999999,
+      "send_return_ms": 6987.005958,
+      "display_pass_ms": 6988.723792,
+      "undispatched": false
+    },
+    {
+      "number": 171,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6989.073125,
+      "dispatch_start_ms": 6994.440917000001,
+      "send_return_ms": 6995.539333,
+      "display_pass_ms": 6997.701375000001,
+      "undispatched": false
+    },
+    {
+      "number": 172,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6989.0923330000005,
+      "dispatch_start_ms": 6995.565625,
+      "send_return_ms": 6995.585625000001,
+      "display_pass_ms": 6997.701375000001,
+      "undispatched": false
+    },
+    {
+      "number": 173,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6998.633417,
+      "dispatch_start_ms": 7002.775875,
+      "send_return_ms": 7003.748417,
+      "display_pass_ms": 7005.712292,
+      "undispatched": false
+    },
+    {
+      "number": 174,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 6998.656583,
+      "dispatch_start_ms": 7003.774667,
+      "send_return_ms": 7003.794208,
+      "display_pass_ms": 7005.712292,
+      "undispatched": false
+    },
+    {
+      "number": 175,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7005.7267919999995,
+      "dispatch_start_ms": 7011.119875,
+      "send_return_ms": 7012.035167,
+      "display_pass_ms": 7014.110750000001,
+      "undispatched": false
+    },
+    {
+      "number": 176,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7005.744542,
+      "dispatch_start_ms": 7012.063999999999,
+      "send_return_ms": 7012.084707999999,
+      "display_pass_ms": 7014.110750000001,
+      "undispatched": false
+    },
+    {
+      "number": 177,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7014.312833,
+      "dispatch_start_ms": 7019.422667,
+      "send_return_ms": 7020.39075,
+      "display_pass_ms": 7022.3217079999995,
+      "undispatched": false
+    },
+    {
+      "number": 178,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7014.3375829999995,
+      "dispatch_start_ms": 7020.416042,
+      "send_return_ms": 7020.435375,
+      "display_pass_ms": 7022.3217079999995,
+      "undispatched": false
+    },
+    {
+      "number": 179,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7023.6852499999995,
+      "dispatch_start_ms": 7027.790083,
+      "send_return_ms": 7028.649667,
+      "display_pass_ms": 7030.370208,
+      "undispatched": false
+    },
+    {
+      "number": 180,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7023.709583,
+      "dispatch_start_ms": 7028.67175,
+      "send_return_ms": 7028.68825,
+      "display_pass_ms": 7030.370208,
+      "undispatched": false
+    },
+    {
+      "number": 181,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7030.386541999999,
+      "dispatch_start_ms": 7036.090792000001,
+      "send_return_ms": 7037.0395,
+      "display_pass_ms": 7039.139167,
+      "undispatched": false
+    },
+    {
+      "number": 182,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7030.404791999999,
+      "dispatch_start_ms": 7037.0650000000005,
+      "send_return_ms": 7037.083542,
+      "display_pass_ms": 7039.139167,
+      "undispatched": false
+    },
+    {
+      "number": 183,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7039.164125,
+      "dispatch_start_ms": 7044.436375,
+      "send_return_ms": 7045.524458,
+      "display_pass_ms": 7047.7375,
+      "undispatched": false
+    },
+    {
+      "number": 184,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7039.186333,
+      "dispatch_start_ms": 7045.550625,
+      "send_return_ms": 7045.569958,
+      "display_pass_ms": 7047.7375,
+      "undispatched": false
+    },
+    {
+      "number": 185,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7048.62925,
+      "dispatch_start_ms": 7052.791792,
+      "send_return_ms": 7053.600875,
+      "display_pass_ms": 7055.252833,
+      "undispatched": false
+    },
+    {
+      "number": 186,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7048.65075,
+      "dispatch_start_ms": 7053.621042,
+      "send_return_ms": 7053.636667,
+      "display_pass_ms": 7055.252833,
+      "undispatched": false
+    },
+    {
+      "number": 187,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7055.269458,
+      "dispatch_start_ms": 7061.113625,
+      "send_return_ms": 7061.91825,
+      "display_pass_ms": 7063.6565,
+      "undispatched": false
+    },
+    {
+      "number": 188,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7055.286917,
+      "dispatch_start_ms": 7061.9385,
+      "send_return_ms": 7061.954958,
+      "display_pass_ms": 7063.6565,
+      "undispatched": false
+    },
+    {
+      "number": 189,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7064.1167080000005,
+      "dispatch_start_ms": 7069.420333,
+      "send_return_ms": 7070.298958,
+      "display_pass_ms": 7072.094792,
+      "undispatched": false
+    },
+    {
+      "number": 190,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7064.14675,
+      "dispatch_start_ms": 7070.323,
+      "send_return_ms": 7070.3405,
+      "display_pass_ms": 7072.094792,
+      "undispatched": false
+    },
+    {
+      "number": 191,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7073.794292,
+      "dispatch_start_ms": 7077.795166999999,
+      "send_return_ms": 7078.898625,
+      "display_pass_ms": 7081.0470829999995,
+      "undispatched": false
+    },
+    {
+      "number": 192,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7073.817417,
+      "dispatch_start_ms": 7078.925333,
+      "send_return_ms": 7078.945167,
+      "display_pass_ms": 7081.0470829999995,
+      "undispatched": false
+    },
+    {
+      "number": 193,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7081.063999999999,
+      "dispatch_start_ms": 7086.119083,
+      "send_return_ms": 7087.078542,
+      "display_pass_ms": 7089.104708,
+      "undispatched": false
+    },
+    {
+      "number": 194,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7081.08575,
+      "dispatch_start_ms": 7087.105541999999,
+      "send_return_ms": 7087.126125,
+      "display_pass_ms": 7089.104708,
+      "undispatched": false
+    },
+    {
+      "number": 195,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7089.121332999999,
+      "dispatch_start_ms": 7094.413624999999,
+      "send_return_ms": 7095.219292000001,
+      "display_pass_ms": 7096.89125,
+      "undispatched": false
+    },
+    {
+      "number": 196,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7089.142374999999,
+      "dispatch_start_ms": 7095.2405,
+      "send_return_ms": 7095.257541999999,
+      "display_pass_ms": 7096.89125,
+      "undispatched": false
+    },
+    {
+      "number": 197,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7099.094083,
+      "dispatch_start_ms": 7102.776875,
+      "send_return_ms": 7103.721917,
+      "display_pass_ms": 7105.6696249999995,
+      "undispatched": false
+    },
+    {
+      "number": 198,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7099.115667,
+      "dispatch_start_ms": 7103.746833,
+      "send_return_ms": 7103.76625,
+      "display_pass_ms": 7105.6696249999995,
+      "undispatched": false
+    },
+    {
+      "number": 199,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7105.694958,
+      "dispatch_start_ms": 7111.129167,
+      "send_return_ms": 7112.485167,
+      "display_pass_ms": 7114.70975,
+      "undispatched": false
+    },
+    {
+      "number": 200,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7105.726833000001,
+      "dispatch_start_ms": 7112.52325,
+      "send_return_ms": 7112.552,
+      "display_pass_ms": 7114.70975,
+      "undispatched": false
+    },
+    {
+      "number": 201,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7114.728,
+      "dispatch_start_ms": 7119.418624999999,
+      "send_return_ms": 7120.366625,
+      "display_pass_ms": 7122.1905830000005,
+      "undispatched": false
+    },
+    {
+      "number": 202,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7114.751792,
+      "dispatch_start_ms": 7120.3928750000005,
+      "send_return_ms": 7120.4127499999995,
+      "display_pass_ms": 7122.1905830000005,
+      "undispatched": false
+    },
+    {
+      "number": 203,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7124.0821670000005,
+      "dispatch_start_ms": 7127.76425,
+      "send_return_ms": 7128.697792,
+      "display_pass_ms": 7130.533917,
+      "undispatched": false
+    },
+    {
+      "number": 204,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7124.105167,
+      "dispatch_start_ms": 7128.719583,
+      "send_return_ms": 7128.7381669999995,
+      "display_pass_ms": 7130.533917,
+      "undispatched": false
+    },
+    {
+      "number": 205,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7130.549125,
+      "dispatch_start_ms": 7136.117208,
+      "send_return_ms": 7137.08325,
+      "display_pass_ms": 7139.002041999999,
+      "undispatched": false
+    },
+    {
+      "number": 206,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7130.56875,
+      "dispatch_start_ms": 7137.107833,
+      "send_return_ms": 7137.126833,
+      "display_pass_ms": 7139.002041999999,
+      "undispatched": false
+    },
+    {
+      "number": 207,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7139.074625,
+      "dispatch_start_ms": 7144.441708,
+      "send_return_ms": 7145.386042,
+      "display_pass_ms": 7147.303333,
+      "undispatched": false
+    },
+    {
+      "number": 208,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7139.092708,
+      "dispatch_start_ms": 7145.41075,
+      "send_return_ms": 7145.429166999999,
+      "display_pass_ms": 7147.303333,
+      "undispatched": false
+    },
+    {
+      "number": 209,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7149.103458,
+      "dispatch_start_ms": 7152.772042,
+      "send_return_ms": 7153.693292,
+      "display_pass_ms": 7155.618542,
+      "undispatched": false
+    },
+    {
+      "number": 210,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7149.129542,
+      "dispatch_start_ms": 7153.720333,
+      "send_return_ms": 7153.741125,
+      "display_pass_ms": 7155.618542,
+      "undispatched": false
+    },
+    {
+      "number": 211,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7155.636125,
+      "dispatch_start_ms": 7161.119208,
+      "send_return_ms": 7162.211832999999,
+      "display_pass_ms": 7164.289917,
+      "undispatched": false
+    },
+    {
+      "number": 212,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7155.657125000001,
+      "dispatch_start_ms": 7162.237875,
+      "send_return_ms": 7162.257667000001,
+      "display_pass_ms": 7164.289917,
+      "undispatched": false
+    },
+    {
+      "number": 213,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7164.307124999999,
+      "dispatch_start_ms": 7169.420375,
+      "send_return_ms": 7170.229125,
+      "display_pass_ms": 7171.897333000001,
+      "undispatched": false
+    },
+    {
+      "number": 214,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7164.328458,
+      "dispatch_start_ms": 7170.250542,
+      "send_return_ms": 7170.267583,
+      "display_pass_ms": 7171.897333000001,
+      "undispatched": false
+    },
+    {
+      "number": 215,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7174.106292,
+      "dispatch_start_ms": 7177.775917,
+      "send_return_ms": 7178.7263330000005,
+      "display_pass_ms": 7180.667083,
+      "undispatched": false
+    },
+    {
+      "number": 216,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7174.130583,
+      "dispatch_start_ms": 7178.750875000001,
+      "send_return_ms": 7178.769708,
+      "display_pass_ms": 7180.667083,
+      "undispatched": false
+    },
+    {
+      "number": 217,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7180.68175,
+      "dispatch_start_ms": 7186.106083000001,
+      "send_return_ms": 7187.040417,
+      "display_pass_ms": 7188.928167,
+      "undispatched": false
+    },
+    {
+      "number": 218,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7180.708167,
+      "dispatch_start_ms": 7187.065708,
+      "send_return_ms": 7187.084583,
+      "display_pass_ms": 7188.928167,
+      "undispatched": false
+    },
+    {
+      "number": 219,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7189.101083,
+      "dispatch_start_ms": 7194.417042,
+      "send_return_ms": 7195.280333000001,
+      "display_pass_ms": 7197.272875000001,
+      "undispatched": false
+    },
+    {
+      "number": 220,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7189.118792,
+      "dispatch_start_ms": 7195.305375,
+      "send_return_ms": 7195.324125,
+      "display_pass_ms": 7197.272875000001,
+      "undispatched": false
+    },
+    {
+      "number": 221,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7199.089583,
+      "dispatch_start_ms": 7202.765458,
+      "send_return_ms": 7203.713,
+      "display_pass_ms": 7205.661042,
+      "undispatched": false
+    },
+    {
+      "number": 222,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7199.112,
+      "dispatch_start_ms": 7203.737542,
+      "send_return_ms": 7203.756542,
+      "display_pass_ms": 7205.661042,
+      "undispatched": false
+    },
+    {
+      "number": 223,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7205.676083,
+      "dispatch_start_ms": 7211.093875,
+      "send_return_ms": 7212.180458,
+      "display_pass_ms": 7214.50325,
+      "undispatched": false
+    },
+    {
+      "number": 224,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7205.69575,
+      "dispatch_start_ms": 7212.208042,
+      "send_return_ms": 7212.227375,
+      "display_pass_ms": 7214.50325,
+      "undispatched": false
+    },
+    {
+      "number": 225,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7214.5248329999995,
+      "dispatch_start_ms": 7219.4145,
+      "send_return_ms": 7220.325,
+      "display_pass_ms": 7222.022917,
+      "undispatched": false
+    },
+    {
+      "number": 226,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7214.55325,
+      "dispatch_start_ms": 7220.346792,
+      "send_return_ms": 7220.363167,
+      "display_pass_ms": 7222.022917,
+      "undispatched": false
+    },
+    {
+      "number": 227,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7223.871792,
+      "dispatch_start_ms": 7227.755458,
+      "send_return_ms": 7228.62925,
+      "display_pass_ms": 7230.326333,
+      "undispatched": false
+    },
+    {
+      "number": 228,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7223.895875,
+      "dispatch_start_ms": 7228.651708,
+      "send_return_ms": 7228.668542,
+      "display_pass_ms": 7230.326333,
+      "undispatched": false
+    },
+    {
+      "number": 229,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7230.340458,
+      "dispatch_start_ms": 7236.075042,
+      "send_return_ms": 7236.4755000000005,
+      "display_pass_ms": 7237.554292000001,
+      "undispatched": false
+    },
+    {
+      "number": 230,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7230.358833,
+      "dispatch_start_ms": 7236.48475,
+      "send_return_ms": 7236.492125,
+      "display_pass_ms": 7237.554292000001,
+      "undispatched": false
+    },
+    {
+      "number": 231,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7239.120667,
+      "dispatch_start_ms": 7244.413625,
+      "send_return_ms": 7245.313208,
+      "display_pass_ms": 7247.0692500000005,
+      "undispatched": false
+    },
+    {
+      "number": 232,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 7239.138875,
+      "dispatch_start_ms": 7245.334833,
+      "send_return_ms": 7245.350875,
+      "display_pass_ms": 7247.0692500000005,
+      "undispatched": false
+    },
+    {
+      "number": 233,
+      "label": "keyDown Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 8313.729374999999,
+      "dispatch_start_ms": 8319.515667,
+      "send_return_ms": 8323.34475,
+      "display_pass_ms": 8329.158707999999,
+      "undispatched": false
+    },
+    {
+      "number": 234,
+      "label": "keyUp Down",
+      "window": 33614,
+      "before": "isActive=true keyWindow=#33614 mainWindow=#33614 firstResponder=ProbeTreeOutline cursor=1508,4",
+      "posted_ms": 8313.852,
+      "dispatch_start_ms": 8323.441499999999,
+      "send_return_ms": 8323.492957999999,
+      "display_pass_ms": 8329.158707999999,
+      "undispatched": false
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "tree"
+    },
+    {
+      "key": "split",
+      "value": "plain"
+    },
+    {
+      "key": "contrast",
+      "value": "system"
+    },
+    {
+      "key": "motion",
+      "value": "system"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "cell",
+      "value": "dark"
+    },
+    {
+      "key": "tree_branching",
+      "value": [
+        100,
+        9,
+        10
+      ]
+    },
+    {
+      "key": "tree_size",
+      "value": "10000"
+    },
+    {
+      "key": "tree_depth",
+      "value": "3"
+    },
+    {
+      "key": "row_height",
+      "value": "26"
+    },
+    {
+      "key": "indent",
+      "value": "16"
+    },
+    {
+      "key": "strongly_references_items",
+      "value": "true"
+    },
+    {
+      "key": "interval_reload",
+      "value": "reloadData с возвратом раскрытия и выбора → конец первого прохода отображения после него"
+    },
+    {
+      "key": "interval_roots",
+      "value": "вызовы expandItem или collapseItem у всех корней: «call» — их длительность, «to_display_pass» — от начала вызовов до конца первого прохода отображения после них"
+    },
+    {
+      "key": "interval_post_to_display_pass",
+      "value": "postEvent → конец прохода отображения после возврата sendEvent; это не момент кадра на экране"
+    },
+    {
+      "key": "interval_dispatch_to_return",
+      "value": "начало dispatch → возврат sendEvent"
+    },
+    {
+      "key": "interval_post_to_dispatch",
+      "value": "postEvent → начало dispatch: ожидание в очереди событий"
+    },
+    {
+      "key": "moves_handler",
+      "value": "Up и Down обрабатывает list::step_selection пробы, как у VirtualList; Left и Right — NSOutlineView"
+    },
+    {
+      "key": "created_initial",
+      "value": [
+        26,
+        26
+      ]
+    },
+    {
+      "key": "live_initial",
+      "value": [
+        26,
+        26
+      ]
+    },
+    {
+      "key": "reload_ms",
+      "value": "3.910"
+    },
+    {
+      "key": "reload_appkit_selection_plain",
+      "value": "до reloadData выбор Some((2, 13)), сразу после — строка и узел Some((0, Some(1)))"
+    },
+    {
+      "key": "reload_appkit_expanded_plain",
+      "value": "AppKit сам оставил раскрытыми 1 из 1 узлов"
+    },
+    {
+      "key": "ax_rows_ms_reload",
+      "value": "0.034"
+    },
+    {
+      "key": "ax_row_classes_reload",
+      "value": [
+        "NSOutlineRow"
+      ]
+    },
+    {
+      "key": "ax_disclosure_via_reload",
+      "value": [
+        "AXDisclosing",
+        "AXDisclosureLevel",
+        "AXSelected"
+      ]
+    },
+    {
+      "key": "key_right_post_to_display_pass_ms",
+      "value": "23.024"
+    },
+    {
+      "key": "key_left_post_to_display_pass_ms",
+      "value": "28.183"
+    },
+    {
+      "key": "disclosure_hit_open",
+      "value": "NSButton в 8,273 (кадр треугольника 2,260 12x26)"
+    },
+    {
+      "key": "disclosure_click_responder",
+      "value": "ProbeTreeOutline"
+    },
+    {
+      "key": "disclosure_hit_close",
+      "value": "NSButton в 8,273 (кадр треугольника 2,260 12x26)"
+    },
+    {
+      "key": "ax_rows_ms_first-level",
+      "value": "0.093"
+    },
+    {
+      "key": "ax_row_classes_first-level",
+      "value": [
+        "NSOutlineRow"
+      ]
+    },
+    {
+      "key": "ax_disclosure_via_first-level",
+      "value": [
+        "AXDisclosing",
+        "AXDisclosureLevel",
+        "AXSelected"
+      ]
+    },
+    {
+      "key": "created_first-level",
+      "value": [
+        75,
+        75
+      ]
+    },
+    {
+      "key": "live_first-level",
+      "value": [
+        49,
+        49
+      ]
+    },
+    {
+      "key": "moves_lagging",
+      "value": "0"
+    },
+    {
+      "key": "ax_rows_ms_moves",
+      "value": "0.254"
+    },
+    {
+      "key": "ax_row_classes_moves",
+      "value": [
+        "NSOutlineRow"
+      ]
+    },
+    {
+      "key": "ax_disclosure_via_moves",
+      "value": [
+        "AXDisclosing",
+        "AXDisclosureLevel",
+        "AXSelected"
+      ]
+    },
+    {
+      "key": "created_moves",
+      "value": [
+        75,
+        75
+      ]
+    },
+    {
+      "key": "live_moves",
+      "value": [
+        49,
+        49
+      ]
+    },
+    {
+      "key": "reorder_reload_ms",
+      "value": "32.333"
+    },
+    {
+      "key": "reload_appkit_selection_reordered",
+      "value": "до reloadData выбор Some((110, 1101)), сразу после — строка и узел Some((0, Some(9901)))"
+    },
+    {
+      "key": "reload_appkit_expanded_reordered",
+      "value": "AppKit сам оставил раскрытыми 100 из 100 узлов"
+    },
+    {
+      "key": "ax_rows_ms_reordered",
+      "value": "0.203"
+    },
+    {
+      "key": "ax_row_classes_reordered",
+      "value": [
+        "NSOutlineRow"
+      ]
+    },
+    {
+      "key": "ax_disclosure_via_reordered",
+      "value": [
+        "AXDisclosing",
+        "AXDisclosureLevel",
+        "AXSelected"
+      ]
+    },
+    {
+      "key": "created_reordered",
+      "value": [
+        101,
+        101
+      ]
+    },
+    {
+      "key": "live_reordered",
+      "value": [
+        46,
+        46
+      ]
+    },
+    {
+      "key": "collapse_over_selection",
+      "value": "после свёртки корня 1101 (строка 880) над выбранным ребёнком выбрана строка 880, узел Some(1101); выбран сам корень: true"
+    },
+    {
+      "key": "window_frames_initial",
+      "value": "166,114 1180x720"
+    },
+    {
+      "key": "window_frames_settled",
+      "value": "166,114 1180x720"
+    },
+    {
+      "key": "window_frame_changes",
+      "value": "0"
+    },
+    {
+      "key": "max_visible_rows",
+      "value": "26"
+    },
+    {
+      "key": "events_posted",
+      "value": "234"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "2104"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "tree_expand_roots_call",
+      "unit": "ms",
+      "samples": [
+        8.532166,
+        8.492667,
+        8.780292000000001,
+        8.364125,
+        8.4185,
+        9.61725,
+        8.782290999999999,
+        8.365083,
+        8.273917,
+        8.260666,
+        8.255208999999999,
+        8.225875,
+        8.217042000000001,
+        8.150917,
+        8.214708,
+        8.25075,
+        8.167083,
+        8.193333,
+        8.100083,
+        8.254833
+      ],
+      "summary": {
+        "count": 20,
+        "p50": 8.255208999999999,
+        "p95": 8.782290999999999,
+        "max": 9.61725
+      }
+    },
+    {
+      "name": "tree_expand_roots_to_display_pass",
+      "unit": "ms",
+      "samples": [
+        13.782333000000001,
+        15.276125,
+        9.053709,
+        13.671249999999999,
+        13.422834,
+        9.948749999999999,
+        14.177957999999999,
+        13.392249999999999,
+        13.274292,
+        13.337208,
+        13.282459,
+        13.508833,
+        14.650125,
+        8.405042,
+        8.472583,
+        8.511541,
+        8.424458,
+        8.445915999999999,
+        9.439167,
+        13.3925
+      ],
+      "summary": {
+        "count": 20,
+        "p50": 13.282459,
+        "p95": 14.650125,
+        "max": 15.276125
+      }
+    },
+    {
+      "name": "tree_collapse_roots_call",
+      "unit": "ms",
+      "samples": [
+        31.387458,
+        33.844209,
+        30.742958,
+        31.127583,
+        31.627792000000003,
+        32.595375000000004,
+        31.557916999999996,
+        30.628708,
+        30.791292000000002,
+        30.660542,
+        30.71125,
+        30.840125,
+        33.179375,
+        30.796667,
+        30.749624999999998,
+        30.609083,
+        30.663083,
+        30.696292,
+        33.418625,
+        30.434708
+      ],
+      "summary": {
+        "count": 20,
+        "p50": 30.791292000000002,
+        "p95": 33.418625,
+        "max": 33.844209
+      }
+    },
+    {
+      "name": "tree_collapse_roots_to_display_pass",
+      "unit": "ms",
+      "samples": [
+        34.806416,
+        38.506167,
+        31.518042000000005,
+        34.602666,
+        35.553042,
+        36.21725,
+        32.34725,
+        34.11325,
+        31.57175,
+        31.427917,
+        31.478749999999998,
+        31.610167,
+        34.082417,
+        34.779875000000004,
+        34.108083,
+        33.934332999999995,
+        34.033333,
+        33.977709000000004,
+        37.717082999999995,
+        31.20225
+      ],
+      "summary": {
+        "count": 20,
+        "p50": 34.033333,
+        "p95": 37.717082999999995,
+        "max": 38.506167
+      }
+    },
+    {
+      "name": "tree_move_post_to_state",
+      "unit": "ms",
+      "samples": [
+        1.3467500000000001,
+        4.575417,
+        3.270041,
+        1.401333,
+        4.631333,
+        3.199584,
+        1.643875,
+        4.661541,
+        3.353,
+        1.4786249999999999,
+        5.29925,
+        5.581792,
+        1.514583,
+        4.641292,
+        3.395,
+        2.388458,
+        4.662125,
+        5.590125,
+        5.721,
+        4.789667,
+        5.999167,
+        5.826792,
+        4.678,
+        6.574208,
+        5.5812919999999995,
+        4.804042,
+        6.045833,
+        5.8525,
+        4.76075,
+        6.01175,
+        6.4378329999999995,
+        4.769459,
+        6.6272079999999995,
+        5.337332999999999,
+        4.822125,
+        5.842458,
+        5.958915999999999,
+        4.504625,
+        6.675375,
+        6.4070409999999995,
+        4.5164159999999995,
+        6.743125,
+        6.165958,
+        4.491125,
+        6.687416,
+        6.298500000000001,
+        4.486000000000001,
+        6.745542,
+        6.368459,
+        4.738499999999999,
+        6.2409170000000005,
+        6.151625,
+        4.476958,
+        6.806167,
+        6.056833999999999,
+        4.9284159999999995,
+        6.502625,
+        6.162542,
+        4.576417,
+        6.370749999999999,
+        6.173709000000001,
+        4.871290999999999,
+        6.780375,
+        6.2433749999999995,
+        5.051542,
+        6.452792,
+        6.161167000000001,
+        5.145916000000001,
+        6.128333,
+        6.466208,
+        5.114999999999999,
+        6.308375,
+        6.077917,
+        4.964416999999999,
+        6.652958,
+        6.360333,
+        4.971625,
+        6.648791999999999,
+        6.18225,
+        5.104333,
+        6.0145420000000005,
+        6.097959,
+        4.627834,
+        6.790209,
+        5.638625,
+        4.615625,
+        6.534125,
+        6.311417,
+        4.589834,
+        6.5757080000000006,
+        5.922000000000001,
+        4.6200410000000005,
+        6.3586670000000005,
+        6.17925,
+        4.623417,
+        6.504375,
+        5.800167,
+        4.757458,
+        6.135042,
+        6.192541
+      ],
+      "summary": {
+        "count": 100,
+        "p50": 5.800167,
+        "p95": 6.687416,
+        "max": 6.806167
+      }
+    },
+    {
+      "name": "tree_move_post_to_dispatch",
+      "unit": "ms",
+      "samples": [
+        0.404917,
+        3.656209,
+        2.314208,
+        0.391708,
+        3.6476669999999998,
+        2.257334,
+        0.599666,
+        3.7016660000000003,
+        2.330625,
+        0.42408399999999996,
+        4.2333750000000006,
+        4.428625,
+        0.47154199999999996,
+        3.7014169999999997,
+        2.246625,
+        0.453458,
+        3.309417,
+        4.283,
+        4.459417,
+        3.630292,
+        4.6870829999999994,
+        4.778709,
+        3.637084,
+        5.146999999999999,
+        4.363625000000001,
+        3.636417,
+        4.876167,
+        4.754375,
+        3.7018340000000003,
+        5.029916,
+        5.0969999999999995,
+        3.709959,
+        5.104542,
+        4.076541000000001,
+        3.6762919999999997,
+        4.995,
+        5.303375,
+        3.707042,
+        5.949625,
+        5.324291,
+        3.7433750000000003,
+        5.888041,
+        5.317958,
+        3.664125,
+        5.844791,
+        5.33725,
+        3.66675,
+        5.7865,
+        5.338417,
+        3.677625,
+        5.409042,
+        5.340209000000001,
+        3.674375,
+        5.7489170000000005,
+        5.150084,
+        4.032125,
+        5.7095,
+        5.375333,
+        3.662,
+        5.475875,
+        5.335999999999999,
+        4.081666,
+        5.852333000000001,
+        5.327625,
+        4.107333000000001,
+        5.385,
+        5.224666999999999,
+        4.085625,
+        5.251583,
+        5.367792,
+        4.1424579999999995,
+        5.393083,
+        5.109833999999999,
+        4.104832999999999,
+        5.70425,
+        5.27225,
+        4.162542,
+        5.844167,
+        5.303625,
+        4.000875,
+        5.055083,
+        5.292292,
+        3.6827919999999996,
+        5.434209,
+        4.690625000000001,
+        3.682083,
+        5.568083,
+        5.367083,
+        3.668584,
+        5.483083,
+        5.11325,
+        3.6696250000000004,
+        5.424333,
+        5.315959,
+        3.675875,
+        5.417792,
+        4.889667,
+        3.883666,
+        5.734584,
+        5.2929580000000005
+      ],
+      "summary": {
+        "count": 100,
+        "p50": 4.690625000000001,
+        "p95": 5.7865,
+        "max": 5.949625
+      }
+    },
+    {
+      "name": "tree_move_post_to_display_pass",
+      "unit": "ms",
+      "samples": [
+        3.9651670000000006,
+        7.202959,
+        5.830583000000001,
+        4.22425,
+        6.825833,
+        5.5991670000000004,
+        4.407458,
+        7.43675,
+        6.0275,
+        4.298917,
+        8.087375000000002,
+        8.378874999999999,
+        4.0495,
+        6.738,
+        6.478542,
+        5.490125,
+        7.308,
+        8.13225,
+        8.234917,
+        7.225208,
+        8.217708,
+        7.897084,
+        6.801417,
+        9.098291,
+        7.843917,
+        7.049708,
+        8.407207999999999,
+        8.00575,
+        6.993875,
+        8.203291,
+        8.961375,
+        6.950167,
+        9.296833,
+        7.712583,
+        6.994417,
+        7.395958,
+        7.433000000000001,
+        6.058084,
+        8.155375,
+        8.36275,
+        6.232291,
+        8.477833,
+        7.89725,
+        6.182709,
+        8.395958,
+        8.140208,
+        6.233958,
+        8.737459,
+        8.438917,
+        6.570125,
+        7.928958999999999,
+        7.828292,
+        6.261374999999999,
+        8.879084,
+        7.837291999999999,
+        6.690041,
+        8.183958,
+        7.802708,
+        6.501042,
+        8.351959,
+        7.872084,
+        6.521208,
+        8.733083,
+        8.233333,
+        7.013292,
+        8.482708,
+        8.112124999999999,
+        7.152915999999999,
+        7.887417000000001,
+        8.628250000000001,
+        7.078875,
+        8.383958,
+        8.008875,
+        6.684958,
+        8.752625,
+        8.573374999999999,
+        6.623583,
+        8.387042000000001,
+        7.978084,
+        7.252790999999999,
+        8.040708,
+        7.769917,
+        6.575542,
+        9.014792,
+        7.462583,
+        6.45175,
+        8.452917000000001,
+        8.228708,
+        6.515084,
+        8.653792000000001,
+        7.5902080000000005,
+        6.560791,
+        8.246417000000001,
+        8.171792,
+        6.571459,
+        8.827167000000001,
+        7.498084,
+        6.454541,
+        7.213833999999999,
+        7.948583
+      ],
+      "summary": {
+        "count": 100,
+        "p50": 7.769917,
+        "p95": 8.827167000000001,
+        "max": 9.296833
+      }
+    },
+    {
+      "name": "tree_move_dispatch_to_return",
+      "unit": "ms",
+      "samples": [
+        0.941833,
+        0.919208,
+        0.955833,
+        1.0096250000000002,
+        0.983666,
+        0.94225,
+        1.044209,
+        0.959875,
+        1.022375,
+        1.054541,
+        1.065875,
+        1.153167,
+        1.0430409999999999,
+        0.9398749999999999,
+        1.1483750000000001,
+        1.935,
+        1.352708,
+        1.3071249999999999,
+        1.261583,
+        1.159375,
+        1.312084,
+        1.048083,
+        1.040916,
+        1.4272079999999998,
+        1.217667,
+        1.1676250000000001,
+        1.1696659999999999,
+        1.098125,
+        1.058916,
+        0.981834,
+        1.340833,
+        1.0594999999999999,
+        1.522666,
+        1.260792,
+        1.1458329999999999,
+        0.847458,
+        0.655541,
+        0.797583,
+        0.72575,
+        1.0827499999999999,
+        0.773041,
+        0.855084,
+        0.848,
+        0.8270000000000001,
+        0.842625,
+        0.9612499999999999,
+        0.81925,
+        0.9590420000000001,
+        1.030042,
+        1.060875,
+        0.831875,
+        0.811416,
+        0.802583,
+        1.05725,
+        0.9067500000000001,
+        0.8962910000000001,
+        0.793125,
+        0.7872089999999999,
+        0.914417,
+        0.8948750000000001,
+        0.8377089999999999,
+        0.7896249999999999,
+        0.928042,
+        0.91575,
+        0.944209,
+        1.0677919999999999,
+        0.9365,
+        1.060291,
+        0.87675,
+        1.098416,
+        0.9725419999999999,
+        0.915292,
+        0.968083,
+        0.859584,
+        0.948708,
+        1.0880830000000001,
+        0.809083,
+        0.804625,
+        0.878625,
+        1.103458,
+        0.959459,
+        0.805667,
+        0.945042,
+        1.356,
+        0.948,
+        0.933542,
+        0.966042,
+        0.944334,
+        0.92125,
+        1.092625,
+        0.80875,
+        0.950416,
+        0.934334,
+        0.8632909999999999,
+        0.947542,
+        1.0865829999999999,
+        0.9105,
+        0.873792,
+        0.40045800000000004,
+        0.899583
+      ],
+      "summary": {
+        "count": 100,
+        "p50": 0.948708,
+        "p95": 1.340833,
+        "max": 1.935
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "rows_initial",
+      "verdict": "pass",
+      "reason": "строк 109, узлы и уровни совпадают с моделью, видимы 0…25 (26), подписи 26 реализованных ячеек совпадают с узлами"
+    },
+    {
+      "name": "nodes_initial",
+      "verdict": "pass",
+      "reason": "ProbeTreeNode: живых 10000, создано 10000 (на начало сценария 10000), освобождено 0; узлов в модели 10000, в фикстуре 10000"
+    },
+    {
+      "name": "selection_initial",
+      "verdict": "pass",
+      "reason": "выбран узел Some(13) в строке 2 (rowForItem Some(2)), ожидался 13; видима true; фон строки Some(\"#2E2C29\"), ожидался #2E2C29; рамка Some((0.0, None)), ожидалась нет; first responder — дерево: false (ProbeTile); фокус Tile(0)"
+    },
+    {
+      "name": "reuse_initial",
+      "verdict": "pass",
+      "reason": "за отрезок создано видов ячеек 0 и строк 0, живых 26 и 26, всего создано 26 и 26; порог 62 при видимых строках не больше 26"
+    },
+    {
+      "name": "reload_plain",
+      "verdict": "pass",
+      "reason": "выбор до Some((2, 13)), после возврата узлу Some((2, 13)), сейчас Some((2, 13)); узел тот же: true; строка сменилась: false (ожидалось false); ожидаемые раскрытые узлы раскрыты: true"
+    },
+    {
+      "name": "rows_reload",
+      "verdict": "pass",
+      "reason": "строк 109, узлы и уровни совпадают с моделью, видимы 0…25 (26), подписи 26 реализованных ячеек совпадают с узлами"
+    },
+    {
+      "name": "nodes_reload",
+      "verdict": "pass",
+      "reason": "ProbeTreeNode: живых 10000, создано 10000 (на начало сценария 10000), освобождено 0; узлов в модели 10000, в фикстуре 10000"
+    },
+    {
+      "name": "accessibility_reload",
+      "verdict": "pass",
+      "reason": "роль AXOutline, строк Some(109), выбрана 2; раскрытость, уровень и выбор 26 строк совпадают с деревом; accessibilityRows за 0.0 мс, новых видов нет"
+    },
+    {
+      "name": "selection_click",
+      "verdict": "pass",
+      "reason": "выбран узел Some(101) в строке 10 (rowForItem Some(10)), ожидался 101; видима true; фон строки Some(\"#2E2C29\"), ожидался #2E2C29; рамка Some((1.0, Some(Rgba { r: 127, g: 155, b: 192, a: 255 }))), ожидалась 1 точка #7F9BC0; first responder — дерево: true (ProbeTreeOutline); фокус Navigator"
+    },
+    {
+      "name": "expand_key-right",
+      "verdict": "pass",
+      "reason": "isItemExpanded узла 101 — true, ожидалось true; строк 118"
+    },
+    {
+      "name": "rows_key-right",
+      "verdict": "pass",
+      "reason": "строк 118, узлы и уровни совпадают с моделью, видимы 0…25 (26), подписи 26 реализованных ячеек совпадают с узлами"
+    },
+    {
+      "name": "selection_key-right",
+      "verdict": "pass",
+      "reason": "выбран узел Some(101) в строке 10 (rowForItem Some(10)), ожидался 101; видима true; фон строки Some(\"#2E2C29\"), ожидался #2E2C29; рамка Some((1.0, Some(Rgba { r: 127, g: 155, b: 192, a: 255 }))), ожидалась 1 точка #7F9BC0; first responder — дерево: true (ProbeTreeOutline); фокус Navigator"
+    },
+    {
+      "name": "expand_key-left",
+      "verdict": "pass",
+      "reason": "isItemExpanded узла 101 — false, ожидалось false; строк 109"
+    },
+    {
+      "name": "rows_key-left",
+      "verdict": "pass",
+      "reason": "строк 109, узлы и уровни совпадают с моделью, видимы 0…25 (26), подписи 26 реализованных ячеек совпадают с узлами"
+    },
+    {
+      "name": "expand_click-open",
+      "verdict": "pass",
+      "reason": "isItemExpanded узла 101 — true, ожидалось true; строк 118"
+    },
+    {
+      "name": "rows_click-open",
+      "verdict": "pass",
+      "reason": "строк 118, узлы и уровни совпадают с моделью, видимы 0…25 (26), подписи 26 реализованных ячеек совпадают с узлами"
+    },
+    {
+      "name": "expand_click-close",
+      "verdict": "pass",
+      "reason": "isItemExpanded узла 101 — false, ожидалось false; строк 109"
+    },
+    {
+      "name": "rows_click-close",
+      "verdict": "pass",
+      "reason": "строк 109, узлы и уровни совпадают с моделью, видимы 0…25 (26), подписи 26 реализованных ячеек совпадают с узлами"
+    },
+    {
+      "name": "rounds",
+      "verdict": "pass",
+      "reason": "46 раскрытий и свёрток всех 100 корней, из них 6 прогревочных: после раскрытия 1000 строк, после свёртки 100"
+    },
+    {
+      "name": "rows_rounds",
+      "verdict": "pass",
+      "reason": "строк 100, узлы и уровни совпадают с моделью, видимы 0…25 (26), подписи 26 реализованных ячеек совпадают с узлами"
+    },
+    {
+      "name": "selection_rounds",
+      "verdict": "pass",
+      "reason": "выбран узел Some(101) в строке 1 (rowForItem Some(1)), ожидался 101; видима true; фон строки Some(\"#2E2C29\"), ожидался #2E2C29; рамка Some((1.0, Some(Rgba { r: 127, g: 155, b: 192, a: 255 }))), ожидалась 1 точка #7F9BC0; first responder — дерево: true (ProbeTreeOutline); фокус Navigator"
+    },
+    {
+      "name": "rows_first-level",
+      "verdict": "pass",
+      "reason": "строк 1000, узлы и уровни совпадают с моделью, видимы 0…25 (26), подписи 26 реализованных ячеек совпадают с узлами"
+    },
+    {
+      "name": "accessibility_first-level",
+      "verdict": "pass",
+      "reason": "роль AXOutline, строк Some(1000), выбрана 10; раскрытость, уровень и выбор 26 строк совпадают с деревом; accessibilityRows за 0.1 мс, новых видов нет"
+    },
+    {
+      "name": "reuse_first-level",
+      "verdict": "pass",
+      "reason": "за отрезок создано видов ячеек 49 и строк 49, живых 49 и 49, всего создано 75 и 75; порог 62 при видимых строках не больше 26"
+    },
+    {
+      "name": "selection_moves-start",
+      "verdict": "pass",
+      "reason": "выбран узел Some(1) в строке 0 (rowForItem Some(0)), ожидался 1; видима true; фон строки Some(\"#2E2C29\"), ожидался #2E2C29; рамка Some((1.0, Some(Rgba { r: 127, g: 155, b: 192, a: 255 }))), ожидалась 1 точка #7F9BC0; first responder — дерево: true (ProbeTreeOutline); фокус Navigator"
+    },
+    {
+      "name": "moves",
+      "verdict": "pass",
+      "reason": "110 перемещений Down, из них 10 прогревочных: после каждого выбрана следующая строка"
+    },
+    {
+      "name": "move_budget",
+      "verdict": "pass",
+      "reason": "p95 интервала postEvent → конец прохода отображения 8.827 мс при бюджете 16 мс; вывод об измеренном участке, не о времени до экрана"
+    },
+    {
+      "name": "selection_moves",
+      "verdict": "pass",
+      "reason": "выбран узел Some(1101) в строке 110 (rowForItem Some(110)), ожидался 1101; видима true; фон строки Some(\"#2E2C29\"), ожидался #2E2C29; рамка Some((1.0, Some(Rgba { r: 127, g: 155, b: 192, a: 255 }))), ожидалась 1 точка #7F9BC0; first responder — дерево: true (ProbeTreeOutline); фокус Navigator"
+    },
+    {
+      "name": "moves_visible",
+      "verdict": "pass",
+      "reason": "после установившейся прокрутки видимы 85…110, выбрана 110"
+    },
+    {
+      "name": "accessibility_moves",
+      "verdict": "pass",
+      "reason": "роль AXOutline, строк Some(1000), выбрана 110; раскрытость, уровень и выбор 26 строк совпадают с деревом; accessibilityRows за 0.3 мс, новых видов нет"
+    },
+    {
+      "name": "reuse_moves",
+      "verdict": "pass",
+      "reason": "за отрезок создано видов ячеек 49 и строк 49, живых 49 и 49, всего создано 75 и 75; порог 62 при видимых строках не больше 26"
+    },
+    {
+      "name": "reload_reordered",
+      "verdict": "pass",
+      "reason": "выбор до Some((110, 1101)), после возврата узлу Some((880, 1101)), сейчас Some((880, 1101)); узел тот же: true; строка сменилась: true (ожидалось true); ожидаемые раскрытые узлы раскрыты: true"
+    },
+    {
+      "name": "rows_reordered",
+      "verdict": "pass",
+      "reason": "строк 1000, узлы и уровни совпадают с моделью, видимы 855…880 (26), подписи 26 реализованных ячеек совпадают с узлами"
+    },
+    {
+      "name": "nodes_reordered",
+      "verdict": "pass",
+      "reason": "ProbeTreeNode: живых 10000, создано 10000 (на начало сценария 10000), освобождено 0; узлов в модели 10000, в фикстуре 10000"
+    },
+    {
+      "name": "selection_reordered",
+      "verdict": "pass",
+      "reason": "выбран узел Some(1101) в строке 880 (rowForItem Some(880)), ожидался 1101; видима true; фон строки Some(\"#2E2C29\"), ожидался #2E2C29; рамка Some((1.0, Some(Rgba { r: 127, g: 155, b: 192, a: 255 }))), ожидалась 1 точка #7F9BC0; first responder — дерево: true (ProbeTreeOutline); фокус Navigator"
+    },
+    {
+      "name": "accessibility_reordered",
+      "verdict": "pass",
+      "reason": "роль AXOutline, строк Some(1000), выбрана 880; раскрытость, уровень и выбор 26 строк совпадают с деревом; accessibilityRows за 0.2 мс, новых видов нет"
+    },
+    {
+      "name": "reuse_reordered",
+      "verdict": "pass",
+      "reason": "за отрезок создано видов ячеек 26 и строк 26, живых 46 и 46, всего создано 101 и 101; порог 62 при видимых строках не больше 26"
+    },
+    {
+      "name": "selection_child",
+      "verdict": "pass",
+      "reason": "выбран узел Some(1102) в строке 881 (rowForItem Some(881)), ожидался 1102; видима true; фон строки Some(\"#2E2C29\"), ожидался #2E2C29; рамка Some((1.0, Some(Rgba { r: 127, g: 155, b: 192, a: 255 }))), ожидалась 1 точка #7F9BC0; first responder — дерево: true (ProbeTreeOutline); фокус Navigator"
+    },
+    {
+      "name": "rows_collapse-over-selection",
+      "verdict": "pass",
+      "reason": "строк 991, узлы и уровни совпадают с моделью, видимы 856…881 (26), подписи 26 реализованных ячеек совпадают с узлами"
+    }
+  ],
+  "snapshots": [
+    {
+      "name": "tree-navigator",
+      "kind": "view-render",
+      "status": "ok",
+      "file": "tree-navigator.png",
+      "rect_points": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 230.0,
+        "height": 680.0
+      },
+      "pixels": {
+        "width": 460.0,
+        "height": 1360.0
+      },
+      "color_space": "Color LCD"
+    },
+    {
+      "name": "tree-window",
+      "kind": "window",
+      "status": "ok",
+      "file": "tree-window.png",
+      "rect_points": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 720.0
+      }
+    }
+  ],
+  "diagnostics": {
+    "trace": [
+      "… 658 ранних строк вытеснено",
+      "7177.776ms dispatch #215",
+      "7178.726ms return #215",
+      "7178.751ms dispatch #216",
+      "7178.770ms return #216",
+      "7180.682ms post #217 keyDown Down",
+      "7180.708ms post #218 keyUp Down",
+      "7186.106ms dispatch #217",
+      "7187.040ms return #217",
+      "7187.066ms dispatch #218",
+      "7187.085ms return #218",
+      "7189.101ms post #219 keyDown Down",
+      "7189.119ms post #220 keyUp Down",
+      "7194.417ms dispatch #219",
+      "7195.280ms return #219",
+      "7195.305ms dispatch #220",
+      "7195.324ms return #220",
+      "7199.090ms post #221 keyDown Down",
+      "7199.112ms post #222 keyUp Down",
+      "7202.765ms dispatch #221",
+      "7203.713ms return #221",
+      "7203.738ms dispatch #222",
+      "7203.757ms return #222",
+      "7205.676ms post #223 keyDown Down",
+      "7205.696ms post #224 keyUp Down",
+      "7211.094ms dispatch #223",
+      "7212.180ms return #223",
+      "7212.208ms dispatch #224",
+      "7212.227ms return #224",
+      "7214.525ms post #225 keyDown Down",
+      "7214.553ms post #226 keyUp Down",
+      "7219.414ms dispatch #225",
+      "7220.325ms return #225",
+      "7220.347ms dispatch #226",
+      "7220.363ms return #226",
+      "7223.872ms post #227 keyDown Down",
+      "7223.896ms post #228 keyUp Down",
+      "7227.755ms dispatch #227",
+      "7228.629ms return #227",
+      "7228.652ms dispatch #228",
+      "7228.669ms return #228",
+      "7230.340ms post #229 keyDown Down",
+      "7230.359ms post #230 keyUp Down",
+      "7236.075ms dispatch #229",
+      "7236.476ms return #229",
+      "7236.485ms dispatch #230",
+      "7236.492ms return #230",
+      "7239.121ms post #231 keyDown Down",
+      "7239.139ms post #232 keyUp Down",
+      "7244.414ms dispatch #231",
+      "7245.313ms return #231",
+      "7245.335ms dispatch #232",
+      "7245.351ms return #232",
+      "7249.072ms шаг «110 перемещений Down» готов за 920.6 мс",
+      "7759.792ms шаг «прокрутка после перемещений установилась» готов за 510.7 мс",
+      "8311.304ms шаг «перезагрузка с обратным порядком корней» готов за 520.3 мс",
+      "8313.729ms post #233 keyDown Down",
+      "8313.852ms post #234 keyUp Down",
+      "8319.516ms dispatch #233",
+      "8323.345ms return #233",
+      "8323.441ms dispatch #234",
+      "8323.493ms return #234",
+      "8829.599ms шаг «Down к первому ребёнку» готов за 515.7 мс",
+      "9343.768ms шаг «свёртка над выбранным ребёнком» готов за 510.6 мс",
+      "9520.889ms служебное событие type=15 window=0 timestamp=0.000000 keyCode=None eventNumber=None source_pid=9684 source_state=0"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeChromeBar",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeChromeTarget",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeCommandTarget",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeListCell",
+        "created": 58,
+        "released": 0,
+        "live": 58
+      },
+      {
+        "class": "ProbeListRow",
+        "created": 58,
+        "released": 0,
+        "live": 58
+      },
+      {
+        "class": "ProbeListSource",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeListTable",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeNavigator",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbePaletteController",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbePalettePanel",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSceneRoot",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSearchField",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSplitView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeTab",
+        "created": 11,
+        "released": 0,
+        "live": 11
+      },
+      {
+        "class": "ProbeTabRow",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeTabScroll",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeTabStrip",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeThemeObserver",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeTile",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeTreeCell",
+        "created": 101,
+        "released": 55,
+        "live": 46
+      },
+      {
+        "class": "ProbeTreeNode",
+        "created": 10000,
+        "released": 0,
+        "live": 10000
+      },
+      {
+        "class": "ProbeTreeOutline",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeTreeRow",
+        "created": 101,
+        "released": 55,
+        "live": 46
+      },
+      {
+        "class": "ProbeTreeSource",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeVeil",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeZoneHost",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      }
+    ],
+    "notes": []
+  }
+}

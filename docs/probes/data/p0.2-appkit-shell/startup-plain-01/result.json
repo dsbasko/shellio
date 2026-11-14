@@ -1,0 +1,419 @@
+{
+  "schema": 1,
+  "scenario": "startup",
+  "variant": "plain",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "cc81b21e03bb",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-quartz-core 0.3.2",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "scene": {
+      "split": "plain",
+      "contrast": "system",
+      "motion": "system"
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "visible_frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 949.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC",
+    "fixtures": {}
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [],
+  "events": [
+    {
+      "number": 1,
+      "label": "keyDown 2",
+      "window": 33370,
+      "before": "isActive=true keyWindow=#33370 mainWindow=#33370 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 58.805125,
+      "dispatch_start_ms": 60.686,
+      "send_return_ms": 60.955333,
+      "display_pass_ms": 62.020125,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "keyUp 2",
+      "window": 33370,
+      "before": "isActive=true keyWindow=#33370 mainWindow=#33370 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 58.883167,
+      "dispatch_start_ms": 60.972249999999995,
+      "send_return_ms": 61.0015,
+      "display_pass_ms": 62.020125,
+      "undispatched": false
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "startup"
+    },
+    {
+      "key": "split",
+      "value": "plain"
+    },
+    {
+      "key": "contrast",
+      "value": "system"
+    },
+    {
+      "key": "motion",
+      "value": "system"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "control_key",
+      "value": "2"
+    },
+    {
+      "key": "control_tab_before",
+      "value": "Some(0)"
+    },
+    {
+      "key": "control_tab_target",
+      "value": "1"
+    },
+    {
+      "key": "interval_startup",
+      "value": "p_starttime процесса → gettimeofday после чтения эффекта контрольной клавиши; клавиша отправлена в конце первого прохода отображения, на котором окно сцены key, видимо и ничего не ждёт отображения"
+    },
+    {
+      "key": "startup_wall_ms",
+      "value": "258.010"
+    },
+    {
+      "key": "main_to_end_mono_ms",
+      "value": "250.428"
+    },
+    {
+      "key": "pre_main_mono_ms",
+      "value": "7.583"
+    },
+    {
+      "key": "pre_main_wall_ms",
+      "value": "7.582"
+    },
+    {
+      "key": "first_display_since_main_ms",
+      "value": "248.253"
+    },
+    {
+      "key": "ready_since_main_ms",
+      "value": "248.253"
+    },
+    {
+      "key": "key_display_since_main_ms",
+      "value": "248.253"
+    },
+    {
+      "key": "control_posted_since_main_ms",
+      "value": "248.256"
+    },
+    {
+      "key": "control_returned_since_main_ms",
+      "value": "250.428"
+    },
+    {
+      "key": "views_need_display_at_ready",
+      "value": "Some(false)"
+    },
+    {
+      "key": "process_start_sources_agree",
+      "value": "true"
+    },
+    {
+      "key": "events_posted",
+      "value": "2"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "6"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "startup_wall",
+      "unit": "ms",
+      "samples": [
+        258.01
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 258.01,
+        "p95": 258.01,
+        "max": 258.01
+      }
+    },
+    {
+      "name": "startup_main_to_end_mono",
+      "unit": "ms",
+      "samples": [
+        250.428166
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 250.428166,
+        "p95": 250.428166,
+        "max": 250.428166
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "control_effect",
+      "verdict": "pass",
+      "reason": "после возврата sendEvent активна вкладка Some(1), ожидалась 1"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "0.009ms сценарий startup",
+      "0.553ms курсор уведён в 1508,4",
+      "39.990ms служебное событие type=13 window=0 timestamp=328826.313072 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "58.805ms post #1 keyDown 2",
+      "58.883ms post #2 keyUp 2",
+      "60.686ms dispatch #1",
+      "60.955ms return #1",
+      "60.972ms dispatch #2",
+      "61.002ms return #2",
+      "68.997ms служебное событие type=15 window=0 timestamp=0.000000 keyCode=None eventNumber=None source_pid=8682 source_state=0"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeChromeBar",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeChromeTarget",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeCommandTarget",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeListCell",
+        "created": 58,
+        "released": 0,
+        "live": 58
+      },
+      {
+        "class": "ProbeListRow",
+        "created": 58,
+        "released": 0,
+        "live": 58
+      },
+      {
+        "class": "ProbeListSource",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeListTable",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeNavigator",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbePaletteController",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbePalettePanel",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSceneRoot",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSearchField",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSplitView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeTab",
+        "created": 11,
+        "released": 0,
+        "live": 11
+      },
+      {
+        "class": "ProbeTabRow",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeTabScroll",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeTabStrip",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeThemeObserver",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeTile",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeTreeCell",
+        "created": 26,
+        "released": 0,
+        "live": 26
+      },
+      {
+        "class": "ProbeTreeNode",
+        "created": 10000,
+        "released": 0,
+        "live": 10000
+      },
+      {
+        "class": "ProbeTreeOutline",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeTreeRow",
+        "created": 26,
+        "released": 0,
+        "live": 26
+      },
+      {
+        "class": "ProbeTreeSource",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeVeil",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeZoneHost",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      }
+    ],
+    "notes": []
+  },
+  "startup": {
+    "process_start_wall_us": 1794558261414661,
+    "process_start_bsd_wall_us": 1794558261414661,
+    "process_start_mono_ns": 328826118343541,
+    "main_wall_us": 1794558261422243,
+    "main_mono_ns": 328826125926125,
+    "first_display_mono_ns": 328826374179166,
+    "ready_mono_ns": 328826374179166,
+    "key_display_mono_ns": 328826374179166,
+    "control_posted_mono_ns": 328826374181833,
+    "control_returned_mono_ns": 328826376354125,
+    "end_wall_us": 1794558261672671,
+    "end_mono_ns": 328826376354291
+  }
+}

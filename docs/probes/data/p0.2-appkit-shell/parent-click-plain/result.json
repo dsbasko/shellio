@@ -1,0 +1,265 @@
+{
+  "schema": 1,
+  "scenario": "parent-click",
+  "variant": "plain",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "cc81b21e03bb",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-quartz-core 0.3.2",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "scene": {
+      "split": "plain",
+      "contrast": "system",
+      "motion": "system"
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "visible_frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 949.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC",
+    "fixtures": {}
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "окна неподвижны, активность и key-панель",
+      "status": "ready",
+      "waited_ms": 500.62979100000007,
+      "at_ms": 506.74612500000006,
+      "state": "isActive=true keyWindow=#33531 mainWindow=#33530 firstResponder=NSPanel cursor=1508,4"
+    },
+    {
+      "index": 1,
+      "name": "курсор вне окон",
+      "status": "ready",
+      "waited_ms": 5.671542,
+      "at_ms": 512.696333,
+      "state": "isActive=true keyWindow=#33531 mainWindow=#33530 firstResponder=NSPanel cursor=1508,4"
+    },
+    {
+      "index": 2,
+      "name": "нажатие обработано",
+      "status": "ready",
+      "waited_ms": 7.066542,
+      "at_ms": 520.050333,
+      "state": "isActive=true keyWindow=#33530 mainWindow=#33530 firstResponder=ProbeInputView cursor=1508,4"
+    },
+    {
+      "index": 3,
+      "name": "отпускание обработано",
+      "status": "ready",
+      "waited_ms": 5.640916,
+      "at_ms": 525.732875,
+      "state": "isActive=true keyWindow=#33530 mainWindow=#33530 firstResponder=ProbeInputView cursor=1508,4"
+    }
+  ],
+  "events": [
+    {
+      "number": 1,
+      "label": "mouseDown родитель вне панели at 206,154",
+      "window": 33530,
+      "before": "isActive=true keyWindow=#33531 mainWindow=#33530 firstResponder=NSPanel cursor=1508,4",
+      "posted_ms": 512.899666,
+      "dispatch_start_ms": 514.443,
+      "send_return_ms": 517.304416,
+      "display_pass_ms": 520.028875,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "mouseUp родитель вне панели at 206,154",
+      "window": 33530,
+      "before": "isActive=true keyWindow=#33530 mainWindow=#33530 firstResponder=ProbeInputView cursor=1508,4",
+      "posted_ms": 520.054333,
+      "dispatch_start_ms": 522.809125,
+      "send_return_ms": 522.858958,
+      "display_pass_ms": 522.936541,
+      "undispatched": false
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "parent-click"
+    },
+    {
+      "key": "split",
+      "value": "plain"
+    },
+    {
+      "key": "contrast",
+      "value": "system"
+    },
+    {
+      "key": "motion",
+      "value": "system"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "window_frames_initial",
+      "value": "166,114 1180x752; 576,400 360x204"
+    },
+    {
+      "key": "window_frames_settled",
+      "value": "166,114 1180x752; 576,400 360x204"
+    },
+    {
+      "key": "window_frame_changes",
+      "value": "0"
+    },
+    {
+      "key": "parent_window",
+      "value": "33530"
+    },
+    {
+      "key": "panel_window",
+      "value": "33531"
+    },
+    {
+      "key": "panel_frame",
+      "value": "576,400 360x204"
+    },
+    {
+      "key": "parent_frame",
+      "value": "166,114 1180x752"
+    },
+    {
+      "key": "expected_view_point",
+      "value": "40,40"
+    },
+    {
+      "key": "view_arrival",
+      "value": "mouseDown win=33530 at=40,40"
+    },
+    {
+      "key": "view_arrival",
+      "value": "mouseUp win=33530 at=40,40"
+    },
+    {
+      "key": "after_click",
+      "value": "isActive=true keyWindow=#33530 mainWindow=#33530 firstResponder=ProbeInputView cursor=1508,4"
+    },
+    {
+      "key": "delivered_to_window",
+      "value": "true"
+    },
+    {
+      "key": "view_mouse_down",
+      "value": "true"
+    },
+    {
+      "key": "view_mouse_up",
+      "value": "true"
+    },
+    {
+      "key": "events_posted",
+      "value": "2"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "131"
+    }
+  ],
+  "metrics": [],
+  "findings": [
+    {
+      "name": "parent_click",
+      "verdict": "pass",
+      "reason": "при key-панели щелчок по родителю вне панели дошёл до окна родителя и до его вида в ожидаемой точке"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "0.009ms сценарий parent-click",
+      "23.893ms служебное событие type=13 window=0 timestamp=328833.168470 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "131.073ms служебное событие type=13 window=33530 timestamp=328833.199357 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "131.398ms служебное событие type=13 window=33531 timestamp=328833.199406 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "506.671ms шаг «окна неподвижны, активность и key-панель» готов за 500.6 мс",
+      "506.993ms курсор уведён в 1508,4",
+      "512.685ms шаг «курсор вне окон» готов за 5.7 мс",
+      "512.900ms post #1 mouseDown родитель вне панели at 206,154",
+      "514.443ms dispatch #1",
+      "517.282ms ProbeInputView mouseDown win=33530 at=40,40",
+      "517.304ms return #1",
+      "520.044ms шаг «нажатие обработано» готов за 7.1 мс",
+      "520.054ms post #2 mouseUp родитель вне панели at 206,154",
+      "522.809ms dispatch #2",
+      "522.854ms ProbeInputView mouseUp win=33530 at=40,40",
+      "522.859ms return #2",
+      "525.721ms шаг «отпускание обработано» готов за 5.6 мс",
+      "531.123ms служебное событие type=15 window=0 timestamp=0.000000 keyCode=None eventNumber=None source_pid=8958 source_state=0"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeInputView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      }
+    ],
+    "notes": []
+  }
+}

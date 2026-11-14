@@ -1,0 +1,701 @@
+{
+  "schema": 1,
+  "scenario": "menu",
+  "variant": "plain",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "cc81b21e03bb",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-quartz-core 0.3.2",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "scene": {
+      "split": "plain",
+      "contrast": "system",
+      "motion": "system"
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "visible_frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 949.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC",
+    "fixtures": {}
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "окно неподвижно, активность и key window",
+      "status": "ready",
+      "waited_ms": 500.508042,
+      "at_ms": 500.878916,
+      "state": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4"
+    },
+    {
+      "index": 1,
+      "name": "курсор вне окон",
+      "status": "ready",
+      "waited_ms": 5.6140419999999995,
+      "at_ms": 509.61858299999994,
+      "state": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4"
+    },
+    {
+      "index": 2,
+      "name": "Cmd-J обработан",
+      "status": "ready",
+      "waited_ms": 8.588625,
+      "at_ms": 518.475916,
+      "state": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4"
+    },
+    {
+      "index": 3,
+      "name": "нажатие кнопки «…» принято",
+      "status": "ready",
+      "waited_ms": 5.245584,
+      "at_ms": 525.189125,
+      "state": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4"
+    },
+    {
+      "index": 4,
+      "name": "меню «…» открыто",
+      "status": "ready",
+      "waited_ms": 48.948792,
+      "at_ms": 574.172416,
+      "state": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4"
+    },
+    {
+      "index": 5,
+      "name": "пункт команды подсвечен клавишами",
+      "status": "ready",
+      "waited_ms": 20.584625,
+      "at_ms": 594.772875,
+      "state": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4"
+    },
+    {
+      "index": 6,
+      "name": "пункт выбран, меню закрыто",
+      "status": "ready",
+      "waited_ms": 350.878834,
+      "at_ms": 945.696208,
+      "state": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4"
+    },
+    {
+      "index": 7,
+      "name": "палитра открыта",
+      "status": "ready",
+      "waited_ms": 50.232666,
+      "at_ms": 996.012125,
+      "state": "isActive=true keyWindow=#34003 mainWindow=#34002 firstResponder=field-editor(NSTextView) cursor=1508,4"
+    },
+    {
+      "index": 8,
+      "name": "команда палитры выполнена",
+      "status": "ready",
+      "waited_ms": 25.036917,
+      "at_ms": 1021.1110830000001,
+      "state": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4"
+    }
+  ],
+  "events": [
+    {
+      "number": 1,
+      "label": "flagsChanged+55",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 509.6645,
+      "dispatch_start_ms": 509.951291,
+      "send_return_ms": 512.677875,
+      "display_pass_ms": 518.4422079999999,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "keyDown Cmd-J",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 509.744666,
+      "dispatch_start_ms": 512.7455829999999,
+      "send_return_ms": 518.116041,
+      "display_pass_ms": 518.4422079999999,
+      "undispatched": false
+    },
+    {
+      "number": 3,
+      "label": "keyUp Cmd-J",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 509.849416,
+      "dispatch_start_ms": 518.21925,
+      "send_return_ms": 518.226833,
+      "display_pass_ms": 518.4422079999999,
+      "undispatched": false
+    },
+    {
+      "number": 4,
+      "label": "flagsChanged-55",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 509.86016599999994,
+      "dispatch_start_ms": 518.242083,
+      "send_return_ms": 518.3511659999999,
+      "display_pass_ms": 518.4422079999999,
+      "undispatched": false
+    },
+    {
+      "number": 5,
+      "label": "mouseDown кнопка «…» at 957,771",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 519.9035,
+      "dispatch_start_ms": 519.984333,
+      "send_return_ms": 521.325166,
+      "display_pass_ms": 523.307208,
+      "undispatched": false
+    },
+    {
+      "number": 6,
+      "label": "mouseUp кнопка «…» at 957,771",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 525.193916,
+      "dispatch_start_ms": 525.504291,
+      "send_return_ms": 943.441041,
+      "display_pass_ms": 995.962166,
+      "undispatched": false
+    },
+    {
+      "number": 7,
+      "label": "keyDown Down",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 579.454791,
+      "dispatch_start_ms": null,
+      "send_return_ms": null,
+      "display_pass_ms": null,
+      "undispatched": true
+    },
+    {
+      "number": 8,
+      "label": "keyUp Down",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 579.4919160000001,
+      "dispatch_start_ms": null,
+      "send_return_ms": null,
+      "display_pass_ms": null,
+      "undispatched": true
+    },
+    {
+      "number": 9,
+      "label": "keyDown Down",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 584.725916,
+      "dispatch_start_ms": null,
+      "send_return_ms": null,
+      "display_pass_ms": null,
+      "undispatched": true
+    },
+    {
+      "number": 10,
+      "label": "keyUp Down",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 584.741958,
+      "dispatch_start_ms": null,
+      "send_return_ms": null,
+      "display_pass_ms": null,
+      "undispatched": true
+    },
+    {
+      "number": 11,
+      "label": "keyDown Return",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 594.7765830000001,
+      "dispatch_start_ms": null,
+      "send_return_ms": null,
+      "display_pass_ms": null,
+      "undispatched": true
+    },
+    {
+      "number": 12,
+      "label": "keyUp Return",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 594.798708,
+      "dispatch_start_ms": null,
+      "send_return_ms": null,
+      "display_pass_ms": null,
+      "undispatched": true
+    },
+    {
+      "number": 13,
+      "label": "flagsChanged+55",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 945.715333,
+      "dispatch_start_ms": 945.799458,
+      "send_return_ms": 945.823791,
+      "display_pass_ms": 995.962166,
+      "undispatched": false
+    },
+    {
+      "number": 14,
+      "label": "keyDown Cmd-K",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 945.7290830000001,
+      "dispatch_start_ms": 945.835333,
+      "send_return_ms": 975.3369160000001,
+      "display_pass_ms": 995.962166,
+      "undispatched": false
+    },
+    {
+      "number": 15,
+      "label": "keyUp Cmd-K",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 945.7530830000001,
+      "dispatch_start_ms": 976.550416,
+      "send_return_ms": 976.5572080000001,
+      "display_pass_ms": 995.962166,
+      "undispatched": false
+    },
+    {
+      "number": 16,
+      "label": "flagsChanged-55",
+      "window": 34002,
+      "before": "isActive=true keyWindow=#34002 mainWindow=#34002 firstResponder=ProbeTile cursor=1508,4",
+      "posted_ms": 945.757375,
+      "dispatch_start_ms": 976.56575,
+      "send_return_ms": 976.6036660000001,
+      "display_pass_ms": 995.962166,
+      "undispatched": false
+    },
+    {
+      "number": 17,
+      "label": "keyDown Return",
+      "window": 34003,
+      "before": "isActive=true keyWindow=#34003 mainWindow=#34002 firstResponder=field-editor(NSTextView) cursor=1508,4",
+      "posted_ms": 996.0227080000001,
+      "dispatch_start_ms": 1000.536208,
+      "send_return_ms": 1015.3150410000001,
+      "display_pass_ms": 1020.371041,
+      "undispatched": false
+    },
+    {
+      "number": 18,
+      "label": "keyUp Return",
+      "window": 34003,
+      "before": "isActive=true keyWindow=#34003 mainWindow=#34002 firstResponder=field-editor(NSTextView) cursor=1508,4",
+      "posted_ms": 996.0565,
+      "dispatch_start_ms": 1015.430958,
+      "send_return_ms": 1015.4704160000001,
+      "display_pass_ms": 1020.371041,
+      "undispatched": false
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "menu"
+    },
+    {
+      "key": "split",
+      "value": "plain"
+    },
+    {
+      "key": "contrast",
+      "value": "system"
+    },
+    {
+      "key": "motion",
+      "value": "system"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "command",
+      "value": "1 «Отметить»"
+    },
+    {
+      "key": "menu_path",
+      "value": "пункт меню «…» центральной плитки: синтетический щелчок по кнопке и клавиши во вложенном цикле отслеживания, как выбрано в задаче 3"
+    },
+    {
+      "key": "shortcut_path",
+      "value": "Cmd-J — эквивалент пункта главного меню «Команды»"
+    },
+    {
+      "key": "palette_path",
+      "value": "Cmd-K, затем Enter по первой строке пустого запроса"
+    },
+    {
+      "key": "run_loop_mode_in_tracking",
+      "value": "NSEventTrackingRunLoopMode"
+    },
+    {
+      "key": "downs",
+      "value": "2"
+    },
+    {
+      "key": "highlights",
+      "value": "[Some(\"Закрыть вкладку\"), Some(\"Отметить\"), None]"
+    },
+    {
+      "key": "window_frames_initial",
+      "value": "166,114 1180x720"
+    },
+    {
+      "key": "window_frames_settled",
+      "value": "166,114 1180x720"
+    },
+    {
+      "key": "window_frame_changes",
+      "value": "0"
+    },
+    {
+      "key": "commands_log",
+      "value": "[Invocation { id: 1, via: Menu(\"Команды\") }, Invocation { id: 1, via: Menu(\"Действия панели\") }, Invocation { id: 1, via: Palette }]"
+    },
+    {
+      "key": "events_posted",
+      "value": "18"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "348"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "shortcut_dispatch_to_return",
+      "unit": "ms",
+      "samples": [
+        5.370458
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 5.370458,
+        "p95": 5.370458,
+        "max": 5.370458
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "shortcut",
+      "verdict": "pass",
+      "reason": "счётчик команды «Отметить» вырос на 1 (ожидалось 1), последний вызов Some(Invocation { id: 1, via: Menu(\"Команды\") }), ожидался путь Menu(\"Команды\")"
+    },
+    {
+      "name": "menu_item",
+      "verdict": "pass",
+      "reason": "счётчик команды «Отметить» вырос на 1 (ожидалось 1), последний вызов Some(Invocation { id: 1, via: Menu(\"Действия панели\") }), ожидался путь Menu(\"Действия панели\")"
+    },
+    {
+      "name": "palette_command",
+      "verdict": "pass",
+      "reason": "счётчик команды «Отметить» вырос на 1 (ожидалось 1), последний вызов Some(Invocation { id: 1, via: Palette }), ожидался путь Palette"
+    },
+    {
+      "name": "one_handler",
+      "verdict": "pass",
+      "reason": "сочетание, пункт меню и команда палитры вызвали один обработчик: всего вызовов команды 3, по путям [\"shortcut +1\", \"menu_item +1\", \"palette_command +1\"], вызовов других команд 0"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "… 2 ранних строк вытеснено",
+      "142.166ms служебное событие type=13 window=34002 timestamp=328896.234558 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "142.470ms служебное событие type=13 window=34003 timestamp=328896.234615 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "500.804ms шаг «окно неподвижно, активность и key window» готов за 500.5 мс",
+      "503.976ms курсор уведён в 1508,4",
+      "509.609ms шаг «курсор вне окон» готов за 5.6 мс",
+      "509.664ms post #1 flagsChanged+55",
+      "509.745ms post #2 keyDown Cmd-J",
+      "509.849ms post #3 keyUp Cmd-J",
+      "509.860ms post #4 flagsChanged-55",
+      "509.951ms dispatch #1",
+      "512.678ms return #1",
+      "512.746ms dispatch #2",
+      "518.116ms return #2",
+      "518.219ms dispatch #3",
+      "518.227ms return #3",
+      "518.242ms dispatch #4",
+      "518.351ms return #4",
+      "518.463ms шаг «Cmd-J обработан» готов за 8.6 мс",
+      "519.904ms post #5 mouseDown кнопка «…» at 957,771",
+      "519.984ms dispatch #5",
+      "521.325ms return #5",
+      "525.180ms шаг «нажатие кнопки «…» принято» готов за 5.2 мс",
+      "525.194ms post #6 mouseUp кнопка «…» at 957,771",
+      "525.504ms dispatch #6",
+      "556.582ms menuWillOpen",
+      "574.166ms шаг «меню «…» открыто» готов за 48.9 мс",
+      "579.455ms post #7 keyDown Down",
+      "579.492ms post #8 keyUp Down",
+      "583.970ms menu:willHighlightItem: Some(\"Закрыть вкладку\")",
+      "584.726ms post #9 keyDown Down",
+      "584.742ms post #10 keyUp Down",
+      "592.246ms menu:willHighlightItem: Some(\"Отметить\")",
+      "594.768ms шаг «пункт команды подсвечен клавишами» готов за 20.6 мс",
+      "594.777ms post #11 keyDown Return",
+      "594.799ms post #12 keyUp Return",
+      "680.118ms служебное событие type=13 window=34008 timestamp=328896.772736 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "928.562ms menu:willHighlightItem: None",
+      "942.524ms menuDidClose",
+      "943.441ms return #6",
+      "945.691ms шаг «пункт выбран, меню закрыто» готов за 350.9 мс",
+      "945.715ms post #13 flagsChanged+55",
+      "945.729ms post #14 keyDown Cmd-K",
+      "945.753ms post #15 keyUp Cmd-K",
+      "945.757ms post #16 flagsChanged-55",
+      "945.788ms служебное событие type=13 window=34008 timestamp=328896.772736 keyCode=None eventNumber=None source_pid=10117 source_state=0",
+      "945.799ms dispatch #13",
+      "945.824ms return #13",
+      "945.835ms dispatch #14",
+      "975.337ms return #14",
+      "976.550ms dispatch #15",
+      "976.557ms return #15",
+      "976.566ms dispatch #16",
+      "976.604ms return #16",
+      "995.735ms служебное событие type=13 window=34003 timestamp=328897.184380 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "995.787ms служебное событие type=13 window=34003 timestamp=328897.184421 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "995.998ms шаг «палитра открыта» готов за 50.2 мс",
+      "996.023ms post #17 keyDown Return",
+      "996.057ms post #18 keyUp Return",
+      "1000.536ms dispatch #17",
+      "1015.315ms return #17",
+      "1015.431ms dispatch #18",
+      "1015.470ms return #18",
+      "1021.105ms шаг «команда палитры выполнена» готов за 25.0 мс",
+      "1025.471ms служебное событие type=13 window=34003 timestamp=328897.216748 keyCode=None eventNumber=None source_pid=0 source_state=0"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeChromeBar",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeChromeTarget",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeCommandTarget",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeListCell",
+        "created": 73,
+        "released": 15,
+        "live": 58
+      },
+      {
+        "class": "ProbeListRow",
+        "created": 73,
+        "released": 15,
+        "live": 58
+      },
+      {
+        "class": "ProbeListSource",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeListTable",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeNavigator",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbePaletteController",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbePalettePanel",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSceneRoot",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSearchField",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSplitView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeStandTarget",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeTab",
+        "created": 11,
+        "released": 0,
+        "live": 11
+      },
+      {
+        "class": "ProbeTabRow",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeTabScroll",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeTabStrip",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeThemeObserver",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeTile",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeTreeCell",
+        "created": 26,
+        "released": 0,
+        "live": 26
+      },
+      {
+        "class": "ProbeTreeNode",
+        "created": 10000,
+        "released": 0,
+        "live": 10000
+      },
+      {
+        "class": "ProbeTreeOutline",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeTreeRow",
+        "created": 26,
+        "released": 0,
+        "live": 26
+      },
+      {
+        "class": "ProbeTreeSource",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeVeil",
+        "created": 3,
+        "released": 0,
+        "live": 3
+      },
+      {
+        "class": "ProbeZoneHost",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      }
+    ],
+    "notes": []
+  }
+}

@@ -73,7 +73,7 @@ plugins/
   navigator/ projects/ terminal/ agent/ agents-hub/ editor/
   changes/ history/ review/ pipelines/ resources/
 docs/
-  adr/  plans/  architecture.md  ux.md  roadmap.md  requirements.md
+  adr/  plans/  probes/  architecture.md  ux.md  roadmap.md  requirements.md
 prototype/              интерактивный HTML-прототип интерфейса, не код продукта
 scripts/
   ghostty/              сборка, сверка и публикация набора libghostty, привязки, аудит линковки

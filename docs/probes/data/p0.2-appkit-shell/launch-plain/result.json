@@ -1,0 +1,213 @@
+{
+  "schema": 1,
+  "scenario": "launch",
+  "variant": "plain",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "cc81b21e03bb",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-quartz-core 0.3.2",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "scene": {
+      "split": "plain",
+      "contrast": "system",
+      "motion": "system"
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "visible_frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 949.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC",
+    "fixtures": {}
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [],
+  "events": [],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "launch"
+    },
+    {
+      "key": "split",
+      "value": "plain"
+    },
+    {
+      "key": "contrast",
+      "value": "system"
+    },
+    {
+      "key": "motion",
+      "value": "system"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "wait_ms",
+      "value": "33.4"
+    },
+    {
+      "key": "is_active",
+      "value": "true"
+    },
+    {
+      "key": "key_window_is_main",
+      "value": "true"
+    },
+    {
+      "key": "key_window",
+      "value": "main"
+    },
+    {
+      "key": "main_window",
+      "value": "main"
+    },
+    {
+      "key": "backing_scale_factor",
+      "value": "2"
+    },
+    {
+      "key": "content_points",
+      "value": "1180x720"
+    },
+    {
+      "key": "bitmap_pixels",
+      "value": "2360x1440"
+    },
+    {
+      "key": "display_chosen",
+      "value": "builtin"
+    },
+    {
+      "key": "display_id",
+      "value": "1"
+    },
+    {
+      "key": "display_name",
+      "value": "Built-in Retina Display"
+    },
+    {
+      "key": "display_builtin",
+      "value": "true"
+    },
+    {
+      "key": "display_frame",
+      "value": "0,0 1512x982"
+    },
+    {
+      "key": "display_scale",
+      "value": "2"
+    },
+    {
+      "key": "display_max_fps",
+      "value": "120"
+    },
+    {
+      "key": "display_is_chosen",
+      "value": "true"
+    },
+    {
+      "key": "input_source",
+      "value": "com.apple.keylayout.ABC"
+    },
+    {
+      "key": "events_posted",
+      "value": "0"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "0"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "activation_wait",
+      "unit": "ms",
+      "samples": [
+        33.413625
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 33.413625,
+        "p95": 33.413625,
+        "max": 33.413625
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "activation",
+      "verdict": "pass",
+      "reason": "isActive и key window — основное окно через 33.4 мс после показа, способ: NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "0.009ms сценарий launch",
+      "16.111ms служебное событие type=13 window=0 timestamp=328831.929601 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "36.720ms служебное событие type=15 window=0 timestamp=0.000000 keyCode=None eventNumber=None source_pid=8942 source_state=0"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [],
+    "notes": []
+  }
+}

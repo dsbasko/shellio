@@ -1,0 +1,339 @@
+{
+  "schema": 1,
+  "scenario": "native-menu",
+  "variant": "plain",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "cc81b21e03bb",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-quartz-core 0.3.2",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "scene": {
+      "split": "plain",
+      "contrast": "system",
+      "motion": "system"
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "visible_frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 949.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC",
+    "fixtures": {}
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "окно неподвижно, активность и key window",
+      "status": "ready",
+      "waited_ms": 500.679125,
+      "at_ms": 502.72641600000003,
+      "state": "isActive=true keyWindow=#33523 mainWindow=#33523 firstResponder=NSKVONotifying_NSWindow cursor=1508,4"
+    },
+    {
+      "index": 1,
+      "name": "курсор вне окон",
+      "status": "ready",
+      "waited_ms": 5.081874999999999,
+      "at_ms": 508.21958300000006,
+      "state": "isActive=true keyWindow=#33523 mainWindow=#33523 firstResponder=NSKVONotifying_NSWindow cursor=1508,4"
+    },
+    {
+      "index": 2,
+      "name": "меню открыто",
+      "status": "ready",
+      "waited_ms": 51.32775,
+      "at_ms": 559.831416,
+      "state": "isActive=true keyWindow=#33523 mainWindow=#33523 firstResponder=NSKVONotifying_NSWindow cursor=1508,4"
+    },
+    {
+      "index": 3,
+      "name": "начальная подсветка AppKit",
+      "status": "ready",
+      "waited_ms": 5.6587499999999995,
+      "at_ms": 565.533458,
+      "state": "isActive=true keyWindow=#33523 mainWindow=#33523 firstResponder=NSKVONotifying_NSWindow cursor=1508,4"
+    },
+    {
+      "index": 4,
+      "name": "подсветка сдвинулась клавишей",
+      "status": "ready",
+      "waited_ms": 5.964625000000001,
+      "at_ms": 571.6057079999999,
+      "state": "isActive=true keyWindow=#33523 mainWindow=#33523 firstResponder=NSKVONotifying_NSWindow cursor=1508,4"
+    },
+    {
+      "index": 5,
+      "name": "пункт выбран, меню закрыто, основной цикл восстановлен",
+      "status": "ready",
+      "waited_ms": 367.05620799999997,
+      "at_ms": 938.714916,
+      "state": "isActive=true keyWindow=#33523 mainWindow=#33523 firstResponder=NSKVONotifying_NSWindow cursor=1508,4"
+    }
+  ],
+  "events": [
+    {
+      "number": 1,
+      "label": "mouseDown NSPopUpButton at 276,801",
+      "window": 33523,
+      "before": "isActive=true keyWindow=#33523 mainWindow=#33523 firstResponder=NSKVONotifying_NSWindow cursor=1508,4",
+      "posted_ms": 508.40287500000005,
+      "dispatch_start_ms": 508.56575000000004,
+      "send_return_ms": 927.480875,
+      "display_pass_ms": 938.6556660000001,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "mouseUp NSPopUpButton at 276,801",
+      "window": 33523,
+      "before": "isActive=true keyWindow=#33523 mainWindow=#33523 firstResponder=NSKVONotifying_NSWindow cursor=1508,4",
+      "posted_ms": 559.839916,
+      "dispatch_start_ms": null,
+      "send_return_ms": null,
+      "display_pass_ms": null,
+      "undispatched": true
+    },
+    {
+      "number": 3,
+      "label": "keyDown Down",
+      "window": 33523,
+      "before": "isActive=true keyWindow=#33523 mainWindow=#33523 firstResponder=NSKVONotifying_NSWindow cursor=1508,4",
+      "posted_ms": 565.546291,
+      "dispatch_start_ms": null,
+      "send_return_ms": null,
+      "display_pass_ms": null,
+      "undispatched": true
+    },
+    {
+      "number": 4,
+      "label": "keyUp Down",
+      "window": 33523,
+      "before": "isActive=true keyWindow=#33523 mainWindow=#33523 firstResponder=NSKVONotifying_NSWindow cursor=1508,4",
+      "posted_ms": 565.6257909999999,
+      "dispatch_start_ms": null,
+      "send_return_ms": null,
+      "display_pass_ms": null,
+      "undispatched": true
+    },
+    {
+      "number": 5,
+      "label": "keyDown Return",
+      "window": 33523,
+      "before": "isActive=true keyWindow=#33523 mainWindow=#33523 firstResponder=NSKVONotifying_NSWindow cursor=1508,4",
+      "posted_ms": 571.609541,
+      "dispatch_start_ms": null,
+      "send_return_ms": null,
+      "display_pass_ms": null,
+      "undispatched": true
+    },
+    {
+      "number": 6,
+      "label": "keyUp Return",
+      "window": 33523,
+      "before": "isActive=true keyWindow=#33523 mainWindow=#33523 firstResponder=NSKVONotifying_NSWindow cursor=1508,4",
+      "posted_ms": 571.627833,
+      "dispatch_start_ms": null,
+      "send_return_ms": null,
+      "display_pass_ms": null,
+      "undispatched": true
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "native-menu"
+    },
+    {
+      "key": "split",
+      "value": "plain"
+    },
+    {
+      "key": "contrast",
+      "value": "system"
+    },
+    {
+      "key": "motion",
+      "value": "system"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "window_frames_initial",
+      "value": "166,114 1180x752"
+    },
+    {
+      "key": "window_frames_settled",
+      "value": "166,114 1180x752"
+    },
+    {
+      "key": "window_frame_changes",
+      "value": "0"
+    },
+    {
+      "key": "menu_opened",
+      "value": "1"
+    },
+    {
+      "key": "menu_closed",
+      "value": "1"
+    },
+    {
+      "key": "run_loop_mode_in_tracking",
+      "value": "NSEventTrackingRunLoopMode"
+    },
+    {
+      "key": "highlight_at_open",
+      "value": "Some(\"Первый\")"
+    },
+    {
+      "key": "highlight_after_down",
+      "value": "Some(\"Второй\")"
+    },
+    {
+      "key": "highlights",
+      "value": "[Some(\"Первый\"), Some(\"Второй\"), None]"
+    },
+    {
+      "key": "chosen_tags",
+      "value": "[1]"
+    },
+    {
+      "key": "selected_item",
+      "value": "Второй"
+    },
+    {
+      "key": "mouse_down_send_event_ms",
+      "value": "418.9"
+    },
+    {
+      "key": "events_posted",
+      "value": "6"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "263"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "mouse_down_dispatch_to_return",
+      "unit": "ms",
+      "samples": [
+        418.915125
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 418.915125,
+        "p95": 418.915125,
+        "max": 418.915125
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "native_menu",
+      "verdict": "pass",
+      "reason": "синтетический щелчок открыл меню, клавиша Down подсветила «Второй», Return вызвал его обработчик"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "0.011ms сценарий native-menu",
+      "28.440ms служебное событие type=13 window=0 timestamp=328832.087970 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "136.798ms служебное событие type=13 window=33523 timestamp=328832.124388 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "502.667ms шаг «окно неподвижно, активность и key window» готов за 500.7 мс",
+      "503.099ms курсор уведён в 1508,4",
+      "508.208ms шаг «курсор вне окон» готов за 5.1 мс",
+      "508.403ms post #1 mouseDown NSPopUpButton at 276,801",
+      "508.566ms dispatch #1",
+      "539.696ms menuWillOpen",
+      "552.830ms menu:willHighlightItem: Some(\"Первый\")",
+      "559.823ms шаг «меню открыто» готов за 51.3 мс",
+      "559.840ms post #2 mouseUp NSPopUpButton at 276,801",
+      "565.526ms шаг «начальная подсветка AppKit» готов за 5.7 мс",
+      "565.546ms post #3 keyDown Down",
+      "565.626ms post #4 keyUp Down",
+      "570.405ms menu:willHighlightItem: Some(\"Второй\")",
+      "571.602ms шаг «подсветка сдвинулась клавишей» готов за 6.0 мс",
+      "571.610ms post #5 keyDown Return",
+      "571.628ms post #6 keyUp Return",
+      "665.821ms служебное событие type=13 window=33528 timestamp=328832.654156 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "906.601ms menu:willHighlightItem: None",
+      "921.779ms menuDidClose",
+      "927.481ms return #1",
+      "933.615ms служебное событие type=13 window=33528 timestamp=328832.654156 keyCode=None eventNumber=None source_pid=8950 source_state=0",
+      "938.701ms шаг «пункт выбран, меню закрыто, основной цикл восстановлен» готов за 367.1 мс",
+      "941.738ms служебное событие type=15 window=0 timestamp=0.000000 keyCode=None eventNumber=None source_pid=8950 source_state=0"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeStandTarget",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      }
+    ],
+    "notes": []
+  }
+}

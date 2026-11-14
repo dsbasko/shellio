@@ -1,0 +1,403 @@
+{
+  "schema": 1,
+  "scenario": "key-delivery",
+  "variant": "plain",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "cc81b21e03bb",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-quartz-core 0.3.2",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "scene": {
+      "split": "plain",
+      "contrast": "system",
+      "motion": "system"
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "visible_frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 949.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC",
+    "fixtures": {}
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "окно неподвижно, активность, key window и фокус на виде",
+      "status": "ready",
+      "waited_ms": 500.720583,
+      "at_ms": 505.68412500000005,
+      "state": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=ProbeInputView cursor=1508,4"
+    },
+    {
+      "index": 1,
+      "name": "курсор вне окон",
+      "status": "ready",
+      "waited_ms": 5.335,
+      "at_ms": 511.35212500000006,
+      "state": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=ProbeInputView cursor=1508,4"
+    },
+    {
+      "index": 2,
+      "name": "keyDown и keyUp у first responder",
+      "status": "ready",
+      "waited_ms": 5.721083,
+      "at_ms": 517.395083,
+      "state": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=ProbeInputView cursor=1508,4"
+    },
+    {
+      "index": 3,
+      "name": "эквивалент пункта меню вызван",
+      "status": "ready",
+      "waited_ms": 11.707666999999999,
+      "at_ms": 529.2330830000001,
+      "state": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=ProbeInputView cursor=1508,4"
+    },
+    {
+      "index": 4,
+      "name": "field editor стал first responder",
+      "status": "ready",
+      "waited_ms": 57.292791,
+      "at_ms": 586.877875,
+      "state": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=field-editor(NSTextView) cursor=1508,4"
+    },
+    {
+      "index": 5,
+      "name": "щелчок по полю обработан",
+      "status": "ready",
+      "waited_ms": 5.200291999999999,
+      "at_ms": 592.1102080000001,
+      "state": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=field-editor(NSTextView) cursor=1508,4"
+    },
+    {
+      "index": 6,
+      "name": "выделение field editor сдвинулось",
+      "status": "ready",
+      "waited_ms": 10.044832999999999,
+      "at_ms": 602.202291,
+      "state": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=field-editor(NSTextView) cursor=1508,4"
+    }
+  ],
+  "events": [
+    {
+      "number": 1,
+      "label": "keyDown Down",
+      "window": 33537,
+      "before": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=ProbeInputView cursor=1508,4",
+      "posted_ms": 511.378333,
+      "dispatch_start_ms": 511.842916,
+      "send_return_ms": 512.622666,
+      "display_pass_ms": 512.832458,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "keyUp Down",
+      "window": 33537,
+      "before": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=ProbeInputView cursor=1508,4",
+      "posted_ms": 511.63058299999994,
+      "dispatch_start_ms": 512.669208,
+      "send_return_ms": 512.699125,
+      "display_pass_ms": 512.832458,
+      "undispatched": false
+    },
+    {
+      "number": 3,
+      "label": "flagsChanged+55",
+      "window": 33537,
+      "before": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=ProbeInputView cursor=1508,4",
+      "posted_ms": 517.401458,
+      "dispatch_start_ms": 517.5633330000001,
+      "send_return_ms": 521.198791,
+      "display_pass_ms": 529.174458,
+      "undispatched": false
+    },
+    {
+      "number": 4,
+      "label": "keyDown Cmd-K",
+      "window": 33537,
+      "before": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=ProbeInputView cursor=1508,4",
+      "posted_ms": 517.4255410000001,
+      "dispatch_start_ms": 521.2707909999999,
+      "send_return_ms": 527.671333,
+      "display_pass_ms": 529.174458,
+      "undispatched": false
+    },
+    {
+      "number": 5,
+      "label": "keyUp Cmd-K",
+      "window": 33537,
+      "before": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=ProbeInputView cursor=1508,4",
+      "posted_ms": 517.461791,
+      "dispatch_start_ms": 527.8602500000001,
+      "send_return_ms": 527.87475,
+      "display_pass_ms": 529.174458,
+      "undispatched": false
+    },
+    {
+      "number": 6,
+      "label": "flagsChanged-55",
+      "window": 33537,
+      "before": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=ProbeInputView cursor=1508,4",
+      "posted_ms": 517.4744999999999,
+      "dispatch_start_ms": 527.902166,
+      "send_return_ms": 528.0465829999999,
+      "display_pass_ms": 529.174458,
+      "undispatched": false
+    },
+    {
+      "number": 7,
+      "label": "mouseDown NSTextField at 306,796",
+      "window": 33537,
+      "before": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=ProbeInputView cursor=1508,4",
+      "posted_ms": 529.530958,
+      "dispatch_start_ms": 531.580458,
+      "send_return_ms": 570.5659159999999,
+      "display_pass_ms": 586.843125,
+      "undispatched": false
+    },
+    {
+      "number": 8,
+      "label": "mouseUp NSTextField at 306,796",
+      "window": 33537,
+      "before": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=field-editor(NSTextView) cursor=1508,4",
+      "posted_ms": 586.8819579999999,
+      "dispatch_start_ms": 589.8428329999999,
+      "send_return_ms": 590.279125,
+      "display_pass_ms": 590.500166,
+      "undispatched": false
+    },
+    {
+      "number": 9,
+      "label": "keyDown Left",
+      "window": 33537,
+      "before": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=field-editor(NSTextView) cursor=1508,4",
+      "posted_ms": 592.117458,
+      "dispatch_start_ms": 598.16225,
+      "send_return_ms": 599.293708,
+      "display_pass_ms": 599.51725,
+      "undispatched": false
+    },
+    {
+      "number": 10,
+      "label": "keyUp Left",
+      "window": 33537,
+      "before": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=field-editor(NSTextView) cursor=1508,4",
+      "posted_ms": 592.144958,
+      "dispatch_start_ms": 599.316875,
+      "send_return_ms": 599.336125,
+      "display_pass_ms": 599.51725,
+      "undispatched": false
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "key-delivery"
+    },
+    {
+      "key": "split",
+      "value": "plain"
+    },
+    {
+      "key": "contrast",
+      "value": "system"
+    },
+    {
+      "key": "motion",
+      "value": "system"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "input_source",
+      "value": "com.apple.keylayout.ABC"
+    },
+    {
+      "key": "window_frames_initial",
+      "value": "166,114 1180x752"
+    },
+    {
+      "key": "window_frames_settled",
+      "value": "166,114 1180x752"
+    },
+    {
+      "key": "window_frame_changes",
+      "value": "0"
+    },
+    {
+      "key": "view_arrival",
+      "value": "keyDown win=33537 keyCode=125"
+    },
+    {
+      "key": "view_arrival",
+      "value": "keyUp win=33537 keyCode=125"
+    },
+    {
+      "key": "key_equivalents",
+      "value": "1"
+    },
+    {
+      "key": "selection_before_left",
+      "value": "Some((3, 0))"
+    },
+    {
+      "key": "selection_after_left",
+      "value": "Some((2, 0))"
+    },
+    {
+      "key": "after",
+      "value": "isActive=true keyWindow=#33537 mainWindow=#33537 firstResponder=field-editor(NSTextView) cursor=1508,4"
+    },
+    {
+      "key": "events_posted",
+      "value": "10"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "150"
+    }
+  ],
+  "metrics": [],
+  "findings": [
+    {
+      "name": "key_first_responder",
+      "verdict": "pass",
+      "reason": "keyDown и keyUp стрелки Down дошли до first responder"
+    },
+    {
+      "name": "key_equivalent",
+      "verdict": "pass",
+      "reason": "Cmd-K вызвал пункт главного меню через performKeyEquivalent и не дошёл до keyDown"
+    },
+    {
+      "name": "field_editor",
+      "verdict": "pass",
+      "reason": "щелчок сделал field editor поля first responder, стрелка Left сдвинула его выделение"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "0.012ms сценарий key-delivery",
+      "23.248ms служебное событие type=13 window=0 timestamp=328833.826393 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "127.565ms служебное событие type=13 window=33537 timestamp=328833.852635 keyCode=None eventNumber=None source_pid=0 source_state=0",
+      "505.585ms шаг «окно неподвижно, активность, key window и фокус на виде» готов за 500.7 мс",
+      "505.970ms курсор уведён в 1508,4",
+      "511.330ms шаг «курсор вне окон» готов за 5.3 мс",
+      "511.378ms post #1 keyDown Down",
+      "511.631ms post #2 keyUp Down",
+      "511.843ms dispatch #1",
+      "512.613ms ProbeInputView keyDown win=33537 keyCode=125",
+      "512.623ms return #1",
+      "512.669ms dispatch #2",
+      "512.698ms ProbeInputView keyUp win=33537 keyCode=125",
+      "512.699ms return #2",
+      "517.386ms шаг «keyDown и keyUp у first responder» готов за 5.7 мс",
+      "517.401ms post #3 flagsChanged+55",
+      "517.426ms post #4 keyDown Cmd-K",
+      "517.462ms post #5 keyUp Cmd-K",
+      "517.474ms post #6 flagsChanged-55",
+      "517.563ms dispatch #3",
+      "521.199ms return #3",
+      "521.271ms dispatch #4",
+      "527.671ms return #4",
+      "527.860ms dispatch #5",
+      "527.875ms return #5",
+      "527.902ms dispatch #6",
+      "528.047ms return #6",
+      "529.203ms шаг «эквивалент пункта меню вызван» готов за 11.7 мс",
+      "529.531ms post #7 mouseDown NSTextField at 306,796",
+      "531.580ms dispatch #7",
+      "570.566ms return #7",
+      "586.867ms шаг «field editor стал first responder» готов за 57.3 мс",
+      "586.882ms post #8 mouseUp NSTextField at 306,796",
+      "589.843ms dispatch #8",
+      "590.279ms return #8",
+      "592.105ms шаг «щелчок по полю обработан» готов за 5.2 мс",
+      "592.117ms post #9 keyDown Left",
+      "592.145ms post #10 keyUp Left",
+      "598.162ms dispatch #9",
+      "599.294ms return #9",
+      "599.317ms dispatch #10",
+      "599.336ms return #10",
+      "602.198ms шаг «выделение field editor сдвинулось» готов за 10.0 мс",
+      "606.486ms служебное событие type=15 window=0 timestamp=0.000000 keyCode=None eventNumber=None source_pid=8970 source_state=0"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeInputView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeStandTarget",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      }
+    ],
+    "notes": []
+  }
+}
