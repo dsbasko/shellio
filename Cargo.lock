@@ -155,6 +155,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "probe-ghostty-surface"
+version = "0.1.0"
+dependencies = [
+ "block2",
+ "dispatch2",
+ "libc",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-foundation",
+ "objc2-quartz-core",
+ "serde",
+ "serde_json",
+ "shellio-sys-ghostty",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"

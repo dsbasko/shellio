@@ -1,0 +1,79 @@
+[package]
+name = "probe-ghostty-surface"
+description = "Проба P0.3: поверхность libghostty в NSView"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+block2 = "0.6.2"
+dispatch2 = { version = "0.3.0", default-features = false, features = ["std", "objc2"] }
+libc = "0.2.191"
+objc2 = "0.6.5"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "block2",
+    "objc2-core-foundation",
+    "objc2-core-graphics",
+    "objc2-quartz-core",
+    "NSApplication",
+    "NSEvent",
+    "NSGraphics",
+    "NSGraphicsContext",
+    "NSMenu",
+    "NSMenuItem",
+    "NSResponder",
+    "NSRunningApplication",
+    "NSScreen",
+    "NSText",
+    "NSTextInputContext",
+    "NSTextView",
+    "NSView",
+    "NSWindow",
+] }
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "block2",
+    "CFDictionary",
+    "CFNumber",
+    "CFRunLoop",
+    "CFString",
+] }
+objc2-core-graphics = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "libc",
+    "CGDirectDisplay",
+    "CGDisplayConfiguration",
+    "CGEvent",
+    "CGEventTypes",
+    "CGSession",
+] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "block2",
+    "NSArray",
+    "NSBundle",
+    "NSDate",
+    "NSDictionary",
+    "NSEnumerator",
+    "NSGeometry",
+    "NSNotification",
+    "NSObjCRuntime",
+    "NSProcessInfo",
+    "NSRunLoop",
+    "NSString",
+    "NSTimer",
+] }
+objc2-quartz-core = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "objc2-core-foundation",
+    "objc2-core-graphics",
+    "CALayer",
+] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+shellio-sys-ghostty = { path = "../../crates/shellio-sys-ghostty" }
+
+[lints]
+workspace = true

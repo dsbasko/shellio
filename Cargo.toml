@@ -5,6 +5,7 @@ members = [
     "crates/shellio-ghostty",
     "crates/shellio-sys-ghostty",
     "spikes/probe-appkit-shell",
+    "spikes/probe-ghostty-surface",
 ]
 
 [workspace.package]
