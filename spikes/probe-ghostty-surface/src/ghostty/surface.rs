@@ -15,8 +15,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use objc2::rc::Retained;
 use shellio_sys_ghostty as sys;
 
+use super::clipboard::{self, Requests, Token};
 use super::runtime::{Event, Message, Shared, Target};
 use crate::clock;
+use crate::keys::KeyInput;
 use crate::view::SurfaceView;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -378,14 +380,7 @@ impl Handle {
             bottom_right: point(sys::ghostty_point_coord_e_GHOSTTY_POINT_COORD_BOTTOM_RIGHT),
             rectangle: false,
         };
-        let mut text = sys::ghostty_text_s {
-            tl_px_x: 0.0,
-            tl_px_y: 0.0,
-            offset_start: 0,
-            offset_len: 0,
-            text: std::ptr::null(),
-            text_len: 0,
-        };
+        let mut text = empty_text();
         // SAFETY: по контракту поверхность жива; `text` живёт на время вызова.
         if !unsafe { sys::ghostty_surface_read_text(self.0, selection, &mut text) } {
             return None;
@@ -398,11 +393,203 @@ impl Handle {
     }
 
     /// # Safety
-    /// Поверхность жива, `token` получен её колбэком подтверждения и ещё не завершён.
-    pub unsafe fn deny_clipboard(self, token: usize) {
+    /// Поверхность жива, `token` принадлежит ей и ещё не завершён.
+    pub unsafe fn deny_clipboard(self, token: Token) {
         // SAFETY: по контракту токен принадлежит этой живой поверхности.
         unsafe { sys::ghostty_surface_deny_clipboard_request(self.0, token as *mut c_void) }
     }
+
+    /// Завершает чтение текстом доски; без текста — пустым ответом.
+    ///
+    /// # Safety
+    /// Поверхность жива, `token` получен её колбэком чтения, вернувшим `STARTED`, и не завершён.
+    pub unsafe fn complete_clipboard(self, token: Token, text: Option<&str>) {
+        let data = text
+            .map(|text| text.as_bytes().to_vec())
+            .unwrap_or_default();
+        let content = sys::ghostty_clipboard_content_s {
+            mime: c"text/plain".as_ptr(),
+            data: data.as_ptr().cast(),
+            len: data.len(),
+        };
+        let available = [c"text/plain".as_ptr()];
+        let complete = sys::ghostty_clipboard_complete_s {
+            contents: if text.is_some() {
+                &content
+            } else {
+                std::ptr::null()
+            },
+            contents_len: usize::from(text.is_some()),
+            available: available.as_ptr(),
+            available_len: usize::from(text.is_some()),
+            confirmed: false,
+            remember: false,
+        };
+        // SAFETY: по контракту токен принадлежит этой живой поверхности; данные живут на время
+        // вызова, библиотека их не сохраняет.
+        unsafe {
+            sys::ghostty_surface_complete_clipboard_request(self.0, &complete, token as *mut c_void)
+        }
+    }
+
+    /// Модификаторы перевода символов с учётом `macos-option-as-alt`.
+    ///
+    /// # Safety
+    /// Поверхность жива.
+    pub unsafe fn key_translation_mods(self, mods: u32) -> u32 {
+        // SAFETY: по контракту поверхность жива.
+        unsafe { sys::ghostty_surface_key_translation_mods(self.0, mods) }
+    }
+
+    /// # Safety
+    /// Поверхность жива; вызов на главном потоке вне заимствований: библиотека синхронно зовёт
+    /// колбэки действий и буфера обмена.
+    pub unsafe fn key(self, input: &KeyInput) -> Result<bool, String> {
+        // SAFETY: по контракту поверхность жива; текст структуры живёт на время вызова.
+        input.with_raw(|raw| unsafe { sys::ghostty_surface_key(self.0, raw) })
+    }
+
+    /// Флаги привязки, если событие сейчас сработало бы как привязка.
+    ///
+    /// # Safety
+    /// Поверхность жива.
+    pub unsafe fn key_binding(self, input: &KeyInput) -> Result<Option<u32>, String> {
+        let mut flags: sys::ghostty_binding_flags_e = 0;
+        // SAFETY: по контракту поверхность жива; `flags` живёт на время вызова.
+        let bound = input.with_raw(|raw| unsafe {
+            sys::ghostty_surface_key_is_binding(self.0, raw, &mut flags)
+        })?;
+        Ok(bound.then_some(flags))
+    }
+
+    /// Preedit IME; пустой текст снимает его.
+    ///
+    /// # Safety
+    /// Поверхность жива.
+    pub unsafe fn preedit(self, text: &str) {
+        // SAFETY: по контракту поверхность жива; байты живут на время вызова, длина явная.
+        unsafe { sys::ghostty_surface_preedit(self.0, text.as_ptr().cast(), text.len()) }
+    }
+
+    /// Точка окна IME в точках вида от левого верхнего угла: x, y, ширина preedit, высота.
+    ///
+    /// # Safety
+    /// Поверхность жива.
+    pub unsafe fn ime_point(self) -> ImePoint {
+        let (mut x, mut y, mut width, mut height) = (0.0, 0.0, 0.0, 0.0);
+        // SAFETY: по контракту поверхность жива; указатели на локальные переменные.
+        unsafe { sys::ghostty_surface_ime_point(self.0, &mut x, &mut y, &mut width, &mut height) };
+        ImePoint {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
+    /// # Safety
+    /// Поверхность жива; вызов на главном потоке.
+    pub unsafe fn mouse_button(
+        self,
+        state: sys::ghostty_input_mouse_state_e,
+        button: sys::ghostty_input_mouse_button_e,
+        mods: u32,
+    ) -> bool {
+        // SAFETY: по контракту поверхность жива.
+        unsafe { sys::ghostty_surface_mouse_button(self.0, state, button, mods) }
+    }
+
+    /// Положение мыши в точках вида от левого верхнего угла.
+    ///
+    /// # Safety
+    /// Поверхность жива.
+    pub unsafe fn mouse_pos(self, x: f64, y: f64, mods: u32) {
+        // SAFETY: по контракту поверхность жива.
+        unsafe { sys::ghostty_surface_mouse_pos(self.0, x, y, mods) }
+    }
+
+    /// # Safety
+    /// Поверхность жива.
+    pub unsafe fn mouse_scroll(self, x: f64, y: f64, mods: sys::ghostty_input_scroll_mods_t) {
+        // SAFETY: по контракту поверхность жива.
+        unsafe { sys::ghostty_surface_mouse_scroll(self.0, x, y, mods) }
+    }
+
+    /// # Safety
+    /// Поверхность жива.
+    pub unsafe fn mouse_pressure(self, stage: u32, pressure: f64) {
+        // SAFETY: по контракту поверхность жива.
+        unsafe { sys::ghostty_surface_mouse_pressure(self.0, stage, pressure) }
+    }
+
+    /// # Safety
+    /// Поверхность жива.
+    pub unsafe fn has_selection(self) -> bool {
+        // SAFETY: по контракту поверхность жива.
+        unsafe { sys::ghostty_surface_has_selection(self.0) }
+    }
+
+    /// Текст клетки видимой области и её левый верхний угол по базовой линии в точках вида:
+    /// `tl_px_y` указывает на базовую линию строки, а не на верх клетки.
+    ///
+    /// # Safety
+    /// Поверхность жива.
+    pub unsafe fn cell(self, column: u32, row: u32) -> Option<Cell> {
+        let point = sys::ghostty_point_s {
+            tag: sys::ghostty_point_tag_e_GHOSTTY_POINT_VIEWPORT,
+            coord: sys::ghostty_point_coord_e_GHOSTTY_POINT_COORD_EXACT,
+            x: column,
+            y: row,
+        };
+        let selection = sys::ghostty_selection_s {
+            top_left: point,
+            bottom_right: point,
+            rectangle: false,
+        };
+        let mut text = empty_text();
+        // SAFETY: по контракту поверхность жива; `text` живёт на время вызова.
+        if !unsafe { sys::ghostty_surface_read_text(self.0, selection, &mut text) } {
+            return None;
+        }
+        // SAFETY: успешное чтение заполнило `text` строкой библиотеки длины `text_len`.
+        let copy = unsafe { super::copy_bytes(text.text, text.text_len) };
+        let cell = Cell {
+            text: copy.unwrap_or_default(),
+            x: text.tl_px_x,
+            baseline_y: text.tl_px_y,
+        };
+        // SAFETY: текст выделен этим чтением и освобождается один раз.
+        unsafe { sys::ghostty_surface_free_text(self.0, &mut text) };
+        Some(cell)
+    }
+}
+
+fn empty_text() -> sys::ghostty_text_s {
+    sys::ghostty_text_s {
+        tl_px_x: 0.0,
+        tl_px_y: 0.0,
+        offset_start: 0,
+        offset_len: 0,
+        text: std::ptr::null(),
+        text_len: 0,
+    }
+}
+
+/// Точка IME по `ghostty_surface_ime_point`: ширина — preedit в клетках на ширину клетки.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize)]
+pub struct ImePoint {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+/// Клетка видимой области по `ghostty_surface_read_text`.
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+pub struct Cell {
+    pub text: String,
+    pub x: f64,
+    pub baseline_y: f64,
 }
 
 /// Контекст `userdata` поверхности: живёт до возврата `ghostty_surface_free`.
@@ -411,6 +598,8 @@ pub struct SurfaceContext {
     pub shared: Arc<Shared>,
     /// Намерение закрыть принято: сообщения, кроме подтверждений буфера обмена, отбрасываются.
     pub retired: AtomicBool,
+    /// Запросы буфера обмена, которые libghostty держит до ответа.
+    pub clipboard: Arc<Requests>,
 }
 
 impl SurfaceContext {
@@ -501,6 +690,9 @@ pub struct Released {
 pub struct ReleaseRecord {
     pub key: String,
     pub free_ms: f64,
+    /// Запросы буфера обмена, отклонённые последней проверкой перед `free`.
+    pub clipboard_denied_before_free: usize,
+    pub clipboard: Option<clipboard::Stats>,
 }
 
 /// Настоящий реестр: модель жизненного цикла и данные каждой поверхности.
@@ -543,6 +735,7 @@ impl Surfaces {
             key,
             shared: Arc::clone(shared),
             retired: AtomicBool::new(false),
+            clipboard: Arc::new(Requests::default()),
         });
         let mut buffers = Buffers::new(&entry.spec)?;
         // SAFETY: функция без аргументов возвращает значения по умолчанию.
@@ -594,16 +787,25 @@ impl Surfaces {
         Ok((entry.view.clone(), handle))
     }
 
-    /// Снимает контекст: намерение закрыть принято.
-    pub fn retire(&self, key: SurfaceKey) {
-        if let Some(context) = self
-            .entries
+    /// Снимает контекст: намерение закрыть принято. Возвращает реестр буфера обмена, ожидающие
+    /// запросы которого отклоняются, пока поверхность жива.
+    pub fn retire(&self, key: SurfaceKey) -> Option<Arc<Requests>> {
+        let context = self.context(key)?;
+        context.retired.store(true, Ordering::Release);
+        Some(Arc::clone(&context.clipboard))
+    }
+
+    /// Реестр буфера обмена поверхности этого поколения.
+    pub fn clipboard(&self, key: SurfaceKey) -> Option<Arc<Requests>> {
+        self.context(key)
+            .map(|context| Arc::clone(&context.clipboard))
+    }
+
+    fn context(&self, key: SurfaceKey) -> Option<&SurfaceContext> {
+        self.entries
             .get(&key.id)
-            .and_then(|entry| entry.context.as_ref())
+            .and_then(|entry| entry.context.as_deref())
             .filter(|context| context.key == key)
-        {
-            context.retired.store(true, Ordering::Release);
-        }
     }
 
     pub fn take_due(&mut self, pass: u64) -> Vec<Released> {
@@ -638,6 +840,16 @@ impl Surfaces {
 /// синхронно зовёт колбэки.
 pub fn release(released: Released) -> ReleaseRecord {
     released.view.detach();
+    // Ожидающие запросы буфера обмена отклоняются на ещё живой поверхности ровно один раз.
+    let handle = released.handle;
+    let requests = released
+        .context
+        .as_ref()
+        .map(|context| Arc::clone(&context.clipboard));
+    let clipboard_denied_before_free = requests.as_ref().map_or(0, |requests| {
+        // SAFETY: токены реестра принадлежат этой поверхности, она ещё не освобождена.
+        requests.close(|token| unsafe { handle.deny_clipboard(token) })
+    });
     let started = clock::uptime_ns();
     // SAFETY: ручка снята с реестра ровно один раз; вид её больше не держит.
     unsafe { sys::ghostty_surface_free(released.handle.0) };
@@ -648,6 +860,8 @@ pub fn release(released: Released) -> ReleaseRecord {
     ReleaseRecord {
         key: released.key.to_string(),
         free_ms: clock::interval_ms(started, finished),
+        clipboard_denied_before_free,
+        clipboard: requests.map(|requests| requests.stats()),
     }
 }
 

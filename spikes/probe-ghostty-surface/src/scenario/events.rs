@@ -372,7 +372,7 @@ impl Key {
 // --- AppKit ---------------------------------------------------------------------------------
 
 define_class!(
-    /// `NSApp` сценариев. Без установленного стенда пропускает события без отметок.
+    /// `NSApp` сценариев и демонстрации. Без установленного стенда пропускает события без отметок.
     #[unsafe(super(NSApplication, NSResponder, objc2_foundation::NSObject))]
     #[thread_kind = MainThreadOnly]
     #[name = "ProbeGhosttySurfaceApplication"]
@@ -394,9 +394,15 @@ define_class!(
 );
 
 impl ProbeApplication {
+    /// `keyUp` и автоповтор нажатия, съеденного видом поверхности, уходят его владельцу мимо
+    /// обычной цепочки (`view::before_dispatch`).
     fn dispatch(&self, event: &NSEvent) {
+        if crate::view::before_dispatch(event) {
+            return;
+        }
         // SAFETY: вызов реализации `sendEvent:` суперкласса с тем же событием.
         let () = unsafe { msg_send![super(self), sendEvent: event] };
+        crate::view::after_dispatch(event);
     }
 }
 
@@ -789,6 +795,21 @@ fn no_bench() -> String {
 /// Пара `keyDown` и `keyUp`, для модификаторов — `flagsChanged` до и после. Адресат —
 /// фактическое key window, прочитанное перед каждым событием.
 pub fn press(key: Key) -> Result<Vec<u64>, String> {
+    press_to(key, None)
+}
+
+/// То же, но адресат — окно `window`, даже если оно не key: без key window AppKit подставляет
+/// событию с номером окна 0 прежнее окно, и подпись разошлась бы с таблицей стенда.
+pub fn press_in(key: Key, window: &NSWindow) -> Result<Vec<u64>, String> {
+    press_to(key, Some(window.windowNumber()))
+}
+
+fn press_to(key: Key, window: Option<isize>) -> Result<Vec<u64>, String> {
+    let post_key = |kind, label: &str, code, characters, ignoring, flags| {
+        post_key_event(
+            kind, label, code, characters, ignoring, flags, false, window,
+        )
+    };
     let modifiers = key.modifiers();
     let mut numbers = Vec::new();
     let mut held = NSEventModifierFlags::empty();
@@ -875,6 +896,37 @@ pub fn post_mouse(
     .unwrap_or_else(|| Err(no_bench()))
 }
 
+/// Одно нажатие клавиши без отпускания; `repeat` — автоповтор. Модификаторы — флаги события,
+/// без `flagsChanged`.
+pub fn key_down(key: Key, repeat: bool) -> Result<u64, String> {
+    post_key_event(
+        NSEventType::KeyDown,
+        &format!(
+            "keyDown {}{}",
+            key.label,
+            if repeat { " repeat" } else { "" }
+        ),
+        key.code,
+        key.characters,
+        key.ignoring,
+        key.flags,
+        repeat,
+        None,
+    )
+}
+
+/// Одно отпускание клавиши.
+pub fn key_up(key: Key) -> Result<u64, String> {
+    post_key(
+        NSEventType::KeyUp,
+        &format!("keyUp {}", key.label),
+        key.code,
+        key.characters,
+        key.ignoring,
+        key.flags,
+    )
+}
+
 fn post_key(
     kind: NSEventType,
     label: &str,
@@ -883,9 +935,29 @@ fn post_key(
     ignoring: &str,
     flags: NSEventModifierFlags,
 ) -> Result<u64, String> {
+    post_key_event(kind, label, code, characters, ignoring, flags, false, None)
+}
+
+/// `window` — номер окна адресата; `None` — фактическое key window или 0 без него.
+#[allow(clippy::too_many_arguments)]
+fn post_key_event(
+    kind: NSEventType,
+    label: &str,
+    code: u16,
+    characters: &str,
+    ignoring: &str,
+    flags: NSEventModifierFlags,
+    repeat: bool,
+    window: Option<isize>,
+) -> Result<u64, String> {
     with_bench(|bench| {
         let before = focus_state(&bench.app);
-        let window = bench.app.keyWindow().map_or(0, |window| window.windowNumber());
+        let window = window.unwrap_or_else(|| {
+            bench
+                .app
+                .keyWindow()
+                .map_or(0, |window| window.windowNumber())
+        });
         let timestamp = bench.timestamp();
         let event = NSEvent::keyEventWithType_location_modifierFlags_timestamp_windowNumber_context_characters_charactersIgnoringModifiers_isARepeat_keyCode(
             kind,
@@ -896,7 +968,7 @@ fn post_key(
             None,
             &NSString::from_str(characters),
             &NSString::from_str(ignoring),
-            false,
+            repeat,
             code,
         )
         .ok_or_else(|| format!("NSEvent не создал событие {label}"))?;

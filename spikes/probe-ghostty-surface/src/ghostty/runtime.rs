@@ -7,9 +7,13 @@
 //!
 //! Колбэки копируют полезную нагрузку в [`Message`] с ключом поверхности и ничего не делают с
 //! главным состоянием. Проход главного потока: освобождение поверхностей, намерение закрыть
-//! которые принято раньше, затем `tick`, затем разбор сообщений. Буфер обмена на этом шаге честно
-//! недоступен: чтение отвечает «недоступно», подтверждения отклоняются на проходе, запись
-//! игнорируется.
+//! которые принято раньше, затем `tick`, затем разбор сообщений и работа буфера обмена.
+//!
+//! Буфер обмена (`clipboard`): поддержан только текст в обычном буфере. Чтение заносится в реестр
+//! поверхности до возврата `STARTED` и завершается на следующем проходе текстом доски; каждое
+//! подтверждение — OSC 52, kitty, небезопасная вставка — отклоняется на следующем проходе; запись
+//! без подтверждения кладёт текст на доску, запись с подтверждением отклоняется (не выполняется).
+//! Намерение закрыть отклоняет ожидающие запросы, пока поверхность жива.
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -19,18 +23,26 @@ use std::sync::{Arc, Mutex};
 
 use dispatch2::DispatchQueue;
 use objc2::rc::Retained;
-use objc2_app_kit::NSEventTrackingRunLoopMode;
-use objc2_foundation::NSRunLoop;
+use objc2::{MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
+use objc2_app_kit::{
+    NSApplicationDidBecomeActiveNotification, NSApplicationDidResignActiveNotification,
+    NSEventTrackingRunLoopMode,
+};
+use objc2_foundation::{NSNotification, NSNotificationCenter, NSObject, NSRunLoop};
 use serde::Serialize;
 use shellio_sys_ghostty as sys;
 
+use super::clipboard::{self, ReadDecision, RequestId, Requests, Served};
 use super::config::{ColorScheme, Config};
 use super::surface::{
     self, Close, Decision, GridSize, Handle, Phase, ReleaseRecord, Route, Spec, SurfaceContext,
     SurfaceId, SurfaceKey, Surfaces,
 };
 use crate::clock;
+use crate::scenario::counters::{Live, counter};
 use crate::view::SurfaceView;
+
+counter!(APP_ACTIVITY, "ProbeAppActivity");
 
 /// Сколько строк журнала сообщений хранится для итога.
 const LOG_LIMIT: usize = 400;
@@ -98,19 +110,24 @@ pub enum Event {
         soft: bool,
     },
     ConfigChange,
+    /// Чтение; `id` есть только у запроса, на который колбэк ответил `STARTED`.
     ClipboardRead {
         location: u32,
         mimes: usize,
         list: bool,
+        id: Option<RequestId>,
+        decision: &'static str,
     },
-    /// Токен запроса, который библиотека держит до `complete` или `deny`.
+    /// Подтверждение, которое библиотека держит до `deny`; токен лежит в реестре поверхности.
     ClipboardConfirm {
-        token: usize,
+        id: RequestId,
         request: u32,
     },
+    /// Запись: представления скопированы в колбэке по длине.
     ClipboardWrite {
         location: u32,
-        contents: usize,
+        mimes: Vec<String>,
+        text: Option<String>,
         confirm: bool,
     },
     Unsupported {
@@ -330,21 +347,35 @@ unsafe fn decode_action(target: Target, action: &sys::ghostty_action_s) -> (Even
 unsafe extern "C" fn read_clipboard_cb(
     userdata: *mut c_void,
     location: sys::ghostty_clipboard_e,
-    _state: *mut c_void,
+    state: *mut c_void,
     _mimes: *const *const c_char,
     mimes_len: usize,
     list: bool,
 ) -> sys::ghostty_clipboard_read_result_e {
     // SAFETY: `userdata` поверхности — её контекст.
-    if let Some(context) = unsafe { context(userdata) } {
-        context.push(Event::ClipboardRead {
-            location,
-            mimes: mimes_len,
-            list,
-        });
-    }
-    // Не `STARTED`: состояние запроса освобождает сама библиотека, вручную оно не завершается.
-    sys::ghostty_clipboard_read_result_e_GHOSTTY_CLIPBOARD_READ_UNAVAILABLE
+    let Some(context) = (unsafe { context(userdata) }) else {
+        // Без контекста ответить некому: состояние освобождает сама библиотека.
+        return ReadDecision::Unavailable.raw();
+    };
+    // Запрос заносится в реестр до возврата `STARTED`; снятый контекст отвечает «недоступно».
+    let decision = if context.retired.load(Ordering::Acquire) {
+        ReadDecision::Unavailable
+    } else {
+        context.clipboard.begin_read(state as usize, location)
+    };
+    let (id, name) = match decision {
+        ReadDecision::Started(id) => (Some(id), "started"),
+        ReadDecision::Unavailable => (None, "unavailable"),
+        ReadDecision::Unsupported => (None, "unsupported"),
+    };
+    context.push(Event::ClipboardRead {
+        location,
+        mimes: mimes_len,
+        list,
+        id,
+        decision: name,
+    });
+    decision.raw()
 }
 
 unsafe extern "C" fn confirm_read_clipboard_cb(
@@ -355,28 +386,59 @@ unsafe extern "C" fn confirm_read_clipboard_cb(
 ) {
     // SAFETY: `userdata` поверхности — её контекст.
     if let Some(context) = unsafe { context(userdata) } {
-        context.push(Event::ClipboardConfirm {
-            token: state as usize,
-            request,
-        });
+        let id = context.clipboard.confirm(state as usize);
+        context.push(Event::ClipboardConfirm { id, request });
     }
 }
 
 unsafe extern "C" fn write_clipboard_cb(
     userdata: *mut c_void,
     location: sys::ghostty_clipboard_e,
-    _contents: *const sys::ghostty_clipboard_content_s,
+    contents: *const sys::ghostty_clipboard_content_s,
     contents_len: usize,
     confirm: bool,
 ) {
     // SAFETY: `userdata` поверхности — её контекст.
-    if let Some(context) = unsafe { context(userdata) } {
-        context.push(Event::ClipboardWrite {
-            location,
-            contents: contents_len,
-            confirm,
-        });
+    let Some(context) = (unsafe { context(userdata) }) else {
+        return;
+    };
+    // SAFETY: библиотека передаёт `contents_len` представлений, живых на время колбэка.
+    let copied = unsafe { copy_contents(contents, contents_len) };
+    context.push(Event::ClipboardWrite {
+        location,
+        mimes: copied.iter().map(|(mime, _)| mime.clone()).collect(),
+        text: clipboard::plain_text(&copied),
+        confirm,
+    });
+}
+
+/// Копия представлений записи: тип и байты по явной длине.
+///
+/// # Safety
+/// `contents` — NULL или `len` структур, живых на время вызова, с данными указанной длины.
+unsafe fn copy_contents(
+    contents: *const sys::ghostty_clipboard_content_s,
+    len: usize,
+) -> Vec<(String, Vec<u8>)> {
+    if contents.is_null() {
+        return Vec::new();
     }
+    // SAFETY: по контракту функции массив жив и длины `len`.
+    let items = unsafe { std::slice::from_raw_parts(contents, len) };
+    items
+        .iter()
+        .map(|item| {
+            // SAFETY: тип — строка с нулём, данные — `item.len` байт; живы на время колбэка.
+            let mime = unsafe { super::copy_c_str(item.mime) }.unwrap_or_default();
+            let data = if item.data.is_null() {
+                Vec::new()
+            } else {
+                // SAFETY: см. выше.
+                unsafe { std::slice::from_raw_parts(item.data.cast::<u8>(), item.len) }.to_vec()
+            };
+            (mime, data)
+        })
+        .collect()
 }
 
 unsafe extern "C" fn close_surface_cb(userdata: *mut c_void, process_alive: bool) {
@@ -407,7 +469,17 @@ pub struct Stats {
     pub close_intents: usize,
     pub surfaces_created: usize,
     pub surfaces_freed: usize,
+    /// Подтверждения, отклонённые на проходе.
     pub clipboard_denied: u64,
+    /// Ожидающие запросы, отклонённые при намерении закрыть.
+    pub clipboard_denied_on_retire: u64,
+    pub clipboard_served: u64,
+    pub clipboard_late_skipped: u64,
+    pub clipboard_written: u64,
+    /// Записи с подтверждением: не выполняются.
+    pub clipboard_write_confirm_denied: u64,
+    /// Подачи `ghostty_app_set_focus` после `start`: активность приложения.
+    pub app_focus: Vec<bool>,
     pub releases: Vec<ReleaseRecord>,
     pub log: Vec<String>,
 }
@@ -421,6 +493,8 @@ struct Runtime {
     surfaces: Surfaces,
     pass: u64,
     stats: Stats,
+    /// Наблюдатель активности приложения; снимается в `shutdown`.
+    activity: Option<Retained<AppActivity>>,
 }
 
 thread_local! {
@@ -485,6 +559,7 @@ pub fn start(config: Config, scheme: ColorScheme, focused: bool) -> Result<Start
         sys::ghostty_app_update_config(app, config.raw());
         (reloads, shared.count("config-change") - before)
     };
+    let activity = MainThreadMarker::new().map(AppActivity::observe);
     RUNTIME.with(|cell| {
         *cell.borrow_mut() = Some(Runtime {
             app,
@@ -494,6 +569,7 @@ pub fn start(config: Config, scheme: ColorScheme, focused: bool) -> Result<Start
             surfaces: Surfaces::default(),
             pass: 0,
             stats: Stats::default(),
+            activity,
         })
     });
     shared.request_pass();
@@ -580,6 +656,86 @@ fn live_handle(id: SurfaceId) -> Option<Handle> {
     with(|rt| rt.surfaces.registry.current(id).map(|(_, handle)| handle)).flatten()
 }
 
+/// Ожидающие запросы буфера обмена живой поверхности и счётчики её реестра.
+pub fn clipboard(id: SurfaceId) -> Option<(usize, clipboard::Stats)> {
+    let requests = with(|rt| {
+        let (key, _) = rt.surfaces.registry.current(id)?;
+        rt.surfaces.clipboard(key)
+    })
+    .flatten()?;
+    Some((requests.pending(), requests.stats()))
+}
+
+/// Подача активности приложения в `ghostty_app_set_focus` вне заимствования состояния.
+fn app_focus_changed(focused: bool) {
+    let Some(app) = with(|rt| {
+        rt.stats.app_focus.push(focused);
+        rt.app
+    }) else {
+        return;
+    };
+    // SAFETY: приложение живо, пока runtime стоит в потоке; вызов на главном потоке.
+    unsafe { sys::ghostty_app_set_focus(app, focused) };
+}
+
+/// Наблюдатель `NSApplicationDidBecomeActive` и `DidResignActive` для `ghostty_app_set_focus`.
+pub struct ActivityIvars {
+    _live: Live,
+}
+
+define_class!(
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "ProbeAppActivity"]
+    #[ivars = ActivityIvars]
+    pub struct AppActivity;
+
+    impl AppActivity {
+        #[unsafe(method(appDidBecomeActive:))]
+        fn app_did_become_active(&self, _notification: &NSNotification) {
+            app_focus_changed(true);
+        }
+
+        #[unsafe(method(appDidResignActive:))]
+        fn app_did_resign_active(&self, _notification: &NSNotification) {
+            app_focus_changed(false);
+        }
+    }
+);
+
+impl AppActivity {
+    fn observe(mtm: MainThreadMarker) -> Retained<AppActivity> {
+        let this = AppActivity::alloc(mtm).set_ivars(ActivityIvars {
+            _live: APP_ACTIVITY.live(),
+        });
+        // SAFETY: `init` у NSObject без аргументов.
+        let this: Retained<AppActivity> = unsafe { msg_send![super(this), init] };
+        let center = NSNotificationCenter::defaultCenter();
+        // SAFETY: имена уведомлений — неизменяемые константы AppKit; селекторы реализованы
+        // классом; подписка снимается в `forget` до освобождения наблюдателя.
+        unsafe {
+            center.addObserver_selector_name_object(
+                &this,
+                sel!(appDidBecomeActive:),
+                Some(NSApplicationDidBecomeActiveNotification),
+                None,
+            );
+            center.addObserver_selector_name_object(
+                &this,
+                sel!(appDidResignActive:),
+                Some(NSApplicationDidResignActiveNotification),
+                None,
+            );
+        }
+        this
+    }
+
+    fn forget(&self) {
+        // SAFETY: снятие всех подписок этого наблюдателя.
+        unsafe { NSNotificationCenter::defaultCenter().removeObserver(self) };
+    }
+}
+
 /// Чтения живой поверхности, которые проверяют сценарии.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct SurfaceReading {
@@ -636,35 +792,91 @@ impl Runtime {
         }
     }
 
-    /// Разбирает сообщения и возвращает отклонения буфера обмена, которые нужно выполнить вне
-    /// заимствования, и признак, что нужен следующий проход.
-    fn accept(&mut self, messages: Vec<Message>) -> (Vec<(Handle, usize)>, bool) {
-        let mut denies = Vec::new();
-        let mut again = false;
+    /// Разбирает сообщения и возвращает работу буфера обмена, которую нужно выполнить вне
+    /// заимствования: вызовы в libghostty синхронно зовут колбэки.
+    fn accept(&mut self, messages: Vec<Message>) -> Work {
+        let mut work = Work::default();
         for message in messages {
             self.stats.messages += 1;
             let kind = message.event.kind();
             let outcome = match (message.target, &message.event) {
                 (Target::Surface(key), Event::CloseIntent { .. }) => {
+                    let live = self
+                        .surfaces
+                        .registry
+                        .current(key.id)
+                        .filter(|(current, _)| *current == key)
+                        .map(|(_, handle)| handle);
                     match self.surfaces.registry.close_intent(key, self.pass) {
                         Close::Scheduled => {
-                            self.surfaces.retire(key);
-                            again = true;
+                            if let (Some(requests), Some(handle)) =
+                                (self.surfaces.retire(key), live)
+                            {
+                                work.closes.push((handle, requests));
+                            }
+                            work.again = true;
                             "scheduled"
                         }
                         Close::AlreadyClosing => "already-closing",
                         Close::Stale => "stale",
                     }
                 }
-                (Target::Surface(key), Event::ClipboardConfirm { token, .. }) => {
+                (Target::Surface(key), Event::ClipboardConfirm { id, .. }) => {
                     match self.surfaces.registry.route(key) {
                         Route::Live(handle) | Route::Closing(handle) => {
-                            denies.push((handle, *token));
-                            "deny"
+                            match self.surfaces.clipboard(key) {
+                                Some(requests) => {
+                                    work.denies.push((handle, requests, *id));
+                                    "deny"
+                                }
+                                None => "no-context",
+                            }
                         }
                         Route::Stale => "stale",
                     }
                 }
+                (Target::Surface(key), Event::ClipboardRead { id: Some(id), .. }) => {
+                    match self.surfaces.registry.route(key) {
+                        Route::Live(handle) | Route::Closing(handle) => {
+                            match self.surfaces.clipboard(key) {
+                                Some(requests) => {
+                                    work.serves.push((handle, requests, *id));
+                                    "serve"
+                                }
+                                None => "no-context",
+                            }
+                        }
+                        Route::Stale => "stale",
+                    }
+                }
+                (
+                    Target::Surface(key),
+                    Event::ClipboardWrite {
+                        location,
+                        text,
+                        confirm,
+                        ..
+                    },
+                ) => match self.surfaces.registry.route(key) {
+                    Route::Live(_) if *confirm => {
+                        self.stats.clipboard_write_confirm_denied += 1;
+                        "write-confirm-denied"
+                    }
+                    Route::Live(_)
+                        if *location == sys::ghostty_clipboard_e_GHOSTTY_CLIPBOARD_STANDARD =>
+                    {
+                        match text {
+                            Some(text) => {
+                                work.writes.push(text.clone());
+                                "write"
+                            }
+                            None => "write-no-text",
+                        }
+                    }
+                    Route::Live(_) => "write-unsupported",
+                    Route::Closing(_) => "closing",
+                    Route::Stale => "stale",
+                },
                 (Target::Surface(key), _) => match self.surfaces.registry.route(key) {
                     Route::Live(_) => "delivered",
                     Route::Closing(_) => "closing",
@@ -688,26 +900,76 @@ impl Runtime {
                 self.log(line);
             }
         }
-        self.stats.clipboard_denied += denies.len() as u64;
-        (denies, again)
+        work
     }
 }
 
-/// Разбор входящих сообщений и отклонения буфера обмена на живых поверхностях.
+type Pending = (Handle, Arc<Requests>, RequestId);
+
+/// Работа буфера обмена после разбора сообщений.
+#[derive(Default)]
+struct Work {
+    serves: Vec<Pending>,
+    denies: Vec<Pending>,
+    /// Намерение закрыть: ожидающие запросы отклоняются, пока поверхность жива.
+    closes: Vec<(Handle, Arc<Requests>)>,
+    writes: Vec<String>,
+    again: bool,
+}
+
+/// Разбор входящих сообщений и работа буфера обмена на живых поверхностях. Освобождение идёт
+/// только на главном потоке в начале прохода, поэтому ручки здесь живы.
 fn drain(shared: &Shared) {
     let messages = shared.take();
     if messages.is_empty() {
         return;
     }
-    let Some((denies, again)) = with(|rt| rt.accept(messages)) else {
+    let Some(work) = with(|rt| rt.accept(messages)) else {
         return;
     };
-    for (handle, token) in denies {
-        // SAFETY: токен пришёл из подтверждения этой поверхности, она жива: освобождение идёт
-        // только на главном потоке после разбора сообщений.
-        unsafe { handle.deny_clipboard(token) };
+    let mut written = 0;
+    for text in &work.writes {
+        if clipboard::write_text(text) {
+            written += 1;
+        }
     }
-    if again {
+    let mut on_retire = 0;
+    for (handle, requests) in &work.closes {
+        // SAFETY: токены реестра принадлежат этой живой поверхности.
+        on_retire += requests.close(|token| unsafe { handle.deny_clipboard(token) });
+    }
+    let text = (!work.serves.is_empty())
+        .then(clipboard::read_text)
+        .flatten();
+    let (mut served, mut skipped) = (0, 0);
+    for (handle, requests, id) in &work.serves {
+        // SAFETY: токен получен колбэком чтения этой поверхности со `STARTED`; реестр отдаёт его
+        // один раз и без блокировки на время вызова: подтверждение может прийти изнутри.
+        let outcome = requests.serve(*id, |token| unsafe {
+            handle.complete_clipboard(token, text.as_deref())
+        });
+        match outcome {
+            Served::Skipped => skipped += 1,
+            Served::Completed | Served::Confirming(_) => served += 1,
+        }
+    }
+    let mut denied = 0;
+    for (handle, requests, id) in &work.denies {
+        // SAFETY: токен подтверждения этой живой поверхности; реестр отдаёт его один раз.
+        if requests.deny(*id, |token| unsafe { handle.deny_clipboard(token) }) {
+            denied += 1;
+        } else {
+            skipped += 1;
+        }
+    }
+    with(|rt| {
+        rt.stats.clipboard_written += written;
+        rt.stats.clipboard_denied_on_retire += on_retire as u64;
+        rt.stats.clipboard_served += served;
+        rt.stats.clipboard_denied += denied;
+        rt.stats.clipboard_late_skipped += skipped;
+    });
+    if work.again {
         shared.request_pass();
     }
 }
@@ -765,6 +1027,9 @@ pub fn shutdown() -> Result<ShutdownRecord, String> {
     let mut runtime = RUNTIME
         .with(|cell| cell.borrow_mut().take())
         .ok_or_else(not_started)?;
+    if let Some(activity) = runtime.activity.take() {
+        activity.forget();
+    }
     let stats = runtime.snapshot();
     let started = clock::uptime_ns();
     // SAFETY: все поверхности освобождены; приложение освобождается один раз.
@@ -853,14 +1118,17 @@ mod tests {
                 location: 0,
                 mimes: 1,
                 list: false,
+                id: None,
+                decision: "unavailable",
             },
             Event::ClipboardConfirm {
-                token: 1,
+                id: RequestId(1),
                 request: 0,
             },
             Event::ClipboardWrite {
                 location: 0,
-                contents: 1,
+                mimes: Vec::new(),
+                text: None,
                 confirm: false,
             },
             Event::Unsupported { tag: 1 },

@@ -105,7 +105,8 @@ struct Marks {
     numbers: Vec<u64>,
     /// Конец: стенные мкс и монотонные нс.
     end: Option<(i64, u64)>,
-    /// Клавиши, дошедшие до вида стенда к возврату `keyDown` из `sendEvent`.
+    /// Клавиши, дошедшие до получателя к возврату `keyDown` из `sendEvent`: вида поверхности у
+    /// варианта с поверхностью, вида стенда у базовой линии.
     effect: Option<Vec<(&'static str, u16)>>,
     first_contents: Option<u64>,
     error: Option<String>,
@@ -133,7 +134,7 @@ pub fn run(stand: Rc<Stand>, scenario: Scenario) {
     );
     report.push(
         "control_key_route",
-        "у варианта surface first responder — вид поверхности; клавишу он не обрабатывает, и она по цепочке ответчиков доходит до вида стенда",
+        "у варианта surface first responder — вид поверхности, клавишу принимает его keyDown и отправляет в ghostty_surface_key; у базовой линии first responder — вид стенда",
     );
     if kind == Kind::Bare {
         report.push(
@@ -167,7 +168,7 @@ pub fn run(stand: Rc<Stand>, scenario: Scenario) {
 
     let marks = Rc::new(RefCell::new(Marks::default()));
     hook_key_display(&stand, &marks, surface.as_ref());
-    hook_control_return(&stand, &marks);
+    hook_control_return(&stand, &marks, surface.as_ref());
     if let Some(state) = &surface {
         hook_first_contents(state.borrow().view.clone(), &marks);
     }
@@ -229,21 +230,29 @@ fn hook_key_display(
     });
 }
 
-/// Конец: возврат `keyDown` контрольной клавиши и её приход к виду стенда.
-fn hook_control_return(stand: &Rc<Stand>, marks: &Rc<RefCell<Marks>>) {
+/// Конец: возврат `keyDown` контрольной клавиши и её приход к получателю.
+fn hook_control_return(
+    stand: &Rc<Stand>,
+    marks: &Rc<RefCell<Marks>>,
+    surface: Option<&Rc<RefCell<State>>>,
+) {
     let stand = Rc::clone(stand);
     let marks = Rc::clone(marks);
+    let surface_view = surface.map(|state| state.borrow().view.clone());
     events::on_send_return(move |number, at| {
         let mut marks = marks.borrow_mut();
         if marks.numbers.first() != Some(&number) {
             return true;
         }
-        let effect = stand
-            .view
-            .arrivals()
-            .iter()
-            .map(|arrival| (arrival.kind, arrival.key_code))
-            .collect();
+        let effect = match &surface_view {
+            Some(view) => view.key_arrivals(),
+            None => stand
+                .view
+                .arrivals()
+                .iter()
+                .map(|arrival| (arrival.kind, arrival.key_code))
+                .collect(),
+        };
         let wall = clock::wall_us();
         let mono = clock::uptime_ns();
         marks.returned = Some(at);
@@ -408,9 +417,18 @@ fn conclude(
     report.finding(
         "startup-control-key",
         Requirement::Required,
-        if effect_ok { Verdict::Pass } else { Verdict::Fail },
+        if effect_ok {
+            Verdict::Pass
+        } else {
+            Verdict::Fail
+        },
         format!(
-            "к возврату keyDown из sendEvent до вида стенда дошло {effect:?}, ожидалось {expected:?}"
+            "к возврату keyDown из sendEvent до {} дошло {effect:?}, ожидалось {expected:?}",
+            if surface.is_some() {
+                "вида поверхности"
+            } else {
+                "вида стенда"
+            }
         ),
     );
     if !effect_ok {

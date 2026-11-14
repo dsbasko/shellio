@@ -4,6 +4,8 @@
 pub mod channel;
 pub mod counters;
 pub mod events;
+pub mod ime;
+pub mod input;
 pub mod stand;
 pub mod startup;
 pub mod surface_env;
@@ -48,15 +50,19 @@ pub enum Scenario {
     Startup,
     StartupLs,
     Zones,
+    Input,
+    Ime,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 5] = [
+    pub const ALL: [Scenario; 7] = [
         Scenario::Window,
         Scenario::SurfaceEnv,
         Scenario::Startup,
         Scenario::StartupLs,
         Scenario::Zones,
+        Scenario::Input,
+        Scenario::Ime,
     ];
 
     pub fn name(self) -> &'static str {
@@ -66,6 +72,8 @@ impl Scenario {
             Scenario::Startup => "startup",
             Scenario::StartupLs => "startup-ls",
             Scenario::Zones => "zones",
+            Scenario::Input => "input",
+            Scenario::Ime => "ime",
         }
     }
 
@@ -74,7 +82,7 @@ impl Scenario {
     pub fn uses_ghostty(self, variant: &str) -> bool {
         match self {
             Scenario::Window => false,
-            Scenario::SurfaceEnv | Scenario::Zones => true,
+            Scenario::SurfaceEnv | Scenario::Zones | Scenario::Input | Scenario::Ime => true,
             Scenario::Startup | Scenario::StartupLs => variant != startup::BARE,
         }
     }
@@ -94,6 +102,8 @@ impl Scenario {
             Scenario::SurfaceEnv => 50,
             Scenario::Startup | Scenario::StartupLs => 40,
             Scenario::Zones => 300,
+            Scenario::Input => 240,
+            Scenario::Ime => 90,
         })
     }
 }
@@ -113,6 +123,8 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::SurfaceEnv => surface_env::run(stand),
         Scenario::Startup | Scenario::StartupLs => startup::run(stand, scenario),
         Scenario::Zones => zones::run(stand),
+        Scenario::Input => input::run(stand),
+        Scenario::Ime => ime::run(stand),
     }
 }
 

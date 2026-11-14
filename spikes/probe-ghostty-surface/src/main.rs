@@ -7,11 +7,13 @@ mod clock;
 mod env;
 mod fixture;
 mod ghostty;
+mod keys;
 mod launch;
 mod results;
 mod scenario;
 mod scene;
 mod stats;
+mod utf16;
 mod view;
 
 use std::cell::{OnceCell, RefCell};
@@ -244,13 +246,11 @@ fn run_app(scenario: Option<ScenarioRun>, route: Route) -> Option<Outcome> {
             Report::default(),
         ));
     };
-    // Сценарию нужен подкласс, отмечающий `sendEvent`; демонстрация работает без стенда.
-    let app = match scenario {
-        Some(_) => match events::shared_application(mtm) {
-            Ok(app) => app,
-            Err(reason) => return Some(Outcome::error(reason, Report::default())),
-        },
-        None => NSApplication::sharedApplication(mtm),
+    // Подкласс `sendEvent` доставляет `keyUp` и автоповтор владельцу нажатия; сценарию он ещё и
+    // отмечает события, демонстрация работает без стенда.
+    let app = match events::shared_application(mtm) {
+        Ok(app) => app,
+        Err(reason) => return Some(Outcome::error(reason, Report::default())),
     };
     // У бандла без LSUIElement политика уже `regular`, и повторная установка возвращает `false`.
     if app.activationPolicy() != NSApplicationActivationPolicy::Regular

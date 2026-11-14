@@ -183,25 +183,7 @@ pub(super) fn prepare_in(
         .ok_or("у бандла нет Resources")?;
     let exe = std::env::current_exe().map_err(|err| format!("путь исполняемого файла: {err}"))?;
     let exe = fs::canonicalize(&exe).unwrap_or(exe);
-    let fixture_nonce = format!("{}-s1", stand.prelude.nonce);
-    let env_nonce = crate::launch::nonce()?;
-    let channel = hub.path().display().to_string();
-    let program = exe.display().to_string();
-    let spec = Spec {
-        command: fixture::shell_command(
-            &program,
-            &[
-                "--fixture",
-                "--channel",
-                &channel,
-                "--nonce",
-                &fixture_nonce,
-            ],
-        ),
-        working_directory: stand.prelude.out.display().to_string(),
-        env: vec![(fixture::ENV_NONCE.to_owned(), env_nonce.clone())],
-        wait_after_command: true,
-    };
+    let (spec, fixture_nonce, env_nonce) = fixture_spec(stand, &exe, hub.path(), "s1")?;
     report.push("surface_command", &spec.command);
     report.push("fixture_nonce", &fixture_nonce);
     report.push("env_nonce", &env_nonce);
@@ -226,6 +208,76 @@ pub(super) fn prepare_in(
         ready_t_ns: None,
         reading: None,
     })
+}
+
+/// Команда поверхности с фикстурой: nonce фикстуры — `<nonce запуска>-<suffix>`, nonce окружения
+/// свой у каждой.
+fn fixture_spec(
+    stand: &Stand,
+    exe: &Path,
+    channel: &Path,
+    suffix: &str,
+) -> Result<(Spec, String, String), String> {
+    let fixture_nonce = format!("{}-{suffix}", stand.prelude.nonce);
+    let env_nonce = crate::launch::nonce()?;
+    let channel = channel.display().to_string();
+    let program = exe.display().to_string();
+    let spec = Spec {
+        command: fixture::shell_command(
+            &program,
+            &[
+                "--fixture",
+                "--channel",
+                &channel,
+                "--nonce",
+                &fixture_nonce,
+            ],
+        ),
+        working_directory: stand.prelude.out.display().to_string(),
+        env: vec![(fixture::ENV_NONCE.to_owned(), env_nonce.clone())],
+        wait_after_command: true,
+    };
+    Ok((spec, fixture_nonce, env_nonce))
+}
+
+/// Ещё одна поверхность с фикстурой в том же runtime.
+pub(super) struct Extra {
+    pub(super) view: objc2::rc::Retained<SurfaceView>,
+    pub(super) id: SurfaceId,
+    pub(super) fixture_nonce: String,
+}
+
+impl State {
+    /// Регистрирует поверхность с фикстурой `suffix` для вида, который сценарий уже положил в
+    /// окно. Создание — [`create_extra`].
+    pub(super) fn add_fixture(
+        &self,
+        stand: &Stand,
+        suffix: &str,
+        view: objc2::rc::Retained<SurfaceView>,
+    ) -> Result<Extra, String> {
+        let (spec, fixture_nonce, _) = fixture_spec(stand, &self.exe, self.hub.path(), suffix)?;
+        let id = runtime::add_surface(view.clone(), spec)?;
+        Ok(Extra {
+            view,
+            id,
+            fixture_nonce,
+        })
+    }
+}
+
+/// Создание дополнительной поверхности; реестр обязан разрешить его.
+pub(super) fn create_extra(extra: &Extra) -> Result<(), String> {
+    match runtime::create(extra.id)? {
+        Created::Created { key, new_ms } => {
+            super::events::note(format!("поверхность {key} создана за {new_ms:.1} мс"));
+            Ok(())
+        }
+        Created::Waiting(decision) => Err(format!(
+            "реестр не разрешил создание {}: {decision:?}",
+            extra.fixture_nonce
+        )),
+    }
 }
 
 fn steps(stand: &Rc<Stand>, state: &Rc<RefCell<State>>) -> Vec<Step> {
@@ -526,17 +578,35 @@ fn truncate(text: &str, limit: usize) -> String {
 /// Без `view` вид поверхности ищется среди дочерних видов вида стенда.
 pub(super) fn finish(
     stand: &Stand,
-    mut report: Report,
+    report: Report,
     verdict: Result<(), String>,
     view: Option<objc2::rc::Retained<SurfaceView>>,
+) {
+    let view = view.or_else(|| {
+        stand
+            .view
+            .subviews()
+            .iter()
+            .find_map(|view| view.downcast::<SurfaceView>().ok())
+    });
+    finish_views(stand, report, verdict, view.into_iter().collect());
+}
+
+/// То же для нескольких видов: подачи первого записываются как `surface_view_feeds`, и ни один
+/// вид не держит ручку после освобождения.
+pub(super) fn finish_views(
+    stand: &Stand,
+    mut report: Report,
+    verdict: Result<(), String>,
+    views: Vec<objc2::rc::Retained<SurfaceView>>,
 ) {
     let mut verdict = verdict;
     match runtime::shutdown() {
         Ok(record) => {
             let stats = &record.stats;
-            let single = stats.surfaces_created == 1
-                && stats.surfaces_freed == 1
-                && stats.releases.len() == 1;
+            let single = stats.surfaces_created >= 1
+                && stats.surfaces_freed == stats.surfaces_created
+                && stats.releases.len() == stats.surfaces_created;
             if verdict.is_ok() && stats.close_intents >= 2 {
                 report.finding(
                     "surface-single-free",
@@ -558,18 +628,11 @@ pub(super) fn finish(
         }
         Err(reason) => report.push("ghostty_runtime", reason),
     }
-    let view = view.or_else(|| {
-        stand
-            .view
-            .subviews()
-            .iter()
-            .find_map(|view| view.downcast::<SurfaceView>().ok())
-    });
-    if let Some(view) = view {
+    if let Some(view) = views.first() {
         report.push_json("surface_view_feeds", &view.feeds());
-        if view.is_attached() && verdict.is_ok() {
-            verdict = Err("вид держит ручку поверхности после освобождения".to_owned());
-        }
+    }
+    if views.iter().any(|view| view.is_attached()) && verdict.is_ok() {
+        verdict = Err("вид держит ручку поверхности после освобождения".to_owned());
     }
     stand.conclude(report, verdict);
 }

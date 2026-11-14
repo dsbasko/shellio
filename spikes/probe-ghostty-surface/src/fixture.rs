@@ -495,6 +495,17 @@ pub fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
+/// Байты строки [`hex`]; `None` для нечётной длины и не шестнадцатеричных символов.
+pub fn unhex(text: &str) -> Option<Vec<u8>> {
+    if !text.len().is_multiple_of(2) {
+        return None;
+    }
+    (0..text.len())
+        .step_by(2)
+        .map(|at| u8::from_str_radix(text.get(at..at + 2)?, 16).ok())
+        .collect()
+}
+
 // ---- однократные ответы ----
 
 struct PendingReply {
@@ -1472,6 +1483,16 @@ mod tests {
     use serde_json::{Value, json};
 
     use super::*;
+
+    #[test]
+    fn hex_round_trips() {
+        let bytes = [0x00, 0x1b, 0x5b, 0xd0, 0xb6, 0xff];
+        assert_eq!(unhex(&hex(&bytes)).as_deref(), Some(&bytes[..]));
+        assert_eq!(unhex(""), Some(Vec::new()));
+        assert_eq!(unhex("abc"), None);
+        assert_eq!(unhex("zz"), None);
+        assert_eq!(unhex("жж"), None);
+    }
 
     const WAIT: Duration = Duration::from_secs(10);
 
