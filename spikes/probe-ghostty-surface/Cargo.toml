@@ -88,6 +88,31 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "NSString",
     "NSTimer",
 ] }
+objc2-io-surface = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "libc",
+    "objc2",
+    "objc2-core-foundation",
+    "IOSurfaceRef",
+    "IOSurfaceTypes",
+] }
+objc2-metal = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "objc2-io-surface",
+    "MTLAllocation",
+    "MTLBlitCommandEncoder",
+    "MTLBuffer",
+    "MTLCommandBuffer",
+    "MTLCommandEncoder",
+    "MTLCommandQueue",
+    "MTLDevice",
+    "MTLPixelFormat",
+    "MTLRenderCommandEncoder",
+    "MTLRenderPass",
+    "MTLResource",
+    "MTLTexture",
+    "MTLTypes",
+] }
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = [
     "std",
     "objc2-core-foundation",

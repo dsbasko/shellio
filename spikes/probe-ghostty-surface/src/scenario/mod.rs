@@ -5,6 +5,7 @@ pub mod channel;
 pub mod chord;
 pub mod counters;
 pub mod events;
+pub mod gpu_calibration;
 pub mod ime;
 pub mod input;
 pub mod palette;
@@ -57,10 +58,11 @@ pub enum Scenario {
     Ime,
     Chord,
     Palette,
+    GpuCalibration,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 9] = [
+    pub const ALL: [Scenario; 10] = [
         Scenario::Window,
         Scenario::SurfaceEnv,
         Scenario::Startup,
@@ -70,6 +72,7 @@ impl Scenario {
         Scenario::Ime,
         Scenario::Chord,
         Scenario::Palette,
+        Scenario::GpuCalibration,
     ];
 
     pub fn name(self) -> &'static str {
@@ -83,14 +86,16 @@ impl Scenario {
             Scenario::Ime => "ime",
             Scenario::Chord => "chord",
             Scenario::Palette => "palette",
+            Scenario::GpuCalibration => "gpu-calibration",
         }
     }
 
     /// Сценарию нужны `ghostty_init` и сокет фикстур до первого рабочего потока. `window` и
-    /// вариант `bare` сценариев старта — базовая линия без libghostty.
+    /// вариант `bare` сценариев старта — базовая линия без libghostty, `gpu-calibration`
+    /// калибрует наблюдатель на собственных ресурсах.
     pub fn uses_ghostty(self, variant: &str) -> bool {
         match self {
-            Scenario::Window => false,
+            Scenario::Window | Scenario::GpuCalibration => false,
             Scenario::SurfaceEnv
             | Scenario::Zones
             | Scenario::Input
@@ -120,6 +125,7 @@ impl Scenario {
             Scenario::Ime => 90,
             Scenario::Chord => 240,
             Scenario::Palette => 300,
+            Scenario::GpuCalibration => 270,
         })
     }
 }
@@ -143,6 +149,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Ime => ime::run(stand),
         Scenario::Chord => chord::run(stand),
         Scenario::Palette => palette::run(stand),
+        Scenario::GpuCalibration => gpu_calibration::run(stand),
     }
 }
 

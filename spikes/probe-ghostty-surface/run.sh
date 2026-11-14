@@ -19,13 +19,16 @@ VENDOR="${SHELLIO_GHOSTTY_VENDOR:-$ROOT/vendor/ghostty}"
 REQUIREMENT="$ROOT/scripts/signing/requirement.txt"
 KEYCHAIN="${SHELLIO_SIGNING_KEYCHAIN:-}"
 BUNDLE_ID="io.github.dsbasko.shellio.probe.ghostty-surface"
-ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette"
+ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette gpu-calibration"
 # Запусков сценариев старта на вариант: первый в агрегаты прогретых не входит
 # (results::STARTUP_SCENARIOS).
 STARTUP_RUNS=21
 STARTUP_LS_RUNS=11
 # Диагностический вариант startup с недопустимым LANG: один запуск без агрегатов (env.rs).
 BAD_LANG_VARIANT=badlang
+# Сценарии, которым служба footprint снимает footprint процесса пробы по запросу (gpu.rs).
+FOOTPRINT_SCENARIOS="gpu-calibration"
+FOOTPRINT_SERVICE=""
 
 die() {
     echo "run.sh: $*" >&2
@@ -202,12 +205,63 @@ EOF_CONFIG
     fi
 }
 
+needs_footprint() {
+    case " $FOOTPRINT_SCENARIOS " in
+        *" $1 "*) return 0 ;;
+    esac
+    return 1
+}
+
+# Служба footprint процесса сценария (gpu.rs): запрос «<pid> <метка>» из FIFO footprint.fifo,
+# JSON в footprint/<метка>.json (публикуется переименованием), вывод в footprint/<метка>.txt,
+# ответ «<метка> <код>» в FIFO footprint.reply. Оба FIFO служба держит открытыми на чтение и
+# запись: между запросами у FIFO запроса не пропадает читатель, а ответ не ждёт читателя.
+footprint_service() {
+    local out="$1" dir="$1/footprint" pid label code
+    exec 3<>"$out/footprint.fifo" 4<>"$out/footprint.reply"
+    while read -r pid label <&3; do
+        if ! [[ "$pid" =~ ^[0-9]+$ && "$label" =~ ^[a-z0-9-]{1,64}$ ]]; then
+            echo "неверный запрос: $pid $label" >>"$dir/service.txt"
+            continue
+        fi
+        code=0
+        /usr/bin/footprint -j "$dir/.$label.json" "$pid" >"$dir/$label.txt" 2>&1 || code=$?
+        if [ "$code" -eq 0 ]; then
+            mv "$dir/.$label.json" "$dir/$label.json" || code=1
+        fi
+        printf '%s %s\n' "$label" "$code" >&4
+    done
+}
+
+start_footprint_service() {
+    local out="$1"
+    mkdir "$out/footprint"
+    mkfifo "$out/footprint.fifo" "$out/footprint.reply"
+    footprint_service "$out" &
+    FOOTPRINT_SERVICE=$!
+}
+
+# Процесс пробы к этому моменту завершён, запроса в работе нет.
+stop_footprint_service() {
+    [ -n "$FOOTPRINT_SERVICE" ] || return 0
+    kill "$FOOTPRINT_SERVICE" 2>/dev/null || true
+    wait "$FOOTPRINT_SERVICE" 2>/dev/null || true
+    FOOTPRINT_SERVICE=""
+}
+
 # Код возврата — код --launch: ошибка запуска, процесса пробы или оставшиеся процессы.
 run_scenario() {
     local scenario="$1" variant="$2" out="$3" code=0
+    if needs_footprint "$scenario"; then
+        start_footprint_service "$out"
+    fi
     caffeinate -dimsu "$BIN" --launch --app "$APP" --route "$(route_of "$scenario")" \
         -- --scenario "$scenario" --variant "$variant" --out "$out" \
         >"$out/stdout.txt" 2>"$out/stderr.txt" || code=$?
+    if needs_footprint "$scenario"; then
+        stop_footprint_service
+        rm -f "$out/footprint.fifo" "$out/footprint.reply"
+    fi
     return "$code"
 }
 
@@ -218,6 +272,8 @@ cmd_scenarios() {
     local run_dir scenario variant index out code total=0 failed=0 aggregate=0
     build
     bundle
+    # bundle снимает свою ловушку EXIT, эта снимает службу footprint при прерывании прогона.
+    trap stop_footprint_service EXIT
     mkdir -p "$OUT_BASE"
     run_dir="$OUT_BASE/$(date +%Y%m%d-%H%M%S)-$$"
     mkdir "$run_dir"

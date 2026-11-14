@@ -7,6 +7,7 @@ mod clock;
 mod env;
 mod fixture;
 mod ghostty;
+mod gpu;
 mod keys;
 mod launch;
 mod palette;
