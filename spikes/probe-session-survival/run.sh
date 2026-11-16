@@ -1,6 +1,7 @@
 #!/bin/bash
 # Сборка и запуск пробы P0.4 probe-session-survival (ADR-0034, ADR-0035).
-#   run.sh scenarios [сценарий …]  clippy и тесты с функцией vt, сборка раннера, затем каждый
+#   run.sh scenarios [сценарий …]  сборка или сверка наборов zmx (scripts/zmx.sh ensure), clippy и
+#                                  тесты с функцией vt, сборка раннера, затем каждый
 #                                  сценарий на каждом своём кандидате отдельным процессом через
 #                                  --launch под caffeinate -dimsu (временный SHELLIO_STATE_DIR
 #                                  создаёт --launch), выход в
@@ -16,6 +17,7 @@ CARGO="${CARGO:-cargo}"
 PACKAGE=probe-session-survival
 BIN="$ROOT/target/release/probe-session"
 OUT_BASE="$ROOT/target/probes/session-survival"
+ZMX_SH="$ROOT/spikes/probe-session-survival/scripts/zmx.sh"
 ALL_SCENARIOS="smoke"
 
 die() {
@@ -71,6 +73,25 @@ build_info() {
     export SHELLIO_PROBE_RUSTC
 }
 
+# Наборы zmx: сборка или сверка перед сценариями, затем `zmx version`, Zig и SHA-256 штампа каждого
+# набора для environment в result.json. Имена переменных — launch::SET_VERSIONS и SET_STAMPS.
+prepare_zmx_sets() {
+    local sets set var version sum zig=""
+    sets="$("$ZMX_SH" sets)"
+    for set in $sets; do
+        "$ZMX_SH" ensure "$set"
+    done
+    # Подстановка внутри export скрыла бы отказ команды, поэтому значения присваиваются отдельно.
+    for set in $sets; do
+        var="$(printf '%s' "$set" | tr '[:lower:]-' '[:upper:]_')"
+        version="$("$ZMX_SH" version "$set")"
+        sum="$(shasum -a 256 <"$OUT_BASE/$set/stamp")"
+        zig="$(sed -n 's/^zmx_zig_version=//p' "$OUT_BASE/$set/stamp")"
+        export "SHELLIO_PROBE_VERSION_$var=$version" "SHELLIO_PROBE_STAMP_$var=${sum%% *}"
+    done
+    export SHELLIO_PROBE_VERSION_ZIG_ZMX="$zig"
+}
+
 # Кандидаты сценария: «-» — сценарий стенда без кандидата.
 backends_of() {
     case "$1" in
@@ -117,6 +138,7 @@ cmd_scenarios() {
         backends="$(backends_of "$scenario")"
         variants="$(variants_of "$scenario")"
     done
+    prepare_zmx_sets
     check_features vt
     cargo_with vt build --release
     build_info

@@ -1,0 +1,21 @@
+# shellcheck shell=bash
+# Закреплённая сборка zmx пробы P0.4 (ADR-0034, «Уточнено в P0.4»). Продукт этим pin не пользуется.
+# Каждое значение входит в штамп набора, из ZMX_SET_* — только комбинация самого набора.
+ZMX_REPO=https://github.com/neurosnap/zmx
+ZMX_REV=8bab1f0173b07e79835ea372d749af3dbf0d0842
+ZMX_VERSION_STRING=0.8.1
+# ghostty, которую закрепляет build.zig.zon этого zmx: не ревизия поверхности shellio.
+ZMX_GHOSTTY_REPO=https://github.com/ghostty-org/ghostty
+ZMX_GHOSTTY_REV=8af6897c0afc63037a8a3efee4162a380e3a4572
+ZMX_ZIG_VERSION=0.16.0
+ZMX_ZIG_SHA256=b23d70deaa879b5c2d486ed3316f7eaa53e84acf6fc9cc747de152450d401489
+# Без версии ОС Zig берёт минимум и процессор машины сборки.
+ZMX_TARGET=aarch64-macos.14.0
+ZMX_OPTIMIZE=ReleaseSafe
+
+# Комбинации патчей zmx-patches/ в порядке наложения. Патчи zmx-patches/ghostty/ входят в обе.
+ZMX_SET_ZMX="0001-explicit-leadership 0002-private-ghostty-dependency 0003-atomic-socket-publish 0004-managed-exit-keeps-screen"
+ZMX_SET_ZMX_PREV="0002-private-ghostty-dependency 0003-atomic-socket-publish"
+# «патч:нужный патч» через пробел. Патч накладывается и без нужного, но не собирается:
+# 0004 импортирует role.zig, который создаёт 0001.
+ZMX_REQUIRES="0004-managed-exit-keeps-screen:0001-explicit-leadership"

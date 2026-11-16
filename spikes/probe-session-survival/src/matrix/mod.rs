@@ -219,8 +219,8 @@ pub fn describe(result: &ResultFile) -> String {
     )
 }
 
-/// Окружение процесса сценария. Версии наборов пробы, Zig и профиля нормализаций добавляют
-/// задачи, в которых появляются наборы и оракулы.
+/// Окружение процесса сценария. Версии и штампы наборов пробы приходят от `run.sh` через
+/// запуск, версию профиля нормализаций добавляет задача оракулов.
 pub fn collect_environment(
     entry_env: &[(String, String)],
     nonce: Option<String>,
@@ -232,6 +232,11 @@ pub fn collect_environment(
             .find(|(key, _)| key == name)
             .map(|(_, value)| value.clone())
             .filter(|value| !value.trim().is_empty())
+    };
+    let facts = |vars: &[(&str, &str)]| {
+        vars.iter()
+            .filter_map(|(name, key)| lookup(name).map(|value| ((*key).to_owned(), value)))
+            .collect::<BTreeMap<_, _>>()
     };
     Environment {
         os: Os {
@@ -255,8 +260,8 @@ pub fn collect_environment(
             probe_version: env!("CARGO_PKG_VERSION").to_owned(),
             features: enabled_features(),
         },
-        versions: BTreeMap::new(),
-        stamps: BTreeMap::new(),
+        versions: facts(&launch::SET_VERSIONS),
+        stamps: facts(&launch::SET_STAMPS),
         normalization_profile: None,
         process: ProcessInfo {
             pid: std::process::id(),
@@ -289,31 +294,42 @@ fn smoke(out: &Path, environment: &Environment) -> Result<Report, String> {
 }
 
 /// Итог `smoke`: одна клетка стенда. Неполное окружение — `fail`, а не ошибка исполнения:
-/// процесс дошёл до конца, но сведений для отчёта не хватает.
+/// процесс дошёл до конца, но сведений для отчёта не хватает. Версии и штампы наборов здесь же:
+/// расхождение имён переменных `run.sh` и запуска иначе дало бы пустые сведения без отказа.
 pub fn smoke_report(environment: &Environment) -> Report {
-    let mut missing = Vec::new();
+    let mut missing: Vec<String> = Vec::new();
     let os = &environment.os;
     let hardware = &environment.hardware;
     if os.product_version.is_none() {
-        missing.push("версия macOS");
+        missing.push("версия macOS".to_owned());
     }
     if os.build.is_none() {
-        missing.push("сборка macOS");
+        missing.push("сборка macOS".to_owned());
     }
     if hardware.model.is_none() {
-        missing.push("модель");
+        missing.push("модель".to_owned());
     }
     if hardware.cpu.is_none() {
-        missing.push("процессор");
+        missing.push("процессор".to_owned());
     }
     if hardware.memory_bytes.is_none() {
-        missing.push("объём памяти");
+        missing.push("объём памяти".to_owned());
     }
     if environment.process.nonce.is_none() {
-        missing.push("nonce");
+        missing.push("nonce".to_owned());
     }
     if environment.process.state_dir.is_none() {
-        missing.push(launch::STATE_DIR);
+        missing.push(launch::STATE_DIR.to_owned());
+    }
+    for (_, key) in launch::SET_VERSIONS {
+        if !environment.versions.contains_key(key) {
+            missing.push(format!("версия {key}"));
+        }
+    }
+    for (_, key) in launch::SET_STAMPS {
+        if !environment.stamps.contains_key(key) {
+            missing.push(format!("штамп {key}"));
+        }
     }
     let (status, reason) = if missing.is_empty() {
         (
@@ -341,7 +357,8 @@ pub fn smoke_report(environment: &Environment) -> Report {
         status,
         requirement: Requirement::Required,
         stimulus: "процесс сценария запущен через --launch".to_owned(),
-        oracle: "окружение процесса: ОС, железо, сборка, nonce и временный SHELLIO_STATE_DIR"
+        oracle: "окружение процесса: ОС, железо, сборка, версии и штампы наборов пробы, nonce и \
+                 временный SHELLIO_STATE_DIR"
             .to_owned(),
         completion: format!("записаны {SMOKE_ARTIFACT} и {}", results::RESULT_FILE),
         not_run_cause: None,
@@ -374,8 +391,14 @@ pub(crate) mod tests {
                 probe_version: "0.1.0".to_owned(),
                 features: vec!["vt".to_owned()],
             },
-            versions: BTreeMap::new(),
-            stamps: BTreeMap::new(),
+            versions: launch::SET_VERSIONS
+                .iter()
+                .map(|(_, key)| ((*key).to_owned(), format!("{key} 1")))
+                .collect(),
+            stamps: launch::SET_STAMPS
+                .iter()
+                .map(|(_, key)| ((*key).to_owned(), "ab12".to_owned()))
+                .collect(),
             normalization_profile: None,
             process: ProcessInfo {
                 pid: 4242,
@@ -453,6 +476,16 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn smoke_fails_without_set_facts() {
+        let mut environment = environment();
+        environment.versions.remove("zmx-prev");
+        environment.stamps.remove("zmx");
+        let cell = &smoke_report(&environment).cells[0];
+        assert_eq!(cell.status, Status::Fail);
+        assert_eq!(cell.reason, "в окружении нет: версия zmx-prev, штамп zmx");
+    }
+
+    #[test]
     fn describe_counts_cells_and_execution() {
         let ok = ResultFile::new(
             "smoke",
@@ -486,14 +519,35 @@ pub(crate) mod tests {
             (launch::STATE_DIR.to_owned(), "/tmp/s".to_owned()),
             (launch::BUILD_COMMIT.to_owned(), "abc".to_owned()),
             (launch::BUILD_RUSTC.to_owned(), " ".to_owned()),
+            (
+                "SHELLIO_PROBE_VERSION_ZMX_PREV".to_owned(),
+                "zmx 0.8.1".to_owned(),
+            ),
+            (
+                "SHELLIO_PROBE_VERSION_ZIG_ZMX".to_owned(),
+                "0.16.0".to_owned(),
+            ),
+            ("SHELLIO_PROBE_STAMP_ZMX".to_owned(), "ab12".to_owned()),
+            ("SHELLIO_PROBE_STAMP_ZMX_PREV".to_owned(), String::new()),
         ];
         let environment = collect_environment(&entry, Some("n1".to_owned()), Vec::new());
+        assert_eq!(
+            environment.versions,
+            BTreeMap::from([
+                ("zig-zmx".to_owned(), "0.16.0".to_owned()),
+                ("zmx-prev".to_owned(), "zmx 0.8.1".to_owned()),
+            ])
+        );
+        assert_eq!(
+            environment.stamps,
+            BTreeMap::from([("zmx".to_owned(), "ab12".to_owned())])
+        );
         assert!(environment.os.product_version.is_some());
         assert!(environment.hardware.memory_bytes.is_some());
         assert_eq!(environment.build.commit.as_deref(), Some("abc"));
         assert_eq!(environment.build.rustc, None);
         assert_eq!(environment.process.state_dir.as_deref(), Some("/tmp/s"));
         assert_eq!(environment.process.nonce.as_deref(), Some("n1"));
-        assert_eq!(environment.process.env.len(), 3);
+        assert_eq!(environment.process.env.len(), 7);
     }
 }

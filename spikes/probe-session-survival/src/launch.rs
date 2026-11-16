@@ -48,6 +48,26 @@ pub const LANG_VALUE: &str = "en_US.UTF-8";
 pub const BUILD_COMMIT: &str = "SHELLIO_PROBE_COMMIT";
 pub const BUILD_RUSTC: &str = "SHELLIO_PROBE_RUSTC";
 const BUILD_VARS: [&str; 2] = [BUILD_COMMIT, BUILD_RUSTC];
+/// Версии наборов пробы и их Zig, которые `run.sh` снимает перед сценариями: переменная и ключ
+/// `environment.versions`. Имена не начинаются с `ZMX_`: такие переменные запрещены.
+pub const SET_VERSIONS: [(&str, &str); 3] = [
+    ("SHELLIO_PROBE_VERSION_ZIG_ZMX", "zig-zmx"),
+    ("SHELLIO_PROBE_VERSION_ZMX", "zmx"),
+    ("SHELLIO_PROBE_VERSION_ZMX_PREV", "zmx-prev"),
+];
+/// SHA-256 штампов наборов пробы: переменная и ключ `environment.stamps`.
+pub const SET_STAMPS: [(&str, &str); 2] = [
+    ("SHELLIO_PROBE_STAMP_ZMX", "zmx"),
+    ("SHELLIO_PROBE_STAMP_ZMX_PREV", "zmx-prev"),
+];
+
+/// Переменные `run.sh`, которые запуск передаёт процессу сценария как есть, если они не пусты.
+fn passed_vars() -> impl Iterator<Item = &'static str> {
+    BUILD_VARS
+        .into_iter()
+        .chain(SET_VERSIONS.into_iter().map(|(name, _)| name))
+        .chain(SET_STAMPS.into_iter().map(|(name, _)| name))
+}
 /// Префиксы, которых не бывает в окружении процесса сценария: терминал и ghostty, nvim и
 /// настоящие сессии пользователя.
 pub const FORBIDDEN_PREFIXES: [&str; 6] = ["GHOSTTY_", "TERM", "LC_", "AGTERM_", "NVIM", "ZMX_"];
@@ -86,7 +106,7 @@ pub fn build_env(
     }
     env.push((STATE_DIR.to_owned(), state_dir.to_owned()));
     env.push((LANG.to_owned(), LANG_VALUE.to_owned()));
-    for name in BUILD_VARS {
+    for name in passed_vars() {
         if let Some(value) = inherited(name).filter(|value| !value.is_empty()) {
             env.push((name.to_owned(), value));
         }
@@ -143,7 +163,7 @@ pub fn check_env(env: &[(String, String)], nonce: Option<&str>) -> Check {
                 .violations
                 .push(format!("{name}: запрещённый префикс {prefix}"));
         } else if !INHERITED.contains(&name.as_str())
-            && !BUILD_VARS.contains(&name.as_str())
+            && !passed_vars().any(|passed| passed == name)
             && name != STATE_DIR
             && name != LANG
         {
@@ -772,6 +792,32 @@ mod tests {
         };
         let env = build_env(parent, "/tmp/shellio-probe-state.n1").unwrap();
         assert_eq!(check_env(&env, Some("n1")), Check::default());
+    }
+
+    #[test]
+    fn set_facts_pass_through_launch() {
+        let parent = |name: &str| match name {
+            "HOME" => Some("/Users/t".to_owned()),
+            "PATH" => Some("/usr/bin".to_owned()),
+            "SHELLIO_PROBE_VERSION_ZMX" => Some("zmx 0.8.1; ghostty_vt g".to_owned()),
+            "SHELLIO_PROBE_VERSION_ZMX_PREV" => Some(String::new()),
+            "SHELLIO_PROBE_STAMP_ZMX_PREV" => Some("ab12".to_owned()),
+            "SHELLIO_PROBE_STAMP_VT" => Some("cd34".to_owned()),
+            _ => None,
+        };
+        let env = build_env(parent, "/tmp/shellio-probe-state.n1").unwrap();
+        assert_eq!(
+            env[env.len() - 2..],
+            pairs(&[
+                ("SHELLIO_PROBE_VERSION_ZMX", "zmx 0.8.1; ghostty_vt g"),
+                ("SHELLIO_PROBE_STAMP_ZMX_PREV", "ab12"),
+            ])
+        );
+        assert_eq!(check_env(&env, Some("n1")), Check::default());
+        for (name, key) in SET_VERSIONS.iter().chain(SET_STAMPS.iter()) {
+            assert!(name.starts_with("SHELLIO_PROBE_"), "{name}");
+            assert!(!key.is_empty());
+        }
     }
 
     #[test]
