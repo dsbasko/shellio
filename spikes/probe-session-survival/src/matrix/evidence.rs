@@ -23,6 +23,9 @@ pub struct Evidence {
     pub checks: Vec<Check>,
     /// Стенд не доказал условие клетки: часть получает `not_run`.
     pub not_proven: Option<String>,
+    /// У кандидата доказанно нет нужной возможности: часть получает `unsupported`, если ни одна
+    /// проверка не провалена.
+    pub unsupported: Option<String>,
     pub observed: Map<String, Value>,
 }
 
@@ -66,6 +69,8 @@ impl Evidence {
             .collect();
         if !failed.is_empty() {
             (Status::Fail, failed.join("; "))
+        } else if let Some(reason) = &self.unsupported {
+            (Status::Unsupported, reason.clone())
         } else if let Some(reason) = &self.not_proven {
             (Status::NotRun, reason.clone())
         } else {
@@ -101,7 +106,7 @@ pub fn cell(spec: Spec<'_>, evidence: &Evidence, artifacts: Vec<String>) -> Cell
         completion: spec.completion.to_owned(),
         not_run_cause: (status == Status::NotRun).then_some(NotRunCause::Stand),
         reason,
-        defect_origin: (status == Status::Fail).then_some(spec.origin),
+        defect_origin: matches!(status, Status::Fail | Status::Unsupported).then_some(spec.origin),
         artifacts,
     }
 }
@@ -153,6 +158,21 @@ mod tests {
         assert_eq!(status, Status::Pass);
         assert_eq!(reason, "выполнено: шаг");
         assert_eq!(evidence.require("отказ", Err::<u8, _>("нет")), None);
+        assert_eq!(evidence.status().0, Status::Fail);
+    }
+
+    #[test]
+    fn unsupported_yields_to_failure_and_wins_over_not_proven() {
+        let mut evidence = Evidence::default();
+        evidence.check("первая", true, "ok");
+        evidence.unsupported = Some("нет поколения ответа".to_owned());
+        evidence.not_proven = Some("граница не доказана".to_owned());
+        let cell = cell(spec(), &evidence, vec!["a.json".to_owned()]);
+        assert_eq!(cell.status, Status::Unsupported);
+        assert_eq!(cell.reason, "нет поколения ответа");
+        assert_eq!(cell.defect_origin, Some(DefectOrigin::Vt));
+        assert!(cell.problems().is_empty(), "{:?}", cell.problems());
+        evidence.check("вторая", false, "расхождение");
         assert_eq!(evidence.status().0, Status::Fail);
     }
 }

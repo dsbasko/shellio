@@ -56,7 +56,7 @@ const GUI_CLIPBOARD: &[u8] = b"gui-clipboard";
 const LATE_CLIPBOARD: &[u8] = b"late-old-generation";
 
 /// Запросы D1: ответы, которые хост даёт сам.
-const D1_QUERIES: [(&str, Query); 9] = [
+pub(crate) const D1_QUERIES: [(&str, Query); 9] = [
     ("da1", Query::Da1),
     ("da2", Query::Da2),
     ("cpr", Query::CursorPosition),
@@ -732,11 +732,11 @@ fn apply_suffix(
 
 // --- сюжеты восстановления B1–B6, B9 ---
 
-struct Story {
-    cell: &'static str,
-    stimulus: &'static str,
-    scene: Vec<Vec<u8>>,
-    suffixes: Vec<(String, Vec<Step>)>,
+pub(crate) struct Story {
+    pub(crate) cell: &'static str,
+    pub(crate) stimulus: &'static str,
+    pub(crate) scene: Vec<Vec<u8>>,
+    pub(crate) suffixes: Vec<(String, Vec<Step>)>,
 }
 
 fn catalog_suffix(name: &str) -> (String, Vec<Step>) {
@@ -746,7 +746,7 @@ fn catalog_suffix(name: &str) -> (String, Vec<Step>) {
     (name.to_owned(), steps)
 }
 
-fn stories() -> Vec<Story> {
+pub(crate) fn stories() -> Vec<Story> {
     vec![
         Story {
             cell: "B1",
@@ -980,9 +980,9 @@ fn restore_story(stand: &mut Stand, story: &Story) -> Result<Vec<Cell>, String> 
 // --- B7: незавершённая последовательность в точке восстановления ---
 
 /// Вариант B7: имя, префикс до точки восстановления, ожидаемая continuation и остаток после неё.
-type B7Variant = (&'static str, &'static [u8], &'static [u8], &'static [u8]);
+pub(crate) type B7Variant = (&'static str, &'static [u8], &'static [u8], &'static [u8]);
 
-const B7_VARIANTS: [B7Variant; 5] = [
+pub(crate) const B7_VARIANTS: [B7Variant; 5] = [
     ("csi", b"\x1b[3", b"\x1b[3", b"1mX"),
     ("osc", b"\x1b]2;tit", b"\x1b]2;tit", b"le-b7\x07X"),
     ("dcs", b"\x1bP$q", b"\x1bP$q", b"m\x1b\\X"),
@@ -1096,7 +1096,7 @@ const B8_HISTORY: usize = 80;
 const B8_SAMPLES: usize = 16;
 
 /// Номера строк потока по строкам экрана сверху вниз: история от дальней, затем активная область.
-fn flood_sequence(nonce: &str, state: &model::State) -> Vec<u64> {
+pub(crate) fn flood_sequence(nonce: &str, state: &model::State) -> Vec<u64> {
     state
         .history
         .iter()
@@ -1107,7 +1107,7 @@ fn flood_sequence(nonce: &str, state: &model::State) -> Vec<u64> {
 }
 
 /// Нарушения последовательности: пропуск, повтор, не тот конец.
-fn sequence_problems(sequence: &[u64], last: u64) -> Vec<String> {
+pub(crate) fn sequence_problems(sequence: &[u64], last: u64) -> Vec<String> {
     let mut problems = Vec::new();
     for pair in sequence.windows(2) {
         if pair[1] != pair[0] + 1 {

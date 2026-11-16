@@ -63,6 +63,25 @@ pub fn sysctl_u64(name: &str) -> Option<u64> {
     Some(u64::from_ne_bytes(bytes))
 }
 
+/// `ri_phys_footprint` процесса: физическая память по счёту ядра (`proc_pid_rusage`). Процесс
+/// своего пользователя; `None` — процесса нет или доступа нет.
+pub fn phys_footprint(pid: i32) -> Option<u64> {
+    let mut info = std::mem::MaybeUninit::<libc::rusage_info_v2>::zeroed();
+    // SAFETY: буфер — структура версии, указанной во втором аргументе, и живёт на время вызова.
+    let status = unsafe {
+        libc::proc_pid_rusage(
+            pid,
+            libc::RUSAGE_INFO_V2,
+            info.as_mut_ptr().cast::<libc::rusage_info_t>(),
+        )
+    };
+    if status != 0 {
+        return None;
+    }
+    // SAFETY: ядро заполнило структуру при нулевом коде возврата; до этого она обнулена.
+    Some(unsafe { info.assume_init() }.ri_phys_footprint)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -81,5 +100,12 @@ mod tests {
         let second = uptime_ns();
         assert!(first > 0);
         assert!(second >= first);
+    }
+
+    #[test]
+    fn phys_footprint_of_self_is_positive_and_of_missing_pid_is_none() {
+        let own = phys_footprint(std::process::id() as i32);
+        assert!(own.is_some_and(|bytes| bytes > 0), "{own:?}");
+        assert_eq!(phys_footprint(-1), None);
     }
 }

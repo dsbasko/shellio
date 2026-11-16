@@ -1,12 +1,26 @@
 //! Матрица рубежей A–G: кандидаты, каталог клеток, сценарии и процесс сценария. Сценарии рубежей
 //! добавляют задачи плана: сценарии стенда `smoke` и `capi` (ранняя проверка C API), рубеж A —
-//! `lifecycle`.
+//! `lifecycle`, headless-матрица задачи 9 — `restore` (B), `queries` (D), `io` (E), `geometry`
+//! (F1, F3) и `versions` (G1, G2). Общий стенд zmx — `stand`, чистые сценарные утилиты — `util`.
 
 #[cfg(feature = "vt")]
 pub mod capi;
 pub mod evidence;
 #[cfg(feature = "vt")]
+pub mod geometry;
+#[cfg(feature = "vt")]
+pub mod io;
+#[cfg(feature = "vt")]
 pub mod lifecycle;
+#[cfg(feature = "vt")]
+pub mod queries;
+#[cfg(feature = "vt")]
+pub mod restore;
+#[cfg(feature = "vt")]
+pub mod stand;
+pub mod util;
+#[cfg(feature = "vt")]
+pub mod versions;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -115,16 +129,40 @@ pub enum Scenario {
     Lifecycle,
     /// Ранняя проверка C API `libghostty-vt` без хоста: сюжеты B1–B9 и D1–D4, бюджет continuation.
     Capi,
+    /// Рубеж B: восстановление экрана, клетки B1–B9.
+    Restore,
+    /// Рубеж D: запросы терминала и эффекты, клетки D1–D6.
+    Queries,
+    /// Рубеж E: ввод-вывод, очереди и публикация сокета, клетки E1–E5.
+    Io,
+    /// Рубеж F без поверхности: источник размера и ввод из CLI, клетки F1 и F3.
+    Geometry,
+    /// Рубеж G без бандла: соседние поколения кандидата, клетки G1 и G2.
+    Versions,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 3] = [Scenario::Smoke, Scenario::Lifecycle, Scenario::Capi];
+    pub const ALL: [Scenario; 8] = [
+        Scenario::Smoke,
+        Scenario::Lifecycle,
+        Scenario::Capi,
+        Scenario::Restore,
+        Scenario::Queries,
+        Scenario::Io,
+        Scenario::Geometry,
+        Scenario::Versions,
+    ];
 
     pub fn name(self) -> &'static str {
         match self {
             Scenario::Smoke => "smoke",
             Scenario::Lifecycle => "lifecycle",
             Scenario::Capi => "capi",
+            Scenario::Restore => "restore",
+            Scenario::Queries => "queries",
+            Scenario::Io => "io",
+            Scenario::Geometry => "geometry",
+            Scenario::Versions => "versions",
         }
     }
 
@@ -138,7 +176,12 @@ impl Scenario {
     pub fn candidates(self) -> &'static [Candidate] {
         match self {
             Scenario::Smoke | Scenario::Capi => &[],
-            Scenario::Lifecycle => &[Candidate::Zmx],
+            Scenario::Lifecycle
+            | Scenario::Restore
+            | Scenario::Queries
+            | Scenario::Io
+            | Scenario::Geometry
+            | Scenario::Versions => &[Candidate::Zmx],
         }
     }
 
@@ -147,6 +190,8 @@ impl Scenario {
         match self {
             Scenario::Smoke => Duration::from_secs(10),
             Scenario::Lifecycle | Scenario::Capi => Duration::from_secs(300),
+            Scenario::Geometry | Scenario::Versions => Duration::from_secs(300),
+            Scenario::Restore | Scenario::Queries | Scenario::Io => Duration::from_secs(900),
         }
     }
 }
@@ -220,7 +265,30 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::Smoke => smoke(&target.out, environment),
         Scenario::Lifecycle => lifecycle_run(target, environment),
         Scenario::Capi => capi_run(target, environment),
+        Scenario::Restore => vt_only(target, environment, "restore"),
+        Scenario::Queries => vt_only(target, environment, "queries"),
+        Scenario::Io => vt_only(target, environment, "io"),
+        Scenario::Geometry => vt_only(target, environment, "geometry"),
+        Scenario::Versions => vt_only(target, environment, "versions"),
     }
+}
+
+#[cfg(feature = "vt")]
+fn vt_only(target: &Target, environment: &Environment, _name: &str) -> Result<Report, String> {
+    match target.scenario {
+        Scenario::Restore => restore::run(target, environment),
+        Scenario::Queries => queries::run(target, environment),
+        Scenario::Io => io::run(target, environment),
+        Scenario::Geometry => geometry::run(target, environment),
+        Scenario::Versions => versions::run(target, environment),
+        other => Err(format!("сценарий {other} не из headless-матрицы")),
+    }
+}
+
+/// Оракулам headless-матрицы нужен `libghostty-vt`: без функции `vt` сценарий не запускается.
+#[cfg(not(feature = "vt"))]
+fn vt_only(_target: &Target, _environment: &Environment, name: &str) -> Result<Report, String> {
+    Err(format!("сценарий {name} требует функцию vt"))
 }
 
 #[cfg(feature = "vt")]
