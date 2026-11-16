@@ -10,16 +10,25 @@
 //! Доступность: вид поверхности получает уведомления об изменении по таймеру обновления
 //! доступности, который запускает первый запрос доступности при включённом VoiceOver
 //! ([`crate::a11y::enable_demo`]).
+//!
+//! Тема: libghostty сам за оформлением не следит. Демонстрация наблюдает
+//! `NSApp.effectiveAppearance` (KVO) и на смене светлой и тёмной темы делает то же, что сценарий
+//! `palette`: палитра сцены, затем схема приложения и живых поверхностей.
 
 use std::cell::{Cell, RefCell};
+use std::ffi::c_void;
 use std::path::PathBuf;
-use std::ptr::NonNull;
+use std::ptr::{self, NonNull};
 
 use block2::RcBlock;
-use objc2::MainThreadOnly;
 use objc2::rc::Retained;
+use objc2::runtime::AnyObject;
+use objc2::{MainThreadOnly, Message, define_class, msg_send};
 use objc2_app_kit::{NSApplication, NSWindow};
-use objc2_foundation::{NSRect, NSRunLoop, NSRunLoopCommonModes, NSTimer};
+use objc2_foundation::{
+    NSKeyValueObservingOptions, NSObject, NSObjectNSKeyValueObserverRegistration, NSRect,
+    NSRunLoop, NSRunLoopCommonModes, NSString, NSTimer, ns_string,
+};
 
 use std::rc::Rc;
 
@@ -45,6 +54,114 @@ pub struct DemoSurface {
 thread_local! {
     static SURFACES: RefCell<Vec<SurfaceId>> = const { RefCell::new(Vec::new()) };
     static TIMERS: RefCell<Vec<Retained<NSTimer>>> = const { RefCell::new(Vec::new()) };
+    static APPEARANCE: RefCell<Option<Appearance>> = const { RefCell::new(None) };
+}
+
+/// Ключ KVO оформления приложения.
+fn appearance_key() -> &'static NSString {
+    ns_string!("effectiveAppearance")
+}
+
+/// Подписка на тему: что перекрашивать и какая схема уже подана libghostty.
+struct Appearance {
+    scene: Rc<Scene>,
+    window: Retained<NSWindow>,
+    watch: Retained<AppearanceWatch>,
+    applied: Cell<ColorScheme>,
+}
+
+define_class!(
+    /// Наблюдатель KVO `NSApp.effectiveAppearance`.
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "ProbeGhosttyDemoAppearance"]
+    struct AppearanceWatch;
+
+    impl AppearanceWatch {
+        #[unsafe(method(observeValueForKeyPath:ofObject:change:context:))]
+        fn observe_value(
+            &self,
+            _key_path: Option<&NSString>,
+            _object: Option<&AnyObject>,
+            _change: Option<&AnyObject>,
+            _context: *mut c_void,
+        ) {
+            // Уведомление приходит посреди смены оформления AppKit; перекраска — следующим шагом.
+            schedule(0.0, false, |_| follow_appearance());
+        }
+    }
+);
+
+fn scheme_of(dark: bool) -> ColorScheme {
+    if dark {
+        ColorScheme::Dark
+    } else {
+        ColorScheme::Light
+    }
+}
+
+/// Новая схема, если оформление разошлось с поданной; повтор без смены — `None`.
+fn scheme_change(applied: ColorScheme, dark: bool) -> Option<ColorScheme> {
+    let next = scheme_of(dark);
+    (next != applied).then_some(next)
+}
+
+/// Подписывается на смену темы приложения; снимает подписку [`shutdown`].
+fn watch_appearance(
+    scene: &Rc<Scene>,
+    window: &NSWindow,
+    app: &NSApplication,
+    applied: ColorScheme,
+) {
+    let watch = AppearanceWatch::alloc(window.mtm()).set_ivars(());
+    // SAFETY: `init` у NSObject без аргументов.
+    let watch: Retained<AppearanceWatch> = unsafe { msg_send![super(watch), init] };
+    // SAFETY: наблюдатель реализует `observeValueForKeyPath:…`, контекст не используется;
+    // подписка снимается в `shutdown` до освобождения наблюдателя.
+    unsafe {
+        app.addObserver_forKeyPath_options_context(
+            &watch,
+            appearance_key(),
+            NSKeyValueObservingOptions::New,
+            ptr::null_mut(),
+        );
+    }
+    APPEARANCE.with(|cell| {
+        *cell.borrow_mut() = Some(Appearance {
+            scene: Rc::clone(scene),
+            window: window.retain(),
+            watch,
+            applied: Cell::new(applied),
+        });
+    });
+}
+
+/// Следует за темой, как сценарий `palette`: палитра сцены, затем схема libghostty.
+fn follow_appearance() {
+    let Some((scene, window, scheme)) = APPEARANCE.with(|cell| {
+        let state = cell.borrow();
+        let state = state.as_ref()?;
+        let app = NSApplication::sharedApplication(state.window.mtm());
+        let scheme = scheme_change(
+            state.applied.get(),
+            scene::is_dark(&app.effectiveAppearance()),
+        )?;
+        state.applied.set(scheme);
+        Some((Rc::clone(&state.scene), state.window.clone(), scheme))
+    }) else {
+        return;
+    };
+    scene.apply_appearance(&window, scheme.is_dark());
+    match runtime::set_color_scheme(scheme) {
+        Ok(record) => say(&format!(
+            "тема {}: поверхностей {}, reload_config приложения {}, config_change {}",
+            record.scheme,
+            record.surfaces,
+            record.reload_config_from_app,
+            record.config_change_from_update
+        )),
+        Err(reason) => say(&format!("смена темы {}: {reason}", scheme.name())),
+    }
 }
 
 fn say(line: &str) {
@@ -71,14 +188,11 @@ pub fn start(
             diagnostics.join("; ")
         ));
     }
-    let scheme = if scene::is_dark(&app.effectiveAppearance()) {
-        ColorScheme::Dark
-    } else {
-        ColorScheme::Light
-    };
+    let scheme = scheme_of(scene::is_dark(&app.effectiveAppearance()));
     // Модель видимости действует на виды, которые получат поверхность после включения.
     visibility::enable(workarounds);
     runtime::start(config, scheme, app.isActive())?;
+    watch_appearance(scene, window, app, scheme);
     let center = add_shell(scene, window, Zone::Center, "Терминал shell, центр")?;
     let bottom = add_shell(scene, window, Zone::Bottom, "Терминал shell, низ")?;
     crate::router::install(Rc::clone(scene), window);
@@ -182,6 +296,11 @@ fn report(id: SurfaceId, timer: &NSTimer) {
 
 /// Завершение runtime при выходе из демонстрации: поверхность освобождается, shell завершается.
 pub fn shutdown() {
+    if let Some(state) = APPEARANCE.with(|cell| cell.borrow_mut().take()) {
+        let app = NSApplication::sharedApplication(state.window.mtm());
+        // SAFETY: тот же наблюдатель и ключ, что в `watch_appearance`.
+        unsafe { app.removeObserver_forKeyPath(&state.watch, appearance_key()) };
+    }
     crate::a11y::shutdown_demo();
     let _ = crate::router::uninstall();
     let _ = crate::palette::uninstall();
@@ -223,4 +342,23 @@ fn schedule(delay_s: f64, repeats: bool, action: impl Fn(&NSTimer) + 'static) {
         timers.retain(|timer| timer.isValid());
         timers.push(timer);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scheme_change_only_on_real_switch() {
+        assert_eq!(
+            scheme_change(ColorScheme::Light, true),
+            Some(ColorScheme::Dark)
+        );
+        assert_eq!(
+            scheme_change(ColorScheme::Dark, false),
+            Some(ColorScheme::Light)
+        );
+        assert_eq!(scheme_change(ColorScheme::Dark, true), None);
+        assert_eq!(scheme_change(ColorScheme::Light, false), None);
+    }
 }
