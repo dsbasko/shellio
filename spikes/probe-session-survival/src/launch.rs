@@ -49,16 +49,19 @@ pub const BUILD_COMMIT: &str = "SHELLIO_PROBE_COMMIT";
 pub const BUILD_RUSTC: &str = "SHELLIO_PROBE_RUSTC";
 const BUILD_VARS: [&str; 2] = [BUILD_COMMIT, BUILD_RUSTC];
 /// Версии наборов пробы и их Zig, которые `run.sh` снимает перед сценариями: переменная и ключ
-/// `environment.versions`. Имена не начинаются с `ZMX_`: такие переменные запрещены.
-pub const SET_VERSIONS: [(&str, &str); 3] = [
+/// `environment.versions`. Имена не начинаются с `ZMX_` и `GHOSTTY_`: такие переменные запрещены.
+pub const SET_VERSIONS: [(&str, &str); 5] = [
     ("SHELLIO_PROBE_VERSION_ZIG_ZMX", "zig-zmx"),
     ("SHELLIO_PROBE_VERSION_ZMX", "zmx"),
     ("SHELLIO_PROBE_VERSION_ZMX_PREV", "zmx-prev"),
+    ("SHELLIO_PROBE_VERSION_ZIG_VT", "zig-vt"),
+    ("SHELLIO_PROBE_VERSION_VT", "vt"),
 ];
 /// SHA-256 штампов наборов пробы: переменная и ключ `environment.stamps`.
-pub const SET_STAMPS: [(&str, &str); 2] = [
+pub const SET_STAMPS: [(&str, &str); 3] = [
     ("SHELLIO_PROBE_STAMP_ZMX", "zmx"),
     ("SHELLIO_PROBE_STAMP_ZMX_PREV", "zmx-prev"),
+    ("SHELLIO_PROBE_STAMP_VT", "vt"),
 ];
 
 /// Переменные `run.sh`, которые запуск передаёт процессу сценария как есть, если они не пусты.
@@ -803,14 +806,16 @@ mod tests {
             "SHELLIO_PROBE_VERSION_ZMX_PREV" => Some(String::new()),
             "SHELLIO_PROBE_STAMP_ZMX_PREV" => Some("ab12".to_owned()),
             "SHELLIO_PROBE_STAMP_VT" => Some("cd34".to_owned()),
+            "SHELLIO_PROBE_STAMP_UNKNOWN" => Some("ef56".to_owned()),
             _ => None,
         };
         let env = build_env(parent, "/tmp/shellio-probe-state.n1").unwrap();
         assert_eq!(
-            env[env.len() - 2..],
+            env[env.len() - 3..],
             pairs(&[
                 ("SHELLIO_PROBE_VERSION_ZMX", "zmx 0.8.1; ghostty_vt g"),
                 ("SHELLIO_PROBE_STAMP_ZMX_PREV", "ab12"),
+                ("SHELLIO_PROBE_STAMP_VT", "cd34"),
             ])
         );
         assert_eq!(check_env(&env, Some("n1")), Check::default());

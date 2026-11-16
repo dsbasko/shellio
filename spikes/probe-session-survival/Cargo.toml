@@ -5,6 +5,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish = false
+build = "build.rs"
 # Каждый бинарь объявляется в задаче плана, где появляется его файл.
 autobins = false
 

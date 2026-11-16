@@ -1,12 +1,15 @@
 #!/bin/bash
 # Сборка и запуск пробы P0.4 probe-session-survival (ADR-0034, ADR-0035).
-#   run.sh scenarios [сценарий …]  сборка или сверка наборов zmx (scripts/zmx.sh ensure), clippy и
+#   run.sh scenarios [сценарий …]  сборка или сверка наборов zmx (scripts/zmx.sh ensure) и набора
+#                                  libghostty-vt (scripts/vt.sh ensure), сверка привязок, clippy и
 #                                  тесты с функцией vt, сборка раннера, затем каждый
 #                                  сценарий на каждом своём кандидате отдельным процессом через
 #                                  --launch под caffeinate -dimsu (временный SHELLIO_STATE_DIR
 #                                  создаёт --launch), выход в
 #                                  target/probes/session-survival/<время>-<pid>/, затем --aggregate
 #   run.sh check <функции>         clippy --all-targets -D warnings и тесты с функциями через запятую
+#   run.sh bindings                сборка или сверка набора vt и генерация src/vt/bindings.rs
+#   run.sh bindings-check          сборка или сверка набора vt и сверка src/vt/bindings.rs с ним
 # Функции vt и surface одним вызовом cargo не включаются: архивы libghostty-vt.a и libghostty.a не
 # попадают в одну линковку, а headless-команда не строит shellio-sys-ghostty и не читает
 # vendor/ghostty/. Headless-сценарии набор ghostty не читают, блокировку не берут.
@@ -17,7 +20,11 @@ CARGO="${CARGO:-cargo}"
 PACKAGE=probe-session-survival
 BIN="$ROOT/target/release/probe-session"
 OUT_BASE="$ROOT/target/probes/session-survival"
+# Каталог наборов пробы — как в scripts/zmx.sh и scripts/vt.sh.
+SETS_DIR="${SHELLIO_PROBE_SETS_DIR:-$OUT_BASE}"
 ZMX_SH="$ROOT/spikes/probe-session-survival/scripts/zmx.sh"
+VT_SH="$ROOT/spikes/probe-session-survival/scripts/vt.sh"
+VT_BINDINGS="$ROOT/spikes/probe-session-survival/scripts/vt-bindings.sh"
 ALL_SCENARIOS="smoke"
 
 die() {
@@ -85,11 +92,23 @@ prepare_zmx_sets() {
     for set in $sets; do
         var="$(printf '%s' "$set" | tr '[:lower:]-' '[:upper:]_')"
         version="$("$ZMX_SH" version "$set")"
-        sum="$(shasum -a 256 <"$OUT_BASE/$set/stamp")"
-        zig="$(sed -n 's/^zmx_zig_version=//p' "$OUT_BASE/$set/stamp")"
+        sum="$(shasum -a 256 <"$SETS_DIR/$set/stamp")"
+        zig="$(sed -n 's/^zmx_zig_version=//p' "$SETS_DIR/$set/stamp")"
         export "SHELLIO_PROBE_VERSION_$var=$version" "SHELLIO_PROBE_STAMP_$var=${sum%% *}"
     done
     export SHELLIO_PROBE_VERSION_ZIG_ZMX="$zig"
+}
+
+# Набор libghostty-vt: сборка или сверка до любого вызова cargo с функцией vt, затем версия, Zig и
+# SHA-256 штампа для environment в result.json.
+prepare_vt_set() {
+    local version sum zig
+    "$VT_SH" ensure
+    version="$("$VT_SH" version)"
+    sum="$(shasum -a 256 <"$SETS_DIR/vt/stamp")"
+    zig="$(sed -n 's/^zig_version=//p' "$SETS_DIR/vt/stamp")"
+    export SHELLIO_PROBE_VERSION_VT="$version" SHELLIO_PROBE_STAMP_VT="${sum%% *}" \
+        SHELLIO_PROBE_VERSION_ZIG_VT="$zig"
 }
 
 # Кандидаты сценария: «-» — сценарий стенда без кандидата.
@@ -139,6 +158,8 @@ cmd_scenarios() {
         variants="$(variants_of "$scenario")"
     done
     prepare_zmx_sets
+    prepare_vt_set
+    "$VT_BINDINGS" --check
     check_features vt
     cargo_with vt build --release
     build_info
@@ -188,9 +209,20 @@ case "${1:-}" in
         ;;
     check)
         [ "$#" -eq 2 ] || die "использование: run.sh check <функции через запятую>"
+        case ",$2," in *,vt,*) "$VT_SH" ensure ;; esac
         check_features "$2"
         ;;
+    bindings)
+        [ "$#" -eq 1 ] || die "использование: run.sh bindings"
+        "$VT_SH" ensure
+        "$VT_BINDINGS"
+        ;;
+    bindings-check)
+        [ "$#" -eq 1 ] || die "использование: run.sh bindings-check"
+        "$VT_SH" ensure
+        "$VT_BINDINGS" --check
+        ;;
     *)
-        die "использование: run.sh scenarios [сценарий …] | run.sh check <функции>"
+        die "использование: run.sh scenarios [сценарий …] | run.sh check <функции> | run.sh bindings | run.sh bindings-check"
         ;;
 esac

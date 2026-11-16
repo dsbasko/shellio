@@ -11,6 +11,8 @@ pub mod pty;
 pub mod results;
 pub mod stats;
 pub mod sys;
+#[cfg(feature = "vt")]
+pub mod vt;
 
 use std::io::{self, Write};
 use std::path::Path;
