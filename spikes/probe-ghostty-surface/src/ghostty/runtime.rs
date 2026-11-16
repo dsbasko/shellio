@@ -31,7 +31,8 @@ use objc2::rc::Retained;
 use objc2::{MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSApplicationDidBecomeActiveNotification, NSApplicationDidResignActiveNotification,
-    NSEventTrackingRunLoopMode, NSWorkspace, NSWorkspaceScreensDidWakeNotification,
+    NSEventTrackingRunLoopMode, NSTextInputContextKeyboardSelectionDidChangeNotification,
+    NSWorkspace, NSWorkspaceScreensDidWakeNotification,
 };
 use objc2_core_graphics::{CGDisplayIsAsleep, CGMainDisplayID};
 use objc2_foundation::{NSNotification, NSNotificationCenter, NSObject, NSRunLoop};
@@ -500,6 +501,8 @@ pub struct Stats {
     pub clipboard_write_confirm_denied: u64,
     /// Подачи `ghostty_app_set_focus` после `start`: активность приложения.
     pub app_focus: Vec<bool>,
+    /// Подачи `ghostty_app_keyboard_changed`: смены источника ввода.
+    pub keyboard_changes: u64,
     /// `ghostty_surface_update_config` в ответ на мягкий `reload_config` поверхности.
     pub surface_config_updates: u64,
     /// Живые смены схемы: схема и число поверхностей, получивших её.
@@ -557,7 +560,7 @@ struct Runtime {
     surfaces: Surfaces,
     pass: u64,
     stats: Stats,
-    /// Наблюдатель активности приложения; снимается в `shutdown`.
+    /// Наблюдатель активности приложения и источника ввода; снимается в `shutdown`.
     activity: Option<Retained<AppActivity>>,
     /// Наблюдатель пробуждения экранов; снимается в `shutdown`.
     screen_wake: Option<Retained<ScreenWake>>,
@@ -1022,7 +1025,21 @@ fn app_focus_changed(focused: bool) {
     unsafe { sys::ghostty_app_set_focus(app, focused) };
 }
 
-/// Наблюдатель `NSApplicationDidBecomeActive` и `DidResignActive` для `ghostty_app_set_focus`.
+/// Подача смены источника ввода в `ghostty_app_keyboard_changed` вне заимствования состояния.
+/// Раскладку, по которой решается `macos-option-as-alt`, ghostty запоминает и сам не перечитывает.
+fn keyboard_changed() {
+    let Some(app) = with(|rt| {
+        rt.stats.keyboard_changes += 1;
+        rt.app
+    }) else {
+        return;
+    };
+    // SAFETY: приложение живо, пока runtime стоит в потоке; вызов на главном потоке.
+    unsafe { sys::ghostty_app_keyboard_changed(app) };
+}
+
+/// Наблюдатель `NSApplicationDidBecomeActive` и `DidResignActive` для `ghostty_app_set_focus` и
+/// `NSTextInputContextKeyboardSelectionDidChange` для `ghostty_app_keyboard_changed`.
 pub struct ActivityIvars {
     _live: Live,
 }
@@ -1043,6 +1060,11 @@ define_class!(
         #[unsafe(method(appDidResignActive:))]
         fn app_did_resign_active(&self, _notification: &NSNotification) {
             app_focus_changed(false);
+        }
+
+        #[unsafe(method(keyboardSelectionDidChange:))]
+        fn keyboard_selection_did_change(&self, _notification: &NSNotification) {
+            keyboard_changed();
         }
     }
 );
@@ -1068,6 +1090,12 @@ impl AppActivity {
                 &this,
                 sel!(appDidResignActive:),
                 Some(NSApplicationDidResignActiveNotification),
+                None,
+            );
+            center.addObserver_selector_name_object(
+                &this,
+                sel!(keyboardSelectionDidChange:),
+                Some(NSTextInputContextKeyboardSelectionDidChangeNotification),
                 None,
             );
         }

@@ -193,6 +193,8 @@ impl Hub {
                 if let Some(conn) = self.conn_mut(conn) {
                     conn.closed = true;
                     conn.errors.extend(error);
+                    // Закрытая очередь завершает поток записи, и он отпускает свою копию сокета.
+                    conn.writer = None;
                 }
             }
         }
@@ -440,12 +442,23 @@ mod tests {
             },
         };
         client.write_all(&fixture::encode(&exit).unwrap()).unwrap();
-        drop(client);
+        // Фикстура закрывает свою сторону записи, но читает дальше: конец файла придёт ей, только
+        // когда поток чтения и поток записи пробы отпустят обе копии сокета.
+        client.shutdown(std::net::Shutdown::Write).unwrap();
         while !hub.conns[0].closed {
             assert!(hub.poll_for(WAIT), "нет закрытия: {}", hub.describe());
         }
         assert_eq!(hub.conns[0].exit, Some(("hangup".to_owned(), 0)));
         assert_eq!(hub.conns[0].receipts.len(), 3);
+        let error = hub.send("run-s1", Command::StopStream).unwrap_err();
+        assert!(error.contains("нет потока записи"), "{error}");
+        client.set_read_timeout(Some(WAIT)).unwrap();
+        let tail = client.read(&mut buf);
+        assert!(
+            matches!(tail, Ok(0)),
+            "поток записи держит сокет после закрытия: {tail:?}"
+        );
+        drop(client);
         let socket = hub.path().to_path_buf();
         drop(hub);
         assert!(!socket.exists());
