@@ -293,3 +293,45 @@ fn key_and_mouse_encoders_follow_terminal_modes() {
     };
     assert_eq!(mouse.encode(&press).expect("нажатие"), b"\x1b[<0;3;3M");
 }
+
+#[test]
+fn osc_color_queries_need_default_colors() {
+    let mut term = terminal();
+    term.enable_effects(Responder::default()).expect("колбэки");
+    let colors = term.colors().expect("цвета");
+    assert_eq!(
+        (colors.foreground, colors.background),
+        (None, None),
+        "без цветов по умолчанию"
+    );
+    assert_eq!(colors.palette.len(), 256);
+    term.write(b"\x1b]10;?\x1b\\\x1b]11;?\x1b\\");
+    assert!(term.take_pty_output().is_empty(), "OSC 10 и 11 молчат");
+    term.write(b"\x1b]4;1;?\x1b\\");
+    assert!(
+        term.take_pty_output().starts_with(b"\x1b]4;1;rgb:"),
+        "палитра задана всегда"
+    );
+
+    let white = Rgb {
+        r: 0xff,
+        g: 0xff,
+        b: 0xff,
+    };
+    term.set_default_colors(Some(white), None, None)
+        .expect("цвета по умолчанию");
+    assert_eq!(term.colors().expect("цвета").foreground, Some(white));
+    term.write(b"\x1b]10;?\x1b\\");
+    assert_eq!(term.take_pty_output(), b"\x1b]10;rgb:ffff/ffff/ffff\x1b\\");
+    term.write(b"\x1b]11;?\x1b\\");
+    assert!(
+        term.take_pty_output().is_empty(),
+        "фон по-прежнему не задан"
+    );
+}
+
+#[test]
+fn focus_reports_are_encoded_by_event() {
+    assert_eq!(focus_report(true).expect("фокус"), b"\x1b[I");
+    assert_eq!(focus_report(false).expect("фокус"), b"\x1b[O");
+}

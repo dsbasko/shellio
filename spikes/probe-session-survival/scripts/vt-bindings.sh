@@ -26,7 +26,8 @@ target_file="$probe/src/vt/bindings.rs"
 #   инкрементальное восстановление истории проверяет хост в задаче 12;
 # - ghostty_render_*: клетки обёртка читает через grid_ref, render state нужен рендереру, а не оракулу;
 # - *_get_multi, ghostty_terminal_grid_ref_track, _compress, _scroll_viewport, _vt_write_until.
-# Вне списка: kitty graphics, search, selection, парсеры OSC и SGR, paste, focus, unicode, sys и wasm.
+# Вне списка: kitty graphics, search, selection, парсеры OSC и SGR, paste, unicode, sys и wasm. Из focus
+# нужна только ghostty_focus_encode: отчёт фокуса приёмника оракула (режим 1004).
 functions=(
   'ghostty_terminal_.*'
   'ghostty_formatter_.*'
@@ -63,6 +64,7 @@ functions=(
   ghostty_mouse_event_set_button
   ghostty_mouse_event_set_mods
   ghostty_mouse_event_set_position
+  ghostty_focus_encode
   ghostty_build_info
   ghostty_free
 )
@@ -106,6 +108,7 @@ types=(
   GhosttyMouseTrackingMode
   GhosttyMouseFormat
   GhosttySnapshotDecoderOption
+  GhosttyFocusEvent
   GhosttyBuildInfo
   GhosttyOptimizeMode
 )

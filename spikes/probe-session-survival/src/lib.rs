@@ -7,6 +7,7 @@ pub mod fixture;
 pub mod launch;
 pub mod matrix;
 pub mod observer;
+pub mod oracle;
 pub mod pty;
 pub mod results;
 pub mod stats;

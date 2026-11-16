@@ -203,6 +203,18 @@ pub struct GhosttyDeviceAttributes {
     pub secondary: GhosttyDeviceAttributesSecondary,
     pub tertiary: GhosttyDeviceAttributesTertiary,
 }
+pub const GhosttyFocusEvent_GHOSTTY_FOCUS_GAINED: GhosttyFocusEvent = 0;
+pub const GhosttyFocusEvent_GHOSTTY_FOCUS_LOST: GhosttyFocusEvent = 1;
+pub const GhosttyFocusEvent_GHOSTTY_FOCUS_MAX_VALUE: GhosttyFocusEvent = 2147483647;
+pub type GhosttyFocusEvent = ::std::os::raw::c_int;
+unsafe extern "C" {
+    pub fn ghostty_focus_encode(
+        event: GhosttyFocusEvent,
+        buf: *mut ::std::os::raw::c_char,
+        buf_len: usize,
+        out_written: *mut usize,
+    ) -> GhosttyResult;
+}
 pub type GhosttyReaderFn = ::std::option::Option<
     unsafe extern "C" fn(
         userdata: *mut ::std::os::raw::c_void,

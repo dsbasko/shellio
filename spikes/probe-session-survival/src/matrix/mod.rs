@@ -15,7 +15,7 @@ use crate::results::{
     self, Build, Cell, Environment, Execution, Hardware, Os, ProcessInfo, Report, Requirement,
     ResultFile, Status,
 };
-use crate::{EXIT_EXECUTION, EXIT_USAGE, say, sys};
+use crate::{EXIT_EXECUTION, EXIT_USAGE, oracle, say, sys};
 
 /// Кандидат хоста сессии (ADR-0005).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -220,7 +220,7 @@ pub fn describe(result: &ResultFile) -> String {
 }
 
 /// Окружение процесса сценария. Версии и штампы наборов пробы приходят от `run.sh` через
-/// запуск, версию профиля нормализаций добавляет задача оракулов.
+/// запуск, версия профиля нормализаций — из `oracle::model`.
 pub fn collect_environment(
     entry_env: &[(String, String)],
     nonce: Option<String>,
@@ -262,7 +262,7 @@ pub fn collect_environment(
         },
         versions: facts(&launch::SET_VERSIONS),
         stamps: facts(&launch::SET_STAMPS),
-        normalization_profile: None,
+        normalization_profile: Some(oracle::model::PROFILE_VERSION),
         process: ProcessInfo {
             pid: std::process::id(),
             nonce,
@@ -330,6 +330,12 @@ pub fn smoke_report(environment: &Environment) -> Report {
         if !environment.stamps.contains_key(key) {
             missing.push(format!("штамп {key}"));
         }
+    }
+    if environment.normalization_profile != Some(oracle::model::PROFILE_VERSION) {
+        missing.push(format!(
+            "профиль нормализаций {}",
+            oracle::model::PROFILE_VERSION
+        ));
     }
     let (status, reason) = if missing.is_empty() {
         (
@@ -399,7 +405,7 @@ pub(crate) mod tests {
                 .iter()
                 .map(|(_, key)| ((*key).to_owned(), "ab12".to_owned()))
                 .collect(),
-            normalization_profile: None,
+            normalization_profile: Some(oracle::model::PROFILE_VERSION),
             process: ProcessInfo {
                 pid: 4242,
                 nonce: Some("0123abcd".to_owned()),
@@ -486,6 +492,17 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn smoke_fails_without_current_normalization_profile() {
+        let mut environment = environment();
+        environment.normalization_profile = None;
+        let cell = &smoke_report(&environment).cells[0];
+        assert_eq!(cell.status, Status::Fail);
+        assert_eq!(cell.reason, "в окружении нет: профиль нормализаций 1");
+        environment.normalization_profile = Some(oracle::model::PROFILE_VERSION + 1);
+        assert_eq!(smoke_report(&environment).cells[0].status, Status::Fail);
+    }
+
+    #[test]
     fn describe_counts_cells_and_execution() {
         let ok = ResultFile::new(
             "smoke",
@@ -548,6 +565,10 @@ pub(crate) mod tests {
         assert_eq!(environment.build.rustc, None);
         assert_eq!(environment.process.state_dir.as_deref(), Some("/tmp/s"));
         assert_eq!(environment.process.nonce.as_deref(), Some("n1"));
+        assert_eq!(
+            environment.normalization_profile,
+            Some(oracle::model::PROFILE_VERSION)
+        );
         assert_eq!(environment.process.env.len(), 7);
     }
 }

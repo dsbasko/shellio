@@ -168,6 +168,41 @@ pub enum Color {
     Rgb(u8, u8, u8),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Rgb {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+impl Rgb {
+    fn from_sys(rgb: sys::GhosttyColorRgb) -> Rgb {
+        Rgb {
+            r: rgb.r,
+            g: rgb.g,
+            b: rgb.b,
+        }
+    }
+
+    fn to_sys(self) -> sys::GhosttyColorRgb {
+        sys::GhosttyColorRgb {
+            r: self.r,
+            g: self.g,
+            b: self.b,
+        }
+    }
+}
+
+/// Цвета терминала: текущие динамические (переопределение OSC 10/11/12 или значение по умолчанию,
+/// `None` — не задано ни то, ни другое) и палитра из 256 цветов.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Colors {
+    pub foreground: Option<Rgb>,
+    pub background: Option<Rgb>,
+    pub cursor: Option<Rgb>,
+    pub palette: Vec<Rgb>,
+}
+
 impl Color {
     fn from_sys(color: &sys::GhosttyStyleColor) -> Color {
         match color.tag {
@@ -498,15 +533,19 @@ unsafe fn strings(list: *const sys::GhosttyString, len: usize) -> Vec<String> {
         .collect()
 }
 
+// Ответ `reply` уходит через `WRITE_PTY` синхронно, и `on_write_pty` берёт своё `&mut` состояния.
+// Поэтому колбэки буфера обмена копируют всё нужное, отпускают состояние до `reply` и берут его
+// заново после.
+
 unsafe extern "C" fn on_clipboard_write(
     _terminal: sys::GhosttyTerminal,
     userdata: *mut c_void,
     write: *const sys::GhosttyClipboardWrite,
 ) {
     // SAFETY: см. on_write_pty; запрос одолжен на время вызова, поля читаются только в пределах его
-    // size, содержимое копируется.
+    // size, содержимое копируется. Ссылка на состояние не живёт во время reply.
     unsafe {
-        let (Some(state), Some(request)) = (state(userdata), write.as_ref()) else {
+        let Some(request) = write.as_ref() else {
             return;
         };
         let reply_offset = mem::offset_of!(sys::GhosttyClipboardWrite, reply);
@@ -530,10 +569,13 @@ unsafe extern "C" fn on_clipboard_write(
                 })
                 .collect()
         };
-        state.effects.push(Effect::ClipboardWrite {
-            location: request.location,
-            contents,
-        });
+        match state(userdata) {
+            Some(state) => state.effects.push(Effect::ClipboardWrite {
+                location: request.location,
+                contents,
+            }),
+            None => return,
+        }
         if let Some(reply) = request.reply {
             let mut answer: sys::GhosttyClipboardWriteReply = sized();
             answer.result = sys::GhosttyClipboardWriteResult_GHOSTTY_CLIPBOARD_WRITE_RESULT_SUCCESS;
@@ -548,9 +590,9 @@ unsafe extern "C" fn on_clipboard_read(
     read: *const sys::GhosttyClipboardRead,
 ) {
     // SAFETY: см. on_clipboard_write. Ответ отдаётся до возврата из колбэка, как требует C API:
-    // буферы ответа живут до конца вызова reply.
+    // буферы ответа — локальная копия, они живут до конца вызова reply.
     unsafe {
-        let (Some(state), Some(request)) = (state(userdata), read.as_ref()) else {
+        let Some(request) = read.as_ref() else {
             return;
         };
         let reply_offset = mem::offset_of!(sys::GhosttyClipboardRead, reply);
@@ -562,7 +604,10 @@ unsafe extern "C" fn on_clipboard_read(
             return;
         }
         let mimes = strings(request.mimes, request.mimes_len);
-        let answered = match (&state.responder.clipboard, request.reply) {
+        let Some(clipboard) = state(userdata).map(|state| state.responder.clipboard.clone()) else {
+            return;
+        };
+        let answered = match (clipboard, request.reply) {
             (Some(data), Some(reply)) => {
                 let mime = b"text/plain";
                 let content = sys::GhosttyClipboardContent {
@@ -585,11 +630,13 @@ unsafe extern "C" fn on_clipboard_read(
             }
             _ => false,
         };
-        state.effects.push(Effect::ClipboardRead {
-            location: request.location,
-            mimes,
-            answered,
-        });
+        if let Some(state) = state(userdata) {
+            state.effects.push(Effect::ClipboardRead {
+                location: request.location,
+                mimes,
+                answered,
+            });
+        }
     }
 }
 
@@ -853,6 +900,50 @@ impl Terminal {
         Ok(())
     }
 
+    /// Меняет ответы колбэков, например размер после ресайза; колбэки остаются прежними.
+    pub fn set_responder(&mut self, responder: Responder) {
+        self.effect_state().responder = responder;
+    }
+
+    /// Цвета по умолчанию: основной, фон и курсор. `None` снимает значение. От них зависят ответы на
+    /// OSC 10, 11 и 12 и текущие цвета, которые читает [`Terminal::colors`].
+    pub fn set_default_colors(
+        &mut self,
+        foreground: Option<Rgb>,
+        background: Option<Rgb>,
+        cursor: Option<Rgb>,
+    ) -> Result<()> {
+        let options = [
+            (
+                sys::GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_COLOR_FOREGROUND,
+                "ghostty_terminal_set(COLOR_FOREGROUND)",
+                foreground,
+            ),
+            (
+                sys::GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_COLOR_BACKGROUND,
+                "ghostty_terminal_set(COLOR_BACKGROUND)",
+                background,
+            ),
+            (
+                sys::GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_COLOR_CURSOR,
+                "ghostty_terminal_set(COLOR_CURSOR)",
+                cursor,
+            ),
+        ];
+        for (option, name, color) in options {
+            let value = color.map(Rgb::to_sys);
+            let ptr: *const c_void = value
+                .as_ref()
+                .map_or(ptr::null(), |value| ptr::from_ref(value).cast());
+            // SAFETY: значение опции цвета — указатель на GhosttyColorRgb или NULL; терминал копирует
+            // цвет до возврата.
+            check(name, unsafe {
+                sys::ghostty_terminal_set(self.raw(), option, ptr)
+            })?;
+        }
+        Ok(())
+    }
+
     /// Колбэк передаётся самим значением; NULL снимает его.
     fn set_callback(
         &mut self,
@@ -1103,6 +1194,43 @@ impl Terminal {
             )
         }?;
         Ok(flags)
+    }
+
+    /// Текущие цвета и палитра.
+    pub fn colors(&self) -> Result<Colors> {
+        let dynamic = |data, name| -> Result<Option<Rgb>> {
+            let mut value = sys::GhosttyColorRgb { r: 0, g: 0, b: 0 };
+            // SAFETY: выходной тип COLOR_FOREGROUND, _BACKGROUND и _CURSOR — GhosttyColorRgb.
+            match unsafe { self.get(data, name, &mut value) } {
+                Ok(()) => Ok(Some(Rgb::from_sys(value))),
+                Err(err) if err.code == sys::GhosttyResult_GHOSTTY_NO_VALUE => Ok(None),
+                Err(err) => Err(err),
+            }
+        };
+        let mut palette = [sys::GhosttyColorRgb { r: 0, g: 0, b: 0 }; 256];
+        // SAFETY: выходной тип COLOR_PALETTE — GhosttyColorRgb[256].
+        unsafe {
+            self.get(
+                sys::GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_COLOR_PALETTE,
+                "get(COLOR_PALETTE)",
+                &mut palette,
+            )
+        }?;
+        Ok(Colors {
+            foreground: dynamic(
+                sys::GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_COLOR_FOREGROUND,
+                "get(COLOR_FOREGROUND)",
+            )?,
+            background: dynamic(
+                sys::GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_COLOR_BACKGROUND,
+                "get(COLOR_BACKGROUND)",
+            )?,
+            cursor: dynamic(
+                sys::GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_COLOR_CURSOR,
+                "get(COLOR_CURSOR)",
+            )?,
+            palette: palette.into_iter().map(Rgb::from_sys).collect(),
+        })
     }
 
     pub fn title(&self) -> Result<Vec<u8>> {
@@ -1563,6 +1691,22 @@ impl Drop for MouseEncoder {
     fn drop(&mut self) {
         // SAFETY: освобождается один раз.
         unsafe { sys::ghostty_mouse_encoder_free(self.raw.as_ptr()) };
+    }
+}
+
+/// Отчёт фокуса режима 1004: `CSI I` при получении фокуса, `CSI O` при потере. Включён ли режим,
+/// проверяет вызывающий.
+pub fn focus_report(gained: bool) -> Result<Vec<u8>> {
+    let event = if gained {
+        sys::GhosttyFocusEvent_GHOSTTY_FOCUS_GAINED
+    } else {
+        sys::GhosttyFocusEvent_GHOSTTY_FOCUS_LOST
+    };
+    // SAFETY: функция пишет не больше cap байтов в буфер и длину в len.
+    unsafe {
+        sized_read("ghostty_focus_encode", |buf: *mut u8, cap, len| {
+            sys::ghostty_focus_encode(event, buf.cast(), cap, len)
+        })
     }
 }
 
