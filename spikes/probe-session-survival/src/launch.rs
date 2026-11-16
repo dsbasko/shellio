@@ -489,20 +489,64 @@ fn list_dir(dir: &Path) -> Vec<String> {
     names
 }
 
+/// Сколько раз перечитываются аргументы своего процесса, которые не прочитались: посреди `exec`
+/// ядро `KERN_PROCARGS2` не отдаёт.
+const ARGS_RETRIES: usize = 1000;
+
 /// Процессы с nonce в аргументах, кроме самого запуска.
 fn find_by_nonce(nonce: &str) -> Vec<ProcessRecord> {
     let own = std::process::id() as i32;
-    all_pids()
-        .into_iter()
-        .filter(|pid| *pid > 0 && *pid != own)
-        .filter_map(|pid| {
-            let args = process_args(pid)?;
-            carries_nonce(&args, nonce).then(|| ProcessRecord {
+    // SAFETY: вызов без аргументов.
+    let uid = unsafe { libc::getuid() };
+    let mut found = Vec::new();
+    let mut unread = Vec::new();
+    let take = |pid: i32, args: &[String], found: &mut Vec<ProcessRecord>| {
+        if carries_nonce(args, nonce) {
+            found.push(ProcessRecord {
                 pid,
-                command: command_line(&args),
-            })
-        })
-        .collect()
+                command: command_line(args),
+            });
+        }
+    };
+    for pid in all_pids().into_iter().filter(|pid| *pid > 0 && *pid != own) {
+        match process_args(pid) {
+            Some(args) => take(pid, &args, &mut found),
+            None if owner(pid) == Some(uid) => unread.push(pid),
+            None => {}
+        }
+    }
+    for _ in 0..ARGS_RETRIES {
+        if unread.is_empty() {
+            break;
+        }
+        std::thread::yield_now();
+        unread.retain(|pid| match process_args(*pid) {
+            Some(args) => {
+                take(*pid, &args, &mut found);
+                false
+            }
+            None => owner(*pid) == Some(uid),
+        });
+    }
+    found
+}
+
+/// Владелец процесса; `None`, если процесса уже нет.
+fn owner(pid: i32) -> Option<libc::uid_t> {
+    let mut info = std::mem::MaybeUninit::<libc::proc_bsdshortinfo>::uninit();
+    let size = c_int::try_from(size_of::<libc::proc_bsdshortinfo>()).ok()?;
+    // SAFETY: для `PROC_PIDT_SHORTBSDINFO` ядро пишет `proc_bsdshortinfo` размера `size`.
+    let written = unsafe {
+        libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDT_SHORTBSDINFO,
+            0,
+            info.as_mut_ptr().cast(),
+            size,
+        )
+    };
+    // SAFETY: при полном ответе структура записана целиком.
+    (written == size).then(|| unsafe { info.assume_init() }.pbsi_uid)
 }
 
 /// Снимает прямого потомка по PID, ведь он мог сменить argv через `exec`, и все процессы с

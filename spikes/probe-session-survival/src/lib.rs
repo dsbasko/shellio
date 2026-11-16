@@ -3,8 +3,11 @@
 //! над наборами пробы стоят за функцией `vt`. Бинарь `probe-session` только вызывает [`main`].
 
 pub mod args;
+pub mod fixture;
 pub mod launch;
 pub mod matrix;
+pub mod observer;
+pub mod pty;
 pub mod results;
 pub mod stats;
 pub mod sys;
