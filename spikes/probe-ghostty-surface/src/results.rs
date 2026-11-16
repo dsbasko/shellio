@@ -1115,8 +1115,8 @@ pub fn latency_summary(processes: &[ProcessSummary]) -> Option<LatencySummary> {
 }
 
 /// Выводы агрегатов задержки: участки — наблюдения; N без фона сравнивается с бюджетом по p95
-/// только при пройденной самопроверке; без прогона на внешнем дисплее проверка 60 Гц не
-/// проведена.
+/// только при пройденной самопроверке; без измеренных 120 Гц на встроенном и 60 Гц на внешнем
+/// дисплее проверки частоты не проведены.
 pub fn latency_findings(summary: &LatencySummary) -> Vec<RunFinding> {
     let mut findings = Vec::new();
     for display in &summary.displays {
@@ -1189,50 +1189,66 @@ pub fn latency_findings(summary: &LatencySummary) -> Vec<RunFinding> {
         };
         findings.push(finding("latency-n-budget", verdict, reason));
     }
-    // Частота не выводится из паспорта дисплея: внешний прогон закрывает пункт, только если
-    // displayLink измерил около 60 Гц.
-    let externals: Vec<&LatencyDisplay> = summary
-        .displays
-        .iter()
-        .filter(|display| display.execution_ok && !display.builtin)
-        .collect();
-    let at_60hz = externals.iter().any(|display| {
-        display
-            .measured_hz
-            .is_some_and(|hz| (hz - 60.0).abs() <= EXTERNAL_HZ_TOLERANCE)
-    });
-    if !at_60hz {
-        let seen = externals
-            .iter()
-            .map(|display| {
-                display.measured_hz.map_or_else(
-                    || format!("{}: частота не измерена", display.dir),
-                    |hz| format!("{}: {hz:.1} Гц", display.dir),
-                )
-            })
-            .collect::<Vec<_>>();
-        let reason = if seen.is_empty() {
-            "нет прогона на внешнем дисплее 60 Гц: владелец подключает дисплей, прогон с LATENCY_DISPLAYS=\"builtin external\" (задача 19)".to_owned()
-        } else {
-            format!(
-                "внешний прогон не на 60 Гц по displayLink ({}): нужен дисплей 60 Гц, прогон с LATENCY_DISPLAYS=\"builtin external\" (задача 19)",
-                seen.join("; ")
-            )
-        };
-        findings.push(RunFinding {
-            scenario: LATENCY_SCENARIO.to_owned(),
-            variant: "external".to_owned(),
-            name: "latency-external-60hz".to_owned(),
-            requirement: Requirement::Required,
-            verdict: Verdict::PendingManual,
-            reason,
-        });
-    }
+    findings.extend(display_rate_finding(summary, true));
+    findings.extend(display_rate_finding(summary, false));
     findings
 }
 
-/// Допуск измеренной частоты внешнего дисплея вокруг 60 Гц.
-const EXTERNAL_HZ_TOLERANCE: f64 = 3.0;
+/// Обязательный пункт частоты дисплея: встроенный закрывается прогоном на 120 Гц, внешний — на
+/// 60 Гц. Частота не выводится из паспорта дисплея, а берётся из измерения displayLink: ProMotion
+/// в Low Power Mode или с фиксированной частотой даёт 60 Гц и на встроенном.
+fn display_rate_finding(summary: &LatencySummary, builtin: bool) -> Option<RunFinding> {
+    let (variant, target) = if builtin {
+        ("builtin", 120.0)
+    } else {
+        ("external", 60.0)
+    };
+    let runs: Vec<&LatencyDisplay> = summary
+        .displays
+        .iter()
+        .filter(|display| display.execution_ok && display.builtin == builtin)
+        .collect();
+    let at_target = runs.iter().any(|display| {
+        display
+            .measured_hz
+            .is_some_and(|hz| (hz - target).abs() <= DISPLAY_HZ_TOLERANCE)
+    });
+    if at_target {
+        return None;
+    }
+    let seen = runs
+        .iter()
+        .map(|display| {
+            display.measured_hz.map_or_else(
+                || format!("{}: частота не измерена", display.dir),
+                |hz| format!("{}: {hz:.1} Гц", display.dir),
+            )
+        })
+        .collect::<Vec<_>>();
+    let reason = match (builtin, seen.is_empty()) {
+        (false, true) => "нет прогона на внешнем дисплее 60 Гц: владелец подключает дисплей, прогон с LATENCY_DISPLAYS=\"builtin external\" (задача 19)".to_owned(),
+        (false, false) => format!(
+            "внешний прогон не на 60 Гц по displayLink ({}): нужен дисплей 60 Гц, прогон с LATENCY_DISPLAYS=\"builtin external\" (задача 19)",
+            seen.join("; ")
+        ),
+        (true, true) => "нет прогона на встроенном дисплее 120 Гц: прогон с LATENCY_DISPLAYS, в котором есть builtin (задача 19)".to_owned(),
+        (true, false) => format!(
+            "встроенный прогон не на 120 Гц по displayLink ({}): ProMotion ограничен (Low Power Mode или фиксированная частота дисплея), нужен прогон на 120 Гц (задача 19)",
+            seen.join("; ")
+        ),
+    };
+    Some(RunFinding {
+        scenario: LATENCY_SCENARIO.to_owned(),
+        variant: variant.to_owned(),
+        name: format!("latency-{variant}-{target:.0}hz"),
+        requirement: Requirement::Required,
+        verdict: Verdict::PendingManual,
+        reason,
+    })
+}
+
+/// Допуск измеренной частоты дисплея вокруг требуемой.
+const DISPLAY_HZ_TOLERANCE: f64 = 3.0;
 
 /// Сценарий и вариант по имени каталога `<сценарий>-<вариант>` или `<сценарий>-<вариант>-<NN>`
 /// у повторных запусков, который даёт `run.sh`. Имя варианта дефиса не содержит.
@@ -2303,11 +2319,9 @@ mod tests {
         };
         assert_eq!(budget("builtin"), Verdict::Pass);
         assert_eq!(budget("external"), Verdict::Fail);
-        assert!(
-            !findings
-                .iter()
-                .any(|finding| finding.name == "latency-external-60hz")
-        );
+        assert!(!findings.iter().any(|finding| {
+            finding.name == "latency-external-60hz" || finding.name == "latency-builtin-120hz"
+        }));
         assert_eq!(
             findings
                 .iter()
@@ -2358,6 +2372,38 @@ mod tests {
                 finding.reason
             );
         }
+    }
+
+    #[test]
+    fn builtin_run_closes_120hz_only_at_measured_120hz() {
+        let rate = |processes: &[ProcessSummary]| {
+            latency_findings(&latency_summary(processes).unwrap())
+                .into_iter()
+                .find(|finding| finding.name == "latency-builtin-120hz")
+        };
+        let builtin_at = |hz: Option<f64>| {
+            let mut process = latency_process("latency-builtin", "builtin", true, 9.5);
+            if let Some(marks) = process.latency.as_mut() {
+                marks.measured_hz = hz;
+            }
+            rate(&[process])
+        };
+        assert!(builtin_at(Some(119.99)).is_none());
+        for hz in [Some(60.0), Some(80.0), None] {
+            let finding = builtin_at(hz).expect("встроенный прогон не на 120 Гц");
+            assert_eq!(finding.verdict, Verdict::PendingManual, "{hz:?}");
+            assert_eq!(finding.requirement, Requirement::Required, "{hz:?}");
+            assert_eq!(finding.variant, "builtin", "{hz:?}");
+            assert!(
+                finding.reason.contains("не на 120 Гц"),
+                "{hz:?}: {}",
+                finding.reason
+            );
+        }
+        let only_external = rate(&[latency_process("latency-external", "external", true, 9.5)])
+            .expect("нет встроенного прогона");
+        assert_eq!(only_external.verdict, Verdict::PendingManual);
+        assert!(only_external.reason.contains("нет прогона на встроенном"));
     }
 
     #[test]

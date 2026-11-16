@@ -765,7 +765,8 @@ impl Handle {
         unsafe { sys::ghostty_surface_preedit(self.0, text.as_ptr().cast(), text.len()) }
     }
 
-    /// Точка окна IME в точках вида от левого верхнего угла: x, y, ширина preedit, высота.
+    /// Точка окна IME от левого верхнего угла вида: x, y и высота в точках, ширина preedit в
+    /// пикселях подложки.
     ///
     /// # Safety
     /// Поверхность жива.
