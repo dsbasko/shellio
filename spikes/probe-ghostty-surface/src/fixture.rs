@@ -512,6 +512,8 @@ struct PendingReply {
     id: u64,
     trigger: Vec<u8>,
     answer: Vec<u8>,
+    /// Хвост ввода после взведения, короче триггера: начало совпадения на стыке чтений.
+    tail: Vec<u8>,
 }
 
 /// Ответы на уникальный ввод. Триггер ищется только во вводе, прочитанном после его взведения,
@@ -519,7 +521,6 @@ struct PendingReply {
 #[derive(Default)]
 struct ReplyBook {
     pending: Vec<PendingReply>,
-    window: Vec<u8>,
 }
 
 impl ReplyBook {
@@ -540,48 +541,37 @@ impl ReplyBook {
         {
             return Err("такой триггер уже ждёт ввода".to_owned());
         }
-        // Ввод до взведения не должен сработать на стыке с новым.
-        self.window.clear();
+        // Хвост пуст: ввод до взведения не сработает на стыке с новым.
         self.pending.push(PendingReply {
             id,
             trigger: trigger.into_bytes(),
             answer: answer.into_bytes(),
+            tail: Vec::new(),
         });
         Ok(())
     }
 
     /// Сработавшие ответы в порядке взведения.
     fn feed(&mut self, bytes: &[u8]) -> Vec<(u64, Vec<u8>)> {
-        if self.pending.is_empty() {
-            return Vec::new();
-        }
-        self.window.extend_from_slice(bytes);
         let mut fired = Vec::new();
         let mut index = 0;
         while index < self.pending.len() {
-            let trigger = &self.pending[index].trigger;
-            if self
-                .window
-                .windows(trigger.len())
-                .any(|window| window == trigger.as_slice())
+            let pending = &mut self.pending[index];
+            pending.tail.extend_from_slice(bytes);
+            let len = pending.trigger.len();
+            if pending
+                .tail
+                .windows(len)
+                .any(|window| window == pending.trigger.as_slice())
             {
                 let reply = self.pending.remove(index);
                 fired.push((reply.id, reply.answer));
             } else {
+                let drop = pending.tail.len().saturating_sub(len - 1);
+                pending.tail.drain(..drop);
                 index += 1;
             }
         }
-        let keep = if fired.is_empty() {
-            self.pending
-                .iter()
-                .map(|pending| pending.trigger.len() - 1)
-                .max()
-                .unwrap_or(0)
-        } else {
-            0
-        };
-        let drop = self.window.len().saturating_sub(keep);
-        self.window.drain(..drop);
         fired
     }
 }
@@ -1861,6 +1851,21 @@ mod tests {
             book.feed(b"xyq"),
             vec![(1, b"first".to_vec()), (2, b"second".to_vec())]
         );
+    }
+
+    #[test]
+    fn reply_keeps_partial_match_when_another_fires_or_is_armed() {
+        let mut book = ReplyBook::default();
+        book.arm(1, "q".to_owned(), "first".to_owned()).unwrap();
+        book.arm(2, "xyz".to_owned(), "second".to_owned()).unwrap();
+        assert_eq!(book.feed(b"qxy"), vec![(1, b"first".to_vec())]);
+        assert_eq!(book.feed(b"z"), vec![(2, b"second".to_vec())]);
+
+        let mut book = ReplyBook::default();
+        book.arm(1, "abc".to_owned(), "first".to_owned()).unwrap();
+        assert!(book.feed(b"ab").is_empty());
+        book.arm(2, "w".to_owned(), "second".to_owned()).unwrap();
+        assert_eq!(book.feed(b"c"), vec![(1, b"first".to_vec())]);
     }
 
     #[test]

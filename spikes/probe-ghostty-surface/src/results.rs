@@ -846,10 +846,25 @@ pub fn startup_summary(processes: &[ProcessSummary]) -> Option<StartupSummary> {
                 .filter(|process| in_group(process) && process.startup.is_none())
                 .map(|process| process.dir.clone())
                 .collect();
+            // Холодный — самый ранний запуск группы, в том числе без отметок: упавший первый
+            // запуск не делает холодным следующий.
+            let cold = startup
+                .iter()
+                .filter(|process| in_group(process))
+                .filter_map(|process| {
+                    let launched = process.spawn_uptime_ns.or(process
+                        .startup
+                        .as_ref()
+                        .map(|marks| marks.process_start_mono_ns));
+                    launched.map(|at| (at, process.dir.as_str()))
+                })
+                .min()
+                .map(|(_, dir)| dir);
+            let is_cold = |run: &StartupRun| cold == Some(run.dir.as_str());
             let mut errors = unmarked.clone();
             let mut distorted = Vec::new();
             let mut warm = Vec::new();
-            for run in runs.iter().skip(1) {
+            for run in runs.iter().filter(|run| !is_cold(run)) {
                 let process = timed
                     .iter()
                     .find(|(process, _)| process.dir == run.dir)
@@ -870,7 +885,7 @@ pub fn startup_summary(processes: &[ProcessSummary]) -> Option<StartupSummary> {
                 (scenario == "startup" && variant == "surface").then_some(STARTUP_BUDGET_MS);
             StartupAggregate {
                 runs: runs.len() + unmarked.len(),
-                first: runs.first().cloned(),
+                first: runs.iter().find(|run| is_cold(run)).cloned(),
                 warm_count: warm.len(),
                 warm_expected: expected.saturating_sub(1),
                 warm_ms: summarize_some(warm.iter().map(|run| Some(run.wall_ms))),
@@ -1174,22 +1189,50 @@ pub fn latency_findings(summary: &LatencySummary) -> Vec<RunFinding> {
         };
         findings.push(finding("latency-n-budget", verdict, reason));
     }
-    let external = summary
+    // Частота не выводится из паспорта дисплея: внешний прогон закрывает пункт, только если
+    // displayLink измерил около 60 Гц.
+    let externals: Vec<&LatencyDisplay> = summary
         .displays
         .iter()
-        .any(|display| display.execution_ok && !display.builtin);
-    if !external {
+        .filter(|display| display.execution_ok && !display.builtin)
+        .collect();
+    let at_60hz = externals.iter().any(|display| {
+        display
+            .measured_hz
+            .is_some_and(|hz| (hz - 60.0).abs() <= EXTERNAL_HZ_TOLERANCE)
+    });
+    if !at_60hz {
+        let seen = externals
+            .iter()
+            .map(|display| {
+                display.measured_hz.map_or_else(
+                    || format!("{}: частота не измерена", display.dir),
+                    |hz| format!("{}: {hz:.1} Гц", display.dir),
+                )
+            })
+            .collect::<Vec<_>>();
+        let reason = if seen.is_empty() {
+            "нет прогона на внешнем дисплее 60 Гц: владелец подключает дисплей, прогон с LATENCY_DISPLAYS=\"builtin external\" (задача 19)".to_owned()
+        } else {
+            format!(
+                "внешний прогон не на 60 Гц по displayLink ({}): нужен дисплей 60 Гц, прогон с LATENCY_DISPLAYS=\"builtin external\" (задача 19)",
+                seen.join("; ")
+            )
+        };
         findings.push(RunFinding {
             scenario: LATENCY_SCENARIO.to_owned(),
             variant: "external".to_owned(),
             name: "latency-external-60hz".to_owned(),
             requirement: Requirement::Required,
             verdict: Verdict::PendingManual,
-            reason: "нет прогона на внешнем дисплее 60 Гц: владелец подключает дисплей, прогон с LATENCY_DISPLAYS=\"builtin external\" (задача 19)".to_owned(),
+            reason,
         });
     }
     findings
 }
+
+/// Допуск измеренной частоты внешнего дисплея вокруг 60 Гц.
+const EXTERNAL_HZ_TOLERANCE: f64 = 3.0;
 
 /// Сценарий и вариант по имени каталога `<сценарий>-<вариант>` или `<сценарий>-<вариант>-<NN>`
 /// у повторных запусков, который даёт `run.sh`. Имя варианта дефиса не содержит.
@@ -2291,5 +2334,67 @@ mod tests {
         assert_eq!(external.verdict, Verdict::PendingManual);
         assert_eq!(external.requirement, Requirement::Required);
         assert!(latency_summary(&[]).is_none());
+    }
+
+    #[test]
+    fn external_run_closes_60hz_only_at_measured_60hz() {
+        let external_at = |hz: Option<f64>| {
+            let mut process = latency_process("latency-external", "external", true, 9.5);
+            if let Some(marks) = process.latency.as_mut() {
+                marks.measured_hz = hz;
+            }
+            let findings = latency_findings(&latency_summary(&[process]).unwrap());
+            findings
+                .into_iter()
+                .find(|finding| finding.name == "latency-external-60hz")
+        };
+        assert!(external_at(Some(59.94)).is_none());
+        for hz in [Some(144.0), Some(75.0), None] {
+            let finding = external_at(hz).expect("внешний прогон не на 60 Гц");
+            assert_eq!(finding.verdict, Verdict::PendingManual, "{hz:?}");
+            assert!(
+                finding.reason.contains("не на 60 Гц"),
+                "{hz:?}: {}",
+                finding.reason
+            );
+        }
+    }
+
+    #[test]
+    fn failed_first_launch_is_cold_and_keeps_next_runs_warm() {
+        let run = temp_dir("startup-cold-failed");
+        let path = run.join("startup-surface-01");
+        fs::create_dir_all(&path).unwrap();
+        let mut environment = environment();
+        environment.process.route = "direct".to_owned();
+        let result = ResultFile::new(
+            "startup",
+            "surface",
+            environment,
+            Execution::error("ghostty_surface_new вернул NULL"),
+            Report::default(),
+        );
+        write_result(&path, &result).unwrap();
+        let mut launch = launch_record(Execution::Ok);
+        launch.spawn_uptime_ns = 500 * 1_000_000;
+        write_launch(&path, &launch).unwrap();
+        for (index, start_ms) in [(2_u64, 1_000_u64), (3, 2_000)] {
+            startup_process(
+                &run,
+                &format!("startup-surface-{index:02}"),
+                "startup",
+                "direct",
+                startup_marks(start_ms, 300.0 + index as f64, 0.0),
+                Execution::Ok,
+                2,
+            );
+        }
+        let summary = aggregate(&run).unwrap();
+        let surface = aggregate_of(summary.startup.as_ref().unwrap(), "startup", "surface");
+        assert_eq!(surface.runs, 3);
+        assert_eq!(surface.first, None, "холодный запуск упал без отметок");
+        assert_eq!(surface.errors, ["startup-surface-01"]);
+        assert_eq!(surface.warm_count, 2, "02 и 03 прогретые");
+        fs::remove_dir_all(run).unwrap();
     }
 }
