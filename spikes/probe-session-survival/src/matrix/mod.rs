@@ -1,6 +1,10 @@
 //! Матрица рубежей A–G: кандидаты, каталог клеток, сценарии и процесс сценария. Сценарии рубежей
-//! добавляют задачи плана: сценарий стенда `smoke`, рубеж A — `lifecycle`.
+//! добавляют задачи плана: сценарии стенда `smoke` и `capi` (ранняя проверка C API), рубеж A —
+//! `lifecycle`.
 
+#[cfg(feature = "vt")]
+pub mod capi;
+pub mod evidence;
 #[cfg(feature = "vt")]
 pub mod lifecycle;
 
@@ -64,8 +68,25 @@ pub const MATRIX_CELLS: [&str; 38] = [
     "G1", "G2", "G3", // версии
 ];
 
-/// Клетки самопроверки стенда, вне матрицы и без кандидата.
-pub const STAND_CELLS: [&str; 1] = [SMOKE_CELL];
+/// Клетки стенда, вне матрицы и без кандидата: самопроверка и сюжеты ранней проверки C API
+/// (`capi-<клетка матрицы>`). Сюжет C API доказывает осуществимость, а не `pass` клетки кандидата.
+pub const STAND_CELLS: [&str; 15] = [
+    SMOKE_CELL,
+    "capi-B1",
+    "capi-B2",
+    "capi-B3",
+    "capi-B4",
+    "capi-B5",
+    "capi-B6",
+    "capi-B7",
+    "capi-B8",
+    "capi-B9",
+    "capi-D1",
+    "capi-D2",
+    "capi-D3",
+    "capi-D4",
+    "capi-budget",
+];
 
 const SMOKE_CELL: &str = "smoke";
 
@@ -92,15 +113,18 @@ pub enum Scenario {
     Smoke,
     /// Рубеж A: жизненный цикл сессии, клетки A1–A7.
     Lifecycle,
+    /// Ранняя проверка C API `libghostty-vt` без хоста: сюжеты B1–B9 и D1–D4, бюджет continuation.
+    Capi,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 2] = [Scenario::Smoke, Scenario::Lifecycle];
+    pub const ALL: [Scenario; 3] = [Scenario::Smoke, Scenario::Lifecycle, Scenario::Capi];
 
     pub fn name(self) -> &'static str {
         match self {
             Scenario::Smoke => "smoke",
             Scenario::Lifecycle => "lifecycle",
+            Scenario::Capi => "capi",
         }
     }
 
@@ -113,7 +137,7 @@ impl Scenario {
     /// Кандидаты, на которых идёт сценарий; пусто у сценария стенда.
     pub fn candidates(self) -> &'static [Candidate] {
         match self {
-            Scenario::Smoke => &[],
+            Scenario::Smoke | Scenario::Capi => &[],
             Scenario::Lifecycle => &[Candidate::Zmx],
         }
     }
@@ -122,7 +146,7 @@ impl Scenario {
     pub fn deadline(self) -> Duration {
         match self {
             Scenario::Smoke => Duration::from_secs(10),
-            Scenario::Lifecycle => Duration::from_secs(300),
+            Scenario::Lifecycle | Scenario::Capi => Duration::from_secs(300),
         }
     }
 }
@@ -195,6 +219,7 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
     match target.scenario {
         Scenario::Smoke => smoke(&target.out, environment),
         Scenario::Lifecycle => lifecycle_run(target, environment),
+        Scenario::Capi => capi_run(target, environment),
     }
 }
 
@@ -203,10 +228,20 @@ fn lifecycle_run(target: &Target, environment: &Environment) -> Result<Report, S
     lifecycle::run(target, environment)
 }
 
+#[cfg(feature = "vt")]
+fn capi_run(target: &Target, environment: &Environment) -> Result<Report, String> {
+    capi::run(target, environment)
+}
+
 /// Оракулам рубежа нужен `libghostty-vt`: без функции `vt` сценарий не запускается.
 #[cfg(not(feature = "vt"))]
 fn lifecycle_run(_target: &Target, _environment: &Environment) -> Result<Report, String> {
     Err("сценарий lifecycle требует функцию vt".to_owned())
+}
+
+#[cfg(not(feature = "vt"))]
+fn capi_run(_target: &Target, _environment: &Environment) -> Result<Report, String> {
+    Err("сценарий capi требует функцию vt".to_owned())
 }
 
 /// Строка итога процесса: исполнение и счётчики клеток.
@@ -446,6 +481,7 @@ pub(crate) mod tests {
             assert_eq!(Scenario::from_name(scenario.name()), Some(scenario));
         }
         assert!(Scenario::Smoke.candidates().is_empty());
+        assert!(Scenario::Capi.candidates().is_empty());
         assert_eq!(Scenario::Lifecycle.candidates(), [Candidate::Zmx]);
     }
 
@@ -474,6 +510,14 @@ pub(crate) mod tests {
             );
         }
         assert!(is_known_cell("smoke") && !is_matrix_cell("smoke"));
+        let mut stand: Vec<&str> = STAND_CELLS.to_vec();
+        stand.sort_unstable();
+        stand.dedup();
+        assert_eq!(stand.len(), STAND_CELLS.len());
+        for id in STAND_CELLS.iter().filter_map(|id| id.strip_prefix("capi-")) {
+            assert!(is_matrix_cell(id) || id == "budget", "{id}");
+        }
+        assert!(is_known_cell("capi-B7") && !is_matrix_cell("capi-B7"));
         assert!(!is_known_cell("H1"));
         assert!(cell_order("A1") < cell_order("G3"));
         assert!(cell_order("G3") < cell_order("smoke"));

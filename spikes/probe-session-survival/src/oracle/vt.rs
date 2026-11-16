@@ -177,6 +177,9 @@ struct Instance {
     config: Config,
     log: Log,
     fed: u64,
+    /// Снимок, из которого восстановлен терминал, и предел его continuation: повтор журнала
+    /// начинается с него.
+    base: Option<(Vec<u8>, usize)>,
 }
 
 impl Instance {
@@ -198,6 +201,39 @@ impl Instance {
             config: config.clone(),
             log: Log::new(log_cap),
             fed: 0,
+            base: None,
+        })
+    }
+
+    /// Терминал из снимка `GHOSTSNP` с незавершённой последовательностью до предела
+    /// `snapshot_continuation`. Настройки клиента (история, цвета по умолчанию, размер клетки) снимок
+    /// не переносит, они задаются из `config` поверх: это свойство терминала клиента, а не сессии.
+    /// Размер сетки берётся из снимка, а `config` получает его.
+    fn from_snapshot(
+        config: &Config,
+        log_cap: usize,
+        snapshot: &[u8],
+        snapshot_continuation: usize,
+    ) -> Result<Instance> {
+        let mut term = vt::Terminal::from_snapshot(snapshot, snapshot_continuation)?;
+        // Декодер с сохранённой continuation оставляет её отслеживание включённым; терминалу
+        // нужен предел из своей конфигурации.
+        if snapshot_continuation != config.continuation_max {
+            term.set_continuation_max_bytes(config.continuation_max)?;
+        }
+        term.set_scrollback_max_lines(config.scrollback_lines)?;
+        term.set_default_colors(config.foreground, config.background, config.cursor)?;
+        let (cols, rows) = (term.cols()?, term.rows()?);
+        term.resize(cols, rows, config.cell_width, config.cell_height)?;
+        let mut config = config.clone();
+        config.cols = cols;
+        config.rows = rows;
+        Ok(Instance {
+            term,
+            config,
+            log: Log::new(log_cap),
+            fed: 0,
+            base: Some((snapshot.to_vec(), snapshot_continuation)),
         })
     }
 
@@ -293,7 +329,10 @@ impl Instance {
 
     /// Повтор журнала на копии и зонд скрытого состояния: снятие стека Kitty, затем `DECRC`.
     fn hidden(&self) -> Result<(model::SavedCursor, Vec<u8>)> {
-        let mut copy = Instance::new(&self.config, 0)?;
+        let mut copy = match &self.base {
+            Some((snapshot, limit)) => Instance::from_snapshot(&self.config, 0, snapshot, *limit)?,
+            None => Instance::new(&self.config, 0)?,
+        };
         for entry in &self.log.entries {
             match entry {
                 Logged::Bytes(bytes) => copy.term.write(bytes),
@@ -629,6 +668,42 @@ impl Receiver {
         Ok(receiver)
     }
 
+    /// Приёмник, восстановленный из снимка `GHOSTSNP` с незавершённой последовательностью до
+    /// предела `snapshot_continuation`: так терминал клиента получил бы снимок вместо байтов. Колбэки
+    /// включаются после декодирования, поэтому само восстановление ответов и эффектов не даёт.
+    pub fn from_snapshot(
+        client: &str,
+        config: &Config,
+        profile: ReceiverProfile,
+        snapshot: &[u8],
+        snapshot_continuation: usize,
+    ) -> Result<Receiver> {
+        let inner =
+            Instance::from_snapshot(config, config.log_cap, snapshot, snapshot_continuation)?;
+        let mut receiver = Receiver {
+            client: client.to_owned(),
+            profile,
+            cols: inner.config.cols,
+            rows: inner.config.rows,
+            inner,
+            journal: Vec::new(),
+            session_title: String::new(),
+        };
+        let responder = receiver.responder();
+        receiver.inner.term.enable_effects(responder)?;
+        Ok(receiver)
+    }
+
+    /// Источник ответа на чтение буфера обмена вместо профиля, например модель GUI с ожиданием.
+    pub fn set_clipboard_source(&mut self, source: Option<vt::ClipboardSource>) {
+        self.inner.term.set_clipboard_source(source);
+    }
+
+    /// Снимает колбэк чтения буфера обмена.
+    pub fn unset_clipboard_read(&mut self) -> Result<()> {
+        self.inner.term.unset_clipboard_read()
+    }
+
     fn responder(&self) -> vt::Responder {
         vt::Responder {
             device_attributes: Some(self.profile.device_attributes.clone()),
@@ -768,6 +843,20 @@ impl Receiver {
 
     pub fn terminal(&self) -> &vt::Terminal {
         &self.inner.term
+    }
+}
+
+/// Суффикс приёмнику без кандидата: байты сразу в терминал, ответы остаются в журнале.
+impl Sink for Receiver {
+    fn output(&mut self, bytes: &[u8]) -> std::result::Result<(), String> {
+        self.feed(bytes);
+        Ok(())
+    }
+
+    fn resize(&mut self, cols: u16, rows: u16) -> std::result::Result<(), String> {
+        Receiver::resize(self, cols, rows)
+            .map(drop)
+            .map_err(|err| err.to_string())
     }
 }
 

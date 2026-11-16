@@ -12,7 +12,6 @@
 //! бы за сессию `zmx list`. Имена сессий и nonce фикстур несут nonce запуска, поэтому внешний
 //! сторож видит любой оставшийся процесс кандидата.
 
-use std::fmt::Display;
 use std::fs;
 use std::os::fd::{AsFd, OwnedFd};
 use std::path::{Path, PathBuf};
@@ -20,8 +19,7 @@ use std::process::{Child, ExitStatus};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use serde::Serialize;
-use serde_json::{Map, Value, json};
+use serde_json::json;
 
 use crate::args::Target;
 use crate::backend::zmx::{self, Role, ZmxSet};
@@ -32,15 +30,14 @@ use crate::fixture::channel::{Command, Event, JobChange, Link, Listener, Ready, 
 use crate::fixture::{self, Mode, flood_line};
 use crate::launch;
 use crate::matrix::Candidate;
+use crate::matrix::evidence::{Evidence, Spec, cell};
 use crate::observer::{self, Identity, ProcessKey};
 use crate::oracle::model::{Outcome, State, compare};
 use crate::oracle::vt::{
     Capture, Config, Receiver, ReceiverProfile, Reference, Route, ThroughCandidate,
 };
 use crate::pty::{self, PtyChild, Spawn, Winsize};
-use crate::results::{
-    self, Cell, DefectOrigin, Environment, NotRunCause, Report, Requirement, Status,
-};
+use crate::results::{self, Cell, DefectOrigin, Environment, Report};
 
 const COLS: u16 = 80;
 const ROWS: u16 = 24;
@@ -449,105 +446,6 @@ fn emit(link: &mut Link, reference: &mut Reference, bytes: &[u8]) -> Result<(), 
     }
     reference.feed(bytes);
     Ok(())
-}
-
-// --- доказательства и клетки ---
-
-#[derive(Clone, Debug, Serialize)]
-struct Check {
-    name: String,
-    ok: bool,
-    detail: String,
-}
-
-/// Проверки части клетки и сырые наблюдения. Отказ кандидата — проверка с `ok: false`; ошибка
-/// стенда — `Err` вызывающего, а не проверка.
-#[derive(Debug, Default, Serialize)]
-struct Evidence {
-    checks: Vec<Check>,
-    /// Стенд не доказал условие клетки: часть получает `not_run`.
-    not_proven: Option<String>,
-    observed: Map<String, Value>,
-}
-
-impl Evidence {
-    fn check(&mut self, name: &str, ok: bool, detail: impl Display) -> bool {
-        self.checks.push(Check {
-            name: name.to_owned(),
-            ok,
-            detail: detail.to_string(),
-        });
-        ok
-    }
-
-    /// Шаг кандидата: значение при успехе, проваленная проверка при отказе.
-    fn require<T, E: Display>(&mut self, name: &str, result: Result<T, E>) -> Option<T> {
-        match result {
-            Ok(value) => {
-                self.check(name, true, "ok");
-                Some(value)
-            }
-            Err(err) => {
-                self.check(name, false, err);
-                None
-            }
-        }
-    }
-
-    fn note(&mut self, key: &str, value: impl Serialize) {
-        self.observed.insert(
-            key.to_owned(),
-            serde_json::to_value(value).unwrap_or(Value::Null),
-        );
-    }
-
-    fn status(&self) -> (Status, String) {
-        let failed: Vec<String> = self
-            .checks
-            .iter()
-            .filter(|check| !check.ok)
-            .map(|check| format!("{}: {}", check.name, check.detail))
-            .collect();
-        if !failed.is_empty() {
-            (Status::Fail, failed.join("; "))
-        } else if let Some(reason) = &self.not_proven {
-            (Status::NotRun, reason.clone())
-        } else {
-            let names: Vec<&str> = self
-                .checks
-                .iter()
-                .map(|check| check.name.as_str())
-                .collect();
-            (Status::Pass, format!("выполнено: {}", names.join("; ")))
-        }
-    }
-}
-
-struct Spec<'a> {
-    id: &'a str,
-    part: Option<&'a str>,
-    stimulus: String,
-    oracle: &'a str,
-    completion: &'a str,
-    /// Где дефект при `fail`.
-    origin: DefectOrigin,
-}
-
-fn cell(spec: Spec<'_>, evidence: &Evidence, artifacts: Vec<String>) -> Cell {
-    let (status, reason) = evidence.status();
-    Cell {
-        id: spec.id.to_owned(),
-        part: spec.part.map(str::to_owned),
-        status,
-        requirement: Requirement::Required,
-        stimulus: spec.stimulus,
-        oracle: spec.oracle.to_owned(),
-        completion: spec.completion.to_owned(),
-        not_run_cause: (status == Status::NotRun).then_some(NotRunCause::Stand),
-        reason,
-        defect_origin: (status == Status::Fail).then_some(spec.origin),
-        artifacts,
-    }
 }
 
 fn identity(key: ProcessKey) -> Result<Identity, String> {

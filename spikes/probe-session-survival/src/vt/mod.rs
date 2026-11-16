@@ -380,9 +380,21 @@ pub enum Effect {
     },
 }
 
+/// Запрос чтения буфера обмена, переданный [`ClipboardSource`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ClipboardRequest {
+    pub location: i32,
+    pub mimes: Vec<String>,
+}
+
+/// Источник ответа на чтение буфера обмена вместо [`Responder::clipboard`]: вызывается синхронно
+/// внутри записи и может ждать ответа, например GUI; `None` — вернуться без ответа.
+pub type ClipboardSource = Box<dyn FnMut(&ClipboardRequest) -> Option<Vec<u8>> + Send>;
+
 #[derive(Default)]
 struct EffectState {
     responder: Responder,
+    clipboard_source: Option<ClipboardSource>,
     pty: Vec<u8>,
     effects: Vec<Effect>,
     /// Ответ XTVERSION должен жить до возврата из колбэка.
@@ -625,8 +637,15 @@ unsafe extern "C" fn on_clipboard_read(
             return;
         }
         let mimes = strings(request.mimes, request.mimes_len);
-        let Some(clipboard) = state(userdata).map(|state| state.responder.clipboard.clone()) else {
+        let Some(state_now) = state(userdata) else {
             return;
+        };
+        let clipboard = match state_now.clipboard_source.as_mut() {
+            Some(source) => source(&ClipboardRequest {
+                location: request.location,
+                mimes: mimes.clone(),
+            }),
+            None => state_now.responder.clipboard.clone(),
         };
         let answered = match (clipboard, request.reply) {
             (Some(data), Some(reply)) => {
@@ -924,6 +943,20 @@ impl Terminal {
     /// Меняет ответы колбэков, например размер после ресайза; колбэки остаются прежними.
     pub fn set_responder(&mut self, responder: Responder) {
         self.effect_state().responder = responder;
+    }
+
+    /// Источник ответа на чтение буфера обмена; `None` возвращает ответ из [`Responder`].
+    pub fn set_clipboard_source(&mut self, source: Option<ClipboardSource>) {
+        self.effect_state().clipboard_source = source;
+    }
+
+    /// Снимает колбэк чтения буфера обмена: так видно, что терминал делает с OSC 52 чтения без него.
+    pub fn unset_clipboard_read(&mut self) -> Result<()> {
+        self.set_callback(
+            sys::GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_CLIPBOARD_READ,
+            "ghostty_terminal_set(CLIPBOARD_READ)",
+            ptr::null(),
+        )
     }
 
     /// Цвета по умолчанию: основной, фон и курсор. `None` снимает значение. От них зависят ответы на

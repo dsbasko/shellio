@@ -352,3 +352,241 @@ fn focus_reports_are_encoded_by_event() {
     assert_eq!(focus_report(true).expect("фокус"), b"\x1b[I");
     assert_eq!(focus_report(false).expect("фокус"), b"\x1b[O");
 }
+
+// --- находки ранней проверки C API (задача 8, сценарий capi) ---
+
+/// Терминал 10×4 с историей и с потоком `bytes`.
+fn fed(bytes: &[u8]) -> Terminal {
+    let mut term = Terminal::new(10, 4).expect("терминал");
+    term.set_scrollback_max_lines(100).expect("история");
+    term.write(bytes);
+    term
+}
+
+/// Терминал клиента из formatter VT исходного.
+fn from_formatter(source: &Terminal) -> Terminal {
+    let mut term = Terminal::new(source.cols().expect("cols"), source.rows().expect("rows"))
+        .expect("терминал клиента");
+    term.set_scrollback_max_lines(100).expect("история");
+    term.write(&source.format(FormatOptions::VT_FULL).expect("formatter"));
+    term
+}
+
+fn from_snapshot(source: &Terminal) -> Terminal {
+    Terminal::from_snapshot(&source.snapshot().expect("снимок"), 0).expect("декодирование")
+}
+
+fn wraps(term: &Terminal, y: u32) -> (bool, bool) {
+    let cell = term.cell(Area::Active, 0, y).expect("клетка");
+    (cell.row_wrap, cell.row_wrap_continuation)
+}
+
+#[test]
+fn formatter_loses_soft_wrap_flags_snapshot_keeps_them() {
+    let source = fed(b"0123456789abc");
+    assert_eq!(wraps(&source, 0), (true, false));
+    assert_eq!(wraps(&source, 1), (false, true));
+    let formatted = from_formatter(&source);
+    assert_eq!(formatted.row_text(1).expect("строка"), "abc");
+    assert_eq!(wraps(&formatted, 0), (false, false), "перенос стал жёстким");
+    assert_eq!(wraps(&formatted, 1), (false, false));
+    let snapshot = from_snapshot(&source);
+    assert_eq!(wraps(&snapshot, 0), (true, false));
+    assert_eq!(wraps(&snapshot, 1), (false, true));
+}
+
+#[test]
+fn formatter_omits_title_snapshot_keeps_it() {
+    let source = fed(b"\x1b]2;session title\x07x");
+    assert!(from_formatter(&source).title().expect("title").is_empty());
+    assert_eq!(
+        from_snapshot(&source).title().expect("title"),
+        b"session title"
+    );
+}
+
+#[test]
+fn formatter_loses_saved_cursor_snapshot_keeps_it() {
+    let source = fed(b"\x1b[3;4H\x1b[1m\x1b7\x1b[0m\x1b[1;1H");
+    for (name, mut term, expected) in [
+        ("formatter", from_formatter(&source), (0, 0, false)),
+        ("snapshot", from_snapshot(&source), (3, 2, true)),
+    ] {
+        term.write(b"\x1b8");
+        let cursor = term.cursor().expect("курсор");
+        assert_eq!((cursor.x, cursor.y, cursor.style.bold), expected, "{name}");
+    }
+}
+
+#[test]
+fn formatter_keeps_only_kitty_top_snapshot_keeps_stack() {
+    let source = fed(b"\x1b[>1u\x1b[>3u");
+    for (name, mut term, below) in [
+        ("formatter", from_formatter(&source), 0),
+        ("snapshot", from_snapshot(&source), KITTY_DISAMBIGUATE),
+    ] {
+        assert_eq!(term.kitty_keyboard_flags().expect("флаги"), 3, "{name}");
+        term.write(b"\x1b[<u");
+        assert_eq!(term.kitty_keyboard_flags().expect("флаги"), below, "{name}");
+    }
+}
+
+#[test]
+fn formatter_of_alternate_screen_loses_primary_snapshot_keeps_it() {
+    let source = fed(b"main\x1b[?1049h\x1b[Halt");
+    for (name, mut term, primary) in [
+        ("formatter", from_formatter(&source), ""),
+        ("snapshot", from_snapshot(&source), "main"),
+    ] {
+        assert_eq!(
+            term.active_screen().expect("экран"),
+            Screen::Alternate,
+            "{name}"
+        );
+        assert_eq!(term.row_text(0).expect("строка"), "alt", "{name}");
+        term.write(b"\x1b[?1049l");
+        assert_eq!(term.row_text(0).expect("строка"), primary, "{name}");
+    }
+}
+
+#[test]
+fn formatter_loses_spacer_head_of_wide_char_at_line_end() {
+    let source = fed("123456789世".as_bytes());
+    let head = |term: &Terminal| term.cell(Area::Active, 9, 0).expect("клетка").wide;
+    assert_eq!(head(&source), Wide::SpacerHead);
+    assert_eq!(head(&from_snapshot(&source)), Wide::SpacerHead);
+    assert_ne!(head(&from_formatter(&source)), Wide::SpacerHead);
+}
+
+#[test]
+fn formatter_payload_makes_client_report_size_snapshot_does_not() {
+    let source = fed(b"\x1b[?2048h");
+    let size = Responder {
+        size: Some(SizeReport {
+            rows: 4,
+            columns: 10,
+            cell_width: 10,
+            cell_height: 20,
+        }),
+        ..Responder::default()
+    };
+    let mut client = Terminal::new(10, 4).expect("клиент");
+    client.enable_effects(size.clone()).expect("колбэки");
+    client.write(&source.format(FormatOptions::VT_FULL).expect("formatter"));
+    assert!(
+        client.take_pty_output().starts_with(b"\x1b[48;4;10;"),
+        "восстановление режима 2048 отвечает размером без запроса"
+    );
+    let mut restored = from_snapshot(&source);
+    restored.enable_effects(size).expect("колбэки");
+    assert!(restored.mode(Mode::IN_BAND_RESIZE).expect("режим 2048"));
+    assert!(restored.take_pty_output().is_empty());
+}
+
+#[test]
+fn snapshot_carries_default_and_dynamic_colors_but_not_scrollback_limit() {
+    let white = Rgb {
+        r: 0xff,
+        g: 0xff,
+        b: 0xff,
+    };
+    let mut source = Terminal::new(10, 3).expect("терминал");
+    source.set_scrollback_max_lines(5).expect("история");
+    source
+        .set_default_colors(None, Some(white), None)
+        .expect("цвета");
+    source.write(b"\x1b]10;#123456\x1b\\");
+    let mut restored = from_snapshot(&source);
+    let colors = restored.colors().expect("цвета");
+    assert_eq!(
+        colors.foreground,
+        Some(Rgb {
+            r: 0x12,
+            g: 0x34,
+            b: 0x56
+        })
+    );
+    assert_eq!(colors.background, Some(white), "цвет по умолчанию хоста");
+    for line in 0..20 {
+        restored.write(format!("l{line}\r\n").as_bytes());
+    }
+    assert!(
+        restored.scrollback_rows().expect("история") > 5,
+        "предел истории клиент задаёт сам"
+    );
+}
+
+#[test]
+fn continuation_and_snapshot_are_unavailable_over_budget_until_ground() {
+    let mut term = Terminal::new(10, 3).expect("терминал");
+    term.set_continuation_max_bytes(16).expect("continuation");
+    term.write(b"\x1b]2;0123456789abcdefghij");
+    assert_eq!(
+        term.continuation().map_err(|err| err.code),
+        Err(sys::GhosttyResult_GHOSTTY_INVALID_VALUE)
+    );
+    assert_eq!(
+        term.snapshot().map_err(|err| err.code),
+        Err(sys::GhosttyResult_GHOSTTY_INVALID_VALUE)
+    );
+    term.write(b"KL\x07X");
+    assert_eq!(term.title().expect("title"), b"0123456789abcdefghijKL");
+    assert_eq!(term.continuation().expect("continuation"), b"");
+    assert!(term.snapshot().is_ok());
+    term.write(b"\x1b[3");
+    assert_eq!(term.continuation().expect("continuation"), b"\x1b[3");
+}
+
+#[test]
+fn snapshot_decoder_rejects_continuation_over_its_limit() {
+    let mut term = Terminal::new(10, 3).expect("терминал");
+    term.set_continuation_max_bytes(64).expect("continuation");
+    term.write(b"\x1b]2;0123456789");
+    let snapshot = term.snapshot().expect("снимок");
+    assert_eq!(
+        Terminal::from_snapshot(&snapshot, 13)
+            .err()
+            .map(|err| err.code),
+        Some(sys::GhosttyResult_GHOSTTY_LIMIT_EXCEEDED)
+    );
+    let restored = Terminal::from_snapshot(&snapshot, 14).expect("декодирование");
+    assert_eq!(
+        restored.continuation().expect("continuation"),
+        b"\x1b]2;0123456789"
+    );
+}
+
+#[test]
+fn clipboard_read_without_reply_answers_empty_and_without_callback_stays_silent() {
+    let mut term = terminal();
+    term.enable_effects(Responder::default()).expect("колбэки");
+    term.write(b"\x1b]52;c;?\x07");
+    assert_eq!(term.take_pty_output(), b"\x1b]52;c;\x07");
+    term.unset_clipboard_read().expect("колбэк снимается");
+    term.write(b"\x1b]52;c;?\x07");
+    assert!(term.take_pty_output().is_empty());
+}
+
+#[test]
+fn clipboard_source_answers_from_closure_or_returns_without_reply() {
+    let mut term = terminal();
+    term.enable_effects(Responder::default()).expect("колбэки");
+    let mut calls = 0;
+    term.set_clipboard_source(Some(Box::new(move |request: &ClipboardRequest| {
+        calls += 1;
+        assert_eq!(request.mimes, ["text/plain"]);
+        (calls == 1).then(|| b"hi".to_vec())
+    })));
+    term.write(b"\x1b]52;c;?\x07");
+    assert_eq!(term.take_pty_output(), b"\x1b]52;c;aGk=\x07");
+    term.write(b"\x1b]52;c;?\x07");
+    assert_eq!(term.take_pty_output(), b"\x1b]52;c;\x07");
+}
+
+#[test]
+fn xtversion_without_callback_answers_libghostty() {
+    let mut term = terminal();
+    term.enable_effects(Responder::default()).expect("колбэки");
+    term.write(b"\x1b[>0q");
+    assert_eq!(term.take_pty_output(), b"\x1bP>|libghostty\x1b\\");
+}

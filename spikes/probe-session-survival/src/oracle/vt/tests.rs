@@ -409,3 +409,44 @@ fn suffixes_reveal_state_on_the_reference() {
     let steps = [Step::Resize { cols: 0, rows: 5 }];
     assert!(suffix::apply(&steps, &mut reference).is_err());
 }
+
+#[test]
+fn receiver_from_snapshot_replays_hidden_state_from_the_same_snapshot() {
+    let scene = b"main\x1b[2;3H\x1b[1m\x1b7\x1b[0m\x1b[>1u\x1b[>3u\x1b[4;1Hx\x1b[3";
+    let mut source = Reference::new(&Config {
+        continuation_max: 64,
+        ..config()
+    })
+    .expect("источник");
+    source.feed(scene);
+    let snapshot = source.terminal().snapshot().expect("снимок");
+    let mut restored = Receiver::from_snapshot(
+        "snap",
+        &config(),
+        ReceiverProfile::for_client("snap"),
+        &snapshot,
+        64,
+    )
+    .expect("приёмник из снимка");
+    assert!(
+        restored.journal().is_empty(),
+        "декодирование не вызывает колбэков"
+    );
+    let mut expected = reference();
+    expected.feed(scene);
+    let comparison = compare(
+        &expected.capture(Capture::default()).expect("эталон"),
+        &restored.capture(Capture::default()).expect("приёмник"),
+    );
+    assert_eq!(comparison.outcome(), Outcome::Equal, "{comparison}");
+
+    // Суффикс через Sink приёмника и эталона: остаток CSI и снятие стека.
+    let steps = [Step::Output(b"1mR\x1b[<u\x1b8S".to_vec())];
+    suffix::apply(&steps, &mut expected).expect("эталон");
+    suffix::apply(&steps, &mut restored).expect("приёмник");
+    let comparison = compare(
+        &expected.capture(Capture::default()).expect("эталон"),
+        &restored.capture(Capture::default()).expect("приёмник"),
+    );
+    assert_eq!(comparison.outcome(), Outcome::Equal, "{comparison}");
+}
