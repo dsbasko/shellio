@@ -28,9 +28,10 @@ use crate::results::{Cell, DefectOrigin, Environment, Report};
 use crate::sys;
 
 /// Строк потока B8: при темпе [`B8_INTERVAL_US`] поток идёт около двух секунд, attach c2 попадает
-/// внутрь него.
-const B8_LINES: u64 = 4000;
-const B8_INTERVAL_US: u64 = 500;
+/// внутрь него. Весь поток помещается в историю приёмника (около тысячи строк), поэтому шов «снимок
+/// → живой поток» остаётся в проверяемом окне.
+const B8_LINES: u64 = 800;
+const B8_INTERVAL_US: u64 = 2500;
 /// Уже окна: строки потока не переносятся, номер строки читается по строке экрана.
 const B8_WIDTH: u16 = COLS - 2;
 
@@ -480,6 +481,17 @@ fn b8_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
             active.join("; ")
         },
     );
+    // Шов лежит не раньше строки, записанной к запуску c2: окно номеров у приёмника должно
+    // начинаться не позже неё, иначе шов не наблюдался.
+    if let Some(first) = sequence.first()
+        && *first > first_progress.1
+    {
+        evidence.not_proven = Some(format!(
+            "шов снимка и живого потока вне окна приёмника: первая сохранённая строка {first}, к \
+             запуску c2 записано не меньше {} строк",
+            first_progress.1
+        ));
+    }
     if first_progress.0 >= spawned_ns || done_ns <= leader_ns {
         evidence.not_proven = Some(format!(
             "attach не доказан внутри потока: первый ход {} нс, запуск c2 {spawned_ns} нс, лидер \
