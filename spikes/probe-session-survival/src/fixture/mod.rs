@@ -769,6 +769,7 @@ impl Fixture {
                         id: flood.id,
                         lines: flood.done,
                         bytes: flood.bytes,
+                        writes: self.writes,
                     },
                 )?;
             }
@@ -788,6 +789,7 @@ impl Fixture {
                 lines: flood.done,
                 bytes: flood.bytes,
                 cancelled,
+                writes: self.writes,
             },
         )
     }

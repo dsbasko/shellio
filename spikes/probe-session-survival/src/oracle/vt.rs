@@ -534,6 +534,11 @@ pub struct ReceiverProfile {
     pub xtversion: String,
     pub color_scheme: vt::ColorScheme,
     pub clipboard: Option<Vec<u8>>,
+    /// Префикс заголовков, которыми attach-клиент сообщает принимающему терминалу свою роль
+    /// (управляемый клиент zmx: `zmx-role;<токен>:`). Такой заголовок — сообщение протокола, а не
+    /// заголовок нагрузки: приёмник, как терминал по протоколу, пишет его в журнал ролью, а
+    /// заголовком сессии остаётся последний заголовок нагрузки.
+    pub role_prefix: Option<String>,
 }
 
 impl ReceiverProfile {
@@ -551,7 +556,14 @@ impl ReceiverProfile {
             xtversion: format!("shellio-probe-receiver({client})"),
             color_scheme: vt::ColorScheme::Dark,
             clipboard: Some(b"shellio-probe-clipboard".to_vec()),
+            role_prefix: None,
         }
+    }
+
+    /// Тот же профиль у терминала, который потребляет сообщения о роли с префиксом `prefix`.
+    pub fn with_role_prefix(mut self, prefix: &str) -> ReceiverProfile {
+        self.role_prefix = Some(prefix.to_owned());
+        self
     }
 }
 
@@ -580,7 +592,13 @@ pub enum Journaled {
         answered: bool,
     },
     Bell,
-    TitleChanged,
+    TitleChanged {
+        title: String,
+    },
+    /// Сообщение о роли по [`ReceiverProfile::role_prefix`]: остаток заголовка после префикса.
+    Role {
+        report: String,
+    },
 }
 
 /// Приёмник одного клиента.
@@ -591,6 +609,8 @@ pub struct Receiver {
     cols: u16,
     rows: u16,
     journal: Vec<JournalEntry>,
+    /// Последний заголовок, который не сообщение о роли.
+    session_title: String,
 }
 
 impl Receiver {
@@ -602,6 +622,7 @@ impl Receiver {
             cols: config.cols,
             rows: config.rows,
             journal: Vec::new(),
+            session_title: String::new(),
         };
         let responder = receiver.responder();
         receiver.inner.term.enable_effects(responder)?;
@@ -664,7 +685,18 @@ impl Receiver {
         for effect in self.inner.term.take_effects() {
             let event = match effect {
                 vt::Effect::Bell => Journaled::Bell,
-                vt::Effect::TitleChanged => Journaled::TitleChanged,
+                vt::Effect::TitleChanged { title } => {
+                    let title = String::from_utf8_lossy(&title).into_owned();
+                    match self.role_report(&title) {
+                        Some(report) => Journaled::Role {
+                            report: report.to_owned(),
+                        },
+                        None => {
+                            self.session_title.clone_from(&title);
+                            Journaled::TitleChanged { title }
+                        }
+                    }
+                }
                 vt::Effect::ClipboardWrite { location, contents } => Journaled::ClipboardWrite {
                     location,
                     contents: contents
@@ -700,8 +732,33 @@ impl Receiver {
         &self.journal
     }
 
+    /// Остаток заголовка после префикса роли или `None`, если это не сообщение о роли.
+    fn role_report<'t>(&self, title: &'t str) -> Option<&'t str> {
+        self.profile
+            .role_prefix
+            .as_deref()
+            .and_then(|prefix| title.strip_prefix(prefix))
+    }
+
+    /// Последнее сообщение о роли из журнала.
+    pub fn last_role(&self) -> Option<&str> {
+        self.journal
+            .iter()
+            .rev()
+            .find_map(|entry| match &entry.event {
+                Journaled::Role { report } => Some(report.as_str()),
+                _ => None,
+            })
+    }
+
+    /// Состояние терминала. Пока заголовок терминала — сообщение о роли, заголовок состояния —
+    /// последний заголовок нагрузки: терминал по протоколу роль заголовком не показывает.
     pub fn capture(&self, options: Capture) -> Result<State> {
-        self.inner.capture(options)
+        let mut state = self.inner.capture(options)?;
+        if self.role_report(&state.title).is_some() {
+            state.title.clone_from(&self.session_title);
+        }
+        Ok(state)
     }
 
     /// Сколько байтов получено от attach-клиента.

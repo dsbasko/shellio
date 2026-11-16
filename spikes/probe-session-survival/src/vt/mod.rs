@@ -363,7 +363,11 @@ pub enum ColorScheme {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Effect {
     Bell,
-    TitleChanged,
+    /// Заголовок после смены. Читается в колбэке: несколько смен в одной записи иначе слились бы в
+    /// последнюю.
+    TitleChanged {
+        title: Vec<u8>,
+    },
     ClipboardWrite {
         location: i32,
         /// Пары «MIME, данные»; пусто — очистка буфера.
@@ -421,10 +425,27 @@ unsafe extern "C" fn on_bell(_terminal: sys::GhosttyTerminal, userdata: *mut c_v
     }
 }
 
-unsafe extern "C" fn on_title_changed(_terminal: sys::GhosttyTerminal, userdata: *mut c_void) {
-    // SAFETY: см. on_write_pty.
-    if let Some(state) = unsafe { state(userdata) } {
-        state.effects.push(Effect::TitleChanged);
+unsafe extern "C" fn on_title_changed(terminal: sys::GhosttyTerminal, userdata: *mut c_void) {
+    let mut value = sys::GhosttyString {
+        ptr: ptr::null(),
+        len: 0,
+    };
+    // SAFETY: см. on_write_pty. `get` не пишет в терминал, поэтому не нарушает запрет повторного
+    // входа в запись; строка одолжена до следующего изменения терминала и копируется сразу.
+    unsafe {
+        let status = sys::ghostty_terminal_get(
+            terminal,
+            sys::GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_TITLE,
+            ptr::from_mut(&mut value).cast(),
+        );
+        let title = if status == sys::GhosttyResult_GHOSTTY_SUCCESS {
+            string_bytes(value)
+        } else {
+            Vec::new()
+        };
+        if let Some(state) = state(userdata) {
+            state.effects.push(Effect::TitleChanged { title });
+        }
     }
 }
 

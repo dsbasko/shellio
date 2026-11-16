@@ -64,12 +64,17 @@ pub const SET_STAMPS: [(&str, &str); 3] = [
     ("SHELLIO_PROBE_STAMP_VT", "vt"),
 ];
 
+/// Каталог наборов пробы, который `run.sh` собрал или сверил: из него процесс сценария берёт
+/// бинари zmx. Сам каталог в `environment` не попадает, его содержимое описывают штампы.
+pub const SETS_DIR: &str = "SHELLIO_PROBE_SETS_DIR";
+
 /// Переменные `run.sh`, которые запуск передаёт процессу сценария как есть, если они не пусты.
 fn passed_vars() -> impl Iterator<Item = &'static str> {
     BUILD_VARS
         .into_iter()
         .chain(SET_VERSIONS.into_iter().map(|(name, _)| name))
         .chain(SET_STAMPS.into_iter().map(|(name, _)| name))
+        .chain([SETS_DIR])
 }
 /// Префиксы, которых не бывает в окружении процесса сценария: терминал и ghostty, nvim и
 /// настоящие сессии пользователя.
@@ -518,13 +523,18 @@ const ARGS_RETRIES: usize = 1000;
 
 /// Процессы с nonce в аргументах, кроме самого запуска.
 fn find_by_nonce(nonce: &str) -> Vec<ProcessRecord> {
+    find_by_token(nonce)
+}
+
+/// Процессы со строкой `token` в аргументах, кроме вызывающего.
+pub fn find_by_token(token: &str) -> Vec<ProcessRecord> {
     let own = std::process::id() as i32;
     // SAFETY: вызов без аргументов.
     let uid = unsafe { libc::getuid() };
     let mut found = Vec::new();
     let mut unread = Vec::new();
     let take = |pid: i32, args: &[String], found: &mut Vec<ProcessRecord>| {
-        if carries_nonce(args, nonce) {
+        if carries_nonce(args, token) {
             found.push(ProcessRecord {
                 pid,
                 command: command_line(args),
@@ -625,7 +635,8 @@ fn all_pids() -> Vec<i32> {
     pids
 }
 
-fn process_args(pid: i32) -> Option<Vec<String>> {
+/// Аргументы процесса по `KERN_PROCARGS2`; `None`, если ядро их не отдало.
+pub fn process_args(pid: i32) -> Option<Vec<String>> {
     let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid];
     let mut size = 0usize;
     // SAFETY: первый вызов узнаёт размер ответа, буфер не передаётся.
@@ -662,7 +673,7 @@ fn process_args(pid: i32) -> Option<Vec<String>> {
 }
 
 /// Ждёт выхода процессов через `kqueue` не дольше `timeout`; возвращает тех, кто ещё жив.
-fn wait_exit(pids: &[i32], timeout: Duration) -> Vec<i32> {
+pub fn wait_exit(pids: &[i32], timeout: Duration) -> Vec<i32> {
     // SAFETY: `kqueue` без аргументов возвращает дескриптор или -1.
     let queue = unsafe { libc::kqueue() };
     if queue < 0 {
@@ -823,6 +834,26 @@ mod tests {
             assert!(name.starts_with("SHELLIO_PROBE_"), "{name}");
             assert!(!key.is_empty());
         }
+    }
+
+    #[test]
+    fn sets_dir_passes_through_launch() {
+        let parent = |name: &str| match name {
+            "HOME" => Some("/Users/t".to_owned()),
+            "PATH" => Some("/usr/bin".to_owned()),
+            SETS_DIR => Some("/r/target/probes/session-survival".to_owned()),
+            _ => None,
+        };
+        let env = build_env(parent, "/tmp/shellio-probe-state.n1").unwrap();
+        assert_eq!(
+            env.last(),
+            Some(&(
+                SETS_DIR.to_owned(),
+                "/r/target/probes/session-survival".to_owned()
+            ))
+        );
+        assert_eq!(check_env(&env, Some("n1")), Check::default());
+        assert!(!SETS_DIR.starts_with("ZMX_") && !SETS_DIR.starts_with("GHOSTTY_"));
     }
 
     #[test]

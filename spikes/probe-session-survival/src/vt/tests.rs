@@ -216,6 +216,23 @@ fn device_attributes_are_answered_by_default_without_responder() {
 }
 
 #[test]
+fn title_changes_in_one_write_keep_each_title() {
+    let mut term = terminal();
+    term.enable_effects(Responder::default()).expect("колбэки");
+    term.write(b"\x1b]2;first\x07text\x1b]0;second\x1b\\");
+    let titles: Vec<Vec<u8>> = term
+        .take_effects()
+        .into_iter()
+        .filter_map(|effect| match effect {
+            Effect::TitleChanged { title } => Some(title),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(titles, [b"first".to_vec(), b"second".to_vec()]);
+    assert_eq!(term.title().expect("title"), b"second");
+}
+
+#[test]
 fn clipboard_effects_copy_data_and_answer_reads() {
     let mut term = terminal();
     term.enable_effects(Responder {

@@ -106,16 +106,20 @@ pub enum Event {
         bytes: u64,
         error: Option<String>,
     },
+    /// `writes` — записи фикстуры в PTY с её запуска на момент квитанции: задержки видны сразу,
+    /// а не только в квитанции выхода.
     FloodProgress {
         id: u64,
         lines: u64,
         bytes: u64,
+        writes: WriteStats,
     },
     FloodDone {
         id: u64,
         lines: u64,
         bytes: u64,
         cancelled: bool,
+        writes: WriteStats,
     },
     /// Ответ терминала, разобранный во вводе: номер с единицы, вид и байты.
     Response {

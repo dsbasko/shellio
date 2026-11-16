@@ -25,7 +25,7 @@ SETS_DIR="${SHELLIO_PROBE_SETS_DIR:-$OUT_BASE}"
 ZMX_SH="$ROOT/spikes/probe-session-survival/scripts/zmx.sh"
 VT_SH="$ROOT/spikes/probe-session-survival/scripts/vt.sh"
 VT_BINDINGS="$ROOT/spikes/probe-session-survival/scripts/vt-bindings.sh"
-ALL_SCENARIOS="smoke"
+ALL_SCENARIOS="smoke lifecycle"
 
 die() {
     echo "run.sh: $*" >&2
@@ -97,6 +97,9 @@ prepare_zmx_sets() {
         export "SHELLIO_PROBE_VERSION_$var=$version" "SHELLIO_PROBE_STAMP_$var=${sum%% *}"
     done
     export SHELLIO_PROBE_VERSION_ZIG_ZMX="$zig"
+    # Бинари наборов процесс сценария берёт отсюда: launch::SETS_DIR.
+    SHELLIO_PROBE_SETS_DIR="$(cd "$SETS_DIR" && pwd)"
+    export SHELLIO_PROBE_SETS_DIR
 }
 
 # Набор libghostty-vt: сборка или сверка до любого вызова cargo с функцией vt, затем версия, Zig и
@@ -115,6 +118,7 @@ prepare_vt_set() {
 backends_of() {
     case "$1" in
         smoke) echo - ;;
+        lifecycle) echo zmx ;;
         *) die "у сценария $1 не заданы кандидаты" ;;
     esac
 }

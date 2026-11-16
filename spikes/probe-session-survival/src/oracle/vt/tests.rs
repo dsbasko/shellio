@@ -129,6 +129,66 @@ fn two_receivers_keep_separate_journals() {
     assert_eq!(first.journal().len(), 1, "журнал первого не изменился");
 }
 
+#[test]
+fn managed_receiver_journals_role_reports_and_keeps_the_session_title() {
+    let profile = ReceiverProfile::for_client("c1").with_role_prefix("zmx-role;t1:");
+    let mut rx = Receiver::new("c1", &config(), profile).expect("приёмник");
+    let mut reference = reference();
+    reference.feed(b"\x1b]2;work\x07ab");
+    // Снимок повторного attach: роль приходит раньше снимка, заголовок нагрузки — в нём.
+    rx.feed(b"\x1b]2;zmx-role;t1:leader:3\x1b\\ab\x1b]2;work\x07");
+    let state = rx.capture(Capture::default()).expect("состояние");
+    assert_eq!(state.title, "work");
+    assert_eq!(
+        compare(
+            &reference.capture(Capture::default()).expect("эталон"),
+            &state
+        )
+        .outcome(),
+        Outcome::Equal
+    );
+    // Роль после заголовка нагрузки: терминал показывает заголовок нагрузки, роль — в журнале.
+    rx.feed(b"\x1b]2;zmx-role;t1:follower:4\x1b\\");
+    assert_eq!(
+        rx.terminal().title().expect("title"),
+        b"zmx-role;t1:follower:4"
+    );
+    assert_eq!(
+        rx.capture(Capture::default()).expect("состояние").title,
+        "work"
+    );
+    assert_eq!(rx.last_role(), Some("follower:4"));
+    let events: Vec<&Journaled> = rx.journal().iter().map(|entry| &entry.event).collect();
+    assert_eq!(
+        events,
+        [
+            &Journaled::Role {
+                report: "leader:3".to_owned()
+            },
+            &Journaled::TitleChanged {
+                title: "work".to_owned()
+            },
+            &Journaled::Role {
+                report: "follower:4".to_owned()
+            },
+        ]
+    );
+    // Чужой токен — обычный заголовок нагрузки.
+    rx.feed(b"\x1b]2;zmx-role;other:leader:1\x07");
+    assert_eq!(
+        rx.capture(Capture::default()).expect("состояние").title,
+        "zmx-role;other:leader:1"
+    );
+    // Без префикса в профиле заголовок роли — заголовок.
+    let mut plain = receiver("c2");
+    plain.feed(b"\x1b]2;zmx-role;t1:leader:1\x07");
+    assert_eq!(
+        plain.capture(Capture::default()).expect("состояние").title,
+        "zmx-role;t1:leader:1"
+    );
+    assert_eq!(plain.last_role(), None);
+}
+
 fn first_location(journal: &[JournalEntry]) -> i32 {
     match journal.first().map(|entry| &entry.event) {
         Some(Journaled::ClipboardWrite { location, .. }) => *location,

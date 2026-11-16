@@ -1126,11 +1126,13 @@ mod tests {
             on_candidate.problems(&tmp.0),
             ["сценарий smoke не идёт на кандидате zmx"]
         );
-        on_candidate.scenario = "lifecycle".to_owned();
+        on_candidate.scenario = "no-such".to_owned();
         assert_eq!(
             on_candidate.problems(&tmp.0),
-            ["неизвестный сценарий «lifecycle»"]
+            ["неизвестный сценарий «no-such»"]
         );
+        on_candidate.scenario = "lifecycle".to_owned();
+        assert!(on_candidate.problems(&tmp.0).is_empty());
     }
 
     #[test]

@@ -1,5 +1,8 @@
 //! Матрица рубежей A–G: кандидаты, каталог клеток, сценарии и процесс сценария. Сценарии рубежей
-//! добавляют задачи плана; здесь сценарий стенда `smoke`.
+//! добавляют задачи плана: сценарий стенда `smoke`, рубеж A — `lifecycle`.
+
+#[cfg(feature = "vt")]
+pub mod lifecycle;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -87,14 +90,17 @@ pub fn cell_order(id: &str) -> usize {
 pub enum Scenario {
     /// Самопроверка стенда: окружение процесса и `result.json` с одной клеткой.
     Smoke,
+    /// Рубеж A: жизненный цикл сессии, клетки A1–A7.
+    Lifecycle,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 1] = [Scenario::Smoke];
+    pub const ALL: [Scenario; 2] = [Scenario::Smoke, Scenario::Lifecycle];
 
     pub fn name(self) -> &'static str {
         match self {
             Scenario::Smoke => "smoke",
+            Scenario::Lifecycle => "lifecycle",
         }
     }
 
@@ -108,6 +114,7 @@ impl Scenario {
     pub fn candidates(self) -> &'static [Candidate] {
         match self {
             Scenario::Smoke => &[],
+            Scenario::Lifecycle => &[Candidate::Zmx],
         }
     }
 
@@ -115,6 +122,7 @@ impl Scenario {
     pub fn deadline(self) -> Duration {
         match self {
             Scenario::Smoke => Duration::from_secs(10),
+            Scenario::Lifecycle => Duration::from_secs(300),
         }
     }
 }
@@ -186,7 +194,19 @@ pub fn process_main(
 fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
     match target.scenario {
         Scenario::Smoke => smoke(&target.out, environment),
+        Scenario::Lifecycle => lifecycle_run(target, environment),
     }
+}
+
+#[cfg(feature = "vt")]
+fn lifecycle_run(target: &Target, environment: &Environment) -> Result<Report, String> {
+    lifecycle::run(target, environment)
+}
+
+/// Оракулам рубежа нужен `libghostty-vt`: без функции `vt` сценарий не запускается.
+#[cfg(not(feature = "vt"))]
+fn lifecycle_run(_target: &Target, _environment: &Environment) -> Result<Report, String> {
+    Err("сценарий lifecycle требует функцию vt".to_owned())
 }
 
 /// Строка итога процесса: исполнение и счётчики клеток.
@@ -426,6 +446,7 @@ pub(crate) mod tests {
             assert_eq!(Scenario::from_name(scenario.name()), Some(scenario));
         }
         assert!(Scenario::Smoke.candidates().is_empty());
+        assert_eq!(Scenario::Lifecycle.candidates(), [Candidate::Zmx]);
     }
 
     #[test]

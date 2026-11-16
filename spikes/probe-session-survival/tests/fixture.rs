@@ -274,12 +274,20 @@ mod pty_fixtures {
         let done = link
             .wait_for(WAIT, |receipt| match &receipt.event {
                 Event::FloodDone {
-                    lines, cancelled, ..
-                } => Some((*lines, *cancelled)),
+                    lines,
+                    bytes,
+                    cancelled,
+                    writes,
+                    ..
+                } => Some((*lines, *cancelled, *bytes, writes.bytes)),
                 _ => None,
             })
             .unwrap();
-        assert_eq!(done, (5, false));
+        assert_eq!(
+            done,
+            (5, false, 5 * 32, 5 * 32),
+            "строк, отмена, байты, записи"
+        );
         let progress: Vec<u64> = link
             .log()
             .iter()

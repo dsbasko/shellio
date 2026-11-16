@@ -5,6 +5,10 @@
 //! но ещё не прибран родителем (зомби). Оба источника сверяются по времени старта: расхождение
 //! значит, что PID успели переиспользовать между двумя чтениями. Сессия — `getsid`, у зомби её нет.
 //! Только системные C API (ADR-0034).
+//!
+//! Выход процесса не мгновенный: `kqueue` сообщает о нём, когда процесс уже в `exit()`, а `p_stat`
+//! ещё не `SZOMB` и потомки ещё не переданы `launchd`. Такой процесс отмечен признаком
+//! `PROC_FLAG_INEXIT` и не считается исполняющимся.
 
 use std::io;
 use std::mem::MaybeUninit;
@@ -13,6 +17,8 @@ use serde::{Deserialize, Serialize};
 
 /// `NODEV`: у процесса нет управляющего терминала.
 const NO_TTY: u32 = u32::MAX;
+/// `PROC_FLAG_INEXIT` из `sys/proc_info.h`: процесс проходит `exit()`.
+const PROC_FLAG_INEXIT: u32 = 4;
 /// Повторы чтения, если PID переиспользован между `sysctl` и `proc_pidinfo`.
 const READ_ATTEMPTS: usize = 3;
 const MAX_TREE: usize = 4096;
@@ -63,13 +69,15 @@ pub struct ProcessInfo {
     /// Устройство управляющего терминала; `None` без терминала.
     pub tty: Option<u32>,
     pub state: State,
+    /// Процесс уже в `exit()`, хотя `state` может быть ещё не `Zombie`.
+    pub exiting: bool,
     pub comm: String,
 }
 
 impl ProcessInfo {
-    /// Процесс исполняется: существует и не зомби.
+    /// Процесс исполняется: существует, не зомби и не выходит.
     pub fn is_alive(&self) -> bool {
-        self.state != State::Zombie
+        self.state != State::Zombie && !self.exiting
     }
 }
 
@@ -135,6 +143,7 @@ pub fn inspect(pid: i32) -> Result<Option<ProcessInfo>, String> {
             tpgid: tty.and(Some(bsd.e_tpgid as i32)).filter(|pgid| *pgid > 0),
             tty,
             state,
+            exiting: bsd.pbi_flags & PROC_FLAG_INEXIT != 0,
             comm: c_text(&bsd.pbi_comm),
         }));
     }
@@ -285,6 +294,7 @@ mod tests {
             tpgid: None,
             tty: None,
             state: State::Sleeping,
+            exiting: false,
             comm: "fixture".to_owned(),
         }
     }
@@ -314,6 +324,11 @@ mod tests {
         let same = classify(key, Some(&zombie));
         assert!(matches!(same, Identity::Same(_)) && !same.is_alive());
         assert!(classify(key, Some(&info(812, 1_000))).is_alive());
+        // Выходящий процесс ещё не зомби, но уже не исполняется.
+        let mut exiting = info(812, 1_000);
+        exiting.state = State::Running;
+        exiting.exiting = true;
+        assert!(!classify(key, Some(&exiting)).is_alive());
     }
 
     #[test]
@@ -323,7 +338,7 @@ mod tests {
         // SAFETY: вызовы без указателей.
         let (ppid, pgid, sid) = unsafe { (libc::getppid(), libc::getpgrp(), libc::getsid(0)) };
         assert_eq!((me.ppid, me.pgid, me.sid), (ppid, pgid, Some(sid)));
-        assert!(me.is_alive());
+        assert!(me.is_alive() && !me.exiting);
         assert!(me.key.start_us > 0);
         assert_eq!(
             identify(me.key).unwrap(),
@@ -369,6 +384,7 @@ mod tests {
         match &zombie {
             Identity::Same(info) => {
                 assert_eq!(info.state, State::Zombie);
+                assert!(info.exiting);
                 assert_eq!(info.ppid, std::process::id() as i32);
                 assert_eq!(info.sid, None);
             }
