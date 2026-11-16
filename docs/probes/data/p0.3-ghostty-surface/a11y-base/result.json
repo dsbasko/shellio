@@ -1,0 +1,2955 @@
+{
+  "schema": 1,
+  "scenario": "a11y",
+  "variant": "base",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "6b91e3f56492",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.3.2, objc2-quartz-core 0.3.2",
+      "ghostty_version": "1.4.0",
+      "ghostty_rev": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "process": {
+      "pid": 46650,
+      "route": "direct",
+      "nonce": "1892eb65de924432",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_STATE_DIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.1892eb65de924432",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    },
+    "bundle": {
+      "path": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app",
+      "identifier": "io.github.dsbasko.shellio.probe.ghostty-surface",
+      "executable": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface",
+      "signature": "valid: identifier \"io.github.dsbasko.shellio.probe.ghostty-surface\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC"
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "активность, key window и фокус A",
+      "status": "ready",
+      "waited_ms": 47.143792,
+      "at_ms": 60.5505,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 1,
+      "name": "создание A и B",
+      "status": "ready",
+      "waited_ms": 5.338083,
+      "at_ms": 65.898709,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 2,
+      "name": "готовность обеих фикстур",
+      "status": "ready",
+      "waited_ms": 35.630125,
+      "at_ms": 109.250084,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 3,
+      "name": "raw-режим A",
+      "status": "ready",
+      "waited_ms": 5.426791000000001,
+      "at_ms": 114.717292,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 4,
+      "name": "квитанция ack",
+      "status": "ready",
+      "waited_ms": 5.689083999999999,
+      "at_ms": 120.437417,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 5,
+      "name": "маркер в видимом тексте",
+      "status": "ready",
+      "waited_ms": 5.093208,
+      "at_ms": 125.562,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 6,
+      "name": "raw-режим B",
+      "status": "ready",
+      "waited_ms": 5.6878340000000005,
+      "at_ms": 131.282209,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 7,
+      "name": "квитанция ack",
+      "status": "ready",
+      "waited_ms": 5.688833,
+      "at_ms": 137.000584,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 8,
+      "name": "маркер в видимом тексте",
+      "status": "ready",
+      "waited_ms": 5.683166,
+      "at_ms": 142.716792,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 9,
+      "name": "фокус A после создания",
+      "status": "ready",
+      "waited_ms": 5.2595410000000005,
+      "at_ms": 148.004667,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 10,
+      "name": "метки доступности",
+      "status": "ready",
+      "waited_ms": 5.6853750000000005,
+      "at_ms": 153.721417,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 11,
+      "name": "известный текст у A",
+      "status": "ready",
+      "waited_ms": 5.357583,
+      "at_ms": 159.114584,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 12,
+      "name": "известный текст в модели A",
+      "status": "ready",
+      "waited_ms": 5.517917,
+      "at_ms": 164.671917,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 13,
+      "name": "attributes",
+      "status": "ready",
+      "waited_ms": 5.6544170000000005,
+      "at_ms": 170.343709,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 14,
+      "name": "обновление и запрос клиента",
+      "status": "ready",
+      "waited_ms": 5.663333000000001,
+      "at_ms": 176.034209,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 15,
+      "name": "ответ клиента доступности",
+      "status": "ready",
+      "waited_ms": 55.181875,
+      "at_ms": 231.332125,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 16,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.649958,
+      "at_ms": 237.023292,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 17,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.651790999999999,
+      "at_ms": 242.698375,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 18,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.65733300000002,
+      "at_ms": 403.547959,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 19,
+      "name": "selection-word",
+      "status": "ready",
+      "waited_ms": 5.68775,
+      "at_ms": 409.264959,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 20,
+      "name": "выделение перетаскиванием",
+      "status": "ready",
+      "waited_ms": 5.392167,
+      "at_ms": 414.67,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 21,
+      "name": "выделение у A",
+      "status": "ready",
+      "waited_ms": 5.69575,
+      "at_ms": 420.5275,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 22,
+      "name": "ответ клиента доступности",
+      "status": "ready",
+      "waited_ms": 45.373459,
+      "at_ms": 466.024,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 23,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.683667,
+      "at_ms": 471.758667,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 24,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.3967909999999994,
+      "at_ms": 477.176292,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 25,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.610209,
+      "at_ms": 637.908042,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 26,
+      "name": "selection-across-lines",
+      "status": "ready",
+      "waited_ms": 5.656,
+      "at_ms": 643.603917,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 27,
+      "name": "выделение перетаскиванием",
+      "status": "ready",
+      "waited_ms": 5.216374999999999,
+      "at_ms": 648.882875,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 28,
+      "name": "выделение у A",
+      "status": "ready",
+      "waited_ms": 5.442125,
+      "at_ms": 654.5935,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 29,
+      "name": "ответ клиента доступности",
+      "status": "ready",
+      "waited_ms": 65.27900000000001,
+      "at_ms": 720.165417,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 30,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.4247499999999995,
+      "at_ms": 725.63075,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 31,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.671625,
+      "at_ms": 731.308792,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 32,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.61141600000002,
+      "at_ms": 892.019875,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 33,
+      "name": "selection-cleared-by-key",
+      "status": "ready",
+      "waited_ms": 5.678291000000001,
+      "at_ms": 897.751625,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 34,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.690166,
+      "at_ms": 903.495334,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 35,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.248875,
+      "at_ms": 908.910959,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 36,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.6545,
+      "at_ms": 914.588667,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 37,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.58825,
+      "at_ms": 1075.325709,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 38,
+      "name": "insertion-point",
+      "status": "ready",
+      "waited_ms": 5.666459000000001,
+      "at_ms": 1081.044167,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 39,
+      "name": "обновление и запрос клиента",
+      "status": "ready",
+      "waited_ms": 5.681959,
+      "at_ms": 1086.774292,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 40,
+      "name": "ответ клиента доступности",
+      "status": "ready",
+      "waited_ms": 65.141666,
+      "at_ms": 1152.151334,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 41,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.313834,
+      "at_ms": 1157.500167,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 42,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.657500000000001,
+      "at_ms": 1163.1685,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 43,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 155.630833,
+      "at_ms": 1318.895125,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 44,
+      "name": "reads-on-demand",
+      "status": "ready",
+      "waited_ms": 5.656750000000001,
+      "at_ms": 1324.587792,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 45,
+      "name": "поток вывода у A без запросов доступности",
+      "status": "ready",
+      "waited_ms": 5.672708,
+      "at_ms": 1330.308709,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 46,
+      "name": "поток A закончен",
+      "status": "ready",
+      "waited_ms": 300.610042,
+      "at_ms": 1631.009834,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 47,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.689291,
+      "at_ms": 1636.880209,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 48,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.67,
+      "at_ms": 1642.593167,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 49,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.658416,
+      "at_ms": 1803.457792,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 50,
+      "name": "B за вкладкой-заглушкой",
+      "status": "ready",
+      "waited_ms": 5.66775,
+      "at_ms": 1809.169667,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 51,
+      "name": "B вне окна",
+      "status": "ready",
+      "waited_ms": 5.715375,
+      "at_ms": 1820.518417,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 52,
+      "name": "hidden-not-in-tree",
+      "status": "ready",
+      "waited_ms": 5.382542,
+      "at_ms": 1825.928792,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 53,
+      "name": "обход дерева клиентом",
+      "status": "ready",
+      "waited_ms": 5.41325,
+      "at_ms": 1831.385959,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 54,
+      "name": "ответ клиента доступности",
+      "status": "ready",
+      "waited_ms": 70.480667,
+      "at_ms": 1902.042334,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 55,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.656625,
+      "at_ms": 1907.722625,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 56,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.653875,
+      "at_ms": 1913.386792,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 57,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 155.39325000000002,
+      "at_ms": 2068.86375,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 58,
+      "name": "B снова в плитке",
+      "status": "ready",
+      "waited_ms": 5.501333,
+      "at_ms": 2074.373625,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 59,
+      "name": "B в окне",
+      "status": "ready",
+      "waited_ms": 5.664416999999999,
+      "at_ms": 2080.721209,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 60,
+      "name": "restored-in-tree",
+      "status": "ready",
+      "waited_ms": 5.236583,
+      "at_ms": 2085.963917,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 61,
+      "name": "обход дерева клиентом",
+      "status": "ready",
+      "waited_ms": 5.6897079999999995,
+      "at_ms": 2091.680542,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 62,
+      "name": "ответ клиента доступности",
+      "status": "ready",
+      "waited_ms": 50.603,
+      "at_ms": 2142.371042,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 63,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.601,
+      "at_ms": 2148.004584,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 64,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.664542,
+      "at_ms": 2153.68,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 65,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.575833,
+      "at_ms": 2314.340167,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 66,
+      "name": "стоимость и журналы доступности",
+      "status": "ready",
+      "waited_ms": 5.712083,
+      "at_ms": 2320.074375,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 67,
+      "name": "закрытие обеих поверхностей",
+      "status": "ready",
+      "waited_ms": 5.651084,
+      "at_ms": 2325.887625,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 68,
+      "name": "освобождение и выход фикстур",
+      "status": "ready",
+      "waited_ms": 30.883375,
+      "at_ms": 2356.809625,
+      "state": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266"
+    }
+  ],
+  "events": [
+    {
+      "number": 1,
+      "label": "keyDown `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137919564875,
+      "dispatch_start_ns": 405137920598875,
+      "send_return_ns": 405137921236583,
+      "display_pass_ns": 405137928234958,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "keyUp `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137919696875,
+      "dispatch_start_ns": 405137921283666,
+      "send_return_ns": 405137921287291,
+      "display_pass_ns": 405137928234958,
+      "undispatched": false
+    },
+    {
+      "number": 3,
+      "label": "выделение at 498,771",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138091626583,
+      "dispatch_start_ns": 405138091704833,
+      "send_return_ns": 405138092096458,
+      "display_pass_ns": 405138092274833,
+      "undispatched": false
+    },
+    {
+      "number": 4,
+      "label": "выделение at 526,771",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138091651375,
+      "dispatch_start_ns": 405138092149833,
+      "send_return_ns": 405138092173833,
+      "display_pass_ns": 405138092274833,
+      "undispatched": false
+    },
+    {
+      "number": 5,
+      "label": "выделение at 526,771",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138091658000,
+      "dispatch_start_ns": 405138092193583,
+      "send_return_ns": 405138092210416,
+      "display_pass_ns": 405138092274833,
+      "undispatched": false
+    },
+    {
+      "number": 6,
+      "label": "keyDown `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138154045708,
+      "dispatch_start_ns": 405138154132083,
+      "send_return_ns": 405138154211875,
+      "display_pass_ns": 405138154293125,
+      "undispatched": false
+    },
+    {
+      "number": 7,
+      "label": "keyUp `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138154081666,
+      "dispatch_start_ns": 405138154224625,
+      "send_return_ns": 405138154227125,
+      "display_pass_ns": 405138154293125,
+      "undispatched": false
+    },
+    {
+      "number": 8,
+      "label": "выделение at 458,786",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138325874500,
+      "dispatch_start_ns": 405138326169333,
+      "send_return_ns": 405138326799583,
+      "display_pass_ns": 405138327223458,
+      "undispatched": false
+    },
+    {
+      "number": 9,
+      "label": "выделение at 438,771",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138325944166,
+      "dispatch_start_ns": 405138326916458,
+      "send_return_ns": 405138326985958,
+      "display_pass_ns": 405138327223458,
+      "undispatched": false
+    },
+    {
+      "number": 10,
+      "label": "выделение at 438,771",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138325963416,
+      "dispatch_start_ns": 405138327030416,
+      "send_return_ns": 405138327055708,
+      "display_pass_ns": 405138327223458,
+      "undispatched": false
+    },
+    {
+      "number": 11,
+      "label": "keyDown `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138408170000,
+      "dispatch_start_ns": 405138408246708,
+      "send_return_ns": 405138408326416,
+      "display_pass_ns": 405138408404125,
+      "undispatched": false
+    },
+    {
+      "number": 12,
+      "label": "keyUp `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138408203125,
+      "dispatch_start_ns": 405138408339875,
+      "send_return_ns": 405138408342750,
+      "display_pass_ns": 405138408404125,
+      "undispatched": false
+    },
+    {
+      "number": 13,
+      "label": "keyDown x",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138580367958,
+      "dispatch_start_ns": 405138580679666,
+      "send_return_ns": 405138580967500,
+      "display_pass_ns": 405138581319208,
+      "undispatched": false
+    },
+    {
+      "number": 14,
+      "label": "keyUp x",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138580474666,
+      "dispatch_start_ns": 405138581036333,
+      "send_return_ns": 405138581053416,
+      "display_pass_ns": 405138581319208,
+      "undispatched": false
+    },
+    {
+      "number": 15,
+      "label": "keyDown `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138591453458,
+      "dispatch_start_ns": 405138595615791,
+      "send_return_ns": 405138595788666,
+      "display_pass_ns": 405138595956791,
+      "undispatched": false
+    },
+    {
+      "number": 16,
+      "label": "keyUp `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138591510208,
+      "dispatch_start_ns": 405138595811583,
+      "send_return_ns": 405138595816041,
+      "display_pass_ns": 405138595956791,
+      "undispatched": false
+    },
+    {
+      "number": 17,
+      "label": "keyDown `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138840032125,
+      "dispatch_start_ns": 405138840128000,
+      "send_return_ns": 405138840219333,
+      "display_pass_ns": 405138840312458,
+      "undispatched": false
+    },
+    {
+      "number": 18,
+      "label": "keyUp `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405138840077000,
+      "dispatch_start_ns": 405138840237000,
+      "send_return_ns": 405138840239750,
+      "display_pass_ns": 405138840312458,
+      "undispatched": false
+    },
+    {
+      "number": 19,
+      "label": "keyDown `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405139319464125,
+      "dispatch_start_ns": 405139320656875,
+      "send_return_ns": 405139320951541,
+      "display_pass_ns": 405139321311416,
+      "undispatched": false
+    },
+    {
+      "number": 20,
+      "label": "keyUp `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405139319562333,
+      "dispatch_start_ns": 405139321016041,
+      "send_return_ns": 405139321033125,
+      "display_pass_ns": 405139321311416,
+      "undispatched": false
+    },
+    {
+      "number": 21,
+      "label": "keyDown `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405139590248208,
+      "dispatch_start_ns": 405139590325291,
+      "send_return_ns": 405139590399000,
+      "display_pass_ns": 405139590474083,
+      "undispatched": false
+    },
+    {
+      "number": 22,
+      "label": "keyUp `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405139590280375,
+      "dispatch_start_ns": 405139590412208,
+      "send_return_ns": 405139590415041,
+      "display_pass_ns": 405139590474083,
+      "undispatched": false
+    },
+    {
+      "number": 23,
+      "label": "keyDown `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405139830543250,
+      "dispatch_start_ns": 405139830627166,
+      "send_return_ns": 405139830752458,
+      "display_pass_ns": 405139830830458,
+      "undispatched": false
+    },
+    {
+      "number": 24,
+      "label": "keyUp `",
+      "window": 41576,
+      "before": "isActive=true keyWindow=#41576 mainWindow=#41576 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405139830586541,
+      "dispatch_start_ns": 405139830767875,
+      "send_return_ns": 405139830770250,
+      "display_pass_ns": 405139830830458,
+      "undispatched": false
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "a11y"
+    },
+    {
+      "key": "route",
+      "value": "direct"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "variant",
+      "value": "base"
+    },
+    {
+      "key": "a11y_note",
+      "value": "атрибуты читает настоящий клиент AXUIElement в отдельном процессе --ax-client — тот же межпроцессный путь, что у VoiceOver, ответ собирает главный поток пробы; в процессе пробы оба пути не годятся: прямой accessibilityAttributeValue: у NSView к методам протокола NSAccessibility не переходит (роль AXUnknown), а AXUIElement API к собственному процессу зовёт методы вида в потоке клиента, а не на главном; выделение — перетаскивание мышью через обычную доставку NSApplication"
+    },
+    {
+      "key": "value_note",
+      "value": "AXValue — логические строки видимой области (мягкий перенос склеен) без пробелов в конце строк и пустых строк внизу; без выделения точка вставки стоит в конце текста, курсор терминала не переводится; рамка диапазона — рамка вида"
+    },
+    {
+      "key": "manual_note",
+      "value": "чтение VoiceOver в демонстрации с настоящим shell и следование за сменой фокуса проверяются вручную в задаче 19"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "pasteboard",
+      "value": "io.github.dsbasko.shellio.probe.1892eb65de924432"
+    },
+    {
+      "key": "ghostty_init",
+      "value": {
+        "after": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "en_US.UTF-8",
+            "LC_COLLATE": "en_US.UTF-8",
+            "LC_CTYPE": "en_US.UTF-8",
+            "LC_MESSAGES": "en_US.UTF-8",
+            "LC_MONETARY": "en_US.UTF-8",
+            "LC_NUMERIC": "en_US.UTF-8",
+            "LC_TIME": "en_US.UTF-8"
+          },
+          "threads": 3
+        },
+        "argv": [
+          "probe-ghostty-surface"
+        ],
+        "before": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "C",
+            "LC_COLLATE": "C",
+            "LC_CTYPE": "C",
+            "LC_MESSAGES": "C",
+            "LC_MONETARY": "C",
+            "LC_NUMERIC": "C",
+            "LC_TIME": "C"
+          },
+          "threads": 3
+        },
+        "code": 0,
+        "duration_ms": 0.443708,
+        "finished_ns": 405137582293708,
+        "started_ns": 405137581850000
+      }
+    },
+    {
+      "key": "ghostty_init_env_changes",
+      "value": ""
+    },
+    {
+      "key": "ghostty_version",
+      "value": "1.4.0"
+    },
+    {
+      "key": "ghostty_build_mode",
+      "value": "release-fast"
+    },
+    {
+      "key": "ghostty_config",
+      "value": "font-family = Menlo\nfont-size = 13\nscrollback-limit-bytes = 10000000\ntheme = light:Builtin Light,dark:Builtin Dark\ncursor-style-blink = true\nconfirm-close-surface = false\nclipboard-paste-protection = false\n"
+    },
+    {
+      "key": "ghostty_config_diagnostics",
+      "value": []
+    },
+    {
+      "key": "ghostty_runtime_start",
+      "value": {
+        "app_focused": false,
+        "app_new_finished_ns": 405137689051000,
+        "app_new_started_ns": 405137688998125,
+        "color_scheme": "light",
+        "config_change_from_update": 1,
+        "reload_config_from_scheme": 0
+      }
+    },
+    {
+      "key": "surface_command",
+      "value": "'/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface' '--fixture' '--channel' '/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/a11y-base/fixture.sock' '--nonce' '1892eb65de924432-s1'"
+    },
+    {
+      "key": "fixture_nonce",
+      "value": "1892eb65de924432-s1"
+    },
+    {
+      "key": "env_nonce",
+      "value": "76ef5d19eec8c41f"
+    },
+    {
+      "key": "responder_hidden_accepted",
+      "value": null
+    },
+    {
+      "key": "checks",
+      "value": [
+        {
+          "expected_a": "",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "",
+          "name": "attributes",
+          "notes": [
+            "известный текст: обновление по квитанции отправило [\"AXValueChanged\"] ([\"AXValueChanged\"], Refresh { present: true, value_changed: true, selection_changed: false }): да",
+            "attributes: снимок для клиента собран по его запросу атрибута ([(\"AXValue\", false)]): да",
+            "attributes: клиент — отдельный процесс (PID клиента 46657, пробы 46650): да",
+            "attributes: клиент нашёл в центре A элемент с меткой «Терминал A» за 43.5 мс (Some(Text(\"Терминал A\")), ошибка None): да",
+            "атрибуты текста в AXUIElementCopyAttributeNames (нет []): да",
+            "параметрические атрибуты в AXUIElementCopyParameterizedAttributeNames (нет []): да",
+            "AXRole AXTextArea (Text(\"AXTextArea\")): да",
+            "AXValue равен известному тексту (Text(\"a11y-1s2344\\nжук 中 🙂 тест\\nконец\")): да",
+            "AXNumberOfCharacters 31 (Integer(31)): да",
+            "AXVisibleCharacterRange {0, 31} (Range(Range16 { location: 0, length: 31 })): да",
+            "без выделения AXSelectedTextRange {31, 0} и AXSelectedText пуст (Range(Range16 { location: 31, length: 0 }), None): да",
+            "AXInsertionPointLineNumber 2 (Integer(2)): да",
+            "AXLineForIndex слова — строка 1 (Some(Integer(1))): да",
+            "AXRangeForLine 1 — Range16 { location: 12, length: 13 } (Some(Range(Range16 { location: 12, length: 13 }))): да",
+            "AXStringForRange Range16 { location: 18, length: 2 } — эмодзи в двух единицах UTF-16 (Some(Text(\"🙂\"))): да",
+            "AXAttributedStringForRange широкого иероглифа (Some(Text(\"中\"))): да"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "",
+          "name": "selection-word",
+          "notes": [
+            "клетка 10,1: x 82.0, базовая линия 29.0, клетка 8.0×15.0 точек",
+            "клетка 13,1: x 106.0, базовая линия 29.0, клетка 8.0×15.0 точек",
+            "selection-word: обновление по квитанции отправило [\"AXSelectedTextChanged\"] ([\"AXSelectedTextChanged\"], Refresh { present: true, value_changed: false, selection_changed: true }): да",
+            "selection-word: снимок для клиента собран по его запросу атрибута ([(\"AXValue\", false)]): да",
+            "selection-word: клиент — отдельный процесс (PID клиента 46658, пробы 46650): да",
+            "selection-word: клиент нашёл в центре A элемент с меткой «Терминал A» за 34.5 мс (Some(Text(\"Терминал A\")), ошибка None): да",
+            "AXSelectedTextRange Range16 { location: 21, length: 4 } в единицах UTF-16 (Range(Range16 { location: 21, length: 4 })): да",
+            "AXSelectedText \"тест\" (Text(\"тест\")): да",
+            "AXValue в диапазоне выделения — \"тест\" (Some(\"тест\")): да"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "",
+          "name": "selection-across-lines",
+          "notes": [
+            "клетка 5,0: x 42.0, базовая линия 14.0, клетка 8.0×15.0 точек",
+            "клетка 2,1: x 18.0, базовая линия 29.0, клетка 8.0×15.0 точек",
+            "selection-across-lines: обновление по квитанции отправило [\"AXSelectedTextChanged\"] ([\"AXSelectedTextChanged\"], Refresh { present: true, value_changed: false, selection_changed: true }): да",
+            "selection-across-lines: снимок для клиента собран по его запросу атрибута ([(\"AXValue\", false)]): да",
+            "selection-across-lines: клиент — отдельный процесс (PID клиента 46659, пробы 46650): да",
+            "selection-across-lines: клиент нашёл в центре A элемент с меткой «Терминал A» за 42.8 мс (Some(Text(\"Терминал A\")), ошибка None): да",
+            "AXSelectedTextRange Range16 { location: 5, length: 10 } в единицах UTF-16 (Range(Range16 { location: 5, length: 10 })): да",
+            "AXSelectedText \"1s2344\\nжук\" (Text(\"1s2344\\nжук\")): да",
+            "AXValue в диапазоне выделения — \"1s2344\\nжук\" (Some(\"1s2344\\nжук\")): да"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "78",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "78",
+          "got_b": "",
+          "name": "selection-cleared-by-key",
+          "notes": [],
+          "pass": true
+        },
+        {
+          "expected_a": "",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "",
+          "name": "insertion-point",
+          "notes": [
+            "клавиша сняла выделение у A (false): да",
+            "снятое выделение: обновление по квитанции отправило [\"AXSelectedTextChanged\"] ([\"AXSelectedTextChanged\"], Refresh { present: true, value_changed: false, selection_changed: true }): да",
+            "insertion-point: снимок для клиента собран по его запросу атрибута ([(\"AXValue\", false)]): да",
+            "insertion-point: клиент — отдельный процесс (PID клиента 46660, пробы 46650): да",
+            "insertion-point: клиент нашёл в центре A элемент с меткой «Терминал A» за 47.6 мс (Some(Text(\"Терминал A\")), ошибка None): да",
+            "AXSelectedTextRange {31, 0} и AXValue без изменений (Range(Range16 { location: 31, length: 0 })): да",
+            "без изменений: обновление по квитанции отправило [] ([], Refresh { present: true, value_changed: false, selection_changed: false }): да"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "",
+          "name": "reads-on-demand",
+          "notes": [
+            "за поток в 300 строк экран для доступности читался только по запросам клиента вне стенда: сборок 0, из них по внешним запросам 0: да",
+            "после потока: обновление по квитанции отправило [\"AXValueChanged\", \"AXSelectedTextChanged\"] ([\"AXValueChanged\", \"AXSelectedTextChanged\"], Refresh { present: true, value_changed: true, selection_changed: true }): да"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "",
+          "name": "hidden-not-in-tree",
+          "notes": [
+            "B isAccessibilityElement false, ожидалось false: да",
+            "скрытая B: обновление без уведомлений и без чтения экрана (Refresh { present: false, value_changed: false, selection_changed: false }, сборок 0 → 0): да",
+            "hidden-not-in-tree: снимок для клиента собран по его запросу атрибута ([(\"AXValue\", false)]): да",
+            "hidden-not-in-tree: клиент — отдельный процесс (PID клиента 46701, пробы 46650): да",
+            "hidden-not-in-tree: клиент нашёл в центре A элемент с меткой «Терминал A» за 54.7 мс (Some(Text(\"Терминал A\")), ошибка None): да",
+            "A в дереве окон приложения ([\"Терминал A\"], 15 узлов, обход обрезан false, роли [\"AXWindow\", \"AXStaticText\", \"AXButton\", \"AXButton\", \"AXGroup\", \"AXButton\", \"AXSplitGroup\", \"AXSplitter\", \"AXSplitGroup\", \"AXStaticText\", \"AXStaticText\", \"AXSplitter\", \"AXStaticText\", \"AXTextArea\", \"AXSplitter\"]): да",
+            "B не в дереве окон приложения ([\"Терминал A\"]): да"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "",
+          "name": "restored-in-tree",
+          "notes": [
+            "B isAccessibilityElement true, ожидалось true: да",
+            "restored-in-tree: снимок для клиента собран по его запросу атрибута ([(\"AXValue\", false)]): да",
+            "restored-in-tree: клиент — отдельный процесс (PID клиента 46704, пробы 46650): да",
+            "restored-in-tree: клиент нашёл в центре A элемент с меткой «Терминал A» за 39.9 мс (Some(Text(\"Терминал A\")), ошибка None): да",
+            "A в дереве окон приложения ([\"Терминал B\", \"Терминал A\"], 16 узлов, обход обрезан false, роли [\"AXWindow\", \"AXStaticText\", \"AXButton\", \"AXButton\", \"AXGroup\", \"AXGroup\", \"AXButton\", \"AXSplitGroup\", \"AXSplitter\", \"AXSplitGroup\", \"AXStaticText\", \"AXTextArea\", \"AXSplitter\", \"AXStaticText\", \"AXTextArea\", \"AXSplitter\"]): да",
+            "B в дереве окон приложения ([\"Терминал B\", \"Терминал A\"]): да"
+          ],
+          "pass": true
+        }
+      ]
+    },
+    {
+      "key": "a11y_log_a_before",
+      "value": {
+        "absent_refreshes": 0,
+        "absent_requests": 0,
+        "builds": [],
+        "cache_hits": 0,
+        "external_requests": 0,
+        "label": "Терминал A",
+        "posts": [],
+        "read_calls": 0,
+        "refreshes": 0,
+        "requests": 0
+      }
+    },
+    {
+      "key": "a11y_known",
+      "value": {
+        "across": {
+          "length": 10,
+          "location": 5
+        },
+        "across_text": "1s2344\nжук",
+        "emoji": {
+          "length": 2,
+          "location": 18
+        },
+        "len16": 31,
+        "line_one": {
+          "length": 13,
+          "location": 12
+        },
+        "tag": "a11y-1s2344",
+        "value": "a11y-1s2344\nжук 中 🙂 тест\nконец",
+        "wide": {
+          "length": 1,
+          "location": 16
+        },
+        "word": {
+          "length": 4,
+          "location": 21
+        }
+      }
+    },
+    {
+      "key": "a11y_off_main_requests",
+      "value": 0
+    },
+    {
+      "key": "a11y_log_a",
+      "value": {
+        "absent_refreshes": 0,
+        "absent_requests": 0,
+        "builds": [
+          {
+            "at_ns": 405137852900125,
+            "cause": "refresh:known-text",
+            "external": false,
+            "mismatch": null,
+            "ms": 0.009375,
+            "read_calls": 1,
+            "selection": null,
+            "truncated": false,
+            "value_len16": 31
+          },
+          {
+            "at_ns": 405137904370208,
+            "cause": "AXValue",
+            "external": false,
+            "mismatch": null,
+            "ms": 0.010583,
+            "read_calls": 1,
+            "selection": null,
+            "truncated": false,
+            "value_len16": 31
+          },
+          {
+            "at_ns": 405138097387500,
+            "cause": "refresh:selection-word",
+            "external": false,
+            "mismatch": null,
+            "ms": 0.022625,
+            "read_calls": 3,
+            "selection": {
+              "length": 4,
+              "location": 21
+            },
+            "truncated": false,
+            "value_len16": 31
+          },
+          {
+            "at_ns": 405138140178291,
+            "cause": "AXValue",
+            "external": false,
+            "mismatch": null,
+            "ms": 0.00875,
+            "read_calls": 3,
+            "selection": {
+              "length": 4,
+              "location": 21
+            },
+            "truncated": false,
+            "value_len16": 31
+          },
+          {
+            "at_ns": 405138331463666,
+            "cause": "refresh:selection-across-lines",
+            "external": false,
+            "mismatch": null,
+            "ms": 0.023,
+            "read_calls": 3,
+            "selection": {
+              "length": 10,
+              "location": 5
+            },
+            "truncated": false,
+            "value_len16": 31
+          },
+          {
+            "at_ns": 405138395126041,
+            "cause": "AXValue",
+            "external": false,
+            "mismatch": null,
+            "ms": 0.0105,
+            "read_calls": 3,
+            "selection": {
+              "length": 10,
+              "location": 5
+            },
+            "truncated": false,
+            "value_len16": 31
+          },
+          {
+            "at_ns": 405138763651958,
+            "cause": "refresh:selection-cleared",
+            "external": false,
+            "mismatch": null,
+            "ms": 0.028042,
+            "read_calls": 1,
+            "selection": null,
+            "truncated": false,
+            "value_len16": 31
+          },
+          {
+            "at_ns": 405138827319833,
+            "cause": "AXValue",
+            "external": false,
+            "mismatch": null,
+            "ms": 0.009333,
+            "read_calls": 1,
+            "selection": null,
+            "truncated": false,
+            "value_len16": 31
+          },
+          {
+            "at_ns": 405138829020916,
+            "cause": "refresh:unchanged",
+            "external": false,
+            "mismatch": null,
+            "ms": 0.004625,
+            "read_calls": 1,
+            "selection": null,
+            "truncated": false,
+            "value_len16": 31
+          },
+          {
+            "at_ns": 405139307883500,
+            "cause": "refresh:stream-done",
+            "external": false,
+            "mismatch": null,
+            "ms": 0.076458,
+            "read_calls": 1,
+            "selection": null,
+            "truncated": false,
+            "value_len16": 1707
+          },
+          {
+            "at_ns": 405139561651375,
+            "cause": "AXValue",
+            "external": false,
+            "mismatch": null,
+            "ms": 0.019208,
+            "read_calls": 1,
+            "selection": null,
+            "truncated": false,
+            "value_len16": 1707
+          },
+          {
+            "at_ns": 405139804335916,
+            "cause": "AXValue",
+            "external": false,
+            "mismatch": null,
+            "ms": 0.019834,
+            "read_calls": 1,
+            "selection": null,
+            "truncated": false,
+            "value_len16": 1707
+          }
+        ],
+        "cache_hits": 34,
+        "external_requests": 0,
+        "label": "Терминал A",
+        "posts": [
+          {
+            "at_ns": 405137852912416,
+            "notification": "AXValueChanged",
+            "reason": "known-text"
+          },
+          {
+            "at_ns": 405138097412500,
+            "notification": "AXSelectedTextChanged",
+            "reason": "selection-word"
+          },
+          {
+            "at_ns": 405138331496250,
+            "notification": "AXSelectedTextChanged",
+            "reason": "selection-across-lines"
+          },
+          {
+            "at_ns": 405138763691750,
+            "notification": "AXSelectedTextChanged",
+            "reason": "selection-cleared"
+          },
+          {
+            "at_ns": 405139307967625,
+            "notification": "AXValueChanged",
+            "reason": "stream-done"
+          },
+          {
+            "at_ns": 405139307977291,
+            "notification": "AXSelectedTextChanged",
+            "reason": "stream-done"
+          }
+        ],
+        "read_calls": 20,
+        "refreshes": 6,
+        "requests": 40
+      }
+    },
+    {
+      "key": "a11y_log_b",
+      "value": {
+        "absent_refreshes": 1,
+        "absent_requests": 0,
+        "builds": [],
+        "cache_hits": 0,
+        "external_requests": 0,
+        "label": "Терминал B",
+        "posts": [],
+        "read_calls": 0,
+        "refreshes": 1,
+        "requests": 0
+      }
+    },
+    {
+      "key": "a11y_client_responses",
+      "value": [
+        [
+          "attributes",
+          {
+            "client_pid": 46657,
+            "element": {
+              "characters": {
+                "Integer": 31
+              },
+              "description": {
+                "Text": "Терминал A"
+              },
+              "insertion_line": {
+                "Integer": 2
+              },
+              "names": [
+                "AXSelectedTextRange",
+                "AXNumberOfCharacters",
+                "AXFrame",
+                "AXDescription",
+                "AXParent",
+                "AXChildren",
+                "AXSize",
+                "AXFocused",
+                "AXRole",
+                "AXInsertionPointLineNumber",
+                "AXTopLevelUIElement",
+                "AXHelp",
+                "AXChildrenInNavigationOrder",
+                "AXPosition",
+                "AXWindow",
+                "AXRoleDescription",
+                "AXVisibleCharacterRange",
+                "AXValue",
+                "AXSelectedText"
+              ],
+              "parameterized_names": [
+                "AXAttributedStringForRange",
+                "AXStringForRange",
+                "AXLineForIndex",
+                "AXReplaceRangeWithText",
+                "AXBoundsForRange",
+                "AXRangeForLine"
+              ],
+              "params": [
+                [
+                  {
+                    "LineForIndex": 21
+                  },
+                  {
+                    "Integer": 1
+                  }
+                ],
+                [
+                  {
+                    "RangeForLine": 1
+                  },
+                  {
+                    "Range": {
+                      "length": 13,
+                      "location": 12
+                    }
+                  }
+                ],
+                [
+                  {
+                    "StringForRange": {
+                      "length": 2,
+                      "location": 18
+                    }
+                  },
+                  {
+                    "Text": "🙂"
+                  }
+                ],
+                [
+                  {
+                    "AttributedStringForRange": {
+                      "length": 1,
+                      "location": 16
+                    }
+                  },
+                  {
+                    "Text": "中"
+                  }
+                ]
+              ],
+              "role": {
+                "Text": "AXTextArea"
+              },
+              "role_description": {
+                "Text": "text entry area"
+              },
+              "selected": {
+                "Range": {
+                  "length": 0,
+                  "location": 31
+                }
+              },
+              "selected_text": "None",
+              "value": {
+                "Text": "a11y-1s2344\nжук 中 🙂 тест\nконец"
+              },
+              "visible": {
+                "Range": {
+                  "length": 31,
+                  "location": 0
+                }
+              }
+            },
+            "hit_error": null,
+            "ms": 43.508834,
+            "text_areas": [],
+            "tree_cut": false,
+            "tree_nodes": 0,
+            "tree_roles": [],
+            "trusted": true
+          }
+        ],
+        [
+          "selection-word",
+          {
+            "client_pid": 46658,
+            "element": {
+              "characters": {
+                "Integer": 31
+              },
+              "description": {
+                "Text": "Терминал A"
+              },
+              "insertion_line": {
+                "Integer": 1
+              },
+              "names": [
+                "AXSelectedTextRange",
+                "AXNumberOfCharacters",
+                "AXFrame",
+                "AXDescription",
+                "AXParent",
+                "AXChildren",
+                "AXSize",
+                "AXFocused",
+                "AXRole",
+                "AXInsertionPointLineNumber",
+                "AXTopLevelUIElement",
+                "AXHelp",
+                "AXChildrenInNavigationOrder",
+                "AXPosition",
+                "AXWindow",
+                "AXRoleDescription",
+                "AXVisibleCharacterRange",
+                "AXValue",
+                "AXSelectedText"
+              ],
+              "parameterized_names": [
+                "AXStringForRange",
+                "AXAttributedStringForRange",
+                "AXLineForIndex",
+                "AXReplaceRangeWithText",
+                "AXBoundsForRange",
+                "AXRangeForLine"
+              ],
+              "params": [],
+              "role": {
+                "Text": "AXTextArea"
+              },
+              "role_description": {
+                "Text": "text entry area"
+              },
+              "selected": {
+                "Range": {
+                  "length": 4,
+                  "location": 21
+                }
+              },
+              "selected_text": {
+                "Text": "тест"
+              },
+              "value": {
+                "Text": "a11y-1s2344\nжук 中 🙂 тест\nконец"
+              },
+              "visible": {
+                "Range": {
+                  "length": 31,
+                  "location": 0
+                }
+              }
+            },
+            "hit_error": null,
+            "ms": 34.501042,
+            "text_areas": [],
+            "tree_cut": false,
+            "tree_nodes": 0,
+            "tree_roles": [],
+            "trusted": true
+          }
+        ],
+        [
+          "selection-across-lines",
+          {
+            "client_pid": 46659,
+            "element": {
+              "characters": {
+                "Integer": 31
+              },
+              "description": {
+                "Text": "Терминал A"
+              },
+              "insertion_line": {
+                "Integer": 0
+              },
+              "names": [
+                "AXSelectedTextRange",
+                "AXNumberOfCharacters",
+                "AXFrame",
+                "AXDescription",
+                "AXParent",
+                "AXChildren",
+                "AXSize",
+                "AXFocused",
+                "AXRole",
+                "AXInsertionPointLineNumber",
+                "AXTopLevelUIElement",
+                "AXHelp",
+                "AXChildrenInNavigationOrder",
+                "AXPosition",
+                "AXWindow",
+                "AXRoleDescription",
+                "AXVisibleCharacterRange",
+                "AXValue",
+                "AXSelectedText"
+              ],
+              "parameterized_names": [
+                "AXStringForRange",
+                "AXAttributedStringForRange",
+                "AXLineForIndex",
+                "AXReplaceRangeWithText",
+                "AXBoundsForRange",
+                "AXRangeForLine"
+              ],
+              "params": [],
+              "role": {
+                "Text": "AXTextArea"
+              },
+              "role_description": {
+                "Text": "text entry area"
+              },
+              "selected": {
+                "Range": {
+                  "length": 10,
+                  "location": 5
+                }
+              },
+              "selected_text": {
+                "Text": "1s2344\nжук"
+              },
+              "value": {
+                "Text": "a11y-1s2344\nжук 中 🙂 тест\nконец"
+              },
+              "visible": {
+                "Range": {
+                  "length": 31,
+                  "location": 0
+                }
+              }
+            },
+            "hit_error": null,
+            "ms": 42.795167,
+            "text_areas": [],
+            "tree_cut": false,
+            "tree_nodes": 0,
+            "tree_roles": [],
+            "trusted": true
+          }
+        ],
+        [
+          "insertion-point",
+          {
+            "client_pid": 46660,
+            "element": {
+              "characters": {
+                "Integer": 31
+              },
+              "description": {
+                "Text": "Терминал A"
+              },
+              "insertion_line": {
+                "Integer": 2
+              },
+              "names": [
+                "AXSelectedTextRange",
+                "AXNumberOfCharacters",
+                "AXFrame",
+                "AXDescription",
+                "AXParent",
+                "AXChildren",
+                "AXSize",
+                "AXFocused",
+                "AXRole",
+                "AXInsertionPointLineNumber",
+                "AXTopLevelUIElement",
+                "AXHelp",
+                "AXChildrenInNavigationOrder",
+                "AXPosition",
+                "AXWindow",
+                "AXRoleDescription",
+                "AXVisibleCharacterRange",
+                "AXValue",
+                "AXSelectedText"
+              ],
+              "parameterized_names": [
+                "AXStringForRange",
+                "AXAttributedStringForRange",
+                "AXLineForIndex",
+                "AXReplaceRangeWithText",
+                "AXBoundsForRange",
+                "AXRangeForLine"
+              ],
+              "params": [],
+              "role": {
+                "Text": "AXTextArea"
+              },
+              "role_description": {
+                "Text": "text entry area"
+              },
+              "selected": {
+                "Range": {
+                  "length": 0,
+                  "location": 31
+                }
+              },
+              "selected_text": "None",
+              "value": {
+                "Text": "a11y-1s2344\nжук 中 🙂 тест\nконец"
+              },
+              "visible": {
+                "Range": {
+                  "length": 31,
+                  "location": 0
+                }
+              }
+            },
+            "hit_error": null,
+            "ms": 47.622417,
+            "text_areas": [],
+            "tree_cut": false,
+            "tree_nodes": 0,
+            "tree_roles": [],
+            "trusted": true
+          }
+        ],
+        [
+          "hidden-not-in-tree",
+          {
+            "client_pid": 46701,
+            "element": {
+              "characters": {
+                "Integer": 1707
+              },
+              "description": {
+                "Text": "Терминал A"
+              },
+              "insertion_line": {
+                "Integer": 27
+              },
+              "names": [
+                "AXSelectedTextRange",
+                "AXNumberOfCharacters",
+                "AXFrame",
+                "AXDescription",
+                "AXParent",
+                "AXChildren",
+                "AXSize",
+                "AXFocused",
+                "AXRole",
+                "AXInsertionPointLineNumber",
+                "AXTopLevelUIElement",
+                "AXHelp",
+                "AXChildrenInNavigationOrder",
+                "AXPosition",
+                "AXWindow",
+                "AXRoleDescription",
+                "AXVisibleCharacterRange",
+                "AXValue",
+                "AXSelectedText"
+              ],
+              "parameterized_names": [
+                "AXStringForRange",
+                "AXAttributedStringForRange",
+                "AXLineForIndex",
+                "AXReplaceRangeWithText",
+                "AXBoundsForRange",
+                "AXRangeForLine"
+              ],
+              "params": [],
+              "role": {
+                "Text": "AXTextArea"
+              },
+              "role_description": {
+                "Text": "text entry area"
+              },
+              "selected": {
+                "Range": {
+                  "length": 0,
+                  "location": 1707
+                }
+              },
+              "selected_text": "None",
+              "value": {
+                "Text": "stream 6 0000272 ...........................................\nstream 6 0000273 ...........................................\nstream 6 0000274 ...........................................\nstream 6 0000275 ...........................................\nstream 6 0000276 ...........................................\nstream 6 0000277 ...........................................\nstream 6 0000278 ...........................................\nstream 6 0000279 ...........................................\nstream 6 0000280 ...........................................\nstream 6 0000281 ...........................................\nstream 6 0000282 ...........................................\nstream 6 0000283 ...........................................\nstream 6 0000284 ...........................................\nstream 6 0000285 ...........................................\nstream 6 0000286 ...........................................\nstream 6 0000287 ...........................................\nstream 6 0000288 ...........................................\nstream 6 0000289 ...........................................\nstream 6 0000290 ...........................................\nstream 6 0000291 ...........................................\nstream 6 0000292 ...........................................\nstream 6 0000293 ...........................................\nstream 6 0000294 ...........................................\nstream 6 0000295 ...........................................\nstream 6 0000296 ...........................................\nstream 6 0000297 ...........................................\nstream 6 0000298 ...........................................\nstream 6 0000299 ..........................................."
+              },
+              "visible": {
+                "Range": {
+                  "length": 1707,
+                  "location": 0
+                }
+              }
+            },
+            "hit_error": null,
+            "ms": 54.693625,
+            "text_areas": [
+              "Терминал A"
+            ],
+            "tree_cut": false,
+            "tree_nodes": 15,
+            "tree_roles": [
+              "AXWindow",
+              "AXStaticText",
+              "AXButton",
+              "AXButton",
+              "AXGroup",
+              "AXButton",
+              "AXSplitGroup",
+              "AXSplitter",
+              "AXSplitGroup",
+              "AXStaticText",
+              "AXStaticText",
+              "AXSplitter",
+              "AXStaticText",
+              "AXTextArea",
+              "AXSplitter"
+            ],
+            "trusted": true
+          }
+        ],
+        [
+          "restored-in-tree",
+          {
+            "client_pid": 46704,
+            "element": {
+              "characters": {
+                "Integer": 1707
+              },
+              "description": {
+                "Text": "Терминал A"
+              },
+              "insertion_line": {
+                "Integer": 27
+              },
+              "names": [
+                "AXSelectedTextRange",
+                "AXNumberOfCharacters",
+                "AXFrame",
+                "AXDescription",
+                "AXParent",
+                "AXChildren",
+                "AXSize",
+                "AXFocused",
+                "AXRole",
+                "AXInsertionPointLineNumber",
+                "AXTopLevelUIElement",
+                "AXHelp",
+                "AXChildrenInNavigationOrder",
+                "AXPosition",
+                "AXWindow",
+                "AXRoleDescription",
+                "AXVisibleCharacterRange",
+                "AXValue",
+                "AXSelectedText"
+              ],
+              "parameterized_names": [
+                "AXStringForRange",
+                "AXAttributedStringForRange",
+                "AXLineForIndex",
+                "AXReplaceRangeWithText",
+                "AXBoundsForRange",
+                "AXRangeForLine"
+              ],
+              "params": [],
+              "role": {
+                "Text": "AXTextArea"
+              },
+              "role_description": {
+                "Text": "text entry area"
+              },
+              "selected": {
+                "Range": {
+                  "length": 0,
+                  "location": 1707
+                }
+              },
+              "selected_text": "None",
+              "value": {
+                "Text": "stream 6 0000272 ...........................................\nstream 6 0000273 ...........................................\nstream 6 0000274 ...........................................\nstream 6 0000275 ...........................................\nstream 6 0000276 ...........................................\nstream 6 0000277 ...........................................\nstream 6 0000278 ...........................................\nstream 6 0000279 ...........................................\nstream 6 0000280 ...........................................\nstream 6 0000281 ...........................................\nstream 6 0000282 ...........................................\nstream 6 0000283 ...........................................\nstream 6 0000284 ...........................................\nstream 6 0000285 ...........................................\nstream 6 0000286 ...........................................\nstream 6 0000287 ...........................................\nstream 6 0000288 ...........................................\nstream 6 0000289 ...........................................\nstream 6 0000290 ...........................................\nstream 6 0000291 ...........................................\nstream 6 0000292 ...........................................\nstream 6 0000293 ...........................................\nstream 6 0000294 ...........................................\nstream 6 0000295 ...........................................\nstream 6 0000296 ...........................................\nstream 6 0000297 ...........................................\nstream 6 0000298 ...........................................\nstream 6 0000299 ..........................................."
+              },
+              "visible": {
+                "Range": {
+                  "length": 1707,
+                  "location": 0
+                }
+              }
+            },
+            "hit_error": null,
+            "ms": 39.879375,
+            "text_areas": [
+              "Терминал B",
+              "Терминал A"
+            ],
+            "tree_cut": false,
+            "tree_nodes": 16,
+            "tree_roles": [
+              "AXWindow",
+              "AXStaticText",
+              "AXButton",
+              "AXButton",
+              "AXGroup",
+              "AXGroup",
+              "AXButton",
+              "AXSplitGroup",
+              "AXSplitter",
+              "AXSplitGroup",
+              "AXStaticText",
+              "AXTextArea",
+              "AXSplitter",
+              "AXStaticText",
+              "AXTextArea",
+              "AXSplitter"
+            ],
+            "trusted": true
+          }
+        ]
+      ]
+    },
+    {
+      "key": "input_log_a",
+      "value": {
+        "arrivals": [
+          {
+            "at_ns": 405137920721416,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137921284750,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405138154166291,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405138154225333,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405138408282833,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405138408340708,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405138580805625,
+            "key_code": 7,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405138581042666,
+            "key_code": 7,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405138595697666,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405138595813125,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405138840171666,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405138840237833,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405139320791083,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405139321020750,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405139590359083,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405139590413041,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405139830709083,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405139830768666,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          }
+        ],
+        "bindings": 0,
+        "commands": [],
+        "dropped": [],
+        "marked_discarded": 0,
+        "mouse_buttons": 4,
+        "mouse_positions": 6,
+        "pressures": 0,
+        "scrolls": 0,
+        "sent": [
+          {
+            "at_ns": 405137921191791,
+            "done_ns": 405137921231666,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405137921286708,
+            "done_ns": 405137921287083,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405138154198333,
+            "done_ns": 405138154209000,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405138154226583,
+            "done_ns": 405138154226916,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405138408312625,
+            "done_ns": 405138408323166,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405138408342083,
+            "done_ns": 405138408342416,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405138580920958,
+            "done_ns": 405138580954708,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 7,
+              "mods": 0,
+              "text": "x",
+              "unshifted_codepoint": 120
+            }
+          },
+          {
+            "at_ns": 405138581050791,
+            "done_ns": 405138581052375,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 7,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 120
+            }
+          },
+          {
+            "at_ns": 405138595763333,
+            "done_ns": 405138595781250,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405138595815250,
+            "done_ns": 405138595815708,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405138840204916,
+            "done_ns": 405138840215916,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405138840239125,
+            "done_ns": 405138840239500,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405139320911000,
+            "done_ns": 405139320939666,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405139321030000,
+            "done_ns": 405139321031916,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405139590387666,
+            "done_ns": 405139590395833,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405139590414375,
+            "done_ns": 405139590414750,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405139830736416,
+            "done_ns": 405139830748916,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 405139830769750,
+            "done_ns": 405139830770041,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": "input_log_b",
+      "value": {
+        "arrivals": [],
+        "bindings": 0,
+        "commands": [],
+        "dropped": [],
+        "marked_discarded": 0,
+        "mouse_buttons": 0,
+        "mouse_positions": 0,
+        "pressures": 0,
+        "scrolls": 0,
+        "sent": []
+      }
+    },
+    {
+      "key": "surface_view_feeds_b",
+      "value": {
+        "detached_skipped": 2,
+        "display_ids": [
+          1,
+          1
+        ],
+        "focus": [
+          false
+        ],
+        "last_scale": [
+          2.0,
+          2.0
+        ],
+        "last_size_px": [
+          1108,
+          372
+        ],
+        "preedits": [],
+        "refreshes": 4,
+        "scale_feeds": 3,
+        "size_feeds": 4,
+        "zero_size_skipped": 0
+      }
+    },
+    {
+      "key": "ghostty_runtime",
+      "value": {
+        "app_focus": [
+          true
+        ],
+        "clipboard_denied": 0,
+        "clipboard_denied_on_retire": 0,
+        "clipboard_held": 0,
+        "clipboard_late_skipped": 0,
+        "clipboard_served": 0,
+        "clipboard_write_confirm_denied": 0,
+        "clipboard_written": 0,
+        "close_intents": 2,
+        "close_sources": {
+          "probe:scheduled": 2
+        },
+        "creations": [
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 405137747110833,
+            "injected": null,
+            "key": "s0g1",
+            "new_ms": 4.348875,
+            "pass": 1,
+            "started_ns": 405137742761958,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 405137750407500,
+            "injected": null,
+            "key": "s1g1",
+            "new_ms": 3.279584,
+            "pass": 1,
+            "started_ns": 405137747127916,
+            "trigger": "initial"
+          }
+        ],
+        "delivered": {
+          "close-intent": 2,
+          "config-change": 1,
+          "unsupported": 49
+        },
+        "dropped_at_source": 0,
+        "dropped_stale": 0,
+        "frees_held_passes": 0,
+        "layout_retries": 0,
+        "log": [
+          "pass=1 t=405137689085416 app ConfigChange → delivered",
+          "pass=79 t=405140002746250 s0g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=79 t=405140002754125 s1g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled"
+        ],
+        "messages": 52,
+        "messages_pushed": 52,
+        "passes": 80,
+        "passes_tracking": 0,
+        "releases": [
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 405140018136416,
+            "free_ms": 15.304666,
+            "key": "s0g1",
+            "messages_during_free": 0,
+            "pass": 80,
+            "started_ns": 405140002831750
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 405140033595458,
+            "free_ms": 15.45125,
+            "key": "s1g1",
+            "messages_during_free": 1,
+            "pass": 80,
+            "started_ns": 405140018144208
+          }
+        ],
+        "scheme_changes": [],
+        "screen_wakes": 0,
+        "surface_config_updates": 0,
+        "surfaces_created": 2,
+        "surfaces_failed": 0,
+        "surfaces_freed": 2,
+        "unsupported_actions": {
+          "22": 2,
+          "25": 2,
+          "26": 38,
+          "43": 3,
+          "53": 4
+        },
+        "wakeups": 94
+      }
+    },
+    {
+      "key": "surface_view_feeds",
+      "value": {
+        "detached_skipped": 0,
+        "display_ids": [
+          1
+        ],
+        "focus": [
+          true
+        ],
+        "last_scale": [
+          2.0,
+          2.0
+        ],
+        "last_size_px": [
+          1108,
+          896
+        ],
+        "preedits": [],
+        "refreshes": 1,
+        "scale_feeds": 1,
+        "size_feeds": 1,
+        "zero_size_skipped": 0
+      }
+    },
+    {
+      "key": "events_posted",
+      "value": "24"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "908"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "a11y.build_ms",
+      "unit": "ms",
+      "samples": [
+        0.009375,
+        0.010583,
+        0.022625,
+        0.00875,
+        0.023,
+        0.0105,
+        0.028042,
+        0.009333,
+        0.004625,
+        0.076458,
+        0.019208,
+        0.019834
+      ],
+      "summary": {
+        "count": 12,
+        "p50": 0.010583,
+        "p95": 0.076458,
+        "max": 0.076458
+      }
+    },
+    {
+      "name": "a11y.read_calls",
+      "unit": "count",
+      "samples": [
+        1.0,
+        1.0,
+        3.0,
+        3.0,
+        3.0,
+        3.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "summary": {
+        "count": 12,
+        "p50": 1.0,
+        "p95": 3.0,
+        "max": 3.0
+      }
+    },
+    {
+      "name": "a11y.client_ms",
+      "unit": "ms",
+      "samples": [
+        43.508834,
+        34.501042,
+        42.795167,
+        47.622417,
+        54.693625,
+        39.879375
+      ],
+      "summary": {
+        "count": 6,
+        "p50": 42.795167,
+        "p95": 54.693625,
+        "max": 54.693625
+      }
+    },
+    {
+      "name": "surface_free",
+      "unit": "ms",
+      "samples": [
+        15.304666,
+        15.45125
+      ],
+      "summary": {
+        "count": 2,
+        "p50": 15.304666,
+        "p95": 15.45125,
+        "max": 15.45125
+      }
+    },
+    {
+      "name": "app_free",
+      "unit": "ms",
+      "samples": [
+        0.012791
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 0.012791,
+        "p95": 0.012791,
+        "max": 0.012791
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "name": "h13-attributes",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; известный текст: обновление по квитанции отправило [\"AXValueChanged\"] ([\"AXValueChanged\"], Refresh { present: true, value_changed: true, selection_changed: false }): да; attributes: снимок для клиента собран по его запросу атрибута ([(\"AXValue\", false)]): да; attributes: клиент — отдельный процесс (PID клиента 46657, пробы 46650): да; attributes: клиент нашёл в центре A элемент с меткой «Терминал A» за 43.5 мс (Some(Text(\"Терминал A\")), ошибка None): да; атрибуты текста в AXUIElementCopyAttributeNames (нет []): да; параметрические атрибуты в AXUIElementCopyParameterizedAttributeNames (нет []): да; AXRole AXTextArea (Text(\"AXTextArea\")): да; AXValue равен известному тексту (Text(\"a11y-1s2344\\nжук 中 🙂 тест\\nконец\")): да; AXNumberOfCharacters 31 (Integer(31)): да; AXVisibleCharacterRange {0, 31} (Range(Range16 { location: 0, length: 31 })): да; без выделения AXSelectedTextRange {31, 0} и AXSelectedText пуст (Range(Range16 { location: 31, length: 0 }), None): да; AXInsertionPointLineNumber 2 (Integer(2)): да; AXLineForIndex слова — строка 1 (Some(Integer(1))): да; AXRangeForLine 1 — Range16 { location: 12, length: 13 } (Some(Range(Range16 { location: 12, length: 13 }))): да; AXStringForRange Range16 { location: 18, length: 2 } — эмодзи в двух единицах UTF-16 (Some(Text(\"🙂\"))): да; AXAttributedStringForRange широкого иероглифа (Some(Text(\"中\"))): да"
+    },
+    {
+      "name": "h13-selection-word",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; клетка 10,1: x 82.0, базовая линия 29.0, клетка 8.0×15.0 точек; клетка 13,1: x 106.0, базовая линия 29.0, клетка 8.0×15.0 точек; selection-word: обновление по квитанции отправило [\"AXSelectedTextChanged\"] ([\"AXSelectedTextChanged\"], Refresh { present: true, value_changed: false, selection_changed: true }): да; selection-word: снимок для клиента собран по его запросу атрибута ([(\"AXValue\", false)]): да; selection-word: клиент — отдельный процесс (PID клиента 46658, пробы 46650): да; selection-word: клиент нашёл в центре A элемент с меткой «Терминал A» за 34.5 мс (Some(Text(\"Терминал A\")), ошибка None): да; AXSelectedTextRange Range16 { location: 21, length: 4 } в единицах UTF-16 (Range(Range16 { location: 21, length: 4 })): да; AXSelectedText \"тест\" (Text(\"тест\")): да; AXValue в диапазоне выделения — \"тест\" (Some(\"тест\")): да"
+    },
+    {
+      "name": "h13-selection-across-lines",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; клетка 5,0: x 42.0, базовая линия 14.0, клетка 8.0×15.0 точек; клетка 2,1: x 18.0, базовая линия 29.0, клетка 8.0×15.0 точек; selection-across-lines: обновление по квитанции отправило [\"AXSelectedTextChanged\"] ([\"AXSelectedTextChanged\"], Refresh { present: true, value_changed: false, selection_changed: true }): да; selection-across-lines: снимок для клиента собран по его запросу атрибута ([(\"AXValue\", false)]): да; selection-across-lines: клиент — отдельный процесс (PID клиента 46659, пробы 46650): да; selection-across-lines: клиент нашёл в центре A элемент с меткой «Терминал A» за 42.8 мс (Some(Text(\"Терминал A\")), ошибка None): да; AXSelectedTextRange Range16 { location: 5, length: 10 } в единицах UTF-16 (Range(Range16 { location: 5, length: 10 })): да; AXSelectedText \"1s2344\\nжук\" (Text(\"1s2344\\nжук\")): да; AXValue в диапазоне выделения — \"1s2344\\nжук\" (Some(\"1s2344\\nжук\")): да"
+    },
+    {
+      "name": "h13-selection-cleared-by-key",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 78, пришло 78; B: ожидалось , пришло ; ограда у A"
+    },
+    {
+      "name": "h13-insertion-point",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; клавиша сняла выделение у A (false): да; снятое выделение: обновление по квитанции отправило [\"AXSelectedTextChanged\"] ([\"AXSelectedTextChanged\"], Refresh { present: true, value_changed: false, selection_changed: true }): да; insertion-point: снимок для клиента собран по его запросу атрибута ([(\"AXValue\", false)]): да; insertion-point: клиент — отдельный процесс (PID клиента 46660, пробы 46650): да; insertion-point: клиент нашёл в центре A элемент с меткой «Терминал A» за 47.6 мс (Some(Text(\"Терминал A\")), ошибка None): да; AXSelectedTextRange {31, 0} и AXValue без изменений (Range(Range16 { location: 31, length: 0 })): да; без изменений: обновление по квитанции отправило [] ([], Refresh { present: true, value_changed: false, selection_changed: false }): да"
+    },
+    {
+      "name": "h13-reads-on-demand",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; за поток в 300 строк экран для доступности читался только по запросам клиента вне стенда: сборок 0, из них по внешним запросам 0: да; после потока: обновление по квитанции отправило [\"AXValueChanged\", \"AXSelectedTextChanged\"] ([\"AXValueChanged\", \"AXSelectedTextChanged\"], Refresh { present: true, value_changed: true, selection_changed: true }): да"
+    },
+    {
+      "name": "h13-hidden-not-in-tree",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; B isAccessibilityElement false, ожидалось false: да; скрытая B: обновление без уведомлений и без чтения экрана (Refresh { present: false, value_changed: false, selection_changed: false }, сборок 0 → 0): да; hidden-not-in-tree: снимок для клиента собран по его запросу атрибута ([(\"AXValue\", false)]): да; hidden-not-in-tree: клиент — отдельный процесс (PID клиента 46701, пробы 46650): да; hidden-not-in-tree: клиент нашёл в центре A элемент с меткой «Терминал A» за 54.7 мс (Some(Text(\"Терминал A\")), ошибка None): да; A в дереве окон приложения ([\"Терминал A\"], 15 узлов, обход обрезан false, роли [\"AXWindow\", \"AXStaticText\", \"AXButton\", \"AXButton\", \"AXGroup\", \"AXButton\", \"AXSplitGroup\", \"AXSplitter\", \"AXSplitGroup\", \"AXStaticText\", \"AXStaticText\", \"AXSplitter\", \"AXStaticText\", \"AXTextArea\", \"AXSplitter\"]): да; B не в дереве окон приложения ([\"Терминал A\"]): да"
+    },
+    {
+      "name": "h13-restored-in-tree",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; B isAccessibilityElement true, ожидалось true: да; restored-in-tree: снимок для клиента собран по его запросу атрибута ([(\"AXValue\", false)]): да; restored-in-tree: клиент — отдельный процесс (PID клиента 46704, пробы 46650): да; restored-in-tree: клиент нашёл в центре A элемент с меткой «Терминал A» за 39.9 мс (Some(Text(\"Терминал A\")), ошибка None): да; A в дереве окон приложения ([\"Терминал B\", \"Терминал A\"], 16 узлов, обход обрезан false, роли [\"AXWindow\", \"AXStaticText\", \"AXButton\", \"AXButton\", \"AXGroup\", \"AXGroup\", \"AXButton\", \"AXSplitGroup\", \"AXSplitter\", \"AXSplitGroup\", \"AXStaticText\", \"AXTextArea\", \"AXSplitter\", \"AXStaticText\", \"AXTextArea\", \"AXSplitter\"]): да; B в дереве окон приложения ([\"Терминал B\", \"Терминал A\"]): да"
+    },
+    {
+      "name": "h13-exact-bytes-one-receiver",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "весь поток A 9 байт (ожидалось 9), B 0 байт (ожидалось 0); точное совпадение true"
+    },
+    {
+      "name": "h13-cost",
+      "requirement": "research",
+      "verdict": "observed",
+      "reason": "снимок доступности A: сборок 12, попаданий в кэш 34, запросов атрибутов 40 (вне стенда 0), чтений ghostty 20; сборка p50 Some(0.010583) мс, max Some(0.076458) мс; срок снимка 100 мс; ответ клиента AX (с обходом дерева) [43.508834, 34.501042, 42.795167, 47.622417, 54.693625, 39.879375] мс"
+    },
+    {
+      "name": "h13-main-thread",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "запросы клиента в отдельном процессе пришли на главный поток пробы: вне главного потока 0, ответов клиента 6"
+    },
+    {
+      "name": "h13-voiceover",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "VoiceOver по запросу читает видимый текст терминала в демонстрации с настоящим shell и следует за сменой фокуса — ручная приёмка задачи 19"
+    },
+    {
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "… 99 ранних строк вытеснено",
+      "918.759ms dispatch #15",
+      "918.932ms return #15",
+      "918.955ms dispatch #16",
+      "918.959ms return #16",
+      "1075.272ms шаг «ограда и тишина другой фикстуры» готов за 160.6 мс",
+      "1081.021ms шаг «insertion-point» готов за 5.7 мс",
+      "1081.049ms проверка insertion-point",
+      "1086.760ms шаг «обновление и запрос клиента» готов за 5.7 мс",
+      "1152.144ms шаг «ответ клиента доступности» готов за 65.1 мс",
+      "1157.494ms шаг «ожидаемые байты» готов за 5.3 мс",
+      "1163.165ms шаг «ограда» готов за 5.7 мс",
+      "1163.175ms post #17 keyDown `",
+      "1163.220ms post #18 keyUp `",
+      "1163.271ms dispatch #17",
+      "1163.362ms return #17",
+      "1163.380ms dispatch #18",
+      "1163.383ms return #18",
+      "1318.877ms шаг «ограда и тишина другой фикстуры» готов за 155.6 мс",
+      "1324.572ms шаг «reads-on-demand» готов за 5.7 мс",
+      "1324.592ms проверка reads-on-demand",
+      "1330.293ms шаг «поток вывода у A без запросов доступности» готов за 5.7 мс",
+      "1630.987ms шаг «поток A закончен» готов за 300.6 мс",
+      "1636.854ms шаг «ожидаемые байты» готов за 5.7 мс",
+      "1642.575ms шаг «ограда» готов за 5.7 мс",
+      "1642.607ms post #19 keyDown `",
+      "1642.705ms post #20 keyUp `",
+      "1643.800ms dispatch #19",
+      "1644.095ms return #19",
+      "1644.159ms dispatch #20",
+      "1644.176ms return #20",
+      "1803.423ms шаг «ограда и тишина другой фикстуры» готов за 160.7 мс",
+      "1809.155ms шаг «B за вкладкой-заглушкой» готов за 5.7 мс",
+      "1820.496ms шаг «B вне окна» готов за 5.7 мс",
+      "1825.916ms шаг «hidden-not-in-tree» готов за 5.4 мс",
+      "1825.932ms проверка hidden-not-in-tree",
+      "1831.370ms шаг «обход дерева клиентом» готов за 5.4 мс",
+      "1902.034ms шаг «ответ клиента доступности» готов за 70.5 мс",
+      "1907.718ms шаг «ожидаемые байты» готов за 5.7 мс",
+      "1913.382ms шаг «ограда» готов за 5.7 мс",
+      "1913.391ms post #21 keyDown `",
+      "1913.423ms post #22 keyUp `",
+      "1913.468ms dispatch #21",
+      "1913.542ms return #21",
+      "1913.555ms dispatch #22",
+      "1913.558ms return #22",
+      "2068.845ms шаг «ограда и тишина другой фикстуры» готов за 155.4 мс",
+      "2074.371ms шаг «B снова в плитке» готов за 5.5 мс",
+      "2080.718ms шаг «B в окне» готов за 5.7 мс",
+      "2085.962ms шаг «restored-in-tree» готов за 5.2 мс",
+      "2085.965ms проверка restored-in-tree",
+      "2091.673ms шаг «обход дерева клиентом» готов за 5.7 мс",
+      "2142.351ms шаг «ответ клиента доступности» готов за 50.6 мс",
+      "2147.996ms шаг «ожидаемые байты» готов за 5.6 мс",
+      "2153.676ms шаг «ограда» готов за 5.7 мс",
+      "2153.686ms post #23 keyDown `",
+      "2153.730ms post #24 keyUp `",
+      "2153.770ms dispatch #23",
+      "2153.896ms return #23",
+      "2153.911ms dispatch #24",
+      "2153.913ms return #24",
+      "2314.323ms шаг «ограда и тишина другой фикстуры» готов за 160.6 мс",
+      "2320.066ms шаг «стоимость и журналы доступности» готов за 5.7 мс",
+      "2325.880ms шаг «закрытие обеих поверхностей» готов за 5.7 мс",
+      "2356.795ms шаг «освобождение и выход фикстур» готов за 30.9 мс"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeAppActivity",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeScreenWake",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeSplitView",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      },
+      {
+        "class": "ProbeStandView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSurfaceView",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      },
+      {
+        "class": "ProbeTile",
+        "created": 4,
+        "released": 0,
+        "live": 4
+      },
+      {
+        "class": "ProbeZoneHost",
+        "created": 4,
+        "released": 0,
+        "live": 4
+      }
+    ]
+  }
+}

@@ -1,0 +1,1336 @@
+{
+  "schema": 1,
+  "scenario": "memory",
+  "variant": "scrollback",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "6b91e3f56492",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.3.2, objc2-quartz-core 0.3.2",
+      "ghostty_version": "1.4.0",
+      "ghostty_rev": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "process": {
+      "pid": 43594,
+      "route": "direct",
+      "nonce": "c627111e0913e5a5",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_STATE_DIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.c627111e0913e5a5",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    },
+    "bundle": {
+      "path": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app",
+      "identifier": "io.github.dsbasko.shellio.probe.ghostty-surface",
+      "executable": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface",
+      "signature": "valid: identifier \"io.github.dsbasko.shellio.probe.ghostty-surface\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC"
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "окно на экране, приложение активно",
+      "status": "ready",
+      "waited_ms": 31.158292,
+      "at_ms": 34.496542,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=ProbeStandView cursor=250,266"
+    },
+    {
+      "index": 1,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 1580.642416,
+      "at_ms": 1615.212667,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=ProbeStandView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "активность, key window и фокус вида поверхности",
+      "status": "ready",
+      "waited_ms": 16.937250000000002,
+      "at_ms": 1638.944792,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 1,
+      "name": "окно видимо по occlusionState или опознан щит",
+      "status": "ready",
+      "waited_ms": 3010.6020409999996,
+      "at_ms": 4649.675,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 2,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 1560.603167,
+      "at_ms": 6232.215209,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 3,
+      "name": "ненулевой размер вида в пикселях",
+      "status": "ready",
+      "waited_ms": 5.655292,
+      "at_ms": 6237.899709,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 4,
+      "name": "новые поверхности с фикстурой",
+      "status": "ready",
+      "waited_ms": 5.66,
+      "at_ms": 6258.769084,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 5,
+      "name": "готовность фикстур, первый кадр и подача видимости",
+      "status": "ready",
+      "waited_ms": 50.577208,
+      "at_ms": 6311.450917,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 6,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 2825.6546670000002,
+      "at_ms": 9137.213084,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 7,
+      "name": "заполнение scrollback",
+      "status": "ready",
+      "waited_ms": 5.27775,
+      "at_ms": 9142.5575,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 8,
+      "name": "scrollback заполнен: квитанции и последняя строка в модели",
+      "status": "ready",
+      "waited_ms": 70.65325,
+      "at_ms": 9213.259584,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 9,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 2720.46375,
+      "at_ms": 11933.75775,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 10,
+      "name": "намерение закрыть все поверхности",
+      "status": "ready",
+      "waited_ms": 5.686209,
+      "at_ms": 11939.506292,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 11,
+      "name": "освобождение поверхностей и выход фикстур",
+      "status": "ready",
+      "waited_ms": 33.853792,
+      "at_ms": 11973.407292,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 12,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 1680.636625,
+      "at_ms": 13656.714375,
+      "state": "isActive=true keyWindow=#41539 mainWindow=#41539 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    }
+  ],
+  "events": [],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "memory"
+    },
+    {
+      "key": "route",
+      "value": "direct"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "variant",
+      "value": "scrollback"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "memory_note",
+      "value": "ri_phys_footprint из proc_pid_rusage, потомки (обёртка, оболочка, фикстура) отдельно; МиБ = 2^20 байт; каждое состояние — серия показаний с шагом 100 мс до устоявшейся памяти (окно 1,5 с, порог 1 МиБ, предел 6 с); бюджет 150 МБ относится к GUI без терминалов и с поверхностями не сравнивается"
+    },
+    {
+      "key": "ghostty_init",
+      "value": {
+        "after": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "en_US.UTF-8",
+            "LC_COLLATE": "en_US.UTF-8",
+            "LC_CTYPE": "en_US.UTF-8",
+            "LC_MESSAGES": "en_US.UTF-8",
+            "LC_MONETARY": "en_US.UTF-8",
+            "LC_NUMERIC": "en_US.UTF-8",
+            "LC_TIME": "en_US.UTF-8"
+          },
+          "threads": 3
+        },
+        "argv": [
+          "probe-ghostty-surface"
+        ],
+        "before": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "C",
+            "LC_COLLATE": "C",
+            "LC_CTYPE": "C",
+            "LC_MESSAGES": "C",
+            "LC_MONETARY": "C",
+            "LC_NUMERIC": "C",
+            "LC_TIME": "C"
+          },
+          "threads": 3
+        },
+        "code": 0,
+        "duration_ms": 0.792583,
+        "finished_ns": 404759628102708,
+        "started_ns": 404759627310125
+      }
+    },
+    {
+      "key": "ghostty_init_env_changes",
+      "value": ""
+    },
+    {
+      "key": "ghostty_version",
+      "value": "1.4.0"
+    },
+    {
+      "key": "ghostty_build_mode",
+      "value": "release-fast"
+    },
+    {
+      "key": "ghostty_config",
+      "value": "font-family = Menlo\nfont-size = 13\nscrollback-limit-bytes = 10000000\ntheme = light:Builtin Light,dark:Builtin Dark\ncursor-style-blink = true\nconfirm-close-surface = false\nclipboard-paste-protection = false\n"
+    },
+    {
+      "key": "ghostty_config_diagnostics",
+      "value": []
+    },
+    {
+      "key": "ghostty_runtime_start",
+      "value": {
+        "app_focused": true,
+        "app_new_finished_ns": 404761348577333,
+        "app_new_started_ns": 404761348169958,
+        "color_scheme": "light",
+        "config_change_from_update": 1,
+        "reload_config_from_scheme": 0
+      }
+    },
+    {
+      "key": "surface_command",
+      "value": "'/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface' '--fixture' '--channel' '/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/memory-scrollback/fixture.sock' '--nonce' 'c627111e0913e5a5-s1'"
+    },
+    {
+      "key": "fixture_nonce",
+      "value": "c627111e0913e5a5-s1"
+    },
+    {
+      "key": "env_nonce",
+      "value": "06be4a613e4f1d9e"
+    },
+    {
+      "key": "memory_grid",
+      "value": {
+        "cell_height_px": 30,
+        "cell_width_px": 16,
+        "columns": 34,
+        "height_px": 680,
+        "rows": 22,
+        "width_px": 560
+      }
+    },
+    {
+      "key": "memory_shield",
+      "value": {
+        "bounds": [
+          0.0,
+          0.0,
+          1512.0,
+          982.0
+        ],
+        "layer": 2147483628,
+        "own_bounds": [
+          166.0,
+          116.0,
+          1180.0,
+          752.0
+        ],
+        "own_layer": 0,
+        "owner": "dndmode",
+        "pid": 69575
+      }
+    },
+    {
+      "key": "occlusion_masked",
+      "value": "true"
+    },
+    {
+      "key": "memory_states",
+      "value": [
+        {
+          "at_ms": 1615.216834,
+          "children": [],
+          "children_bytes": 0,
+          "children_mib": 0.0,
+          "cycle": 0,
+          "fixtures": 0,
+          "label": "init",
+          "last_change_ms": null,
+          "process_bytes": 21873600,
+          "process_mib": 20.86029052734375,
+          "readings": 16,
+          "settled": true,
+          "surfaces": 0,
+          "trace": [
+            [
+              0.000125,
+              20.56341552734375,
+              0.0
+            ],
+            [
+              105.09275,
+              20.54779052734375,
+              0.0
+            ],
+            [
+              210.198542,
+              20.54779052734375,
+              0.0
+            ],
+            [
+              315.368625,
+              20.68841552734375,
+              0.0
+            ],
+            [
+              420.908667,
+              20.68841552734375,
+              0.0
+            ],
+            [
+              525.613167,
+              20.86029052734375,
+              0.0
+            ],
+            [
+              627.880625,
+              20.86029052734375,
+              0.0
+            ],
+            [
+              732.137083,
+              20.86029052734375,
+              0.0
+            ],
+            [
+              837.404917,
+              20.86029052734375,
+              0.0
+            ],
+            [
+              942.757208,
+              20.86029052734375,
+              0.0
+            ],
+            [
+              1045.1195,
+              20.86029052734375,
+              0.0
+            ],
+            [
+              1150.439958,
+              20.86029052734375,
+              0.0
+            ],
+            [
+              1255.545292,
+              20.86029052734375,
+              0.0
+            ],
+            [
+              1360.550125,
+              20.86029052734375,
+              0.0
+            ],
+            [
+              1465.888167,
+              20.86029052734375,
+              0.0
+            ],
+            [
+              1571.164458,
+              20.86029052734375,
+              0.0
+            ]
+          ],
+          "unreadable": []
+        },
+        {
+          "at_ms": 6232.217292,
+          "children": [],
+          "children_bytes": 0,
+          "children_mib": 0.0,
+          "cycle": 0,
+          "fixtures": 0,
+          "label": "app",
+          "last_change_ms": null,
+          "process_bytes": 23610328,
+          "process_mib": 22.516563415527344,
+          "readings": 16,
+          "settled": true,
+          "surfaces": 0,
+          "trace": [
+            [
+              0.000125,
+              22.844688415527344,
+              0.0
+            ],
+            [
+              100.33925,
+              22.844688415527344,
+              0.0
+            ],
+            [
+              204.313958,
+              22.844688415527344,
+              0.0
+            ],
+            [
+              308.811417,
+              22.625938415527344,
+              0.0
+            ],
+            [
+              409.285125,
+              22.625938415527344,
+              0.0
+            ],
+            [
+              513.153875,
+              22.625938415527344,
+              0.0
+            ],
+            [
+              618.336208,
+              22.625938415527344,
+              0.0
+            ],
+            [
+              723.568542,
+              22.500938415527344,
+              0.0
+            ],
+            [
+              826.654417,
+              22.500938415527344,
+              0.0
+            ],
+            [
+              928.245917,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              1033.153583,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              1138.090083,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              1240.779458,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              1344.441333,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              1449.704125,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              1553.559125,
+              22.516563415527344,
+              0.0
+            ]
+          ],
+          "unreadable": []
+        },
+        {
+          "at_ms": 9137.216792,
+          "children": [
+            {
+              "mib": 3.5786056518554688,
+              "pid": 43662,
+              "ppid": 43660,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43663,
+              "ppid": 43661,
+              "program": "probe-ghostty-surface"
+            }
+          ],
+          "children_bytes": 7488496,
+          "children_mib": 7.1415863037109375,
+          "cycle": 1,
+          "fixtures": 2,
+          "label": "scrollback-before",
+          "last_change_ms": 1244.605583,
+          "process_bytes": 149472384,
+          "process_mib": 142.5479736328125,
+          "readings": 28,
+          "settled": true,
+          "surfaces": 2,
+          "trace": [
+            [
+              0.000083,
+              148.8917236328125,
+              7.1415863037109375
+            ],
+            [
+              105.086792,
+              148.8917236328125,
+              7.1415863037109375
+            ],
+            [
+              205.355958,
+              148.8917236328125,
+              7.1415863037109375
+            ],
+            [
+              307.564875,
+              148.8917236328125,
+              7.1415863037109375
+            ],
+            [
+              412.625458,
+              148.8917236328125,
+              7.1415863037109375
+            ],
+            [
+              517.451583,
+              148.8917236328125,
+              7.1415863037109375
+            ],
+            [
+              622.919208,
+              148.8917236328125,
+              7.1415863037109375
+            ],
+            [
+              728.485458,
+              148.8917236328125,
+              7.1415863037109375
+            ],
+            [
+              833.935333,
+              148.8917236328125,
+              7.1415863037109375
+            ],
+            [
+              934.569375,
+              148.8917236328125,
+              7.1415863037109375
+            ],
+            [
+              1035.328667,
+              148.8917236328125,
+              7.1415863037109375
+            ],
+            [
+              1139.030833,
+              148.8917236328125,
+              7.1415863037109375
+            ],
+            [
+              1244.605583,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              1349.858083,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              1455.139958,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              1559.898667,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              1664.928,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              1769.854125,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              1875.402917,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              1980.656917,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              2084.993708,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              2189.731917,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              2295.275792,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              2400.797875,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              2504.447583,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              2609.673917,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              2714.35575,
+              142.5479736328125,
+              7.1415863037109375
+            ],
+            [
+              2817.451667,
+              142.5479736328125,
+              7.1415863037109375
+            ]
+          ],
+          "unreadable": [
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43660,
+              "ppid": 43594,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43661,
+              "ppid": 43594,
+              "program": "login"
+            }
+          ]
+        },
+        {
+          "at_ms": 11933.76025,
+          "children": [
+            {
+              "mib": 3.7036056518554688,
+              "pid": 43662,
+              "ppid": 43660,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6879806518554688,
+              "pid": 43663,
+              "ppid": 43661,
+              "program": "probe-ghostty-surface"
+            }
+          ],
+          "children_bytes": 7750640,
+          "children_mib": 7.3915863037109375,
+          "cycle": 1,
+          "fixtures": 2,
+          "label": "scrollback-filled",
+          "last_change_ms": 1150.565458,
+          "process_bytes": 153142424,
+          "process_mib": 146.0479965209961,
+          "readings": 27,
+          "settled": true,
+          "surfaces": 2,
+          "trace": [
+            [
+              0.000166,
+              167.2042465209961,
+              15.204086303710938
+            ],
+            [
+              105.168458,
+              167.1729965209961,
+              15.204086303710938
+            ],
+            [
+              210.413375,
+              167.1729965209961,
+              15.204086303710938
+            ],
+            [
+              314.046458,
+              150.1573715209961,
+              15.204086303710938
+            ],
+            [
+              419.294208,
+              150.1573715209961,
+              15.204086303710938
+            ],
+            [
+              524.41825,
+              150.1573715209961,
+              15.204086303710938
+            ],
+            [
+              624.598958,
+              150.1573715209961,
+              15.204086303710938
+            ],
+            [
+              729.767083,
+              150.1573715209961,
+              15.204086303710938
+            ],
+            [
+              834.86425,
+              150.1573715209961,
+              15.204086303710938
+            ],
+            [
+              939.155208,
+              150.1573715209961,
+              15.204086303710938
+            ],
+            [
+              1044.931541,
+              150.1573715209961,
+              15.204086303710938
+            ],
+            [
+              1150.565458,
+              146.0636215209961,
+              7.3915863037109375
+            ],
+            [
+              1256.21125,
+              146.0479965209961,
+              7.3915863037109375
+            ],
+            [
+              1358.966875,
+              146.0479965209961,
+              7.3915863037109375
+            ],
+            [
+              1464.590833,
+              146.0479965209961,
+              7.3915863037109375
+            ],
+            [
+              1570.163208,
+              146.0479965209961,
+              7.3915863037109375
+            ],
+            [
+              1674.137541,
+              146.0479965209961,
+              7.3915863037109375
+            ],
+            [
+              1779.435,
+              146.0479965209961,
+              7.3915863037109375
+            ],
+            [
+              1884.219875,
+              146.0479965209961,
+              7.3915863037109375
+            ],
+            [
+              1986.423916,
+              146.0479965209961,
+              7.3915863037109375
+            ],
+            [
+              2088.606458,
+              146.0479965209961,
+              7.3915863037109375
+            ],
+            [
+              2194.112583,
+              146.0479965209961,
+              7.3915863037109375
+            ],
+            [
+              2299.021166,
+              146.0479965209961,
+              7.3915863037109375
+            ],
+            [
+              2402.682083,
+              146.0479965209961,
+              7.3915863037109375
+            ],
+            [
+              2505.396125,
+              146.0479965209961,
+              7.3915863037109375
+            ],
+            [
+              2610.774791,
+              146.0479965209961,
+              7.3915863037109375
+            ],
+            [
+              2711.241166,
+              146.0479965209961,
+              7.3915863037109375
+            ]
+          ],
+          "unreadable": [
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43660,
+              "ppid": 43594,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43661,
+              "ppid": 43594,
+              "program": "login"
+            }
+          ]
+        },
+        {
+          "at_ms": 13656.717459,
+          "children": [],
+          "children_bytes": 0,
+          "children_mib": 0.0,
+          "cycle": 1,
+          "fixtures": 0,
+          "label": "scrollback-closed",
+          "last_change_ms": 105.014459,
+          "process_bytes": 34374688,
+          "process_mib": 32.782257080078125,
+          "readings": 17,
+          "settled": true,
+          "surfaces": 0,
+          "trace": [
+            [
+              0.000167,
+              35.016632080078125,
+              0.0
+            ],
+            [
+              105.014459,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              210.179167,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              312.843834,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              418.073292,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              520.712,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              621.922875,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              727.007334,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              832.090417,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              937.215584,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              1042.524834,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              1145.917,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              1251.029084,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              1355.723,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              1459.815834,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              1565.178375,
+              32.782257080078125,
+              0.0
+            ],
+            [
+              1670.283959,
+              32.782257080078125,
+              0.0
+            ]
+          ],
+          "unreadable": []
+        }
+      ]
+    },
+    {
+      "key": "memory_unsettled",
+      "value": []
+    },
+    {
+      "key": "ghostty_runtime",
+      "value": {
+        "app_focus": [],
+        "clipboard_denied": 0,
+        "clipboard_denied_on_retire": 0,
+        "clipboard_held": 0,
+        "clipboard_late_skipped": 0,
+        "clipboard_served": 0,
+        "clipboard_write_confirm_denied": 0,
+        "clipboard_written": 0,
+        "close_intents": 2,
+        "close_sources": {
+          "probe:scheduled": 2
+        },
+        "creations": [
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404765981199916,
+            "injected": null,
+            "key": "s0g1",
+            "new_ms": 15.087041,
+            "pass": 1,
+            "started_ns": 404765966112875,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404765988999750,
+            "injected": null,
+            "key": "s1g1",
+            "new_ms": 1.735709,
+            "pass": 2,
+            "started_ns": 404765987264041,
+            "trigger": "initial"
+          }
+        ],
+        "delivered": {
+          "close-intent": 2,
+          "config-change": 1,
+          "unsupported": 25
+        },
+        "dropped_at_source": 0,
+        "dropped_stale": 0,
+        "frees_held_passes": 0,
+        "layout_retries": 0,
+        "log": [
+          "pass=1 t=404761348678125 app ConfigChange → delivered",
+          "pass=35 t=404771667687666 s0g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=35 t=404771667696833 s1g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled"
+        ],
+        "messages": 28,
+        "messages_pushed": 28,
+        "passes": 37,
+        "passes_tracking": 0,
+        "releases": [
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404771683735666,
+            "free_ms": 15.886166,
+            "key": "s0g1",
+            "messages_during_free": 0,
+            "pass": 36,
+            "started_ns": 404771667849500
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404771701493333,
+            "free_ms": 17.74625,
+            "key": "s1g1",
+            "messages_during_free": 1,
+            "pass": 36,
+            "started_ns": 404771683747083
+          }
+        ],
+        "scheme_changes": [],
+        "screen_wakes": 0,
+        "surface_config_updates": 0,
+        "surfaces_created": 2,
+        "surfaces_failed": 0,
+        "surfaces_freed": 2,
+        "unsupported_actions": {
+          "22": 2,
+          "25": 2,
+          "26": 18,
+          "43": 3
+        },
+        "wakeups": 50
+      }
+    },
+    {
+      "key": "surface_view_feeds",
+      "value": {
+        "detached_skipped": 0,
+        "display_ids": [
+          1
+        ],
+        "focus": [
+          true
+        ],
+        "last_scale": [
+          2.0,
+          2.0
+        ],
+        "last_size_px": [
+          560,
+          680
+        ],
+        "preedits": [],
+        "refreshes": 1,
+        "scale_feeds": 1,
+        "size_feeds": 1,
+        "zero_size_skipped": 0
+      }
+    },
+    {
+      "key": "events_posted",
+      "value": "0"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "2897"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "memory.scrollback_per_surface",
+      "unit": "MiB",
+      "samples": [
+        1.7500114440917969
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 1.7500114440917969,
+        "p95": 1.7500114440917969,
+        "max": 1.7500114440917969
+      }
+    },
+    {
+      "name": "surface_free",
+      "unit": "ms",
+      "samples": [
+        15.886166,
+        17.74625
+      ],
+      "summary": {
+        "count": 2,
+        "p50": 15.886166,
+        "p95": 17.74625,
+        "max": 17.74625
+      }
+    },
+    {
+      "name": "app_free",
+      "unit": "ms",
+      "samples": [
+        0.068458
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 0.068458,
+        "p95": 0.068458,
+        "max": 0.068458
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "name": "h10-scrollback",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "заполненный scrollback в свежем процессе (40000 строк по 100 столбцов на поверхность, предел scrollback-limit-bytes из конфигурации): +1.8 МиБ на поверхность; две поверхности до заполнения 142.5 МиБ, после 146.0 МиБ; фикстура отдельно +0.1 МиБ на поверхность (её буфер вывода); остаток над M(0) после закрытия +10.3 МиБ"
+    },
+    {
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "0.011ms сценарий memory",
+      "20.512ms служебное событие type=13 window=0 timestamp=404759.725875 keyCode=None source_pid=0 source_state=0",
+      "34.484ms шаг «окно на экране, приложение активно» готов за 31.2 мс",
+      "44.275ms служебное событие type=13 window=41539 timestamp=404759.769123 keyCode=None source_pid=0 source_state=0",
+      "44.304ms служебное событие type=13 window=41539 timestamp=404759.769146 keyCode=None source_pid=0 source_state=0",
+      "44.309ms служебное событие type=13 window=41539 timestamp=404759.769176 keyCode=None source_pid=0 source_state=0",
+      "44.313ms служебное событие type=13 window=41539 timestamp=404759.769208 keyCode=None source_pid=0 source_state=0",
+      "44.320ms служебное событие type=8 window=41539 timestamp=404759.770228 keyCode=None source_pid=0 source_state=0",
+      "45.357ms служебное событие type=8 window=41539 timestamp=404759.773496 keyCode=None source_pid=43594 source_state=0",
+      "130.045ms служебное событие type=13 window=41539 timestamp=404759.757210 keyCode=None source_pid=0 source_state=0",
+      "1615.163ms шаг «устоявшийся замер памяти» готов за 1580.6 мс",
+      "1615.252ms память init ×0 цикл 0: процесс 20.9 МиБ, потомки 0.0 МиБ, устоялась true",
+      "1638.930ms шаг «активность, key window и фокус вида поверхности» готов за 16.9 мс",
+      "1687.342ms служебное событие type=13 window=41539 timestamp=404761.414833 keyCode=None source_pid=0 source_state=0",
+      "1687.508ms служебное событие type=13 window=41539 timestamp=404761.414978 keyCode=None source_pid=0 source_state=0",
+      "1687.519ms служебное событие type=13 window=41539 timestamp=404761.415007 keyCode=None source_pid=0 source_state=0",
+      "1687.528ms служебное событие type=13 window=41539 timestamp=404761.415042 keyCode=None source_pid=0 source_state=0",
+      "4649.598ms шаг «окно видимо по occlusionState или опознан щит» готов за 3010.6 мс",
+      "4671.546ms окно перекрыто щитом dndmode (pid 69575, уровень 2147483628): occlusionState исключён из признаков",
+      "6232.187ms шаг «устоявшийся замер памяти» готов за 1560.6 мс",
+      "6232.219ms память app ×0 цикл 0: процесс 22.5 МиБ, потомки 0.0 МиБ, устоялась true",
+      "6237.890ms шаг «ненулевой размер вида в пикселях» готов за 5.7 мс",
+      "6253.067ms поверхность s0g1 создана за 15.1 мс",
+      "6258.754ms шаг «новые поверхности с фикстурой» готов за 5.7 мс",
+      "6260.841ms поверхность s1g1 создана за 1.7 мс",
+      "6260.845ms поверхностей с фикстурой 2",
+      "6311.437ms шаг «готовность фикстур, первый кадр и подача видимости» готов за 50.6 мс",
+      "9137.177ms шаг «устоявшийся замер памяти» готов за 2825.7 мс",
+      "9137.222ms память scrollback-before ×2 цикл 1: процесс 142.5 МиБ, потомки 7.1 МиБ, устоялась true",
+      "9142.529ms шаг «заполнение scrollback» готов за 5.3 мс",
+      "9213.251ms шаг «scrollback заполнен: квитанции и последняя строка в модели» готов за 70.7 мс",
+      "11933.741ms шаг «устоявшийся замер памяти» готов за 2720.5 мс",
+      "11933.763ms память scrollback-filled ×2 цикл 1: процесс 146.0 МиБ, потомки 7.4 МиБ, устоялась true",
+      "11939.482ms шаг «намерение закрыть все поверхности» готов за 5.7 мс",
+      "11973.390ms шаг «освобождение поверхностей и выход фикстур» готов за 33.9 мс",
+      "13656.665ms шаг «устоявшийся замер памяти» готов за 1680.6 мс",
+      "13656.722ms память scrollback-closed ×0 цикл 1: процесс 32.8 МиБ, потомки 0.0 МиБ, устоялась true"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeAppActivity",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeScreenWake",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeStandView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSurfaceView",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      }
+    ]
+  }
+}

@@ -1,0 +1,5832 @@
+{
+  "schema": 1,
+  "scenario": "input",
+  "variant": "base",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "6b91e3f56492",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.3.2, objc2-quartz-core 0.3.2",
+      "ghostty_version": "1.4.0",
+      "ghostty_rev": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "process": {
+      "pid": 30113,
+      "route": "direct",
+      "nonce": "2d3f23ec7cf761b1",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_STATE_DIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.2d3f23ec7cf761b1",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    },
+    "bundle": {
+      "path": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app",
+      "identifier": "io.github.dsbasko.shellio.probe.ghostty-surface",
+      "executable": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface",
+      "signature": "valid: identifier \"io.github.dsbasko.shellio.probe.ghostty-surface\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC"
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "активность, key window и фокус A",
+      "status": "ready",
+      "waited_ms": 40.769417000000004,
+      "at_ms": 54.126,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 1,
+      "name": "создание A и B",
+      "status": "ready",
+      "waited_ms": 5.676167,
+      "at_ms": 59.822083,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 2,
+      "name": "готовность обеих фикстур",
+      "status": "ready",
+      "waited_ms": 50.555417,
+      "at_ms": 119.134041,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 3,
+      "name": "raw-режим A",
+      "status": "ready",
+      "waited_ms": 5.385417,
+      "at_ms": 124.534583,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 4,
+      "name": "квитанция ack",
+      "status": "ready",
+      "waited_ms": 5.6555,
+      "at_ms": 130.210791,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 5,
+      "name": "маркер в видимом тексте",
+      "status": "ready",
+      "waited_ms": 5.167708,
+      "at_ms": 135.390166,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 6,
+      "name": "raw-режим B",
+      "status": "ready",
+      "waited_ms": 5.664708,
+      "at_ms": 141.066833,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 7,
+      "name": "квитанция ack",
+      "status": "ready",
+      "waited_ms": 5.649208,
+      "at_ms": 146.731416,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 8,
+      "name": "маркер в видимом тексте",
+      "status": "ready",
+      "waited_ms": 5.210333,
+      "at_ms": 151.960583,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 9,
+      "name": "фокус A после создания",
+      "status": "ready",
+      "waited_ms": 5.549125,
+      "at_ms": 157.523,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 10,
+      "name": "ascii",
+      "status": "ready",
+      "waited_ms": 5.665833999999999,
+      "at_ms": 163.206708,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 11,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.420958,
+      "at_ms": 168.6595,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 12,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 14.673667,
+      "at_ms": 183.497416,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 13,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.643084,
+      "at_ms": 189.153541,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 14,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 155.604125,
+      "at_ms": 344.822833,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 15,
+      "name": "unicode",
+      "status": "ready",
+      "waited_ms": 5.187375,
+      "at_ms": 350.033833,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 16,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.656541,
+      "at_ms": 355.7135,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 17,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.650833,
+      "at_ms": 361.445833,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 18,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.22075,
+      "at_ms": 366.674041,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 19,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.60216599999998,
+      "at_ms": 527.348875,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 20,
+      "name": "autorepeat",
+      "status": "ready",
+      "waited_ms": 5.5732919999999995,
+      "at_ms": 532.982541,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 21,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.710875,
+      "at_ms": 538.745375,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 22,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.7063749999999995,
+      "at_ms": 544.641833,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 23,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.683459,
+      "at_ms": 550.363875,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 24,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.649292,
+      "at_ms": 711.184708,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 25,
+      "name": "ctrl",
+      "status": "ready",
+      "waited_ms": 5.524834,
+      "at_ms": 716.783958,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 26,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.432459,
+      "at_ms": 722.286416,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 27,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.552874999999999,
+      "at_ms": 728.170791,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 28,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.1991249999999996,
+      "at_ms": 733.414625,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 29,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.622875,
+      "at_ms": 894.161166,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 30,
+      "name": "alt",
+      "status": "ready",
+      "waited_ms": 5.3534999999999995,
+      "at_ms": 899.558333,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 31,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.6752080000000005,
+      "at_ms": 905.312125,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 32,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.69575,
+      "at_ms": 911.151291,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 33,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.555,
+      "at_ms": 916.745625,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 34,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.277584,
+      "at_ms": 1077.155791,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 35,
+      "name": "cmd-binding",
+      "status": "ready",
+      "waited_ms": 5.402042,
+      "at_ms": 1082.595166,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 36,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.650459,
+      "at_ms": 1088.280208,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 37,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.7053329999999995,
+      "at_ms": 1094.180208,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 38,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.364125,
+      "at_ms": 1099.580708,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 39,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.63633299999998,
+      "at_ms": 1260.450291,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 40,
+      "name": "привязка через performKeyEquivalent",
+      "status": "ready",
+      "waited_ms": 5.693541,
+      "at_ms": 1266.199458,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 41,
+      "name": "cmd-unbound",
+      "status": "ready",
+      "waited_ms": 5.687292,
+      "at_ms": 1271.968208,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 42,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.6973329999999995,
+      "at_ms": 1277.728875,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 43,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.4658750000000005,
+      "at_ms": 1283.420916,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 44,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.706833,
+      "at_ms": 1289.170791,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 45,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.269833,
+      "at_ms": 1449.644458,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 46,
+      "name": "Cmd-y дошёл до keyDown",
+      "status": "ready",
+      "waited_ms": 5.698458,
+      "at_ms": 1455.412208,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 47,
+      "name": "arrows",
+      "status": "ready",
+      "waited_ms": 5.697500000000001,
+      "at_ms": 1461.188791,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 48,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.519667,
+      "at_ms": 1466.755166,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 49,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.706875,
+      "at_ms": 1472.694875,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 50,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.71225,
+      "at_ms": 1478.433958,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 51,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.607917,
+      "at_ms": 1639.225041,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 52,
+      "name": "esc-return",
+      "status": "ready",
+      "waited_ms": 5.699959,
+      "at_ms": 1644.998791,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 53,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.088917,
+      "at_ms": 1650.161666,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 54,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.646708,
+      "at_ms": 1656.083041,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 55,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.687708,
+      "at_ms": 1661.80675,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 56,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.49616699999999,
+      "at_ms": 1822.489333,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 57,
+      "name": "bracketed paste включён",
+      "status": "ready",
+      "waited_ms": 5.684749999999999,
+      "at_ms": 1828.26575,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 58,
+      "name": "квитанция ack",
+      "status": "ready",
+      "waited_ms": 5.101,
+      "at_ms": 1833.439666,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 59,
+      "name": "маркер в видимом тексте",
+      "status": "ready",
+      "waited_ms": 5.5585,
+      "at_ms": 1839.057208,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 60,
+      "name": "текст доски",
+      "status": "ready",
+      "waited_ms": 5.684458,
+      "at_ms": 1844.779625,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 61,
+      "name": "bracketed-paste",
+      "status": "ready",
+      "waited_ms": 5.682666,
+      "at_ms": 1852.011166,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 62,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.68625,
+      "at_ms": 1857.752541,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 63,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 7.735833,
+      "at_ms": 1865.820833,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 64,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.6832080000000005,
+      "at_ms": 1871.522875,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 65,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.60037499999999,
+      "at_ms": 2032.288875,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 66,
+      "name": "запрос буфера обмена завершён",
+      "status": "ready",
+      "waited_ms": 5.670375,
+      "at_ms": 2037.988,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 67,
+      "name": "bracketed paste выключен",
+      "status": "ready",
+      "waited_ms": 5.662333,
+      "at_ms": 2043.675375,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 68,
+      "name": "квитанция ack",
+      "status": "ready",
+      "waited_ms": 5.501291999999999,
+      "at_ms": 2049.202375,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 69,
+      "name": "маркер в видимом тексте",
+      "status": "ready",
+      "waited_ms": 5.6675830000000005,
+      "at_ms": 2054.884,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 70,
+      "name": "отчёт мыши включён",
+      "status": "ready",
+      "waited_ms": 5.654458,
+      "at_ms": 2060.545083,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 71,
+      "name": "квитанция ack",
+      "status": "ready",
+      "waited_ms": 5.641041,
+      "at_ms": 2066.194875,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 72,
+      "name": "маркер в видимом тексте",
+      "status": "ready",
+      "waited_ms": 5.648917,
+      "at_ms": 2071.855208,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 73,
+      "name": "mouse-report",
+      "status": "ready",
+      "waited_ms": 5.661167,
+      "at_ms": 2077.522083,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 74,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.328625,
+      "at_ms": 2082.867125,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 75,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.654291,
+      "at_ms": 2088.667291,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 76,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.6642079999999995,
+      "at_ms": 2094.343541,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 77,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.649292,
+      "at_ms": 2255.054458,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 78,
+      "name": "отчёт мыши выключен",
+      "status": "ready",
+      "waited_ms": 5.656417,
+      "at_ms": 2260.725875,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 79,
+      "name": "квитанция ack",
+      "status": "ready",
+      "waited_ms": 5.4633329999999996,
+      "at_ms": 2266.20525,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 80,
+      "name": "маркер в видимом тексте",
+      "status": "ready",
+      "waited_ms": 5.677208,
+      "at_ms": 2271.902458,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 81,
+      "name": "слово для выделения",
+      "status": "ready",
+      "waited_ms": 5.666084,
+      "at_ms": 2277.579333,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 82,
+      "name": "слово в видимом тексте",
+      "status": "ready",
+      "waited_ms": 5.28875,
+      "at_ms": 2282.882291,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 83,
+      "name": "select-copy-paste",
+      "status": "ready",
+      "waited_ms": 5.665459,
+      "at_ms": 2288.557791,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 84,
+      "name": "выделение перетаскиванием",
+      "status": "ready",
+      "waited_ms": 5.65375,
+      "at_ms": 2294.2375,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 85,
+      "name": "выделение у поверхности",
+      "status": "ready",
+      "waited_ms": 5.209583,
+      "at_ms": 2299.530375,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 86,
+      "name": "копия на доске",
+      "status": "ready",
+      "waited_ms": 5.690208,
+      "at_ms": 2305.25875,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 87,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 10.594707999999999,
+      "at_ms": 2315.883416,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 88,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.406625,
+      "at_ms": 2321.304333,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 89,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 165.58283300000002,
+      "at_ms": 2486.939666,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 90,
+      "name": "focus-a-to-b",
+      "status": "ready",
+      "waited_ms": 5.659166,
+      "at_ms": 2492.6145,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 91,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.657875,
+      "at_ms": 2498.287666,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 92,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.342833,
+      "at_ms": 2503.70625,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 93,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.673125000000001,
+      "at_ms": 2509.391416,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 94,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.58429099999998,
+      "at_ms": 2670.028458,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 95,
+      "name": "фокус у B",
+      "status": "ready",
+      "waited_ms": 5.653791,
+      "at_ms": 2675.700666,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 96,
+      "name": "keyup-owner",
+      "status": "ready",
+      "waited_ms": 5.65075,
+      "at_ms": 2681.373125,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 97,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.657500000000001,
+      "at_ms": 2687.049708,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 98,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.672833000000001,
+      "at_ms": 2692.795583,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 99,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.353084,
+      "at_ms": 2698.1645,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 100,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.16120899999999,
+      "at_ms": 2858.390041,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 101,
+      "name": "отпускание ушло владельцу",
+      "status": "ready",
+      "waited_ms": 5.661290999999999,
+      "at_ms": 2864.071833,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 102,
+      "name": "key-window",
+      "status": "ready",
+      "waited_ms": 5.670166,
+      "at_ms": 2869.772041,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 103,
+      "name": "второе окно",
+      "status": "ready",
+      "waited_ms": 5.251958,
+      "at_ms": 2875.053833,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 104,
+      "name": "второе окно key",
+      "status": "ready",
+      "waited_ms": 6.547334,
+      "at_ms": 2886.375958,
+      "state": "isActive=true keyWindow=#40978 mainWindow=#40978 firstResponder=ProbeStandView cursor=250,266"
+    },
+    {
+      "index": 105,
+      "name": "клавиша дошла до второго окна",
+      "status": "ready",
+      "waited_ms": 5.2670829999999995,
+      "at_ms": 2891.691916,
+      "state": "isActive=true keyWindow=#40978 mainWindow=#40978 firstResponder=ProbeStandView cursor=250,266"
+    },
+    {
+      "index": 106,
+      "name": "главное окно снова key",
+      "status": "ready",
+      "waited_ms": 5.65025,
+      "at_ms": 2913.391208,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 107,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.6533750000000005,
+      "at_ms": 2919.055166,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 108,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.590707999999999,
+      "at_ms": 2924.655458,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 109,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 155.617334,
+      "at_ms": 3080.3215,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 110,
+      "name": "inactive-app",
+      "status": "ready",
+      "waited_ms": 5.656917,
+      "at_ms": 3085.9875,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 111,
+      "name": "скрытие приложения",
+      "status": "ready",
+      "waited_ms": 5.1972499999999995,
+      "at_ms": 3091.193416,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 112,
+      "name": "приложение неактивно",
+      "status": "ready",
+      "waited_ms": 15.581083000000001,
+      "at_ms": 3107.026083,
+      "state": "isActive=false keyWindow=none mainWindow=none firstResponder=none cursor=250,266"
+    },
+    {
+      "index": 113,
+      "name": "клавиша при неактивном приложении прошла sendEvent",
+      "status": "ready",
+      "waited_ms": 10.579875000000001,
+      "at_ms": 3117.665458,
+      "state": "isActive=false keyWindow=none mainWindow=none firstResponder=none cursor=250,266"
+    },
+    {
+      "index": 114,
+      "name": "показ и активация приложения",
+      "status": "ready",
+      "waited_ms": 5.596125000000001,
+      "at_ms": 3123.278208,
+      "state": "isActive=false keyWindow=none mainWindow=none firstResponder=none cursor=250,266"
+    },
+    {
+      "index": 115,
+      "name": "приложение снова активно",
+      "status": "ready",
+      "waited_ms": 5.86575,
+      "at_ms": 3133.112208,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 116,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.6541250000000005,
+      "at_ms": 3138.786708,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 117,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.648167,
+      "at_ms": 3144.446958,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 118,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 155.590667,
+      "at_ms": 3300.108666,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 119,
+      "name": "щелчок в B",
+      "status": "ready",
+      "waited_ms": 5.709792,
+      "at_ms": 3305.850541,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 120,
+      "name": "B first responder",
+      "status": "ready",
+      "waited_ms": 5.074375,
+      "at_ms": 3310.978083,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 121,
+      "name": "hidden-surface",
+      "status": "ready",
+      "waited_ms": 5.365417,
+      "at_ms": 3335.229708,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 122,
+      "name": "клавиша при скрытой B",
+      "status": "ready",
+      "waited_ms": 5.629208,
+      "at_ms": 3340.901416,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 123,
+      "name": "клавиша при скрытой B прошла sendEvent",
+      "status": "ready",
+      "waited_ms": 20.077375,
+      "at_ms": 3361.03375,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 124,
+      "name": "фокус A после скрытия",
+      "status": "ready",
+      "waited_ms": 5.15275,
+      "at_ms": 3366.684916,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 125,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.6598749999999995,
+      "at_ms": 3372.351791,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 126,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.685875,
+      "at_ms": 3378.062791,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 127,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 155.255292,
+      "at_ms": 3533.38025,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 128,
+      "name": "moved-zone",
+      "status": "ready",
+      "waited_ms": 5.66,
+      "at_ms": 3539.059333,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 129,
+      "name": "события проверки",
+      "status": "ready",
+      "waited_ms": 5.668584,
+      "at_ms": 3544.756583,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 130,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.297541,
+      "at_ms": 3551.0595,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 131,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.640792,
+      "at_ms": 3556.710708,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 132,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.6575,
+      "at_ms": 3717.448166,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 133,
+      "name": "закрытие обеих поверхностей",
+      "status": "ready",
+      "waited_ms": 5.666,
+      "at_ms": 3723.132791,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 134,
+      "name": "освобождение и выход фикстур",
+      "status": "ready",
+      "waited_ms": 29.713041999999998,
+      "at_ms": 3752.869125,
+      "state": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266"
+    }
+  ],
+  "events": [
+    {
+      "number": 1,
+      "label": "keyDown a",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404096894101458,
+      "dispatch_start_ns": 404096894278750,
+      "send_return_ns": 404096894809125,
+      "display_pass_ns": 404096908890708,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "keyUp a",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404096894212958,
+      "dispatch_start_ns": 404096894834333,
+      "send_return_ns": 404096894837375,
+      "display_pass_ns": 404096908890708,
+      "undispatched": false
+    },
+    {
+      "number": 3,
+      "label": "flagsChanged+56",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404096894218125,
+      "dispatch_start_ns": 404096894843125,
+      "send_return_ns": 404096895071958,
+      "display_pass_ns": 404096908890708,
+      "undispatched": false
+    },
+    {
+      "number": 4,
+      "label": "keyDown Shift-Z",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404096894220833,
+      "dispatch_start_ns": 404096895091375,
+      "send_return_ns": 404096895133625,
+      "display_pass_ns": 404096908890708,
+      "undispatched": false
+    },
+    {
+      "number": 5,
+      "label": "keyUp Shift-Z",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404096894223208,
+      "dispatch_start_ns": 404096895141875,
+      "send_return_ns": 404096895144541,
+      "display_pass_ns": 404096908890708,
+      "undispatched": false
+    },
+    {
+      "number": 6,
+      "label": "flagsChanged-56",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404096894226458,
+      "dispatch_start_ns": 404096895149458,
+      "send_return_ns": 404096895161333,
+      "display_pass_ns": 404096908890708,
+      "undispatched": false
+    },
+    {
+      "number": 7,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404096914573708,
+      "dispatch_start_ns": 404096914643958,
+      "send_return_ns": 404096914726375,
+      "display_pass_ns": 404096914801000,
+      "undispatched": false
+    },
+    {
+      "number": 8,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404096914602958,
+      "dispatch_start_ns": 404096914740791,
+      "send_return_ns": 404096914743958,
+      "display_pass_ns": 404096914801000,
+      "undispatched": false
+    },
+    {
+      "number": 9,
+      "label": "keyDown ж",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097081135416,
+      "dispatch_start_ns": 404097081248625,
+      "send_return_ns": 404097081352041,
+      "display_pass_ns": 404097081478250,
+      "undispatched": false
+    },
+    {
+      "number": 10,
+      "label": "keyUp ж",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097081179708,
+      "dispatch_start_ns": 404097081371500,
+      "send_return_ns": 404097081374708,
+      "display_pass_ns": 404097081478250,
+      "undispatched": false
+    },
+    {
+      "number": 11,
+      "label": "keyDown é",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097081183791,
+      "dispatch_start_ns": 404097081383458,
+      "send_return_ns": 404097081406666,
+      "display_pass_ns": 404097081478250,
+      "undispatched": false
+    },
+    {
+      "number": 12,
+      "label": "keyUp é",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097081186958,
+      "dispatch_start_ns": 404097081413833,
+      "send_return_ns": 404097081415750,
+      "display_pass_ns": 404097081478250,
+      "undispatched": false
+    },
+    {
+      "number": 13,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097092094208,
+      "dispatch_start_ns": 404097096611125,
+      "send_return_ns": 404097096668166,
+      "display_pass_ns": 404097096721041,
+      "undispatched": false
+    },
+    {
+      "number": 14,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097092119916,
+      "dispatch_start_ns": 404097096677666,
+      "send_return_ns": 404097096680291,
+      "display_pass_ns": 404097096721041,
+      "undispatched": false
+    },
+    {
+      "number": 15,
+      "label": "keyDown a",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097264170166,
+      "dispatch_start_ns": 404097264420250,
+      "send_return_ns": 404097264630208,
+      "display_pass_ns": 404097265014375,
+      "undispatched": false
+    },
+    {
+      "number": 16,
+      "label": "keyDown a repeat",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097264270583,
+      "dispatch_start_ns": 404097264693541,
+      "send_return_ns": 404097264728250,
+      "display_pass_ns": 404097265014375,
+      "undispatched": false
+    },
+    {
+      "number": 17,
+      "label": "keyDown a repeat",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097264278250,
+      "dispatch_start_ns": 404097264749416,
+      "send_return_ns": 404097264789875,
+      "display_pass_ns": 404097265014375,
+      "undispatched": false
+    },
+    {
+      "number": 18,
+      "label": "keyDown a repeat",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097264296208,
+      "dispatch_start_ns": 404097264809291,
+      "send_return_ns": 404097264828125,
+      "display_pass_ns": 404097265014375,
+      "undispatched": false
+    },
+    {
+      "number": 19,
+      "label": "keyUp a",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097264302041,
+      "dispatch_start_ns": 404097264852041,
+      "send_return_ns": 404097264857500,
+      "display_pass_ns": 404097265014375,
+      "undispatched": false
+    },
+    {
+      "number": 20,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097275792916,
+      "dispatch_start_ns": 404097280018833,
+      "send_return_ns": 404097280241291,
+      "display_pass_ns": 404097280469708,
+      "undispatched": false
+    },
+    {
+      "number": 21,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097275869875,
+      "dispatch_start_ns": 404097280275166,
+      "send_return_ns": 404097280281291,
+      "display_pass_ns": 404097280469708,
+      "undispatched": false
+    },
+    {
+      "number": 22,
+      "label": "flagsChanged+59",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097447718916,
+      "dispatch_start_ns": 404097448162208,
+      "send_return_ns": 404097448319208,
+      "display_pass_ns": 404097451364541,
+      "undispatched": false
+    },
+    {
+      "number": 23,
+      "label": "keyDown Ctrl-C",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097447788083,
+      "dispatch_start_ns": 404097448410041,
+      "send_return_ns": 404097449986333,
+      "display_pass_ns": 404097451364541,
+      "undispatched": false
+    },
+    {
+      "number": 24,
+      "label": "keyUp Ctrl-C",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097447861458,
+      "dispatch_start_ns": 404097450138666,
+      "send_return_ns": 404097450157291,
+      "display_pass_ns": 404097451364541,
+      "undispatched": false
+    },
+    {
+      "number": 25,
+      "label": "flagsChanged-59",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097447882041,
+      "dispatch_start_ns": 404097450195041,
+      "send_return_ns": 404097450283166,
+      "display_pass_ns": 404097451364541,
+      "undispatched": false
+    },
+    {
+      "number": 26,
+      "label": "flagsChanged+59",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097447924500,
+      "dispatch_start_ns": 404097450322166,
+      "send_return_ns": 404097450387708,
+      "display_pass_ns": 404097451364541,
+      "undispatched": false
+    },
+    {
+      "number": 27,
+      "label": "keyDown Ctrl-A",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097447943458,
+      "dispatch_start_ns": 404097450449875,
+      "send_return_ns": 404097450894333,
+      "display_pass_ns": 404097451364541,
+      "undispatched": false
+    },
+    {
+      "number": 28,
+      "label": "keyUp Ctrl-A",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097447960333,
+      "dispatch_start_ns": 404097450934958,
+      "send_return_ns": 404097450943416,
+      "display_pass_ns": 404097451364541,
+      "undispatched": false
+    },
+    {
+      "number": 29,
+      "label": "flagsChanged-59",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097447976083,
+      "dispatch_start_ns": 404097450959666,
+      "send_return_ns": 404097451005625,
+      "display_pass_ns": 404097451364541,
+      "undispatched": false
+    },
+    {
+      "number": 30,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097458844375,
+      "dispatch_start_ns": 404097463471000,
+      "send_return_ns": 404097463810833,
+      "display_pass_ns": 404097464117333,
+      "undispatched": false
+    },
+    {
+      "number": 31,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097458911625,
+      "dispatch_start_ns": 404097463883375,
+      "send_return_ns": 404097463898333,
+      "display_pass_ns": 404097464117333,
+      "undispatched": false
+    },
+    {
+      "number": 32,
+      "label": "flagsChanged+58",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097630746583,
+      "dispatch_start_ns": 404097630885541,
+      "send_return_ns": 404097630961916,
+      "display_pass_ns": 404097631297708,
+      "undispatched": false
+    },
+    {
+      "number": 33,
+      "label": "keyDown Alt-a",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097630782833,
+      "dispatch_start_ns": 404097630997666,
+      "send_return_ns": 404097631102333,
+      "display_pass_ns": 404097631297708,
+      "undispatched": false
+    },
+    {
+      "number": 34,
+      "label": "keyUp Alt-a",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097630812250,
+      "dispatch_start_ns": 404097631119000,
+      "send_return_ns": 404097631125875,
+      "display_pass_ns": 404097631297708,
+      "undispatched": false
+    },
+    {
+      "number": 35,
+      "label": "flagsChanged-58",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097630818791,
+      "dispatch_start_ns": 404097631137916,
+      "send_return_ns": 404097631159958,
+      "display_pass_ns": 404097631297708,
+      "undispatched": false
+    },
+    {
+      "number": 36,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097642171833,
+      "dispatch_start_ns": 404097646705083,
+      "send_return_ns": 404097646952000,
+      "display_pass_ns": 404097647371916,
+      "undispatched": false
+    },
+    {
+      "number": 37,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097642240333,
+      "dispatch_start_ns": 404097647013541,
+      "send_return_ns": 404097647028375,
+      "display_pass_ns": 404097647371916,
+      "undispatched": false
+    },
+    {
+      "number": 38,
+      "label": "flagsChanged+55",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097813740333,
+      "dispatch_start_ns": 404097813949208,
+      "send_return_ns": 404097814124458,
+      "display_pass_ns": 404097815070666,
+      "undispatched": false
+    },
+    {
+      "number": 39,
+      "label": "keyDown Cmd-Left",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097813790416,
+      "dispatch_start_ns": 404097814183708,
+      "send_return_ns": 404097814474541,
+      "display_pass_ns": 404097815070666,
+      "undispatched": false
+    },
+    {
+      "number": 40,
+      "label": "keyUp Cmd-Left",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097813833833,
+      "dispatch_start_ns": 404097814513833,
+      "send_return_ns": 404097814536708,
+      "display_pass_ns": 404097815070666,
+      "undispatched": false
+    },
+    {
+      "number": 41,
+      "label": "flagsChanged-55",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097813842291,
+      "dispatch_start_ns": 404097814574208,
+      "send_return_ns": 404097814667375,
+      "display_pass_ns": 404097815070666,
+      "undispatched": false
+    },
+    {
+      "number": 42,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097825011708,
+      "dispatch_start_ns": 404097830048875,
+      "send_return_ns": 404097830390083,
+      "display_pass_ns": 404097830820125,
+      "undispatched": false
+    },
+    {
+      "number": 43,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404097825112541,
+      "dispatch_start_ns": 404097830456291,
+      "send_return_ns": 404097830471500,
+      "display_pass_ns": 404097830820125,
+      "undispatched": false
+    },
+    {
+      "number": 44,
+      "label": "flagsChanged+55",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098003171291,
+      "dispatch_start_ns": 404098005032541,
+      "send_return_ns": 404098005220750,
+      "display_pass_ns": 404098006281125,
+      "undispatched": false
+    },
+    {
+      "number": 45,
+      "label": "keyDown Cmd-y",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098003247958,
+      "dispatch_start_ns": 404098005288875,
+      "send_return_ns": 404098005856833,
+      "display_pass_ns": 404098006281125,
+      "undispatched": false
+    },
+    {
+      "number": 46,
+      "label": "keyUp Cmd-y",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098003309250,
+      "dispatch_start_ns": 404098005900125,
+      "send_return_ns": 404098005908541,
+      "display_pass_ns": 404098006281125,
+      "undispatched": false
+    },
+    {
+      "number": 47,
+      "label": "flagsChanged-55",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098003321083,
+      "dispatch_start_ns": 404098005926208,
+      "send_return_ns": 404098005983875,
+      "display_pass_ns": 404098006281125,
+      "undispatched": false
+    },
+    {
+      "number": 48,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098014600458,
+      "dispatch_start_ns": 404098021731000,
+      "send_return_ns": 404098022053041,
+      "display_pass_ns": 404098022370333,
+      "undispatched": false
+    },
+    {
+      "number": 49,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098014699416,
+      "dispatch_start_ns": 404098022097166,
+      "send_return_ns": 404098022105291,
+      "display_pass_ns": 404098022370333,
+      "undispatched": false
+    },
+    {
+      "number": 50,
+      "label": "keyDown Left",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098192191208,
+      "dispatch_start_ns": 404098192570416,
+      "send_return_ns": 404098193416333,
+      "display_pass_ns": 404098194796833,
+      "undispatched": false
+    },
+    {
+      "number": 51,
+      "label": "keyUp Left",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098192324166,
+      "dispatch_start_ns": 404098193515041,
+      "send_return_ns": 404098193532208,
+      "display_pass_ns": 404098194796833,
+      "undispatched": false
+    },
+    {
+      "number": 52,
+      "label": "keyDown Up",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098192344875,
+      "dispatch_start_ns": 404098193580875,
+      "send_return_ns": 404098194272208,
+      "display_pass_ns": 404098194796833,
+      "undispatched": false
+    },
+    {
+      "number": 53,
+      "label": "keyUp Up",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098192360666,
+      "dispatch_start_ns": 404098194336666,
+      "send_return_ns": 404098194354166,
+      "display_pass_ns": 404098194796833,
+      "undispatched": false
+    },
+    {
+      "number": 54,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098203861458,
+      "dispatch_start_ns": 404098205055416,
+      "send_return_ns": 404098205355416,
+      "display_pass_ns": 404098205607125,
+      "undispatched": false
+    },
+    {
+      "number": 55,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098203947333,
+      "dispatch_start_ns": 404098205399750,
+      "send_return_ns": 404098205409458,
+      "display_pass_ns": 404098205607125,
+      "undispatched": false
+    },
+    {
+      "number": 56,
+      "label": "keyDown Esc",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098375598833,
+      "dispatch_start_ns": 404098376026333,
+      "send_return_ns": 404098376503291,
+      "display_pass_ns": 404098377233333,
+      "undispatched": false
+    },
+    {
+      "number": 57,
+      "label": "keyUp Esc",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098375755250,
+      "dispatch_start_ns": 404098376606833,
+      "send_return_ns": 404098376622458,
+      "display_pass_ns": 404098377233333,
+      "undispatched": false
+    },
+    {
+      "number": 58,
+      "label": "keyDown Return",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098375777708,
+      "dispatch_start_ns": 404098376678000,
+      "send_return_ns": 404098376826250,
+      "display_pass_ns": 404098377233333,
+      "undispatched": false
+    },
+    {
+      "number": 59,
+      "label": "keyUp Return",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098375795750,
+      "dispatch_start_ns": 404098376871666,
+      "send_return_ns": 404098376883166,
+      "display_pass_ns": 404098377233333,
+      "undispatched": false
+    },
+    {
+      "number": 60,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098387235291,
+      "dispatch_start_ns": 404098388362208,
+      "send_return_ns": 404098388669958,
+      "display_pass_ns": 404098388921166,
+      "undispatched": false
+    },
+    {
+      "number": 61,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098387321541,
+      "dispatch_start_ns": 404098388729166,
+      "send_return_ns": 404098388742666,
+      "display_pass_ns": 404098388921166,
+      "undispatched": false
+    },
+    {
+      "number": 62,
+      "label": "keyDown x",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098583187708,
+      "dispatch_start_ns": 404098583676041,
+      "send_return_ns": 404098584091208,
+      "display_pass_ns": 404098590859083,
+      "undispatched": false
+    },
+    {
+      "number": 63,
+      "label": "keyUp x",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098583339041,
+      "dispatch_start_ns": 404098584196916,
+      "send_return_ns": 404098584217250,
+      "display_pass_ns": 404098590859083,
+      "undispatched": false
+    },
+    {
+      "number": 64,
+      "label": "flagsChanged+55",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098583369875,
+      "dispatch_start_ns": 404098584257708,
+      "send_return_ns": 404098584379208,
+      "display_pass_ns": 404098590859083,
+      "undispatched": false
+    },
+    {
+      "number": 65,
+      "label": "keyDown Cmd-V",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098583388625,
+      "dispatch_start_ns": 404098584452041,
+      "send_return_ns": 404098584672291,
+      "display_pass_ns": 404098590859083,
+      "undispatched": false
+    },
+    {
+      "number": 66,
+      "label": "keyUp Cmd-V",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098583452666,
+      "dispatch_start_ns": 404098584723375,
+      "send_return_ns": 404098584735833,
+      "display_pass_ns": 404098590859083,
+      "undispatched": false
+    },
+    {
+      "number": 67,
+      "label": "flagsChanged-55",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098583470541,
+      "dispatch_start_ns": 404098584767625,
+      "send_return_ns": 404098584840541,
+      "display_pass_ns": 404098590859083,
+      "undispatched": false
+    },
+    {
+      "number": 68,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098596948541,
+      "dispatch_start_ns": 404098597173791,
+      "send_return_ns": 404098597397041,
+      "display_pass_ns": 404098597575458,
+      "undispatched": false
+    },
+    {
+      "number": 69,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098597034958,
+      "dispatch_start_ns": 404098597430875,
+      "send_return_ns": 404098597438875,
+      "display_pass_ns": 404098597575458,
+      "undispatched": false
+    },
+    {
+      "number": 70,
+      "label": "клетка отчёта at 500,726",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098808378666,
+      "dispatch_start_ns": 404098808469458,
+      "send_return_ns": 404098808915000,
+      "display_pass_ns": 404098809074333,
+      "undispatched": false
+    },
+    {
+      "number": 71,
+      "label": "клетка отчёта at 500,726",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098808416666,
+      "dispatch_start_ns": 404098808971208,
+      "send_return_ns": 404098808991000,
+      "display_pass_ns": 404098809074333,
+      "undispatched": false
+    },
+    {
+      "number": 72,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098819763375,
+      "dispatch_start_ns": 404098821609208,
+      "send_return_ns": 404098821692041,
+      "display_pass_ns": 404098821756000,
+      "undispatched": false
+    },
+    {
+      "number": 73,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404098819798666,
+      "dispatch_start_ns": 404098821706875,
+      "send_return_ns": 404098821709500,
+      "display_pass_ns": 404098821756000,
+      "undispatched": false
+    },
+    {
+      "number": 74,
+      "label": "выделение at 450,681",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099019697833,
+      "dispatch_start_ns": 404099021627750,
+      "send_return_ns": 404099021826333,
+      "display_pass_ns": 404099021951750,
+      "undispatched": false
+    },
+    {
+      "number": 75,
+      "label": "выделение at 518,681",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099019721333,
+      "dispatch_start_ns": 404099021855208,
+      "send_return_ns": 404099021873291,
+      "display_pass_ns": 404099021951750,
+      "undispatched": false
+    },
+    {
+      "number": 76,
+      "label": "выделение at 518,681",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099019724916,
+      "dispatch_start_ns": 404099021885291,
+      "send_return_ns": 404099021892166,
+      "display_pass_ns": 404099021951750,
+      "undispatched": false
+    },
+    {
+      "number": 77,
+      "label": "flagsChanged+55",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099024948750,
+      "dispatch_start_ns": 404099029964208,
+      "send_return_ns": 404099030028750,
+      "display_pass_ns": 404099030431125,
+      "undispatched": false
+    },
+    {
+      "number": 78,
+      "label": "keyDown Cmd-C",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099024956958,
+      "dispatch_start_ns": 404099030048583,
+      "send_return_ns": 404099030119791,
+      "display_pass_ns": 404099030431125,
+      "undispatched": false
+    },
+    {
+      "number": 79,
+      "label": "keyUp Cmd-C",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099024973041,
+      "dispatch_start_ns": 404099030126458,
+      "send_return_ns": 404099030128333,
+      "display_pass_ns": 404099030431125,
+      "undispatched": false
+    },
+    {
+      "number": 80,
+      "label": "flagsChanged-55",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099024976125,
+      "dispatch_start_ns": 404099030132000,
+      "send_return_ns": 404099030145083,
+      "display_pass_ns": 404099030431125,
+      "undispatched": false
+    },
+    {
+      "number": 81,
+      "label": "flagsChanged+55",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099030675791,
+      "dispatch_start_ns": 404099038306750,
+      "send_return_ns": 404099038380583,
+      "display_pass_ns": 404099038615625,
+      "undispatched": false
+    },
+    {
+      "number": 82,
+      "label": "keyDown Cmd-V",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099030682625,
+      "dispatch_start_ns": 404099038408583,
+      "send_return_ns": 404099038464583,
+      "display_pass_ns": 404099038615625,
+      "undispatched": false
+    },
+    {
+      "number": 83,
+      "label": "keyUp Cmd-V",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099030691291,
+      "dispatch_start_ns": 404099038472291,
+      "send_return_ns": 404099038474375,
+      "display_pass_ns": 404099038615625,
+      "undispatched": false
+    },
+    {
+      "number": 84,
+      "label": "flagsChanged-55",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099030693750,
+      "dispatch_start_ns": 404099038478791,
+      "send_return_ns": 404099038492458,
+      "display_pass_ns": 404099038615625,
+      "undispatched": false
+    },
+    {
+      "number": 85,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099046723791,
+      "dispatch_start_ns": 404099054962375,
+      "send_return_ns": 404099055051958,
+      "display_pass_ns": 404099055167208,
+      "undispatched": false
+    },
+    {
+      "number": 86,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099046751458,
+      "dispatch_start_ns": 404099055066166,
+      "send_return_ns": 404099055068625,
+      "display_pass_ns": 404099055167208,
+      "undispatched": false
+    },
+    {
+      "number": 87,
+      "label": "B at 691,213",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099223711666,
+      "dispatch_start_ns": 404099223816625,
+      "send_return_ns": 404099226852666,
+      "display_pass_ns": 404099227393083,
+      "undispatched": false
+    },
+    {
+      "number": 88,
+      "label": "B at 691,213",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099223737125,
+      "dispatch_start_ns": 404099226984291,
+      "send_return_ns": 404099226996541,
+      "display_pass_ns": 404099227393083,
+      "undispatched": false
+    },
+    {
+      "number": 89,
+      "label": "keyDown b",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099223742875,
+      "dispatch_start_ns": 404099227010125,
+      "send_return_ns": 404099227053666,
+      "display_pass_ns": 404099227393083,
+      "undispatched": false
+    },
+    {
+      "number": 90,
+      "label": "keyUp b",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099223765083,
+      "dispatch_start_ns": 404099227063083,
+      "send_return_ns": 404099227066750,
+      "display_pass_ns": 404099227393083,
+      "undispatched": false
+    },
+    {
+      "number": 91,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099234811041,
+      "dispatch_start_ns": 404099238273416,
+      "send_return_ns": 404099238347833,
+      "display_pass_ns": 404099238411416,
+      "undispatched": false
+    },
+    {
+      "number": 92,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099234835958,
+      "dispatch_start_ns": 404099238363791,
+      "send_return_ns": 404099238367500,
+      "display_pass_ns": 404099238411416,
+      "undispatched": false
+    },
+    {
+      "number": 93,
+      "label": "keyDown q",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099412470041,
+      "dispatch_start_ns": 404099413283708,
+      "send_return_ns": 404099413371000,
+      "display_pass_ns": 404099414368375,
+      "undispatched": false
+    },
+    {
+      "number": 94,
+      "label": "A at 691,570",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099412511625,
+      "dispatch_start_ns": 404099413389166,
+      "send_return_ns": 404099414200875,
+      "display_pass_ns": 404099414368375,
+      "undispatched": false
+    },
+    {
+      "number": 95,
+      "label": "A at 691,570",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099412516250,
+      "dispatch_start_ns": 404099414238916,
+      "send_return_ns": 404099414251458,
+      "display_pass_ns": 404099414368375,
+      "undispatched": false
+    },
+    {
+      "number": 96,
+      "label": "keyUp q",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099412518875,
+      "dispatch_start_ns": 404099414258500,
+      "send_return_ns": 404099414262250,
+      "display_pass_ns": 404099414368375,
+      "undispatched": false
+    },
+    {
+      "number": 97,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099423584125,
+      "dispatch_start_ns": 404099429954125,
+      "send_return_ns": 404099430035833,
+      "display_pass_ns": 404099430242583,
+      "undispatched": false
+    },
+    {
+      "number": 98,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099423619750,
+      "dispatch_start_ns": 404099430049458,
+      "send_return_ns": 404099430052041,
+      "display_pass_ns": 404099430242583,
+      "undispatched": false
+    },
+    {
+      "number": 99,
+      "label": "keyDown k",
+      "window": 40978,
+      "before": "isActive=true keyWindow=#40978 mainWindow=#40978 firstResponder=ProbeStandView cursor=250,266",
+      "t_post_ns": 404099611794666,
+      "dispatch_start_ns": 404099613303500,
+      "send_return_ns": 404099613353791,
+      "display_pass_ns": 404099613486666,
+      "undispatched": false
+    },
+    {
+      "number": 100,
+      "label": "keyUp k",
+      "window": 40978,
+      "before": "isActive=true keyWindow=#40978 mainWindow=#40978 firstResponder=ProbeStandView cursor=250,266",
+      "t_post_ns": 404099611820375,
+      "dispatch_start_ns": 404099613365833,
+      "send_return_ns": 404099613373166,
+      "display_pass_ns": 404099613486666,
+      "undispatched": false
+    },
+    {
+      "number": 101,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099650074375,
+      "dispatch_start_ns": 404099654957833,
+      "send_return_ns": 404099655047208,
+      "display_pass_ns": 404099655213333,
+      "undispatched": false
+    },
+    {
+      "number": 102,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099650096458,
+      "dispatch_start_ns": 404099655060291,
+      "send_return_ns": 404099655063041,
+      "display_pass_ns": 404099655213333,
+      "undispatched": false
+    },
+    {
+      "number": 103,
+      "label": "keyDown i",
+      "window": 40968,
+      "before": "isActive=false keyWindow=none mainWindow=none firstResponder=none cursor=250,266",
+      "t_post_ns": 404099832445583,
+      "dispatch_start_ns": 404099838310000,
+      "send_return_ns": 404099838344458,
+      "display_pass_ns": 404099838410166,
+      "undispatched": false
+    },
+    {
+      "number": 104,
+      "label": "keyUp i",
+      "window": 40968,
+      "before": "isActive=false keyWindow=none mainWindow=none firstResponder=none cursor=250,266",
+      "t_post_ns": 404099832466625,
+      "dispatch_start_ns": 404099838351333,
+      "send_return_ns": 404099838359041,
+      "display_pass_ns": 404099838410166,
+      "undispatched": false
+    },
+    {
+      "number": 105,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099869866791,
+      "dispatch_start_ns": 404099871697541,
+      "send_return_ns": 404099871773500,
+      "display_pass_ns": 404099871829916,
+      "undispatched": false
+    },
+    {
+      "number": 106,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404099869894125,
+      "dispatch_start_ns": 404099871782208,
+      "send_return_ns": 404099871784666,
+      "display_pass_ns": 404099871829916,
+      "undispatched": false
+    },
+    {
+      "number": 107,
+      "label": "B at 691,213",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404100031277125,
+      "dispatch_start_ns": 404100031351250,
+      "send_return_ns": 404100032381708,
+      "display_pass_ns": 404100032665333,
+      "undispatched": false
+    },
+    {
+      "number": 108,
+      "label": "B at 691,213",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404100031303916,
+      "dispatch_start_ns": 404100032444375,
+      "send_return_ns": 404100032467791,
+      "display_pass_ns": 404100032665333,
+      "undispatched": false
+    },
+    {
+      "number": 109,
+      "label": "keyDown h",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=NSKVONotifying_NSWindow cursor=250,266",
+      "t_post_ns": 404100066321958,
+      "dispatch_start_ns": 404100071616541,
+      "send_return_ns": 404100085663833,
+      "display_pass_ns": 404100086424208,
+      "undispatched": false
+    },
+    {
+      "number": 110,
+      "label": "keyUp h",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=NSKVONotifying_NSWindow cursor=250,266",
+      "t_post_ns": 404100066357083,
+      "dispatch_start_ns": 404100085699333,
+      "send_return_ns": 404100085720875,
+      "display_pass_ns": 404100086424208,
+      "undispatched": false
+    },
+    {
+      "number": 111,
+      "label": "A at 691,570",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=NSKVONotifying_NSWindow cursor=250,266",
+      "t_post_ns": 404100086925750,
+      "dispatch_start_ns": 404100088272333,
+      "send_return_ns": 404100089007125,
+      "display_pass_ns": 404100090121791,
+      "undispatched": false
+    },
+    {
+      "number": 112,
+      "label": "A at 691,570",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=NSKVONotifying_NSWindow cursor=250,266",
+      "t_post_ns": 404100086937666,
+      "dispatch_start_ns": 404100089039208,
+      "send_return_ns": 404100089049583,
+      "display_pass_ns": 404100090121791,
+      "undispatched": false
+    },
+    {
+      "number": 113,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404100103488041,
+      "dispatch_start_ns": 404100104940500,
+      "send_return_ns": 404100105026958,
+      "display_pass_ns": 404100105113041,
+      "undispatched": false
+    },
+    {
+      "number": 114,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404100103511708,
+      "dispatch_start_ns": 404100105042333,
+      "send_return_ns": 404100105046000,
+      "display_pass_ns": 404100105113041,
+      "undispatched": false
+    },
+    {
+      "number": 115,
+      "label": "keyDown m",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404100271099666,
+      "dispatch_start_ns": 404100271640416,
+      "send_return_ns": 404100271821250,
+      "display_pass_ns": 404100274170875,
+      "undispatched": false
+    },
+    {
+      "number": 116,
+      "label": "keyUp m",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404100271163291,
+      "dispatch_start_ns": 404100271845250,
+      "send_return_ns": 404100271851125,
+      "display_pass_ns": 404100274170875,
+      "undispatched": false
+    },
+    {
+      "number": 117,
+      "label": "keyDown `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404100282130500,
+      "dispatch_start_ns": 404100288267500,
+      "send_return_ns": 404100288377541,
+      "display_pass_ns": 404100288464625,
+      "undispatched": false
+    },
+    {
+      "number": 118,
+      "label": "keyUp `",
+      "window": 40968,
+      "before": "isActive=true keyWindow=#40968 mainWindow=#40968 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404100282160625,
+      "dispatch_start_ns": 404100288391875,
+      "send_return_ns": 404100288394625,
+      "display_pass_ns": 404100288464625,
+      "undispatched": false
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "input"
+    },
+    {
+      "key": "route",
+      "value": "direct"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "variant",
+      "value": "base"
+    },
+    {
+      "key": "route_note",
+      "value": "все клавиши и кнопки идут через postEvent и обычную доставку NSApplication; ghostty_surface_key сценарий напрямую не вызывает"
+    },
+    {
+      "key": "unicode_note",
+      "value": "синтетическое событие клавиши с символом вне BMP (эмодзи) NSTextInputContext переводит заново по keyCode и отдаёт символ раскладки; эмодзи проверяется коммитом insertText в сценарии ime"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "pasteboard",
+      "value": "io.github.dsbasko.shellio.probe.2d3f23ec7cf761b1"
+    },
+    {
+      "key": "ghostty_init",
+      "value": {
+        "after": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "en_US.UTF-8",
+            "LC_COLLATE": "en_US.UTF-8",
+            "LC_CTYPE": "en_US.UTF-8",
+            "LC_MESSAGES": "en_US.UTF-8",
+            "LC_MONETARY": "en_US.UTF-8",
+            "LC_NUMERIC": "en_US.UTF-8",
+            "LC_TIME": "en_US.UTF-8"
+          },
+          "threads": 3
+        },
+        "argv": [
+          "probe-ghostty-surface"
+        ],
+        "before": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "C",
+            "LC_COLLATE": "C",
+            "LC_CTYPE": "C",
+            "LC_MESSAGES": "C",
+            "LC_MONETARY": "C",
+            "LC_NUMERIC": "C",
+            "LC_TIME": "C"
+          },
+          "threads": 3
+        },
+        "code": 0,
+        "duration_ms": 0.404416,
+        "finished_ns": 404096620964916,
+        "started_ns": 404096620560500
+      }
+    },
+    {
+      "key": "ghostty_init_env_changes",
+      "value": ""
+    },
+    {
+      "key": "ghostty_version",
+      "value": "1.4.0"
+    },
+    {
+      "key": "ghostty_build_mode",
+      "value": "release-fast"
+    },
+    {
+      "key": "ghostty_config",
+      "value": "font-family = Menlo\nfont-size = 13\nscrollback-limit-bytes = 10000000\ntheme = light:Builtin Light,dark:Builtin Dark\ncursor-style-blink = true\nconfirm-close-surface = false\nclipboard-paste-protection = false\n"
+    },
+    {
+      "key": "ghostty_config_diagnostics",
+      "value": []
+    },
+    {
+      "key": "ghostty_runtime_start",
+      "value": {
+        "app_focused": false,
+        "app_new_finished_ns": 404096737432791,
+        "app_new_started_ns": 404096737377083,
+        "color_scheme": "light",
+        "config_change_from_update": 1,
+        "reload_config_from_scheme": 0
+      }
+    },
+    {
+      "key": "surface_command",
+      "value": "'/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface' '--fixture' '--channel' '/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/input-base/fixture.sock' '--nonce' '2d3f23ec7cf761b1-s1'"
+    },
+    {
+      "key": "fixture_nonce",
+      "value": "2d3f23ec7cf761b1-s1"
+    },
+    {
+      "key": "env_nonce",
+      "value": "842541e07763e741"
+    },
+    {
+      "key": "responder_hidden_accepted",
+      "value": true
+    },
+    {
+      "key": "checks",
+      "value": [
+        {
+          "expected_a": "615a",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "615a",
+          "got_b": "",
+          "name": "ascii",
+          "notes": [],
+          "pass": true
+        },
+        {
+          "expected_a": "d0b6c3a9",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "d0b6c3a9",
+          "got_b": "",
+          "name": "unicode",
+          "notes": [],
+          "pass": true
+        },
+        {
+          "expected_a": "61616161",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "61616161",
+          "got_b": "",
+          "name": "autorepeat",
+          "notes": [],
+          "pass": true
+        },
+        {
+          "expected_a": "0301",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "0301",
+          "got_b": "",
+          "name": "ctrl",
+          "notes": [],
+          "pass": true
+        },
+        {
+          "expected_a": "c3a5",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "c3a5",
+          "got_b": "",
+          "name": "alt",
+          "notes": [
+            "ghostty_surface_key_translation_mods(ALT) = 0x4: Option даёт символ раскладки"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "01",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "01",
+          "got_b": "",
+          "name": "cmd-binding",
+          "notes": [
+            "привязок до 0"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "",
+          "name": "cmd-unbound",
+          "notes": [
+            "приходов до 43"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "1b5b441b5b41",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "1b5b441b5b41",
+          "got_b": "",
+          "name": "arrows",
+          "notes": [],
+          "pass": true
+        },
+        {
+          "expected_a": "1b0d",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "1b0d",
+          "got_b": "",
+          "name": "esc-return",
+          "notes": [],
+          "pass": true
+        },
+        {
+          "expected_a": "781b5b3230307e70617374653162313637661b5b3230317e",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "781b5b3230307e70617374653162313637661b5b3230317e",
+          "got_b": "",
+          "name": "bracketed-paste",
+          "notes": [],
+          "pass": true
+        },
+        {
+          "expected_a": "1b5b3c303b31313b354d1b5b3c303b31313b356d",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "1b5b3c303b31313b354d1b5b3c303b31313b356d",
+          "got_b": "",
+          "name": "mouse-report",
+          "notes": [
+            "клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "73656c316231363766",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "73656c316231363766",
+          "got_b": "",
+          "name": "select-copy-paste",
+          "notes": [
+            "клетка 4,7: x 34.0, базовая линия 119.0, клетка 8.0×15.0 точек",
+            "клетка 12,7: x 98.0, базовая линия 119.0, клетка 8.0×15.0 точек",
+            "Cmd-C записал выделение на именованную доску"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "",
+          "expected_b": "62",
+          "failures": [],
+          "fence_to": "B",
+          "got_a": "",
+          "got_b": "62",
+          "name": "focus-a-to-b",
+          "notes": [],
+          "pass": true
+        },
+        {
+          "expected_a": "",
+          "expected_b": "71",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "71",
+          "name": "keyup-owner",
+          "notes": [],
+          "pass": true
+        },
+        {
+          "expected_a": "",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "",
+          "name": "key-window",
+          "notes": [
+            "подачи фокуса A при втором окне: [true, false, true, false]"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "",
+          "name": "inactive-app",
+          "notes": [
+            "клавиша i адресована главному окну при скрытом неактивном приложении: isActive=false keyWindow=none mainWindow=none firstResponder=none cursor=250,266"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "",
+          "name": "hidden-surface",
+          "notes": [
+            "B за вкладкой-заглушкой: в окне false, makeFirstResponder(B) true, first responder NSKVONotifying_NSWindow",
+            "A first responder при скрытой B: false",
+            "keyDown h дошёл до вида A false, до вида B false",
+            "B снова в плитке: Some((Bottom, 0))"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "6d",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "6d",
+          "got_b": "",
+          "name": "moved-zone",
+          "notes": [
+            "A перенесён в Some((Right, 0)), first responder сохранён AppKit true"
+          ],
+          "pass": true
+        }
+      ]
+    },
+    {
+      "key": "cmd_binding_count",
+      "value": 1
+    },
+    {
+      "key": "cmd_unbound_reached_key_down",
+      "value": true
+    },
+    {
+      "key": "clipboard_after_paste",
+      "value": [
+        0,
+        {
+          "completed": 1,
+          "completed_to_confirm": 0,
+          "confirms": 0,
+          "confirms_without_read": 0,
+          "denied": 0,
+          "denied_on_close": 0,
+          "late_skipped": 0,
+          "reads_started": 1,
+          "reads_unavailable": 0,
+          "reads_unsupported": 0,
+          "served": 1
+        }
+      ]
+    },
+    {
+      "key": "focus_feeds_after_click_b",
+      "value": [
+        [
+          true,
+          false
+        ],
+        [
+          false,
+          true
+        ]
+      ]
+    },
+    {
+      "key": "keyup_owner",
+      "value": [
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "key": "focus_feeds_key_window",
+      "value": [
+        true,
+        false,
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "key": "app_focus_feeds",
+      "value": [
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "key": "input_log_a",
+      "value": {
+        "arrivals": [
+          {
+            "at_ns": 404096894418500,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404096894835250,
+            "key_code": 0,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404096895034041,
+            "key_code": 56,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404096895108750,
+            "key_code": 6,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404096895142500,
+            "key_code": 6,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404096895158041,
+            "key_code": 56,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404096914684541,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404096914741750,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097081303000,
+            "key_code": 41,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097081372333,
+            "key_code": 41,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097081392875,
+            "key_code": 14,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097081414333,
+            "key_code": 14,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097096636708,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097096678333,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097264522416,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097264695875,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": true,
+            "repeat": true
+          },
+          {
+            "at_ns": 404097264750791,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": true,
+            "repeat": true
+          },
+          {
+            "at_ns": 404097264810750,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": true,
+            "repeat": true
+          },
+          {
+            "at_ns": 404097264854500,
+            "key_code": 0,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097280122333,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097280277083,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097448271416,
+            "key_code": 59,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097449540250,
+            "key_code": 8,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097450145500,
+            "key_code": 8,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097450261291,
+            "key_code": 59,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097450362791,
+            "key_code": 59,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097450823166,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097450938916,
+            "key_code": 0,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097450994375,
+            "key_code": 59,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097463631833,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097463888583,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097630937250,
+            "key_code": 58,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097631033041,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097631120791,
+            "key_code": 0,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097631152666,
+            "key_code": 58,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097646811208,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097647018541,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097814067458,
+            "key_code": 55,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097814263208,
+            "key_code": 123,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097814519333,
+            "key_code": 123,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097814637583,
+            "key_code": 55,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097830191458,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404097830461083,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098005157083,
+            "key_code": 55,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098005763375,
+            "key_code": 16,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098005902958,
+            "key_code": 16,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098005957416,
+            "key_code": 55,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098021885291,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098022099708,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098193245166,
+            "key_code": 123,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098193521666,
+            "key_code": 123,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098193975666,
+            "key_code": 126,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098194340916,
+            "key_code": 126,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098205176291,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098205402833,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098376203875,
+            "key_code": 53,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098376612041,
+            "key_code": 53,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098376748625,
+            "key_code": 36,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098376875916,
+            "key_code": 36,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098388493250,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098388733208,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098583869833,
+            "key_code": 7,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098584204916,
+            "key_code": 7,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098584336833,
+            "key_code": 55,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098584527291,
+            "key_code": 9,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098584727500,
+            "key_code": 9,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098584815500,
+            "key_code": 55,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098597258666,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098597432916,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098821649791,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404098821707750,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099029996166,
+            "key_code": 55,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099030071625,
+            "key_code": 8,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099030127083,
+            "key_code": 8,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099030139541,
+            "key_code": 55,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099038351458,
+            "key_code": 55,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099038434875,
+            "key_code": 9,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099038473083,
+            "key_code": 9,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099038486625,
+            "key_code": 55,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099055004958,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099055067041,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099429992708,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099430050375,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099655001416,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099655061125,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099838343125,
+            "key_code": 34,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099838358708,
+            "key_code": 34,
+            "kind": "keyUp",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099871729416,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099871782916,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404100104973291,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404100105043416,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404100271718708,
+            "key_code": 46,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404100271846916,
+            "key_code": 46,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404100288320333,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404100288392583,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          }
+        ],
+        "bindings": 4,
+        "commands": [
+          "noop:",
+          "moveToBeginningOfParagraph:",
+          "moveToLeftEndOfLine:",
+          "noop:",
+          "moveLeft:",
+          "moveUp:",
+          "cancelOperation:",
+          "insertNewline:",
+          "noop:",
+          "noop:",
+          "noop:"
+        ],
+        "dropped": [
+          {
+            "key_code": 34,
+            "kind": "keyDown",
+            "reason": "нет фокуса клавиатуры"
+          },
+          {
+            "key_code": 34,
+            "kind": "keyUp",
+            "reason": "отпускание чужого нажатия"
+          }
+        ],
+        "marked_discarded": 0,
+        "mouse_buttons": 8,
+        "mouse_positions": 9,
+        "pressures": 0,
+        "scrolls": 0,
+        "sent": [
+          {
+            "at_ns": 404096894794208,
+            "done_ns": 404096894805416,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": "a",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 404096894836750,
+            "done_ns": 404096894837125,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 404096895034750,
+            "done_ns": 404096895071583,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 56,
+              "mods": 1,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404096895130458,
+            "done_ns": 404096895133333,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 6,
+              "mods": 1,
+              "text": "Z",
+              "unshifted_codepoint": 122
+            }
+          },
+          {
+            "at_ns": 404096895143791,
+            "done_ns": 404096895144000,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 6,
+              "mods": 1,
+              "text": null,
+              "unshifted_codepoint": 122
+            }
+          },
+          {
+            "at_ns": 404096895158250,
+            "done_ns": 404096895161208,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 56,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404096914713791,
+            "done_ns": 404096914723791,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404096914743291,
+            "done_ns": 404096914743666,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404097081338708,
+            "done_ns": 404097081347958,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 41,
+              "mods": 0,
+              "text": "ж",
+              "unshifted_codepoint": 59
+            }
+          },
+          {
+            "at_ns": 404097081374041,
+            "done_ns": 404097081374458,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 41,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 59
+            }
+          },
+          {
+            "at_ns": 404097081403208,
+            "done_ns": 404097081406458,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 14,
+              "mods": 0,
+              "text": "é",
+              "unshifted_codepoint": 101
+            }
+          },
+          {
+            "at_ns": 404097081415458,
+            "done_ns": 404097081415625,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 14,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 101
+            }
+          },
+          {
+            "at_ns": 404097096658916,
+            "done_ns": 404097096665000,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404097096679875,
+            "done_ns": 404097096680041,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404097264594083,
+            "done_ns": 404097264621541,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": "a",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 404097264720625,
+            "done_ns": 404097264727875,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "repeat",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": "a",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 404097264764875,
+            "done_ns": 404097264768708,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "repeat",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": "a",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 404097264822916,
+            "done_ns": 404097264827875,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "repeat",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": "a",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 404097264856541,
+            "done_ns": 404097264857000,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 404097280207458,
+            "done_ns": 404097280233541,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404097280280000,
+            "done_ns": 404097280280708,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404097448276333,
+            "done_ns": 404097448307041,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 59,
+              "mods": 2,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404097449958041,
+            "done_ns": 404097449983083,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 8,
+              "mods": 2,
+              "text": "c",
+              "unshifted_codepoint": 99
+            }
+          },
+          {
+            "at_ns": 404097450154791,
+            "done_ns": 404097450156291,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 8,
+              "mods": 2,
+              "text": null,
+              "unshifted_codepoint": 99
+            }
+          },
+          {
+            "at_ns": 404097450263916,
+            "done_ns": 404097450282250,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 59,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404097450363958,
+            "done_ns": 404097450387000,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 59,
+              "mods": 2,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404097450877375,
+            "done_ns": 404097450893041,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 2,
+              "text": "a",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 404097450942291,
+            "done_ns": 404097450942916,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 2,
+              "text": null,
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 404097450995291,
+            "done_ns": 404097451005250,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 59,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404097463765208,
+            "done_ns": 404097463796000,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404097463895875,
+            "done_ns": 404097463897333,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404097630939791,
+            "done_ns": 404097630957000,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 4,
+              "keycode": 58,
+              "mods": 4,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404097631078833,
+            "done_ns": 404097631087291,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 4,
+              "keycode": 0,
+              "mods": 4,
+              "text": "å",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 404097631124208,
+            "done_ns": 404097631125458,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 4,
+              "keycode": 0,
+              "mods": 4,
+              "text": null,
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 404097631153125,
+            "done_ns": 404097631159750,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 58,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404097646912791,
+            "done_ns": 404097646940166,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404097647025916,
+            "done_ns": 404097647027333,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404097814072583,
+            "done_ns": 404097814115750,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 55,
+              "mods": 8,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404097814342000,
+            "done_ns": 404097814470541,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 123,
+              "mods": 8,
+              "text": null,
+              "unshifted_codepoint": 28
+            }
+          },
+          {
+            "at_ns": 404097814533875,
+            "done_ns": 404097814535208,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 123,
+              "mods": 8,
+              "text": null,
+              "unshifted_codepoint": 28
+            }
+          },
+          {
+            "at_ns": 404097814639250,
+            "done_ns": 404097814666500,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 55,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404097830336666,
+            "done_ns": 404097830377916,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404097830468791,
+            "done_ns": 404097830470500,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404098005162666,
+            "done_ns": 404098005208166,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 55,
+              "mods": 8,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404098005851416,
+            "done_ns": 404098005855291,
+            "from": "keyDown",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 16,
+              "mods": 8,
+              "text": "y",
+              "unshifted_codepoint": 121
+            }
+          },
+          {
+            "at_ns": 404098005907208,
+            "done_ns": 404098005907875,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 16,
+              "mods": 8,
+              "text": null,
+              "unshifted_codepoint": 121
+            }
+          },
+          {
+            "at_ns": 404098005958416,
+            "done_ns": 404098005983375,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 55,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404098022008041,
+            "done_ns": 404098022041125,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404098022103375,
+            "done_ns": 404098022104541,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404098193355375,
+            "done_ns": 404098193405166,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 123,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 28
+            }
+          },
+          {
+            "at_ns": 404098193528666,
+            "done_ns": 404098193530916,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 123,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 28
+            }
+          },
+          {
+            "at_ns": 404098194049583,
+            "done_ns": 404098194268625,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 126,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 30
+            }
+          },
+          {
+            "at_ns": 404098194349125,
+            "done_ns": 404098194352333,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 126,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 30
+            }
+          },
+          {
+            "at_ns": 404098205299583,
+            "done_ns": 404098205346416,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404098205407083,
+            "done_ns": 404098205408041,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404098376326125,
+            "done_ns": 404098376487791,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 53,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 27
+            }
+          },
+          {
+            "at_ns": 404098376619750,
+            "done_ns": 404098376621250,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 53,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 27
+            }
+          },
+          {
+            "at_ns": 404098376801375,
+            "done_ns": 404098376824583,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 36,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 13
+            }
+          },
+          {
+            "at_ns": 404098376881416,
+            "done_ns": 404098376882416,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 36,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 13
+            }
+          },
+          {
+            "at_ns": 404098388621833,
+            "done_ns": 404098388658166,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404098388739208,
+            "done_ns": 404098388741625,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404098584029208,
+            "done_ns": 404098584075875,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 7,
+              "mods": 0,
+              "text": "x",
+              "unshifted_codepoint": 120
+            }
+          },
+          {
+            "at_ns": 404098584213875,
+            "done_ns": 404098584215875,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 7,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 120
+            }
+          },
+          {
+            "at_ns": 404098584339583,
+            "done_ns": 404098584378125,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 55,
+              "mods": 8,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404098584601458,
+            "done_ns": 404098584611875,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 9,
+              "mods": 8,
+              "text": "v",
+              "unshifted_codepoint": 118
+            }
+          },
+          {
+            "at_ns": 404098584733958,
+            "done_ns": 404098584735000,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 9,
+              "mods": 8,
+              "text": null,
+              "unshifted_codepoint": 118
+            }
+          },
+          {
+            "at_ns": 404098584816458,
+            "done_ns": 404098584840083,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 55,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404098597346375,
+            "done_ns": 404098597389916,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404098597436708,
+            "done_ns": 404098597437916,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404098821680166,
+            "done_ns": 404098821689083,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404098821708833,
+            "done_ns": 404098821709250,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404099029997458,
+            "done_ns": 404099030025666,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 55,
+              "mods": 8,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404099030098583,
+            "done_ns": 404099030119000,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 8,
+              "mods": 8,
+              "text": "c",
+              "unshifted_codepoint": 99
+            }
+          },
+          {
+            "at_ns": 404099030128000,
+            "done_ns": 404099030128125,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 8,
+              "mods": 8,
+              "text": null,
+              "unshifted_codepoint": 99
+            }
+          },
+          {
+            "at_ns": 404099030139750,
+            "done_ns": 404099030144875,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 55,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404099038353541,
+            "done_ns": 404099038376750,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 55,
+              "mods": 8,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404099038461333,
+            "done_ns": 404099038463666,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 9,
+              "mods": 8,
+              "text": "v",
+              "unshifted_codepoint": 118
+            }
+          },
+          {
+            "at_ns": 404099038474041,
+            "done_ns": 404099038474166,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 9,
+              "mods": 8,
+              "text": null,
+              "unshifted_codepoint": 118
+            }
+          },
+          {
+            "at_ns": 404099038486875,
+            "done_ns": 404099038492333,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 55,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 404099055039541,
+            "done_ns": 404099055048458,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404099055068125,
+            "done_ns": 404099055068416,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404099430024625,
+            "done_ns": 404099430033000,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404099430051500,
+            "done_ns": 404099430051916,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404099655035041,
+            "done_ns": 404099655044041,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404099655062291,
+            "done_ns": 404099655062708,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404099871764541,
+            "done_ns": 404099871773125,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404099871784083,
+            "done_ns": 404099871784416,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404100105013666,
+            "done_ns": 404100105024083,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404100105045000,
+            "done_ns": 404100105045541,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404100271798791,
+            "done_ns": 404100271816000,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 46,
+              "mods": 0,
+              "text": "m",
+              "unshifted_codepoint": 109
+            }
+          },
+          {
+            "at_ns": 404100271849291,
+            "done_ns": 404100271850166,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 46,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 109
+            }
+          },
+          {
+            "at_ns": 404100288362708,
+            "done_ns": 404100288373708,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404100288394000,
+            "done_ns": 404100288394458,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": "input_log_b",
+      "value": {
+        "arrivals": [
+          {
+            "at_ns": 404099227024541,
+            "key_code": 11,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099227064708,
+            "key_code": 11,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099238307208,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099238365041,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099413326125,
+            "key_code": 12,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 404099414259500,
+            "key_code": 12,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          }
+        ],
+        "bindings": 0,
+        "commands": [],
+        "dropped": [],
+        "marked_discarded": 0,
+        "mouse_buttons": 4,
+        "mouse_positions": 4,
+        "pressures": 0,
+        "scrolls": 0,
+        "sent": [
+          {
+            "at_ns": 404099227045583,
+            "done_ns": 404099227052833,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 11,
+              "mods": 0,
+              "text": "b",
+              "unshifted_codepoint": 98
+            }
+          },
+          {
+            "at_ns": 404099227065958,
+            "done_ns": 404099227066458,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 11,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 98
+            }
+          },
+          {
+            "at_ns": 404099238337416,
+            "done_ns": 404099238345250,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404099238366708,
+            "done_ns": 404099238367166,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 404099413357791,
+            "done_ns": 404099413367333,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 12,
+              "mods": 0,
+              "text": "q",
+              "unshifted_codepoint": 113
+            }
+          },
+          {
+            "at_ns": 404099414261541,
+            "done_ns": 404099414261916,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 12,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 113
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": "surface_view_feeds_b",
+      "value": {
+        "detached_skipped": 2,
+        "display_ids": [
+          1,
+          1
+        ],
+        "focus": [
+          false,
+          true,
+          false,
+          true,
+          false
+        ],
+        "last_scale": [
+          2.0,
+          2.0
+        ],
+        "last_size_px": [
+          1108,
+          372
+        ],
+        "preedits": [],
+        "refreshes": 4,
+        "scale_feeds": 3,
+        "size_feeds": 4,
+        "zero_size_skipped": 0
+      }
+    },
+    {
+      "key": "ghostty_runtime",
+      "value": {
+        "app_focus": [
+          true,
+          false,
+          true
+        ],
+        "clipboard_denied": 0,
+        "clipboard_denied_on_retire": 0,
+        "clipboard_held": 0,
+        "clipboard_late_skipped": 0,
+        "clipboard_served": 2,
+        "clipboard_write_confirm_denied": 0,
+        "clipboard_written": 1,
+        "close_intents": 2,
+        "close_sources": {
+          "probe:scheduled": 2
+        },
+        "creations": [
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404096790153833,
+            "injected": null,
+            "key": "s0g1",
+            "new_ms": 4.901667,
+            "pass": 1,
+            "started_ns": 404096785252166,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404096793929958,
+            "injected": null,
+            "key": "s1g1",
+            "new_ms": 3.758333,
+            "pass": 1,
+            "started_ns": 404096790171625,
+            "trigger": "initial"
+          }
+        ],
+        "delivered": {
+          "clipboard-read": 2,
+          "clipboard-write": 1,
+          "close-intent": 2,
+          "config-change": 1,
+          "unsupported": 36
+        },
+        "dropped_at_source": 0,
+        "dropped_stale": 0,
+        "frees_held_passes": 0,
+        "layout_retries": 0,
+        "log": [
+          "pass=1 t=404096737468000 app ConfigChange → delivered",
+          "pass=14 t=404098584609416 s0g1 ClipboardRead { location: 0, mimes: 1, list: false, id: Some(RequestId(1)), decision: \"started\" } → serve",
+          "pass=20 t=404099030118208 s0g1 ClipboardWrite { location: 0, mimes: [\"text/plain\", \"text/html\"], text: Some(\"sel1b167f\"), confirm: false } → write",
+          "pass=21 t=404099038463041 s0g1 ClipboardRead { location: 0, mimes: 1, list: false, id: Some(RequestId(2)), decision: \"started\" } → serve",
+          "pass=25 t=404100448549833 s0g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=25 t=404100448555791 s1g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled"
+        ],
+        "messages": 42,
+        "messages_pushed": 42,
+        "passes": 26,
+        "passes_tracking": 0,
+        "releases": [
+          {
+            "clipboard": {
+              "completed": 2,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 2,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 2
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404100462767458,
+            "free_ms": 14.1645,
+            "key": "s0g1",
+            "messages_during_free": 0,
+            "pass": 26,
+            "started_ns": 404100448602958
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404100478245541,
+            "free_ms": 15.472333,
+            "key": "s1g1",
+            "messages_during_free": 1,
+            "pass": 26,
+            "started_ns": 404100462773208
+          }
+        ],
+        "scheme_changes": [],
+        "screen_wakes": 0,
+        "surface_config_updates": 0,
+        "surfaces_created": 2,
+        "surfaces_failed": 0,
+        "surfaces_freed": 2,
+        "unsupported_actions": {
+          "22": 2,
+          "25": 2,
+          "26": 5,
+          "38": 16,
+          "43": 3,
+          "46": 5,
+          "53": 2,
+          "63": 1
+        },
+        "wakeups": 53
+      }
+    },
+    {
+      "key": "surface_view_feeds",
+      "value": {
+        "detached_skipped": 0,
+        "display_ids": [
+          1,
+          1
+        ],
+        "focus": [
+          true,
+          false,
+          true,
+          false,
+          true,
+          false,
+          true,
+          false,
+          true
+        ],
+        "last_scale": [
+          2.0,
+          2.0
+        ],
+        "last_size_px": [
+          732,
+          1348
+        ],
+        "preedits": [],
+        "refreshes": 3,
+        "scale_feeds": 2,
+        "size_feeds": 3,
+        "zero_size_skipped": 0
+      }
+    },
+    {
+      "key": "events_posted",
+      "value": "118"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "1163"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "surface_free",
+      "unit": "ms",
+      "samples": [
+        14.1645,
+        15.472333
+      ],
+      "summary": {
+        "count": 2,
+        "p50": 14.1645,
+        "p95": 15.472333,
+        "max": 15.472333
+      }
+    },
+    {
+      "name": "app_free",
+      "unit": "ms",
+      "samples": [
+        0.01325
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 0.01325,
+        "p95": 0.01325,
+        "max": 0.01325
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "name": "h2-ascii",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 615a, пришло 615a; B: ожидалось , пришло ; ограда у A"
+    },
+    {
+      "name": "h2-unicode",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось d0b6c3a9, пришло d0b6c3a9; B: ожидалось , пришло ; ограда у A"
+    },
+    {
+      "name": "h2-autorepeat",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 61616161, пришло 61616161; B: ожидалось , пришло ; ограда у A"
+    },
+    {
+      "name": "h2-ctrl",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 0301, пришло 0301; B: ожидалось , пришло ; ограда у A"
+    },
+    {
+      "name": "h2-alt",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось c3a5, пришло c3a5; B: ожидалось , пришло ; ограда у A; ghostty_surface_key_translation_mods(ALT) = 0x4: Option даёт символ раскладки"
+    },
+    {
+      "name": "h2-cmd-binding",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 01, пришло 01; B: ожидалось , пришло ; ограда у A; привязок до 0"
+    },
+    {
+      "name": "h2-cmd-unbound",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; приходов до 43"
+    },
+    {
+      "name": "h2-arrows",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 1b5b441b5b41, пришло 1b5b441b5b41; B: ожидалось , пришло ; ограда у A"
+    },
+    {
+      "name": "h2-esc-return",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 1b0d, пришло 1b0d; B: ожидалось , пришло ; ограда у A"
+    },
+    {
+      "name": "h2-bracketed-paste",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 781b5b3230307e70617374653162313637661b5b3230317e, пришло 781b5b3230307e70617374653162313637661b5b3230317e; B: ожидалось , пришло ; ограда у A"
+    },
+    {
+      "name": "h2-mouse-report",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 1b5b3c303b31313b354d1b5b3c303b31313b356d, пришло 1b5b3c303b31313b354d1b5b3c303b31313b356d; B: ожидалось , пришло ; ограда у A; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек"
+    },
+    {
+      "name": "h2-select-copy-paste",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 73656c316231363766, пришло 73656c316231363766; B: ожидалось , пришло ; ограда у A; клетка 4,7: x 34.0, базовая линия 119.0, клетка 8.0×15.0 точек; клетка 12,7: x 98.0, базовая линия 119.0, клетка 8.0×15.0 точек; Cmd-C записал выделение на именованную доску"
+    },
+    {
+      "name": "h2-focus-a-to-b",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось 62, пришло 62; ограда у B"
+    },
+    {
+      "name": "h2-keyup-owner",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось 71, пришло 71; ограда у A"
+    },
+    {
+      "name": "h2-key-window",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; подачи фокуса A при втором окне: [true, false, true, false]"
+    },
+    {
+      "name": "h2-inactive-app",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; клавиша i адресована главному окну при скрытом неактивном приложении: isActive=false keyWindow=none mainWindow=none firstResponder=none cursor=250,266"
+    },
+    {
+      "name": "h2-hidden-surface",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; B за вкладкой-заглушкой: в окне false, makeFirstResponder(B) true, first responder NSKVONotifying_NSWindow; A first responder при скрытой B: false; keyDown h дошёл до вида A false, до вида B false; B снова в плитке: Some((Bottom, 0))"
+    },
+    {
+      "name": "h2-moved-zone",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 6d, пришло 6d; B: ожидалось , пришло ; ограда у A; A перенесён в Some((Right, 0)), first responder сохранён AppKit true"
+    },
+    {
+      "name": "h2-exact-bytes-one-receiver",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "весь поток A 94 байт (ожидалось 94), B 3 байт (ожидалось 3); точное совпадение true"
+    },
+    {
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "… 459 ранних строк вытеснено",
+      "3133.107ms шаг «приложение снова активно» готов за 5.9 мс",
+      "3138.778ms шаг «ожидаемые байты» готов за 5.7 мс",
+      "3144.440ms шаг «ограда» готов за 5.6 мс",
+      "3144.451ms post #105 keyDown `",
+      "3144.479ms post #106 keyUp `",
+      "3146.282ms dispatch #105",
+      "3146.358ms return #105",
+      "3146.367ms dispatch #106",
+      "3146.369ms return #106",
+      "3300.093ms шаг «ограда и тишина другой фикстуры» готов за 155.6 мс",
+      "3305.840ms шаг «щелчок в B» готов за 5.7 мс",
+      "3305.862ms post #107 B at 691,213",
+      "3305.888ms post #108 B at 691,213",
+      "3305.936ms dispatch #107",
+      "3306.966ms return #107",
+      "3307.029ms dispatch #108",
+      "3307.052ms return #108",
+      "3310.974ms шаг «B first responder» готов за 5.1 мс",
+      "3335.222ms шаг «hidden-surface» готов за 5.4 мс",
+      "3335.236ms проверка hidden-surface",
+      "3340.886ms шаг «клавиша при скрытой B» готов за 5.6 мс",
+      "3340.906ms post #109 keyDown h",
+      "3340.942ms post #110 keyUp h",
+      "3346.201ms dispatch #109",
+      "3360.248ms return #109",
+      "3360.284ms dispatch #110",
+      "3360.305ms return #110",
+      "3361.029ms шаг «клавиша при скрытой B прошла sendEvent» готов за 20.1 мс",
+      "3361.510ms post #111 A at 691,570",
+      "3361.522ms post #112 A at 691,570",
+      "3362.857ms dispatch #111",
+      "3363.592ms return #111",
+      "3363.624ms dispatch #112",
+      "3363.634ms return #112",
+      "3366.682ms шаг «фокус A после скрытия» готов за 5.2 мс",
+      "3372.349ms шаг «ожидаемые байты» готов за 5.7 мс",
+      "3378.051ms шаг «ограда» готов за 5.7 мс",
+      "3378.073ms post #113 keyDown `",
+      "3378.096ms post #114 keyUp `",
+      "3379.525ms dispatch #113",
+      "3379.611ms return #113",
+      "3379.627ms dispatch #114",
+      "3379.631ms return #114",
+      "3533.365ms шаг «ограда и тишина другой фикстуры» готов за 155.3 мс",
+      "3539.054ms шаг «moved-zone» готов за 5.7 мс",
+      "3539.064ms проверка moved-zone",
+      "3544.751ms шаг «события проверки» готов за 5.7 мс",
+      "3545.684ms post #115 keyDown m",
+      "3545.748ms post #116 keyUp m",
+      "3546.225ms dispatch #115",
+      "3546.406ms return #115",
+      "3546.430ms dispatch #116",
+      "3546.436ms return #116",
+      "3551.055ms шаг «ожидаемые байты» готов за 5.3 мс",
+      "3556.707ms шаг «ограда» готов за 5.6 мс",
+      "3556.715ms post #117 keyDown `",
+      "3556.745ms post #118 keyUp `",
+      "3562.852ms dispatch #117",
+      "3562.962ms return #117",
+      "3562.976ms dispatch #118",
+      "3562.979ms return #118",
+      "3717.428ms шаг «ограда и тишина другой фикстуры» готов за 160.7 мс",
+      "3723.129ms шаг «закрытие обеих поверхностей» готов за 5.7 мс",
+      "3752.861ms шаг «освобождение и выход фикстур» готов за 29.7 мс"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeAppActivity",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeScreenWake",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeSplitView",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      },
+      {
+        "class": "ProbeStandView",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      },
+      {
+        "class": "ProbeSurfaceView",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      },
+      {
+        "class": "ProbeTile",
+        "created": 4,
+        "released": 0,
+        "live": 4
+      },
+      {
+        "class": "ProbeZoneHost",
+        "created": 4,
+        "released": 0,
+        "live": 4
+      }
+    ]
+  }
+}

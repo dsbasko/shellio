@@ -1,0 +1,926 @@
+{
+  "schema": 1,
+  "scenario": "idle",
+  "variant": "noblink",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "6b91e3f56492",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.3.2, objc2-quartz-core 0.3.2",
+      "ghostty_version": "1.4.0",
+      "ghostty_rev": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "process": {
+      "pid": 45798,
+      "route": "direct",
+      "nonce": "bbd8b336794633fd",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_STATE_DIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.bbd8b336794633fd",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    },
+    "bundle": {
+      "path": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app",
+      "identifier": "io.github.dsbasko.shellio.probe.ghostty-surface",
+      "executable": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface",
+      "signature": "valid: identifier \"io.github.dsbasko.shellio.probe.ghostty-surface\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC"
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "активность, key window и фокус вида поверхности",
+      "status": "ready",
+      "waited_ms": 44.806417,
+      "at_ms": 50.913959,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 1,
+      "name": "окно видимо по occlusionState или опознан щит",
+      "status": "ready",
+      "waited_ms": 3005.610583,
+      "at_ms": 3056.625959,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "состояние перед окном замера",
+      "status": "ready",
+      "waited_ms": 5.551042,
+      "at_ms": 3093.401209,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "состояние перед окном замера",
+      "status": "ready",
+      "waited_ms": 5.562,
+      "at_ms": 13104.645792,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "состояние перед окном замера",
+      "status": "ready",
+      "waited_ms": 5.7927919999999995,
+      "at_ms": 23113.412667,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "состояние перед окном замера",
+      "status": "ready",
+      "waited_ms": 5.7495,
+      "at_ms": 33125.029917,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "состояние перед окном замера",
+      "status": "ready",
+      "waited_ms": 5.769749999999999,
+      "at_ms": 43134.046084,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "ненулевой размер вида в пикселях",
+      "status": "ready",
+      "waited_ms": 5.712458,
+      "at_ms": 53145.063167,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 1,
+      "name": "готовность фикстуры в поверхности",
+      "status": "ready",
+      "waited_ms": 85.661166,
+      "at_ms": 53257.004625,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 2,
+      "name": "первый кадр, подача видимости и фокус",
+      "status": "ready",
+      "waited_ms": 5.656458,
+      "at_ms": 53262.66875,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "состояние перед окном замера",
+      "status": "ready",
+      "waited_ms": 5.691,
+      "at_ms": 53268.382625,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "состояние перед окном замера",
+      "status": "ready",
+      "waited_ms": 5.689541,
+      "at_ms": 63279.937375,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "состояние перед окном замера",
+      "status": "ready",
+      "waited_ms": 5.687709,
+      "at_ms": 73291.4125,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "состояние перед окном замера",
+      "status": "ready",
+      "waited_ms": 5.688542,
+      "at_ms": 83301.243875,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "состояние перед окном замера",
+      "status": "ready",
+      "waited_ms": 5.717166,
+      "at_ms": 93312.713584,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "самопроверка мигания курсора",
+      "status": "ready",
+      "waited_ms": 2510.6256660000004,
+      "at_ms": 105825.425667,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "намерение закрыть поверхность",
+      "status": "ready",
+      "waited_ms": 5.407167,
+      "at_ms": 105830.886875,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 1,
+      "name": "освобождение поверхности и выход фикстуры",
+      "status": "ready",
+      "waited_ms": 24.997667,
+      "at_ms": 105856.0305,
+      "state": "isActive=true keyWindow=#41558 mainWindow=#41558 firstResponder=ProbeSurfaceView cursor=250,266"
+    }
+  ],
+  "events": [],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "idle"
+    },
+    {
+      "key": "route",
+      "value": "direct"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "variant",
+      "value": "noblink"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "idle_note",
+      "value": "CPU процесса — 100 × Δ(ri_user_time + ri_system_time) / Δ CLOCK_UPTIME_RAW без деления на ядра, потомки отдельно; окно 10 с, показания снимает поток сэмплера, главный поток во время окна не будится стендом; медиана и разброс по пяти повторам"
+    },
+    {
+      "key": "ghostty_init",
+      "value": {
+        "after": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "en_US.UTF-8",
+            "LC_COLLATE": "en_US.UTF-8",
+            "LC_CTYPE": "en_US.UTF-8",
+            "LC_MESSAGES": "en_US.UTF-8",
+            "LC_MONETARY": "en_US.UTF-8",
+            "LC_NUMERIC": "en_US.UTF-8",
+            "LC_TIME": "en_US.UTF-8"
+          },
+          "threads": 3
+        },
+        "argv": [
+          "probe-ghostty-surface"
+        ],
+        "before": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "C",
+            "LC_COLLATE": "C",
+            "LC_CTYPE": "C",
+            "LC_MESSAGES": "C",
+            "LC_MONETARY": "C",
+            "LC_NUMERIC": "C",
+            "LC_TIME": "C"
+          },
+          "threads": 3
+        },
+        "code": 0,
+        "duration_ms": 0.50975,
+        "finished_ns": 405030833517000,
+        "started_ns": 405030833007250
+      }
+    },
+    {
+      "key": "ghostty_init_env_changes",
+      "value": ""
+    },
+    {
+      "key": "ghostty_version",
+      "value": "1.4.0"
+    },
+    {
+      "key": "ghostty_build_mode",
+      "value": "release-fast"
+    },
+    {
+      "key": "ghostty_config",
+      "value": "font-family = Menlo\nfont-size = 13\nscrollback-limit-bytes = 10000000\ntheme = light:Builtin Light,dark:Builtin Dark\ncursor-style-blink = false\nconfirm-close-surface = false\nclipboard-paste-protection = false\n"
+    },
+    {
+      "key": "ghostty_config_diagnostics",
+      "value": []
+    },
+    {
+      "key": "ghostty_runtime_start",
+      "value": {
+        "app_focused": false,
+        "app_new_finished_ns": 405030953846958,
+        "app_new_started_ns": 405030953790875,
+        "color_scheme": "light",
+        "config_change_from_update": 1,
+        "reload_config_from_scheme": 0
+      }
+    },
+    {
+      "key": "surface_command",
+      "value": "'/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface' '--fixture' '--channel' '/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/idle-noblink/fixture.sock' '--nonce' 'bbd8b336794633fd-s1'"
+    },
+    {
+      "key": "fixture_nonce",
+      "value": "bbd8b336794633fd-s1"
+    },
+    {
+      "key": "env_nonce",
+      "value": "5898ae909f99737e"
+    },
+    {
+      "key": "idle_units_ratios",
+      "value": [
+        0.9976095599197512,
+        0.9979972605962825,
+        0.9985046280599444,
+        0.9982480015914927,
+        0.9990719997567575
+      ]
+    },
+    {
+      "key": "idle_windows",
+      "value": [
+        {
+          "bytes_per_s": null,
+          "children": [],
+          "children_cpu_percent": 0.0,
+          "cpu_percent": 0.024098673406011677,
+          "duration_ms": 10005.218791,
+          "footprint_mib": 20.922836303710938,
+          "kind": "empty",
+          "lines_per_s": null,
+          "repeat": 1,
+          "rusage_percent": 0.024687116309958564,
+          "units_ratio": null,
+          "wakeups_per_s": 0.799582714492585
+        },
+        {
+          "bytes_per_s": null,
+          "children": [],
+          "children_cpu_percent": 0.0,
+          "cpu_percent": 0.009166125500983401,
+          "duration_ms": 10001.499542,
+          "footprint_mib": 20.907211303710938,
+          "kind": "empty",
+          "lines_per_s": null,
+          "repeat": 2,
+          "rusage_percent": 0.012158176830319951,
+          "units_ratio": null,
+          "wakeups_per_s": 0.5999100409697344
+        },
+        {
+          "bytes_per_s": null,
+          "children": [],
+          "children_cpu_percent": 0.0,
+          "cpu_percent": 0.11902814016658074,
+          "duration_ms": 10004.987042,
+          "footprint_mib": 20.938461303710938,
+          "kind": "empty",
+          "lines_per_s": null,
+          "repeat": 3,
+          "rusage_percent": 0.12052989123701456,
+          "units_ratio": null,
+          "wakeups_per_s": 0.5997009266291462
+        },
+        {
+          "bytes_per_s": null,
+          "children": [],
+          "children_cpu_percent": 0.0,
+          "cpu_percent": 0.0073178652412273495,
+          "duration_ms": 10002.34325,
+          "footprint_mib": 20.938461303710938,
+          "kind": "empty",
+          "lines_per_s": null,
+          "repeat": 4,
+          "rusage_percent": 0.008577989962502038,
+          "units_ratio": null,
+          "wakeups_per_s": 0.49988286494767115
+        },
+        {
+          "bytes_per_s": null,
+          "children": [],
+          "children_cpu_percent": 0.0,
+          "cpu_percent": 0.006347948086238581,
+          "duration_ms": 10004.555667,
+          "footprint_mib": 20.938461303710938,
+          "kind": "empty",
+          "lines_per_s": null,
+          "repeat": 5,
+          "rusage_percent": 0.007636521055303355,
+          "units_ratio": null,
+          "wakeups_per_s": 0.4997723203732562
+        },
+        {
+          "bytes_per_s": null,
+          "children": [
+            "46184 probe-ghostty-surface"
+          ],
+          "children_cpu_percent": 0.0,
+          "cpu_percent": 0.5417347237855296,
+          "duration_ms": 10005.104458,
+          "footprint_mib": 169.5010528564453,
+          "kind": "visible-idle",
+          "lines_per_s": null,
+          "repeat": 1,
+          "rusage_percent": 0.5430328111822699,
+          "units_ratio": 0.9976095599197512,
+          "wakeups_per_s": 15.69199008956514
+        },
+        {
+          "bytes_per_s": null,
+          "children": [
+            "46184 probe-ghostty-surface"
+          ],
+          "children_cpu_percent": 0.0,
+          "cpu_percent": 0.5935303381817592,
+          "duration_ms": 10005.020667,
+          "footprint_mib": 169.5010528564453,
+          "kind": "visible-idle",
+          "lines_per_s": null,
+          "repeat": 2,
+          "rusage_percent": 0.5947214101841695,
+          "units_ratio": 0.9979972605962825,
+          "wakeups_per_s": 16.891519330631684
+        },
+        {
+          "bytes_per_s": null,
+          "children": [
+            "46184 probe-ghostty-surface"
+          ],
+          "children_cpu_percent": 0.0,
+          "cpu_percent": 0.5887885588680375,
+          "duration_ms": 10003.555625,
+          "footprint_mib": 169.5166778564453,
+          "kind": "visible-idle",
+          "lines_per_s": null,
+          "repeat": 3,
+          "rusage_percent": 0.5896703353413901,
+          "units_ratio": 0.9985046280599444,
+          "wakeups_per_s": 16.494135304015966
+        },
+        {
+          "bytes_per_s": null,
+          "children": [
+            "46184 probe-ghostty-surface"
+          ],
+          "children_cpu_percent": 0.0,
+          "cpu_percent": 0.5516931644813899,
+          "duration_ms": 10005.040583,
+          "footprint_mib": 169.5010528564453,
+          "kind": "visible-idle",
+          "lines_per_s": null,
+          "repeat": 4,
+          "rusage_percent": 0.5526614264209226,
+          "units_ratio": 0.9982480015914927,
+          "wakeups_per_s": 19.690075054241287
+        },
+        {
+          "bytes_per_s": null,
+          "children": [
+            "46184 probe-ghostty-surface"
+          ],
+          "children_cpu_percent": 0.0,
+          "cpu_percent": 0.6570793931592633,
+          "duration_ms": 10001.372541,
+          "footprint_mib": 169.5010528564453,
+          "kind": "visible-idle",
+          "lines_per_s": null,
+          "repeat": 5,
+          "rusage_percent": 0.6576897293881135,
+          "units_ratio": 0.9990719997567575,
+          "wakeups_per_s": 18.59744742409151
+        }
+      ]
+    },
+    {
+      "key": "idle_shield",
+      "value": {
+        "bounds": [
+          0.0,
+          0.0,
+          1512.0,
+          982.0
+        ],
+        "layer": 2147483628,
+        "own_bounds": [
+          166.0,
+          116.0,
+          1180.0,
+          752.0
+        ],
+        "own_layer": 0,
+        "owner": "dndmode",
+        "pid": 69575
+      }
+    },
+    {
+      "key": "idle_blink_frames",
+      "value": 4
+    },
+    {
+      "key": "occlusion_masked",
+      "value": "true"
+    },
+    {
+      "key": "ghostty_runtime",
+      "value": {
+        "app_focus": [
+          true
+        ],
+        "clipboard_denied": 0,
+        "clipboard_denied_on_retire": 0,
+        "clipboard_held": 0,
+        "clipboard_late_skipped": 0,
+        "clipboard_served": 0,
+        "clipboard_write_confirm_denied": 0,
+        "clipboard_written": 0,
+        "close_intents": 1,
+        "close_sources": {
+          "probe:scheduled": 1
+        },
+        "creations": [
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 405084119370208,
+            "injected": null,
+            "key": "s0g1",
+            "new_ms": 25.9755,
+            "pass": 1,
+            "started_ns": 405084093394708,
+            "trigger": "initial"
+          }
+        ],
+        "delivered": {
+          "close-intent": 1,
+          "config-change": 1,
+          "unsupported": 6
+        },
+        "dropped_at_source": 0,
+        "dropped_stale": 0,
+        "frees_held_passes": 0,
+        "layout_retries": 0,
+        "log": [
+          "pass=1 t=405030953879583 app ConfigChange → delivered",
+          "pass=7 t=405136779118750 s0g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled"
+        ],
+        "messages": 8,
+        "messages_pushed": 8,
+        "passes": 8,
+        "passes_tracking": 0,
+        "releases": [
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 405136804020041,
+            "free_ms": 24.5265,
+            "key": "s0g1",
+            "messages_during_free": 1,
+            "pass": 8,
+            "started_ns": 405136779493541
+          }
+        ],
+        "scheme_changes": [],
+        "screen_wakes": 0,
+        "surface_config_updates": 0,
+        "surfaces_created": 1,
+        "surfaces_failed": 0,
+        "surfaces_freed": 1,
+        "unsupported_actions": {
+          "22": 1,
+          "25": 1,
+          "26": 2,
+          "43": 2
+        },
+        "wakeups": 13
+      }
+    },
+    {
+      "key": "surface_view_feeds",
+      "value": {
+        "detached_skipped": 0,
+        "display_ids": [
+          1
+        ],
+        "focus": [
+          true
+        ],
+        "last_scale": [
+          2.0,
+          2.0
+        ],
+        "last_size_px": [
+          2360,
+          1440
+        ],
+        "preedits": [],
+        "refreshes": 1,
+        "scale_feeds": 1,
+        "size_feeds": 1,
+        "zero_size_skipped": 0
+      }
+    },
+    {
+      "key": "events_posted",
+      "value": "0"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "1529"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "cpu.empty",
+      "unit": "%",
+      "samples": [
+        0.024098673406011677,
+        0.009166125500983401,
+        0.11902814016658074,
+        0.0073178652412273495,
+        0.006347948086238581
+      ],
+      "summary": {
+        "count": 5,
+        "p50": 0.009166125500983401,
+        "p95": 0.11902814016658074,
+        "max": 0.11902814016658074
+      }
+    },
+    {
+      "name": "cpu_children.empty",
+      "unit": "%",
+      "samples": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "summary": {
+        "count": 5,
+        "p50": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      }
+    },
+    {
+      "name": "wakeups.empty",
+      "unit": "1/s",
+      "samples": [
+        0.799582714492585,
+        0.5999100409697344,
+        0.5997009266291462,
+        0.49988286494767115,
+        0.4997723203732562
+      ],
+      "summary": {
+        "count": 5,
+        "p50": 0.5997009266291462,
+        "p95": 0.799582714492585,
+        "max": 0.799582714492585
+      }
+    },
+    {
+      "name": "cpu.visible-idle",
+      "unit": "%",
+      "samples": [
+        0.5417347237855296,
+        0.5935303381817592,
+        0.5887885588680375,
+        0.5516931644813899,
+        0.6570793931592633
+      ],
+      "summary": {
+        "count": 5,
+        "p50": 0.5887885588680375,
+        "p95": 0.6570793931592633,
+        "max": 0.6570793931592633
+      }
+    },
+    {
+      "name": "cpu_children.visible-idle",
+      "unit": "%",
+      "samples": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "summary": {
+        "count": 5,
+        "p50": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      }
+    },
+    {
+      "name": "wakeups.visible-idle",
+      "unit": "1/s",
+      "samples": [
+        15.69199008956514,
+        16.891519330631684,
+        16.494135304015966,
+        19.690075054241287,
+        18.59744742409151
+      ],
+      "summary": {
+        "count": 5,
+        "p50": 16.891519330631684,
+        "p95": 19.690075054241287,
+        "max": 19.690075054241287
+      }
+    },
+    {
+      "name": "surface_free",
+      "unit": "ms",
+      "samples": [
+        24.5265
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 24.5265,
+        "p95": 24.5265,
+        "max": 24.5265
+      }
+    },
+    {
+      "name": "app_free",
+      "unit": "ms",
+      "samples": [
+        0.048125
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 0.048125,
+        "p95": 0.048125,
+        "max": 0.048125
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "name": "h11-blink-self-check",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "смен contents слоя видимой поверхности в фокусе за 2500 мс вне окон замера: 4; ожидается не меньше 2: таймер курсора рендера ghostty перерисовывает кадр каждые 600 мс в фокусе и при cursor-style-blink = false, курсор на кадре не меняется; неизменность курсора по пикселям не проверяется"
+    },
+    {
+      "name": "h11-empty",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "окно без поверхностей, runtime запущен: медиана 0.009 %, разброс 0.006–0.119 % (5 повторов по 10 с, CPU процесса без деления на ядра); потомки медиана 0.000 %; пробуждений процесса медиана 1/с"
+    },
+    {
+      "name": "h11-idle-budget-noblink",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "видимый простой без мигания курсора: медиана 0.589 %, разброс 0.542–0.657 % (5 повторов по 10 с, CPU процесса без деления на ядра); потомки медиана 0.000 %; пробуждений процесса медиана 17/с; вердикт по бюджету 1 % не вынесен: окно пробы под щитом, occlusionState исключён из признаков"
+    },
+    {
+      "name": "h11-idle-unshielded-noblink",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "прогон без щита поверх окна пробы: make probe-ghostty SCENARIOS=\"idle\" с владельцем у машины (задача 19)"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "0.017ms сценарий idle",
+      "23.300ms служебное событие type=13 window=0 timestamp=405030.945666 keyCode=None source_pid=0 source_state=0",
+      "49.649ms служебное событие type=13 window=41558 timestamp=405030.991088 keyCode=None source_pid=0 source_state=0",
+      "49.671ms служебное событие type=13 window=41558 timestamp=405030.991119 keyCode=None source_pid=0 source_state=0",
+      "49.675ms служебное событие type=13 window=41558 timestamp=405030.991149 keyCode=None source_pid=0 source_state=0",
+      "49.679ms служебное событие type=13 window=41558 timestamp=405030.991176 keyCode=None source_pid=0 source_state=0",
+      "49.685ms служебное событие type=8 window=41558 timestamp=405030.992013 keyCode=None source_pid=0 source_state=0",
+      "50.507ms служебное событие type=8 window=41558 timestamp=405030.998666 keyCode=None source_pid=45798 source_state=0",
+      "50.905ms шаг «активность, key window и фокус вида поверхности» готов за 44.8 мс",
+      "77.125ms служебное событие type=13 window=41558 timestamp=405031.023267 keyCode=None source_pid=0 source_state=0",
+      "77.139ms служебное событие type=13 window=41558 timestamp=405031.023335 keyCode=None source_pid=0 source_state=0",
+      "77.144ms служебное событие type=13 window=41558 timestamp=405031.023355 keyCode=None source_pid=0 source_state=0",
+      "77.148ms служебное событие type=13 window=41558 timestamp=405031.023383 keyCode=None source_pid=0 source_state=0",
+      "77.151ms служебное событие type=13 window=41558 timestamp=405031.023401 keyCode=None source_pid=0 source_state=0",
+      "3056.578ms шаг «окно видимо по occlusionState или опознан щит» готов за 3005.6 мс",
+      "3087.795ms окно перекрыто щитом dndmode (pid 69575, уровень 2147483628): occlusionState исключён из признаков",
+      "3093.386ms шаг «состояние перед окном замера» готов за 5.6 мс",
+      "3093.403ms окно empty №1: 10 с без таймеров стенда",
+      "13099.024ms окно empty №1: CPU 0.024 %, потомки Some(0.0) %, пробуждений Some(0.799582714492585)/с",
+      "13104.617ms шаг «состояние перед окном замера» готов за 5.6 мс",
+      "13104.650ms окно empty №2: 10 с без таймеров стенда",
+      "23107.304ms окно empty №2: CPU 0.009 %, потомки Some(0.0) %, пробуждений Some(0.5999100409697344)/с",
+      "23113.261ms шаг «состояние перед окном замера» готов за 5.8 мс",
+      "23113.427ms окно empty №3: 10 с без таймеров стенда",
+      "33119.113ms окно empty №3: CPU 0.119 %, потомки Some(0.0) %, пробуждений Some(0.5997009266291462)/с",
+      "33124.961ms шаг «состояние перед окном замера» готов за 5.7 мс",
+      "33125.034ms окно empty №4: 10 с без таймеров стенда",
+      "43127.957ms окно empty №4: CPU 0.007 %, потомки Some(0.0) %, пробуждений Some(0.49988286494767115)/с",
+      "43134.025ms шаг «состояние перед окном замера» готов за 5.8 мс",
+      "43134.049ms окно empty №5: 10 с без таймеров стенда",
+      "53139.190ms окно empty №5: CPU 0.006 %, потомки Some(0.0) %, пробуждений Some(0.4997723203732562)/с",
+      "53145.027ms шаг «ненулевой размер вида в пикселях» готов за 5.7 мс",
+      "53171.303ms поверхность s0g1 создана за 26.0 мс",
+      "53256.989ms шаг «готовность фикстуры в поверхности» готов за 85.7 мс",
+      "53262.667ms шаг «первый кадр, подача видимости и фокус» готов за 5.7 мс",
+      "53268.376ms шаг «состояние перед окном замера» готов за 5.7 мс",
+      "53268.385ms окно visible-idle №1: 10 с без таймеров стенда",
+      "63274.046ms окно visible-idle №1: CPU 0.542 %, потомки Some(0.0) %, пробуждений Some(15.69199008956514)/с",
+      "63279.894ms шаг «состояние перед окном замера» готов за 5.7 мс",
+      "63279.942ms окно visible-idle №2: 10 с без таймеров стенда",
+      "73285.617ms окно visible-idle №2: CPU 0.594 %, потомки Some(0.0) %, пробуждений Some(16.891519330631684)/с",
+      "73291.385ms шаг «состояние перед окном замера» готов за 5.7 мс",
+      "73291.417ms окно visible-idle №3: 10 с без таймеров стенда",
+      "83295.485ms окно visible-idle №3: CPU 0.589 %, потомки Some(0.0) %, пробуждений Some(16.494135304015966)/с",
+      "83301.215ms шаг «состояние перед окном замера» готов за 5.7 мс",
+      "83301.248ms окно visible-idle №4: 10 с без таймеров стенда",
+      "93306.891ms окно visible-idle №4: CPU 0.552 %, потомки Some(0.0) %, пробуждений Some(19.690075054241287)/с",
+      "93312.677ms шаг «состояние перед окном замера» готов за 5.7 мс",
+      "93312.720ms окно visible-idle №5: 10 с без таймеров стенда",
+      "103314.686ms окно visible-idle №5: CPU 0.657 %, потомки Some(0.0) %, пробуждений Some(18.59744742409151)/с",
+      "105825.373ms шаг «самопроверка мигания курсора» готов за 2510.6 мс",
+      "105830.864ms шаг «намерение закрыть поверхность» готов за 5.4 мс",
+      "105855.976ms шаг «освобождение поверхности и выход фикстуры» готов за 25.0 мс"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeAppActivity",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeScreenWake",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeStandView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSurfaceView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      }
+    ]
+  }
+}

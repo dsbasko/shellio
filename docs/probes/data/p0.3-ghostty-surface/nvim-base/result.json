@@ -1,0 +1,5643 @@
+{
+  "schema": 1,
+  "scenario": "nvim",
+  "variant": "base",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "6b91e3f56492",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.3.2, objc2-quartz-core 0.3.2",
+      "ghostty_version": "1.4.0",
+      "ghostty_rev": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "process": {
+      "pid": 46622,
+      "route": "direct",
+      "nonce": "b32b2175ccff6940",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_STATE_DIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.b32b2175ccff6940",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    },
+    "bundle": {
+      "path": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app",
+      "identifier": "io.github.dsbasko.shellio.probe.ghostty-surface",
+      "executable": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface",
+      "signature": "valid: identifier \"io.github.dsbasko.shellio.probe.ghostty-surface\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC"
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "nvim --version",
+      "status": "ready",
+      "waited_ms": 90.629667,
+      "at_ms": 105.211333,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 1,
+      "name": "активность, key window и фокус вида nvim",
+      "status": "ready",
+      "waited_ms": 5.648834,
+      "at_ms": 110.867333,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 2,
+      "name": "ненулевой размер вида в пикселях",
+      "status": "ready",
+      "waited_ms": 5.6587499999999995,
+      "at_ms": 116.533958,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 3,
+      "name": "nvim слушает сокет",
+      "status": "ready",
+      "waited_ms": 85.600333,
+      "at_ms": 208.227666,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 4,
+      "name": "i",
+      "status": "ready",
+      "waited_ms": 5.644209,
+      "at_ms": 214.083458,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 5,
+      "name": "события прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 7.5515,
+      "at_ms": 221.771291,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 6,
+      "name": "nvim в Insert",
+      "status": "ready",
+      "waited_ms": 20.090375,
+      "at_ms": 241.875458,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 7,
+      "name": "текст и Esc",
+      "status": "ready",
+      "waited_ms": 5.308291,
+      "at_ms": 247.198166,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 8,
+      "name": "события прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 5.722375,
+      "at_ms": 253.070583,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 9,
+      "name": "nvim в Normal",
+      "status": "ready",
+      "waited_ms": 15.58525,
+      "at_ms": 268.671833,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 10,
+      "name": ":w",
+      "status": "ready",
+      "waited_ms": 5.338,
+      "at_ms": 274.020916,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 11,
+      "name": "события прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 5.6455,
+      "at_ms": 279.725208,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 12,
+      "name": "начало ожидания файла",
+      "status": "ready",
+      "waited_ms": 5.652791,
+      "at_ms": 285.392125,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 13,
+      "name": "файл записан или внутренний предел",
+      "status": "ready",
+      "waited_ms": 5.239041,
+      "at_ms": 290.646875,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 14,
+      "name": "итог записи",
+      "status": "ready",
+      "waited_ms": 5.186667,
+      "at_ms": 295.846125,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 15,
+      "name": ":terminal cat",
+      "status": "ready",
+      "waited_ms": 5.269292,
+      "at_ms": 301.127583,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 16,
+      "name": "события прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 5.606667,
+      "at_ms": 306.848,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 17,
+      "name": "буфер терминала с заданием",
+      "status": "ready",
+      "waited_ms": 15.653207999999998,
+      "at_ms": 322.5305,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 18,
+      "name": "PID задания терминала",
+      "status": "ready",
+      "waited_ms": 5.604375,
+      "at_ms": 328.161458,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 19,
+      "name": "i в буфере терминала",
+      "status": "ready",
+      "waited_ms": 5.6878329999999995,
+      "at_ms": 333.871875,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 20,
+      "name": "события прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 5.444375000000001,
+      "at_ms": 339.407666,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 21,
+      "name": "nvim в Terminal mode",
+      "status": "ready",
+      "waited_ms": 15.617709,
+      "at_ms": 355.052458,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 22,
+      "name": "отметки до аккорда",
+      "status": "ready",
+      "waited_ms": 5.685875,
+      "at_ms": 360.759958,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 23,
+      "name": "первый Ctrl-\\",
+      "status": "ready",
+      "waited_ms": 5.694459,
+      "at_ms": 366.490541,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 24,
+      "name": "события прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 5.692041,
+      "at_ms": 372.251541,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 25,
+      "name": "маршрутизатор после первого Ctrl-\\",
+      "status": "ready",
+      "waited_ms": 5.692375,
+      "at_ms": 377.976416,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 26,
+      "name": "режим nvim после первого Ctrl-\\",
+      "status": "ready",
+      "waited_ms": 15.631042,
+      "at_ms": 393.648375,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 27,
+      "name": "режим после первого Ctrl-\\ записан",
+      "status": "ready",
+      "waited_ms": 5.329042,
+      "at_ms": 398.99925,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 28,
+      "name": "второй Ctrl-\\",
+      "status": "ready",
+      "waited_ms": 5.651625,
+      "at_ms": 404.656041,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 29,
+      "name": "события прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 5.6515,
+      "at_ms": 410.343291,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 30,
+      "name": "маршрутизатор после второго Ctrl-\\",
+      "status": "ready",
+      "waited_ms": 5.2797920000000005,
+      "at_ms": 415.644375,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 31,
+      "name": "Ctrl-n",
+      "status": "ready",
+      "waited_ms": 5.690375,
+      "at_ms": 421.361625,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 32,
+      "name": "события прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 10.583957999999999,
+      "at_ms": 431.988791,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 33,
+      "name": "начало ожидания Normal в терминале",
+      "status": "ready",
+      "waited_ms": 5.688708,
+      "at_ms": 437.699791,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 34,
+      "name": "nvim в Normal буфера терминала или внутренний предел",
+      "status": "ready",
+      "waited_ms": 20.665125,
+      "at_ms": 458.393708,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 35,
+      "name": "итог аккорда в :terminal",
+      "status": "ready",
+      "waited_ms": 5.695333000000001,
+      "at_ms": 464.114041,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 36,
+      "name": "сдвиг делителей центральной зоны",
+      "status": "ready",
+      "waited_ms": 5.694084,
+      "at_ms": 469.840916,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 37,
+      "name": "новая сетка у поверхности, PTY и nvim или внутренний предел",
+      "status": "ready",
+      "waited_ms": 45.900458,
+      "at_ms": 517.06075,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 38,
+      "name": "итог ресайза",
+      "status": "ready",
+      "waited_ms": 5.666458,
+      "at_ms": 522.736041,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 39,
+      "name": ":qa!",
+      "status": "ready",
+      "waited_ms": 5.373584,
+      "at_ms": 528.121416,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 40,
+      "name": "события прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 5.6997089999999995,
+      "at_ms": 533.937625,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 41,
+      "name": "выход nvim, задания терминала и ребёнка поверхности",
+      "status": "ready",
+      "waited_ms": 5.451875,
+      "at_ms": 539.4005,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 42,
+      "name": "выход ребёнка поверхности записан",
+      "status": "ready",
+      "waited_ms": 5.3725,
+      "at_ms": 544.781458,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 43,
+      "name": "два намерения закрыть",
+      "status": "ready",
+      "waited_ms": 5.140416,
+      "at_ms": 549.931791,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 44,
+      "name": "освобождение поверхности",
+      "status": "ready",
+      "waited_ms": 5.518999999999999,
+      "at_ms": 555.462041,
+      "state": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266"
+    }
+  ],
+  "events": [
+    {
+      "number": 1,
+      "label": "keyDown i",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137198326625,
+      "dispatch_start_ns": 405137198493083,
+      "send_return_ns": 405137199549375,
+      "display_pass_ns": 405137205983583,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "keyUp i",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137198436750,
+      "dispatch_start_ns": 405137199577708,
+      "send_return_ns": 405137199585583,
+      "display_pass_ns": 405137205983583,
+      "undispatched": false
+    },
+    {
+      "number": 3,
+      "label": "keyDown n",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231434833,
+      "dispatch_start_ns": 405137231609791,
+      "send_return_ns": 405137231693833,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 4,
+      "label": "keyUp n",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231463208,
+      "dispatch_start_ns": 405137231712875,
+      "send_return_ns": 405137231718291,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 5,
+      "label": "keyDown v",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231467583,
+      "dispatch_start_ns": 405137231727958,
+      "send_return_ns": 405137231749625,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 6,
+      "label": "keyUp v",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231470583,
+      "dispatch_start_ns": 405137231759333,
+      "send_return_ns": 405137231762791,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 7,
+      "label": "keyDown i",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231472833,
+      "dispatch_start_ns": 405137231770541,
+      "send_return_ns": 405137231788458,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 8,
+      "label": "keyUp i",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231477458,
+      "dispatch_start_ns": 405137231797125,
+      "send_return_ns": 405137231799791,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 9,
+      "label": "keyDown m",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231480000,
+      "dispatch_start_ns": 405137231806833,
+      "send_return_ns": 405137231824291,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 10,
+      "label": "keyUp m",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231482500,
+      "dispatch_start_ns": 405137231832708,
+      "send_return_ns": 405137231836208,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 11,
+      "label": "keyDown space",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231484500,
+      "dispatch_start_ns": 405137231843416,
+      "send_return_ns": 405137231858916,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 12,
+      "label": "keyUp space",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231486708,
+      "dispatch_start_ns": 405137231866875,
+      "send_return_ns": 405137231870291,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 13,
+      "label": "keyDown b",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231488916,
+      "dispatch_start_ns": 405137231877625,
+      "send_return_ns": 405137231890833,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 14,
+      "label": "keyUp b",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231490833,
+      "dispatch_start_ns": 405137231898583,
+      "send_return_ns": 405137231901708,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 15,
+      "label": "keyDown 3",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231492791,
+      "dispatch_start_ns": 405137231908458,
+      "send_return_ns": 405137231925333,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 16,
+      "label": "keyUp 3",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231494666,
+      "dispatch_start_ns": 405137231933291,
+      "send_return_ns": 405137231936125,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 17,
+      "label": "keyDown 2",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231499083,
+      "dispatch_start_ns": 405137231942708,
+      "send_return_ns": 405137231959083,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 18,
+      "label": "keyUp 2",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231501750,
+      "dispatch_start_ns": 405137231966708,
+      "send_return_ns": 405137231969791,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 19,
+      "label": "keyDown b",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231503583,
+      "dispatch_start_ns": 405137231976416,
+      "send_return_ns": 405137231989416,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 20,
+      "label": "keyUp b",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231505625,
+      "dispatch_start_ns": 405137231996791,
+      "send_return_ns": 405137231999000,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 21,
+      "label": "keyDown 2",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231507708,
+      "dispatch_start_ns": 405137232005500,
+      "send_return_ns": 405137232020708,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 22,
+      "label": "keyUp 2",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231509583,
+      "dispatch_start_ns": 405137232028000,
+      "send_return_ns": 405137232030166,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 23,
+      "label": "keyDown 1",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231511708,
+      "dispatch_start_ns": 405137232037000,
+      "send_return_ns": 405137232053875,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 24,
+      "label": "keyUp 1",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231513541,
+      "dispatch_start_ns": 405137232063000,
+      "send_return_ns": 405137232065750,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 25,
+      "label": "keyDown 7",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231515333,
+      "dispatch_start_ns": 405137232073666,
+      "send_return_ns": 405137232087541,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 26,
+      "label": "keyUp 7",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231517458,
+      "dispatch_start_ns": 405137232094875,
+      "send_return_ns": 405137232097083,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 27,
+      "label": "keyDown 5",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231519291,
+      "dispatch_start_ns": 405137232103375,
+      "send_return_ns": 405137232117750,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 28,
+      "label": "keyUp 5",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231521500,
+      "dispatch_start_ns": 405137232125125,
+      "send_return_ns": 405137232127250,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 29,
+      "label": "keyDown c",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231523500,
+      "dispatch_start_ns": 405137232133833,
+      "send_return_ns": 405137232147500,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 30,
+      "label": "keyUp c",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231525291,
+      "dispatch_start_ns": 405137232154666,
+      "send_return_ns": 405137232157083,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 31,
+      "label": "keyDown c",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231529416,
+      "dispatch_start_ns": 405137232163291,
+      "send_return_ns": 405137232177375,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 32,
+      "label": "keyUp c",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231531291,
+      "dispatch_start_ns": 405137232184541,
+      "send_return_ns": 405137232188000,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 33,
+      "label": "keyDown f",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231533291,
+      "dispatch_start_ns": 405137232194500,
+      "send_return_ns": 405137232207166,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 34,
+      "label": "keyUp f",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231537625,
+      "dispatch_start_ns": 405137232214583,
+      "send_return_ns": 405137232217916,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 35,
+      "label": "keyDown f",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231539875,
+      "dispatch_start_ns": 405137232224375,
+      "send_return_ns": 405137232237666,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 36,
+      "label": "keyUp f",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231544125,
+      "dispatch_start_ns": 405137232245000,
+      "send_return_ns": 405137232247958,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 37,
+      "label": "keyDown 6",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231546375,
+      "dispatch_start_ns": 405137232256000,
+      "send_return_ns": 405137232272708,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 38,
+      "label": "keyUp 6",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231548166,
+      "dispatch_start_ns": 405137232281583,
+      "send_return_ns": 405137232283958,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 39,
+      "label": "keyDown 9",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231550375,
+      "dispatch_start_ns": 405137232290291,
+      "send_return_ns": 405137232304208,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 40,
+      "label": "keyUp 9",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231552375,
+      "dispatch_start_ns": 405137232311625,
+      "send_return_ns": 405137232313916,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 41,
+      "label": "keyDown 4",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231554333,
+      "dispatch_start_ns": 405137232320291,
+      "send_return_ns": 405137232334041,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 42,
+      "label": "keyUp 4",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231556500,
+      "dispatch_start_ns": 405137232341083,
+      "send_return_ns": 405137232343791,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 43,
+      "label": "keyDown 0",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231558291,
+      "dispatch_start_ns": 405137232350083,
+      "send_return_ns": 405137232364333,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 44,
+      "label": "keyUp 0",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231560250,
+      "dispatch_start_ns": 405137232373416,
+      "send_return_ns": 405137232377083,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 45,
+      "label": "keyDown Esc",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231562250,
+      "dispatch_start_ns": 405137232385083,
+      "send_return_ns": 405137232472166,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 46,
+      "label": "keyUp Esc",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137231564291,
+      "dispatch_start_ns": 405137232478500,
+      "send_return_ns": 405137232481416,
+      "display_pass_ns": 405137232559458,
+      "undispatched": false
+    },
+    {
+      "number": 47,
+      "label": "flagsChanged+56",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137258256500,
+      "dispatch_start_ns": 405137262236583,
+      "send_return_ns": 405137262478333,
+      "display_pass_ns": 405137262708125,
+      "undispatched": false
+    },
+    {
+      "number": 48,
+      "label": "keyDown Shift-;",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137258268958,
+      "dispatch_start_ns": 405137262503833,
+      "send_return_ns": 405137262558083,
+      "display_pass_ns": 405137262708125,
+      "undispatched": false
+    },
+    {
+      "number": 49,
+      "label": "keyUp Shift-;",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137258287583,
+      "dispatch_start_ns": 405137262570250,
+      "send_return_ns": 405137262575875,
+      "display_pass_ns": 405137262708125,
+      "undispatched": false
+    },
+    {
+      "number": 50,
+      "label": "flagsChanged-56",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137258291458,
+      "dispatch_start_ns": 405137262582791,
+      "send_return_ns": 405137262595958,
+      "display_pass_ns": 405137262708125,
+      "undispatched": false
+    },
+    {
+      "number": 51,
+      "label": "keyDown w",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137258294458,
+      "dispatch_start_ns": 405137262604750,
+      "send_return_ns": 405137262625375,
+      "display_pass_ns": 405137262708125,
+      "undispatched": false
+    },
+    {
+      "number": 52,
+      "label": "keyUp w",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137258297166,
+      "dispatch_start_ns": 405137262634416,
+      "send_return_ns": 405137262638666,
+      "display_pass_ns": 405137262708125,
+      "undispatched": false
+    },
+    {
+      "number": 53,
+      "label": "keyDown Return",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137258300458,
+      "dispatch_start_ns": 405137262646083,
+      "send_return_ns": 405137262663875,
+      "display_pass_ns": 405137262708125,
+      "undispatched": false
+    },
+    {
+      "number": 54,
+      "label": "keyUp Return",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137258302541,
+      "dispatch_start_ns": 405137262669083,
+      "send_return_ns": 405137262670500,
+      "display_pass_ns": 405137262708125,
+      "undispatched": false
+    },
+    {
+      "number": 55,
+      "label": "flagsChanged+56",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285362541,
+      "dispatch_start_ns": 405137287304375,
+      "send_return_ns": 405137287347333,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 56,
+      "label": "keyDown Shift-;",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285377000,
+      "dispatch_start_ns": 405137287369208,
+      "send_return_ns": 405137287422333,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 57,
+      "label": "keyUp Shift-;",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285393375,
+      "dispatch_start_ns": 405137287434250,
+      "send_return_ns": 405137287438916,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 58,
+      "label": "flagsChanged-56",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285396166,
+      "dispatch_start_ns": 405137287443875,
+      "send_return_ns": 405137287452500,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 59,
+      "label": "keyDown t",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285399375,
+      "dispatch_start_ns": 405137287460583,
+      "send_return_ns": 405137287478583,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 60,
+      "label": "keyUp t",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285401708,
+      "dispatch_start_ns": 405137287488458,
+      "send_return_ns": 405137287493041,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 61,
+      "label": "keyDown e",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285404500,
+      "dispatch_start_ns": 405137287502083,
+      "send_return_ns": 405137287518500,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 62,
+      "label": "keyUp e",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285408958,
+      "dispatch_start_ns": 405137287526625,
+      "send_return_ns": 405137287530125,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 63,
+      "label": "keyDown r",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285411083,
+      "dispatch_start_ns": 405137287537083,
+      "send_return_ns": 405137287553416,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 64,
+      "label": "keyUp r",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285413125,
+      "dispatch_start_ns": 405137287561541,
+      "send_return_ns": 405137287563916,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 65,
+      "label": "keyDown m",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285415083,
+      "dispatch_start_ns": 405137287570791,
+      "send_return_ns": 405137287587333,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 66,
+      "label": "keyUp m",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285420875,
+      "dispatch_start_ns": 405137287595458,
+      "send_return_ns": 405137287598041,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 67,
+      "label": "keyDown i",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285423125,
+      "dispatch_start_ns": 405137287604750,
+      "send_return_ns": 405137287620125,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 68,
+      "label": "keyUp i",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285425250,
+      "dispatch_start_ns": 405137287627791,
+      "send_return_ns": 405137287630416,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 69,
+      "label": "keyDown n",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285427708,
+      "dispatch_start_ns": 405137287637041,
+      "send_return_ns": 405137287650375,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 70,
+      "label": "keyUp n",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285429708,
+      "dispatch_start_ns": 405137287657916,
+      "send_return_ns": 405137287661000,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 71,
+      "label": "keyDown a",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285431833,
+      "dispatch_start_ns": 405137287667833,
+      "send_return_ns": 405137287680958,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 72,
+      "label": "keyUp a",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285433875,
+      "dispatch_start_ns": 405137287688333,
+      "send_return_ns": 405137287691166,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 73,
+      "label": "keyDown l",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285436083,
+      "dispatch_start_ns": 405137287697833,
+      "send_return_ns": 405137287709916,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 74,
+      "label": "keyUp l",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285438083,
+      "dispatch_start_ns": 405137287717250,
+      "send_return_ns": 405137287720333,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 75,
+      "label": "keyDown space",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285441416,
+      "dispatch_start_ns": 405137287726958,
+      "send_return_ns": 405137287741833,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 76,
+      "label": "keyUp space",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285443708,
+      "dispatch_start_ns": 405137287749333,
+      "send_return_ns": 405137287752000,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 77,
+      "label": "keyDown c",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285445833,
+      "dispatch_start_ns": 405137287758416,
+      "send_return_ns": 405137287772666,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 78,
+      "label": "keyUp c",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285447791,
+      "dispatch_start_ns": 405137287780041,
+      "send_return_ns": 405137287783041,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 79,
+      "label": "keyDown a",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285449791,
+      "dispatch_start_ns": 405137287789416,
+      "send_return_ns": 405137287801250,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 80,
+      "label": "keyUp a",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285451708,
+      "dispatch_start_ns": 405137287808791,
+      "send_return_ns": 405137287812250,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 81,
+      "label": "keyDown t",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285453833,
+      "dispatch_start_ns": 405137287819000,
+      "send_return_ns": 405137287830833,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 82,
+      "label": "keyUp t",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285455750,
+      "dispatch_start_ns": 405137287837958,
+      "send_return_ns": 405137287841333,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 83,
+      "label": "keyDown Return",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285457666,
+      "dispatch_start_ns": 405137287848000,
+      "send_return_ns": 405137287862916,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 84,
+      "label": "keyUp Return",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137285459625,
+      "dispatch_start_ns": 405137287867375,
+      "send_return_ns": 405137287868708,
+      "display_pass_ns": 405137287921583,
+      "undispatched": false
+    },
+    {
+      "number": 85,
+      "label": "keyDown i",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137318115916,
+      "dispatch_start_ns": 405137318193041,
+      "send_return_ns": 405137318273041,
+      "display_pass_ns": 405137318340416,
+      "undispatched": false
+    },
+    {
+      "number": 86,
+      "label": "keyUp i",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137318158958,
+      "dispatch_start_ns": 405137318287791,
+      "send_return_ns": 405137318293916,
+      "display_pass_ns": 405137318340416,
+      "undispatched": false
+    },
+    {
+      "number": 87,
+      "label": "flagsChanged+59",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137350731125,
+      "dispatch_start_ns": 405137350793166,
+      "send_return_ns": 405137350828875,
+      "display_pass_ns": 405137350996041,
+      "undispatched": false
+    },
+    {
+      "number": 88,
+      "label": "keyDown Ctrl-\\",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137350755000,
+      "dispatch_start_ns": 405137350842833,
+      "send_return_ns": 405137350885833,
+      "display_pass_ns": 405137350996041,
+      "undispatched": false
+    },
+    {
+      "number": 89,
+      "label": "keyUp Ctrl-\\",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137350766416,
+      "dispatch_start_ns": 405137350892208,
+      "send_return_ns": 405137350893250,
+      "display_pass_ns": 405137350996041,
+      "undispatched": false
+    },
+    {
+      "number": 90,
+      "label": "flagsChanged-59",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137350768958,
+      "dispatch_start_ns": 405137350897250,
+      "send_return_ns": 405137350906833,
+      "display_pass_ns": 405137350996041,
+      "undispatched": false
+    },
+    {
+      "number": 91,
+      "label": "flagsChanged+59",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137388890833,
+      "dispatch_start_ns": 405137388936750,
+      "send_return_ns": 405137388960916,
+      "display_pass_ns": 405137389108083,
+      "undispatched": false
+    },
+    {
+      "number": 92,
+      "label": "keyDown Ctrl-\\",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137388902041,
+      "dispatch_start_ns": 405137388973708,
+      "send_return_ns": 405137389015750,
+      "display_pass_ns": 405137389108083,
+      "undispatched": false
+    },
+    {
+      "number": 93,
+      "label": "keyUp Ctrl-\\",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137388913375,
+      "dispatch_start_ns": 405137389023125,
+      "send_return_ns": 405137389024083,
+      "display_pass_ns": 405137389108083,
+      "undispatched": false
+    },
+    {
+      "number": 94,
+      "label": "flagsChanged-59",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137388916166,
+      "dispatch_start_ns": 405137389028958,
+      "send_return_ns": 405137389038583,
+      "display_pass_ns": 405137389108083,
+      "undispatched": false
+    },
+    {
+      "number": 95,
+      "label": "flagsChanged+59",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137405601041,
+      "dispatch_start_ns": 405137412316750,
+      "send_return_ns": 405137412347250,
+      "display_pass_ns": 405137412771083,
+      "undispatched": false
+    },
+    {
+      "number": 96,
+      "label": "keyDown Ctrl-n",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137405610000,
+      "dispatch_start_ns": 405137412365583,
+      "send_return_ns": 405137412672041,
+      "display_pass_ns": 405137412771083,
+      "undispatched": false
+    },
+    {
+      "number": 97,
+      "label": "keyUp Ctrl-n",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137405622375,
+      "dispatch_start_ns": 405137412692250,
+      "send_return_ns": 405137412698000,
+      "display_pass_ns": 405137412771083,
+      "undispatched": false
+    },
+    {
+      "number": 98,
+      "label": "flagsChanged-59",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137405625750,
+      "dispatch_start_ns": 405137412705375,
+      "send_return_ns": 405137412718666,
+      "display_pass_ns": 405137412771083,
+      "undispatched": false
+    },
+    {
+      "number": 99,
+      "label": "flagsChanged+56",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137512356958,
+      "dispatch_start_ns": 405137512484625,
+      "send_return_ns": 405137512527416,
+      "display_pass_ns": 405137512971416,
+      "undispatched": false
+    },
+    {
+      "number": 100,
+      "label": "keyDown Shift-;",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137512378458,
+      "dispatch_start_ns": 405137512548791,
+      "send_return_ns": 405137512620166,
+      "display_pass_ns": 405137512971416,
+      "undispatched": false
+    },
+    {
+      "number": 101,
+      "label": "keyUp Shift-;",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137512403500,
+      "dispatch_start_ns": 405137512636708,
+      "send_return_ns": 405137512643541,
+      "display_pass_ns": 405137512971416,
+      "undispatched": false
+    },
+    {
+      "number": 102,
+      "label": "flagsChanged-56",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137512407500,
+      "dispatch_start_ns": 405137512651750,
+      "send_return_ns": 405137512665958,
+      "display_pass_ns": 405137512971416,
+      "undispatched": false
+    },
+    {
+      "number": 103,
+      "label": "keyDown q",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137512410708,
+      "dispatch_start_ns": 405137512677750,
+      "send_return_ns": 405137512707583,
+      "display_pass_ns": 405137512971416,
+      "undispatched": false
+    },
+    {
+      "number": 104,
+      "label": "keyUp q",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137512413958,
+      "dispatch_start_ns": 405137512722708,
+      "send_return_ns": 405137512727083,
+      "display_pass_ns": 405137512971416,
+      "undispatched": false
+    },
+    {
+      "number": 105,
+      "label": "keyDown a",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137512417333,
+      "dispatch_start_ns": 405137512737416,
+      "send_return_ns": 405137512759791,
+      "display_pass_ns": 405137512971416,
+      "undispatched": false
+    },
+    {
+      "number": 106,
+      "label": "keyUp a",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137512421125,
+      "dispatch_start_ns": 405137512775083,
+      "send_return_ns": 405137512781541,
+      "display_pass_ns": 405137512971416,
+      "undispatched": false
+    },
+    {
+      "number": 107,
+      "label": "flagsChanged+56",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137512424416,
+      "dispatch_start_ns": 405137512787708,
+      "send_return_ns": 405137512801125,
+      "display_pass_ns": 405137512971416,
+      "undispatched": false
+    },
+    {
+      "number": 108,
+      "label": "keyDown Shift-1",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137512427166,
+      "dispatch_start_ns": 405137512812208,
+      "send_return_ns": 405137512836666,
+      "display_pass_ns": 405137512971416,
+      "undispatched": false
+    },
+    {
+      "number": 109,
+      "label": "keyUp Shift-1",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137512431166,
+      "dispatch_start_ns": 405137512849041,
+      "send_return_ns": 405137512853916,
+      "display_pass_ns": 405137512971416,
+      "undispatched": false
+    },
+    {
+      "number": 110,
+      "label": "flagsChanged-56",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137512434333,
+      "dispatch_start_ns": 405137512860750,
+      "send_return_ns": 405137512872291,
+      "display_pass_ns": 405137512971416,
+      "undispatched": false
+    },
+    {
+      "number": 111,
+      "label": "keyDown Return",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137512437791,
+      "dispatch_start_ns": 405137512883333,
+      "send_return_ns": 405137512906083,
+      "display_pass_ns": 405137512971416,
+      "undispatched": false
+    },
+    {
+      "number": 112,
+      "label": "keyUp Return",
+      "window": 41567,
+      "before": "isActive=true keyWindow=#41567 mainWindow=#41567 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 405137512440666,
+      "dispatch_start_ns": 405137512913125,
+      "send_return_ns": 405137512915208,
+      "display_pass_ns": 405137512971416,
+      "undispatched": false
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "nvim"
+    },
+    {
+      "key": "route",
+      "value": "direct"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "variant",
+      "value": "base"
+    },
+    {
+      "key": "route_note",
+      "value": "клавиши идут через postEvent и обычную доставку NSApplication, маршрутизатор режимов стоит в sendEvent; состояние nvim читает nvim --server --remote-expr в рабочем потоке"
+    },
+    {
+      "key": "mode_note",
+      "value": "mode(1): t — Terminal mode, nt — Normal в буфере терминала; mode() без аргумента отдаёт только первую букву"
+    },
+    {
+      "key": "manual_note",
+      "value": "настоящий агент, удобство аккорда и Ctrl-\\ Ctrl-o — ручная приёмка задачи 19"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "nvim_program",
+      "value": "/opt/homebrew/bin/nvim"
+    },
+    {
+      "key": "ghostty_init",
+      "value": {
+        "after": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "en_US.UTF-8",
+            "LC_COLLATE": "en_US.UTF-8",
+            "LC_CTYPE": "en_US.UTF-8",
+            "LC_MESSAGES": "en_US.UTF-8",
+            "LC_MONETARY": "en_US.UTF-8",
+            "LC_NUMERIC": "en_US.UTF-8",
+            "LC_TIME": "en_US.UTF-8"
+          },
+          "threads": 4
+        },
+        "argv": [
+          "probe-ghostty-surface"
+        ],
+        "before": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "C",
+            "LC_COLLATE": "C",
+            "LC_CTYPE": "C",
+            "LC_MESSAGES": "C",
+            "LC_MONETARY": "C",
+            "LC_NUMERIC": "C",
+            "LC_TIME": "C"
+          },
+          "threads": 4
+        },
+        "code": 0,
+        "duration_ms": 0.896583,
+        "finished_ns": 405136875001583,
+        "started_ns": 405136874105000
+      }
+    },
+    {
+      "key": "ghostty_init_env_changes",
+      "value": ""
+    },
+    {
+      "key": "ghostty_version",
+      "value": "1.4.0"
+    },
+    {
+      "key": "ghostty_build_mode",
+      "value": "release-fast"
+    },
+    {
+      "key": "ghostty_config",
+      "value": "font-family = Menlo\nfont-size = 13\nscrollback-limit-bytes = 10000000\ntheme = light:Builtin Light,dark:Builtin Dark\ncursor-style-blink = true\nconfirm-close-surface = false\nclipboard-paste-protection = false\n"
+    },
+    {
+      "key": "ghostty_config_diagnostics",
+      "value": []
+    },
+    {
+      "key": "ghostty_runtime_start",
+      "value": {
+        "app_focused": false,
+        "app_new_finished_ns": 405136989553083,
+        "app_new_started_ns": 405136989434166,
+        "color_scheme": "light",
+        "config_change_from_update": 1,
+        "reload_config_from_scheme": 0
+      }
+    },
+    {
+      "key": "nvim_dirs",
+      "value": {
+        "work": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/nvim-base/nvim/work",
+        "xdg": [
+          [
+            "XDG_CONFIG_HOME",
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/nvim-base/nvim/xdg/config"
+          ],
+          [
+            "XDG_DATA_HOME",
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/nvim-base/nvim/xdg/data"
+          ],
+          [
+            "XDG_STATE_HOME",
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/nvim-base/nvim/xdg/state"
+          ],
+          [
+            "XDG_CACHE_HOME",
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/nvim-base/nvim/xdg/cache"
+          ],
+          [
+            "XDG_RUNTIME_DIR",
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/nvim-base/nvim/xdg/run"
+          ]
+        ]
+      }
+    },
+    {
+      "key": "surface_command",
+      "value": "'/opt/homebrew/bin/nvim' '--clean' '--listen' './nvim.sock' '--cmd' 'set shell=/bin/sh' 'note-b32b2175ccff6940.txt'"
+    },
+    {
+      "key": "surface_env",
+      "value": [
+        [
+          "XDG_CONFIG_HOME",
+          "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/nvim-base/nvim/xdg/config"
+        ],
+        [
+          "XDG_DATA_HOME",
+          "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/nvim-base/nvim/xdg/data"
+        ],
+        [
+          "XDG_STATE_HOME",
+          "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/nvim-base/nvim/xdg/state"
+        ],
+        [
+          "XDG_CACHE_HOME",
+          "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/nvim-base/nvim/xdg/cache"
+        ],
+        [
+          "XDG_RUNTIME_DIR",
+          "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/nvim-base/nvim/xdg/run"
+        ]
+      ]
+    },
+    {
+      "key": "typed_text",
+      "value": "nvim b32b2175ccff6940"
+    },
+    {
+      "key": "router",
+      "value": {
+        "has_source": false,
+        "mode": "input",
+        "record": {
+          "composing_passed": 0,
+          "key_ups_swallowed": 2,
+          "menu": 0,
+          "moves": [],
+          "repeats_swallowed": 0,
+          "replays": [
+            {
+              "delivered": true,
+              "inputs": [
+                {
+                  "action": "press",
+                  "composing": false,
+                  "consumed_mods": 0,
+                  "keycode": 42,
+                  "mods": 2,
+                  "text": "\\",
+                  "unshifted_codepoint": 92
+                },
+                {
+                  "action": "release",
+                  "composing": false,
+                  "consumed_mods": 0,
+                  "keycode": 42,
+                  "mods": 2,
+                  "text": null,
+                  "unshifted_codepoint": 92
+                }
+              ],
+              "reason": null,
+              "receiver": "s0g1"
+            }
+          ]
+        },
+        "reentrant": 0,
+        "saved_press": null,
+        "transitions": [
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "modifier",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "modifier",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "modifier",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "modifier",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "modifier",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "first-chord",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "navigation",
+            "waiting_after": true,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "navigation",
+            "signal": "modifier",
+            "to": "navigation",
+            "waiting_after": true,
+            "waiting_before": true
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "navigation",
+            "signal": "modifier",
+            "to": "navigation",
+            "waiting_after": true,
+            "waiting_before": true
+          },
+          {
+            "action": "replay",
+            "cancel": null,
+            "from": "navigation",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": true
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "modifier",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "modifier",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "modifier",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "modifier",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "modifier",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "modifier",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "modifier",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          }
+        ],
+        "waiting": false
+      }
+    },
+    {
+      "key": "nvim_version",
+      "value": "NVIM v0.12.6"
+    },
+    {
+      "key": "nvim_pids",
+      "value": {
+        "foreground_pid": 46628,
+        "job": 46636,
+        "server": {
+          "pgid": 46631,
+          "pid": 46631,
+          "ppid": 46630,
+          "tdev": 4294967295,
+          "tpgid": 0
+        },
+        "server_pid": 46631,
+        "tty": "/dev/ttys008",
+        "tty_rdev": 268435464,
+        "tui": {
+          "pgid": 46628,
+          "pid": 46630,
+          "ppid": 46628,
+          "tdev": 268435464,
+          "tpgid": 46628
+        }
+      }
+    },
+    {
+      "key": "nvim_last_state",
+      "value": {
+        "columns": 51,
+        "job_pid": 46636,
+        "lines": 20,
+        "mode": "nt",
+        "pid": 46631,
+        "terminal": true
+      }
+    },
+    {
+      "key": "nvim_written",
+      "value": "nvim b32b2175ccff6940\n"
+    },
+    {
+      "key": "nvim_child_exits",
+      "value": "1"
+    },
+    {
+      "key": "nvim_chord",
+      "value": {
+        "chord_arrivals": 0,
+        "ctrl_n_sent": 1,
+        "mode_after": "nt",
+        "mode_before": "t",
+        "nvim_after_first": "t",
+        "replay_sent": [
+          [
+            "press",
+            42
+          ],
+          [
+            "release",
+            42
+          ]
+        ],
+        "replays": [
+          [
+            true,
+            null,
+            2
+          ]
+        ],
+        "router_after_first": [
+          "navigation",
+          true
+        ],
+        "router_after_second": [
+          "input",
+          false
+        ]
+      }
+    },
+    {
+      "key": "nvim_sizes_before",
+      "value": {
+        "nvim": [
+          68,
+          29
+        ],
+        "surface": [
+          68,
+          29
+        ],
+        "tty": [
+          68,
+          29
+        ]
+      }
+    },
+    {
+      "key": "nvim_sizes_after",
+      "value": {
+        "nvim": [
+          51,
+          20
+        ],
+        "surface": [
+          51,
+          20
+        ],
+        "tty": [
+          51,
+          20
+        ]
+      }
+    },
+    {
+      "key": "nvim_remote_calls",
+      "value": [
+        {
+          "ms": 68.977375,
+          "outcome": "NVIM v0.12.6\nBuild type: Release\nLuaJIT 2.1.1794386141\nRun \"nvim -V1 -v\" for mor…",
+          "request": "--version"
+        },
+        {
+          "ms": 24.978291,
+          "outcome": "n 68 29 46631 0 0",
+          "request": "join([mode(1), &columns, &lines, getpid(), &buftype ==# 'terminal', get(b:, 'terminal_job_pid', 0)], ' ')"
+        },
+        {
+          "ms": 14.686,
+          "outcome": "i 68 29 46631 0 0",
+          "request": "join([mode(1), &columns, &lines, getpid(), &buftype ==# 'terminal', get(b:, 'terminal_job_pid', 0)], ' ')"
+        },
+        {
+          "ms": 9.91325,
+          "outcome": "n 68 29 46631 0 0",
+          "request": "join([mode(1), &columns, &lines, getpid(), &buftype ==# 'terminal', get(b:, 'terminal_job_pid', 0)], ' ')"
+        },
+        {
+          "ms": 10.550541,
+          "outcome": "nt 68 29 46631 1 46636",
+          "request": "join([mode(1), &columns, &lines, getpid(), &buftype ==# 'terminal', get(b:, 'terminal_job_pid', 0)], ' ')"
+        },
+        {
+          "ms": 10.241709,
+          "outcome": "t 68 29 46631 1 46636",
+          "request": "join([mode(1), &columns, &lines, getpid(), &buftype ==# 'terminal', get(b:, 'terminal_job_pid', 0)], ' ')"
+        },
+        {
+          "ms": 9.935457999999999,
+          "outcome": "t 68 29 46631 1 46636",
+          "request": "join([mode(1), &columns, &lines, getpid(), &buftype ==# 'terminal', get(b:, 'terminal_job_pid', 0)], ' ')"
+        },
+        {
+          "ms": 14.914375,
+          "outcome": "nt 68 29 46631 1 46636",
+          "request": "join([mode(1), &columns, &lines, getpid(), &buftype ==# 'terminal', get(b:, 'terminal_job_pid', 0)], ' ')"
+        },
+        {
+          "ms": 14.845458,
+          "outcome": "nt 51 20 46631 1 46636",
+          "request": "join([mode(1), &columns, &lines, getpid(), &buftype ==# 'terminal', get(b:, 'terminal_job_pid', 0)], ' ')"
+        }
+      ]
+    },
+    {
+      "key": "view_input_log",
+      "value": {
+        "arrivals": [
+          {
+            "at_ns": 405137198613750,
+            "key_code": 34,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137199578958,
+            "key_code": 34,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231651458,
+            "key_code": 45,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231713666,
+            "key_code": 45,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231738083,
+            "key_code": 9,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231760125,
+            "key_code": 9,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231778000,
+            "key_code": 34,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231797625,
+            "key_code": 34,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231813791,
+            "key_code": 46,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231833333,
+            "key_code": 46,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231849708,
+            "key_code": 49,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231867333,
+            "key_code": 49,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231883791,
+            "key_code": 11,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231899041,
+            "key_code": 11,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231914416,
+            "key_code": 20,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231933916,
+            "key_code": 20,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231948833,
+            "key_code": 19,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231967166,
+            "key_code": 19,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231982375,
+            "key_code": 11,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137231997208,
+            "key_code": 11,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232011291,
+            "key_code": 19,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232028458,
+            "key_code": 19,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232043416,
+            "key_code": 18,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232063541,
+            "key_code": 18,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232079416,
+            "key_code": 26,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232095291,
+            "key_code": 26,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232109000,
+            "key_code": 23,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232125541,
+            "key_code": 23,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232139333,
+            "key_code": 8,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232155041,
+            "key_code": 8,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232169125,
+            "key_code": 8,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232184958,
+            "key_code": 8,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232200208,
+            "key_code": 3,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232215000,
+            "key_code": 3,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232231541,
+            "key_code": 3,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232245416,
+            "key_code": 3,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232262875,
+            "key_code": 22,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232282000,
+            "key_code": 22,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232296041,
+            "key_code": 25,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232312041,
+            "key_code": 25,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232326083,
+            "key_code": 21,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232341500,
+            "key_code": 21,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232355791,
+            "key_code": 29,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232373875,
+            "key_code": 29,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232392083,
+            "key_code": 53,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137232478916,
+            "key_code": 53,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137262450625,
+            "key_code": 56,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137262526625,
+            "key_code": 41,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137262571333,
+            "key_code": 41,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137262592666,
+            "key_code": 56,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137262612833,
+            "key_code": 13,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137262634958,
+            "key_code": 13,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137262653250,
+            "key_code": 36,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137262669500,
+            "key_code": 36,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287333375,
+            "key_code": 56,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287389750,
+            "key_code": 41,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287435125,
+            "key_code": 41,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287450458,
+            "key_code": 56,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287468333,
+            "key_code": 17,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287489041,
+            "key_code": 17,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287510000,
+            "key_code": 14,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287527166,
+            "key_code": 14,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287543458,
+            "key_code": 15,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287561958,
+            "key_code": 15,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287576958,
+            "key_code": 46,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287595875,
+            "key_code": 46,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287610833,
+            "key_code": 34,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287628208,
+            "key_code": 34,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287642750,
+            "key_code": 45,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287658416,
+            "key_code": 45,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287673750,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287689083,
+            "key_code": 0,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287703500,
+            "key_code": 37,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287717916,
+            "key_code": 37,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287732875,
+            "key_code": 49,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287749958,
+            "key_code": 49,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287763958,
+            "key_code": 8,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287780500,
+            "key_code": 8,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287794916,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287809208,
+            "key_code": 0,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287824416,
+            "key_code": 17,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287838333,
+            "key_code": 17,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287853458,
+            "key_code": 36,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137287867833,
+            "key_code": 36,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137318234291,
+            "key_code": 34,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137318288625,
+            "key_code": 34,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137350819083,
+            "key_code": 59,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137350904583,
+            "key_code": 59,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137388952875,
+            "key_code": 59,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137389036500,
+            "key_code": 59,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137412338000,
+            "key_code": 59,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137412639833,
+            "key_code": 45,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137412693458,
+            "key_code": 45,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137412715958,
+            "key_code": 59,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137512513791,
+            "key_code": 56,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137512578500,
+            "key_code": 41,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137512637666,
+            "key_code": 41,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137512663000,
+            "key_code": 56,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137512689791,
+            "key_code": 12,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137512723583,
+            "key_code": 12,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137512747833,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137512776041,
+            "key_code": 0,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137512796250,
+            "key_code": 56,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137512822000,
+            "key_code": 18,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137512849750,
+            "key_code": 18,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137512869750,
+            "key_code": 56,
+            "kind": "flagsChanged",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137512892458,
+            "key_code": 36,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 405137512913833,
+            "key_code": 36,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          }
+        ],
+        "bindings": 0,
+        "commands": [
+          "cancelOperation:",
+          "insertNewline:",
+          "insertNewline:",
+          "moveDown:",
+          "insertNewline:"
+        ],
+        "dropped": [],
+        "marked_discarded": 0,
+        "mouse_buttons": 0,
+        "mouse_positions": 0,
+        "pressures": 0,
+        "scrolls": 0,
+        "sent": [
+          {
+            "at_ns": 405137199333416,
+            "done_ns": 405137199544458,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 34,
+              "mods": 0,
+              "text": "i",
+              "unshifted_codepoint": 105
+            }
+          },
+          {
+            "at_ns": 405137199581291,
+            "done_ns": 405137199585291,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 34,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 105
+            }
+          },
+          {
+            "at_ns": 405137231683083,
+            "done_ns": 405137231690875,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 45,
+              "mods": 0,
+              "text": "n",
+              "unshifted_codepoint": 110
+            }
+          },
+          {
+            "at_ns": 405137231714833,
+            "done_ns": 405137231717958,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 45,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 110
+            }
+          },
+          {
+            "at_ns": 405137231746958,
+            "done_ns": 405137231748875,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 9,
+              "mods": 0,
+              "text": "v",
+              "unshifted_codepoint": 118
+            }
+          },
+          {
+            "at_ns": 405137231761000,
+            "done_ns": 405137231762666,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 9,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 118
+            }
+          },
+          {
+            "at_ns": 405137231786708,
+            "done_ns": 405137231788250,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 34,
+              "mods": 0,
+              "text": "i",
+              "unshifted_codepoint": 105
+            }
+          },
+          {
+            "at_ns": 405137231798416,
+            "done_ns": 405137231799666,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 34,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 105
+            }
+          },
+          {
+            "at_ns": 405137231822083,
+            "done_ns": 405137231823708,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 46,
+              "mods": 0,
+              "text": "m",
+              "unshifted_codepoint": 109
+            }
+          },
+          {
+            "at_ns": 405137231834041,
+            "done_ns": 405137231836125,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 46,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 109
+            }
+          },
+          {
+            "at_ns": 405137231856958,
+            "done_ns": 405137231858708,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 49,
+              "mods": 0,
+              "text": " ",
+              "unshifted_codepoint": 32
+            }
+          },
+          {
+            "at_ns": 405137231868041,
+            "done_ns": 405137231870166,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 49,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 32
+            }
+          },
+          {
+            "at_ns": 405137231888958,
+            "done_ns": 405137231890666,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 11,
+              "mods": 0,
+              "text": "b",
+              "unshifted_codepoint": 98
+            }
+          },
+          {
+            "at_ns": 405137231899708,
+            "done_ns": 405137231901583,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 11,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 98
+            }
+          },
+          {
+            "at_ns": 405137231921375,
+            "done_ns": 405137231925166,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 20,
+              "mods": 0,
+              "text": "3",
+              "unshifted_codepoint": 51
+            }
+          },
+          {
+            "at_ns": 405137231934625,
+            "done_ns": 405137231936041,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 20,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 51
+            }
+          },
+          {
+            "at_ns": 405137231956125,
+            "done_ns": 405137231958708,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 19,
+              "mods": 0,
+              "text": "2",
+              "unshifted_codepoint": 50
+            }
+          },
+          {
+            "at_ns": 405137231967791,
+            "done_ns": 405137231969708,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 19,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 50
+            }
+          },
+          {
+            "at_ns": 405137231987166,
+            "done_ns": 405137231989291,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 11,
+              "mods": 0,
+              "text": "b",
+              "unshifted_codepoint": 98
+            }
+          },
+          {
+            "at_ns": 405137231997875,
+            "done_ns": 405137231998875,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 11,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 98
+            }
+          },
+          {
+            "at_ns": 405137232018208,
+            "done_ns": 405137232020583,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 19,
+              "mods": 0,
+              "text": "2",
+              "unshifted_codepoint": 50
+            }
+          },
+          {
+            "at_ns": 405137232029041,
+            "done_ns": 405137232030083,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 19,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 50
+            }
+          },
+          {
+            "at_ns": 405137232051750,
+            "done_ns": 405137232053750,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 18,
+              "mods": 0,
+              "text": "1",
+              "unshifted_codepoint": 49
+            }
+          },
+          {
+            "at_ns": 405137232064375,
+            "done_ns": 405137232065583,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 18,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 49
+            }
+          },
+          {
+            "at_ns": 405137232086208,
+            "done_ns": 405137232087458,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 26,
+              "mods": 0,
+              "text": "7",
+              "unshifted_codepoint": 55
+            }
+          },
+          {
+            "at_ns": 405137232095916,
+            "done_ns": 405137232097000,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 26,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 55
+            }
+          },
+          {
+            "at_ns": 405137232115750,
+            "done_ns": 405137232117625,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 23,
+              "mods": 0,
+              "text": "5",
+              "unshifted_codepoint": 53
+            }
+          },
+          {
+            "at_ns": 405137232126166,
+            "done_ns": 405137232127125,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 23,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 53
+            }
+          },
+          {
+            "at_ns": 405137232146000,
+            "done_ns": 405137232147375,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 8,
+              "mods": 0,
+              "text": "c",
+              "unshifted_codepoint": 99
+            }
+          },
+          {
+            "at_ns": 405137232155666,
+            "done_ns": 405137232157000,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 8,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 99
+            }
+          },
+          {
+            "at_ns": 405137232175791,
+            "done_ns": 405137232177250,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 8,
+              "mods": 0,
+              "text": "c",
+              "unshifted_codepoint": 99
+            }
+          },
+          {
+            "at_ns": 405137232185583,
+            "done_ns": 405137232187916,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 8,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 99
+            }
+          },
+          {
+            "at_ns": 405137232205166,
+            "done_ns": 405137232206583,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 3,
+              "mods": 0,
+              "text": "f",
+              "unshifted_codepoint": 102
+            }
+          },
+          {
+            "at_ns": 405137232215625,
+            "done_ns": 405137232217833,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 3,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 102
+            }
+          },
+          {
+            "at_ns": 405137232236208,
+            "done_ns": 405137232237583,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 3,
+              "mods": 0,
+              "text": "f",
+              "unshifted_codepoint": 102
+            }
+          },
+          {
+            "at_ns": 405137232246000,
+            "done_ns": 405137232247833,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 3,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 102
+            }
+          },
+          {
+            "at_ns": 405137232271000,
+            "done_ns": 405137232272583,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 22,
+              "mods": 0,
+              "text": "6",
+              "unshifted_codepoint": 54
+            }
+          },
+          {
+            "at_ns": 405137232282625,
+            "done_ns": 405137232283875,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 22,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 54
+            }
+          },
+          {
+            "at_ns": 405137232302708,
+            "done_ns": 405137232304083,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 25,
+              "mods": 0,
+              "text": "9",
+              "unshifted_codepoint": 57
+            }
+          },
+          {
+            "at_ns": 405137232312625,
+            "done_ns": 405137232313791,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 25,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 57
+            }
+          },
+          {
+            "at_ns": 405137232332625,
+            "done_ns": 405137232333916,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 21,
+              "mods": 0,
+              "text": "4",
+              "unshifted_codepoint": 52
+            }
+          },
+          {
+            "at_ns": 405137232342083,
+            "done_ns": 405137232343666,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 21,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 52
+            }
+          },
+          {
+            "at_ns": 405137232362750,
+            "done_ns": 405137232364166,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 29,
+              "mods": 0,
+              "text": "0",
+              "unshifted_codepoint": 48
+            }
+          },
+          {
+            "at_ns": 405137232374625,
+            "done_ns": 405137232376958,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 29,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 48
+            }
+          },
+          {
+            "at_ns": 405137232463541,
+            "done_ns": 405137232471791,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 53,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 27
+            }
+          },
+          {
+            "at_ns": 405137232479875,
+            "done_ns": 405137232481291,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 53,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 27
+            }
+          },
+          {
+            "at_ns": 405137262452041,
+            "done_ns": 405137262474875,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 56,
+              "mods": 1,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 405137262553000,
+            "done_ns": 405137262557708,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 41,
+              "mods": 1,
+              "text": ":",
+              "unshifted_codepoint": 59
+            }
+          },
+          {
+            "at_ns": 405137262572416,
+            "done_ns": 405137262575583,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 41,
+              "mods": 1,
+              "text": null,
+              "unshifted_codepoint": 59
+            }
+          },
+          {
+            "at_ns": 405137262592916,
+            "done_ns": 405137262595833,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 56,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 405137262622625,
+            "done_ns": 405137262625166,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 13,
+              "mods": 0,
+              "text": "w",
+              "unshifted_codepoint": 119
+            }
+          },
+          {
+            "at_ns": 405137262635833,
+            "done_ns": 405137262638541,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 13,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 119
+            }
+          },
+          {
+            "at_ns": 405137262661166,
+            "done_ns": 405137262663666,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 36,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 13
+            }
+          },
+          {
+            "at_ns": 405137262670250,
+            "done_ns": 405137262670416,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 36,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 13
+            }
+          },
+          {
+            "at_ns": 405137287334666,
+            "done_ns": 405137287344416,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 56,
+              "mods": 1,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 405137287417000,
+            "done_ns": 405137287422041,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 41,
+              "mods": 1,
+              "text": ":",
+              "unshifted_codepoint": 59
+            }
+          },
+          {
+            "at_ns": 405137287436291,
+            "done_ns": 405137287438625,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 41,
+              "mods": 1,
+              "text": null,
+              "unshifted_codepoint": 59
+            }
+          },
+          {
+            "at_ns": 405137287450708,
+            "done_ns": 405137287452375,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 56,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 405137287475958,
+            "done_ns": 405137287478416,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 17,
+              "mods": 0,
+              "text": "t",
+              "unshifted_codepoint": 116
+            }
+          },
+          {
+            "at_ns": 405137287490250,
+            "done_ns": 405137287492875,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 17,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 116
+            }
+          },
+          {
+            "at_ns": 405137287516083,
+            "done_ns": 405137287518333,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 14,
+              "mods": 0,
+              "text": "e",
+              "unshifted_codepoint": 101
+            }
+          },
+          {
+            "at_ns": 405137287527875,
+            "done_ns": 405137287530041,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 14,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 101
+            }
+          },
+          {
+            "at_ns": 405137287551000,
+            "done_ns": 405137287553208,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 15,
+              "mods": 0,
+              "text": "r",
+              "unshifted_codepoint": 114
+            }
+          },
+          {
+            "at_ns": 405137287562708,
+            "done_ns": 405137287563833,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 15,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 114
+            }
+          },
+          {
+            "at_ns": 405137287584708,
+            "done_ns": 405137287585958,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 46,
+              "mods": 0,
+              "text": "m",
+              "unshifted_codepoint": 109
+            }
+          },
+          {
+            "at_ns": 405137287596583,
+            "done_ns": 405137287597958,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 46,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 109
+            }
+          },
+          {
+            "at_ns": 405137287618000,
+            "done_ns": 405137287620000,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 34,
+              "mods": 0,
+              "text": "i",
+              "unshifted_codepoint": 105
+            }
+          },
+          {
+            "at_ns": 405137287628916,
+            "done_ns": 405137287630333,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 34,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 105
+            }
+          },
+          {
+            "at_ns": 405137287647833,
+            "done_ns": 405137287650208,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 45,
+              "mods": 0,
+              "text": "n",
+              "unshifted_codepoint": 110
+            }
+          },
+          {
+            "at_ns": 405137287659041,
+            "done_ns": 405137287660916,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 45,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 110
+            }
+          },
+          {
+            "at_ns": 405137287678583,
+            "done_ns": 405137287680833,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": "a",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 405137287689791,
+            "done_ns": 405137287691041,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 405137287708333,
+            "done_ns": 405137287709791,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 37,
+              "mods": 0,
+              "text": "l",
+              "unshifted_codepoint": 108
+            }
+          },
+          {
+            "at_ns": 405137287718541,
+            "done_ns": 405137287720250,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 37,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 108
+            }
+          },
+          {
+            "at_ns": 405137287739708,
+            "done_ns": 405137287741708,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 49,
+              "mods": 0,
+              "text": " ",
+              "unshifted_codepoint": 32
+            }
+          },
+          {
+            "at_ns": 405137287750625,
+            "done_ns": 405137287751916,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 49,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 32
+            }
+          },
+          {
+            "at_ns": 405137287770666,
+            "done_ns": 405137287772541,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 8,
+              "mods": 0,
+              "text": "c",
+              "unshifted_codepoint": 99
+            }
+          },
+          {
+            "at_ns": 405137287781166,
+            "done_ns": 405137287782958,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 8,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 99
+            }
+          },
+          {
+            "at_ns": 405137287799625,
+            "done_ns": 405137287801125,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": "a",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 405137287809833,
+            "done_ns": 405137287812166,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 405137287829208,
+            "done_ns": 405137287830708,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 17,
+              "mods": 0,
+              "text": "t",
+              "unshifted_codepoint": 116
+            }
+          },
+          {
+            "at_ns": 405137287839000,
+            "done_ns": 405137287841250,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 17,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 116
+            }
+          },
+          {
+            "at_ns": 405137287860500,
+            "done_ns": 405137287862750,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 36,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 13
+            }
+          },
+          {
+            "at_ns": 405137287868500,
+            "done_ns": 405137287868625,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 36,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 13
+            }
+          },
+          {
+            "at_ns": 405137318261666,
+            "done_ns": 405137318270125,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 34,
+              "mods": 0,
+              "text": "i",
+              "unshifted_codepoint": 105
+            }
+          },
+          {
+            "at_ns": 405137318290166,
+            "done_ns": 405137318293583,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 34,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 105
+            }
+          },
+          {
+            "at_ns": 405137350820041,
+            "done_ns": 405137350826625,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 59,
+              "mods": 2,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 405137350904833,
+            "done_ns": 405137350906625,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 59,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 405137388953750,
+            "done_ns": 405137388959041,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 59,
+              "mods": 2,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 405137388982375,
+            "done_ns": 405137388986916,
+            "from": "chord-replay",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 42,
+              "mods": 2,
+              "text": "\\",
+              "unshifted_codepoint": 92
+            }
+          },
+          {
+            "at_ns": 405137388987041,
+            "done_ns": 405137388988166,
+            "from": "chord-replay",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 42,
+              "mods": 2,
+              "text": null,
+              "unshifted_codepoint": 92
+            }
+          },
+          {
+            "at_ns": 405137389036750,
+            "done_ns": 405137389038416,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 59,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 405137412338458,
+            "done_ns": 405137412344708,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 59,
+              "mods": 2,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 405137412665458,
+            "done_ns": 405137412671250,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 45,
+              "mods": 2,
+              "text": "n",
+              "unshifted_codepoint": 110
+            }
+          },
+          {
+            "at_ns": 405137412694958,
+            "done_ns": 405137412697750,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 45,
+              "mods": 2,
+              "text": null,
+              "unshifted_codepoint": 110
+            }
+          },
+          {
+            "at_ns": 405137412716250,
+            "done_ns": 405137412718458,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 59,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 405137512515333,
+            "done_ns": 405137512524166,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 56,
+              "mods": 1,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 405137512614791,
+            "done_ns": 405137512619625,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 41,
+              "mods": 1,
+              "text": ":",
+              "unshifted_codepoint": 59
+            }
+          },
+          {
+            "at_ns": 405137512639291,
+            "done_ns": 405137512643208,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 41,
+              "mods": 1,
+              "text": null,
+              "unshifted_codepoint": 59
+            }
+          },
+          {
+            "at_ns": 405137512663333,
+            "done_ns": 405137512665750,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 56,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 405137512703500,
+            "done_ns": 405137512707250,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 12,
+              "mods": 0,
+              "text": "q",
+              "unshifted_codepoint": 113
+            }
+          },
+          {
+            "at_ns": 405137512724833,
+            "done_ns": 405137512726875,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 12,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 113
+            }
+          },
+          {
+            "at_ns": 405137512756708,
+            "done_ns": 405137512759500,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": "a",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 405137512777458,
+            "done_ns": 405137512781333,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 405137512796500,
+            "done_ns": 405137512800958,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 56,
+              "mods": 1,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 405137512833125,
+            "done_ns": 405137512836375,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 18,
+              "mods": 1,
+              "text": "!",
+              "unshifted_codepoint": 49
+            }
+          },
+          {
+            "at_ns": 405137512850750,
+            "done_ns": 405137512853708,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 1,
+              "keycode": 18,
+              "mods": 1,
+              "text": null,
+              "unshifted_codepoint": 49
+            }
+          },
+          {
+            "at_ns": 405137512870041,
+            "done_ns": 405137512872166,
+            "from": "flagsChanged",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 56,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 405137512902583,
+            "done_ns": 405137512905750,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 36,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 13
+            }
+          },
+          {
+            "at_ns": 405137512914833,
+            "done_ns": 405137512915083,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 36,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 13
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": "ghostty_runtime",
+      "value": {
+        "app_focus": [
+          true
+        ],
+        "clipboard_denied": 0,
+        "clipboard_denied_on_retire": 0,
+        "clipboard_held": 0,
+        "clipboard_late_skipped": 0,
+        "clipboard_served": 0,
+        "clipboard_write_confirm_denied": 0,
+        "clipboard_written": 0,
+        "close_intents": 2,
+        "close_sources": {
+          "probe:already-closing": 1,
+          "probe:scheduled": 1
+        },
+        "creations": [
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 405137106812583,
+            "injected": null,
+            "key": "s0g1",
+            "new_ms": 6.039167,
+            "pass": 1,
+            "started_ns": 405137100773416,
+            "trigger": "initial"
+          }
+        ],
+        "delivered": {
+          "child-exited": 1,
+          "close-intent": 2,
+          "color-change": 2,
+          "config-change": 1,
+          "unsupported": 47
+        },
+        "dropped_at_source": 0,
+        "dropped_stale": 0,
+        "frees_held_passes": 0,
+        "layout_retries": 0,
+        "log": [
+          "pass=1 t=405136989582875 app ConfigChange → delivered",
+          "pass=24 t=405137318602833 s0g1 ColorChange { kind: -3, rgb: [0, 0, 0] } → delivered",
+          "pass=29 t=405137413030291 s0g1 ColorChange { kind: -3, rgb: [0, 0, 0] } → delivered",
+          "pass=40 t=405137516672541 s0g1 ChildExited { exit_code: 0, runtime_ms: 406 } → delivered",
+          "pass=42 t=405137534164125 s0g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=42 t=405137534165458 s0g1 CloseIntent { process_alive: None, source: \"probe\" } → already-closing"
+        ],
+        "messages": 53,
+        "messages_pushed": 53,
+        "passes": 44,
+        "passes_tracking": 0,
+        "releases": [
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 405137538150916,
+            "free_ms": 3.95675,
+            "key": "s0g1",
+            "messages_during_free": 1,
+            "pass": 43,
+            "started_ns": 405137534194166
+          }
+        ],
+        "scheme_changes": [],
+        "screen_wakes": 0,
+        "surface_config_updates": 0,
+        "surfaces_created": 1,
+        "surfaces_failed": 0,
+        "surfaces_freed": 1,
+        "unsupported_actions": {
+          "22": 1,
+          "25": 1,
+          "26": 3,
+          "38": 26,
+          "40": 10,
+          "43": 2,
+          "46": 1,
+          "59": 2,
+          "63": 1
+        },
+        "wakeups": 72
+      }
+    },
+    {
+      "key": "surface_view_feeds",
+      "value": {
+        "detached_skipped": 0,
+        "display_ids": [
+          1
+        ],
+        "focus": [
+          true
+        ],
+        "last_scale": [
+          2.0,
+          2.0
+        ],
+        "last_size_px": [
+          828,
+          616
+        ],
+        "preedits": [],
+        "refreshes": 3,
+        "scale_feeds": 1,
+        "size_feeds": 3,
+        "zero_size_skipped": 0
+      }
+    },
+    {
+      "key": "events_posted",
+      "value": "112"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "294"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "nvim_remote_expr",
+      "unit": "ms",
+      "samples": [
+        68.977375,
+        24.978291,
+        14.686,
+        9.91325,
+        10.550541,
+        10.241709,
+        9.935457999999999,
+        14.914375,
+        14.845458
+      ],
+      "summary": {
+        "count": 9,
+        "p50": 14.686,
+        "p95": 68.977375,
+        "max": 68.977375
+      }
+    },
+    {
+      "name": "surface_free",
+      "unit": "ms",
+      "samples": [
+        3.95675
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 3.95675,
+        "p95": 3.95675,
+        "max": 3.95675
+      }
+    },
+    {
+      "name": "app_free",
+      "unit": "ms",
+      "samples": [
+        0.007625
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 0.007625,
+        "p95": 0.007625,
+        "max": 0.007625
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "name": "h12-nvim-start",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "NVIM v0.12.6; сервер Some(ProcInfo { pid: 46631, ppid: 46630, pgid: 46631, tdev: 4294967295, tpgid: 0 }), TUI Some(ProcInfo { pid: 46630, ppid: 46628, pgid: 46628, tdev: 268435464, tpgid: 46628 }); ghostty_surface_tty_name Some(\"/dev/ttys008\") (rdev Some(268435464)), ghostty_surface_foreground_pid 46628"
+    },
+    {
+      "name": "h12-nvim-write",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "напечатано \"nvim b32b2175ccff6940\" с i, Esc и :w; файл /Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/nvim-base/nvim/work/note-b32b2175ccff6940.txt содержит Some(\"nvim b32b2175ccff6940\\n\"), ожидалось \"nvim b32b2175ccff6940\\n\""
+    },
+    {
+      "name": "h4-nvim-terminal-chord",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "mode(1) до аккорда Some(\"t\"), после первого Ctrl-\\ Some(\"t\"), после Ctrl-\\ Ctrl-\\ Ctrl-n Some(\"nt\") (ожидались t, t, nt); маршрутизатор после первого Some((Navigation, true)), после второго Some((Input, false)); повторы (доставлен, причина, событий) [(true, None, 2)]; ghostty_surface_key из повтора [(Press, 42), (Release, 42)]; Ctrl-\\ у вида 0; Ctrl-n отправлено 1"
+    },
+    {
+      "name": "h12-nvim-resize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "сетка (столбцы, строки) до ресайза Some(Sizes { surface: (68, 29), tty: (68, 29), nvim: (68, 29) }), после Some(Sizes { surface: (51, 20), tty: (51, 20), nvim: (51, 20) }): ghostty_surface_size, TIOCGWINSZ PTY и &columns/&lines nvim совпадают, обе оси меняются"
+    },
+    {
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 1, освобождено 1, вызовов free 1"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "… 334 ранних строк вытеснено",
+      "428.134ms dispatch #96",
+      "428.440ms return #96",
+      "428.461ms dispatch #97",
+      "428.466ms return #97",
+      "428.474ms dispatch #98",
+      "428.487ms return #98",
+      "431.987ms шаг «события прошли sendEvent» готов за 10.6 мс",
+      "437.693ms шаг «начало ожидания Normal в терминале» готов за 5.7 мс",
+      "458.385ms шаг «nvim в Normal буфера терминала или внутренний предел» готов за 20.7 мс",
+      "464.105ms шаг «итог аккорда в :terminal» готов за 5.7 мс",
+      "469.839ms шаг «сдвиг делителей центральной зоны» готов за 5.7 мс",
+      "470.696ms делитель center|right 796.0 → 656.0",
+      "471.142ms делитель center/bottom 482.0 → 342.0",
+      "517.054ms шаг «новая сетка у поверхности, PTY и nvim или внутренний предел» готов за 45.9 мс",
+      "522.732ms шаг «итог ресайза» готов за 5.7 мс",
+      "528.118ms шаг «:qa!» готов за 5.4 мс",
+      "528.125ms post #99 flagsChanged+56",
+      "528.147ms post #100 keyDown Shift-;",
+      "528.172ms post #101 keyUp Shift-;",
+      "528.176ms post #102 flagsChanged-56",
+      "528.179ms post #103 keyDown q",
+      "528.182ms post #104 keyUp q",
+      "528.186ms post #105 keyDown a",
+      "528.189ms post #106 keyUp a",
+      "528.193ms post #107 flagsChanged+56",
+      "528.195ms post #108 keyDown Shift-1",
+      "528.199ms post #109 keyUp Shift-1",
+      "528.203ms post #110 flagsChanged-56",
+      "528.206ms post #111 keyDown Return",
+      "528.209ms post #112 keyUp Return",
+      "528.253ms dispatch #99",
+      "528.296ms return #99",
+      "528.317ms dispatch #100",
+      "528.388ms return #100",
+      "528.405ms dispatch #101",
+      "528.412ms return #101",
+      "528.420ms dispatch #102",
+      "528.434ms return #102",
+      "528.446ms dispatch #103",
+      "528.476ms return #103",
+      "528.491ms dispatch #104",
+      "528.495ms return #104",
+      "528.506ms dispatch #105",
+      "528.528ms return #105",
+      "528.543ms dispatch #106",
+      "528.550ms return #106",
+      "528.556ms dispatch #107",
+      "528.569ms return #107",
+      "528.580ms dispatch #108",
+      "528.605ms return #108",
+      "528.617ms dispatch #109",
+      "528.622ms return #109",
+      "528.629ms dispatch #110",
+      "528.641ms return #110",
+      "528.652ms dispatch #111",
+      "528.674ms return #111",
+      "528.681ms dispatch #112",
+      "528.683ms return #112",
+      "533.932ms шаг «события прошли sendEvent» готов за 5.7 мс",
+      "539.397ms шаг «выход nvim, задания терминала и ребёнка поверхности» готов за 5.5 мс",
+      "544.779ms шаг «выход ребёнка поверхности записан» готов за 5.4 мс",
+      "549.929ms шаг «два намерения закрыть» готов за 5.1 мс",
+      "549.935ms намерения закрыть: s0g1, s0g1",
+      "555.459ms шаг «освобождение поверхности» готов за 5.5 мс"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeAppActivity",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeRouterObserver",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeScreenWake",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeSplitView",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      },
+      {
+        "class": "ProbeStandView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSurfaceView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeTile",
+        "created": 4,
+        "released": 0,
+        "live": 4
+      },
+      {
+        "class": "ProbeZoneHost",
+        "created": 4,
+        "released": 0,
+        "live": 4
+      }
+    ]
+  }
+}

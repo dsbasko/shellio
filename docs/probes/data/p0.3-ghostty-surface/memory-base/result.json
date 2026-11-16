@@ -1,0 +1,5256 @@
+{
+  "schema": 1,
+  "scenario": "memory",
+  "variant": "base",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "6b91e3f56492",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.3.2, objc2-quartz-core 0.3.2",
+      "ghostty_version": "1.4.0",
+      "ghostty_rev": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "process": {
+      "pid": 43146,
+      "route": "direct",
+      "nonce": "dab998eee65b3dd3",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_STATE_DIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.dab998eee65b3dd3",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    },
+    "bundle": {
+      "path": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app",
+      "identifier": "io.github.dsbasko.shellio.probe.ghostty-surface",
+      "executable": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface",
+      "signature": "valid: identifier \"io.github.dsbasko.shellio.probe.ghostty-surface\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC"
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "окно на экране, приложение активно",
+      "status": "ready",
+      "waited_ms": 30.455167,
+      "at_ms": 34.253417,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeStandView cursor=250,266"
+    },
+    {
+      "index": 1,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 1560.592792,
+      "at_ms": 1594.927,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeStandView cursor=250,266"
+    },
+    {
+      "index": 0,
+      "name": "активность, key window и фокус вида поверхности",
+      "status": "ready",
+      "waited_ms": 18.220875,
+      "at_ms": 1618.84625,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 1,
+      "name": "окно видимо по occlusionState или опознан щит",
+      "status": "ready",
+      "waited_ms": 3005.6367499999997,
+      "at_ms": 4624.55525,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 2,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 1575.604625,
+      "at_ms": 6226.961125,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 3,
+      "name": "ненулевой размер вида в пикселях",
+      "status": "ready",
+      "waited_ms": 5.691667,
+      "at_ms": 6232.68975,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 4,
+      "name": "готовность фикстур, первый кадр и подача видимости",
+      "status": "ready",
+      "waited_ms": 55.619042,
+      "at_ms": 6298.745,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 5,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 2705.199,
+      "at_ms": 9004.045125,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 6,
+      "name": "новые поверхности с фикстурой",
+      "status": "ready",
+      "waited_ms": 5.666708000000001,
+      "at_ms": 9009.766,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 7,
+      "name": "готовность фикстур, первый кадр и подача видимости",
+      "status": "ready",
+      "waited_ms": 60.233125,
+      "at_ms": 9075.300042,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 8,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 2915.6349170000003,
+      "at_ms": 11991.028583,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 9,
+      "name": "новые поверхности с фикстурой",
+      "status": "ready",
+      "waited_ms": 5.479584,
+      "at_ms": 11996.607833,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 10,
+      "name": "готовность фикстур, первый кадр и подача видимости",
+      "status": "ready",
+      "waited_ms": 65.67558299999999,
+      "at_ms": 12072.569375,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 11,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 2915.613375,
+      "at_ms": 14988.304125,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 12,
+      "name": "новые поверхности с фикстурой",
+      "status": "ready",
+      "waited_ms": 5.674667,
+      "at_ms": 14994.043792,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 13,
+      "name": "готовность фикстур, первый кадр и подача видимости",
+      "status": "ready",
+      "waited_ms": 45.363042,
+      "at_ms": 15074.198833,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 14,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 2950.5065830000003,
+      "at_ms": 18024.86575,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 15,
+      "name": "скрытие общего родителя поверхностей",
+      "status": "ready",
+      "waited_ms": 5.122583,
+      "at_ms": 18030.058792,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 16,
+      "name": "модель подала скрытие всем поверхностям",
+      "status": "ready",
+      "waited_ms": 6.37875,
+      "at_ms": 18037.79375,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 17,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 2940.673625,
+      "at_ms": 20978.54075,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 18,
+      "name": "показ общего родителя поверхностей",
+      "status": "ready",
+      "waited_ms": 5.599875,
+      "at_ms": 20984.210208,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 19,
+      "name": "модель подала показ всем поверхностям",
+      "status": "ready",
+      "waited_ms": 5.369584000000001,
+      "at_ms": 20990.220542,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 20,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 2725.626666,
+      "at_ms": 23715.911417,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 21,
+      "name": "намерение закрыть все поверхности",
+      "status": "ready",
+      "waited_ms": 5.7075,
+      "at_ms": 23721.68125,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 22,
+      "name": "освобождение поверхностей и выход фикстур",
+      "status": "ready",
+      "waited_ms": 119.816834,
+      "at_ms": 23841.557583,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 23,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 1675.635417,
+      "at_ms": 25518.962792,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 24,
+      "name": "новые поверхности с фикстурой",
+      "status": "ready",
+      "waited_ms": 5.709416,
+      "at_ms": 25524.724917,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 25,
+      "name": "готовность фикстур, первый кадр и подача видимости",
+      "status": "ready",
+      "waited_ms": 45.590458,
+      "at_ms": 25616.548042,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 26,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 2625.618834,
+      "at_ms": 28242.310458,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 27,
+      "name": "скрытие общего родителя поверхностей",
+      "status": "ready",
+      "waited_ms": 5.731375000000001,
+      "at_ms": 28248.142208,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 28,
+      "name": "модель подала скрытие всем поверхностям",
+      "status": "ready",
+      "waited_ms": 5.24225,
+      "at_ms": 28253.956208,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 29,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 1570.6045,
+      "at_ms": 29824.637208,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 30,
+      "name": "показ общего родителя поверхностей",
+      "status": "ready",
+      "waited_ms": 5.670666000000001,
+      "at_ms": 29830.41775,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 31,
+      "name": "модель подала показ всем поверхностям",
+      "status": "ready",
+      "waited_ms": 5.682958,
+      "at_ms": 29836.761333,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 32,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 2720.5755,
+      "at_ms": 32557.365875,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 33,
+      "name": "намерение закрыть все поверхности",
+      "status": "ready",
+      "waited_ms": 5.387125,
+      "at_ms": 32562.806208,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 34,
+      "name": "освобождение поверхностей и выход фикстур",
+      "status": "ready",
+      "waited_ms": 124.270458,
+      "at_ms": 32687.132833,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 35,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 1875.543417,
+      "at_ms": 34564.311292,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 36,
+      "name": "новые поверхности с фикстурой",
+      "status": "ready",
+      "waited_ms": 5.6835,
+      "at_ms": 34570.053292,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 37,
+      "name": "готовность фикстур, первый кадр и подача видимости",
+      "status": "ready",
+      "waited_ms": 45.609375,
+      "at_ms": 34658.804042,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 38,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 2730.621042,
+      "at_ms": 37389.573,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 39,
+      "name": "скрытие общего родителя поверхностей",
+      "status": "ready",
+      "waited_ms": 5.657833,
+      "at_ms": 37395.336875,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 40,
+      "name": "модель подала скрытие всем поверхностям",
+      "status": "ready",
+      "waited_ms": 5.666625,
+      "at_ms": 37401.280708,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 41,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 1580.595041,
+      "at_ms": 38981.919917,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 42,
+      "name": "показ общего родителя поверхностей",
+      "status": "ready",
+      "waited_ms": 5.306209,
+      "at_ms": 38987.254292,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    },
+    {
+      "index": 43,
+      "name": "модель подала показ всем поверхностям",
+      "status": "ready",
+      "waited_ms": 6.133,
+      "at_ms": 38993.682042,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 44,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 2840.656333,
+      "at_ms": 41834.415167,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 45,
+      "name": "намерение закрыть все поверхности",
+      "status": "ready",
+      "waited_ms": 5.7065,
+      "at_ms": 41840.199208,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 46,
+      "name": "освобождение поверхностей и выход фикстур",
+      "status": "ready",
+      "waited_ms": 122.40979200000001,
+      "at_ms": 41962.674833,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 47,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 1660.478375,
+      "at_ms": 43624.778458,
+      "state": "isActive=true keyWindow=#41527 mainWindow=#41527 firstResponder=NSKVONotifying_NSWindow cursor=250,266"
+    }
+  ],
+  "events": [],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "memory"
+    },
+    {
+      "key": "route",
+      "value": "direct"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "variant",
+      "value": "base"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "memory_note",
+      "value": "ri_phys_footprint из proc_pid_rusage, потомки (обёртка, оболочка, фикстура) отдельно; МиБ = 2^20 байт; каждое состояние — серия показаний с шагом 100 мс до устоявшейся памяти (окно 1,5 с, порог 1 МиБ, предел 6 с); бюджет 150 МБ относится к GUI без терминалов и с поверхностями не сравнивается"
+    },
+    {
+      "key": "ghostty_init",
+      "value": {
+        "after": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "en_US.UTF-8",
+            "LC_COLLATE": "en_US.UTF-8",
+            "LC_CTYPE": "en_US.UTF-8",
+            "LC_MESSAGES": "en_US.UTF-8",
+            "LC_MONETARY": "en_US.UTF-8",
+            "LC_NUMERIC": "en_US.UTF-8",
+            "LC_TIME": "en_US.UTF-8"
+          },
+          "threads": 4
+        },
+        "argv": [
+          "probe-ghostty-surface"
+        ],
+        "before": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "C",
+            "LC_COLLATE": "C",
+            "LC_CTYPE": "C",
+            "LC_MESSAGES": "C",
+            "LC_MONETARY": "C",
+            "LC_NUMERIC": "C",
+            "LC_TIME": "C"
+          },
+          "threads": 4
+        },
+        "code": 0,
+        "duration_ms": 0.9085,
+        "finished_ns": 404715858208333,
+        "started_ns": 404715857299833
+      }
+    },
+    {
+      "key": "ghostty_init_env_changes",
+      "value": ""
+    },
+    {
+      "key": "ghostty_version",
+      "value": "1.4.0"
+    },
+    {
+      "key": "ghostty_build_mode",
+      "value": "release-fast"
+    },
+    {
+      "key": "ghostty_config",
+      "value": "font-family = Menlo\nfont-size = 13\nscrollback-limit-bytes = 10000000\ntheme = light:Builtin Light,dark:Builtin Dark\ncursor-style-blink = true\nconfirm-close-surface = false\nclipboard-paste-protection = false\n"
+    },
+    {
+      "key": "ghostty_config_diagnostics",
+      "value": []
+    },
+    {
+      "key": "ghostty_runtime_start",
+      "value": {
+        "app_focused": true,
+        "app_new_finished_ns": 404717557550250,
+        "app_new_started_ns": 404717557314000,
+        "color_scheme": "light",
+        "config_change_from_update": 1,
+        "reload_config_from_scheme": 0
+      }
+    },
+    {
+      "key": "surface_command",
+      "value": "'/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface' '--fixture' '--channel' '/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/memory-base/fixture.sock' '--nonce' 'dab998eee65b3dd3-s1'"
+    },
+    {
+      "key": "fixture_nonce",
+      "value": "dab998eee65b3dd3-s1"
+    },
+    {
+      "key": "env_nonce",
+      "value": "b1b5a3a678f335ab"
+    },
+    {
+      "key": "memory_grid",
+      "value": {
+        "cell_height_px": 30,
+        "cell_width_px": 16,
+        "columns": 34,
+        "height_px": 680,
+        "rows": 22,
+        "width_px": 560
+      }
+    },
+    {
+      "key": "memory_shield",
+      "value": {
+        "bounds": [
+          0.0,
+          0.0,
+          1512.0,
+          982.0
+        ],
+        "layer": 2147483628,
+        "own_bounds": [
+          166.0,
+          116.0,
+          1180.0,
+          752.0
+        ],
+        "own_layer": 0,
+        "owner": "dndmode",
+        "pid": 69575
+      }
+    },
+    {
+      "key": "occlusion_masked",
+      "value": "true"
+    },
+    {
+      "key": "memory_states",
+      "value": [
+        {
+          "at_ms": 1594.929875,
+          "children": [],
+          "children_bytes": 0,
+          "children_mib": 0.0,
+          "cycle": 0,
+          "fixtures": 0,
+          "label": "init",
+          "last_change_ms": null,
+          "process_bytes": 21644224,
+          "process_mib": 20.64154052734375,
+          "readings": 16,
+          "settled": true,
+          "surfaces": 0,
+          "trace": [
+            [
+              0.000125,
+              20.36029052734375,
+              0.0
+            ],
+            [
+              103.231916,
+              20.37591552734375,
+              0.0
+            ],
+            [
+              203.48075,
+              20.37591552734375,
+              0.0
+            ],
+            [
+              306.766666,
+              20.53216552734375,
+              0.0
+            ],
+            [
+              410.011666,
+              20.53216552734375,
+              0.0
+            ],
+            [
+              515.197833,
+              20.64154052734375,
+              0.0
+            ],
+            [
+              617.195333,
+              20.64154052734375,
+              0.0
+            ],
+            [
+              722.301666,
+              20.64154052734375,
+              0.0
+            ],
+            [
+              827.588291,
+              20.64154052734375,
+              0.0
+            ],
+            [
+              931.975,
+              20.64154052734375,
+              0.0
+            ],
+            [
+              1037.349083,
+              20.64154052734375,
+              0.0
+            ],
+            [
+              1139.606208,
+              20.64154052734375,
+              0.0
+            ],
+            [
+              1242.992208,
+              20.64154052734375,
+              0.0
+            ],
+            [
+              1344.763958,
+              20.64154052734375,
+              0.0
+            ],
+            [
+              1449.868166,
+              20.64154052734375,
+              0.0
+            ],
+            [
+              1552.285833,
+              20.64154052734375,
+              0.0
+            ]
+          ],
+          "unreadable": []
+        },
+        {
+          "at_ms": 6226.962,
+          "children": [],
+          "children_bytes": 0,
+          "children_mib": 0.0,
+          "cycle": 0,
+          "fixtures": 0,
+          "label": "app",
+          "last_change_ms": null,
+          "process_bytes": 23610328,
+          "process_mib": 22.516563415527344,
+          "readings": 16,
+          "settled": true,
+          "surfaces": 0,
+          "trace": [
+            [
+              0.000167,
+              22.641563415527344,
+              0.0
+            ],
+            [
+              105.160125,
+              22.641563415527344,
+              0.0
+            ],
+            [
+              205.656584,
+              22.641563415527344,
+              0.0
+            ],
+            [
+              309.895042,
+              22.641563415527344,
+              0.0
+            ],
+            [
+              414.913292,
+              22.641563415527344,
+              0.0
+            ],
+            [
+              520.36075,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              625.567,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              730.262584,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              835.608167,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              939.589209,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              1044.850125,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              1150.214125,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              1255.125667,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              1358.536542,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              1462.693042,
+              22.516563415527344,
+              0.0
+            ],
+            [
+              1565.915417,
+              22.516563415527344,
+              0.0
+            ]
+          ],
+          "unreadable": []
+        },
+        {
+          "at_ms": 9004.048708,
+          "children": [
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43204,
+              "ppid": 43203,
+              "program": "probe-ghostty-surface"
+            }
+          ],
+          "children_bytes": 3736056,
+          "children_mib": 3.5629806518554688,
+          "cycle": 1,
+          "fixtures": 1,
+          "label": "visible",
+          "last_change_ms": 1144.09375,
+          "process_bytes": 136365112,
+          "process_mib": 130.04790496826172,
+          "readings": 27,
+          "settled": true,
+          "surfaces": 1,
+          "trace": [
+            [
+              0.000125,
+              132.32915496826172,
+              3.5629806518554688
+            ],
+            [
+              105.073,
+              132.31352996826172,
+              3.5629806518554688
+            ],
+            [
+              210.221875,
+              132.31352996826172,
+              3.5629806518554688
+            ],
+            [
+              313.001333,
+              132.31352996826172,
+              3.5629806518554688
+            ],
+            [
+              415.443875,
+              132.31352996826172,
+              3.5629806518554688
+            ],
+            [
+              520.78775,
+              132.31352996826172,
+              3.5629806518554688
+            ],
+            [
+              624.472625,
+              132.26665496826172,
+              3.5629806518554688
+            ],
+            [
+              730.055292,
+              132.26665496826172,
+              3.5629806518554688
+            ],
+            [
+              835.662542,
+              132.26665496826172,
+              3.5629806518554688
+            ],
+            [
+              936.98025,
+              132.26665496826172,
+              3.5629806518554688
+            ],
+            [
+              1042.318792,
+              132.26665496826172,
+              3.5629806518554688
+            ],
+            [
+              1144.09375,
+              130.03227996826172,
+              3.5629806518554688
+            ],
+            [
+              1249.439333,
+              130.03227996826172,
+              3.5629806518554688
+            ],
+            [
+              1350.006,
+              130.03227996826172,
+              3.5629806518554688
+            ],
+            [
+              1454.59775,
+              130.03227996826172,
+              3.5629806518554688
+            ],
+            [
+              1559.896625,
+              130.03227996826172,
+              3.5629806518554688
+            ],
+            [
+              1664.084083,
+              130.04790496826172,
+              3.5629806518554688
+            ],
+            [
+              1767.625875,
+              130.04790496826172,
+              3.5629806518554688
+            ],
+            [
+              1868.495875,
+              130.04790496826172,
+              3.5629806518554688
+            ],
+            [
+              1971.27125,
+              130.04790496826172,
+              3.5629806518554688
+            ],
+            [
+              2072.609708,
+              130.04790496826172,
+              3.5629806518554688
+            ],
+            [
+              2172.997458,
+              130.04790496826172,
+              3.5629806518554688
+            ],
+            [
+              2278.499292,
+              130.04790496826172,
+              3.5629806518554688
+            ],
+            [
+              2383.296,
+              130.04790496826172,
+              3.5629806518554688
+            ],
+            [
+              2487.576958,
+              130.04790496826172,
+              3.5629806518554688
+            ],
+            [
+              2591.400708,
+              130.04790496826172,
+              3.5629806518554688
+            ],
+            [
+              2696.770083,
+              130.04790496826172,
+              3.5629806518554688
+            ]
+          ],
+          "unreadable": [
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43203,
+              "ppid": 43146,
+              "program": "login"
+            }
+          ]
+        },
+        {
+          "at_ms": 11991.033667,
+          "children": [
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43204,
+              "ppid": 43203,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43244,
+              "ppid": 43243,
+              "program": "probe-ghostty-surface"
+            }
+          ],
+          "children_bytes": 7472112,
+          "children_mib": 7.1259613037109375,
+          "cycle": 1,
+          "fixtures": 2,
+          "label": "visible",
+          "last_change_ms": 1346.079958,
+          "process_bytes": 149750912,
+          "process_mib": 142.8135986328125,
+          "readings": 29,
+          "settled": true,
+          "surfaces": 2,
+          "trace": [
+            [
+              0.000083,
+              148.7823486328125,
+              7.1259613037109375
+            ],
+            [
+              105.081333,
+              148.7979736328125,
+              7.1259613037109375
+            ],
+            [
+              210.298917,
+              148.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              314.885125,
+              148.7979736328125,
+              7.1259613037109375
+            ],
+            [
+              419.970958,
+              148.7979736328125,
+              7.1259613037109375
+            ],
+            [
+              522.015083,
+              148.7979736328125,
+              7.1259613037109375
+            ],
+            [
+              622.990833,
+              148.7979736328125,
+              7.1259613037109375
+            ],
+            [
+              727.517875,
+              148.7979736328125,
+              7.1259613037109375
+            ],
+            [
+              831.216542,
+              148.7979736328125,
+              7.1259613037109375
+            ],
+            [
+              932.302792,
+              148.7979736328125,
+              7.1259613037109375
+            ],
+            [
+              1037.939833,
+              145.0479736328125,
+              7.1259613037109375
+            ],
+            [
+              1139.041208,
+              145.0479736328125,
+              7.1259613037109375
+            ],
+            [
+              1240.871208,
+              145.0479736328125,
+              7.1259613037109375
+            ],
+            [
+              1346.079958,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              1449.848167,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              1552.095375,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              1653.009417,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              1756.584208,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              1858.208083,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              1963.306875,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              2067.244958,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              2171.801542,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              2277.3175,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              2382.875542,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              2488.480208,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              2591.901667,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              2695.005208,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              2799.870583,
+              142.8135986328125,
+              7.1259613037109375
+            ],
+            [
+              2905.129,
+              142.8135986328125,
+              7.1259613037109375
+            ]
+          ],
+          "unreadable": [
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43203,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43243,
+              "ppid": 43146,
+              "program": "login"
+            }
+          ]
+        },
+        {
+          "at_ms": 14988.308792,
+          "children": [
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43204,
+              "ppid": 43203,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43244,
+              "ppid": 43243,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786285400390625,
+              "pid": 43271,
+              "ppid": 43270,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786285400390625,
+              "pid": 43272,
+              "ppid": 43269,
+              "program": "probe-ghostty-surface"
+            }
+          ],
+          "children_bytes": 14977040,
+          "children_mib": 14.283218383789062,
+          "cycle": 1,
+          "fixtures": 4,
+          "label": "visible",
+          "last_change_ms": 1346.427375,
+          "process_bytes": 175801616,
+          "process_mib": 167.65748596191406,
+          "readings": 29,
+          "settled": true,
+          "surfaces": 4,
+          "trace": [
+            [
+              0.000084,
+              173.64186096191406,
+              14.283218383789062
+            ],
+            [
+              105.123209,
+              173.64186096191406,
+              14.283218383789062
+            ],
+            [
+              205.432167,
+              173.64186096191406,
+              14.283218383789062
+            ],
+            [
+              308.0495,
+              173.64186096191406,
+              14.283218383789062
+            ],
+            [
+              413.627334,
+              173.64186096191406,
+              14.283218383789062
+            ],
+            [
+              519.020334,
+              173.64186096191406,
+              14.283218383789062
+            ],
+            [
+              624.859375,
+              173.64186096191406,
+              14.283218383789062
+            ],
+            [
+              727.049292,
+              173.64186096191406,
+              14.283218383789062
+            ],
+            [
+              829.190292,
+              173.64186096191406,
+              14.283218383789062
+            ],
+            [
+              930.871084,
+              173.64186096191406,
+              14.283218383789062
+            ],
+            [
+              1036.81125,
+              169.89186096191406,
+              14.283218383789062
+            ],
+            [
+              1139.670959,
+              169.89186096191406,
+              14.283218383789062
+            ],
+            [
+              1244.969917,
+              169.89186096191406,
+              14.283218383789062
+            ],
+            [
+              1346.427375,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              1451.935667,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              1555.259625,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              1660.806875,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              1764.496917,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              1869.638042,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              1975.050125,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              2075.950209,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              2177.792417,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              2282.810542,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              2386.496542,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              2491.753625,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              2592.700209,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              2697.661875,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              2802.282,
+              167.65748596191406,
+              14.283218383789062
+            ],
+            [
+              2907.969792,
+              167.65748596191406,
+              14.283218383789062
+            ]
+          ],
+          "unreadable": [
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43203,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43243,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43269,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43270,
+              "ppid": 43146,
+              "program": "login"
+            }
+          ]
+        },
+        {
+          "at_ms": 18024.873375,
+          "children": [
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43204,
+              "ppid": 43203,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43244,
+              "ppid": 43243,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786285400390625,
+              "pid": 43271,
+              "ppid": 43270,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786285400390625,
+              "pid": 43272,
+              "ppid": 43269,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786056518554688,
+              "pid": 43316,
+              "ppid": 43312,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786056518554688,
+              "pid": 43317,
+              "ppid": 43313,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5473556518554688,
+              "pid": 43318,
+              "ppid": 43314,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43319,
+              "ppid": 43315,
+              "program": "probe-ghostty-surface"
+            }
+          ],
+          "children_bytes": 29937648,
+          "children_mib": 28.550765991210938,
+          "cycle": 1,
+          "fixtures": 8,
+          "label": "visible",
+          "last_change_ms": 1346.2785,
+          "process_bytes": 228492824,
+          "process_mib": 217.9077377319336,
+          "readings": 29,
+          "settled": true,
+          "surfaces": 8,
+          "trace": [
+            [
+              0.000125,
+              227.6264877319336,
+              28.550765991210938
+            ],
+            [
+              105.186583,
+              227.6108627319336,
+              28.550765991210938
+            ],
+            [
+              206.889208,
+              227.6108627319336,
+              28.550765991210938
+            ],
+            [
+              308.191875,
+              227.6108627319336,
+              28.550765991210938
+            ],
+            [
+              410.937625,
+              227.6108627319336,
+              28.550765991210938
+            ],
+            [
+              515.869541,
+              227.6108627319336,
+              28.550765991210938
+            ],
+            [
+              620.226583,
+              227.6264877319336,
+              28.550765991210938
+            ],
+            [
+              722.813791,
+              227.6264877319336,
+              28.550765991210938
+            ],
+            [
+              826.142541,
+              227.6264877319336,
+              28.550765991210938
+            ],
+            [
+              932.080583,
+              227.6421127319336,
+              28.550765991210938
+            ],
+            [
+              1034.926083,
+              220.1421127319336,
+              28.550765991210938
+            ],
+            [
+              1140.234625,
+              220.1421127319336,
+              28.550765991210938
+            ],
+            [
+              1245.428666,
+              220.1421127319336,
+              28.550765991210938
+            ],
+            [
+              1346.2785,
+              217.9077377319336,
+              28.550765991210938
+            ],
+            [
+              1452.078166,
+              217.9077377319336,
+              28.550765991210938
+            ],
+            [
+              1557.710083,
+              217.9077377319336,
+              28.550765991210938
+            ],
+            [
+              1663.11675,
+              217.9077377319336,
+              28.550765991210938
+            ],
+            [
+              1791.493333,
+              217.9077377319336,
+              28.550765991210938
+            ],
+            [
+              1895.575458,
+              217.9077377319336,
+              28.550765991210938
+            ],
+            [
+              2001.445208,
+              217.9077377319336,
+              28.550765991210938
+            ],
+            [
+              2103.346458,
+              217.9077377319336,
+              28.550765991210938
+            ],
+            [
+              2209.139458,
+              217.9077377319336,
+              28.550765991210938
+            ],
+            [
+              2311.777666,
+              217.9077377319336,
+              28.550765991210938
+            ],
+            [
+              2417.38975,
+              217.9077377319336,
+              28.550765991210938
+            ],
+            [
+              2522.820375,
+              217.9077377319336,
+              28.550765991210938
+            ],
+            [
+              2625.139166,
+              217.9233627319336,
+              28.550765991210938
+            ],
+            [
+              2730.862875,
+              217.9077377319336,
+              28.550765991210938
+            ],
+            [
+              2835.145,
+              217.9077377319336,
+              28.550765991210938
+            ],
+            [
+              2940.609625,
+              217.9077377319336,
+              28.550765991210938
+            ]
+          ],
+          "unreadable": [
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43203,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43243,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43269,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43270,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43312,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43313,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43314,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43315,
+              "ppid": 43146,
+              "program": "login"
+            }
+          ]
+        },
+        {
+          "at_ms": 20978.547917,
+          "children": [
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43204,
+              "ppid": 43203,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43244,
+              "ppid": 43243,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786285400390625,
+              "pid": 43271,
+              "ppid": 43270,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786285400390625,
+              "pid": 43272,
+              "ppid": 43269,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786056518554688,
+              "pid": 43316,
+              "ppid": 43312,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786056518554688,
+              "pid": 43317,
+              "ppid": 43313,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5473556518554688,
+              "pid": 43318,
+              "ppid": 43314,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43319,
+              "ppid": 43315,
+              "program": "probe-ghostty-surface"
+            }
+          ],
+          "children_bytes": 29937648,
+          "children_mib": 28.550765991210938,
+          "cycle": 1,
+          "fixtures": 8,
+          "label": "hidden",
+          "last_change_ms": 1357.927083,
+          "process_bytes": 61703680,
+          "process_mib": 58.84521484375,
+          "readings": 29,
+          "settled": true,
+          "surfaces": 8,
+          "trace": [
+            [
+              0.000333,
+              156.61083984375,
+              28.550765991210938
+            ],
+            [
+              105.988625,
+              150.92333984375,
+              28.550765991210938
+            ],
+            [
+              207.608917,
+              150.92333984375,
+              28.550765991210938
+            ],
+            [
+              313.423958,
+              150.92333984375,
+              28.550765991210938
+            ],
+            [
+              416.791125,
+              150.92333984375,
+              28.550765991210938
+            ],
+            [
+              519.49975,
+              150.92333984375,
+              28.550765991210938
+            ],
+            [
+              620.956375,
+              150.92333984375,
+              28.550765991210938
+            ],
+            [
+              726.121333,
+              150.92333984375,
+              28.550765991210938
+            ],
+            [
+              831.672625,
+              61.04833984375,
+              28.550765991210938
+            ],
+            [
+              937.309167,
+              61.04833984375,
+              28.550765991210938
+            ],
+            [
+              1042.783667,
+              61.04833984375,
+              28.550765991210938
+            ],
+            [
+              1148.089458,
+              61.04833984375,
+              28.550765991210938
+            ],
+            [
+              1253.945333,
+              61.04833984375,
+              28.550765991210938
+            ],
+            [
+              1357.927083,
+              58.81396484375,
+              28.550765991210938
+            ],
+            [
+              1458.822083,
+              58.81396484375,
+              28.550765991210938
+            ],
+            [
+              1564.45725,
+              58.81396484375,
+              28.550765991210938
+            ],
+            [
+              1670.616333,
+              58.86083984375,
+              28.550765991210938
+            ],
+            [
+              1773.987417,
+              58.86083984375,
+              28.550765991210938
+            ],
+            [
+              1876.725458,
+              58.86083984375,
+              28.550765991210938
+            ],
+            [
+              1982.322625,
+              58.86083984375,
+              28.550765991210938
+            ],
+            [
+              2088.496,
+              58.86083984375,
+              28.550765991210938
+            ],
+            [
+              2194.412708,
+              58.84521484375,
+              28.550765991210938
+            ],
+            [
+              2299.514458,
+              58.84521484375,
+              28.550765991210938
+            ],
+            [
+              2405.371667,
+              58.84521484375,
+              28.550765991210938
+            ],
+            [
+              2511.312042,
+              58.84521484375,
+              28.550765991210938
+            ],
+            [
+              2614.756333,
+              58.84521484375,
+              28.550765991210938
+            ],
+            [
+              2720.726625,
+              58.84521484375,
+              28.550765991210938
+            ],
+            [
+              2824.146125,
+              58.84521484375,
+              28.550765991210938
+            ],
+            [
+              2930.361583,
+              58.84521484375,
+              28.550765991210938
+            ]
+          ],
+          "unreadable": [
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43203,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43243,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43269,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43270,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43312,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43313,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43314,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43315,
+              "ppid": 43146,
+              "program": "login"
+            }
+          ]
+        },
+        {
+          "at_ms": 23715.916,
+          "children": [
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43204,
+              "ppid": 43203,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43244,
+              "ppid": 43243,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786285400390625,
+              "pid": 43271,
+              "ppid": 43270,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786285400390625,
+              "pid": 43272,
+              "ppid": 43269,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786056518554688,
+              "pid": 43316,
+              "ppid": 43312,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786056518554688,
+              "pid": 43317,
+              "ppid": 43313,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5473556518554688,
+              "pid": 43318,
+              "ppid": 43314,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43319,
+              "ppid": 43315,
+              "program": "probe-ghostty-surface"
+            }
+          ],
+          "children_bytes": 29937648,
+          "children_mib": 28.550765991210938,
+          "cycle": 1,
+          "fixtures": 8,
+          "label": "shown",
+          "last_change_ms": 1148.822792,
+          "process_bytes": 214140464,
+          "process_mib": 204.2202606201172,
+          "readings": 27,
+          "settled": true,
+          "surfaces": 8,
+          "trace": [
+            [
+              0.000417,
+              218.6890106201172,
+              28.550765991210938
+            ],
+            [
+              106.06025,
+              250.4546356201172,
+              28.550765991210938
+            ],
+            [
+              211.140208,
+              250.4546356201172,
+              28.550765991210938
+            ],
+            [
+              315.832,
+              250.4546356201172,
+              28.550765991210938
+            ],
+            [
+              421.770375,
+              250.4546356201172,
+              28.550765991210938
+            ],
+            [
+              524.70025,
+              250.4546356201172,
+              28.550765991210938
+            ],
+            [
+              627.809458,
+              250.4546356201172,
+              28.550765991210938
+            ],
+            [
+              732.955083,
+              250.4546356201172,
+              28.550765991210938
+            ],
+            [
+              836.091208,
+              250.4546356201172,
+              28.550765991210938
+            ],
+            [
+              941.724458,
+              250.4546356201172,
+              28.550765991210938
+            ],
+            [
+              1044.466542,
+              250.4546356201172,
+              28.550765991210938
+            ],
+            [
+              1148.822792,
+              204.2046356201172,
+              28.550765991210938
+            ],
+            [
+              1254.33175,
+              204.2046356201172,
+              28.550765991210938
+            ],
+            [
+              1359.666208,
+              204.2046356201172,
+              28.550765991210938
+            ],
+            [
+              1460.81075,
+              204.2046356201172,
+              28.550765991210938
+            ],
+            [
+              1565.0685,
+              204.2046356201172,
+              28.550765991210938
+            ],
+            [
+              1667.059667,
+              204.2046356201172,
+              28.550765991210938
+            ],
+            [
+              1772.551625,
+              204.2202606201172,
+              28.550765991210938
+            ],
+            [
+              1874.624333,
+              204.2202606201172,
+              28.550765991210938
+            ],
+            [
+              1977.473958,
+              204.2202606201172,
+              28.550765991210938
+            ],
+            [
+              2082.432875,
+              204.2202606201172,
+              28.550765991210938
+            ],
+            [
+              2186.13275,
+              204.2202606201172,
+              28.550765991210938
+            ],
+            [
+              2291.822917,
+              204.2202606201172,
+              28.550765991210938
+            ],
+            [
+              2397.154042,
+              204.2202606201172,
+              28.550765991210938
+            ],
+            [
+              2502.318458,
+              204.2202606201172,
+              28.550765991210938
+            ],
+            [
+              2607.490542,
+              204.2202606201172,
+              28.550765991210938
+            ],
+            [
+              2712.841833,
+              204.2202606201172,
+              28.550765991210938
+            ]
+          ],
+          "unreadable": [
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43203,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43243,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43269,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43270,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43312,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43313,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43314,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43315,
+              "ppid": 43146,
+              "program": "login"
+            }
+          ]
+        },
+        {
+          "at_ms": 25518.965625,
+          "children": [],
+          "children_bytes": 0,
+          "children_mib": 0.0,
+          "cycle": 1,
+          "fixtures": 0,
+          "label": "closed",
+          "last_change_ms": 103.927666,
+          "process_bytes": 49464472,
+          "process_mib": 47.172996520996094,
+          "readings": 17,
+          "settled": true,
+          "surfaces": 0,
+          "trace": [
+            [
+              0.000208,
+              49.407371520996094,
+              0.0
+            ],
+            [
+              103.927666,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              209.261375,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              314.462375,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              418.224541,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              521.122625,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              621.84,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              726.95875,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              832.067875,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              937.23875,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              1042.061208,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              1144.257416,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              1249.537291,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              1354.877291,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              1458.297875,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              1563.602541,
+              47.172996520996094,
+              0.0
+            ],
+            [
+              1667.234083,
+              47.172996520996094,
+              0.0
+            ]
+          ],
+          "unreadable": []
+        },
+        {
+          "at_ms": 28242.340375,
+          "children": [
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43450,
+              "ppid": 43442,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5942306518554688,
+              "pid": 43451,
+              "ppid": 43443,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43452,
+              "ppid": 43444,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43453,
+              "ppid": 43445,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43454,
+              "ppid": 43446,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5942306518554688,
+              "pid": 43455,
+              "ppid": 43447,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43456,
+              "ppid": 43448,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43457,
+              "ppid": 43449,
+              "program": "probe-ghostty-surface"
+            }
+          ],
+          "children_bytes": 30150592,
+          "children_mib": 28.75384521484375,
+          "cycle": 2,
+          "fixtures": 8,
+          "label": "visible",
+          "last_change_ms": 1047.331125,
+          "process_bytes": 138659400,
+          "process_mib": 132.23590850830078,
+          "readings": 26,
+          "settled": true,
+          "surfaces": 8,
+          "trace": [
+            [
+              0.000125,
+              255.84528350830078,
+              28.75384521484375
+            ],
+            [
+              105.178041,
+              255.84528350830078,
+              28.75384521484375
+            ],
+            [
+              210.57275,
+              255.84528350830078,
+              28.75384521484375
+            ],
+            [
+              314.935958,
+              255.84528350830078,
+              28.75384521484375
+            ],
+            [
+              419.56575,
+              255.84528350830078,
+              28.75384521484375
+            ],
+            [
+              520.789666,
+              255.78278350830078,
+              28.75384521484375
+            ],
+            [
+              626.847291,
+              255.78278350830078,
+              28.75384521484375
+            ],
+            [
+              730.837583,
+              255.78278350830078,
+              28.75384521484375
+            ],
+            [
+              836.242625,
+              255.78278350830078,
+              28.75384521484375
+            ],
+            [
+              941.66225,
+              255.78278350830078,
+              28.75384521484375
+            ],
+            [
+              1047.331125,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              1152.43075,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              1258.382375,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              1360.510541,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              1465.747666,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              1571.823791,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              1677.971041,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              1781.722583,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              1886.372375,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              1991.229416,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              2096.874666,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              2202.653875,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              2307.999625,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              2408.415,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              2512.10875,
+              132.23590850830078,
+              28.75384521484375
+            ],
+            [
+              2615.718833,
+              132.23590850830078,
+              28.75384521484375
+            ]
+          ],
+          "unreadable": [
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43442,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43443,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43444,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43445,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43446,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43447,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43448,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43449,
+              "ppid": 43146,
+              "program": "login"
+            }
+          ]
+        },
+        {
+          "at_ms": 29824.685708,
+          "children": [
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43450,
+              "ppid": 43442,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5942306518554688,
+              "pid": 43451,
+              "ppid": 43443,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43452,
+              "ppid": 43444,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43453,
+              "ppid": 43445,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43454,
+              "ppid": 43446,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5942306518554688,
+              "pid": 43455,
+              "ppid": 43447,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43456,
+              "ppid": 43448,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43457,
+              "ppid": 43449,
+              "program": "probe-ghostty-surface"
+            }
+          ],
+          "children_bytes": 30150592,
+          "children_mib": 28.75384521484375,
+          "cycle": 2,
+          "fixtures": 8,
+          "label": "hidden",
+          "last_change_ms": null,
+          "process_bytes": 68404784,
+          "process_mib": 65.23588562011719,
+          "readings": 16,
+          "settled": true,
+          "surfaces": 8,
+          "trace": [
+            [
+              0.00025,
+              65.22026062011719,
+              28.75384521484375
+            ],
+            [
+              102.850625,
+              65.22026062011719,
+              28.75384521484375
+            ],
+            [
+              206.933125,
+              65.22026062011719,
+              28.75384521484375
+            ],
+            [
+              311.57925,
+              65.22026062011719,
+              28.75384521484375
+            ],
+            [
+              414.110292,
+              65.22026062011719,
+              28.75384521484375
+            ],
+            [
+              519.312417,
+              65.22026062011719,
+              28.75384521484375
+            ],
+            [
+              624.543542,
+              65.22026062011719,
+              28.75384521484375
+            ],
+            [
+              727.406333,
+              65.22026062011719,
+              28.75384521484375
+            ],
+            [
+              832.897125,
+              65.22026062011719,
+              28.75384521484375
+            ],
+            [
+              936.8705,
+              65.22026062011719,
+              28.75384521484375
+            ],
+            [
+              1042.07425,
+              65.23588562011719,
+              28.75384521484375
+            ],
+            [
+              1142.788208,
+              65.23588562011719,
+              28.75384521484375
+            ],
+            [
+              1248.70975,
+              65.23588562011719,
+              28.75384521484375
+            ],
+            [
+              1354.915125,
+              65.23588562011719,
+              28.75384521484375
+            ],
+            [
+              1455.757333,
+              65.23588562011719,
+              28.75384521484375
+            ],
+            [
+              1561.596583,
+              65.23588562011719,
+              28.75384521484375
+            ]
+          ],
+          "unreadable": [
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43442,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43443,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43444,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43445,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43446,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43447,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43448,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43449,
+              "ppid": 43146,
+              "program": "login"
+            }
+          ]
+        },
+        {
+          "at_ms": 32557.372792,
+          "children": [
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43450,
+              "ppid": 43442,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5942306518554688,
+              "pid": 43451,
+              "ppid": 43443,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43452,
+              "ppid": 43444,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43453,
+              "ppid": 43445,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43454,
+              "ppid": 43446,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5942306518554688,
+              "pid": 43455,
+              "ppid": 43447,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43456,
+              "ppid": 43448,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43457,
+              "ppid": 43449,
+              "program": "probe-ghostty-surface"
+            }
+          ],
+          "children_bytes": 30150592,
+          "children_mib": 28.75384521484375,
+          "cycle": 2,
+          "fixtures": 8,
+          "label": "shown",
+          "last_change_ms": 1139.844583,
+          "process_bytes": 218515016,
+          "process_mib": 208.39215850830078,
+          "readings": 27,
+          "settled": true,
+          "surfaces": 8,
+          "trace": [
+            [
+              0.00025,
+              184.7046356201172,
+              28.75384521484375
+            ],
+            [
+              102.68125,
+              259.8765335083008,
+              28.75384521484375
+            ],
+            [
+              204.482125,
+              259.9390335083008,
+              28.75384521484375
+            ],
+            [
+              310.434583,
+              259.9390335083008,
+              28.75384521484375
+            ],
+            [
+              414.77725,
+              259.9390335083008,
+              28.75384521484375
+            ],
+            [
+              518.31925,
+              259.9390335083008,
+              28.75384521484375
+            ],
+            [
+              619.829458,
+              259.9390335083008,
+              28.75384521484375
+            ],
+            [
+              725.239583,
+              259.9390335083008,
+              28.75384521484375
+            ],
+            [
+              829.987708,
+              259.9390335083008,
+              28.75384521484375
+            ],
+            [
+              931.897541,
+              259.9390335083008,
+              28.75384521484375
+            ],
+            [
+              1035.672208,
+              259.9390335083008,
+              28.75384521484375
+            ],
+            [
+              1139.844583,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              1245.638208,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              1346.939666,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              1449.209041,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              1554.771208,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              1660.546875,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              1765.126625,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              1869.818666,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              1975.327916,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              2080.637666,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              2184.899125,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              2289.5805,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              2394.827583,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              2500.366916,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              2604.806666,
+              208.39215850830078,
+              28.75384521484375
+            ],
+            [
+              2707.081333,
+              208.39215850830078,
+              28.75384521484375
+            ]
+          ],
+          "unreadable": [
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43442,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43443,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43444,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43445,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43446,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43447,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43448,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43449,
+              "ppid": 43146,
+              "program": "login"
+            }
+          ]
+        },
+        {
+          "at_ms": 34564.312917,
+          "children": [],
+          "children_bytes": 0,
+          "children_mib": 0.0,
+          "cycle": 2,
+          "fixtures": 0,
+          "label": "closed",
+          "last_change_ms": 315.557084,
+          "process_bytes": 53642416,
+          "process_mib": 51.15739440917969,
+          "readings": 19,
+          "settled": true,
+          "surfaces": 0,
+          "trace": [
+            [
+              0.000209,
+              53.39176940917969,
+              0.0
+            ],
+            [
+              104.93125,
+              53.39176940917969,
+              0.0
+            ],
+            [
+              210.159209,
+              53.39176940917969,
+              0.0
+            ],
+            [
+              315.557084,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              416.114584,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              519.431834,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              624.639,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              728.381334,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              829.799375,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              935.03175,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              1036.5155,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              1141.754917,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              1247.11725,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              1348.620834,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              1453.964167,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              1554.794542,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              1660.050667,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              1761.354042,
+              51.15739440917969,
+              0.0
+            ],
+            [
+              1864.815459,
+              51.15739440917969,
+              0.0
+            ]
+          ],
+          "unreadable": []
+        },
+        {
+          "at_ms": 37389.6115,
+          "children": [
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43533,
+              "ppid": 43526,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6255035400390625,
+              "pid": 43534,
+              "ppid": 43525,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43535,
+              "ppid": 43528,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5942306518554688,
+              "pid": 43536,
+              "ppid": 43527,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.594207763671875,
+              "pid": 43537,
+              "ppid": 43529,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43538,
+              "ppid": 43530,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786285400390625,
+              "pid": 43539,
+              "ppid": 43531,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786056518554688,
+              "pid": 43540,
+              "ppid": 43532,
+              "program": "probe-ghostty-surface"
+            }
+          ],
+          "children_bytes": 30150616,
+          "children_mib": 28.753868103027344,
+          "cycle": 3,
+          "fixtures": 8,
+          "label": "visible",
+          "last_change_ms": 1149.007791,
+          "process_bytes": 140559968,
+          "process_mib": 134.04843139648438,
+          "readings": 27,
+          "settled": true,
+          "surfaces": 8,
+          "trace": [
+            [
+              0.000083,
+              255.73593139648438,
+              28.753868103027344
+            ],
+            [
+              105.183416,
+              255.73593139648438,
+              28.753868103027344
+            ],
+            [
+              207.209958,
+              255.73593139648438,
+              28.753868103027344
+            ],
+            [
+              310.354708,
+              255.73593139648438,
+              28.753868103027344
+            ],
+            [
+              414.784083,
+              255.72030639648438,
+              28.753868103027344
+            ],
+            [
+              520.2415,
+              255.72030639648438,
+              28.753868103027344
+            ],
+            [
+              625.056208,
+              255.72030639648438,
+              28.753868103027344
+            ],
+            [
+              730.949833,
+              255.72030639648438,
+              28.753868103027344
+            ],
+            [
+              832.117125,
+              255.72030639648438,
+              28.753868103027344
+            ],
+            [
+              937.824125,
+              255.72030639648438,
+              28.753868103027344
+            ],
+            [
+              1043.44375,
+              204.92343139648438,
+              28.753868103027344
+            ],
+            [
+              1149.007791,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              1250.870916,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              1356.767833,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              1461.53475,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              1566.43025,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              1670.280916,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              1775.776583,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              1881.490875,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              1986.792041,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              2091.19725,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              2194.25675,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              2299.839625,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              2405.823333,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              2509.738166,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              2614.731291,
+              134.04843139648438,
+              28.753868103027344
+            ],
+            [
+              2720.954041,
+              134.04843139648438,
+              28.753868103027344
+            ]
+          ],
+          "unreadable": [
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43525,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43526,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43527,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43528,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43529,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43530,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43531,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43532,
+              "ppid": 43146,
+              "program": "login"
+            }
+          ]
+        },
+        {
+          "at_ms": 38981.924208,
+          "children": [
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43533,
+              "ppid": 43526,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6255035400390625,
+              "pid": 43534,
+              "ppid": 43525,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43535,
+              "ppid": 43528,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5942306518554688,
+              "pid": 43536,
+              "ppid": 43527,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.594207763671875,
+              "pid": 43537,
+              "ppid": 43529,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43538,
+              "ppid": 43530,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786285400390625,
+              "pid": 43539,
+              "ppid": 43531,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786056518554688,
+              "pid": 43540,
+              "ppid": 43532,
+              "program": "probe-ghostty-surface"
+            }
+          ],
+          "children_bytes": 30150616,
+          "children_mib": 28.753868103027344,
+          "cycle": 3,
+          "fixtures": 8,
+          "label": "hidden",
+          "last_change_ms": null,
+          "process_bytes": 70321760,
+          "process_mib": 67.06405639648438,
+          "readings": 16,
+          "settled": true,
+          "surfaces": 8,
+          "trace": [
+            [
+              0.000292,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              106.2895,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              214.159042,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              317.194792,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              422.669292,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              528.49525,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              634.3295,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              739.986084,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              844.926417,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              946.181959,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              1051.855375,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              1155.824834,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              1257.810625,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              1363.260417,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              1464.130834,
+              67.04843139648438,
+              28.753868103027344
+            ],
+            [
+              1569.917375,
+              67.06405639648438,
+              28.753868103027344
+            ]
+          ],
+          "unreadable": [
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43525,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43526,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43527,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43528,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43529,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43530,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43531,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43532,
+              "ppid": 43146,
+              "program": "login"
+            }
+          ]
+        },
+        {
+          "at_ms": 41834.423833,
+          "children": [
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43533,
+              "ppid": 43526,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6255035400390625,
+              "pid": 43534,
+              "ppid": 43525,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.6098556518554688,
+              "pid": 43535,
+              "ppid": 43528,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5942306518554688,
+              "pid": 43536,
+              "ppid": 43527,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.594207763671875,
+              "pid": 43537,
+              "ppid": 43529,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5629806518554688,
+              "pid": 43538,
+              "ppid": 43530,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786285400390625,
+              "pid": 43539,
+              "ppid": 43531,
+              "program": "probe-ghostty-surface"
+            },
+            {
+              "mib": 3.5786056518554688,
+              "pid": 43540,
+              "ppid": 43532,
+              "program": "probe-ghostty-surface"
+            }
+          ],
+          "children_bytes": 30150616,
+          "children_mib": 28.753868103027344,
+          "cycle": 3,
+          "fixtures": 8,
+          "label": "shown",
+          "last_change_ms": 1257.656125,
+          "process_bytes": 219104864,
+          "process_mib": 208.95468139648438,
+          "readings": 28,
+          "settled": true,
+          "surfaces": 8,
+          "trace": [
+            [
+              0.000125,
+              242.97030639648438,
+              28.753868103027344
+            ],
+            [
+              106.414542,
+              254.87655639648438,
+              28.753868103027344
+            ],
+            [
+              207.64825,
+              254.87655639648438,
+              28.753868103027344
+            ],
+            [
+              313.130333,
+              254.87655639648438,
+              28.753868103027344
+            ],
+            [
+              418.515542,
+              254.87655639648438,
+              28.753868103027344
+            ],
+            [
+              524.513417,
+              254.87655639648438,
+              28.753868103027344
+            ],
+            [
+              628.633208,
+              254.87655639648438,
+              28.753868103027344
+            ],
+            [
+              734.048042,
+              254.87655639648438,
+              28.753868103027344
+            ],
+            [
+              840.176042,
+              254.87655639648438,
+              28.753868103027344
+            ],
+            [
+              946.132167,
+              254.87655639648438,
+              28.753868103027344
+            ],
+            [
+              1051.013417,
+              254.87655639648438,
+              28.753868103027344
+            ],
+            [
+              1154.750042,
+              254.87655639648438,
+              28.753868103027344
+            ],
+            [
+              1257.656125,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              1362.494125,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              1468.628792,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              1574.625083,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              1680.574292,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              1785.073792,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              1890.662458,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              1994.33725,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              2096.537792,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              2201.840083,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              2305.531583,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              2409.8975,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              2515.937292,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              2621.562583,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              2724.506125,
+              208.95468139648438,
+              28.753868103027344
+            ],
+            [
+              2829.16275,
+              208.95468139648438,
+              28.753868103027344
+            ]
+          ],
+          "unreadable": [
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43525,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43526,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43527,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43528,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43529,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43530,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43531,
+              "ppid": 43146,
+              "program": "login"
+            },
+            {
+              "error": "Operation not permitted (os error 1)",
+              "pid": 43532,
+              "ppid": 43146,
+              "program": "login"
+            }
+          ]
+        },
+        {
+          "at_ms": 43624.779458,
+          "children": [],
+          "children_bytes": 0,
+          "children_mib": 0.0,
+          "cycle": 3,
+          "fixtures": 0,
+          "label": "closed",
+          "last_change_ms": 105.198625,
+          "process_bytes": 55870664,
+          "process_mib": 53.28241729736328,
+          "readings": 17,
+          "settled": true,
+          "surfaces": 0,
+          "trace": [
+            [
+              0.000292,
+              55.51679229736328,
+              0.0
+            ],
+            [
+              105.198625,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              210.561417,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              312.171542,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              412.973334,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              517.754834,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              621.981,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              722.448125,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              827.58775,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              932.888292,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              1034.258667,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              1135.704209,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              1239.922459,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              1340.919959,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              1446.22175,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              1551.5635,
+              53.28241729736328,
+              0.0
+            ],
+            [
+              1652.916792,
+              53.28241729736328,
+              0.0
+            ]
+          ],
+          "unreadable": []
+        }
+      ]
+    },
+    {
+      "key": "memory_unsettled",
+      "value": []
+    },
+    {
+      "key": "ghostty_runtime",
+      "value": {
+        "app_focus": [],
+        "clipboard_denied": 0,
+        "clipboard_denied_on_retire": 0,
+        "clipboard_held": 0,
+        "clipboard_late_skipped": 0,
+        "clipboard_served": 0,
+        "clipboard_write_confirm_denied": 0,
+        "clipboard_written": 0,
+        "close_intents": 24,
+        "close_sources": {
+          "probe:scheduled": 24
+        },
+        "creations": [
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404722201461500,
+            "injected": null,
+            "key": "s0g1",
+            "new_ms": 10.322625,
+            "pass": 1,
+            "started_ns": 404722191138875,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404724973433666,
+            "injected": null,
+            "key": "s1g1",
+            "new_ms": 4.36675,
+            "pass": 6,
+            "started_ns": 404724969066916,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404727961536791,
+            "injected": null,
+            "key": "s2g1",
+            "new_ms": 5.561916,
+            "pass": 11,
+            "started_ns": 404727955974875,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404727965255333,
+            "injected": null,
+            "key": "s3g1",
+            "new_ms": 3.3295,
+            "pass": 11,
+            "started_ns": 404727961925833,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404730957513708,
+            "injected": null,
+            "key": "s4g1",
+            "new_ms": 4.191833,
+            "pass": 20,
+            "started_ns": 404730953321875,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404730967568958,
+            "injected": null,
+            "key": "s5g1",
+            "new_ms": 9.696542,
+            "pass": 20,
+            "started_ns": 404730957872416,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404730977939625,
+            "injected": null,
+            "key": "s6g1",
+            "new_ms": 8.801625,
+            "pass": 20,
+            "started_ns": 404730969138000,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404730987116916,
+            "injected": null,
+            "key": "s7g1",
+            "new_ms": 6.594875,
+            "pass": 20,
+            "started_ns": 404730980522041,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404741496483166,
+            "injected": null,
+            "key": "s8g1",
+            "new_ms": 12.861791,
+            "pass": 34,
+            "started_ns": 404741483621375,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404741504091916,
+            "injected": null,
+            "key": "s9g1",
+            "new_ms": 7.310958,
+            "pass": 34,
+            "started_ns": 404741496780958,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404741509251333,
+            "injected": null,
+            "key": "s10g1",
+            "new_ms": 4.557583,
+            "pass": 34,
+            "started_ns": 404741504693750,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404741513574000,
+            "injected": null,
+            "key": "s11g1",
+            "new_ms": 3.982042,
+            "pass": 34,
+            "started_ns": 404741509591958,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404741517962250,
+            "injected": null,
+            "key": "s12g1",
+            "new_ms": 4.195917,
+            "pass": 34,
+            "started_ns": 404741513766333,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404741521920625,
+            "injected": null,
+            "key": "s13g1",
+            "new_ms": 3.617875,
+            "pass": 34,
+            "started_ns": 404741518302750,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404741525536375,
+            "injected": null,
+            "key": "s14g1",
+            "new_ms": 3.290667,
+            "pass": 34,
+            "started_ns": 404741522245708,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404741529221750,
+            "injected": null,
+            "key": "s15g1",
+            "new_ms": 3.421125,
+            "pass": 34,
+            "started_ns": 404741525800625,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404750540747125,
+            "injected": null,
+            "key": "s16g1",
+            "new_ms": 11.835667,
+            "pass": 53,
+            "started_ns": 404750528911458,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404750546846208,
+            "injected": null,
+            "key": "s17g1",
+            "new_ms": 5.931958,
+            "pass": 53,
+            "started_ns": 404750540914250,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404750551422500,
+            "injected": null,
+            "key": "s18g1",
+            "new_ms": 4.27925,
+            "pass": 53,
+            "started_ns": 404750547143250,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404750556073500,
+            "injected": null,
+            "key": "s19g1",
+            "new_ms": 4.40275,
+            "pass": 53,
+            "started_ns": 404750551670750,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404750560723041,
+            "injected": null,
+            "key": "s20g1",
+            "new_ms": 4.33425,
+            "pass": 53,
+            "started_ns": 404750556388791,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404750564490250,
+            "injected": null,
+            "key": "s21g1",
+            "new_ms": 3.513667,
+            "pass": 53,
+            "started_ns": 404750560976583,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404750568116875,
+            "injected": null,
+            "key": "s22g1",
+            "new_ms": 3.373417,
+            "pass": 53,
+            "started_ns": 404750564743458,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404750571534750,
+            "injected": null,
+            "key": "s23g1",
+            "new_ms": 3.222125,
+            "pass": 53,
+            "started_ns": 404750568312625,
+            "trigger": "initial"
+          }
+        ],
+        "delivered": {
+          "close-intent": 24,
+          "config-change": 1,
+          "unsupported": 123
+        },
+        "dropped_at_source": 0,
+        "dropped_stale": 0,
+        "frees_held_passes": 0,
+        "layout_retries": 0,
+        "log": [
+          "pass=1 t=404717557680875 app ConfigChange → delivered",
+          "pass=32 t=404739680117208 s0g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=32 t=404739680127541 s1g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=32 t=404739680127916 s2g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=32 t=404739680128333 s3g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=32 t=404739680128833 s4g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=32 t=404739680133250 s5g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=32 t=404739680133375 s6g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=32 t=404739680133541 s7g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=51 t=404748521241041 s8g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=51 t=404748521248750 s9g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=51 t=404748521249416 s10g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=51 t=404748521249958 s11g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=51 t=404748521250500 s12g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=51 t=404748521252000 s13g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=51 t=404748521252416 s14g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=51 t=404748521252833 s15g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=72 t=404757798635750 s16g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=72 t=404757798653583 s17g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=72 t=404757798654375 s18g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=72 t=404757798655041 s19g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=72 t=404757798655791 s20g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=72 t=404757798657791 s21g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=72 t=404757798658208 s22g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=72 t=404757798658625 s23g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled"
+        ],
+        "messages": 148,
+        "messages_pushed": 148,
+        "passes": 74,
+        "passes_tracking": 0,
+        "releases": [
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404739696088875,
+            "free_ms": 15.792417,
+            "key": "s0g1",
+            "messages_during_free": 0,
+            "pass": 33,
+            "started_ns": 404739680296458
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404739711983958,
+            "free_ms": 15.883708,
+            "key": "s1g1",
+            "messages_during_free": 0,
+            "pass": 33,
+            "started_ns": 404739696100250
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404739726341875,
+            "free_ms": 14.350917,
+            "key": "s2g1",
+            "messages_during_free": 0,
+            "pass": 33,
+            "started_ns": 404739711990958
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404739740591041,
+            "free_ms": 14.242125,
+            "key": "s3g1",
+            "messages_during_free": 0,
+            "pass": 33,
+            "started_ns": 404739726348916
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404739754741541,
+            "free_ms": 14.14525,
+            "key": "s4g1",
+            "messages_during_free": 0,
+            "pass": 33,
+            "started_ns": 404739740596291
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404739767589083,
+            "free_ms": 12.84225,
+            "key": "s5g1",
+            "messages_during_free": 0,
+            "pass": 33,
+            "started_ns": 404739754746833
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404739780471416,
+            "free_ms": 12.876375,
+            "key": "s6g1",
+            "messages_during_free": 0,
+            "pass": 33,
+            "started_ns": 404739767595041
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404739799886333,
+            "free_ms": 19.412875,
+            "key": "s7g1",
+            "messages_during_free": 1,
+            "pass": 33,
+            "started_ns": 404739780473458
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404748537169791,
+            "free_ms": 15.748416,
+            "key": "s8g1",
+            "messages_during_free": 0,
+            "pass": 52,
+            "started_ns": 404748521421375
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404748551731916,
+            "free_ms": 14.55,
+            "key": "s9g1",
+            "messages_during_free": 0,
+            "pass": 52,
+            "started_ns": 404748537181916
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404748566078666,
+            "free_ms": 14.33925,
+            "key": "s10g1",
+            "messages_during_free": 0,
+            "pass": 52,
+            "started_ns": 404748551739416
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404748580448791,
+            "free_ms": 14.363875,
+            "key": "s11g1",
+            "messages_during_free": 0,
+            "pass": 52,
+            "started_ns": 404748566084916
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404748594626000,
+            "free_ms": 14.172167,
+            "key": "s12g1",
+            "messages_during_free": 0,
+            "pass": 52,
+            "started_ns": 404748580453833
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404748609032958,
+            "free_ms": 14.4005,
+            "key": "s13g1",
+            "messages_during_free": 0,
+            "pass": 52,
+            "started_ns": 404748594632458
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404748624778291,
+            "free_ms": 15.739583,
+            "key": "s14g1",
+            "messages_during_free": 0,
+            "pass": 52,
+            "started_ns": 404748609038708
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404748645439458,
+            "free_ms": 20.653125,
+            "key": "s15g1",
+            "messages_during_free": 1,
+            "pass": 52,
+            "started_ns": 404748624786333
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404757814763750,
+            "free_ms": 15.865584,
+            "key": "s16g1",
+            "messages_during_free": 0,
+            "pass": 73,
+            "started_ns": 404757798898166
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404757830595625,
+            "free_ms": 15.815459,
+            "key": "s17g1",
+            "messages_during_free": 0,
+            "pass": 73,
+            "started_ns": 404757814780166
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404757844994416,
+            "free_ms": 14.385541,
+            "key": "s18g1",
+            "messages_during_free": 0,
+            "pass": 73,
+            "started_ns": 404757830608875
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404757859287416,
+            "free_ms": 14.285666,
+            "key": "s19g1",
+            "messages_during_free": 0,
+            "pass": 73,
+            "started_ns": 404757845001750
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404757873432291,
+            "free_ms": 14.133375,
+            "key": "s20g1",
+            "messages_during_free": 0,
+            "pass": 73,
+            "started_ns": 404757859298916
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404757887624125,
+            "free_ms": 14.186375,
+            "key": "s21g1",
+            "messages_during_free": 0,
+            "pass": 73,
+            "started_ns": 404757873437750
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404757901770958,
+            "free_ms": 14.14375,
+            "key": "s22g1",
+            "messages_during_free": 0,
+            "pass": 73,
+            "started_ns": 404757887627208
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404757921008208,
+            "free_ms": 19.234417,
+            "key": "s23g1",
+            "messages_during_free": 1,
+            "pass": 73,
+            "started_ns": 404757901773791
+          }
+        ],
+        "scheme_changes": [],
+        "screen_wakes": 0,
+        "surface_config_updates": 0,
+        "surfaces_created": 24,
+        "surfaces_failed": 0,
+        "surfaces_freed": 24,
+        "unsupported_actions": {
+          "22": 24,
+          "25": 24,
+          "26": 48,
+          "43": 27
+        },
+        "wakeups": 224
+      }
+    },
+    {
+      "key": "surface_view_feeds",
+      "value": {
+        "detached_skipped": 0,
+        "display_ids": [
+          1
+        ],
+        "focus": [
+          true,
+          false,
+          true
+        ],
+        "last_scale": [
+          2.0,
+          2.0
+        ],
+        "last_size_px": [
+          560,
+          680
+        ],
+        "preedits": [],
+        "refreshes": 1,
+        "scale_feeds": 1,
+        "size_feeds": 1,
+        "zero_size_skipped": 0
+      }
+    },
+    {
+      "key": "events_posted",
+      "value": "0"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "9167"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "memory.app_new",
+      "unit": "MiB",
+      "samples": [
+        1.8750228881835938
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 1.8750228881835938,
+        "p95": 1.8750228881835938,
+        "max": 1.8750228881835938
+      }
+    },
+    {
+      "name": "memory.first_increment",
+      "unit": "MiB",
+      "samples": [
+        107.53134155273438
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 107.53134155273438,
+        "p95": 107.53134155273438,
+        "max": 107.53134155273438
+      }
+    },
+    {
+      "name": "memory.marginal_increment",
+      "unit": "MiB",
+      "samples": [
+        12.551404680524554
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 12.551404680524554,
+        "p95": 12.551404680524554,
+        "max": 12.551404680524554
+      }
+    },
+    {
+      "name": "memory.marginal_steps",
+      "unit": "MiB",
+      "samples": [
+        12.765693664550781,
+        12.421943664550781,
+        12.562562942504883
+      ],
+      "summary": {
+        "count": 3,
+        "p50": 12.562562942504883,
+        "p95": 12.765693664550781,
+        "max": 12.765693664550781
+      }
+    },
+    {
+      "name": "memory.fixture",
+      "unit": "MiB",
+      "samples": [
+        3.5629806518554688,
+        3.5629806518554688,
+        3.5786285400390625,
+        3.5786285400390625,
+        3.5786056518554688,
+        3.5786056518554688,
+        3.5473556518554688,
+        3.5629806518554688
+      ],
+      "summary": {
+        "count": 8,
+        "p50": 3.5629806518554688,
+        "p95": 3.5786285400390625,
+        "max": 3.5786285400390625
+      }
+    },
+    {
+      "name": "memory.visible8",
+      "unit": "MiB",
+      "samples": [
+        217.9077377319336,
+        132.23590850830078,
+        134.04843139648438
+      ],
+      "summary": {
+        "count": 3,
+        "p50": 134.04843139648438,
+        "p95": 217.9077377319336,
+        "max": 217.9077377319336
+      }
+    },
+    {
+      "name": "memory.hidden_per_surface",
+      "unit": "MiB",
+      "samples": [
+        -19.88281536102295,
+        -8.37500286102295,
+        -8.373046875
+      ],
+      "summary": {
+        "count": 3,
+        "p50": -8.37500286102295,
+        "p95": -8.373046875,
+        "max": -8.373046875
+      }
+    },
+    {
+      "name": "memory.shown_per_surface",
+      "unit": "MiB",
+      "samples": [
+        18.1718807220459,
+        17.89453411102295,
+        17.736328125
+      ],
+      "summary": {
+        "count": 3,
+        "p50": 17.89453411102295,
+        "p95": 18.1718807220459,
+        "max": 18.1718807220459
+      }
+    },
+    {
+      "name": "memory.residual",
+      "unit": "MiB",
+      "samples": [
+        24.65643310546875,
+        28.640830993652344,
+        30.765853881835938
+      ],
+      "summary": {
+        "count": 3,
+        "p50": 28.640830993652344,
+        "p95": 30.765853881835938,
+        "max": 30.765853881835938
+      }
+    },
+    {
+      "name": "surface_free",
+      "unit": "ms",
+      "samples": [
+        15.792417,
+        15.883708,
+        14.350917,
+        14.242125,
+        14.14525,
+        12.84225,
+        12.876375,
+        19.412875,
+        15.748416,
+        14.55,
+        14.33925,
+        14.363875,
+        14.172167,
+        14.4005,
+        15.739583,
+        20.653125,
+        15.865584,
+        15.815459,
+        14.385541,
+        14.285666,
+        14.133375,
+        14.186375,
+        14.14375,
+        19.234417
+      ],
+      "summary": {
+        "count": 24,
+        "p50": 14.363875,
+        "p95": 19.412875,
+        "max": 20.653125
+      }
+    },
+    {
+      "name": "app_free",
+      "unit": "ms",
+      "samples": [
+        0.030834
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 0.030834,
+        "p95": 0.030834,
+        "max": 0.030834
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "name": "h10-first-increment",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "M(1) − M(0) = +107.5 МиБ: приложение без поверхностей 22.5 МиБ, одна поверхность 130.0 МиБ; потомки отдельно 3.6 МиБ, фикстур 1 из 1, фикстура 3.6 МиБ, непрочитанных потомков 1 (login)"
+    },
+    {
+      "name": "h10-marginal-increment",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "(M(8) − M(1)) / 7 = +12.6 МиБ на поверхность; по шагам 1→2 +12.8, 2→4 +12.4, 4→8 +12.6 МиБ на поверхность; M(2) 142.8, M(4) 167.7, M(8) 217.9 МиБ; потомки отдельно 28.6 МиБ, фикстур 8 из 8, фикстура 3.6 МиБ, непрочитанных потомков 8 (login, login, login, login, login, login, login, login)"
+    },
+    {
+      "name": "h10-hidden-cost",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "скрытие восьми видимых поверхностей, МиБ на поверхность по циклам: -19.9, -8.4, -8.4; показ скрытых: +18.2, +17.9, +17.7; процесс видимые → скрытые → снова видимые, МиБ: цикл 1: 217.9 → 58.8 → 204.2; цикл 2: 132.2 → 65.2 → 208.4; цикл 3: 134.0 → 67.1 → 209.0; в первом цикле поверхности создавались по одной, в остальных сразу по восемь; минус — память отпущена"
+    },
+    {
+      "name": "h10-residual",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "остаток над M(0) после закрытия всех поверхностей по циклам: +24.7, +28.6, +30.8 МиБ; разовая часть (после первого цикла) +24.7 МиБ, рост за цикл между первым и последним +3.1 МиБ — необъяснённый остаток: память, которую процесс не вернул после освобождения поверхностей и выхода фикстур"
+    },
+    {
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 24, создано 24, освобождено 24, вызовов free 24"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "… 46 ранних строк вытеснено",
+      "18024.828ms шаг «устоявшийся замер памяти» готов за 2950.5 мс",
+      "18024.882ms память visible ×8 цикл 1: процесс 217.9 МиБ, потомки 28.6 МиБ, устоялась true",
+      "18030.041ms шаг «скрытие общего родителя поверхностей» готов за 5.1 мс",
+      "18037.776ms шаг «модель подала скрытие всем поверхностям» готов за 6.4 мс",
+      "20978.500ms шаг «устоявшийся замер памяти» готов за 2940.7 мс",
+      "20978.555ms память hidden ×8 цикл 1: процесс 58.8 МиБ, потомки 28.6 МиБ, устоялась true",
+      "20984.189ms шаг «показ общего родителя поверхностей» готов за 5.6 мс",
+      "20990.208ms шаг «модель подала показ всем поверхностям» готов за 5.4 мс",
+      "23715.883ms шаг «устоявшийся замер памяти» готов за 2725.6 мс",
+      "23715.920ms память shown ×8 цикл 1: процесс 204.2 МиБ, потомки 28.6 МиБ, устоялась true",
+      "23721.665ms шаг «намерение закрыть все поверхности» готов за 5.7 мс",
+      "23841.534ms шаг «освобождение поверхностей и выход фикстур» готов за 119.8 мс",
+      "25518.926ms шаг «устоявшийся замер памяти» готов за 1675.6 мс",
+      "25518.970ms память closed ×0 цикл 1: процесс 47.2 МиБ, потомки 0.0 МиБ, устоялась true",
+      "25524.707ms шаг «новые поверхности с фикстурой» готов за 5.7 мс",
+      "25538.104ms поверхность s8g1 создана за 12.9 мс",
+      "25545.745ms поверхность s9g1 создана за 7.3 мс",
+      "25550.859ms поверхность s10g1 создана за 4.6 мс",
+      "25555.167ms поверхность s11g1 создана за 4.0 мс",
+      "25559.576ms поверхность s12g1 создана за 4.2 мс",
+      "25563.526ms поверхность s13g1 создана за 3.6 мс",
+      "25567.138ms поверхность s14g1 создана за 3.3 мс",
+      "25570.874ms поверхность s15g1 создана за 3.4 мс",
+      "25570.897ms поверхностей с фикстурой 8",
+      "25616.534ms шаг «готовность фикстур, первый кадр и подача видимости» готов за 45.6 мс",
+      "28242.275ms шаг «устоявшийся замер памяти» готов за 2625.6 мс",
+      "28242.347ms память visible ×8 цикл 2: процесс 132.2 МиБ, потомки 28.8 МиБ, устоялась true",
+      "28248.120ms шаг «скрытие общего родителя поверхностей» готов за 5.7 мс",
+      "28253.942ms шаг «модель подала скрытие всем поверхностям» готов за 5.2 мс",
+      "29824.597ms шаг «устоявшийся замер памяти» готов за 1570.6 мс",
+      "29824.702ms память hidden ×8 цикл 2: процесс 65.2 МиБ, потомки 28.8 МиБ, устоялась true",
+      "29830.401ms шаг «показ общего родителя поверхностей» готов за 5.7 мс",
+      "29836.745ms шаг «модель подала показ всем поверхностям» готов за 5.7 мс",
+      "32557.350ms шаг «устоявшийся замер памяти» готов за 2720.6 мс",
+      "32557.375ms память shown ×8 цикл 2: процесс 208.4 МиБ, потомки 28.8 МиБ, устоялась true",
+      "32562.790ms шаг «намерение закрыть все поверхности» готов за 5.4 мс",
+      "32687.113ms шаг «освобождение поверхностей и выход фикстур» готов за 124.3 мс",
+      "34564.283ms шаг «устоявшийся замер памяти» готов за 1875.5 мс",
+      "34564.316ms память closed ×0 цикл 2: процесс 51.2 МиБ, потомки 0.0 МиБ, устоялась true",
+      "34570.032ms шаг «новые поверхности с фикстурой» готов за 5.7 мс",
+      "34582.362ms поверхность s16g1 создана за 11.8 мс",
+      "34588.450ms поверхность s17g1 создана за 5.9 мс",
+      "34593.022ms поверхность s18g1 создана за 4.3 мс",
+      "34597.688ms поверхность s19g1 создана за 4.4 мс",
+      "34602.317ms поверхность s20g1 создана за 4.3 мс",
+      "34606.091ms поверхность s21g1 создана за 3.5 мс",
+      "34609.716ms поверхность s22g1 создана за 3.4 мс",
+      "34613.124ms поверхность s23g1 создана за 3.2 мс",
+      "34613.130ms поверхностей с фикстурой 8",
+      "34658.777ms шаг «готовность фикстур, первый кадр и подача видимости» готов за 45.6 мс",
+      "37389.540ms шаг «устоявшийся замер памяти» готов за 2730.6 мс",
+      "37389.617ms память visible ×8 цикл 3: процесс 134.0 МиБ, потомки 28.8 МиБ, устоялась true",
+      "37395.312ms шаг «скрытие общего родителя поверхностей» готов за 5.7 мс",
+      "37401.258ms шаг «модель подала скрытие всем поверхностям» готов за 5.7 мс",
+      "38981.897ms шаг «устоявшийся замер памяти» готов за 1580.6 мс",
+      "38981.927ms память hidden ×8 цикл 3: процесс 67.1 МиБ, потомки 28.8 МиБ, устоялась true",
+      "38987.245ms шаг «показ общего родителя поверхностей» готов за 5.3 мс",
+      "38993.669ms шаг «модель подала показ всем поверхностям» готов за 6.1 мс",
+      "41834.376ms шаг «устоявшийся замер памяти» готов за 2840.7 мс",
+      "41834.432ms память shown ×8 цикл 3: процесс 209.0 МиБ, потомки 28.8 МиБ, устоялась true",
+      "41840.171ms шаг «намерение закрыть все поверхности» готов за 5.7 мс",
+      "41962.653ms шаг «освобождение поверхностей и выход фикстур» готов за 122.4 мс",
+      "43624.755ms шаг «устоявшийся замер памяти» готов за 1660.5 мс",
+      "43624.781ms память closed ×0 цикл 3: процесс 53.3 МиБ, потомки 0.0 МиБ, устоялась true"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeAppActivity",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeScreenWake",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeStandView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSurfaceView",
+        "created": 24,
+        "released": 0,
+        "live": 24
+      }
+    ]
+  }
+}

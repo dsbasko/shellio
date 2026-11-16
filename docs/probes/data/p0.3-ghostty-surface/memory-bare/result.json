@@ -1,0 +1,301 @@
+{
+  "schema": 1,
+  "scenario": "memory",
+  "variant": "bare",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "6b91e3f56492",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.3.2, objc2-quartz-core 0.3.2",
+      "ghostty_version": "1.4.0",
+      "ghostty_rev": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "process": {
+      "pid": 43105,
+      "route": "direct",
+      "nonce": "cc7c13589637d604",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_STATE_DIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.cc7c13589637d604",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    },
+    "bundle": {
+      "path": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app",
+      "identifier": "io.github.dsbasko.shellio.probe.ghostty-surface",
+      "executable": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface",
+      "signature": "valid: identifier \"io.github.dsbasko.shellio.probe.ghostty-surface\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC"
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "окно на экране, приложение активно",
+      "status": "ready",
+      "waited_ms": 26.460542,
+      "at_ms": 29.859792,
+      "state": "isActive=true keyWindow=#41521 mainWindow=#41521 firstResponder=ProbeStandView cursor=250,266"
+    },
+    {
+      "index": 1,
+      "name": "устоявшийся замер памяти",
+      "status": "ready",
+      "waited_ms": 1570.575667,
+      "at_ms": 1600.481,
+      "state": "isActive=true keyWindow=#41521 mainWindow=#41521 firstResponder=ProbeStandView cursor=250,266"
+    }
+  ],
+  "events": [],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "memory"
+    },
+    {
+      "key": "route",
+      "value": "direct"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "variant",
+      "value": "bare"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "memory_note",
+      "value": "ri_phys_footprint из proc_pid_rusage, потомки (обёртка, оболочка, фикстура) отдельно; МиБ = 2^20 байт; каждое состояние — серия показаний с шагом 100 мс до устоявшейся памяти (окно 1,5 с, порог 1 МиБ, предел 6 с); бюджет 150 МБ относится к GUI без терминалов и с поверхностями не сравнивается"
+    },
+    {
+      "key": "memory_states",
+      "value": [
+        {
+          "at_ms": 1600.482209,
+          "children": [],
+          "children_bytes": 0,
+          "children_mib": 0.0,
+          "cycle": 0,
+          "fixtures": 0,
+          "label": "empty",
+          "last_change_ms": null,
+          "process_bytes": 21480384,
+          "process_mib": 20.48529052734375,
+          "readings": 16,
+          "settled": true,
+          "surfaces": 0,
+          "trace": [
+            [
+              0.000167,
+              20.21966552734375,
+              0.0
+            ],
+            [
+              104.150375,
+              20.21966552734375,
+              0.0
+            ],
+            [
+              209.316375,
+              20.21966552734375,
+              0.0
+            ],
+            [
+              311.163583,
+              20.37591552734375,
+              0.0
+            ],
+            [
+              416.377208,
+              20.37591552734375,
+              0.0
+            ],
+            [
+              517.946208,
+              20.48529052734375,
+              0.0
+            ],
+            [
+              623.221667,
+              20.48529052734375,
+              0.0
+            ],
+            [
+              728.565875,
+              20.48529052734375,
+              0.0
+            ],
+            [
+              832.610125,
+              20.48529052734375,
+              0.0
+            ],
+            [
+              937.852958,
+              20.48529052734375,
+              0.0
+            ],
+            [
+              1043.123375,
+              20.48529052734375,
+              0.0
+            ],
+            [
+              1148.388083,
+              20.48529052734375,
+              0.0
+            ],
+            [
+              1249.57725,
+              20.48529052734375,
+              0.0
+            ],
+            [
+              1354.73475,
+              20.48529052734375,
+              0.0
+            ],
+            [
+              1458.397792,
+              20.48529052734375,
+              0.0
+            ],
+            [
+              1563.53075,
+              20.48529052734375,
+              0.0
+            ]
+          ],
+          "unreadable": []
+        }
+      ]
+    },
+    {
+      "key": "memory_unsettled",
+      "value": []
+    },
+    {
+      "key": "events_posted",
+      "value": "0"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "353"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "memory.empty_window",
+      "unit": "MiB",
+      "samples": [
+        20.48529052734375
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 20.48529052734375,
+        "p95": 20.48529052734375,
+        "max": 20.48529052734375
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "h10-empty-window",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "пустое окно без libghostty: 20.5 МиБ (21.5 МБ), потомков 0"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "0.011ms сценарий memory",
+      "20.800ms служебное событие type=13 window=0 timestamp=404714.196194 keyCode=None source_pid=0 source_state=0",
+      "29.849ms шаг «окно на экране, приложение активно» готов за 26.5 мс",
+      "37.423ms служебное событие type=13 window=41521 timestamp=404714.230528 keyCode=None source_pid=0 source_state=0",
+      "37.442ms служебное событие type=13 window=41521 timestamp=404714.230540 keyCode=None source_pid=0 source_state=0",
+      "37.446ms служебное событие type=13 window=41521 timestamp=404714.230549 keyCode=None source_pid=0 source_state=0",
+      "37.451ms служебное событие type=13 window=41521 timestamp=404714.230557 keyCode=None source_pid=0 source_state=0",
+      "37.457ms служебное событие type=8 window=41521 timestamp=404714.231016 keyCode=None source_pid=0 source_state=0",
+      "38.355ms служебное событие type=8 window=41521 timestamp=404714.236132 keyCode=None source_pid=43105 source_state=0",
+      "124.230ms служебное событие type=13 window=41521 timestamp=404714.221682 keyCode=None source_pid=0 source_state=0",
+      "1600.463ms шаг «устоявшийся замер памяти» готов за 1570.6 мс",
+      "1600.500ms память empty ×0 цикл 0: процесс 20.5 МиБ, потомки 0.0 МиБ, устоялась true",
+      "1605.137ms служебное событие type=15 window=0 timestamp=0.000000 keyCode=None source_pid=43105 source_state=0"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeStandView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      }
+    ]
+  }
+}

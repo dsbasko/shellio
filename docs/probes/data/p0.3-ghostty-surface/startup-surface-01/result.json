@@ -1,0 +1,675 @@
+{
+  "schema": 1,
+  "scenario": "startup",
+  "variant": "surface",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "6b91e3f56492",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.3.2, objc2-quartz-core 0.3.2",
+      "ghostty_version": "1.4.0",
+      "ghostty_rev": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "process": {
+      "pid": 29280,
+      "route": "direct",
+      "nonce": "49d459778fac385a",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_STATE_DIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.49d459778fac385a",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    },
+    "bundle": {
+      "path": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app",
+      "identifier": "io.github.dsbasko.shellio.probe.ghostty-surface",
+      "executable": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface",
+      "signature": "valid: identifier \"io.github.dsbasko.shellio.probe.ghostty-surface\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC"
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "контрольная клавиша обработана",
+      "status": "ready",
+      "waited_ms": 66.451791,
+      "at_ms": 78.319958,
+      "state": "isActive=true keyWindow=#40481 mainWindow=#40481 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 1,
+      "name": "готовность фикстуры и первый contents слоя поверхности",
+      "status": "ready",
+      "waited_ms": 5.666167,
+      "at_ms": 84.00375,
+      "state": "isActive=true keyWindow=#40481 mainWindow=#40481 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 2,
+      "name": "намерение закрыть",
+      "status": "ready",
+      "waited_ms": 5.321249999999999,
+      "at_ms": 89.356417,
+      "state": "isActive=true keyWindow=#40481 mainWindow=#40481 firstResponder=ProbeSurfaceView cursor=250,266"
+    },
+    {
+      "index": 3,
+      "name": "освобождение поверхности и выход фикстуры",
+      "status": "ready",
+      "waited_ms": 14.387209,
+      "at_ms": 103.759083,
+      "state": "isActive=true keyWindow=#40481 mainWindow=#40481 firstResponder=ProbeSurfaceView cursor=250,266"
+    }
+  ],
+  "events": [
+    {
+      "number": 1,
+      "label": "keyDown Return",
+      "window": 40481,
+      "before": "isActive=true keyWindow=#40481 mainWindow=#40481 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404080594086500,
+      "dispatch_start_ns": 404080596715666,
+      "send_return_ns": 404080597999291,
+      "display_pass_ns": 404080604753833,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "keyUp Return",
+      "window": 40481,
+      "before": "isActive=true keyWindow=#40481 mainWindow=#40481 firstResponder=ProbeSurfaceView cursor=250,266",
+      "t_post_ns": 404080594183125,
+      "dispatch_start_ns": 404080598024833,
+      "send_return_ns": 404080598028416,
+      "display_pass_ns": 404080604753833,
+      "undispatched": false
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "startup"
+    },
+    {
+      "key": "route",
+      "value": "direct"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "variant",
+      "value": "surface"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "interval_startup",
+      "value": "p_starttime процесса → gettimeofday после возврата keyDown контрольной клавиши из sendEvent и чтения её прихода; клавиша отправлена в конце первого прохода отображения, на котором окно key, видимо, ничего не ждёт отображения и поверхность уже создана"
+    },
+    {
+      "key": "control_key_route",
+      "value": "у варианта surface first responder — вид поверхности, клавишу принимает его keyDown и отправляет в ghostty_surface_key; у базовой линии first responder — вид стенда"
+    },
+    {
+      "key": "ghostty_init",
+      "value": {
+        "after": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "en_US.UTF-8",
+            "LC_COLLATE": "en_US.UTF-8",
+            "LC_CTYPE": "en_US.UTF-8",
+            "LC_MESSAGES": "en_US.UTF-8",
+            "LC_MONETARY": "en_US.UTF-8",
+            "LC_NUMERIC": "en_US.UTF-8",
+            "LC_TIME": "en_US.UTF-8"
+          },
+          "threads": 3
+        },
+        "argv": [
+          "probe-ghostty-surface"
+        ],
+        "before": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "C",
+            "LC_COLLATE": "C",
+            "LC_CTYPE": "C",
+            "LC_MESSAGES": "C",
+            "LC_MONETARY": "C",
+            "LC_NUMERIC": "C",
+            "LC_TIME": "C"
+          },
+          "threads": 3
+        },
+        "code": 0,
+        "duration_ms": 1.4725,
+        "finished_ns": 404080365167625,
+        "started_ns": 404080363695125
+      }
+    },
+    {
+      "key": "ghostty_init_env_changes",
+      "value": ""
+    },
+    {
+      "key": "ghostty_version",
+      "value": "1.4.0"
+    },
+    {
+      "key": "ghostty_build_mode",
+      "value": "release-fast"
+    },
+    {
+      "key": "ghostty_config",
+      "value": "font-family = Menlo\nfont-size = 13\nscrollback-limit-bytes = 10000000\ntheme = light:Builtin Light,dark:Builtin Dark\ncursor-style-blink = true\nconfirm-close-surface = false\nclipboard-paste-protection = false\n"
+    },
+    {
+      "key": "ghostty_config_diagnostics",
+      "value": []
+    },
+    {
+      "key": "ghostty_runtime_start",
+      "value": {
+        "app_focused": false,
+        "app_new_finished_ns": 404080530345666,
+        "app_new_started_ns": 404080530090916,
+        "color_scheme": "light",
+        "config_change_from_update": 1,
+        "reload_config_from_scheme": 0
+      }
+    },
+    {
+      "key": "surface_command",
+      "value": "'/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface' '--fixture' '--channel' '/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/20261115-020351-29086/startup-surface-01/fixture.sock' '--nonce' '49d459778fac385a-s1'"
+    },
+    {
+      "key": "fixture_nonce",
+      "value": "49d459778fac385a-s1"
+    },
+    {
+      "key": "env_nonce",
+      "value": "28b53ac2bdb494dd"
+    },
+    {
+      "key": "startup_wall_ms",
+      "value": "672.616"
+    },
+    {
+      "key": "main_to_end_mono_ms",
+      "value": "241.291"
+    },
+    {
+      "key": "pre_main_mono_ms",
+      "value": "431.325"
+    },
+    {
+      "key": "ghostty_init_since_start_ms",
+      "value": "439.780"
+    },
+    {
+      "key": "app_new_since_start_ms",
+      "value": "604.958"
+    },
+    {
+      "key": "surface_new_since_start_ms",
+      "value": "612.909"
+    },
+    {
+      "key": "first_display_since_start_ms",
+      "value": "668.666"
+    },
+    {
+      "key": "ready_since_start_ms",
+      "value": "668.666"
+    },
+    {
+      "key": "key_display_since_start_ms",
+      "value": "668.666"
+    },
+    {
+      "key": "control_posted_since_start_ms",
+      "value": "668.672"
+    },
+    {
+      "key": "control_returned_since_start_ms",
+      "value": "672.612"
+    },
+    {
+      "key": "end_since_start_ms",
+      "value": "672.615"
+    },
+    {
+      "key": "fixture_ready_since_start_ms",
+      "value": "683.642"
+    },
+    {
+      "key": "first_contents_since_start_ms",
+      "value": "668.666"
+    },
+    {
+      "key": "views_need_display_at_ready",
+      "value": "Some(false)"
+    },
+    {
+      "key": "process_start_sources_agree",
+      "value": "true"
+    },
+    {
+      "key": "fixture_ready",
+      "value": {
+        "argv0": "-/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface",
+        "env_names": [
+          "COLORTERM",
+          "GHOSTTY_BIN_DIR",
+          "GHOSTTY_RESOURCES_DIR",
+          "GHOSTTY_SHELL_FEATURES",
+          "GHOSTTY_SURFACE_ID",
+          "HOME",
+          "LANG",
+          "LOGNAME",
+          "MANPATH",
+          "PATH",
+          "PWD",
+          "SHELL",
+          "SHELLIO_PROBE_ENV_NONCE",
+          "SHELLIO_STATE_DIR",
+          "SHLVL",
+          "TERM",
+          "TERMINFO",
+          "TERM_PROGRAM",
+          "TERM_PROGRAM_VERSION",
+          "TMPDIR",
+          "USER",
+          "XDG_DATA_DIRS",
+          "__CF_USER_TEXT_ENCODING"
+        ],
+        "env_nonce": "28b53ac2bdb494dd",
+        "foreground_pgid": 29282,
+        "lang": "en_US.UTF-8",
+        "nonce": "49d459778fac385a-s1",
+        "pgid": 29282,
+        "pid": 29283,
+        "ppid": 29282,
+        "sid": 29282,
+        "size": {
+          "cols": 147,
+          "rows": 47,
+          "xpixel": 2352,
+          "ypixel": 1432
+        },
+        "term": "xterm-ghostty",
+        "terminfo": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/Resources/terminfo",
+        "terminfo_entry": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/Resources/terminfo/78/xterm-ghostty",
+        "tty": "/dev/ttys008"
+      }
+    },
+    {
+      "key": "ghostty_runtime",
+      "value": {
+        "app_focus": [
+          true
+        ],
+        "clipboard_denied": 0,
+        "clipboard_denied_on_retire": 0,
+        "clipboard_held": 0,
+        "clipboard_late_skipped": 0,
+        "clipboard_served": 0,
+        "clipboard_write_confirm_denied": 0,
+        "clipboard_written": 0,
+        "close_intents": 1,
+        "close_sources": {
+          "probe:scheduled": 1
+        },
+        "creations": [
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 404080538268958,
+            "injected": null,
+            "key": "s0g1",
+            "new_ms": 7.400792,
+            "pass": 0,
+            "started_ns": 404080530868166,
+            "trigger": "initial"
+          }
+        ],
+        "delivered": {
+          "close-intent": 1,
+          "config-change": 1,
+          "unsupported": 6
+        },
+        "dropped_at_source": 0,
+        "dropped_stale": 0,
+        "frees_held_passes": 0,
+        "layout_retries": 0,
+        "log": [
+          "pass=1 t=404080530401041 app ConfigChange → delivered",
+          "pass=3 t=404080615815875 s0g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled"
+        ],
+        "messages": 8,
+        "messages_pushed": 8,
+        "passes": 5,
+        "passes_tracking": 0,
+        "releases": [
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 404080629841833,
+            "free_ms": 13.995542,
+            "key": "s0g1",
+            "messages_during_free": 1,
+            "pass": 4,
+            "started_ns": 404080615846291
+          }
+        ],
+        "scheme_changes": [],
+        "screen_wakes": 0,
+        "surface_config_updates": 0,
+        "surfaces_created": 1,
+        "surfaces_failed": 0,
+        "surfaces_freed": 1,
+        "unsupported_actions": {
+          "22": 1,
+          "25": 1,
+          "26": 2,
+          "43": 2
+        },
+        "wakeups": 13
+      }
+    },
+    {
+      "key": "surface_view_feeds",
+      "value": {
+        "detached_skipped": 0,
+        "display_ids": [
+          1
+        ],
+        "focus": [
+          false,
+          true
+        ],
+        "last_scale": [
+          2.0,
+          2.0
+        ],
+        "last_size_px": [
+          2360,
+          1440
+        ],
+        "preedits": [],
+        "refreshes": 1,
+        "scale_feeds": 1,
+        "size_feeds": 1,
+        "zero_size_skipped": 0
+      }
+    },
+    {
+      "key": "events_posted",
+      "value": "2"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "23"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "startup_wall",
+      "unit": "ms",
+      "samples": [
+        672.616
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 672.616,
+        "p95": 672.616,
+        "max": 672.616
+      }
+    },
+    {
+      "name": "startup_main_to_end_mono",
+      "unit": "ms",
+      "samples": [
+        241.290708
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 241.290708,
+        "p95": 241.290708,
+        "max": 241.290708
+      }
+    },
+    {
+      "name": "startup_fixture_ready",
+      "unit": "ms",
+      "samples": [
+        683.64175
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 683.64175,
+        "p95": 683.64175,
+        "max": 683.64175
+      }
+    },
+    {
+      "name": "startup_first_contents",
+      "unit": "ms",
+      "samples": [
+        668.666167
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 668.666167,
+        "p95": 668.666167,
+        "max": 668.666167
+      }
+    },
+    {
+      "name": "surface_free",
+      "unit": "ms",
+      "samples": [
+        13.995542
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 13.995542,
+        "p95": 13.995542,
+        "max": 13.995542
+      }
+    },
+    {
+      "name": "app_free",
+      "unit": "ms",
+      "samples": [
+        0.008875
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 0.008875,
+        "p95": 0.008875,
+        "max": 0.008875
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "name": "startup-control-key",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "к возврату keyDown из sendEvent до вида поверхности дошло [(\"keyDown\", 36)], ожидалось [(\"keyDown\", 36)]"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "0.028ms сценарий startup",
+      "11.840ms поверхность s0g1 создана за 7.4 мс",
+      "37.769ms служебное событие type=13 window=0 timestamp=404080.522883 keyCode=None source_pid=0 source_state=0",
+      "49.848ms служебное событие type=8 window=40481 timestamp=404080.572187 keyCode=None source_pid=0 source_state=0",
+      "50.970ms служебное событие type=8 window=40481 timestamp=404080.577391 keyCode=None source_pid=29280 source_state=0",
+      "67.629ms post #1 keyDown Return",
+      "67.726ms post #2 keyUp Return",
+      "70.258ms dispatch #1",
+      "71.542ms return #1",
+      "71.568ms dispatch #2",
+      "71.571ms return #2",
+      "78.313ms шаг «контрольная клавиша обработана» готов за 66.5 мс",
+      "83.995ms шаг «готовность фикстуры и первый contents слоя поверхности» готов за 5.7 мс",
+      "89.343ms шаг «намерение закрыть» готов за 5.3 мс",
+      "103.755ms шаг «освобождение поверхности и выход фикстуры» готов за 14.4 мс",
+      "108.010ms служебное событие type=13 window=40481 timestamp=404080.633649 keyCode=None source_pid=0 source_state=0"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeAppActivity",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeScreenWake",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeStandView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSurfaceView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      }
+    ]
+  },
+  "startup": {
+    "process_start_wall_us": 1794690231388203,
+    "process_start_bsd_wall_us": 1794690231388203,
+    "process_start_mono_ns": 404079925387458,
+    "main_wall_us": 1794690231819528,
+    "main_mono_ns": 404080356712208,
+    "ghostty_init_mono_ns": 404080365167625,
+    "app_new_mono_ns": 404080530345666,
+    "surface_new_mono_ns": 404080538295958,
+    "fixture_ready_mono_ns": 404080609029208,
+    "first_contents_mono_ns": 404080594053625,
+    "first_display_mono_ns": 404080594053625,
+    "ready_mono_ns": 404080594053625,
+    "key_display_mono_ns": 404080594053625,
+    "control_posted_mono_ns": 404080594059375,
+    "control_returned_mono_ns": 404080597999291,
+    "end_wall_us": 1794690232060819,
+    "end_mono_ns": 404080598002916
+  }
+}

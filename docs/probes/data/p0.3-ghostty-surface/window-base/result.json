@@ -1,0 +1,245 @@
+{
+  "schema": 1,
+  "scenario": "window",
+  "variant": "base",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "6b91e3f56492",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.3.2, objc2-quartz-core 0.3.2",
+      "ghostty_version": "1.4.0",
+      "ghostty_rev": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "process": {
+      "pid": 30030,
+      "route": "direct",
+      "nonce": "88f07a5b87f3130e",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_STATE_DIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.88f07a5b87f3130e",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    },
+    "bundle": {
+      "path": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app",
+      "identifier": "io.github.dsbasko.shellio.probe.ghostty-surface",
+      "executable": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface",
+      "signature": "valid: identifier \"io.github.dsbasko.shellio.probe.ghostty-surface\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC"
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "активность, key window и first responder",
+      "status": "ready",
+      "waited_ms": 28.166833,
+      "at_ms": 31.36975,
+      "state": "isActive=true keyWindow=#40937 mainWindow=#40937 firstResponder=ProbeStandView cursor=250,266"
+    },
+    {
+      "index": 1,
+      "name": "контрольная клавиша вернулась из sendEvent и дошла до вида",
+      "status": "ready",
+      "waited_ms": 5.666417,
+      "at_ms": 37.161459,
+      "state": "isActive=true keyWindow=#40937 mainWindow=#40937 firstResponder=ProbeStandView cursor=250,266"
+    },
+    {
+      "index": 2,
+      "name": "проход отображения после клавиши",
+      "status": "ready",
+      "waited_ms": 5.648709,
+      "at_ms": 42.819959,
+      "state": "isActive=true keyWindow=#40937 mainWindow=#40937 firstResponder=ProbeStandView cursor=250,266"
+    }
+  ],
+  "events": [
+    {
+      "number": 1,
+      "label": "keyDown Return",
+      "window": 40937,
+      "before": "isActive=true keyWindow=#40937 mainWindow=#40937 firstResponder=ProbeStandView cursor=250,266",
+      "t_post_ns": 404094020638583,
+      "dispatch_start_ns": 404094021638500,
+      "send_return_ns": 404094021715333,
+      "display_pass_ns": 404094021778916,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "keyUp Return",
+      "window": 40937,
+      "before": "isActive=true keyWindow=#40937 mainWindow=#40937 firstResponder=ProbeStandView cursor=250,266",
+      "t_post_ns": 404094020739041,
+      "dispatch_start_ns": 404094021727000,
+      "send_return_ns": 404094021735166,
+      "display_pass_ns": 404094021778916,
+      "undispatched": false
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "window"
+    },
+    {
+      "key": "route",
+      "value": "direct"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "control_key_arrivals",
+      "value": "[(\"keyDown\", 36), (\"keyUp\", 36)]"
+    },
+    {
+      "key": "events_posted",
+      "value": "2"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "7"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "control_key_t_post_to_return",
+      "unit": "ms",
+      "samples": [
+        1.07675,
+        0.996125
+      ],
+      "summary": {
+        "count": 2,
+        "p50": 0.996125,
+        "p95": 1.07675,
+        "max": 1.07675
+      }
+    },
+    {
+      "name": "control_key_t_post_to_view",
+      "unit": "ms",
+      "samples": [
+        1.073417,
+        0.995375
+      ],
+      "summary": {
+        "count": 2,
+        "p50": 0.995375,
+        "p95": 1.073417,
+        "max": 1.073417
+      }
+    },
+    {
+      "name": "control_key_t_post_to_display_pass",
+      "unit": "ms",
+      "samples": [
+        1.140333
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 1.140333,
+        "p95": 1.140333,
+        "max": 1.140333
+      }
+    }
+  ],
+  "findings": [],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "0.013ms сценарий window",
+      "18.941ms служебное событие type=13 window=0 timestamp=404093.987855 keyCode=None source_pid=0 source_state=0",
+      "24.900ms служебное событие type=8 window=40937 timestamp=404094.012429 keyCode=None source_pid=0 source_state=0",
+      "25.899ms служебное событие type=8 window=40937 timestamp=404094.015125 keyCode=None source_pid=30030 source_state=0",
+      "31.355ms шаг «активность, key window и first responder» готов за 28.2 мс",
+      "31.377ms post #1 keyDown Return",
+      "31.477ms post #2 keyUp Return",
+      "32.377ms dispatch #1",
+      "32.451ms ProbeStandView keyDown keyCode=36 win=40937",
+      "32.454ms return #1",
+      "32.465ms dispatch #2",
+      "32.473ms ProbeStandView keyUp keyCode=36 win=40937",
+      "32.474ms return #2",
+      "37.156ms шаг «контрольная клавиша вернулась из sendEvent и дошла до вида» готов за 5.7 мс",
+      "42.816ms шаг «проход отображения после клавиши» готов за 5.6 мс",
+      "44.270ms служебное событие type=15 window=0 timestamp=0.000000 keyCode=None source_pid=30030 source_state=0"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeStandView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      }
+    ]
+  }
+}

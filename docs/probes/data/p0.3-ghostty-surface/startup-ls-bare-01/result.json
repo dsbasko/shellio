@@ -1,0 +1,323 @@
+{
+  "schema": 1,
+  "scenario": "startup-ls",
+  "variant": "bare",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "6b91e3f56492",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.3.2, objc2-quartz-core 0.3.2",
+      "ghostty_version": "1.4.0",
+      "ghostty_rev": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "process": {
+      "pid": 29885,
+      "route": "launch-services",
+      "nonce": "bf436ed7c1c376f3",
+      "env": {
+        "COMMAND_MODE": "unix2003",
+        "HOME": "/Users/dsbasko",
+        "LOGNAME": "dsbasko",
+        "OSLogRateLimit": "64",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_STATE_DIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.bf436ed7c1c376f3",
+        "SSH_AUTH_SOCK": "<скрыто>",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "XPC_FLAGS": "0x0",
+        "XPC_SERVICE_NAME": "application.io.github.dsbasko.shellio.probe.ghostty-surface.297749053.297749909.AA6A3357-DE4F-4C59-9A14-827B089181BE",
+        "__CFBundleIdentifier": "io.github.dsbasko.shellio.probe.ghostty-surface",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "OSLogRateLimit",
+        "__CFBundleIdentifier",
+        "COMMAND_MODE",
+        "__CF_USER_TEXT_ENCODING",
+        "XPC_SERVICE_NAME",
+        "SSH_AUTH_SOCK",
+        "XPC_FLAGS"
+      ]
+    },
+    "bundle": {
+      "path": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app",
+      "identifier": "io.github.dsbasko.shellio.probe.ghostty-surface",
+      "executable": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface",
+      "signature": "valid: identifier \"io.github.dsbasko.shellio.probe.ghostty-surface\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC"
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "контрольная клавиша обработана",
+      "status": "ready",
+      "waited_ms": 20.295417,
+      "at_ms": 21.244042,
+      "state": "isActive=true keyWindow=#40875 mainWindow=#40875 firstResponder=ProbeStandView cursor=250,266"
+    }
+  ],
+  "events": [
+    {
+      "number": 1,
+      "label": "keyDown Return",
+      "window": 40875,
+      "before": "isActive=true keyWindow=#40875 mainWindow=#40875 firstResponder=ProbeStandView cursor=250,266",
+      "t_post_ns": 404091861751416,
+      "dispatch_start_ns": 404091863348916,
+      "send_return_ns": 404091863446125,
+      "display_pass_ns": 404091863495333,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "keyUp Return",
+      "window": 40875,
+      "before": "isActive=true keyWindow=#40875 mainWindow=#40875 firstResponder=ProbeStandView cursor=250,266",
+      "t_post_ns": 404091861828666,
+      "dispatch_start_ns": 404091863461041,
+      "send_return_ns": 404091863469625,
+      "display_pass_ns": 404091863495333,
+      "undispatched": false
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "startup-ls"
+    },
+    {
+      "key": "route",
+      "value": "launch-services"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "variant",
+      "value": "bare"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "interval_startup",
+      "value": "p_starttime процесса → gettimeofday после возврата keyDown контрольной клавиши из sendEvent и чтения её прихода; клавиша отправлена в конце первого прохода отображения, на котором окно key, видимо, ничего не ждёт отображения и поверхность уже создана"
+    },
+    {
+      "key": "control_key_route",
+      "value": "у варианта surface first responder — вид поверхности, клавишу принимает его keyDown и отправляет в ghostty_surface_key; у базовой линии first responder — вид стенда"
+    },
+    {
+      "key": "baseline",
+      "value": "то же окно без поверхности и без libghostty: нет ghostty_init, ghostty_app_new, ghostty_surface_new, сокета фикстур и фикстуры; first responder — вид стенда"
+    },
+    {
+      "key": "startup_wall_ms",
+      "value": "142.182"
+    },
+    {
+      "key": "main_to_end_mono_ms",
+      "value": "123.023"
+    },
+    {
+      "key": "pre_main_mono_ms",
+      "value": "19.159"
+    },
+    {
+      "key": "ghostty_init_since_start_ms",
+      "value": "нет"
+    },
+    {
+      "key": "app_new_since_start_ms",
+      "value": "нет"
+    },
+    {
+      "key": "surface_new_since_start_ms",
+      "value": "нет"
+    },
+    {
+      "key": "first_display_since_start_ms",
+      "value": "140.452"
+    },
+    {
+      "key": "ready_since_start_ms",
+      "value": "140.452"
+    },
+    {
+      "key": "key_display_since_start_ms",
+      "value": "140.452"
+    },
+    {
+      "key": "control_posted_since_start_ms",
+      "value": "140.458"
+    },
+    {
+      "key": "control_returned_since_start_ms",
+      "value": "142.180"
+    },
+    {
+      "key": "end_since_start_ms",
+      "value": "142.182"
+    },
+    {
+      "key": "fixture_ready_since_start_ms",
+      "value": "нет"
+    },
+    {
+      "key": "first_contents_since_start_ms",
+      "value": "нет"
+    },
+    {
+      "key": "views_need_display_at_ready",
+      "value": "Some(false)"
+    },
+    {
+      "key": "process_start_sources_agree",
+      "value": "true"
+    },
+    {
+      "key": "events_posted",
+      "value": "2"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "3"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "startup_wall",
+      "unit": "ms",
+      "samples": [
+        142.182
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 142.182,
+        "p95": 142.182,
+        "max": 142.182
+      }
+    },
+    {
+      "name": "startup_main_to_end_mono",
+      "unit": "ms",
+      "samples": [
+        123.022875
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 123.022875,
+        "p95": 123.022875,
+        "max": 123.022875
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "startup-control-key",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "к возврату keyDown из sendEvent до вида стенда дошло [(\"keyDown\", 36)], ожидалось [(\"keyDown\", 36)]"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "0.013ms сценарий startup-ls",
+      "1.775ms служебное событие type=13 window=0 timestamp=404091.772202 keyCode=None source_pid=0 source_state=0",
+      "19.486ms post #1 keyDown Return",
+      "19.564ms post #2 keyUp Return",
+      "21.084ms dispatch #1",
+      "21.178ms ProbeStandView keyDown keyCode=36 win=40875",
+      "21.181ms return #1",
+      "21.196ms dispatch #2",
+      "21.204ms ProbeStandView keyUp keyCode=36 win=40875",
+      "21.205ms return #2",
+      "21.241ms шаг «контрольная клавиша обработана» готов за 20.3 мс",
+      "29.384ms служебное событие type=13 window=40875 timestamp=404091.868275 keyCode=None source_pid=0 source_state=0"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeStandView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      }
+    ]
+  },
+  "startup": {
+    "process_start_wall_us": 1794690243184088,
+    "process_start_bsd_wall_us": 1794690243184088,
+    "process_start_mono_ns": 404091721266416,
+    "main_wall_us": 1794690243203247,
+    "main_mono_ns": 404091740425333,
+    "ghostty_init_mono_ns": null,
+    "app_new_mono_ns": null,
+    "surface_new_mono_ns": null,
+    "fixture_ready_mono_ns": null,
+    "first_contents_mono_ns": null,
+    "first_display_mono_ns": 404091861718791,
+    "ready_mono_ns": 404091861718791,
+    "key_display_mono_ns": 404091861718791,
+    "control_posted_mono_ns": 404091861724125,
+    "control_returned_mono_ns": 404091863446125,
+    "end_wall_us": 1794690243326270,
+    "end_mono_ns": 404091863448208
+  }
+}

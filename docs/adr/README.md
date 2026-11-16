@@ -14,14 +14,14 @@
 | --- | --- | --- | --- |
 | [0001](0001-vocabulary.md) | Словарь и иерархия сущностей | Accepted | — |
 | [0002](0002-ui-stack-appkit.md) | UI на Rust через objc2 и AppKit (материал заменён ADR-0023, `unsafe` в пробах дополнено ADR-0034, уточнено в P0.2) | Accepted | P0.2 — частично: палитра и навигация на 60 Гц вне 16 мс, вопрос у владельца; P0.6 |
-| [0003](0003-terminal-libghostty.md) | Терминал на полном libghostty | Accepted | P0.3 |
+| [0003](0003-terminal-libghostty.md) | Терминал на полном libghostty (уточнено в P0.1 и P0.3) | Accepted | P0.3 — частично: автоматика неустранимой проблемы composition не нашла, ручная приёмка и запись Instruments не проведены, вердикт не вынесен |
 | [0004](0004-process-model.md) | Модель процессов и время жизни сессий | Proposed, закрытие nvim заменено ADR-0029 | P0.4, P0.5 |
 | [0005](0005-session-backend.md) | Хост сессии: zmx для пробы, Rust-хост как цель | Proposed | P0.4 |
 | [0006](0006-single-instance.md) | Единственный экземпляр приложения | Proposed | P1.2 |
 | [0007](0007-control-api.md) | Управляющий API и CLI `shellioctl` | Proposed | P1.2, P2.3 |
 | [0008](0008-plugin-system.md) | Система плагинов | Proposed, плагин `blame` заменён ADR-0033 | P1.5 |
 | [0009](0009-layout-and-zones.md) | Раскладка, четыре зоны, адаптация панелей | Proposed, сплиты заменены ADR-0031 | P1.4, P1.5 |
-| [0010](0010-input-and-navigation.md) | Режимы ввода и навигация в стиле nvim | Proposed, `Ctrl-w v` и `Ctrl-w s` уточнены ADR-0031 | P0.3, P1.6, P1.8 |
+| [0010](0010-input-and-navigation.md) | Режимы ввода и навигация в стиле nvim (уточнено в P0.3) | Proposed, `Ctrl-w v` и `Ctrl-w s` уточнены ADR-0031 | P0.3 — частично: семантика аккорда выхода подтверждена автоматикой, выбор `Ctrl-\` на целевой системе и удобство в nvim не проверены; P1.6, P1.8 |
 | [0011](0011-resource-accounting.md) | Измерение CPU и памяти | Proposed | P0.8, P2.4 |
 | [0012](0012-agents.md) | Агенты как управляемые TUI-процессы | Proposed, статусы дополнены ADR-0028 | P2.5 |
 | [0013](0013-agent-messaging.md) | Сообщения между терминалами и агентами, «спросить» и «попросить» | Proposed, дополнено ADR-0028 | P2.6, P2.7 |
