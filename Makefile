@@ -20,13 +20,14 @@ CHECK_BUNDLE := scripts/check-bundle.sh
 TEST_BUNDLE := scripts/test-bundle.sh
 PROBE_APPKIT := spikes/probe-appkit-shell/run.sh
 PROBE_GHOSTTY := spikes/probe-ghostty-surface/run.sh
+PROBE_SESSION := spikes/probe-session-survival/run.sh
 
 # Цели, читающие vendor/ghostty/, выполняют весь рецепт под одной блокировкой набора: рецепт цели X
 # лежит во внутренней цели locked-X и запускается вложенным make. Вторая такая цель сразу получает отказ.
 LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run test-bundle \
 	probe-ghostty probe-ghostty-demo
 
-.PHONY: setup test-scripts probe-appkit probe-appkit-demo $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
+.PHONY: setup test-scripts probe-appkit probe-appkit-demo probe-session $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
 
 # Под make -j цели одного вызова иначе столкнулись бы на собственной блокировке.
 .NOTPARALLEL:
@@ -115,3 +116,8 @@ locked-probe-ghostty:
 
 locked-probe-ghostty-demo:
 	CARGO=$(CARGO) $(PROBE_GHOSTTY) demo $(ARGS)
+
+# Проба P0.4 probe-session headless: набор ghostty не читает и идёт без блокировки. clippy и тесты
+# с функцией vt идут здесь, а не в check (ADR-0034, «Уточнено в P0.4»; ADR-0035).
+probe-session:
+	CARGO=$(CARGO) $(PROBE_SESSION) scenarios $(SCENARIOS)

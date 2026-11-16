@@ -1,0 +1,35 @@
+[package]
+name = "probe-session-survival"
+description = "Проба P0.4: выживание сессий, zmx и Rust-хост"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+# Каждый бинарь объявляется в задаче плана, где появляется его файл.
+autobins = false
+
+# Функции по умолчанию выключены, make check их не включает (ADR-0035). vt и surface одним вызовом
+# cargo не включаются, это проверяет run.sh.
+[features]
+# FFI над набором libghostty-vt пробы и раннер матрицы.
+vt = []
+# Поверхность libghostty в подписанном бандле пробы.
+surface = []
+# Хост с замороженным протоколом v1 для G1 и G2, собирается отдельным вызовом.
+proto-v1 = []
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "probe-session"
+path = "src/bin/runner.rs"
+required-features = ["vt"]
+
+[dependencies]
+libc = "0.2.191"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[lints]
+workspace = true
