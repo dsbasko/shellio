@@ -1143,6 +1143,24 @@ fn ime_run(window: &mut Window, link: &mut Link) -> Result<ControlResult<Vec<Str
             "IME не начал composition: в журнале вида нет setMarkedText".to_owned(),
         )));
     }
+    // Пустой коммит у контроля и кандидата сравнивал бы пустое с пустым.
+    if chunks.get(1).is_none_or(String::is_empty) {
+        let committed = journal
+            .iter()
+            .any(|line| line.starts_with("insertText ") && line != "insertText \"\"");
+        let tail = journal.join(" | ");
+        return Ok(Err(if committed {
+            (
+                NotRunCause::Surface,
+                format!("текст коммита в журнале вида есть, у нагрузки нет: {tail}"),
+            )
+        } else {
+            (
+                NotRunCause::Stand,
+                format!("IME не закоммитил текст по Return: {tail}"),
+            )
+        }));
+    }
     Ok(Ok(chunks))
 }
 
@@ -1231,29 +1249,54 @@ fn attach_with_pid(driver: &Driver, id: &SessionId, pidfile: &Path) -> Result<St
     Ok(report_policy::shell_command("/bin/sh", &args))
 }
 
-/// Команда поверхности: цикл, который перед каждой строкой сбрасывает терминал (RIS) и режим
-/// tty, читает имя сессии и подключается к ней.
+/// Команда поверхности: цикл, который перед каждой строкой заново открывает tty, сбрасывает
+/// терминал (RIS) и режим tty, читает имя сессии и подключается к ней. Новое открытие нужно потому,
+/// что клиент zmx после `SIGTERM` оставлял общее с циклом открытие tty таким, что `read` цикла
+/// сразу завершался ошибкой (прогон `20261117-204022-85894`); флаги открытия клиент меняет у всех,
+/// кто его делит.
 fn switch_loop(choices: &[(&str, String)]) -> String {
     let cases: String = choices
         .iter()
         .map(|(name, command)| format!("{name}) {command};; "))
         .collect();
     let script = format!(
-        "while :; do printf '\\033c'; stty sane; IFS= read -r s || exit 0; case \"$s\" in {cases}esac; done"
+        "while :; do exec </dev/tty >/dev/tty 2>&1; printf '\\033c'; stty sane; IFS= read -r s || exit 0; case \"$s\" in {cases}esac; done"
     );
     report_policy::shell_command("/bin/sh", &["-c".to_owned(), script])
 }
 
-/// Отключение клиента сессии `id`: `SIGTERM` процессу из `pidfile`, затем ноль клиентов.
-fn detach(driver: &Driver, id: &SessionId, pidfile: &Path) -> Result<(), String> {
+fn client_pid(pidfile: &Path) -> Result<i32, String> {
     let text =
         fs::read_to_string(pidfile).map_err(|err| format!("{}: {err}", pidfile.display()))?;
-    let pid: i32 = text
-        .trim()
+    text.trim()
         .parse()
-        .map_err(|err| format!("PID клиента «{text}»: {err}"))?;
+        .map_err(|err| format!("PID клиента «{text}»: {err}"))
+}
+
+/// Отключение клиента сессии `id`: `SIGTERM` процессу из `pidfile`, выход процесса и ноль
+/// клиентов. Хост видит отключение раньше, чем клиент вернёт режим tty; набранное до выхода
+/// клиента его возврат режима может сбросить, поэтому ждётся и сам процесс.
+fn detach(driver: &Driver, id: &SessionId, pidfile: &Path) -> Result<(), String> {
+    let pid = client_pid(pidfile)?;
     backend::signal(pid, libc::SIGTERM).map_err(|err| format!("SIGTERM клиента {pid}: {err}"))?;
+    if !launch::wait_exit(&[pid], WAIT).is_empty() {
+        return Err(format!(
+            "клиент {pid} жив через {} с после SIGTERM",
+            WAIT.as_secs()
+        ));
+    }
     driver.wait_clients(id, 0)
+}
+
+/// Клиент сессии `id` подключился; иначе число клиентов. Ошибка `list` — ошибка исполнения.
+fn missing_client(driver: &Driver, id: &SessionId) -> Result<Option<String>, String> {
+    match driver.wait_clients(id, 1) {
+        Ok(()) => Ok(None),
+        Err(reason) => {
+            driver.clients(id)?;
+            Ok(Some(reason))
+        }
+    }
 }
 
 fn last_progress(link: &Link) -> u64 {
@@ -1351,7 +1394,12 @@ fn switch(driver: &mut Driver) -> Result<Outcome, String> {
         let mut steps = Steps::new(&mut gui);
         // a
         steps.latin("a\r")?;
-        driver.wait_clients(&a, 1)?;
+        if let Some(reason) = missing_client(driver, &a)? {
+            let (_, lines) = steps.wait(|_| true)?;
+            cycles.push(serde_json::json!({ "cycle": cycle, "a_attach": reason }));
+            failed = Some((cycle, blame_stand(&steps), lines, Vec::new()));
+            break;
+        }
         let expected = format!("{SWITCH_LINE}{digits}");
         let (a_screen, a_lines) = steps.wait(|lines| {
             lines
@@ -1374,7 +1422,18 @@ fn switch(driver: &mut Driver) -> Result<Outcome, String> {
         let progress = last_progress(&b.link);
         let mut steps = Steps::new(&mut gui);
         steps.latin("b\r")?;
-        driver.wait_clients(&b.id, 1)?;
+        if let Some(reason) = missing_client(driver, &b.id)? {
+            let (_, lines) = steps.wait(|_| true)?;
+            let stand = stand.or_else(|| blame_stand(&steps));
+            cycles.push(serde_json::json!({
+                "cycle": cycle,
+                "a_screen": a_screen,
+                "a_input": a_input,
+                "b_attach": reason,
+            }));
+            failed = Some((cycle, stand, a_lines, lines));
+            break;
+        }
         let (b_screen, b_lines) = steps.wait(|lines| {
             flood_max(lines, &flood_nonce).is_some_and(|max| max >= progress)
                 && !lines.iter().any(|line| line.contains(SWITCH_LINE))
@@ -1406,6 +1465,7 @@ fn switch(driver: &mut Driver) -> Result<Outcome, String> {
         }
     }
     outcome.evidence.note("cycles", &cycles);
+    let broken = failed.is_some();
     match failed {
         Some((cycle, Some(reason), _, _)) => {
             outcome.mark_not_run(NotRunCause::Stand, format!("цикл {cycle}: {reason}"));
@@ -1430,14 +1490,28 @@ fn switch(driver: &mut Driver) -> Result<Outcome, String> {
             );
         }
     }
+    // После оборванного цикла клиент мог остаться в цикле поверхности: он уходит до конца части.
+    if broken
+        && let Ok(pid) = client_pid(&pidfile)
+        && backend::signal(pid, libc::SIGTERM).is_ok()
+    {
+        launch::wait_exit(&[pid], WAIT);
+    }
     // Конец: a — выход из вставки и :wq, файл на диске.
     let mut steps = Steps::new(&mut gui);
     steps.latin("a\r")?;
-    driver.wait_clients(&a, 1)?;
-    steps.key(Stroke::key(KEY_ESCAPE))?;
-    if steps.wait(|lines| !insert_mode(lines))?.0 {
-        steps.latin(":wq\r")?;
+    let final_attach = missing_client(driver, &a)?;
+    if final_attach.is_none() {
+        steps.key(Stroke::key(KEY_ESCAPE))?;
+        if steps.wait(|lines| !insert_mode(lines))?.0 {
+            steps.latin(":wq\r")?;
+        }
     }
+    outcome.evidence.check(
+        "последний attach a для :wq",
+        final_attach.is_none(),
+        final_attach.unwrap_or_default(),
+    );
     restore(&mut gui)?;
     let left = launch::wait_exit(&[record_a.workload.pid], WAIT);
     outcome.evidence.check(
