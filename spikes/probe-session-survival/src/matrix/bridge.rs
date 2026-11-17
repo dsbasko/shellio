@@ -236,7 +236,23 @@ pub fn modes_source() -> Vec<u8> {
     .to_vec()
 }
 
-pub const SCENES: [SceneSource; 2] = [
+/// Сцена G3 (сценарий `update`): история длиннее экрана со SGR и только жёсткими переводами
+/// строк, без мягкого переноса, alternate и режимов, чьё восстановление у zmx известно как
+/// провал B1–B5: клетка проверяет замену бандла, а не восстановление.
+pub fn update_source() -> Vec<u8> {
+    let mut out = String::new();
+    for n in 1..=30 {
+        if n % 5 == 0 {
+            out.push_str(&format!("\x1b[1;34mupdate-old-{n:02}\x1b[0m\r\n"));
+        } else {
+            out.push_str(&format!("update-old-{n:02}\r\n"));
+        }
+    }
+    out.push_str("prompt>");
+    out.into_bytes()
+}
+
+pub const SCENES: [SceneSource; 3] = [
     SceneSource {
         name: "text",
         cols: 80,
@@ -258,6 +274,21 @@ pub const SCENES: [SceneSource; 2] = [
             ("leave-alt", "\x1b[?1049l#"),
         ],
         probes: true,
+    },
+    SceneSource {
+        name: "update",
+        cols: 80,
+        rows: 24,
+        source: update_source,
+        steps: &[
+            ("restored", ""),
+            (
+                "headless",
+                "\r\nheadless-1 \x1b[32mwhile no client\x1b[0m\r\nprompt>",
+            ),
+            ("live", "\r\nlive-1 after update\r\nprompt>"),
+        ],
+        probes: false,
     },
 ];
 

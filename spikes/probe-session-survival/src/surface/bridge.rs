@@ -23,7 +23,8 @@ use crate::args::Target;
 use crate::backend::rust::{self as rust_host, RustHost};
 use crate::backend::zmx::{self, ZmxSet};
 use crate::backend::{
-    self as backend, Backend, HostRecord, InputPath, Lead, SessionId, Workload, signal,
+    self as backend, Backend, ClientCommand, Ensured, HostRecord, InputPath, Lead, SessionId,
+    Workload, signal,
 };
 use crate::fixture::channel::{Command, Event, Link, LinkError, Listener, Receipt, hex, unhex};
 use crate::fixture::query::{Query, ResponseKind};
@@ -46,7 +47,7 @@ use crate::surface::gui::CONFIG_FILE;
 
 const COLS: u16 = 80;
 const ROWS: u16 = 24;
-const WAIT: Duration = Duration::from_secs(15);
+pub(super) const WAIT: Duration = Duration::from_secs(15);
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(10);
 const STOP_GRACE: Duration = Duration::from_secs(5);
 const POLL: Duration = Duration::from_millis(5);
@@ -76,7 +77,7 @@ pub fn run(target: &Target, environment: &Environment) -> Result<Report, String>
     Ok(report)
 }
 
-fn read_scenes(out: &Path) -> Result<Scenes, String> {
+pub(super) fn read_scenes(out: &Path) -> Result<Scenes, String> {
     let path = out.join(SCENES_DIR).join(bridge::SCENES_FILE);
     let text = fs::read_to_string(&path)
         .map_err(|err| format!("предусловие: сцены {}: {err}", path.display()))?;
@@ -99,7 +100,7 @@ fn read_scenes(out: &Path) -> Result<Scenes, String> {
     Ok(scenes)
 }
 
-fn step<'a>(scene: &'a SceneSpec, name: &str) -> Result<&'a Step, String> {
+pub(super) fn step<'a>(scene: &'a SceneSpec, name: &str) -> Result<&'a Step, String> {
     scene
         .steps
         .iter()
@@ -107,17 +108,30 @@ fn step<'a>(scene: &'a SceneSpec, name: &str) -> Result<&'a Step, String> {
         .ok_or_else(|| format!("предусловие: у сцены {} нет шага {name}", scene.name))
 }
 
+/// Бинари кандидатов, из которых водитель запускает хост и клиентов.
+pub(super) struct Binaries {
+    pub host: PathBuf,
+    pub attach: PathBuf,
+    pub zmx: PathBuf,
+}
+
+/// Адаптер кандидата и второй экземпляр Rust-хоста для соединений роли GUI и состояния.
+pub(super) type Adapter = (Box<dyn Backend + Sync>, Option<RustHost>);
+
 /// Водитель: кандидат, сокет квитанций фикстуры и сокет управления GUI.
-struct Driver {
-    nonce: String,
-    out: PathBuf,
+pub(super) struct Driver {
+    pub nonce: String,
+    pub out: PathBuf,
     root: PathBuf,
-    candidate: Candidate,
-    backend: Box<dyn Backend + Sync>,
+    pub candidate: Candidate,
+    pub backend: Box<dyn Backend + Sync>,
     /// Второй экземпляр адаптера Rust-хоста для соединений роли GUI и состояния.
     rust: Option<RustHost>,
+    env: Vec<(String, String)>,
+    token: String,
     fixture: PathBuf,
-    program: PathBuf,
+    /// Исполняемый файл GUI-процессов: путь процесса водителя.
+    pub program: PathBuf,
     listener: Option<Listener>,
     control: UnixListener,
     size: Winsize,
@@ -126,17 +140,17 @@ struct Driver {
 }
 
 /// GUI-процесс с одной поверхностью.
-struct Window {
-    label: String,
+pub(super) struct Window {
+    pub label: String,
     child: Child,
     reader: BufReader<UnixStream>,
     writer: UnixStream,
-    hello: Hello,
+    pub hello: Hello,
     opened: Reply,
 }
 
 impl Window {
-    fn command(&mut self, command: &GuiCommand) -> Result<Reply, String> {
+    pub(super) fn command(&mut self, command: &GuiCommand) -> Result<Reply, String> {
         let mut line = serde_json::to_vec(command).map_err(|err| format!("{err}"))?;
         line.push(b'\n');
         self.writer
@@ -155,7 +169,7 @@ impl Window {
     }
 
     /// Строки видимой области по `read_text`.
-    fn lines(&mut self) -> Result<Vec<String>, String> {
+    pub(super) fn lines(&mut self) -> Result<Vec<String>, String> {
         let text = self
             .command(&GuiCommand::Text { surface: 1 })?
             .text
@@ -163,7 +177,7 @@ impl Window {
         Ok(report_policy::text_rows(&text))
     }
 
-    fn paste(&mut self, text: &str) -> Result<(), String> {
+    pub(super) fn paste(&mut self, text: &str) -> Result<(), String> {
         self.command(&GuiCommand::Paste {
             surface: 1,
             text: text.to_owned(),
@@ -171,35 +185,47 @@ impl Window {
         .map(drop)
     }
 
-    fn quit(mut self) {
+    pub(super) fn quit(mut self) {
         let _ = self.command(&GuiCommand::Quit);
         let _ = backend::wait_child(&mut self.child, WAIT);
     }
 }
 
-struct Session {
-    id: SessionId,
-    record: HostRecord,
-    link: Link,
+pub(super) struct Session {
+    pub id: SessionId,
+    pub record: HostRecord,
+    pub link: Link,
     /// Размер нагрузки по квитанции готовности.
     ready: Option<Winsize>,
 }
 
 impl Driver {
     fn new(out: &Path, environment: &Environment, candidate: Candidate) -> Result<Driver, String> {
+        let entry = &environment.process.env;
+        let host_dir = required_dir(entry.get(launch::HOST_DIR), launch::HOST_DIR)?;
+        let sets_dir = required_dir(entry.get(launch::SETS_DIR), launch::SETS_DIR)?;
+        let binaries = Binaries {
+            host: host_dir.join(HOST_NAME),
+            attach: host_dir.join(ATTACH_NAME),
+            zmx: ZmxSet::Current.binary(&sets_dir),
+        };
+        Driver::with_binaries(out, environment, candidate, &binaries)
+    }
+
+    /// Водитель с адаптером кандидата над `binaries`: каталоги сокетов, сокет квитанций и сокет
+    /// управления GUI создаются здесь, адаптер — [`Driver::adapter`].
+    pub(super) fn with_binaries(
+        out: &Path,
+        environment: &Environment,
+        candidate: Candidate,
+        binaries: &Binaries,
+    ) -> Result<Driver, String> {
         let nonce = environment
             .process
             .nonce
             .clone()
             .ok_or("предусловие: нет nonce запуска")?;
         let entry = &environment.process.env;
-        let host_dir = required_dir(entry.get(launch::HOST_DIR), launch::HOST_DIR)?;
-        for name in [HOST_NAME, ATTACH_NAME] {
-            required_file(&host_dir.join(name))?;
-        }
-        let sets_dir = required_dir(entry.get(launch::SETS_DIR), launch::SETS_DIR)?;
-        let binary = ZmxSet::Current.binary(&sets_dir);
-        required_file(&binary)?;
         let program = std::env::current_exe().map_err(|err| format!("путь процесса: {err}"))?;
         let fixture = program
             .parent()
@@ -228,8 +254,7 @@ impl Driver {
                     .map(|value| ((*name).to_owned(), value.clone()))
             })
             .collect();
-        let token = format!("pss-{nonce}");
-        let (backend, rust): (Box<dyn Backend + Sync>, Option<RustHost>) = match candidate {
+        match candidate {
             Candidate::Zmx => {
                 let real_dir = out.join("zmx");
                 fs::create_dir(&real_dir)
@@ -237,43 +262,23 @@ impl Driver {
                 let link = root.join("z");
                 std::os::unix::fs::symlink(&real_dir, &link)
                     .map_err(|err| format!("{}: {err}", link.display()))?;
-                let zmx = zmx::Zmx::new(zmx::Config {
-                    set: ZmxSet::Current,
-                    binary,
-                    dir: link,
-                    cwd: root.clone(),
-                    env,
-                    token,
-                    timeout: COMMAND_TIMEOUT,
-                })?;
-                (Box::new(zmx), None)
             }
             Candidate::Rust => {
                 let dir = root.join("r");
                 fs::create_dir(&dir).map_err(|err| format!("{}: {err}", dir.display()))?;
-                let config = rust_host::Config {
-                    host: host_dir.join(HOST_NAME),
-                    attach: host_dir.join(ATTACH_NAME),
-                    dir,
-                    logs: out.join("rust").join("logs"),
-                    cwd: root.clone(),
-                    env,
-                    token,
-                    timeout: COMMAND_TIMEOUT,
-                    break_socket: None,
-                    versions: crate::proto::SUPPORTED,
-                };
-                let side = RustHost::new(config.clone())?;
-                (Box::new(RustHost::new(config)?), Some(side))
             }
-        };
+        }
+        let token = format!("pss-{nonce}");
+        let (backend, rust) = adapter(candidate, &root, out, &env, &token, binaries)?;
         Ok(Driver {
+            token,
             nonce,
             out: out.to_path_buf(),
             root,
             candidate,
             backend,
             rust,
+            env,
             fixture,
             program,
             listener: Some(listener),
@@ -284,13 +289,27 @@ impl Driver {
         })
     }
 
+    /// Адаптер кандидата над `binaries` с каталогом сокетов, окружением и токеном водителя:
+    /// поколения бандла видят одни и те же сессии. У Rust-хоста — второй экземпляр для
+    /// соединений роли GUI и состояния.
+    pub(super) fn adapter(&self, binaries: &Binaries) -> Result<Adapter, String> {
+        adapter(
+            self.candidate,
+            &self.root,
+            &self.out,
+            &self.env,
+            &self.token,
+            binaries,
+        )
+    }
+
     fn listener(&self) -> Result<&Listener, String> {
         self.listener
             .as_ref()
             .ok_or_else(|| "сокет квитанций закрыт".to_owned())
     }
 
-    fn ensure(&mut self, label: &str, mode: Mode) -> Result<Session, String> {
+    pub(super) fn ensure(&mut self, label: &str, mode: Mode) -> Result<Session, String> {
         let id = SessionId::new(&format!("s{}-{label}", self.nonce))?;
         let fixture_nonce = format!("{id}-w");
         let workload = Workload {
@@ -326,11 +345,43 @@ impl Driver {
         })
     }
 
+    /// `ensure` существующей сессии с той же нагрузкой через `backend`: другое поколение
+    /// открывает живую сессию, а не запускает новую. Отказ — вывод о кандидате, а не стенда.
+    pub(super) fn ensure_with(
+        &self,
+        backend: &dyn Backend,
+        session: &Session,
+        mode: Mode,
+    ) -> Result<Ensured, String> {
+        let fixture_nonce = format!("{}-w", session.id);
+        let workload = Workload {
+            program: self.fixture.clone(),
+            args: fixture::command_args(mode, self.listener()?.path(), &fixture_nonce, None),
+        };
+        backend
+            .ensure(&session.id, &workload, self.size)
+            .map_err(|err| format!("ensure {}: {err}", session.id))
+    }
+
     /// Новый GUI-процесс с поверхностью, команда которой — attach-клиент кандидата.
     fn open(
         &mut self,
         session: &SessionId,
         lead: Lead,
+        cols: u16,
+        rows: u16,
+    ) -> Result<Window, String> {
+        let attach = self
+            .backend
+            .attach_command(session, lead)
+            .map_err(|err| format!("команда attach: {err}"))?;
+        self.open_command(&attach, cols, rows)
+    }
+
+    /// Новый GUI-процесс из [`Driver::program`] с поверхностью, команда которой — `attach`.
+    pub(super) fn open_command(
+        &mut self,
+        attach: &ClientCommand,
         cols: u16,
         rows: u16,
     ) -> Result<Window, String> {
@@ -379,10 +430,6 @@ impl Driver {
             hello,
             opened: Reply::default(),
         };
-        let attach = self
-            .backend
-            .attach_command(session, lead)
-            .map_err(|err| format!("команда attach: {err}"))?;
         window.opened = window.command(&GuiCommand::Open {
             surface: 1,
             command: surface_command(&attach.program, &attach.args, &attach.env),
@@ -412,7 +459,7 @@ impl Driver {
     }
 
     /// Число клиентов сессии по `list` кандидата.
-    fn clients(&self, id: &SessionId) -> Result<u32, String> {
+    pub(super) fn clients(&self, id: &SessionId) -> Result<u32, String> {
         let listed = self.backend.list().map_err(|err| format!("list: {err}"))?;
         let entry = listed
             .iter()
@@ -421,7 +468,7 @@ impl Driver {
         Ok(entry.clients.unwrap_or(0))
     }
 
-    fn wait_clients(&self, id: &SessionId, want: u32) -> Result<(), String> {
+    pub(super) fn wait_clients(&self, id: &SessionId, want: u32) -> Result<(), String> {
         let deadline = Instant::now() + WAIT;
         loop {
             let clients = self.clients(id)?;
@@ -436,7 +483,7 @@ impl Driver {
     }
 
     /// Настоящий `SIGKILL` GUI-процесса.
-    fn kill(&self, window: &mut Window) -> Result<ExitStatus, String> {
+    pub(super) fn kill(&self, window: &mut Window) -> Result<ExitStatus, String> {
         signal(window.hello.pid, libc::SIGKILL)
             .map_err(|err| format!("SIGKILL {}: {err}", window.label))?;
         backend::wait_child(&mut window.child, WAIT)
@@ -444,7 +491,7 @@ impl Driver {
     }
 
     /// Нагрузка и хост живы.
-    fn alive(&self, session: &Session) -> Result<bool, String> {
+    pub(super) fn alive(&self, session: &Session) -> Result<bool, String> {
         let keys = [session.record.workload, session.record.host];
         let alive = backend::alive(&keys).map_err(|err| format!("{err}"))?;
         Ok(alive.len() == keys.len())
@@ -496,23 +543,7 @@ impl Driver {
     /// Ввод `marker` через кандидата без клиента и позиция во вводе фикстуры сразу после него;
     /// `None` — маркер не дошёл за срок.
     fn drain(&self, session: &mut Session, marker: &str) -> Result<Option<Mark>, String> {
-        let start = Mark::at(session.link.log());
-        self.backend
-            .input(&session.id, marker.as_bytes(), InputPath::Raw)
-            .map_err(|err| format!("ввод {marker} через кандидата: {err}"))?;
-        let mut end = None;
-        pull_until(&mut session.link, WAIT, |log| {
-            let input = bridge::input_since(log, 0);
-            end = input
-                .get(start.bytes..)
-                .and_then(|rest| report_policy::split_at_marker(rest, marker))
-                .map(|fence| start.bytes + fence.end);
-            end.is_some()
-        })?;
-        Ok(end.map(|bytes| Mark {
-            bytes,
-            barriers: bridge::barrier_replies(session.link.log()),
-        }))
+        drain_with(&*self.backend, session, marker)
     }
 
     /// Соединение роли GUI от имени текущего лидера (Rust-хост).
@@ -529,7 +560,7 @@ impl Driver {
             .map_err(|err| format!("GUI поколения {generation}: {err}"))
     }
 
-    fn artifact(&self, name: &str, value: &impl Serialize) -> Result<String, String> {
+    pub(super) fn artifact(&self, name: &str, value: &impl Serialize) -> Result<String, String> {
         crate::results::write_json(&self.out, name, value)?;
         Ok(name.to_owned())
     }
@@ -1459,7 +1490,7 @@ impl Driver {
         ))
     }
 
-    fn teardown(&mut self) -> Vec<String> {
+    pub(super) fn teardown(&mut self) -> Vec<String> {
         let mut notes = Vec::new();
         for id in self.sessions.clone() {
             let Some(record) = self.backend.record(&id) else {
@@ -1491,6 +1522,77 @@ impl Driver {
     }
 }
 
+/// Адаптер кандидата над `binaries` с каталогом сокетов водителя `root`.
+fn adapter(
+    candidate: Candidate,
+    root: &Path,
+    out: &Path,
+    env: &[(String, String)],
+    token: &str,
+    binaries: &Binaries,
+) -> Result<Adapter, String> {
+    match candidate {
+        Candidate::Zmx => {
+            let zmx = zmx::Zmx::new(zmx::Config {
+                set: ZmxSet::Current,
+                binary: binaries.zmx.clone(),
+                dir: root.join("z"),
+                cwd: root.to_path_buf(),
+                env: env.to_vec(),
+                token: token.to_owned(),
+                timeout: COMMAND_TIMEOUT,
+            })?;
+            required_file(&binaries.zmx)?;
+            Ok((Box::new(zmx), None))
+        }
+        Candidate::Rust => {
+            for path in [&binaries.host, &binaries.attach] {
+                required_file(path)?;
+            }
+            let config = rust_host::Config {
+                host: binaries.host.clone(),
+                attach: binaries.attach.clone(),
+                dir: root.join("r"),
+                logs: out.join("rust").join("logs"),
+                cwd: root.to_path_buf(),
+                env: env.to_vec(),
+                token: token.to_owned(),
+                timeout: COMMAND_TIMEOUT,
+                break_socket: None,
+                versions: crate::proto::SUPPORTED,
+            };
+            let side = RustHost::new(config.clone())?;
+            Ok((Box::new(RustHost::new(config)?), Some(side)))
+        }
+    }
+}
+
+/// Ввод `marker` через `backend` без клиента и позиция во вводе фикстуры сразу после него;
+/// `None` — маркер не дошёл за срок.
+pub(super) fn drain_with(
+    backend: &dyn Backend,
+    session: &mut Session,
+    marker: &str,
+) -> Result<Option<Mark>, String> {
+    let start = Mark::at(session.link.log());
+    backend
+        .input(&session.id, marker.as_bytes(), InputPath::Raw)
+        .map_err(|err| format!("ввод {marker} через кандидата: {err}"))?;
+    let mut end = None;
+    pull_until(&mut session.link, WAIT, |log| {
+        let input = bridge::input_since(log, 0);
+        end = input
+            .get(start.bytes..)
+            .and_then(|rest| report_policy::split_at_marker(rest, marker))
+            .map(|fence| start.bytes + fence.end);
+        end.is_some()
+    })?;
+    Ok(end.map(|bytes| Mark {
+        bytes,
+        barriers: bridge::barrier_replies(session.link.log()),
+    }))
+}
+
 /// Команда поверхности: RIS стирает приветствие `login(1)` до attach, затем attach-клиент с
 /// окружением кандидата, собранным с нуля, как у attach-клиента стенда.
 fn surface_command(program: &Path, args: &[String], env: &[(String, String)]) -> String {
@@ -1505,7 +1607,7 @@ fn surface_command(program: &Path, args: &[String], env: &[(String, String)]) ->
     )
 }
 
-fn request(link: &mut Link, command: Command) -> Result<(), String> {
+pub(super) fn request(link: &mut Link, command: Command) -> Result<(), String> {
     let id = link
         .send(command)
         .map_err(|err| format!("команда фикстуре: {err}"))?;
@@ -1546,7 +1648,7 @@ fn pull_until(
 }
 
 /// Фикстура пишет `bytes` и барьер одной записью; `true` — поверхность ответила на барьер.
-fn barrier(link: &mut Link, bytes: &[u8]) -> Result<bool, String> {
+pub(super) fn barrier(link: &mut Link, bytes: &[u8]) -> Result<bool, String> {
     let before = bridge::barrier_replies(link.log());
     let mut out = bytes.to_vec();
     out.extend_from_slice(BARRIER);
@@ -1556,13 +1658,13 @@ fn barrier(link: &mut Link, bytes: &[u8]) -> Result<bool, String> {
 
 /// Позиция во вводе фикстуры: прочитанные байты и ответы на барьеры стенда до неё.
 #[derive(Clone, Copy, Debug, Default, Serialize)]
-struct Mark {
+pub(super) struct Mark {
     bytes: usize,
     barriers: usize,
 }
 
 impl Mark {
-    fn at(log: &[Receipt]) -> Mark {
+    pub(super) fn at(log: &[Receipt]) -> Mark {
         Mark {
             bytes: bridge::input_since(log, 0).len(),
             barriers: bridge::barrier_replies(log),
@@ -1572,7 +1674,7 @@ impl Mark {
 
 /// Маркер-вставка через поверхность и байты от неё до маркера после `consumed` без ответов на
 /// барьеры стенда за это время; `None` — маркер не дошёл до фикстуры за срок.
-fn fence(
+pub(super) fn fence(
     window: &mut Window,
     link: &mut Link,
     consumed: &mut Mark,
@@ -1706,7 +1808,7 @@ fn required_dir(value: Option<&String>, name: &str) -> Result<PathBuf, String> {
     }
 }
 
-fn required_file(path: &Path) -> Result<(), String> {
+pub(super) fn required_file(path: &Path) -> Result<(), String> {
     if path.is_file() {
         Ok(())
     } else {

@@ -13,13 +13,13 @@ pub const USAGE: &str = "\
   probe-session --aggregate <каталог прогона>
       summary.json прогона и сводка клеток по кандидатам
   probe-session --scenes <каталог процесса>
-      байты сцен report-policy кодировщиком моста и ожидаемые виды сцен bridge от эталона
+      байты сцен report-policy кодировщиком моста и ожидаемые виды сцен bridge и update от эталона
       в <каталог>/scenes (функция vt)
   probe-session --launch -- <аргументы сценария>
       процесс сценария с окружением, собранным с нуля, временным SHELLIO_STATE_DIR и внешним
       сторожем
   probe-session-surface --gui <сокет водителя> --out <каталог GUI> --nonce <метка>
-      GUI-процесс сценария bridge: поверхности по командам водителя (функция surface)
+      GUI-процесс сценариев bridge и update: поверхность по командам водителя (функция surface)
 
 --nonce процессу сценария выставляет --launch; --variant по умолчанию base, имя варианта —
 строчные латинские буквы и цифры";

@@ -3,8 +3,9 @@
 //! `lifecycle`, headless-матрица задачи 9 — `restore` (B), `queries` (D), `io` (E), `geometry`
 //! (F1, F3) и `versions` (G1, G2). Сценарий поверхности задачи 10 — `report-policy` (политика
 //! отчётов, клетки стенда `surface-*`), задачи 15 — `bridge` (C1–C4, D1, D3–D5, F2 в поверхности на
-//! обоих кандидатах); оба идут в бинаре `probe-session-surface` с функцией `surface`. Общий стенд
-//! zmx — `stand`, чистые сценарные утилиты — `util`.
+//! обоих кандидатах), задачи 16 — `update` (G3: замена подписанного бандла при живом хосте); все
+//! три идут в бинаре `probe-session-surface` с функцией `surface`. Общий стенд zmx — `stand`,
+//! чистые сценарные утилиты — `util`.
 
 pub mod bridge;
 #[cfg(feature = "vt")]
@@ -25,6 +26,7 @@ pub mod report_policy;
 pub mod restore;
 #[cfg(feature = "vt")]
 pub mod stand;
+pub mod update;
 pub mod util;
 #[cfg(feature = "vt")]
 pub mod versions;
@@ -157,10 +159,12 @@ pub enum Scenario {
     /// Мост в настоящую поверхность через attach-клиент кандидата (задача 15): C1–C4, части
     /// `surface` клеток D1, D3–D5 и F2.
     Bridge,
+    /// Замена подписанного бандла пробы при живом хосте (задача 16): клетка G3.
+    Update,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 10] = [
+    pub const ALL: [Scenario; 11] = [
         Scenario::Smoke,
         Scenario::Lifecycle,
         Scenario::Capi,
@@ -171,6 +175,7 @@ impl Scenario {
         Scenario::Versions,
         Scenario::ReportPolicy,
         Scenario::Bridge,
+        Scenario::Update,
     ];
 
     pub fn name(self) -> &'static str {
@@ -185,6 +190,7 @@ impl Scenario {
             Scenario::Versions => "versions",
             Scenario::ReportPolicy => "report-policy",
             Scenario::Bridge => "bridge",
+            Scenario::Update => "update",
         }
     }
 
@@ -204,7 +210,8 @@ impl Scenario {
             | Scenario::Queries
             | Scenario::Geometry
             | Scenario::Versions
-            | Scenario::Bridge => &Candidate::ALL,
+            | Scenario::Bridge
+            | Scenario::Update => &Candidate::ALL,
         }
     }
 
@@ -213,7 +220,7 @@ impl Scenario {
         match self {
             Scenario::Smoke => Duration::from_secs(10),
             Scenario::Lifecycle | Scenario::Capi => Duration::from_secs(300),
-            Scenario::Geometry | Scenario::Versions | Scenario::ReportPolicy => {
+            Scenario::Geometry | Scenario::Versions | Scenario::ReportPolicy | Scenario::Update => {
                 Duration::from_secs(300)
             }
             Scenario::Restore | Scenario::Queries | Scenario::Io | Scenario::Bridge => {
@@ -297,7 +304,9 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::Io => vt_only(target, environment, "io"),
         Scenario::Geometry => vt_only(target, environment, "geometry"),
         Scenario::Versions => vt_only(target, environment, "versions"),
-        Scenario::ReportPolicy | Scenario::Bridge => surface_run(target, environment),
+        Scenario::ReportPolicy | Scenario::Bridge | Scenario::Update => {
+            surface_run(target, environment)
+        }
     }
 }
 
@@ -306,6 +315,7 @@ fn surface_run(target: &Target, environment: &Environment) -> Result<Report, Str
     match target.scenario {
         Scenario::ReportPolicy => crate::surface::scene::run(target, environment),
         Scenario::Bridge => crate::surface::bridge::run(target, environment),
+        Scenario::Update => crate::surface::update::run(target, environment),
         other => Err(format!("сценарий {other} не из сценариев поверхности")),
     }
 }
