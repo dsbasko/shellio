@@ -798,6 +798,43 @@ mod tests {
     }
 
     #[test]
+    fn rollup_keeps_the_heaviest_cause_of_a_repeated_part() {
+        let repeated = |first: PartResult, second: PartResult| {
+            let mut results = all_required(Status::Pass);
+            results.retain(|result| result.part != "kitty");
+            results.push(first);
+            results.push(second);
+            rollup(&results).expect("свод")
+        };
+        let not_run = |cause| result("kitty", Status::NotRun, Some(cause));
+        let pass = || result("kitty", Status::Pass, None);
+        for (first, second) in [
+            (not_run(NotRunCause::Surface), not_run(NotRunCause::Pending)),
+            (not_run(NotRunCause::Pending), not_run(NotRunCause::Surface)),
+        ] {
+            let verdict = repeated(first, second);
+            assert_eq!(verdict.open, ["kitty: not_run (pending)"]);
+            assert!(!verdict.keeps_candidate);
+        }
+        for (first, second) in [
+            (not_run(NotRunCause::Stand), not_run(NotRunCause::Surface)),
+            (not_run(NotRunCause::Surface), not_run(NotRunCause::Stand)),
+        ] {
+            let verdict = repeated(first, second);
+            assert_eq!(verdict.open, ["kitty: not_run (stand)"]);
+            assert!(verdict.keeps_candidate);
+        }
+        for (first, second) in [
+            (not_run(NotRunCause::Stand), pass()),
+            (pass(), not_run(NotRunCause::Stand)),
+        ] {
+            let verdict = repeated(first, second);
+            assert_eq!(verdict.status, Status::NotRun);
+            assert_eq!(verdict.open, ["kitty: not_run (stand)"]);
+        }
+    }
+
+    #[test]
     fn cell_takes_requirement_and_cause_from_catalog_and_outcome() {
         let outcome = Outcome::not_run(NotRunCause::Surface, "контроль без хоста провален");
         let research = cell("ime", &outcome).expect("клетка");

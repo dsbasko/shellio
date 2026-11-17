@@ -18,6 +18,7 @@ use std::sync::{Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use crate::backend::{Lead, Role};
+use crate::proto::Ack;
 use crate::pty::Winsize;
 
 /// Предел живого вывода в очереди одного клиента.
@@ -36,7 +37,7 @@ pub enum Room {
     Limit,
     /// В пределах очереди и запаса сверх него.
     Reserve(usize),
-    /// Без предела: размер кадра ограничен источником.
+    /// Без предела: размер кадра ограничен источником, места кадров в пределе он не занимает.
     Always,
 }
 
@@ -69,19 +70,48 @@ impl std::fmt::Display for Refusal {
 
 #[derive(Debug, Default)]
 struct State {
-    frames: VecDeque<Vec<u8>>,
+    /// Кадры и признак «вне предела» ([`Room::Always`]).
+    frames: VecDeque<(Vec<u8>, bool)>,
     /// В очереди и в записи.
     counted: usize,
+    /// Из них кадры вне предела: место кадров в пределе и в запасе они не занимают.
+    exempt: usize,
     /// Кадр в записи.
     writing: usize,
+    writing_exempt: bool,
     closing: bool,
     /// Писатель вышел.
     finished: bool,
     peak: usize,
 }
 
+impl State {
+    /// Отбрасывает кадры, ещё не начатые записью; возвращает их байты.
+    fn drop_queued(&mut self) -> usize {
+        let mut dropped = 0;
+        for (frame, exempt) in self.frames.drain(..) {
+            dropped += frame.len();
+            if exempt {
+                self.exempt -= frame.len();
+            }
+        }
+        self.counted -= dropped;
+        dropped
+    }
+
+    fn release_writing(&mut self) {
+        self.counted -= self.writing;
+        if self.writing_exempt {
+            self.exempt -= self.writing;
+        }
+        self.writing = 0;
+        self.writing_exempt = false;
+    }
+}
+
 /// Очередь кадров с пределом в байтах и одним писателем. Байты кадра считаются до конца его
-/// записи: остановленный приёмник держит в памяти не больше предела и одного кадра сверх запаса.
+/// записи: остановленный приёмник держит в памяти не больше предела и одного кадра сверх запаса,
+/// не считая кадров вне предела.
 #[derive(Debug)]
 pub struct ByteQueue {
     state: Mutex<State>,
@@ -119,16 +149,21 @@ impl ByteQueue {
             Room::Reserve(extra) => self.limit.saturating_add(extra),
             Room::Always => usize::MAX,
         };
-        if state.counted.saturating_add(frame.len()) > allowed {
+        let bounded = state.counted - state.exempt;
+        if bounded.saturating_add(frame.len()) > allowed {
             return Err(Refusal::Full {
                 len: frame.len(),
-                counted: state.counted,
+                counted: bounded,
                 limit: self.limit,
             });
         }
+        let exempt = room == Room::Always;
         state.counted += frame.len();
+        if exempt {
+            state.exempt += frame.len();
+        }
         state.peak = state.peak.max(state.counted);
-        state.frames.push_back(frame);
+        state.frames.push_back((frame, exempt));
         self.ready.notify_all();
         Ok(())
     }
@@ -137,11 +172,11 @@ impl ByteQueue {
     /// очередь закрывается. Возвращает отброшенные байты.
     pub fn evict(&self, notice: Vec<u8>) -> usize {
         let mut state = self.lock();
-        let dropped: usize = state.frames.drain(..).map(|frame| frame.len()).sum();
-        state.counted -= dropped;
+        let dropped = state.drop_queued();
         if !state.closing {
             state.counted += notice.len();
-            state.frames.push_back(notice);
+            state.exempt += notice.len();
+            state.frames.push_back((notice, true));
         }
         state.closing = true;
         self.ready.notify_all();
@@ -158,8 +193,9 @@ impl ByteQueue {
     pub fn pop(&self) -> Option<Vec<u8>> {
         let mut state = self.lock();
         loop {
-            if let Some(frame) = state.frames.pop_front() {
+            if let Some((frame, exempt)) = state.frames.pop_front() {
                 state.writing = frame.len();
+                state.writing_exempt = exempt;
                 return Some(frame);
             }
             if state.closing {
@@ -175,17 +211,15 @@ impl ByteQueue {
     /// Кадр, выданный [`ByteQueue::pop`], записан или брошен.
     pub fn written(&self) {
         let mut state = self.lock();
-        state.counted -= state.writing;
-        state.writing = 0;
+        state.release_writing();
         self.ready.notify_all();
     }
 
     /// Писатель вышел: очередь закрыта, оставшиеся кадры уже не будут записаны.
     pub fn finish(&self) {
         let mut state = self.lock();
-        let left: usize = state.frames.drain(..).map(|frame| frame.len()).sum();
-        state.counted -= left + state.writing;
-        state.writing = 0;
+        state.drop_queued();
+        state.release_writing();
         state.closing = true;
         state.finished = true;
         self.ready.notify_all();
@@ -292,6 +326,22 @@ impl InputLedger {
     /// Ввод с этим номером уже принят.
     pub fn is_duplicate(&self, id: InputId) -> bool {
         self.last(id.source).is_some_and(|last| id.seq <= last)
+    }
+
+    /// Решение о вводе с номером: повтор принятого номера — `Duplicate`, иначе ввод ставится
+    /// `push`. Номер запоминается только после принятого `push`: повтор отвергнутого ввода
+    /// принимается заново.
+    pub fn admit(&mut self, id: InputId, push: impl FnOnce() -> Result<(), String>) -> Ack {
+        if self.is_duplicate(id) {
+            return Ack::Duplicate;
+        }
+        match push() {
+            Ok(()) => {
+                self.record(id);
+                Ack::Accepted
+            }
+            Err(reason) => Ack::Rejected(reason),
+        }
     }
 
     /// Ввод принят: номер запоминается, источник становится самым свежим.

@@ -3,9 +3,10 @@
 //! обслуженный запрос клиенту не уходит, а ответ на него даёт VT хоста. Модуль чистый, VT стоит за
 //! трейтом [`Answer`].
 //!
-//! Поток режется на шаги по концу каждой последовательности, которая может дать ответ терминала.
-//! Каждый шаг целиком подаётся в VT, и всё, что VT записал в PTY за шаг, принадлежит последней
-//! последовательности шага. Ответ на обслуженный шаг уходит в PTY нагрузки; ответ VT на
+//! Поток режется на шаги по концу каждой последовательности, которая может дать ответ терминала,
+//! и по концу каждой строки (OSC, DCS, SOS, PM, APC), переданной клиенту. Каждый шаг целиком
+//! подаётся в VT, и всё, что VT записал в PTY за шаг, принадлежит последней последовательности
+//! шага. Ответ на обслуженный шаг уходит в PTY нагрузки; ответ VT на
 //! переданный клиенту запрос отбрасывается: на него отвечает терминал клиента (ADR-0005, ровно
 //! одна сторона). Начатая последовательность, которую ещё нельзя классифицировать, клиенту не
 //! отдаётся до решения (удержание), но в VT уже подана: её continuation хоста знает.
@@ -135,6 +136,13 @@ impl Scanner {
         });
     }
 
+    /// Шаг до текущего байта: строку, закрытую ESC без `\`, VT исполнил на этом ESC.
+    fn cut_before_current(&mut self) {
+        let current = self.raw.pop();
+        self.cut(None);
+        self.raw.extend(current);
+    }
+
     fn flush(&mut self) {
         self.client.append(&mut self.held);
     }
@@ -253,9 +261,10 @@ impl Scanner {
                     self.parse = Parse::Ground;
                     self.osc_end();
                 } else {
-                    // ESC закрыл OSC без исполнения и начал новую последовательность.
+                    // ESC закрыл переданную клиенту OSC и начал новую последовательность.
                     self.held.pop();
                     self.flush();
+                    self.cut_before_current();
                     self.held.push(ESC);
                     self.parse = Parse::Escape;
                     self.byte(byte);
@@ -278,6 +287,7 @@ impl Scanner {
                 BEL if !dcs => {
                     self.client.push(byte);
                     self.parse = Parse::Ground;
+                    self.cut(None);
                 }
                 CAN | SUB => {
                     self.client.push(byte);
@@ -285,18 +295,16 @@ impl Scanner {
                 }
                 _ => self.client.push(byte),
             },
-            Parse::TextEscape { dcs } => {
+            Parse::TextEscape { .. } => {
                 if byte == b'\\' {
                     self.client.push(byte);
                     self.parse = Parse::Ground;
-                    // Конец DCS: DECRQSS и XTGETTCAP отвечают, но в набор не входят.
-                    if dcs {
-                        self.cut(None);
-                    }
+                    self.cut(None);
                 } else {
                     // ESC уже передан клиенту: он закрыл строку и начинает новую последовательность.
                     self.parse = Parse::Escape;
                     self.client.pop();
+                    self.cut_before_current();
                     self.held.push(ESC);
                     self.byte(byte);
                 }
@@ -337,6 +345,7 @@ impl Scanner {
             }
             None => {
                 self.client.extend_from_slice(&held);
+                self.cut(None);
             }
         }
     }

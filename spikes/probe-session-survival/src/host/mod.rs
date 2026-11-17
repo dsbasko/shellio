@@ -352,23 +352,31 @@ pub enum ParseIn {
 
 /// Очередь разбора: байты PTY ждут места сверх предела, команды не ждут никогда.
 pub struct ParseQueue {
-    state: Mutex<(VecDeque<ParseIn>, usize)>,
+    state: Mutex<ParseState>,
     ready: Condvar,
     room: Condvar,
     limit: usize,
 }
 
+#[derive(Default)]
+struct ParseState {
+    items: VecDeque<ParseIn>,
+    bytes: usize,
+    /// Читателей PTY, ждущих места.
+    waiting: usize,
+}
+
 impl ParseQueue {
     pub fn new(limit: usize) -> ParseQueue {
         ParseQueue {
-            state: Mutex::new((VecDeque::new(), 0)),
+            state: Mutex::new(ParseState::default()),
             ready: Condvar::new(),
             room: Condvar::new(),
             limit,
         }
     }
 
-    fn lock(&self) -> MutexGuard<'_, (VecDeque<ParseIn>, usize)> {
+    fn lock(&self) -> MutexGuard<'_, ParseState> {
         self.state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -376,32 +384,34 @@ impl ParseQueue {
 
     pub fn push_bytes(&self, bytes: Vec<u8>) {
         let mut state = self.lock();
-        while state.1 > 0 && state.1 + bytes.len() > self.limit {
+        while state.bytes > 0 && state.bytes + bytes.len() > self.limit {
+            state.waiting += 1;
             state = self
                 .room
                 .wait(state)
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
+            state.waiting -= 1;
         }
-        state.1 += bytes.len();
-        state.0.push_back(ParseIn::Bytes(bytes));
+        state.bytes += bytes.len();
+        state.items.push_back(ParseIn::Bytes(bytes));
         self.ready.notify_one();
     }
 
     pub fn push(&self, item: ParseIn) {
         let mut state = self.lock();
         if let ParseIn::Bytes(bytes) = &item {
-            state.1 += bytes.len();
+            state.bytes += bytes.len();
         }
-        state.0.push_back(item);
+        state.items.push_back(item);
         self.ready.notify_one();
     }
 
     pub fn pop(&self) -> ParseIn {
         let mut state = self.lock();
         loop {
-            if let Some(item) = state.0.pop_front() {
+            if let Some(item) = state.items.pop_front() {
                 if let ParseIn::Bytes(bytes) = &item {
-                    state.1 -= bytes.len();
+                    state.bytes -= bytes.len();
                     self.room.notify_all();
                 }
                 return item;
@@ -414,7 +424,12 @@ impl ParseQueue {
     }
 
     pub fn queued_bytes(&self) -> usize {
-        self.lock().1
+        self.lock().bytes
+    }
+
+    #[cfg(test)]
+    fn waiting(&self) -> usize {
+        self.lock().waiting
     }
 }
 
@@ -905,6 +920,13 @@ impl<'a> Hub<'a> {
         if size == self.size {
             return;
         }
+        if size.rows == 0 || size.cols == 0 {
+            eprintln!(
+                "{HOST_NAME}: ресайз {}x{} отвергнут: пустой размер",
+                size.rows, size.cols
+            );
+            return;
+        }
         match self.terminal.resize(size) {
             Ok(()) => {
                 self.size = size;
@@ -1020,18 +1042,11 @@ impl<'a> Hub<'a> {
         ack_wanted: bool,
     ) {
         let len = bytes.len();
-        let ack = if !self.lead.accepts_input(origin) {
-            Ack::Rejected("ввод без лидерства".to_owned())
-        } else if self.ledger.is_duplicate(input) {
-            Ack::Duplicate
+        let ack = if self.lead.accepts_input(origin) {
+            let queue = &self.input;
+            self.ledger.admit(input, || queue.push(bytes))
         } else {
-            match self.input.push(bytes) {
-                Ok(()) => {
-                    self.ledger.record(input);
-                    Ack::Accepted
-                }
-                Err(reason) => Ack::Rejected(reason),
-            }
+            Ack::Rejected("ввод без лидерства".to_owned())
         };
         if ack != Ack::Accepted {
             eprintln!(
@@ -1153,9 +1168,19 @@ impl<'a> Hub<'a> {
         self.after(STOP_GRACE, Event::StopDeadline);
     }
 
-    /// `SIGKILL` всем живым процессам сессии нагрузки, кроме самого хоста.
+    /// `SIGKILL` всем живым процессам сессии нагрузки, кроме самого хоста. Если список процессов
+    /// не прочитан, `SIGKILL` получает группа нагрузки.
     fn kill_session(&self) {
-        let processes = registry::all_processes().unwrap_or_default();
+        let processes = match registry::all_processes() {
+            Ok(processes) => processes,
+            Err(err) => {
+                eprintln!(
+                    "{HOST_NAME}: процессы сессии не прочитаны: {err}; SIGKILL группе нагрузки"
+                );
+                let _ = crate::backend::signal(-self.record.workload_pgid, libc::SIGKILL);
+                return;
+            }
+        };
         for key in registry::remaining(&self.record, &processes) {
             if key != self.record.host {
                 let _ = crate::backend::signal(key.pid, libc::SIGKILL);
@@ -1325,9 +1350,18 @@ mod tests {
         queue.push_bytes(b"abcd".to_vec());
         let writer = std::sync::Arc::clone(&queue);
         let reader = std::thread::spawn(move || writer.push_bytes(b"ef".to_vec()));
+        while queue.waiting() == 0 && !reader.is_finished() {
+            std::thread::yield_now();
+        }
+        assert!(!reader.is_finished(), "читатель не ждал места");
+        assert_eq!(queue.queued_bytes(), 4);
+        // Команда места не ждёт.
+        queue.push(ParseIn::Focus(true));
         assert_eq!(queue.pop(), ParseIn::Bytes(b"abcd".to_vec()));
         reader.join().unwrap();
+        assert_eq!(queue.pop(), ParseIn::Focus(true));
         assert_eq!(queue.pop(), ParseIn::Bytes(b"ef".to_vec()));
+        assert_eq!(queue.queued_bytes(), 0);
     }
 
     #[test]

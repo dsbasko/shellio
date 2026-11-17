@@ -33,6 +33,35 @@ fn bounded_queue_refuses_whole_frames_over_the_limit() {
 }
 
 #[test]
+fn frames_without_limit_do_not_take_room_from_live_frames() {
+    let queue = ByteQueue::new(10);
+    queue.push(vec![0; 100], Room::Always).unwrap();
+    queue.push(vec![1; 10], Room::Limit).unwrap();
+    assert_eq!(
+        queue.push(vec![2], Room::Limit),
+        Err(Refusal::Full {
+            len: 1,
+            counted: 10,
+            limit: 10
+        })
+    );
+    assert_eq!(queue.counted(), 110);
+    assert_eq!(queue.pop(), Some(vec![0; 100]));
+    queue.written();
+    assert!(queue.push(vec![2], Room::Limit).is_err());
+    assert_eq!(queue.pop(), Some(vec![1; 10]));
+    // Кадр в пределе держит место до конца записи и после него освобождает его.
+    assert!(queue.push(vec![2], Room::Limit).is_err());
+    queue.written();
+    queue.push(vec![2; 10], Room::Limit).unwrap();
+    queue.push(vec![3; 5], Room::Always).unwrap();
+    assert_eq!(queue.evict(b"bye".to_vec()), 15);
+    assert_eq!(queue.pop(), Some(b"bye".to_vec()));
+    queue.written();
+    assert_eq!(queue.counted(), 0);
+}
+
+#[test]
 fn bytes_in_writing_count_until_the_frame_is_written() {
     let queue = ByteQueue::new(8);
     queue.push(b"abcdef".to_vec(), Room::Limit).unwrap();
@@ -164,10 +193,28 @@ fn writer_thread_drains_concurrent_pushes() {
 fn retried_input_is_a_duplicate_only_after_it_was_accepted() {
     let mut ledger = InputLedger::new(2);
     let first = InputId { source: 7, seq: 1 };
-    assert!(!ledger.is_duplicate(first));
-    // Отвергнутый ввод не запоминается: его повтор принимается заново.
-    assert!(!ledger.is_duplicate(first));
-    ledger.record(first);
+    let full = || Err("очередь заполнена".to_owned());
+    assert_eq!(
+        ledger.admit(first, full),
+        Ack::Rejected("очередь заполнена".to_owned())
+    );
+    // Отвергнутый ввод не запоминается: его повтор принимается заново и ставится один раз.
+    let mut pushed = 0;
+    assert_eq!(
+        ledger.admit(first, || {
+            pushed += 1;
+            Ok(())
+        }),
+        Ack::Accepted
+    );
+    assert_eq!(
+        ledger.admit(first, || {
+            pushed += 1;
+            Ok(())
+        }),
+        Ack::Duplicate
+    );
+    assert_eq!(pushed, 1);
     assert!(ledger.is_duplicate(first));
     assert!(!ledger.is_duplicate(InputId { source: 7, seq: 2 }));
     // Номер другого источника — новый ввод.

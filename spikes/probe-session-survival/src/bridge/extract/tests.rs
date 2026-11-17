@@ -2,7 +2,7 @@
 //! свежий приёмник и сравнение с эталоном и с извлечённым состоянием.
 
 use super::*;
-use crate::bridge::{ReportPolicy, encode, is_report_mode};
+use crate::bridge::{ReportPolicy, differences, encode, without_report_modes};
 use crate::matrix::capi;
 use crate::oracle::model::{Outcome, compare};
 use crate::oracle::vt::{Capture, Config, Journaled, Receiver, ReceiverProfile, Reference};
@@ -48,16 +48,6 @@ fn trip(steps: &[Vec<u8>]) -> Trip {
     }
 }
 
-fn without_report_modes(state: &State) -> State {
-    let mut state = state.clone();
-    state.modes.retain(|key, _| {
-        !key.strip_prefix('?')
-            .and_then(|value| value.parse().ok())
-            .is_some_and(is_report_mode)
-    });
-    state
-}
-
 /// Эталон и приёмник равны, извлечённое у приёмника равно извлечённому у источника (без режимов
 /// отчётов), воспроизведение не дало ни ответа, ни эффекта кроме заголовка.
 fn assert_restored(trip: &Trip, label: &str) {
@@ -75,18 +65,11 @@ fn assert_restored(trip: &Trip, label: &str) {
         without_report_modes(&trip.state),
         without_report_modes(&again),
     );
-    if a != b {
-        let left = serde_json::to_value(&a).unwrap();
-        let right = serde_json::to_value(&b).unwrap();
-        let diffs: Vec<String> = left
-            .as_object()
-            .unwrap()
-            .iter()
-            .filter(|(key, value)| right.get(key.as_str()) != Some(value))
-            .map(|(key, value)| format!("{key}: {value} против {}", right[key.as_str()]))
-            .collect();
-        panic!("{label}: извлечённое состояние разошлось: {diffs:?}");
-    }
+    assert!(
+        a == b,
+        "{label}: извлечённое состояние разошлось: {:?}",
+        differences(&a, &b)
+    );
     let effects: Vec<&Journaled> = trip
         .receiver
         .journal()

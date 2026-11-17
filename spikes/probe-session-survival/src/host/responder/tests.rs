@@ -7,7 +7,7 @@ struct Fake {
     seen: Vec<u8>,
 }
 
-const KNOWN: [(&[u8], &[u8]); 9] = [
+const KNOWN: [(&[u8], &[u8]); 13] = [
     (b"\x1b[c", b"<da1>"),
     (b"\x1b[>c", b"<da2>"),
     (b"\x1b[6n", b"<cpr>"),
@@ -17,6 +17,11 @@ const KNOWN: [(&[u8], &[u8]); 9] = [
     (b"\x1b]11;?\x1b", b"<osc11>"),
     (b"\x1b]52;c;?\x07", b"<clip>"),
     (b"\x1b[?2048h", b"<size>"),
+    // Вне набора: на них отвечает терминал клиента, ответ VT хоста отбрасывается.
+    (b"\x1b]12;?\x07", b"<osc12>"),
+    (b"\x1b]12;?\x1b", b"<osc12>"),
+    (b"\x1b]4;1;?;2;rgb:00/00/00\x07", b"<osc4>"),
+    (b"\x1b_Gi=1,a=q\x1b", b"<apc>"),
 ];
 
 impl Answer for Fake {
@@ -239,4 +244,25 @@ fn served_osc_closed_by_escape_starts_the_next_sequence() {
     let (_, _, waiting) = run(&[b"\x1b]11;?\x1b"]);
     assert_eq!(waiting.held(), b"\x1b");
     assert_eq!(client_continuation(b"\x1b", waiting.held()), Ok(Vec::new()));
+}
+
+#[test]
+fn reply_to_a_forwarded_string_never_joins_the_next_served_reply() {
+    for (query, reply) in [
+        (&b"\x1b]12;?\x07"[..], &b"<osc12>"[..]),
+        (b"\x1b]4;1;?;2;rgb:00/00/00\x07", b"<osc4>"),
+        (b"\x1b_Gi=1,a=q\x1b\\", b"<apc>"),
+        // ESC без `\` закрыл строку и начал следующую последовательность.
+        (b"\x1b]12;?\x1b", b"<osc12>"),
+    ] {
+        let mut stream = query.to_vec();
+        stream.extend_from_slice(b"\x1b[c");
+        for cut in 0..=stream.len() {
+            let (fed, _, _) = run(&[&stream[..cut], &stream[cut..]]);
+            let label = format!("{:?}, разрез {cut}", String::from_utf8_lossy(query));
+            assert_eq!(fed.replies, b"<da1>", "{label}");
+            assert_eq!(fed.dropped, reply, "{label}");
+            assert_eq!(fed.served, [Served::Da1], "{label}");
+        }
+    }
 }

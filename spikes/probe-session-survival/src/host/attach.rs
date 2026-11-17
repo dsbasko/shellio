@@ -191,7 +191,7 @@ fn run(options: &Options) -> Result<(), End> {
     let prefix = options.role_prefix.clone();
     thread::Builder::new()
         .name("from-host".to_owned())
-        .spawn(move || from_host(&mut reader, codec, prefix.as_deref()))
+        .spawn(move || from_host(&mut reader, codec, prefix.as_deref(), saved))
         .map_err(|err| format!("поток вывода: {err}"))?;
     let resizer = stream.try_clone().map_err(|err| format!("сокет: {err}"))?;
     thread::Builder::new()
@@ -199,20 +199,34 @@ fn run(options: &Options) -> Result<(), End> {
         .spawn(move || winch_loop(resizer, codec))
         .map_err(|err| format!("поток SIGWINCH: {err}"))?;
     let result = to_host(&mut stream, codec);
-    if let Some(termios) = &saved {
-        let _ = pty::set_termios(io::stdin().as_fd(), termios);
-    }
+    restore_terminal(saved.as_ref());
     Ok(result?)
 }
 
-/// Вывод хоста в терминал; выход нагрузки или конец соединения завершают клиента.
-fn from_host(reader: &mut UnixStream, codec: Codec, prefix: Option<&str>) {
+fn restore_terminal(saved: Option<&libc::termios>) {
+    if let Some(termios) = saved {
+        let _ = pty::set_termios(io::stdin().as_fd(), termios);
+    }
+}
+
+/// Вывод хоста в терминал; выход нагрузки или конец соединения завершают клиента, вернув
+/// терминалу прежний режим.
+fn from_host(
+    reader: &mut UnixStream,
+    codec: Codec,
+    prefix: Option<&str>,
+    saved: Option<libc::termios>,
+) {
+    let exit = |code: i32| -> ! {
+        restore_terminal(saved.as_ref());
+        std::process::exit(code)
+    };
     let mut out = io::stdout();
     loop {
         match proto::read_message(reader, codec) {
             Ok(Some(Message::Output { bytes, .. } | Message::Restore(bytes))) => {
                 if out.write_all(&bytes).and_then(|()| out.flush()).is_err() {
-                    std::process::exit(1);
+                    exit(1);
                 }
             }
             Ok(Some(Message::Role { role, generation })) => {
@@ -221,11 +235,11 @@ fn from_host(reader: &mut UnixStream, codec: Codec, prefix: Option<&str>) {
                     let _ = out.flush();
                 }
             }
-            Ok(Some(Message::Exited { .. })) => std::process::exit(0),
-            Ok(Some(Message::Evicted(_))) => std::process::exit(EXIT_EVICTED),
-            Ok(None) => std::process::exit(EXIT_LOST),
+            Ok(Some(Message::Exited { .. })) => exit(0),
+            Ok(Some(Message::Evicted(_))) => exit(EXIT_EVICTED),
+            Ok(None) => exit(EXIT_LOST),
             Ok(Some(_)) => {}
-            Err(_) => std::process::exit(1),
+            Err(_) => exit(1),
         }
     }
 }

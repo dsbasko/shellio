@@ -300,7 +300,7 @@ mod tests {
         let first = thread::spawn(move || reader.read());
         let (serial, generation) = request(&rx1.recv().unwrap());
         assert_eq!(generation, 1);
-        // Чужой запрос и чужое соединение не принимаются.
+        // Ответ на чужой номер запроса не принимается.
         assert_eq!(
             clipboard.deliver(10, serial + 1, 1, Some(b"x".to_vec())),
             Delivery::Dropped
@@ -331,6 +331,42 @@ mod tests {
         assert_eq!(stats.answered, 1);
         assert_eq!(stats.cancelled, 1);
         assert_eq!(stats.dropped, 2);
+    }
+
+    #[test]
+    fn answer_from_a_connection_of_another_generation_is_dropped() {
+        let clipboard = Arc::new(Clipboard::new(Duration::from_secs(30)));
+        let (tx1, rx1) = mpsc::sync_channel(4);
+        let (tx2, _rx2) = mpsc::sync_channel(4);
+        clipboard.bind(10, 1, Codec::V2, tx1);
+        clipboard.bind(20, 2, Codec::V2, tx2);
+        clipboard.set_leader(Some(1));
+        let reader = Arc::clone(&clipboard);
+        let read = thread::spawn(move || reader.read());
+        let (serial, generation) = request(&rx1.recv().unwrap());
+        // Номер и поколение верны, но соединение говорит от имени поколения 2.
+        assert_eq!(
+            clipboard.deliver(20, serial, generation, Some(b"x".to_vec())),
+            Delivery::Dropped
+        );
+        // Пустой ответ GUI своего поколения — ответ без данных.
+        assert_eq!(
+            clipboard.deliver(10, serial, generation, None),
+            Delivery::Accepted
+        );
+        assert_eq!(read.join().unwrap(), Read::Empty);
+        let stats = clipboard.stats();
+        assert_eq!((stats.answered, stats.dropped), (1, 1));
+    }
+
+    #[test]
+    fn refused_request_frame_means_no_gui() {
+        let clipboard = Clipboard::new(Duration::from_secs(30));
+        let (tx, _rx) = mpsc::sync_channel(0);
+        clipboard.bind(1, 3, Codec::V2, tx);
+        clipboard.set_leader(Some(3));
+        assert_eq!(clipboard.read(), Read::NoGui);
+        assert_eq!(clipboard.stats().no_gui, 1);
     }
 
     #[test]

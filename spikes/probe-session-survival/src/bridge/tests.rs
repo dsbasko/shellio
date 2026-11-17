@@ -430,3 +430,83 @@ fn filter_with_canonical_starts_from_restored_modes() {
     assert_eq!(filter.canonical(2048), Some(true));
     assert_eq!(filter.canonical(1004), Some(false));
 }
+
+#[test]
+fn without_report_modes_drops_only_report_modes() {
+    let mut state = State::blank(4, 2);
+    state.modes.insert("?1004".to_owned(), true);
+    state.modes.insert("?2048".to_owned(), true);
+    let cleared = without_report_modes(&state);
+    assert!(!cleared.modes.contains_key("?1004") && !cleared.modes.contains_key("?2048"));
+    assert_eq!(cleared.modes.get("?7"), Some(&true));
+}
+
+#[test]
+fn differences_name_paths_on_both_sides_and_stop_at_the_cap() {
+    let blank = State::blank(4, 2);
+    assert!(differences(&blank, &blank).is_empty());
+    let mut other = blank.clone();
+    other.title = "t".to_owned();
+    other.tabstops.push(3);
+    other.modes.insert("?9999".to_owned(), true);
+    let found = differences(&blank, &other);
+    for expected in [
+        ".title: \"\" против \"t\"",
+        ".tabstops: [] против [3]",
+        ".modes.?9999: null против true",
+    ] {
+        assert!(
+            found.iter().any(|line| line == expected),
+            "{expected}: {found:?}"
+        );
+    }
+    assert_eq!(found.len(), 3, "{found:?}");
+
+    let cols = 30;
+    let blank = State::blank(cols, 1);
+    let mut full = blank.clone();
+    full.primary.active[0] = row_of("abcdefghijklmnopqrstuvwxyz0123", cols);
+    assert_eq!(differences(&blank, &full).len(), MAX_DIFFERENCES);
+}
+
+#[test]
+fn inexpressible_lists_each_rule() {
+    let cols = 4;
+    let mut state = State::blank(cols, 2);
+    state.primary.active[0] = row_of("abcd", cols);
+    state.primary.active[0].wrap = true;
+    state.primary.active[1] = row_of("e", cols);
+    assert!(
+        inexpressible(&state).is_empty(),
+        "{:?}",
+        inexpressible(&state)
+    );
+
+    state.primary.active[0] = row_of("ab", cols);
+    state.primary.active[0].wrap = true;
+    assert_eq!(
+        inexpressible(&state),
+        ["primary: мягкий перенос строки 0 без печатной клетки"]
+    );
+
+    let mut state = State::blank(cols, 2);
+    state.modes.insert("?3".to_owned(), true);
+    state.modes.insert("?1049".to_owned(), true);
+    assert_eq!(
+        inexpressible(&state),
+        [
+            "DECCOLM (?3) меняет размер и очищает экран",
+            "флаг режима alternate при активном основном экране"
+        ]
+    );
+
+    let mut state = State::blank(cols, 2);
+    state.screen = Screen::Alternate;
+    for mode in MouseEvent::MODES {
+        state.modes.insert(format!("?{mode}"), true);
+    }
+    let found = inexpressible(&state);
+    assert_eq!(found.len(), 2, "{found:?}");
+    assert_eq!(found[0], "alternate без флага режима");
+    assert!(found[1].starts_with("группа мыши"), "{found:?}");
+}
