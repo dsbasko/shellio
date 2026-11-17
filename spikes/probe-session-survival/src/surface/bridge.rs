@@ -351,11 +351,15 @@ impl Driver {
     }
 
     fn cells(&mut self) -> Result<Vec<Cell>, String> {
-        let mut cells = vec![self.c1()?, self.f2()?];
+        let mut cells = vec![self.c1()?, self.f2()?, self.d3()?];
+        let built: Vec<(String, Option<String>)> = cells
+            .iter()
+            .map(|cell| (cell.id.clone(), cell.part.clone()))
+            .collect();
         cells.extend(
             bridge::pending("до задачи 15: клетка моста ещё не построена")
                 .into_iter()
-                .filter(|cell| cell.id != "C1" && cell.id != "F2"),
+                .filter(|cell| !built.contains(&(cell.id.clone(), cell.part.clone()))),
         );
         Ok(cells)
     }
@@ -517,6 +521,102 @@ impl Driver {
             },
             &evidence,
             vec![artifact.to_owned()],
+        ))
+    }
+
+    /// Записи OSC 52 в журнале эффектов GUI `label` с текстом `text`.
+    fn clipboard_writes(&self, label: &str, text: &str) -> Result<usize, String> {
+        let path = self.out.join(label).join(bridge::EFFECTS_FILE);
+        let journal = fs::read_to_string(&path).unwrap_or_default();
+        Ok(bridge::parse_effects(&journal)?
+            .iter()
+            .filter(|effect| {
+                matches!(effect, bridge::Effect::ClipboardWrite { text: written, .. } if written == text)
+            })
+            .count())
+    }
+
+    /// D3 в поверхности: OSC 52 записи даёт эффект один раз при живом клиенте и не повторяется
+    /// при восстановлении в новой GUI после `SIGKILL` прежней.
+    fn d3(&mut self) -> Result<Cell, String> {
+        const TEXT: &str = "bridge-d3";
+        let mut session = self.ensure("d3", Mode::Emitter)?;
+        let mut evidence = Evidence::default();
+        let mut first = self.gui(&session.id, Lead::IfFree, COLS, ROWS)?;
+        self.wait_clients(&session.id, 1)?;
+        request(
+            &mut session.link,
+            Command::Write {
+                hex: hex(b"\x1b]52;c;YnJpZGdlLWQz\x07d3-after"),
+            },
+        )?;
+        let shown = wait_text(&mut first, |text| text.contains("d3-after"))?;
+        if shown.is_none() {
+            return Err("предусловие D3: GUI №1 не показала текст после OSC 52".to_owned());
+        }
+        let live = self.clipboard_writes(&first.label, TEXT)?;
+        evidence.check("live-once", live == 1, format!("эффектов у GUI №1: {live}"));
+        signal(first.hello.pid, libc::SIGKILL)
+            .map_err(|err| format!("SIGKILL {}: {err}", first.label))?;
+        backend::wait_child(&mut first.child, WAIT)
+            .map_err(|err| format!("{}: {err}", first.label))?;
+        self.wait_clients(&session.id, 0)?;
+        let mut second = self.gui(&session.id, Lead::IfFree, COLS, ROWS)?;
+        self.wait_clients(&session.id, 1)?;
+        if wait_text(&mut second, |text| text.contains("d3-after"))?.is_none() {
+            return Err("предусловие D3: GUI №2 не восстановила текст".to_owned());
+        }
+        // Граница: живой поток после восстановления виден в GUI №2.
+        request(
+            &mut session.link,
+            Command::Write {
+                hex: hex(b"\r\nd3-end"),
+            },
+        )?;
+        if wait_text(&mut second, |text| text.contains("d3-end"))?.is_none() {
+            return Err("предусловие D3: GUI №2 не показала живой поток".to_owned());
+        }
+        let replayed = self.clipboard_writes(&second.label, TEXT)?;
+        let first_after = self.clipboard_writes(&first.label, TEXT)?;
+        evidence.check(
+            "no-replay",
+            replayed == 0,
+            format!("эффектов у GUI №2 после восстановления: {replayed}"),
+        );
+        evidence.check(
+            "journal-survived-kill",
+            first_after == live,
+            format!("журнал GUI №1 после SIGKILL: {first_after}"),
+        );
+        let _ = second.command(&GuiCommand::Quit);
+        let _ = backend::wait_child(&mut second.child, WAIT);
+        let artifact = "bridge-d3.json";
+        crate::results::write_json(
+            &self.out,
+            artifact,
+            &serde_json::json!({
+                "session": session.id.as_str(),
+                "gui1": { "label": first.label, "writes": live, "after_kill": first_after },
+                "gui2": { "label": second.label, "writes": replayed },
+            }),
+        )?;
+        Ok(evidence::cell(
+            Spec {
+                id: "D3",
+                part: Some(bridge::SURFACE_PART),
+                stimulus: format!(
+                    "{}: OSC 52 записи через GUI №1, SIGKILL, восстановление в GUI №2",
+                    self.candidate
+                ),
+                oracle: "журнал эффектов поверхности (write_clipboard_cb)",
+                completion: "текст после OSC 52 и живой поток в read_text",
+                origin: DefectOrigin::Host,
+            },
+            &evidence,
+            vec![
+                artifact.to_owned(),
+                format!("{}/{}", first.label, bridge::EFFECTS_FILE),
+            ],
         ))
     }
 
