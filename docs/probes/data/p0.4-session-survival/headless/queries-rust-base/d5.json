@@ -1,0 +1,140 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "GUI поколения 1 лидера c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "включение 2048: один отчёт размера",
+      "ok": true,
+      "detail": "[(SizeReport, \"1b5b34383b32343b38303b3438303b38303074\")]"
+    },
+    {
+      "name": "фокус через GUI c1",
+      "ok": true,
+      "detail": "принято"
+    },
+    {
+      "name": "фокус окна c1: один FocusIn",
+      "ok": true,
+      "detail": "[(FocusIn, \"1b5b49\")]"
+    },
+    {
+      "name": "DECRQM 1004: один ответ хоста «установлен»",
+      "ok": true,
+      "detail": "[(ModeReport, \"1b5b3f313030343b312479\")]"
+    },
+    {
+      "name": "скрытие окна через GUI c1",
+      "ok": true,
+      "detail": "принято"
+    },
+    {
+      "name": "скрытие окна c1: один отчёт видимости",
+      "ok": true,
+      "detail": "[(OtherCsi, \"1b5b3f3939393b326e\")]"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "GUI поколения 2 лидера c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "фокус через GUI c2",
+      "ok": true,
+      "detail": "принято"
+    },
+    {
+      "name": "GUI прежнего поколения отвергнут",
+      "ok": true,
+      "detail": "ответ хоста на потерю фокуса от GUI c1: Some(\"GUI не текущего поколения лидера\")"
+    },
+    {
+      "name": "отключение c1: FocusOut не повторяется",
+      "ok": true,
+      "detail": "FocusOut: 0"
+    },
+    {
+      "name": "подключение c2: не больше одного отчёта размера и с размером окна",
+      "ok": true,
+      "detail": "отчёты размера: []"
+    },
+    {
+      "name": "фокус окна c2: один FocusIn",
+      "ok": true,
+      "detail": "FocusIn: 1"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "decrqm.responses": [
+      [
+        "mode-report",
+        "1b5b3f313030343b312479"
+      ]
+    ],
+    "detach.focus_out": 0,
+    "enable.responses": [
+      [
+        "size-report",
+        "1b5b34383b32343b38303b3438303b38303074"
+      ]
+    ],
+    "focus.responses": [
+      [
+        "focus-in",
+        "1b5b49"
+      ]
+    ],
+    "reattach.responses": [
+      [
+        "focus-in",
+        "1b5b49"
+      ]
+    ],
+    "reattach.sigwinch": 0,
+    "record": {
+      "host": {
+        "pid": 40347,
+        "start_us": 1794931251806622
+      },
+      "session": "s8e5045f7ab4284bb-d5",
+      "workload": {
+        "pid": 40348,
+        "start_us": 1794931251809882
+      },
+      "workload_pgid": 40348,
+      "workload_sid": 40348
+    },
+    "visibility.enable.responses": [
+      [
+        "other-csi",
+        "1b5b3f3939393b316e"
+      ]
+    ],
+    "visibility.responses": [
+      [
+        "other-csi",
+        "1b5b3f3939393b326e"
+      ]
+    ]
+  }
+}

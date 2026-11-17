@@ -1,0 +1,49 @@
+{
+  "checks": [
+    {
+      "name": "list в гонке без ошибок по сессии",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "одна нагрузка у всех ensure и один победитель",
+      "ok": true,
+      "detail": "нагрузки [ProcessKey { pid: 40974, start_us: 1794931278903117 }], победители [0]"
+    },
+    {
+      "name": "один сокет и пустой каталог подготовки",
+      "ok": true,
+      "detail": "SocketEntries { sessions: [\"sdb49c7f9c9880d58-e5\"], staged: [] }"
+    }
+  ],
+  "not_proven": "стресс не доказывает попадание в окно; окно Rust-хоста доказано точками остановки, часть window",
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "elapsed_ms": 7,
+    "list_saw_session": 0,
+    "ready": {
+      "foreground_pgid": 40974,
+      "mode": "emitter",
+      "nonce": "sdb49c7f9c9880d58-e5-w0",
+      "pgid": 40974,
+      "pid": 40974,
+      "ppid": 40964,
+      "raw": true,
+      "sid": 40974,
+      "size": {
+        "cols": 80,
+        "rows": 24,
+        "xpixel": 800,
+        "ypixel": 480
+      },
+      "tty": "/dev/ttys003"
+    },
+    "sockets": {
+      "sessions": [
+        "sdb49c7f9c9880d58-e5"
+      ],
+      "staged": []
+    }
+  }
+}

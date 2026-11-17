@@ -1,0 +1,104 @@
+{
+  "schema": 1,
+  "scenario": "versions",
+  "backend": "zmx",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "7ad4beea9f66-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0",
+      "features": [
+        "vt"
+      ]
+    },
+    "versions": {
+      "vt": "ghostty-vt 1.4.0 (83fb95624b04)",
+      "zig-vt": "0.17.1",
+      "zig-zmx": "0.16.0",
+      "zmx": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+      "zmx-prev": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm"
+    },
+    "stamps": {
+      "vt": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+      "zmx": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+      "zmx-prev": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579"
+    },
+    "normalization_profile": 2,
+    "process": {
+      "pid": 41026,
+      "nonce": "fab15eacd9a08d47",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.fab15eacd9a08d47",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_COMMIT": "7ad4beea9f66-dirty",
+        "SHELLIO_PROBE_HOST_V1": "/Users/dsbasko/Develop/dsbasko/shellio/target/proto-v1/release/probe-session-host",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_SETS_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival",
+        "SHELLIO_PROBE_STAMP_VT": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+        "SHELLIO_PROBE_STAMP_ZMX": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+        "SHELLIO_PROBE_STAMP_ZMX_PREV": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579",
+        "SHELLIO_PROBE_VERSION_VT": "ghostty-vt 1.4.0 (83fb95624b04)",
+        "SHELLIO_PROBE_VERSION_ZIG_VT": "0.17.1",
+        "SHELLIO_PROBE_VERSION_ZIG_ZMX": "0.16.0",
+        "SHELLIO_PROBE_VERSION_ZMX": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_PROBE_VERSION_ZMX_PREV": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.fab15eacd9a08d47",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko"
+      },
+      "env_extra": []
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "cells": [
+    {
+      "id": "G1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "демон zmx-prev с фикстурой; клиент zmx-prev подключается и отключается; сцена без клиента; клиент zmx подключается, вводит строку, фикстура пишет ещё",
+      "oracle": "наблюдатель процессов (нагрузка и демон те же); эталон и приёмник клиента zmx после attach и после живого вывода; квитанция ввода фикстуры",
+      "completion": "барьеры DSR через клиентов пройдены, ввод прочитан, состояния сняты",
+      "reason": "выполнено: клиент zmx-prev в списке демона; барьер через клиент zmx-prev; клиент zmx-prev отключился клавишей; клиент zmx в списке демона zmx-prev; барьер через клиент zmx; после attach; ввод клиента zmx дошёл до нагрузки; барьер после живого вывода; живой поток; нагрузка та же; демон zmx-prev тот же",
+      "artifacts": [
+        "g1.json",
+        "zmx/logs/sfab15eacd9a08d47-g.log"
+      ]
+    },
+    {
+      "id": "G2",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "команды zmx screen и zmx type текущего поколения к демону zmx-prev, затем ensure текущего поколения той же сессии",
+      "oracle": "ответ операции: явное состояние несовместимости или тайм-аут; наблюдатель процессов; ensure не создаёт нагрузку",
+      "completion": "команды вернулись, процессы проверены",
+      "reason": "zmx screen к старому демону: явное состояние: 2005 мс: Err(Failed(\"zmx: CommandRun { args: [\\\"screen\\\", \\\"sfab15eacd9a08d47-g\\\"], code: Some(1), signal: None, stdout: \\\"\\\", stderr: \\\"error: screen failed for \\\\\\\"sfab15eacd9a08d47-g\\\\\\\": Timeout\\\\n\\\", elapsed_ms: 2005 }\")); zmx type к старому демону: явное состояние: 2012 мс: Err(Failed(\"zmx type: CommandRun { args: [\\\"type\\\", \\\"sfab15eacd9a08d47-g\\\"], code: Some(1), signal: None, stdout: \\\"\\\", stderr: \\\"error: type failed for \\\\\\\"sfab15eacd9a08d47-g\\\\\\\": Timeout\\\\n\\\", elapsed_ms: 2012 }\"))",
+      "defect_origin": "host",
+      "artifacts": [
+        "g2.json",
+        "zmx/logs/sfab15eacd9a08d47-g.log"
+      ]
+    }
+  ],
+  "metrics": [],
+  "diagnostics": {
+    "notes": []
+  }
+}

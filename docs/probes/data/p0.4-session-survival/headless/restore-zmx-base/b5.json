@@ -1,0 +1,214 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после attach",
+      "ok": false,
+      "detail": "профиль 2: Differs, расхождений 1, нормализовано 0, не наблюдалось 0\n  cursor.y: эталон 5, приёмник 9"
+    },
+    {
+      "name": "суффикс tab через кандидата",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после суффикса tab",
+      "ok": false,
+      "detail": "профиль 2: Differs, расхождений 5, нормализовано 0, не наблюдалось 0\n  active[5][4].text: эталон \"T\", приёмник \"e\"\n  active[5][16].text: эталон \"T\", приёмник \"\"\n  active[9][8].text: эталон \"\", приёмник \"T\"\n  active[9][16].text: эталон \"\", приёмник \"T\"\n  cursor.y: эталон 5, приёмник 9"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "record": {
+      "host": {
+        "pid": 39592,
+        "start_us": 1794931209196425
+      },
+      "session": "s4f14f7d89048b99d-b5",
+      "workload": {
+        "pid": 39593,
+        "start_us": 1794931209198879
+      },
+      "workload_pgid": 39593,
+      "workload_sid": 39593
+    },
+    "после attach.comparison": {
+      "mismatch_count": 1,
+      "mismatches": [
+        {
+          "path": "cursor.y",
+          "receiver": "9",
+          "reference": "5"
+        }
+      ],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после attach.receiver_text": [
+      "b5 00",
+      "b5 01",
+      "b5 02",
+      "",
+      "",
+      "in region",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после attach.reference_text": [
+      "b5 00",
+      "b5 01",
+      "b5 02",
+      "",
+      "",
+      "in region",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса tab.comparison": {
+      "mismatch_count": 5,
+      "mismatches": [
+        {
+          "path": "active[5][4].text",
+          "receiver": "\"e\"",
+          "reference": "\"T\""
+        },
+        {
+          "path": "active[5][16].text",
+          "receiver": "\"\"",
+          "reference": "\"T\""
+        },
+        {
+          "path": "active[9][8].text",
+          "receiver": "\"T\"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[9][16].text",
+          "receiver": "\"T\"",
+          "reference": "\"\""
+        },
+        {
+          "path": "cursor.y",
+          "receiver": "9",
+          "reference": "5"
+        }
+      ],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после суффикса tab.receiver_text": [
+      "b5 00",
+      "b5 01",
+      "b5 02",
+      "",
+      "",
+      "in region",
+      "",
+      "",
+      "",
+      "        T       T",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса tab.reference_text": [
+      "b5 00",
+      "b5 01",
+      "b5 02",
+      "",
+      "",
+      "in rTgion       T",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  }
+}

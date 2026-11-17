@@ -1,0 +1,279 @@
+{
+  "over-budget": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "Err(Error { call: \"ghostty_terminal_continuation_alloc\", code: -2 })",
+        "name": "сверх бюджета continuation недоступна",
+        "ok": true
+      },
+      {
+        "detail": "Err(Error { call: \"ghostty_snapshot_encode_alloc\", code: -2 })",
+        "name": "сверх бюджета снимок недоступен",
+        "ok": true
+      },
+      {
+        "detail": "continuation Ok(0), снимок Ok(1164)",
+        "name": "после конца последовательности continuation и снимок снова доступны",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "lossy_formatter": {
+        "kinds": [
+          "active.text",
+          "cursor.x"
+        ],
+        "mismatches": 6,
+        "outcome": "differs"
+      },
+      "over": {
+        "continuation": "Err(Error { call: \"ghostty_terminal_continuation_alloc\", code: -2 })",
+        "formatter": {
+          "Ok": 5653
+        },
+        "prefix": 1049600,
+        "snapshot": "Err(Error { call: \"ghostty_snapshot_encode_alloc\", code: -2 })"
+      }
+    },
+    "unsupported": null
+  },
+  "within-budget": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "Ok(1048512)",
+        "name": "в пределах бюджета continuation равна префиксу",
+        "ok": true
+      },
+      {
+        "detail": "предел 1048511: Some(Error { call: \"ghostty_snapshot_decoder_decode\", code: -6 }); предел 1048512: None",
+        "name": "декодер отвергает снимок, если его предел меньше continuation",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "formatter после остатка",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "snapshot после остатка",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "bridge после остатка",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "bridge после остатка.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "bridge после остатка.receiver_text": [
+        "budget",
+        "X",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "bridge после остатка.reference_text": [
+        "budget",
+        "X",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "bridge.payload": {
+        "body": 1048717,
+        "boundary": 1048520,
+        "continuation": 1048512,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "export_ms": 36.572333,
+      "formatter после остатка.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "formatter после остатка.receiver_text": [
+        "budget",
+        "X",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "formatter после остатка.reference_text": [
+        "budget",
+        "X",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "formatter.payload": {
+        "body": 5653,
+        "boundary": 1048520,
+        "continuation": 1048512,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "snapshot после остатка.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "snapshot после остатка.receiver_text": [
+        "budget",
+        "X",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "snapshot после остатка.reference_text": [
+        "budget",
+        "X",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "snapshot.payload": {
+        "body": 1049675,
+        "boundary": 1048520,
+        "continuation": null,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "snapshot_bytes": 1049675
+    },
+    "unsupported": null
+  }
+}

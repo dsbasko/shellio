@@ -1,0 +1,204 @@
+{
+  "schema": 1,
+  "scenario": "bridge",
+  "backend": "zmx",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "7ad4beea9f66-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0",
+      "features": [
+        "surface"
+      ]
+    },
+    "versions": {
+      "ghostty-surface": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "vt": "ghostty-vt 1.4.0 (83fb95624b04)",
+      "zig-vt": "0.17.1",
+      "zig-zmx": "0.16.0",
+      "zmx": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+      "zmx-prev": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm"
+    },
+    "stamps": {
+      "ghostty-surface": "51b581ba6cc144a861f09b4ab2bc5d818417000cbd43c4a87fd4a0382b515990",
+      "vt": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+      "zmx": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+      "zmx-prev": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579"
+    },
+    "normalization_profile": 2,
+    "process": {
+      "pid": 54779,
+      "nonce": "ebc93353e66519b2",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.ebc93353e66519b2",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_COMMIT": "7ad4beea9f66-dirty",
+        "SHELLIO_PROBE_HOST_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/release",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_SETS_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival",
+        "SHELLIO_PROBE_STAMP_SURFACE": "51b581ba6cc144a861f09b4ab2bc5d818417000cbd43c4a87fd4a0382b515990",
+        "SHELLIO_PROBE_STAMP_VT": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+        "SHELLIO_PROBE_STAMP_ZMX": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+        "SHELLIO_PROBE_STAMP_ZMX_PREV": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579",
+        "SHELLIO_PROBE_VERSION_SURFACE": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+        "SHELLIO_PROBE_VERSION_VT": "ghostty-vt 1.4.0 (83fb95624b04)",
+        "SHELLIO_PROBE_VERSION_ZIG_VT": "0.17.1",
+        "SHELLIO_PROBE_VERSION_ZIG_ZMX": "0.16.0",
+        "SHELLIO_PROBE_VERSION_ZMX": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_PROBE_VERSION_ZMX_PREV": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.ebc93353e66519b2",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "cells": [
+    {
+      "id": "C1",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "zmx: сцена text (история, SGR, гиперссылка, мягкий и жёсткий перенос) через GUI №1, SIGKILL GUI №1, новая GUI №2, «@» живым потоком",
+      "oracle": "ghostty_surface_read_text против строк эталона из --scenes; фикстура без перерисовки",
+      "completion": "ответ поверхности на барьер CSI 5 n",
+      "reason": "restored-lines: строка 20: ожидалось Some(\"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv\"), в поверхности Some(\"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzab\") (строк 23 и 24); cursor-marker: строка 20: ожидалось Some(\"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv\"), в поверхности Some(\"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzab\") (строк 23 и 24)",
+      "defect_origin": "vt",
+      "artifacts": [
+        "bridge-c1.json"
+      ]
+    },
+    {
+      "id": "C2",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "zmx: сцена modes (1004, 2048, 2004, DECCKM, мышь, Kitty, alternate) через GUI №1, SIGKILL, восстановление в GUI №2",
+      "oracle": "квитанции прочитанных байтов фикстуры до маркера-вставки GUI №2",
+      "completion": "маркер-вставка прочитан фикстурой",
+      "reason": "restore-quiet: 1b5b491b5b491b5b34383b32343b38303b3732303b3132383074 ([\"focus-in\", \"focus-in\", \"size\"])",
+      "defect_origin": "host",
+      "artifacts": [
+        "bridge-c23.json"
+      ]
+    },
+    {
+      "id": "C3",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "zmx: после восстановления «a», «вверх», щелчок, вставка и суффиксы pop Kitty, pop Kitty, DECRC, выход из alternate",
+      "oracle": "байты от поверхности против кодировщиков эталона; read_text против строк эталона",
+      "completion": "барьер CSI 5 n после суффикса и маркер-вставка после проб",
+      "reason": "kitty-pop: ввод: 611b4f411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e против эталона 1b5b3937751b5b411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e; decrc: вид: строка 0: ожидалось Some(\"alt-screen-text\"), в поверхности Some(\"@lt-screen-text\") (строк 8 и 3); leave-alt: вид: строка 0: ожидалось Some(\"main-1\"), в поверхности Some(\"#\") (строк 3 и 1)",
+      "defect_origin": "vt",
+      "artifacts": [
+        "bridge-c23.json"
+      ]
+    },
+    {
+      "id": "C4",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "zmx: GUI A 80×24 лидер, GUI B 100×30 вторым клиентом, вывод нагрузки, закрытие поверхности A",
+      "oracle": "read_text обеих GUI, квитанции SIGWINCH нагрузки, list кандидата",
+      "completion": "барьер через A; строка в B за срок",
+      "reason": "выполнено: a-shows-output; b-shows-output; size-from-leader; workload-and-host-alive; b-live-after-close",
+      "artifacts": [
+        "bridge-c4.json"
+      ]
+    },
+    {
+      "id": "D1",
+      "part": "surface",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "zmx: DA1, DA2, CPR, DECRQM, OSC 10/11/4, XTVERSION от нагрузки при одной GUI и при двух",
+      "oracle": "счётчик ответов фикстуры",
+      "completion": "ответ поверхности на барьер CSI 5 n после запросов",
+      "reason": "выполнено: одна GUI: ровно один ответ на каждый запрос по порядку; две GUI: ровно один ответ на каждый запрос по порядку",
+      "artifacts": [
+        "bridge-d1.json"
+      ]
+    },
+    {
+      "id": "D3",
+      "part": "surface",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "zmx: OSC 52 записи через GUI №1, SIGKILL, восстановление в GUI №2",
+      "oracle": "журнал эффектов поверхности (write_clipboard_cb)",
+      "completion": "барьер CSI 5 n после OSC 52 и после живого потока",
+      "reason": "выполнено: live-once; no-replay; journal-survived-kill",
+      "artifacts": [
+        "bridge-d3.json",
+        "gui9/effects.jsonl"
+      ]
+    },
+    {
+      "id": "D4",
+      "part": "surface",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "zmx: OSC 52 чтения при живой GUI с асинхронным ответом, затем чтение без ответа и SIGKILL GUI №1, новая GUI №2",
+      "oracle": "счётчик ответов фикстуры; журналы эффектов GUI (read_clipboard_cb)",
+      "completion": "барьер CSI 5 n; после SIGKILL — ответ или срок 3 с и барьер",
+      "reason": "выполнено: live: ровно один ответ с данными GUI; после SIGKILL: не больше одного ответа и без данных; после SIGKILL: GUI №2 запроса не получила",
+      "artifacts": [
+        "bridge-d4.json",
+        "gui11/effects.jsonl"
+      ]
+    },
+    {
+      "id": "D5",
+      "part": "surface",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "zmx: включение 1004 и 2048, фокус окна, ресайз окна 90×28, SIGKILL GUI №1 и новая GUI №2; у Rust-хоста фокус идёт соединением GUI поколения лидера",
+      "oracle": "счётчик ответов фикстуры",
+      "completion": "барьер CSI 5 n после каждого стимула",
+      "reason": "новая GUI: один FocusIn, FocusOut не больше одного: [(FocusOut, \"1b5b4f\"), (FocusIn, \"1b5b49\"), (FocusIn, \"1b5b49\"), (SizeReport, \"1b5b34383b32343b38303b3732303b3132383074\")]",
+      "defect_origin": "host",
+      "artifacts": [
+        "bridge-d5.json"
+      ]
+    },
+    {
+      "id": "F2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "zmx: поверхность 100×30 через attach-клиента, затем масштаб содержимого 1",
+      "oracle": "TIOCGWINSZ нагрузки против ghostty_surface_size; масштаб против backingScaleFactor окна",
+      "completion": "квитанция SIGWINCH с сеткой поверхности или срок",
+      "reason": "выполнено: cells; pixels; content-scale; rescaled-winsize; cell-follows-scale",
+      "artifacts": [
+        "bridge-f2.json"
+      ]
+    }
+  ],
+  "metrics": [],
+  "diagnostics": {
+    "notes": [
+      "сцены: профиль v2, штамп VT bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48"
+    ]
+  }
+}

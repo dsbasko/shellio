@@ -1,0 +1,51 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "нагрузка и хост вышли",
+      "ok": true,
+      "detail": "живы: []"
+    },
+    {
+      "name": "нагрузка не исполняется",
+      "ok": true,
+      "detail": "Gone"
+    },
+    {
+      "name": "хост не исполняется",
+      "ok": true,
+      "detail": "Gone"
+    },
+    {
+      "name": "клиент вышел",
+      "ok": true,
+      "detail": "ok"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "liveness": {
+      "state": "ended"
+    },
+    "record": {
+      "host": {
+        "pid": 39199,
+        "start_us": 1794931192367436
+      },
+      "session": "s9cc3e0704540fa2c-a5x",
+      "workload": {
+        "pid": 39200,
+        "start_us": 1794931192369416
+      },
+      "workload_pgid": 39200,
+      "workload_sid": 39200
+    },
+    "socket_present": false
+  }
+}

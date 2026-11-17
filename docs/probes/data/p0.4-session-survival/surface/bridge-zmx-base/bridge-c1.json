@@ -1,0 +1,230 @@
+{
+  "expected": {
+    "marker": {
+      "alternate": false,
+      "cursor_x": 8,
+      "cursor_y": 23,
+      "lines": [
+        "bridge-text-12",
+        "bridge-text-13",
+        "bridge-text-14",
+        "bridge-text-15",
+        "bridge-text-16",
+        "bridge-text-17",
+        "bridge-text-18",
+        "bridge-text-19",
+        "bridge-text-20",
+        "bridge-text-21",
+        "bridge-text-22",
+        "bridge-text-23",
+        "bridge-text-24",
+        "bridge-text-25",
+        "bridge-text-26",
+        "bridge-text-27",
+        "bridge-text-28",
+        "bridge-text-29",
+        "bridge-text-30",
+        "link after link",
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv",
+        "01234567890123456789012345678901234567890123456789012345678901234567890123456789",
+        "prompt>@"
+      ]
+    },
+    "restored": {
+      "alternate": false,
+      "cursor_x": 7,
+      "cursor_y": 23,
+      "lines": [
+        "bridge-text-12",
+        "bridge-text-13",
+        "bridge-text-14",
+        "bridge-text-15",
+        "bridge-text-16",
+        "bridge-text-17",
+        "bridge-text-18",
+        "bridge-text-19",
+        "bridge-text-20",
+        "bridge-text-21",
+        "bridge-text-22",
+        "bridge-text-23",
+        "bridge-text-24",
+        "bridge-text-25",
+        "bridge-text-26",
+        "bridge-text-27",
+        "bridge-text-28",
+        "bridge-text-29",
+        "bridge-text-30",
+        "link after link",
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv",
+        "01234567890123456789012345678901234567890123456789012345678901234567890123456789",
+        "prompt>"
+      ]
+    }
+  },
+  "gui1": {
+    "lines": [
+      "bridge-text-12",
+      "bridge-text-13",
+      "bridge-text-14",
+      "bridge-text-15",
+      "bridge-text-16",
+      "bridge-text-17",
+      "bridge-text-18",
+      "bridge-text-19",
+      "bridge-text-20",
+      "bridge-text-21",
+      "bridge-text-22",
+      "bridge-text-23",
+      "bridge-text-24",
+      "bridge-text-25",
+      "bridge-text-26",
+      "bridge-text-27",
+      "bridge-text-28",
+      "bridge-text-29",
+      "bridge-text-30",
+      "link after link",
+      "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv",
+      "01234567890123456789012345678901234567890123456789012345678901234567890123456789",
+      "prompt>"
+    ],
+    "pid": 54784,
+    "status": "ExitStatus(unix_wait_status(9))"
+  },
+  "gui2": {
+    "marked": [
+      "bridge-text-12",
+      "bridge-text-13",
+      "bridge-text-14",
+      "bridge-text-15",
+      "bridge-text-16",
+      "bridge-text-17",
+      "bridge-text-18",
+      "bridge-text-19",
+      "bridge-text-20",
+      "bridge-text-21",
+      "bridge-text-22",
+      "bridge-text-23",
+      "bridge-text-24",
+      "bridge-text-25",
+      "bridge-text-26",
+      "bridge-text-27",
+      "bridge-text-28",
+      "bridge-text-29",
+      "bridge-text-30",
+      "link after link",
+      "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzab",
+      "cdefghijklmnopqrstuv",
+      "01234567890123456789012345678901234567890123456789012345678901234567890123456789",
+      "prompt>@"
+    ],
+    "pid": 54798,
+    "restored": [
+      "bridge-text-12",
+      "bridge-text-13",
+      "bridge-text-14",
+      "bridge-text-15",
+      "bridge-text-16",
+      "bridge-text-17",
+      "bridge-text-18",
+      "bridge-text-19",
+      "bridge-text-20",
+      "bridge-text-21",
+      "bridge-text-22",
+      "bridge-text-23",
+      "bridge-text-24",
+      "bridge-text-25",
+      "bridge-text-26",
+      "bridge-text-27",
+      "bridge-text-28",
+      "bridge-text-29",
+      "bridge-text-30",
+      "link after link",
+      "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzab",
+      "cdefghijklmnopqrstuv",
+      "01234567890123456789012345678901234567890123456789012345678901234567890123456789",
+      "prompt>"
+    ]
+  },
+  "host": {
+    "pid": 54781,
+    "start_us": 1794931854107867
+  },
+  "receipts_after_kill": [
+    {
+      "event": {
+        "kind": "winch",
+        "size": {
+          "cols": 80,
+          "rows": 24,
+          "xpixel": 1280,
+          "ypixel": 720
+        }
+      },
+      "seq": 6,
+      "t_ns": 582457526868041
+    },
+    {
+      "event": {
+        "bytes": 4,
+        "error": null,
+        "id": 2,
+        "kind": "ack"
+      },
+      "seq": 7,
+      "t_ns": 582457534289916
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 2,
+        "kind": "read"
+      },
+      "seq": 8,
+      "t_ns": 582457534381041
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 2,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 9,
+      "t_ns": 582457534389791
+    },
+    {
+      "event": {
+        "bytes": 5,
+        "error": null,
+        "id": 3,
+        "kind": "ack"
+      },
+      "seq": 10,
+      "t_ns": 582457541503750
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 3,
+        "kind": "read"
+      },
+      "seq": 11,
+      "t_ns": 582457541597458
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 3,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 12,
+      "t_ns": 582457541606041
+    }
+  ],
+  "session": "sebc93353e66519b2-c1",
+  "workload": {
+    "pid": 54782,
+    "start_us": 1794931854109610
+  }
+}

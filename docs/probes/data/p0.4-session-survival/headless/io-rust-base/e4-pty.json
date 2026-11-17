@@ -1,0 +1,36 @@
+{
+  "checks": [
+    {
+      "name": "ввод отправлен",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "ввод дошёл целиком и по порядку",
+      "ok": true,
+      "detail": "дошло 131072 из 131072 байт до маркера, первое расхождение None"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "after_marker_bytes": 0,
+    "marker_attempts": 1,
+    "outcome": "Ok(Sent)",
+    "reads_while_paused": 0,
+    "record": {
+      "host": {
+        "pid": 40885,
+        "start_us": 1794931275740035
+      },
+      "session": "sdb49c7f9c9880d58-e4-pty",
+      "workload": {
+        "pid": 40886,
+        "start_us": 1794931275743375
+      },
+      "workload_pgid": 40886,
+      "workload_sid": 40886
+    }
+  }
+}

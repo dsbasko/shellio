@@ -1,0 +1,88 @@
+{
+  "grid": {
+    "cell_height_px": 30,
+    "cell_width_px": 16,
+    "cols": 100,
+    "height_px": 900,
+    "rows": 30,
+    "width_px": 1600
+  },
+  "receipts": [
+    {
+      "event": {
+        "foreground_pgid": 55043,
+        "kind": "ready",
+        "mode": "emitter",
+        "nonce": "sebc93353e66519b2-f2-w",
+        "pgid": 55043,
+        "pid": 55043,
+        "ppid": 55042,
+        "raw": true,
+        "sid": 55043,
+        "size": {
+          "cols": 80,
+          "rows": 24,
+          "xpixel": 0,
+          "ypixel": 0
+        },
+        "tty": "/dev/ttys019"
+      },
+      "seq": 1,
+      "t_ns": 582463281032458
+    },
+    {
+      "event": {
+        "kind": "winch",
+        "size": {
+          "cols": 100,
+          "rows": 30,
+          "xpixel": 1600,
+          "ypixel": 900
+        }
+      },
+      "seq": 2,
+      "t_ns": 582463438749791
+    },
+    {
+      "event": {
+        "kind": "winch",
+        "size": {
+          "cols": 200,
+          "rows": 60,
+          "xpixel": 1600,
+          "ypixel": 900
+        }
+      },
+      "seq": 3,
+      "t_ns": 582463470671291
+    }
+  ],
+  "rescaled": {
+    "grid": {
+      "cell_height_px": 15,
+      "cell_width_px": 8,
+      "cols": 200,
+      "height_px": 900,
+      "rows": 60,
+      "width_px": 1600
+    },
+    "target": 1.0,
+    "winsize": {
+      "cols": 200,
+      "rows": 60,
+      "xpixel": 1600,
+      "ypixel": 900
+    }
+  },
+  "scale": {
+    "content": 2.0,
+    "window": 2.0
+  },
+  "session": "sebc93353e66519b2-f2",
+  "winsize": {
+    "cols": 100,
+    "rows": 30,
+    "xpixel": 1600,
+    "ypixel": 900
+  }
+}

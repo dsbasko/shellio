@@ -1,0 +1,523 @@
+{
+  "bridge": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "срезов 228, проверено 228, с нарушением 0",
+        "name": "нет пропуска и повтора байтов на границе",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "failures": [],
+      "full_compare_samples": [
+        {
+          "cut": 1800,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 3600,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 5400,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 7200,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 9000,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 10800,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 12600,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 14400,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 16200,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 18000,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 19800,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 21600,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 23400,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 25200,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 27000,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 28800,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 1,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 30599,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        }
+      ],
+      "line_bytes": 102,
+      "payload_bytes": {
+        "max": 30752,
+        "min": 200
+      },
+      "samples": [
+        1800,
+        3600,
+        5400,
+        7200,
+        9000,
+        10800,
+        12600,
+        14400,
+        16200,
+        18000,
+        19800,
+        21600,
+        23400,
+        25200,
+        27000,
+        28800,
+        1,
+        30599
+      ],
+      "stream_bytes": 30600,
+      "window": {
+        "cuts": 210,
+        "from": 15297,
+        "to": 15506
+      }
+    },
+    "unsupported": null
+  },
+  "formatter": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "срезов 228, проверено 228, с нарушением 0",
+        "name": "нет пропуска и повтора байтов на границе",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "failures": [],
+      "full_compare_samples": [
+        {
+          "cut": 1800,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 34,
+          "outcome": "differs"
+        },
+        {
+          "cut": 3600,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 70,
+          "outcome": "differs"
+        },
+        {
+          "cut": 5400,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 106,
+          "outcome": "differs"
+        },
+        {
+          "cut": 7200,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 140,
+          "outcome": "differs"
+        },
+        {
+          "cut": 9000,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 176,
+          "outcome": "differs"
+        },
+        {
+          "cut": 10800,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 212,
+          "outcome": "differs"
+        },
+        {
+          "cut": 12600,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 246,
+          "outcome": "differs"
+        },
+        {
+          "cut": 14400,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 282,
+          "outcome": "differs"
+        },
+        {
+          "cut": 16200,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 318,
+          "outcome": "differs"
+        },
+        {
+          "cut": 18000,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 352,
+          "outcome": "differs"
+        },
+        {
+          "cut": 19800,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 388,
+          "outcome": "differs"
+        },
+        {
+          "cut": 21600,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 422,
+          "outcome": "differs"
+        },
+        {
+          "cut": 23400,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 458,
+          "outcome": "differs"
+        },
+        {
+          "cut": 25200,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 494,
+          "outcome": "differs"
+        },
+        {
+          "cut": 27000,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 528,
+          "outcome": "differs"
+        },
+        {
+          "cut": 28800,
+          "kinds": [
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 564,
+          "outcome": "differs"
+        },
+        {
+          "cut": 1,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 30599,
+          "kinds": [
+            "active.wrap",
+            "active.wrap_continuation",
+            "history.wrap",
+            "history.wrap_continuation"
+          ],
+          "mismatches": 600,
+          "outcome": "differs"
+        }
+      ],
+      "line_bytes": 102,
+      "payload_bytes": {
+        "max": 36800,
+        "min": 5648
+      },
+      "samples": [
+        1800,
+        3600,
+        5400,
+        7200,
+        9000,
+        10800,
+        12600,
+        14400,
+        16200,
+        18000,
+        19800,
+        21600,
+        23400,
+        25200,
+        27000,
+        28800,
+        1,
+        30599
+      ],
+      "stream_bytes": 30600,
+      "window": {
+        "cuts": 210,
+        "from": 15297,
+        "to": 15506
+      }
+    },
+    "unsupported": null
+  },
+  "snapshot": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "срезов 228, проверено 228, с нарушением 0",
+        "name": "нет пропуска и повтора байтов на границе",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "failures": [],
+      "full_compare_samples": [
+        {
+          "cut": 1800,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 3600,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 5400,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 7200,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 9000,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 10800,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 12600,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 14400,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 16200,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 18000,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 19800,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 21600,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 23400,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 25200,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 27000,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 28800,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 1,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        },
+        {
+          "cut": 30599,
+          "kinds": [],
+          "mismatches": 0,
+          "outcome": "equal"
+        }
+      ],
+      "line_bytes": 102,
+      "payload_bytes": {
+        "max": 32919,
+        "min": 1158
+      },
+      "samples": [
+        1800,
+        3600,
+        5400,
+        7200,
+        9000,
+        10800,
+        12600,
+        14400,
+        16200,
+        18000,
+        19800,
+        21600,
+        23400,
+        25200,
+        27000,
+        28800,
+        1,
+        30599
+      ],
+      "stream_bytes": 30600,
+      "window": {
+        "cuts": 210,
+        "from": 15297,
+        "to": 15506
+      }
+    },
+    "unsupported": null
+  }
+}

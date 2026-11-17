@@ -1,0 +1,70 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "номера строк у c2 подряд до последней",
+      "ok": true,
+      "detail": "800 строк подряд"
+    },
+    {
+      "name": "активная область c2 совпадает с эталоном",
+      "ok": true,
+      "detail": "совпала"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "record": {
+      "host": {
+        "pid": 39870,
+        "start_us": 1794931229118210
+      },
+      "session": "saa5e6cd26c42cc70-b8",
+      "workload": {
+        "pid": 39871,
+        "start_us": 1794931229121689
+      },
+      "workload_pgid": 39871,
+      "workload_sid": 39871
+    },
+    "sequence": {
+      "first": 1,
+      "history_total": 777,
+      "last": 800,
+      "rows": 800
+    },
+    "timeline_ns": {
+      "c2_leader": 581832236605583,
+      "c2_spawned": 581832226186166,
+      "first_progress": 581832226112583,
+      "first_progress_lines": 40,
+      "flood_done": 581834125903291
+    }
+  }
+}

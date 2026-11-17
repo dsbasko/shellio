@@ -1,0 +1,1034 @@
+{
+  "c2_before_hex": "",
+  "control": {
+    "expected_input_hex": "1b5b39373b3b3937751b5b411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e",
+    "input_hex": "1b5b39373b3b3937751b5b411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e",
+    "lines": [
+      "alt-screen-text",
+      "",
+      "alt-line-3"
+    ]
+  },
+  "gui2": {
+    "pid": 55240,
+    "steps": [
+      {
+        "input_hex": "1b5b39373b3b3937751b5b411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e",
+        "lines": [
+          "alt-screen-text",
+          "",
+          "alt-line-3"
+        ],
+        "step": "restored"
+      },
+      {
+        "input_hex": "1b5b3937751b5b411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e",
+        "lines": [
+          "alt-screen-text",
+          "",
+          "alt-line-3"
+        ],
+        "step": "kitty-pop"
+      },
+      {
+        "input_hex": "611b4f411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e",
+        "lines": [
+          "alt-screen-text",
+          "",
+          "alt-line-3"
+        ],
+        "step": "kitty-pop-2"
+      },
+      {
+        "input_hex": "611b4f411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e",
+        "lines": [
+          "alt-screen-text",
+          "",
+          "alt-line-3",
+          "",
+          "",
+          "",
+          "",
+          "                   @"
+        ],
+        "step": "decrc"
+      },
+      {
+        "input_hex": "611b4f411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e",
+        "lines": [
+          "main-1",
+          "main-2",
+          "#"
+        ],
+        "step": "leave-alt"
+      }
+    ]
+  },
+  "receipts_after_kill": [
+    {
+      "event": {
+        "hex": "7073732d63322d647261696e",
+        "index": 12,
+        "kind": "read"
+      },
+      "seq": 25,
+      "t_ns": 582469800986500
+    },
+    {
+      "event": {
+        "bytes": 4,
+        "error": null,
+        "id": 2,
+        "kind": "ack"
+      },
+      "seq": 26,
+      "t_ns": 582469957996375
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 13,
+        "kind": "read"
+      },
+      "seq": 27,
+      "t_ns": 582469958106458
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 11,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 28,
+      "t_ns": 582469958117875
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e7073732d63322d726573746f7265",
+        "index": 14,
+        "kind": "read"
+      },
+      "seq": 29,
+      "t_ns": 582469966469750
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 12,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 30,
+      "t_ns": 582469966494333
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 15,
+        "kind": "read"
+      },
+      "seq": 31,
+      "t_ns": 582469966494791
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 13,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 32,
+      "t_ns": 582469966499875
+    },
+    {
+      "event": {
+        "hex": "1b5b39373b3b393775",
+        "index": 16,
+        "kind": "read"
+      },
+      "seq": 33,
+      "t_ns": 582469976068833
+    },
+    {
+      "event": {
+        "hex": "1b5b39373b3b393775",
+        "index": 14,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 34,
+      "t_ns": 582469976084458
+    },
+    {
+      "event": {
+        "hex": "1b5b41",
+        "index": 17,
+        "kind": "read"
+      },
+      "seq": 35,
+      "t_ns": 582469981785541
+    },
+    {
+      "event": {
+        "hex": "1b5b41",
+        "index": 15,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 36,
+      "t_ns": 582469981798250
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 18,
+        "kind": "read"
+      },
+      "seq": 37,
+      "t_ns": 582469982791791
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 16,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 38,
+      "t_ns": 582469982801291
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 19,
+        "kind": "read"
+      },
+      "seq": 39,
+      "t_ns": 582469982809125
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 17,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 40,
+      "t_ns": 582469982818166
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 20,
+        "kind": "read"
+      },
+      "seq": 41,
+      "t_ns": 582469988524208
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 18,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 42,
+      "t_ns": 582469988540500
+    },
+    {
+      "event": {
+        "hex": "7073732d7061737465",
+        "index": 21,
+        "kind": "read"
+      },
+      "seq": 43,
+      "t_ns": 582469988540958
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 22,
+        "kind": "read"
+      },
+      "seq": 44,
+      "t_ns": 582469988563041
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 19,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 45,
+      "t_ns": 582469988573458
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 23,
+        "kind": "read"
+      },
+      "seq": 46,
+      "t_ns": 582469991349333
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 20,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 47,
+      "t_ns": 582469991357583
+    },
+    {
+      "event": {
+        "hex": "7073732d63332d726573746f7265641b5b3230317e",
+        "index": 24,
+        "kind": "read"
+      },
+      "seq": 48,
+      "t_ns": 582469991420166
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 21,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 49,
+      "t_ns": 582469991428166
+    },
+    {
+      "event": {
+        "bytes": 8,
+        "error": null,
+        "id": 3,
+        "kind": "ack"
+      },
+      "seq": 50,
+      "t_ns": 582469997601333
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 25,
+        "kind": "read"
+      },
+      "seq": 51,
+      "t_ns": 582469997721416
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 22,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 52,
+      "t_ns": 582469997729791
+    },
+    {
+      "event": {
+        "hex": "1b5b393775",
+        "index": 26,
+        "kind": "read"
+      },
+      "seq": 53,
+      "t_ns": 582470007206083
+    },
+    {
+      "event": {
+        "hex": "1b5b393775",
+        "index": 23,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 54,
+      "t_ns": 582470007215333
+    },
+    {
+      "event": {
+        "hex": "1b5b41",
+        "index": 27,
+        "kind": "read"
+      },
+      "seq": 55,
+      "t_ns": 582470007211166
+    },
+    {
+      "event": {
+        "hex": "1b5b41",
+        "index": 24,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 56,
+      "t_ns": 582470007218458
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 28,
+        "kind": "read"
+      },
+      "seq": 57,
+      "t_ns": 582470008126041
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 25,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 58,
+      "t_ns": 582470008134125
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 29,
+        "kind": "read"
+      },
+      "seq": 59,
+      "t_ns": 582470008150041
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 26,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 60,
+      "t_ns": 582470008157958
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 30,
+        "kind": "read"
+      },
+      "seq": 61,
+      "t_ns": 582470013754083
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 27,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 62,
+      "t_ns": 582470013762250
+    },
+    {
+      "event": {
+        "hex": "7073732d7061737465",
+        "index": 31,
+        "kind": "read"
+      },
+      "seq": 63,
+      "t_ns": 582470013777458
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 32,
+        "kind": "read"
+      },
+      "seq": 64,
+      "t_ns": 582470013801375
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 28,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 65,
+      "t_ns": 582470013812500
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 33,
+        "kind": "read"
+      },
+      "seq": 66,
+      "t_ns": 582470017386666
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 29,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 67,
+      "t_ns": 582470017396208
+    },
+    {
+      "event": {
+        "hex": "7073732d63332d6b697474792d706f70",
+        "index": 34,
+        "kind": "read"
+      },
+      "seq": 68,
+      "t_ns": 582470017403458
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 35,
+        "kind": "read"
+      },
+      "seq": 69,
+      "t_ns": 582470017419916
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 30,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 70,
+      "t_ns": 582470017429416
+    },
+    {
+      "event": {
+        "bytes": 8,
+        "error": null,
+        "id": 4,
+        "kind": "ack"
+      },
+      "seq": 71,
+      "t_ns": 582470023641791
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 36,
+        "kind": "read"
+      },
+      "seq": 72,
+      "t_ns": 582470023735083
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 31,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 73,
+      "t_ns": 582470023744541
+    },
+    {
+      "event": {
+        "hex": "61",
+        "index": 37,
+        "kind": "read"
+      },
+      "seq": 74,
+      "t_ns": 582470033148333
+    },
+    {
+      "event": {
+        "hex": "1b4f41",
+        "index": 38,
+        "kind": "read"
+      },
+      "seq": 75,
+      "t_ns": 582470033181000
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d1b5b3c303b363b346d",
+        "index": 39,
+        "kind": "read"
+      },
+      "seq": 76,
+      "t_ns": 582470034101208
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 32,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 77,
+      "t_ns": 582470034111625
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 33,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 78,
+      "t_ns": 582470034113375
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 40,
+        "kind": "read"
+      },
+      "seq": 79,
+      "t_ns": 582470039768666
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 34,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 80,
+      "t_ns": 582470039778000
+    },
+    {
+      "event": {
+        "hex": "7073732d7061737465",
+        "index": 41,
+        "kind": "read"
+      },
+      "seq": 81,
+      "t_ns": 582470039781791
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 42,
+        "kind": "read"
+      },
+      "seq": 82,
+      "t_ns": 582470039807291
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 35,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 83,
+      "t_ns": 582470039813916
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 43,
+        "kind": "read"
+      },
+      "seq": 84,
+      "t_ns": 582470042362625
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 36,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 85,
+      "t_ns": 582470042371666
+    },
+    {
+      "event": {
+        "hex": "7073732d63332d6b697474792d706f702d32",
+        "index": 44,
+        "kind": "read"
+      },
+      "seq": 86,
+      "t_ns": 582470042385250
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 45,
+        "kind": "read"
+      },
+      "seq": 87,
+      "t_ns": 582470042407083
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 37,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 88,
+      "t_ns": 582470042413458
+    },
+    {
+      "event": {
+        "bytes": 7,
+        "error": null,
+        "id": 5,
+        "kind": "ack"
+      },
+      "seq": 89,
+      "t_ns": 582470048024041
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 46,
+        "kind": "read"
+      },
+      "seq": 90,
+      "t_ns": 582470048119833
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 38,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 91,
+      "t_ns": 582470048127583
+    },
+    {
+      "event": {
+        "hex": "61",
+        "index": 47,
+        "kind": "read"
+      },
+      "seq": 92,
+      "t_ns": 582470058162083
+    },
+    {
+      "event": {
+        "hex": "1b4f41",
+        "index": 48,
+        "kind": "read"
+      },
+      "seq": 93,
+      "t_ns": 582470058257125
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 49,
+        "kind": "read"
+      },
+      "seq": 94,
+      "t_ns": 582470059175041
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 39,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 95,
+      "t_ns": 582470059185208
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 50,
+        "kind": "read"
+      },
+      "seq": 96,
+      "t_ns": 582470059192208
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 40,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 97,
+      "t_ns": 582470059199958
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 51,
+        "kind": "read"
+      },
+      "seq": 98,
+      "t_ns": 582470064893833
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 41,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 99,
+      "t_ns": 582470064906875
+    },
+    {
+      "event": {
+        "hex": "7073732d7061737465",
+        "index": 52,
+        "kind": "read"
+      },
+      "seq": 100,
+      "t_ns": 582470064909791
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 53,
+        "kind": "read"
+      },
+      "seq": 101,
+      "t_ns": 582470064956291
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 42,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 102,
+      "t_ns": 582470064965416
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 54,
+        "kind": "read"
+      },
+      "seq": 103,
+      "t_ns": 582470067444083
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 43,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 104,
+      "t_ns": 582470067452916
+    },
+    {
+      "event": {
+        "hex": "7073732d63332d6465637263",
+        "index": 55,
+        "kind": "read"
+      },
+      "seq": 105,
+      "t_ns": 582470067467125
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 56,
+        "kind": "read"
+      },
+      "seq": 106,
+      "t_ns": 582470067487125
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 44,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 107,
+      "t_ns": 582470067498125
+    },
+    {
+      "event": {
+        "bytes": 13,
+        "error": null,
+        "id": 6,
+        "kind": "ack"
+      },
+      "seq": 108,
+      "t_ns": 582470073681708
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 57,
+        "kind": "read"
+      },
+      "seq": 109,
+      "t_ns": 582470073817583
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 45,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 110,
+      "t_ns": 582470073826416
+    },
+    {
+      "event": {
+        "hex": "61",
+        "index": 58,
+        "kind": "read"
+      },
+      "seq": 111,
+      "t_ns": 582470083086041
+    },
+    {
+      "event": {
+        "hex": "1b4f41",
+        "index": 59,
+        "kind": "read"
+      },
+      "seq": 112,
+      "t_ns": 582470083117583
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 60,
+        "kind": "read"
+      },
+      "seq": 113,
+      "t_ns": 582470084153375
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 46,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 114,
+      "t_ns": 582470084164208
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 61,
+        "kind": "read"
+      },
+      "seq": 115,
+      "t_ns": 582470084172750
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 47,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 116,
+      "t_ns": 582470084182791
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 62,
+        "kind": "read"
+      },
+      "seq": 117,
+      "t_ns": 582470089881625
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 48,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 118,
+      "t_ns": 582470089891208
+    },
+    {
+      "event": {
+        "hex": "7073732d7061737465",
+        "index": 63,
+        "kind": "read"
+      },
+      "seq": 119,
+      "t_ns": 582470089901166
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 64,
+        "kind": "read"
+      },
+      "seq": 120,
+      "t_ns": 582470089923416
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 49,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 121,
+      "t_ns": 582470089937208
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 65,
+        "kind": "read"
+      },
+      "seq": 122,
+      "t_ns": 582470092503833
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 50,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 123,
+      "t_ns": 582470092515208
+    },
+    {
+      "event": {
+        "hex": "7073732d63332d6c656176652d616c74",
+        "index": 66,
+        "kind": "read"
+      },
+      "seq": 124,
+      "t_ns": 582470092520000
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 67,
+        "kind": "read"
+      },
+      "seq": 125,
+      "t_ns": 582470092547500
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 51,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 126,
+      "t_ns": 582470092556000
+    }
+  ],
+  "session": "s5bcd9055f0339792-c23"
+}

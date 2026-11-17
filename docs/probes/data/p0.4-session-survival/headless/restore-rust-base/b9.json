@@ -1,0 +1,182 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после attach",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0"
+    },
+    {
+      "name": "суффикс resize через кандидата",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после суффикса resize",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "record": {
+      "host": {
+        "pid": 39798,
+        "start_us": 1794931222705575
+      },
+      "session": "saa5e6cd26c42cc70-b9",
+      "workload": {
+        "pid": 39799,
+        "start_us": 1794931222709034
+      },
+      "workload_pgid": 39799,
+      "workload_sid": 39799
+    },
+    "после attach.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после attach.receiver_text": [
+      "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "cccccccccccccccccccccccccccccccccccccccc",
+      "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "dddddddddddddddddddddddddddddddddddddddd",
+      "tail"
+    ],
+    "после attach.reference_text": [
+      "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "cccccccccccccccccccccccccccccccccccccccc",
+      "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "dddddddddddddddddddddddddddddddddddddddd",
+      "tail"
+    ],
+    "после суффикса resize.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после суффикса resize.receiver_text": [
+      "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "cccccccccccccccccccccccccccccccccccccccc",
+      "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "dddddddddddddddddddddddddddddddddddddddd",
+      "tailZ"
+    ],
+    "после суффикса resize.reference_text": [
+      "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "cccccccccccccccccccccccccccccccccccccccc",
+      "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "dddddddddddddddddddddddddddddddddddddddd",
+      "tailZ"
+    ]
+  }
+}

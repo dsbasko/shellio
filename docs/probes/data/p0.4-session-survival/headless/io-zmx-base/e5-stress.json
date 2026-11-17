@@ -1,0 +1,49 @@
+{
+  "checks": [
+    {
+      "name": "list в гонке без ошибок по сессии",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "одна нагрузка у всех ensure и один победитель",
+      "ok": true,
+      "detail": "нагрузки [ProcessKey { pid: 40607, start_us: 1794931264277447 }], победители [0]"
+    },
+    {
+      "name": "один сокет и пустой каталог подготовки",
+      "ok": true,
+      "detail": "SocketEntries { sessions: [\"s617b8df124486fa8-e5\"], staged: [] }"
+    }
+  ],
+  "not_proven": "попадание list и ensure в окно между bind, listen и публикацией не доказано: точку остановки в zmx без патча не поставить",
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "elapsed_ms": 58,
+    "list_saw_session": 122,
+    "ready": {
+      "foreground_pgid": 40607,
+      "mode": "emitter",
+      "nonce": "s617b8df124486fa8-e5-w0",
+      "pgid": 40607,
+      "pid": 40607,
+      "ppid": 40603,
+      "raw": true,
+      "sid": 40607,
+      "size": {
+        "cols": 80,
+        "rows": 24,
+        "xpixel": 800,
+        "ypixel": 480
+      },
+      "tty": "/dev/ttys019"
+    },
+    "sockets": {
+      "sessions": [
+        "s617b8df124486fa8-e5"
+      ],
+      "staged": []
+    }
+  }
+}

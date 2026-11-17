@@ -1,0 +1,180 @@
+{
+  "schema": 1,
+  "scenario": "apps-surface",
+  "backend": "rust",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "7ad4beea9f66-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0",
+      "features": [
+        "surface"
+      ]
+    },
+    "versions": {
+      "ghostty-surface": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "vt": "ghostty-vt 1.4.0 (83fb95624b04)",
+      "zig-vt": "0.17.1",
+      "zig-zmx": "0.16.0",
+      "zmx": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+      "zmx-prev": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm"
+    },
+    "stamps": {
+      "ghostty-surface": "51b581ba6cc144a861f09b4ab2bc5d818417000cbd43c4a87fd4a0382b515990",
+      "vt": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+      "zmx": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+      "zmx-prev": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579"
+    },
+    "normalization_profile": 2,
+    "process": {
+      "pid": 56281,
+      "nonce": "1cc04d91eeb4febd",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.1cc04d91eeb4febd",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_COMMIT": "7ad4beea9f66-dirty",
+        "SHELLIO_PROBE_HOST_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/release",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_SETS_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival",
+        "SHELLIO_PROBE_STAMP_SURFACE": "51b581ba6cc144a861f09b4ab2bc5d818417000cbd43c4a87fd4a0382b515990",
+        "SHELLIO_PROBE_STAMP_VT": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+        "SHELLIO_PROBE_STAMP_ZMX": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+        "SHELLIO_PROBE_STAMP_ZMX_PREV": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579",
+        "SHELLIO_PROBE_VERSION_SURFACE": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+        "SHELLIO_PROBE_VERSION_VT": "ghostty-vt 1.4.0 (83fb95624b04)",
+        "SHELLIO_PROBE_VERSION_ZIG_VT": "0.17.1",
+        "SHELLIO_PROBE_VERSION_ZIG_ZMX": "0.16.0",
+        "SHELLIO_PROBE_VERSION_ZMX": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_PROBE_VERSION_ZMX_PREV": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.1cc04d91eeb4febd",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "cells": [
+    {
+      "id": "F4",
+      "part": "nvim-surface",
+      "status": "not_run",
+      "requirement": "required",
+      "stimulus": "то же в поверхности синтетическими событиями клавиш; SIGKILL GUI, новая GUI к той же сессии",
+      "oracle": "read_text и точка курсора поверхности до SIGKILL и после attach, файл на диске, контроль без хоста",
+      "completion": "вид новой GUI равен виду до SIGKILL или срок; nvim вышел по :wqa",
+      "not_run_cause": "surface",
+      "reason": "контроль без хоста: вид не дошёл до шага «строка «pss-mid»»",
+      "artifacts": [
+        "f4-nvim-surface.json"
+      ]
+    },
+    {
+      "id": "F4",
+      "part": "paste",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "многострочная вставка с отступами действием paste_from_clipboard поверхности, колбэк чтения буфера обмена отвечает текстом пробы; в nvim и в фикстуру query после SIGKILL GUI и нового attach",
+      "oracle": "файл nvim на диске, квитанции прочитанных байтов фикстуры, контроль без хоста",
+      "completion": "nvim вышел по :wq; фикстура прочла конец блока 2004 или срок",
+      "reason": "выполнено: SIGKILL gui3; нагрузка и хост живы после SIGKILL GUI; файл nvim как без хоста; nvim вышел по :wq; SIGKILL gui6; фикстура и хост живы после SIGKILL GUI; фикстура: одна квитанция блока 2004 с текстом вставки",
+      "artifacts": [
+        "f4-paste.json",
+        "f4-paste-fixture.json"
+      ]
+    },
+    {
+      "id": "F4",
+      "part": "kitty",
+      "status": "not_run",
+      "requirement": "required",
+      "stimulus": "фикстура включает протокол Kitty стеком, клавиши с модификаторами синтетическими событиями до SIGKILL GUI и после нового attach",
+      "oracle": "квитанции прочитанных байтов фикстуры между маркерами, контроль без хоста",
+      "completion": "маркер после каждой клавиши дошёл до фикстуры или срок",
+      "not_run_cause": "stand",
+      "reason": "контроль без хоста: c: ctrl-enter не дошла до вида: ",
+      "artifacts": [
+        "f4-kitty.json"
+      ]
+    },
+    {
+      "id": "F4",
+      "part": "layout-ru",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "источник ввода «Русская» на время ввода, коды клавиш g h b d t n через interpretKeyEvents в nvim после SIGKILL GUI и нового attach",
+      "oracle": "файл nvim на диске; контроль без хоста с теми же кодами под ABC и «Русской»",
+      "completion": "nvim вышел по :wq",
+      "reason": "выполнено: SIGKILL gui10; нагрузка и хост живы после SIGKILL GUI; файл nvim как без хоста; nvim вышел по :wq",
+      "artifacts": [
+        "f4-layout-ru.json"
+      ]
+    },
+    {
+      "id": "F4",
+      "part": "dead-key",
+      "status": "not_run",
+      "requirement": "required",
+      "stimulus": "источник ввода ABC Extended, Option-e e в nvim после SIGKILL GUI и нового attach",
+      "oracle": "файл nvim на диске, журнал ввода вида, контроль без хоста",
+      "completion": "nvim вышел по :wq",
+      "not_run_cause": "surface",
+      "reason": "контроль без хоста: файл \"\", ожидался \"é\\n\"",
+      "artifacts": [
+        "f4-dead-key.json"
+      ]
+    },
+    {
+      "id": "F4",
+      "part": "ime",
+      "status": "not_run",
+      "requirement": "research",
+      "stimulus": "японский IME: composition, выбор кандидата, коммит; Esc внутри composition; в фикстуру после SIGKILL GUI и нового attach",
+      "oracle": "квитанции прочитанных байтов фикстуры, журнал ввода вида, контроль без хоста",
+      "completion": "маркер после ввода дошёл до фикстуры или срок",
+      "not_run_cause": "stand",
+      "reason": "контроль без хоста: IME не закоммитил текст по Return: keyDown 45 flags=0x0 chars=\"n\" | setMarkedText \"n\" | sent press 45 mods=0 text=\"n\" composing handled=false | sent release 45 mods=0 text=\"\" handled=false | keyDown 34 flags=0x0 chars=\"i\" | setMarkedText \"に\" | sent press 34 mods=0 text=\"i\" composing handled=false | sent release 34 mods=0 text=\"\" handled=false | keyDown 4 flags=0x0 chars=\"h\" | setMarkedText \"にh\" | sent press 4 mods=0 text=\"h\" composing handled=false | sent release 4 mods=0 text=\"\" handled=false | keyDown 31 flags=0x0 chars=\"o\" | setMarkedText \"にほ\" | sent press 31 mods=0 text=\"o\" composing handled=false | sent release 31 mods=0 text=\"\" handled=false | keyDown 45 flags=0x0 chars=\"n\" | setMarkedText \"にほn\" | sent press 45 mods=0 text=\"n\" composing handled=false | sent release 45 mods=0 text=\"\" handled=false | keyDown 45 flags=0x0 chars=\"n\" | setMarkedText \"日本\" | sent press 45 mods=0 text=\"n\" composing handled=false | sent release 45 mods=0 text=\"\" handled=false | keyDown 49 flags=0x0 chars=\" \" | setMarkedText \"日本\" | sent press 49 mods=0 text=\" \" composing handled=false | sent release 49 mods=0 text=\"\" handled=false | keyDown 36 flags=0x0 chars=\"\\r\" | keyDown 36: съедено composition | keyDown 40 flags=0x0 chars=\"k\" | sent press 40 mods=0 text=\"k\" composing handled=false | sent release 40 mods=0 text=\"\" handled=false | keyDown 0 flags=0x0 chars=\"a\" | sent press 0 mods=0 text=\"a\" composing handled=false | sent release 0 mods=0 text=\"\" handled=false | keyDown 53 flags=0x0 chars=\"\\u{1b}\" | keyDown 53: съедено composition | keyDown 53 flags=0x0 chars=\"\\u{1b}\" | keyDown 53: съедено composition",
+      "artifacts": [
+        "f4-ime.json"
+      ]
+    },
+    {
+      "id": "F4",
+      "part": "switch",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "две живые сессии (a — nvim, b — фикстура flood с малым темпом), одна поверхность, 10 циклов: RIS, attach a, ввод, отключение, RIS, attach b, ввод, отключение",
+      "oracle": "read_text и точка курсора после каждого attach, счётчик хода flood, квитанции ввода фикстуры, файл nvim на диске",
+      "completion": "10 циклов или срок одного ожидания",
+      "reason": "выполнено: каждый attach показывает свою сессию, ввод доходит; последний attach a для :wq; nvim a вышел по :wq; файл a на диске: ввод всех циклов без потерь; фикстура b жива",
+      "artifacts": [
+        "f4-switch.json"
+      ]
+    }
+  ],
+  "metrics": [],
+  "diagnostics": {
+    "notes": []
+  }
+}

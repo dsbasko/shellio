@@ -1,0 +1,87 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "команда остановки",
+      "ok": true,
+      "detail": "CommandRun { args: [\"kill\", \"s9cc3e0704540fa2c-a5s\"], code: Some(0), signal: None, stdout: \"killed session s9cc3e0704540fa2c-a5s\\n\", stderr: \"\", elapsed_ms: 3 }"
+    },
+    {
+      "name": "stop подтверждён гибелью процессов",
+      "ok": true,
+      "detail": "процессов 2, живы после команды 1, выжили [], ждали 503 мс"
+    },
+    {
+      "name": "нагрузка не исполняется",
+      "ok": true,
+      "detail": "Gone"
+    },
+    {
+      "name": "хост не исполняется",
+      "ok": true,
+      "detail": "Gone"
+    },
+    {
+      "name": "клиент вышел",
+      "ok": true,
+      "detail": "ok"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "liveness": {
+      "state": "ended"
+    },
+    "record": {
+      "host": {
+        "pid": 39204,
+        "start_us": 1794931192914187
+      },
+      "session": "s9cc3e0704540fa2c-a5s",
+      "workload": {
+        "pid": 39205,
+        "start_us": 1794931192917519
+      },
+      "workload_pgid": 39205,
+      "workload_sid": 39205
+    },
+    "socket_present": false,
+    "stop": {
+      "alive_after_command": [
+        {
+          "pid": 39204,
+          "start_us": 1794931192914187
+        }
+      ],
+      "command": {
+        "args": [
+          "kill",
+          "s9cc3e0704540fa2c-a5s"
+        ],
+        "code": 0,
+        "elapsed_ms": 3,
+        "signal": null,
+        "stderr": "",
+        "stdout": "killed session s9cc3e0704540fa2c-a5s\n"
+      },
+      "processes": [
+        {
+          "pid": 39204,
+          "start_us": 1794931192914187
+        },
+        {
+          "pid": 39205,
+          "start_us": 1794931192917519
+        }
+      ],
+      "survivors": [],
+      "waited_ms": 503
+    }
+  }
+}

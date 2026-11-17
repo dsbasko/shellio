@@ -1,0 +1,39 @@
+{
+  "execution_errors": 0,
+  "runs": [
+    "target/probes/session-survival/20261117-205948-31291",
+    "target/probes/session-survival/20261117-211051-46612"
+  ],
+  "verdicts": [
+    {
+      "backend": "zmx",
+      "verdict": {
+        "keeps_candidate": true,
+        "open": [],
+        "research": [
+          "ime: not_run (stand)",
+          "claude: fail",
+          "codex: not_run (stand)"
+        ],
+        "status": "pass"
+      }
+    },
+    {
+      "backend": "rust",
+      "verdict": {
+        "keeps_candidate": true,
+        "open": [
+          "nvim-surface: not_run (surface)",
+          "kitty: not_run (stand)",
+          "dead-key: not_run (surface)"
+        ],
+        "research": [
+          "ime: not_run (stand)",
+          "claude: not_run (stand)",
+          "codex: not_run (stand)"
+        ],
+        "status": "not_run"
+      }
+    }
+  ]
+}

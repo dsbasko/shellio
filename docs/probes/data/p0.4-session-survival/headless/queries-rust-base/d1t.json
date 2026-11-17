@@ -1,0 +1,97 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 ведомый",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "ровно один ответ",
+      "ok": true,
+      "detail": "ровно ожидаемые ответы: {Da1: 1, Da2: 1, CursorPosition: 1, ModeReport: 2, ForegroundColor: 1, BackgroundColor: 1, Palette: 1, XtVersion: 1}"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "record": {
+      "host": {
+        "pid": 40192,
+        "start_us": 1794931242254407
+      },
+      "session": "s8e5045f7ab4284bb-d1t",
+      "workload": {
+        "pid": 40193,
+        "start_us": 1794931242257334
+      },
+      "workload_pgid": 40193,
+      "workload_sid": 40193
+    },
+    "ровно один ответ.responses": [
+      [
+        "da1",
+        "1b5b3f36323b323263"
+      ],
+      [
+        "da2",
+        "1b5b3e313b31323b3063"
+      ],
+      [
+        "cursor-position",
+        "1b5b313b3152"
+      ],
+      [
+        "mode-report",
+        "1b5b3f323030343b322479"
+      ],
+      [
+        "mode-report",
+        "1b5b343b322479"
+      ],
+      [
+        "foreground-color",
+        "1b5d31303b7267623a646464642f646464642f646464641b5c"
+      ],
+      [
+        "background-color",
+        "1b5d31313b7267623a316531652f316531652f316531651b5c"
+      ],
+      [
+        "palette",
+        "1b5d343b313b7267623a636363632f363636362f363636361b5c"
+      ],
+      [
+        "xt-version",
+        "1b503e7c70726f62652d73657373696f6e2d686f737428302e312e30291b5c"
+      ]
+    ],
+    "ровно один ответ.tally": {
+      "expected": {
+        "background-color": 1,
+        "cursor-position": 1,
+        "da1": 1,
+        "da2": 1,
+        "foreground-color": 1,
+        "mode-report": 2,
+        "palette": 1,
+        "xt-version": 1
+      },
+      "seen": {
+        "background-color": 1,
+        "cursor-position": 1,
+        "da1": 1,
+        "da2": 1,
+        "foreground-color": 1,
+        "mode-report": 2,
+        "palette": 1,
+        "xt-version": 1
+      }
+    }
+  }
+}

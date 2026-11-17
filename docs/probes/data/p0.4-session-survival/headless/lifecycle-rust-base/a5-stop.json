@@ -1,0 +1,91 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "команда остановки",
+      "ok": true,
+      "detail": "CommandRun { args: [\"stop\", \"s4929def04c0ddac5-a5s\"], code: Some(0), signal: None, stdout: \"Ok(Done)\", stderr: \"\", elapsed_ms: 0 }"
+    },
+    {
+      "name": "stop подтверждён гибелью процессов",
+      "ok": true,
+      "detail": "процессов 2, живы после команды 2, выжили [], ждали 1044 мс"
+    },
+    {
+      "name": "нагрузка не исполняется",
+      "ok": true,
+      "detail": "Gone"
+    },
+    {
+      "name": "хост не исполняется",
+      "ok": true,
+      "detail": "Gone"
+    },
+    {
+      "name": "клиент вышел",
+      "ok": true,
+      "detail": "ok"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "liveness": {
+      "state": "ended"
+    },
+    "record": {
+      "host": {
+        "pid": 39393,
+        "start_us": 1794931200730924
+      },
+      "session": "s4929def04c0ddac5-a5s",
+      "workload": {
+        "pid": 39394,
+        "start_us": 1794931200732886
+      },
+      "workload_pgid": 39394,
+      "workload_sid": 39394
+    },
+    "socket_present": false,
+    "stop": {
+      "alive_after_command": [
+        {
+          "pid": 39393,
+          "start_us": 1794931200730924
+        },
+        {
+          "pid": 39394,
+          "start_us": 1794931200732886
+        }
+      ],
+      "command": {
+        "args": [
+          "stop",
+          "s4929def04c0ddac5-a5s"
+        ],
+        "code": 0,
+        "elapsed_ms": 0,
+        "signal": null,
+        "stderr": "",
+        "stdout": "Ok(Done)"
+      },
+      "processes": [
+        {
+          "pid": 39393,
+          "start_us": 1794931200730924
+        },
+        {
+          "pid": 39394,
+          "start_us": 1794931200732886
+        }
+      ],
+      "survivors": [],
+      "waited_ms": 1044
+    }
+  }
+}

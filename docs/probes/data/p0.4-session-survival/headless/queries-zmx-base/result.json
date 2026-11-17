@@ -1,0 +1,726 @@
+{
+  "schema": 1,
+  "scenario": "queries",
+  "backend": "zmx",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "7ad4beea9f66-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0",
+      "features": [
+        "vt"
+      ]
+    },
+    "versions": {
+      "vt": "ghostty-vt 1.4.0 (83fb95624b04)",
+      "zig-vt": "0.17.1",
+      "zig-zmx": "0.16.0",
+      "zmx": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+      "zmx-prev": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm"
+    },
+    "stamps": {
+      "vt": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+      "zmx": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+      "zmx-prev": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579"
+    },
+    "normalization_profile": 2,
+    "process": {
+      "pid": 39904,
+      "nonce": "c58f947c70918a01",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.c58f947c70918a01",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_COMMIT": "7ad4beea9f66-dirty",
+        "SHELLIO_PROBE_HOST_V1": "/Users/dsbasko/Develop/dsbasko/shellio/target/proto-v1/release/probe-session-host",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_SETS_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival",
+        "SHELLIO_PROBE_STAMP_VT": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+        "SHELLIO_PROBE_STAMP_ZMX": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+        "SHELLIO_PROBE_STAMP_ZMX_PREV": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579",
+        "SHELLIO_PROBE_VERSION_VT": "ghostty-vt 1.4.0 (83fb95624b04)",
+        "SHELLIO_PROBE_VERSION_ZIG_VT": "0.17.1",
+        "SHELLIO_PROBE_VERSION_ZIG_ZMX": "0.16.0",
+        "SHELLIO_PROBE_VERSION_ZMX": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_PROBE_VERSION_ZMX_PREV": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.c58f947c70918a01",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko"
+      },
+      "env_extra": []
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "cells": [
+    {
+      "id": "D1",
+      "part": "без-клиента",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "сессия ни разу без клиента; фикстура query отправляет da1, da2, cpr, decrqm-dec, decrqm-ansi, osc10, osc11, osc4, xtversion",
+      "oracle": "счётчик ответов фикстуры по видам; приёмники отвечают через PTY attach-клиента",
+      "completion": "барьер DSR через каждого живого клиента или, без клиента, контрольный DA после запросов",
+      "reason": "ровно один ответ: не хватает [(CursorPosition, 1), (ModeReport, 2), (ForegroundColor, 1), (BackgroundColor, 1), (Palette, 1), (XtVersion, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d1h.json",
+        "zmx/logs/sc58f947c70918a01-d1h.log"
+      ]
+    },
+    {
+      "id": "D1",
+      "part": "один-клиент",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "один клиент-лидер c1; фикстура query отправляет da1, da2, cpr, decrqm-dec, decrqm-ansi, osc10, osc11, osc4, xtversion",
+      "oracle": "счётчик ответов фикстуры по видам; приёмники отвечают через PTY attach-клиента",
+      "completion": "барьер DSR через каждого живого клиента или, без клиента, контрольный DA после запросов",
+      "reason": "выполнено: c1 лидер; ровно один ответ",
+      "artifacts": [
+        "d1o.json",
+        "zmx/logs/sc58f947c70918a01-d1o.log"
+      ]
+    },
+    {
+      "id": "D1",
+      "part": "два-клиента",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "лидер c1 и ведомый c2 того же размера; фикстура query отправляет da1, da2, cpr, decrqm-dec, decrqm-ansi, osc10, osc11, osc4, xtversion",
+      "oracle": "счётчик ответов фикстуры по видам; приёмники отвечают через PTY attach-клиента",
+      "completion": "барьер DSR через каждого живого клиента или, без клиента, контрольный DA после запросов",
+      "reason": "выполнено: c1 лидер; c2 ведомый; ровно один ответ",
+      "artifacts": [
+        "d1t.json",
+        "zmx/logs/sc58f947c70918a01-d1t.log"
+      ]
+    },
+    {
+      "id": "D1",
+      "part": "обрыв-лидера",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "лидер c1 остановлен SIGSTOP до запросов и убит SIGKILL после них, затем подключается c2; фикстура query отправляет da1, da2, cpr, decrqm-dec, decrqm-ansi, osc10, osc11, osc4, xtversion",
+      "oracle": "счётчик ответов фикстуры по видам; приёмники отвечают через PTY attach-клиента",
+      "completion": "барьер DSR через каждого живого клиента или, без клиента, контрольный DA после запросов",
+      "reason": "ровно один ответ: не хватает [(Da1, 1), (Da2, 1), (CursorPosition, 1), (ModeReport, 2), (ForegroundColor, 1), (BackgroundColor, 1), (Palette, 1), (XtVersion, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d1l.json",
+        "zmx/logs/sc58f947c70918a01-d1l.log"
+      ]
+    },
+    {
+      "id": "D1",
+      "part": "обрыв-лидера-при-ведомом",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "лидер c1 и ведомый c2; c1 остановлен SIGSTOP до запросов и убит SIGKILL после них; фикстура query отправляет da1, da2, cpr, decrqm-dec, decrqm-ansi, osc10, osc11, osc4, xtversion",
+      "oracle": "счётчик ответов фикстуры по видам; приёмники отвечают через PTY attach-клиента",
+      "completion": "барьер DSR через каждого живого клиента или, без клиента, контрольный DA после запросов",
+      "reason": "ровно один ответ: не хватает [(Da1, 1), (Da2, 1), (CursorPosition, 1), (ModeReport, 2), (ForegroundColor, 1), (BackgroundColor, 1), (Palette, 1), (XtVersion, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d1f.json",
+        "zmx/logs/sc58f947c70918a01-d1f.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-da1-1",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос da1 1b5b63 разрезан после 1 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(Da1, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-da1-2",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос da1 1b5b63 разрезан после 2 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(Da1, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-cpr-1",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос cpr 1b5b366e разрезан после 1 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(CursorPosition, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-cpr-2",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос cpr 1b5b366e разрезан после 2 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(CursorPosition, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-cpr-3",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос cpr 1b5b366e разрезан после 3 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(CursorPosition, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-xtversion-1",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 1 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(XtVersion, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-xtversion-2",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 2 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(XtVersion, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-xtversion-3",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 3 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(XtVersion, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-xtversion-4",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 4 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(XtVersion, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-osc11-1",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 1 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(BackgroundColor, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-osc11-2",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 2 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(BackgroundColor, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-osc11-3",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 3 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(BackgroundColor, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-osc11-4",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 4 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(BackgroundColor, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-osc11-5",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 5 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(BackgroundColor, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-osc11-6",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 6 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(BackgroundColor, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-osc11-7",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 7 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "ровно один ответ: не хватает [(BackgroundColor, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d2h.json",
+        "zmx/logs/sc58f947c70918a01-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-da1-1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос da1 1b5b63 разрезан после 1 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-da1-2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос da1 1b5b63 разрезан после 2 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-cpr-1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос cpr 1b5b366e разрезан после 1 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-cpr-2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос cpr 1b5b366e разрезан после 2 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-cpr-3",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос cpr 1b5b366e разрезан после 3 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-xtversion-1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 1 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-xtversion-2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 2 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-xtversion-3",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 3 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-xtversion-4",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 4 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-osc11-1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 1 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-osc11-2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 2 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-osc11-3",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 3 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-osc11-4",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 4 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-osc11-5",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 5 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-osc11-6",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 6 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-osc11-7",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 7 байт; префикс, рост ревизии обработки ровно на единицу, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через ревизию zmx screen",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ревизия до префикса; ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "zmx/logs/sc58f947c70918a01-d2c.log"
+      ]
+    },
+    {
+      "id": "D3",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "при живом лидере c1 фикстура пишет OSC 52 записи; c1 отключается клавишей, подключается c2 (повторный attach со снимком); затем без клиента ещё одна запись OSC 52 и подключение c3",
+      "oracle": "журнал эффектов приёмника каждого клиента",
+      "completion": "барьер DSR через каждого клиента после записи и после подключения",
+      "reason": "выполнено: c1 лидер; эффект один раз при живом клиенте; c1 отключился клавишей; c2 лидер; нет повтора при новом подключении; c2 отключился клавишей; c3 лидер; запись без клиента не повторяется больше одного раза",
+      "artifacts": [
+        "d3.json",
+        "zmx/logs/sc58f947c70918a01-d3.log"
+      ]
+    },
+    {
+      "id": "D4",
+      "part": "клиент",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "лидер c1 отвечает на чтение OSC 52 из профиля приёмника; затем c1 отключается и подключается c2",
+      "oracle": "счётчик ответов фикстуры вида clipboard",
+      "completion": "барьер DSR через живых клиентов или контрольный DA без клиента",
+      "reason": "выполнено: c1 лидер; один ответ при живом клиенте; c1 отключился клавишей; c2 лидер; нет повторного ответа при новом подключении",
+      "artifacts": [
+        "d4c.json",
+        "zmx/logs/sc58f947c70918a01-d4c.log"
+      ]
+    },
+    {
+      "id": "D4",
+      "part": "без-gui",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "сессия без клиента: чтение OSC 52 без GUI",
+      "oracle": "счётчик ответов фикстуры вида clipboard",
+      "completion": "барьер DSR через живых клиентов или контрольный DA без клиента",
+      "reason": "явный ответ без GUI: не хватает [(Clipboard, 1)], лишние []",
+      "defect_origin": "host",
+      "artifacts": [
+        "d4h.json",
+        "zmx/logs/sc58f947c70918a01-d4h.log"
+      ]
+    },
+    {
+      "id": "D4",
+      "part": "поздний-ответ",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "лидер c1 остановлен SIGSTOP, фикстура читает OSC 52, c2 забирает лидерство, c1 продолжает и отвечает поздно",
+      "oracle": "счётчик ответов фикстуры вида clipboard",
+      "completion": "барьер DSR через живых клиентов или контрольный DA без клиента",
+      "reason": "выполнено: c1 лидер; c2 забрал лидерство; поздний ответ прежнего лидера отброшен",
+      "artifacts": [
+        "d4l.json",
+        "zmx/logs/sc58f947c70918a01-d4l.log"
+      ]
+    },
+    {
+      "id": "D4",
+      "part": "поколение-и-тайм-аут",
+      "status": "not_run",
+      "requirement": "required",
+      "stimulus": "по части поздний-ответ",
+      "oracle": "счётчик ответов фикстуры вида clipboard",
+      "completion": "часть поздний-ответ закончена",
+      "not_run_cause": "stand",
+      "reason": "поздний ответ не дошёл до нагрузки: отсутствие поколения не доказано",
+      "artifacts": [
+        "d4l.json"
+      ]
+    },
+    {
+      "id": "D5",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "при лидере c1 фикстура включает 1004 и 2048, окно c1 получает фокус; c1 отключается клавишей; подключается c2 того же размера и получает фокус",
+      "oracle": "счётчик отчётов фокуса и размера фикстуры по событиям; квитанции SIGWINCH",
+      "completion": "барьер DSR через живого клиента после каждого события",
+      "reason": "фокус окна c2: один FocusIn: FocusIn: 2",
+      "defect_origin": "host",
+      "artifacts": [
+        "d5.json",
+        "zmx/logs/sc58f947c70918a01-d5.log"
+      ]
+    },
+    {
+      "id": "D6",
+      "part": "без-клиента",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "сессия ни разу без клиента; snapshot (zmx screen), list, input raw (zmx send) и input typed (zmx type)",
+      "oracle": "время каждой операции против предела, квитанции прочитанного ввода",
+      "completion": "каждая операция вернулась или вышел срок команды кандидата",
+      "reason": "выполнено: snapshot; snapshot не блокируется; list; list не блокируется; input raw; input raw не блокируется; input typed; input typed не блокируется; ввод дошёл до нагрузки",
+      "artifacts": [
+        "d6h.json",
+        "zmx/logs/sc58f947c70918a01-d6h.log"
+      ]
+    },
+    {
+      "id": "D6",
+      "part": "зависший-клиент",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "лидер c1 остановлен SIGSTOP на время операций; snapshot (zmx screen), list, input raw (zmx send) и input typed (zmx type)",
+      "oracle": "время каждой операции против предела, квитанции прочитанного ввода",
+      "completion": "каждая операция вернулась или вышел срок команды кандидата",
+      "reason": "выполнено: c1 лидер; snapshot; snapshot не блокируется; list; list не блокируется; input raw; input raw не блокируется; input typed; input typed не блокируется; ввод дошёл до нагрузки",
+      "artifacts": [
+        "d6s.json",
+        "zmx/logs/sc58f947c70918a01-d6s.log"
+      ]
+    }
+  ],
+  "metrics": [],
+  "diagnostics": {
+    "notes": []
+  }
+}

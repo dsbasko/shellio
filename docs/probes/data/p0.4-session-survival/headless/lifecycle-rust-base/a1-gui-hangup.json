@@ -1,0 +1,110 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "нагрузка та же и жива",
+      "ok": true,
+      "detail": "PID 39290 старт 1794931196482292: Same(ProcessInfo { key: ProcessKey { pid: 39290, start_us: 1794931196482292 }, ppid: 39288, pgid: 39290, sid: Some(39290), tpgid: Some(39290), tty: Some(268435459), state: Running, exiting: false, comm: \"probe-session-f\" })"
+    },
+    {
+      "name": "хост тот же и жив",
+      "ok": true,
+      "detail": "PID 39288 старт 1794931196479346: Same(ProcessInfo { key: ProcessKey { pid: 39288, start_us: 1794931196479346 }, ppid: 1, pgid: 39287, sid: Some(39287), tpgid: None, tty: None, state: Running, exiting: false, comm: \"probe-session-h\" })"
+    },
+    {
+      "name": "сессия в списке",
+      "ok": true,
+      "detail": "Live { workload_pid: 39290, clients: 0 }"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "нагрузка та же после нового клиента",
+      "ok": true,
+      "detail": "PID 39290 старт 1794931196482292: Same(ProcessInfo { key: ProcessKey { pid: 39290, start_us: 1794931196482292 }, ppid: 39288, pgid: 39290, sid: Some(39290), tpgid: Some(39290), tty: Some(268435459), state: Running, exiting: false, comm: \"probe-session-f\" })"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "c1.exit": "ExitStatus(unix_wait_status(1))",
+    "c1.role": "leader:1",
+    "cleanup": [],
+    "record": {
+      "host": {
+        "pid": 39288,
+        "start_us": 1794931196479346
+      },
+      "session": "s4929def04c0ddac5-a1g",
+      "workload": {
+        "pid": 39290,
+        "start_us": 1794931196482292
+      },
+      "workload_pgid": 39290,
+      "workload_sid": 39290
+    },
+    "нагрузка та же и жива": {
+      "comm": "probe-session-f",
+      "exiting": false,
+      "key": {
+        "pid": 39290,
+        "start_us": 1794931196482292
+      },
+      "kind": "same",
+      "pgid": 39290,
+      "ppid": 39288,
+      "sid": 39290,
+      "state": "running",
+      "tpgid": 39290,
+      "tty": 268435459
+    },
+    "нагрузка та же после нового клиента": {
+      "comm": "probe-session-f",
+      "exiting": false,
+      "key": {
+        "pid": 39290,
+        "start_us": 1794931196482292
+      },
+      "kind": "same",
+      "pgid": 39290,
+      "ppid": 39288,
+      "sid": 39290,
+      "state": "running",
+      "tpgid": 39290,
+      "tty": 268435459
+    },
+    "хост тот же и жив": {
+      "comm": "probe-session-h",
+      "exiting": false,
+      "key": {
+        "pid": 39288,
+        "start_us": 1794931196479346
+      },
+      "kind": "same",
+      "pgid": 39287,
+      "ppid": 1,
+      "sid": 39287,
+      "state": "running",
+      "tpgid": null,
+      "tty": null
+    }
+  }
+}

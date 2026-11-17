@@ -1,0 +1,91 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "snapshot",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "snapshot не блокируется",
+      "ok": true,
+      "detail": "3 мс, предел 5000 мс"
+    },
+    {
+      "name": "list",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "list не блокируется",
+      "ok": true,
+      "detail": "3 мс, предел 5000 мс"
+    },
+    {
+      "name": "input raw",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "input raw не блокируется",
+      "ok": true,
+      "detail": "3 мс, предел 5000 мс"
+    },
+    {
+      "name": "input typed",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "input typed не блокируется",
+      "ok": true,
+      "detail": "3 мс, предел 5000 мс"
+    },
+    {
+      "name": "ввод дошёл до нагрузки",
+      "ok": true,
+      "detail": "прочитано: 7879"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "input raw.elapsed_ms": 3,
+    "input typed.elapsed_ms": 3,
+    "input_raw": {
+      "outcome": "sent"
+    },
+    "input_typed": {
+      "outcome": "accepted"
+    },
+    "list": [
+      {
+        "clients": 1,
+        "error": null,
+        "name": "sc58f947c70918a01-d6s",
+        "workload_pid": 40167
+      }
+    ],
+    "list.elapsed_ms": 3,
+    "record": {
+      "host": {
+        "pid": 40166,
+        "start_us": 1794931239536996
+      },
+      "session": "sc58f947c70918a01-d6s",
+      "workload": {
+        "pid": 40167,
+        "start_us": 1794931239539044
+      },
+      "workload_pgid": 40167,
+      "workload_sid": 40167
+    },
+    "snapshot.elapsed_ms": 3,
+    "snapshot.revision": 3
+  }
+}

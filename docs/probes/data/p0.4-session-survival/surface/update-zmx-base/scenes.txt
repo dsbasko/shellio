@@ -1,0 +1,2 @@
+сцены: /Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/20261117-211051-46612/update-zmx-base/scenes/manifest.json
+сцены: /Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/20261117-211051-46612/update-zmx-base/scenes/bridge.json

@@ -1,0 +1,197 @@
+{
+  "evidence": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "c1 лидер",
+        "ok": true
+      },
+      {
+        "detail": "ok",
+        "name": "файл на экране",
+        "ok": true
+      },
+      {
+        "detail": "ok",
+        "name": ":set number",
+        "ok": true
+      },
+      {
+        "detail": "ok",
+        "name": ":vsplit",
+        "ok": true
+      },
+      {
+        "detail": "ok",
+        "name": "вставка во втором окне",
+        "ok": true
+      },
+      {
+        "detail": "ok",
+        "name": "строка до SIGKILL",
+        "ok": true
+      },
+      {
+        "detail": "ok",
+        "name": "SIGKILL c1",
+        "ok": true
+      },
+      {
+        "detail": "PID 42374 старт 1794931390740091: Same(ProcessInfo { key: ProcessKey { pid: 42374, start_us: 1794931390740091 }, ppid: 42373, pgid: 42374, sid: Some(42374), tpgid: Some(42374), tty: Some(268435464), state: Running, exiting: false, comm: \"nvim\" })",
+        "name": "nvim жив после SIGKILL клиента",
+        "ok": true
+      },
+      {
+        "detail": "ok",
+        "name": "c2 лидер",
+        "ok": true
+      },
+      {
+        "detail": "строки, разбиение, номера, строка режима и курсор совпали",
+        "name": "экран после attach равен экрану до SIGKILL",
+        "ok": true
+      },
+      {
+        "detail": "строка режима не сменилась за 15 с",
+        "name": "выход из режима вставки",
+        "ok": true
+      },
+      {
+        "detail": "PID 42374 жив через 15 с",
+        "name": "nvim вышел по :wqa",
+        "ok": true
+      },
+      {
+        "detail": "до 3c532d43523e после 3c532d43523e",
+        "name": "Ctrl-V Shift-Enter после attach даёт то же, что до SIGKILL",
+        "ok": true
+      },
+      {
+        "detail": "строки вне вставки изменились",
+        "name": "остальные строки файла не тронуты",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "c1_replies": [
+        "53 1b5b3f36393b3224791b5b3f323032363b3224791b5b3f323032373b3224791b5b3f323033313b3224791b5b3f323034383b3224791b50312472303b343a336d1b5c1b5b3f30751b5b3f36323b32323b3532631b5d31313b7267623a316531652f316531652f31653165071b5b306e",
+        "176 1b5d31313b7267623a316531652f316531652f31653165071b5b306e",
+        "187 1b5b34383b32343b38303b3438303b38303074",
+        "2231 1b50312b72353436331b5c1b50312b723532343734323d33381b5c1b50312b7237333635373437323637363236363d354334353542333333383341333233413235373033313235363433413235373033323235363433413235373033333235363436441b5c1b50312b7237333635373437323637363236323d354334353542333433383341333233413235373033313235363433413235373033323235363433413235373033333235363436441b5c1b50312472303b34383a323a3a313a323a336d1b5c1b5b3f36323b32323b353263"
+      ],
+      "control": {
+        "exited": true,
+        "kitty_flags": 3,
+        "shift_enter": "1b5b31333b3275",
+        "started": true
+      },
+      "file_insert": {
+        "first": "3c532d43523e",
+        "rest_intact": true,
+        "second": "3c532d43523e"
+      },
+      "kitty_flags_after": 3,
+      "kitty_flags_before": 3,
+      "kitty_vs_control": {
+        "candidate": {
+          "flags": 3,
+          "shift_enter": "1b5b31333b3275"
+        },
+        "control": {
+          "flags": 3,
+          "shift_enter": "1b5b31333b3275"
+        },
+        "same": true
+      },
+      "nvim жив после SIGKILL клиента": {
+        "comm": "nvim",
+        "exiting": false,
+        "key": {
+          "pid": 42374,
+          "start_us": 1794931390740091
+        },
+        "kind": "same",
+        "pgid": 42374,
+        "ppid": 42373,
+        "sid": 42374,
+        "state": "running",
+        "tpgid": 42374,
+        "tty": 268435464
+      },
+      "screen_after": {
+        "cursor": [
+          70.0,
+          11.0
+        ],
+        "lines": [
+          "  1 001 pss line 001                    │ 50 050 pss line 050",
+          "  2 002 pss line 002                    │ 51 051 pss line 051",
+          "  3 003 pss line 003                    │ 52 052 pss line 052",
+          "  4 004 pss line 004                    │ 53 053 pss line 053",
+          "  5 005 pss line 005                    │ 54 054 pss line 054",
+          "  6 006 pss line 006                    │ 55 055 pss line 055",
+          "  7 007 pss line 007                    │ 56 056 pss line 056",
+          "  8 008 pss line 008                    │ 57 057 pss line 057",
+          "  9 009 pss line 009                    │ 58 058 pss line 058",
+          " 10 010 pss line 010                    │ 59 059 pss line 059",
+          " 11 011 pss line 011                    │ 60 060 pss line 060",
+          " 12 012 pss line 012                    │ 61 pss-before <S-CR> pss-mid",
+          " 13 013 pss line 013                    │ 62 061 pss line 061",
+          " 14 014 pss line 014                    │ 63 062 pss line 062",
+          " 15 015 pss line 015                    │ 64 063 pss line 063",
+          " 16 016 pss line 016                    │ 65 064 pss line 064",
+          " 17 017 pss line 017                    │ 66 065 pss line 065",
+          " 18 018 pss line 018                    │ 67 066 pss line 066",
+          " 19 019 pss line 019                    │ 68 067 pss line 067",
+          " 20 020 pss line 020                    │ 69 068 pss line 068",
+          " 21 021 pss line 021                    │ 70 069 pss line 069",
+          " 22 022 pss line 022                    │ 71 070 pss line 070",
+          "<vim-headless.txt [+] 1,1            Top <im-headless.txt [+] 61,26          49%",
+          "-- INSERT --"
+        ]
+      },
+      "screen_before": {
+        "cursor": [
+          70.0,
+          11.0
+        ],
+        "lines": [
+          "  1 001 pss line 001                    │ 50 050 pss line 050",
+          "  2 002 pss line 002                    │ 51 051 pss line 051",
+          "  3 003 pss line 003                    │ 52 052 pss line 052",
+          "  4 004 pss line 004                    │ 53 053 pss line 053",
+          "  5 005 pss line 005                    │ 54 054 pss line 054",
+          "  6 006 pss line 006                    │ 55 055 pss line 055",
+          "  7 007 pss line 007                    │ 56 056 pss line 056",
+          "  8 008 pss line 008                    │ 57 057 pss line 057",
+          "  9 009 pss line 009                    │ 58 058 pss line 058",
+          " 10 010 pss line 010                    │ 59 059 pss line 059",
+          " 11 011 pss line 011                    │ 60 060 pss line 060",
+          " 12 012 pss line 012                    │ 61 pss-before <S-CR> pss-mid",
+          " 13 013 pss line 013                    │ 62 061 pss line 061",
+          " 14 014 pss line 014                    │ 63 062 pss line 062",
+          " 15 015 pss line 015                    │ 64 063 pss line 063",
+          " 16 016 pss line 016                    │ 65 064 pss line 064",
+          " 17 017 pss line 017                    │ 66 065 pss line 065",
+          " 18 018 pss line 018                    │ 67 066 pss line 066",
+          " 19 019 pss line 019                    │ 68 067 pss line 067",
+          " 20 020 pss line 020                    │ 69 068 pss line 068",
+          " 21 021 pss line 021                    │ 70 069 pss line 069",
+          " 22 022 pss line 022                    │ 71 070 pss line 070",
+          "<vim-headless.txt [+] 1,1            Top <im-headless.txt [+] 61,26          49%",
+          "-- INSERT --"
+        ]
+      },
+      "screen_diff": {
+        "cursor": null,
+        "rows": []
+      },
+      "shift_enter_after": "1b5b31333b3275",
+      "shift_enter_before": "1b5b31333b3275"
+    },
+    "unsupported": null
+  },
+  "session": "s6232be220f604a9a-nvim"
+}

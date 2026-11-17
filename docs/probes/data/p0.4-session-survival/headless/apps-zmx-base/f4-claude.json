@@ -1,0 +1,64 @@
+{
+  "checks": [
+    {
+      "detail": "ok",
+      "name": "c1 лидер",
+      "ok": true
+    },
+    {
+      "detail": "ok",
+      "name": "SIGKILL c1",
+      "ok": true
+    },
+    {
+      "detail": "PID 42382 старт 1794931390863861: Same(ProcessInfo { key: ProcessKey { pid: 42382, start_us: 1794931390863861 }, ppid: 42381, pgid: 42382, sid: Some(42382), tpgid: Some(42382), tty: Some(268435467), state: Running, exiting: false, comm: \"claude.exe\" })",
+      "name": "агент жив после SIGKILL клиента",
+      "ok": true
+    },
+    {
+      "detail": "ok",
+      "name": "c2 лидер",
+      "ok": true
+    },
+    {
+      "detail": "нет 24 номеров из 150 за 120 с",
+      "name": "ответ дописан после attach",
+      "ok": false
+    },
+    {
+      "detail": "до SIGKILL 44 строк ответа, после attach 126",
+      "name": "строки до SIGKILL на месте по порядку",
+      "ok": true
+    },
+    {
+      "detail": "PID 42382 старт 1794931390863861: Same(ProcessInfo { key: ProcessKey { pid: 42382, start_us: 1794931390863861 }, ppid: 42381, pgid: 42382, sid: Some(42382), tpgid: Some(42382), tty: Some(268435467), state: Running, exiting: false, comm: \"claude.exe\" })",
+      "name": "агент жив после attach",
+      "ok": true
+    }
+  ],
+  "facts": {
+    "after": {
+      "count": 126,
+      "first": 1,
+      "last": 150,
+      "missing": 24,
+      "repeats": 0
+    },
+    "before": {
+      "count": 44,
+      "first": 1,
+      "last": 44,
+      "missing": 106,
+      "repeats": 0
+    },
+    "control_echo": false,
+    "discard": [],
+    "echo": false,
+    "enters": 0,
+    "finish_ms": 120008,
+    "start_ms": 2621,
+    "survivors": 0
+  },
+  "not_proven": "эхо ввода не видно и у c1 до SIGKILL: стенд не распознаёт поле ввода агента",
+  "session": "s6232be220f604a9a-claude"
+}

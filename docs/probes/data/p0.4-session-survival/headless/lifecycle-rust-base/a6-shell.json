@@ -1,0 +1,104 @@
+{
+  "checks": [
+    {
+      "name": "нагрузка вышла по потере PTY",
+      "ok": true,
+      "detail": "квитанция Ok(\"hangup\"), жива после ожидания: false"
+    },
+    {
+      "name": "состояние «хост потерян»",
+      "ok": true,
+      "detail": "Lost"
+    },
+    {
+      "name": "запись на диске находит выживших",
+      "ok": true,
+      "detail": "по записи [], выжили []"
+    },
+    {
+      "name": "оставшиеся процессы сессии найдены по записи",
+      "ok": true,
+      "detail": "живы по записи [], вне записи []"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "found": [
+      {
+        "alive": false,
+        "identity": {
+          "kind": "gone"
+        },
+        "key": {
+          "pid": 39433,
+          "start_us": 1794931201790745
+        },
+        "ppid": null
+      },
+      {
+        "alive": false,
+        "identity": {
+          "comm": "probe-session-f",
+          "exiting": true,
+          "key": {
+            "pid": 39434,
+            "start_us": 1794931201793529
+          },
+          "kind": "same",
+          "pgid": 39434,
+          "ppid": 1,
+          "sid": null,
+          "state": "running",
+          "tpgid": 39434,
+          "tty": 268435459
+        },
+        "key": {
+          "pid": 39434,
+          "start_us": 1794931201793529
+        },
+        "ppid": 1
+      }
+    ],
+    "killed_host": {
+      "pid": 39433,
+      "start_us": 1794931201790745
+    },
+    "record": {
+      "host": {
+        "pid": 39433,
+        "start_us": 1794931201790745
+      },
+      "session": "s4929def04c0ddac5-a6s",
+      "workload": {
+        "pid": 39434,
+        "start_us": 1794931201793529
+      },
+      "workload_pgid": 39434,
+      "workload_sid": 39434
+    },
+    "remaining_by_record": [],
+    "running_with_nonce": [],
+    "saved": [
+      {
+        "pid": 39433,
+        "start_us": 1794931201790745
+      },
+      {
+        "pid": 39434,
+        "start_us": 1794931201793529
+      }
+    ],
+    "sockets_before_liveness": {
+      "sessions": [
+        "s4929def04c0ddac5-a6s"
+      ],
+      "staged": []
+    },
+    "survivors": [],
+    "workload_exit": {
+      "Ok": "hangup"
+    }
+  }
+}

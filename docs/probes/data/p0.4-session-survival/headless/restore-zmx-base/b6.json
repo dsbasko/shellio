@@ -1,0 +1,264 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после attach",
+      "ok": false,
+      "detail": "профиль 2: Differs, расхождений 8, нормализовано 0, не наблюдалось 0\n  active[0].wrap: эталон true, приёмник false\n  active[0][79].width: эталон SpacerHead, приёмник Narrow\n  active[1].wrap_continuation: эталон true, приёмник false\n  active[3][5].text: эталон \"\", приёмник \" \"\n  active[3][6].text: эталон \"\", приёмник \" \"\n  active[3][7].text: эталон \"\", приёмник \" \"\n  active[3][8].text: эталон \"\", приёмник \" \"\n  active[3][9].text: эталон \"\", приёмник \" \""
+    },
+    {
+      "name": "суффикс pending-wrap через кандидата",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после суффикса pending-wrap",
+      "ok": false,
+      "detail": "профиль 2: Differs, расхождений 8, нормализовано 0, не наблюдалось 0\n  active[0].wrap: эталон true, приёмник false\n  active[0][79].width: эталон SpacerHead, приёмник Narrow\n  active[1].wrap_continuation: эталон true, приёмник false\n  active[3][5].text: эталон \"\", приёмник \" \"\n  active[3][6].text: эталон \"\", приёмник \" \"\n  active[3][7].text: эталон \"\", приёмник \" \"\n  active[3][8].text: эталон \"\", приёмник \" \"\n  active[3][9].text: эталон \"\", приёмник \" \""
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "record": {
+      "host": {
+        "pid": 39600,
+        "start_us": 1794931209748120
+      },
+      "session": "s4f14f7d89048b99d-b6",
+      "workload": {
+        "pid": 39601,
+        "start_us": 1794931209749949
+      },
+      "workload_pgid": 39601,
+      "workload_sid": 39601
+    },
+    "после attach.comparison": {
+      "mismatch_count": 8,
+      "mismatches": [
+        {
+          "path": "active[0].wrap",
+          "receiver": "false",
+          "reference": "true"
+        },
+        {
+          "path": "active[0][79].width",
+          "receiver": "Narrow",
+          "reference": "SpacerHead"
+        },
+        {
+          "path": "active[1].wrap_continuation",
+          "receiver": "false",
+          "reference": "true"
+        },
+        {
+          "path": "active[3][5].text",
+          "receiver": "\" \"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[3][6].text",
+          "receiver": "\" \"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[3][7].text",
+          "receiver": "\" \"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[3][8].text",
+          "receiver": "\" \"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[3][9].text",
+          "receiver": "\" \"",
+          "reference": "\"\""
+        }
+      ],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после attach.receiver_text": [
+      "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "世界",
+      "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+      "a   b     c",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после attach.reference_text": [
+      "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "世界",
+      "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+      "a   b     c",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса pending-wrap.comparison": {
+      "mismatch_count": 8,
+      "mismatches": [
+        {
+          "path": "active[0].wrap",
+          "receiver": "false",
+          "reference": "true"
+        },
+        {
+          "path": "active[0][79].width",
+          "receiver": "Narrow",
+          "reference": "SpacerHead"
+        },
+        {
+          "path": "active[1].wrap_continuation",
+          "receiver": "false",
+          "reference": "true"
+        },
+        {
+          "path": "active[3][5].text",
+          "receiver": "\" \"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[3][6].text",
+          "receiver": "\" \"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[3][7].text",
+          "receiver": "\" \"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[3][8].text",
+          "receiver": "\" \"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[3][9].text",
+          "receiver": "\" \"",
+          "reference": "\"\""
+        }
+      ],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после суффикса pending-wrap.receiver_text": [
+      "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "世界",
+      "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+      "a   b     c",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "W",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса pending-wrap.reference_text": [
+      "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "世界",
+      "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+      "a   b     c",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+      "W",
+      "",
+      "",
+      ""
+    ]
+  }
+}

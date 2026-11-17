@@ -1,0 +1,29 @@
+{
+  "checks": [
+    {
+      "name": "ensure отказал явно из-за длины пути",
+      "ok": true,
+      "detail": "Err(Failed(\"хост sdb49c7f9c9880d58-e5l: путь сокета /tmp/pss-db49c7f9c9880d58/lllllllllllllllllllllllllllllllllllllllllllllllllllllll/.sdb49c7f9c9880d58-e5l.40949 — 110 байт, больше 103: публикация невозможна\"))"
+    },
+    {
+      "name": "сокетов нет",
+      "ok": true,
+      "detail": "SocketEntries { sessions: [], staged: [] }"
+    },
+    {
+      "name": "нагрузка не запускалась и хоста нет",
+      "ok": true,
+      "detail": "[]"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "ensure": "Err(Failed(\"хост sdb49c7f9c9880d58-e5l: путь сокета /tmp/pss-db49c7f9c9880d58/lllllllllllllllllllllllllllllllllllllllllllllllllllllll/.sdb49c7f9c9880d58-e5l.40949 — 110 байт, больше 103: публикация невозможна\"))",
+    "paths": {
+      "final_len": 103,
+      "temp_min_len": 106
+    }
+  }
+}

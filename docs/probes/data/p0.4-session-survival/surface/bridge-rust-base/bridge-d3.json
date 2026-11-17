@@ -1,0 +1,16 @@
+{
+  "gui1": {
+    "after_kill": 1,
+    "label": "gui9",
+    "writes": 1
+  },
+  "gui2": {
+    "label": "gui10",
+    "lines": [
+      "d3-after",
+      "d3-end"
+    ],
+    "writes": 0
+  },
+  "session": "s5bcd9055f0339792-d3"
+}

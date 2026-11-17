@@ -1,0 +1,143 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "без клиентов",
+      "ok": true,
+      "detail": "Live { workload_pid: 39120, clients: 0 }"
+    },
+    {
+      "name": "поток закончен без клиентов",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "все строки записаны",
+      "ok": true,
+      "detail": "строк 4000, байт 328000, отменён false, задержек 5 на 0 мс"
+    },
+    {
+      "name": "хост обработал поток без клиентов",
+      "ok": true,
+      "detail": "ревизия 3 → 2245"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "конец потока у c2",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "c1.exit": "ExitStatus(unix_wait_status(0))",
+    "flood.elapsed_ms": 8,
+    "flood.writes": {
+      "bytes": 328004,
+      "stalled_ns": 581417,
+      "stalls": 5
+    },
+    "record": {
+      "host": {
+        "pid": 39119,
+        "start_us": 1794931190106573
+      },
+      "session": "s9cc3e0704540fa2c-a2",
+      "workload": {
+        "pid": 39120,
+        "start_us": 1794931190109800
+      },
+      "workload_pgid": 39120,
+      "workload_sid": 39120
+    },
+    "revision": {
+      "after": 2245,
+      "before": 3
+    },
+    "конец потока у c2.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "конец потока у c2.receiver_text": [
+      "s9cc3e0704540fa2c-a2-w 0000003978 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "s9cc3e0704540fa2c-a2-w 0000003979 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "s9cc3e0704540fa2c-a2-w 0000003980 cccccccccccccccccccccccccccccccccccccccccccccc",
+      "s9cc3e0704540fa2c-a2-w 0000003981 dddddddddddddddddddddddddddddddddddddddddddddd",
+      "s9cc3e0704540fa2c-a2-w 0000003982 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "s9cc3e0704540fa2c-a2-w 0000003983 ffffffffffffffffffffffffffffffffffffffffffffff",
+      "s9cc3e0704540fa2c-a2-w 0000003984 gggggggggggggggggggggggggggggggggggggggggggggg",
+      "s9cc3e0704540fa2c-a2-w 0000003985 hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+      "s9cc3e0704540fa2c-a2-w 0000003986 iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+      "s9cc3e0704540fa2c-a2-w 0000003987 jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj",
+      "s9cc3e0704540fa2c-a2-w 0000003988 kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "s9cc3e0704540fa2c-a2-w 0000003989 llllllllllllllllllllllllllllllllllllllllllllll",
+      "s9cc3e0704540fa2c-a2-w 0000003990 mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+      "s9cc3e0704540fa2c-a2-w 0000003991 nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "s9cc3e0704540fa2c-a2-w 0000003992 oooooooooooooooooooooooooooooooooooooooooooooo",
+      "s9cc3e0704540fa2c-a2-w 0000003993 pppppppppppppppppppppppppppppppppppppppppppppp",
+      "s9cc3e0704540fa2c-a2-w 0000003994 qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+      "s9cc3e0704540fa2c-a2-w 0000003995 rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+      "s9cc3e0704540fa2c-a2-w 0000003996 ssssssssssssssssssssssssssssssssssssssssssssss",
+      "s9cc3e0704540fa2c-a2-w 0000003997 tttttttttttttttttttttttttttttttttttttttttttttt",
+      "s9cc3e0704540fa2c-a2-w 0000003998 uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+      "s9cc3e0704540fa2c-a2-w 0000003999 vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "s9cc3e0704540fa2c-a2-w 0000004000 wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      ""
+    ],
+    "конец потока у c2.reference_text": [
+      "s9cc3e0704540fa2c-a2-w 0000003978 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "s9cc3e0704540fa2c-a2-w 0000003979 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "s9cc3e0704540fa2c-a2-w 0000003980 cccccccccccccccccccccccccccccccccccccccccccccc",
+      "s9cc3e0704540fa2c-a2-w 0000003981 dddddddddddddddddddddddddddddddddddddddddddddd",
+      "s9cc3e0704540fa2c-a2-w 0000003982 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "s9cc3e0704540fa2c-a2-w 0000003983 ffffffffffffffffffffffffffffffffffffffffffffff",
+      "s9cc3e0704540fa2c-a2-w 0000003984 gggggggggggggggggggggggggggggggggggggggggggggg",
+      "s9cc3e0704540fa2c-a2-w 0000003985 hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+      "s9cc3e0704540fa2c-a2-w 0000003986 iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+      "s9cc3e0704540fa2c-a2-w 0000003987 jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj",
+      "s9cc3e0704540fa2c-a2-w 0000003988 kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "s9cc3e0704540fa2c-a2-w 0000003989 llllllllllllllllllllllllllllllllllllllllllllll",
+      "s9cc3e0704540fa2c-a2-w 0000003990 mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+      "s9cc3e0704540fa2c-a2-w 0000003991 nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "s9cc3e0704540fa2c-a2-w 0000003992 oooooooooooooooooooooooooooooooooooooooooooooo",
+      "s9cc3e0704540fa2c-a2-w 0000003993 pppppppppppppppppppppppppppppppppppppppppppppp",
+      "s9cc3e0704540fa2c-a2-w 0000003994 qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+      "s9cc3e0704540fa2c-a2-w 0000003995 rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+      "s9cc3e0704540fa2c-a2-w 0000003996 ssssssssssssssssssssssssssssssssssssssssssssss",
+      "s9cc3e0704540fa2c-a2-w 0000003997 tttttttttttttttttttttttttttttttttttttttttttttt",
+      "s9cc3e0704540fa2c-a2-w 0000003998 uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+      "s9cc3e0704540fa2c-a2-w 0000003999 vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "s9cc3e0704540fa2c-a2-w 0000004000 wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      ""
+    ]
+  }
+}

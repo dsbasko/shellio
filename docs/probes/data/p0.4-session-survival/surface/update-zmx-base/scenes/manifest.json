@@ -1,0 +1,64 @@
+{
+  "profile": 2,
+  "vt_stamp": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+  "vt_version": "ghostty-vt 1.4.0 (83fb95624b04)",
+  "cols": 80,
+  "rows": 24,
+  "prefix_hex": "1b63",
+  "live_hex": "1b5b3f313030343b32303034681b5b3f323034383b31681b5b3f323033333b3235681b5b3f32303331731b5b3f323033316c1b5b3f323033317240",
+  "scenes": [
+    {
+      "name": "separate",
+      "description": "текст со стилем, 1004, 2048, 2033, 2031, 2004 и DECCKM отдельными CSI",
+      "files": {
+        "canonical": "separate.canonical.bin",
+        "passthrough": "separate.passthrough.bin"
+      },
+      "rows": [
+        "красный текст",
+        "line two",
+        "",
+        "",
+        "         cursor"
+      ],
+      "cursor_x": 15,
+      "cursor_y": 4,
+      "report_modes": {
+        "?1004": true,
+        "?2031": true,
+        "?2033": true,
+        "?2048": true
+      },
+      "kept_modes": {
+        "?1": true,
+        "?2004": true
+      },
+      "inexpressible": []
+    },
+    {
+      "name": "mixed",
+      "description": "смешанные CSI, XTSAVE и XTRESTORE 1004, 2048 выключен в конце, широкие символы",
+      "files": {
+        "canonical": "mixed.canonical.bin",
+        "passthrough": "mixed.passthrough.bin"
+      },
+      "rows": [
+        "заголовок 日本",
+        "подчёркнуто"
+      ],
+      "cursor_x": 2,
+      "cursor_y": 6,
+      "report_modes": {
+        "?1004": true,
+        "?2031": true,
+        "?2033": true,
+        "?2048": false
+      },
+      "kept_modes": {
+        "?1": true,
+        "?2004": true
+      },
+      "inexpressible": []
+    }
+  ]
+}

@@ -1,0 +1,375 @@
+{
+  "cpr": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "разрезов 3, ответов 3, нужного вида 3",
+        "name": "ровно один ответ на каждый разрез",
+        "ok": true
+      },
+      {
+        "detail": "Some(\"1b5b323b3152\")",
+        "name": "ответ не зависит от разреза",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "responses": [
+        [
+          "cursor-position",
+          "1b5b323b3152"
+        ],
+        [
+          "cursor-position",
+          "1b5b323b3152"
+        ],
+        [
+          "cursor-position",
+          "1b5b323b3152"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "da1": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "разрезов 2, ответов 2, нужного вида 2",
+        "name": "ровно один ответ на каждый разрез",
+        "ok": true
+      },
+      {
+        "detail": "Some(\"1b5b3f36323b32323b353263\")",
+        "name": "ответ не зависит от разреза",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "responses": [
+        [
+          "da1",
+          "1b5b3f36323b32323b353263"
+        ],
+        [
+          "da1",
+          "1b5b3f36323b32323b353263"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "da2": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "разрезов 3, ответов 3, нужного вида 3",
+        "name": "ровно один ответ на каждый разрез",
+        "ok": true
+      },
+      {
+        "detail": "Some(\"1b5b3e313b373b3063\")",
+        "name": "ответ не зависит от разреза",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "responses": [
+        [
+          "da2",
+          "1b5b3e313b373b3063"
+        ],
+        [
+          "da2",
+          "1b5b3e313b373b3063"
+        ],
+        [
+          "da2",
+          "1b5b3e313b373b3063"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "decrqm-ansi": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "разрезов 4, ответов 4, нужного вида 4",
+        "name": "ровно один ответ на каждый разрез",
+        "ok": true
+      },
+      {
+        "detail": "Some(\"1b5b343b322479\")",
+        "name": "ответ не зависит от разреза",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "responses": [
+        [
+          "mode-report",
+          "1b5b343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b343b322479"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "decrqm-dec": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "разрезов 8, ответов 8, нужного вида 8",
+        "name": "ровно один ответ на каждый разрез",
+        "ok": true
+      },
+      {
+        "detail": "Some(\"1b5b3f323030343b322479\")",
+        "name": "ответ не зависит от разреза",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "responses": [
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "osc10": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "разрезов 7, ответов 7, нужного вида 7",
+        "name": "ровно один ответ на каждый разрез",
+        "ok": true
+      },
+      {
+        "detail": "Some(\"1b5d31303b7267623a646464642f646464642f646464641b5c\")",
+        "name": "ответ не зависит от разреза",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "responses": [
+        [
+          "foreground-color",
+          "1b5d31303b7267623a646464642f646464642f646464641b5c"
+        ],
+        [
+          "foreground-color",
+          "1b5d31303b7267623a646464642f646464642f646464641b5c"
+        ],
+        [
+          "foreground-color",
+          "1b5d31303b7267623a646464642f646464642f646464641b5c"
+        ],
+        [
+          "foreground-color",
+          "1b5d31303b7267623a646464642f646464642f646464641b5c"
+        ],
+        [
+          "foreground-color",
+          "1b5d31303b7267623a646464642f646464642f646464641b5c"
+        ],
+        [
+          "foreground-color",
+          "1b5d31303b7267623a646464642f646464642f646464641b5c"
+        ],
+        [
+          "foreground-color",
+          "1b5d31303b7267623a646464642f646464642f646464641b5c"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "osc11": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "разрезов 7, ответов 7, нужного вида 7",
+        "name": "ровно один ответ на каждый разрез",
+        "ok": true
+      },
+      {
+        "detail": "Some(\"1b5d31313b7267623a316531652f316531652f316531651b5c\")",
+        "name": "ответ не зависит от разреза",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "responses": [
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ],
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ],
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ],
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ],
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ],
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ],
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "osc4": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "разрезов 8, ответов 8, нужного вида 8",
+        "name": "ровно один ответ на каждый разрез",
+        "ok": true
+      },
+      {
+        "detail": "Some(\"1b5d343b313b7267623a636363632f363636362f363636361b5c\")",
+        "name": "ответ не зависит от разреза",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "responses": [
+        [
+          "palette",
+          "1b5d343b313b7267623a636363632f363636362f363636361b5c"
+        ],
+        [
+          "palette",
+          "1b5d343b313b7267623a636363632f363636362f363636361b5c"
+        ],
+        [
+          "palette",
+          "1b5d343b313b7267623a636363632f363636362f363636361b5c"
+        ],
+        [
+          "palette",
+          "1b5d343b313b7267623a636363632f363636362f363636361b5c"
+        ],
+        [
+          "palette",
+          "1b5d343b313b7267623a636363632f363636362f363636361b5c"
+        ],
+        [
+          "palette",
+          "1b5d343b313b7267623a636363632f363636362f363636361b5c"
+        ],
+        [
+          "palette",
+          "1b5d343b313b7267623a636363632f363636362f363636361b5c"
+        ],
+        [
+          "palette",
+          "1b5d343b313b7267623a636363632f363636362f363636361b5c"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "xtversion": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "разрезов 4, ответов 4, нужного вида 4",
+        "name": "ровно один ответ на каждый разрез",
+        "ok": true
+      },
+      {
+        "detail": "Some(\"1b503e7c7368656c6c696f2d70726f62652d726563656976657228686f7374291b5c\")",
+        "name": "ответ не зависит от разреза",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "responses": [
+        [
+          "xt-version",
+          "1b503e7c7368656c6c696f2d70726f62652d726563656976657228686f7374291b5c"
+        ],
+        [
+          "xt-version",
+          "1b503e7c7368656c6c696f2d70726f62652d726563656976657228686f7374291b5c"
+        ],
+        [
+          "xt-version",
+          "1b503e7c7368656c6c696f2d70726f62652d726563656976657228686f7374291b5c"
+        ],
+        [
+          "xt-version",
+          "1b503e7c7368656c6c696f2d70726f62652d726563656976657228686f7374291b5c"
+        ]
+      ]
+    },
+    "unsupported": null
+  }
+}

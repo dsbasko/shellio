@@ -1,0 +1,215 @@
+{
+  "expected": {
+    "marker": {
+      "alternate": false,
+      "cursor_x": 8,
+      "cursor_y": 23,
+      "lines": [
+        "bridge-text-12",
+        "bridge-text-13",
+        "bridge-text-14",
+        "bridge-text-15",
+        "bridge-text-16",
+        "bridge-text-17",
+        "bridge-text-18",
+        "bridge-text-19",
+        "bridge-text-20",
+        "bridge-text-21",
+        "bridge-text-22",
+        "bridge-text-23",
+        "bridge-text-24",
+        "bridge-text-25",
+        "bridge-text-26",
+        "bridge-text-27",
+        "bridge-text-28",
+        "bridge-text-29",
+        "bridge-text-30",
+        "link after link",
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv",
+        "01234567890123456789012345678901234567890123456789012345678901234567890123456789",
+        "prompt>@"
+      ]
+    },
+    "restored": {
+      "alternate": false,
+      "cursor_x": 7,
+      "cursor_y": 23,
+      "lines": [
+        "bridge-text-12",
+        "bridge-text-13",
+        "bridge-text-14",
+        "bridge-text-15",
+        "bridge-text-16",
+        "bridge-text-17",
+        "bridge-text-18",
+        "bridge-text-19",
+        "bridge-text-20",
+        "bridge-text-21",
+        "bridge-text-22",
+        "bridge-text-23",
+        "bridge-text-24",
+        "bridge-text-25",
+        "bridge-text-26",
+        "bridge-text-27",
+        "bridge-text-28",
+        "bridge-text-29",
+        "bridge-text-30",
+        "link after link",
+        "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv",
+        "01234567890123456789012345678901234567890123456789012345678901234567890123456789",
+        "prompt>"
+      ]
+    }
+  },
+  "gui1": {
+    "lines": [
+      "bridge-text-12",
+      "bridge-text-13",
+      "bridge-text-14",
+      "bridge-text-15",
+      "bridge-text-16",
+      "bridge-text-17",
+      "bridge-text-18",
+      "bridge-text-19",
+      "bridge-text-20",
+      "bridge-text-21",
+      "bridge-text-22",
+      "bridge-text-23",
+      "bridge-text-24",
+      "bridge-text-25",
+      "bridge-text-26",
+      "bridge-text-27",
+      "bridge-text-28",
+      "bridge-text-29",
+      "bridge-text-30",
+      "link after link",
+      "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv",
+      "01234567890123456789012345678901234567890123456789012345678901234567890123456789",
+      "prompt>"
+    ],
+    "pid": 55193,
+    "status": "ExitStatus(unix_wait_status(9))"
+  },
+  "gui2": {
+    "marked": [
+      "bridge-text-12",
+      "bridge-text-13",
+      "bridge-text-14",
+      "bridge-text-15",
+      "bridge-text-16",
+      "bridge-text-17",
+      "bridge-text-18",
+      "bridge-text-19",
+      "bridge-text-20",
+      "bridge-text-21",
+      "bridge-text-22",
+      "bridge-text-23",
+      "bridge-text-24",
+      "bridge-text-25",
+      "bridge-text-26",
+      "bridge-text-27",
+      "bridge-text-28",
+      "bridge-text-29",
+      "bridge-text-30",
+      "link after link",
+      "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv",
+      "01234567890123456789012345678901234567890123456789012345678901234567890123456789",
+      "prompt>@"
+    ],
+    "pid": 55228,
+    "restored": [
+      "bridge-text-12",
+      "bridge-text-13",
+      "bridge-text-14",
+      "bridge-text-15",
+      "bridge-text-16",
+      "bridge-text-17",
+      "bridge-text-18",
+      "bridge-text-19",
+      "bridge-text-20",
+      "bridge-text-21",
+      "bridge-text-22",
+      "bridge-text-23",
+      "bridge-text-24",
+      "bridge-text-25",
+      "bridge-text-26",
+      "bridge-text-27",
+      "bridge-text-28",
+      "bridge-text-29",
+      "bridge-text-30",
+      "link after link",
+      "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv",
+      "01234567890123456789012345678901234567890123456789012345678901234567890123456789",
+      "prompt>"
+    ]
+  },
+  "host": {
+    "pid": 55191,
+    "start_us": 1794931865687428
+  },
+  "receipts_after_kill": [
+    {
+      "event": {
+        "bytes": 4,
+        "error": null,
+        "id": 2,
+        "kind": "ack"
+      },
+      "seq": 6,
+      "t_ns": 582469556935125
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 2,
+        "kind": "read"
+      },
+      "seq": 7,
+      "t_ns": 582469557046833
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 2,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 8,
+      "t_ns": 582469557086375
+    },
+    {
+      "event": {
+        "bytes": 5,
+        "error": null,
+        "id": 3,
+        "kind": "ack"
+      },
+      "seq": 9,
+      "t_ns": 582469564574333
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 3,
+        "kind": "read"
+      },
+      "seq": 10,
+      "t_ns": 582469564740708
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 3,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 11,
+      "t_ns": 582469564756500
+    }
+  ],
+  "session": "s5bcd9055f0339792-c1",
+  "workload": {
+    "pid": 55192,
+    "start_us": 1794931865693539
+  }
+}

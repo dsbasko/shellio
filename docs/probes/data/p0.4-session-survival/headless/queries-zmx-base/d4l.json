@@ -1,0 +1,86 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 забрал лидерство",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "поздний ответ прежнего лидера отброшен",
+      "ok": true,
+      "detail": "ответов clipboard после смены лидера: 0"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "c1.journal": [
+      {
+        "kind": "role",
+        "report": "leader:1"
+      },
+      {
+        "hex": "1b5b306e",
+        "kind": "reply"
+      },
+      {
+        "answered": true,
+        "kind": "clipboard-read",
+        "location": 0,
+        "mimes": [
+          "text/plain"
+        ]
+      },
+      {
+        "kind": "role",
+        "report": "follower:2"
+      },
+      {
+        "hex": "1b5d35323b633b6332686c6247787062793177636d39695a53316a62476c77596d3968636d513d1b5c",
+        "kind": "reply"
+      },
+      {
+        "hex": "1b5b306e",
+        "kind": "reply"
+      },
+      {
+        "hex": "1b5b306e",
+        "kind": "reply"
+      }
+    ],
+    "c2.journal": [
+      {
+        "kind": "role",
+        "report": "leader:2"
+      },
+      {
+        "hex": "1b5b306e",
+        "kind": "reply"
+      },
+      {
+        "hex": "1b5b306e",
+        "kind": "reply"
+      }
+    ],
+    "record": {
+      "host": {
+        "pid": 40103,
+        "start_us": 1794931237886996
+      },
+      "session": "sc58f947c70918a01-d4l",
+      "workload": {
+        "pid": 40104,
+        "start_us": 1794931237890028
+      },
+      "workload_pgid": 40104,
+      "workload_sid": 40104
+    },
+    "responses": []
+  }
+}

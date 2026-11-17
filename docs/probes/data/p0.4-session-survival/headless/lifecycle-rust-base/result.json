@@ -1,0 +1,242 @@
+{
+  "schema": 1,
+  "scenario": "lifecycle",
+  "backend": "rust",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "7ad4beea9f66-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0",
+      "features": [
+        "vt"
+      ]
+    },
+    "versions": {
+      "vt": "ghostty-vt 1.4.0 (83fb95624b04)",
+      "zig-vt": "0.17.1",
+      "zig-zmx": "0.16.0",
+      "zmx": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+      "zmx-prev": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm"
+    },
+    "stamps": {
+      "vt": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+      "zmx": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+      "zmx-prev": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579"
+    },
+    "normalization_profile": 2,
+    "process": {
+      "pid": 39238,
+      "nonce": "4929def04c0ddac5",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.4929def04c0ddac5",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_COMMIT": "7ad4beea9f66-dirty",
+        "SHELLIO_PROBE_HOST_V1": "/Users/dsbasko/Develop/dsbasko/shellio/target/proto-v1/release/probe-session-host",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_SETS_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival",
+        "SHELLIO_PROBE_STAMP_VT": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+        "SHELLIO_PROBE_STAMP_ZMX": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+        "SHELLIO_PROBE_STAMP_ZMX_PREV": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579",
+        "SHELLIO_PROBE_VERSION_VT": "ghostty-vt 1.4.0 (83fb95624b04)",
+        "SHELLIO_PROBE_VERSION_ZIG_VT": "0.17.1",
+        "SHELLIO_PROBE_VERSION_ZIG_ZMX": "0.16.0",
+        "SHELLIO_PROBE_VERSION_ZMX": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_PROBE_VERSION_ZMX_PREV": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.4929def04c0ddac5",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko"
+      },
+      "env_extra": []
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "cells": [
+    {
+      "id": "A1",
+      "part": "client-sigkill",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "SIGKILL attach-клиента, который ведёт сессию; затем новый клиент подключается к той же сессии",
+      "oracle": "наблюдатель процессов: PID и время старта нагрузки и хоста до и после; список сессий; барьер DSR через нового клиента",
+      "completion": "клиент вышел; нагрузка и хост — те же живые процессы; новый клиент стал лидером и передал ответ барьера",
+      "reason": "выполнено: c1 лидер; барьер через c1; нагрузка та же и жива; хост тот же и жив; сессия в списке; c2 лидер; барьер через c2; нагрузка та же после нового клиента",
+      "artifacts": [
+        "a1-client-sigkill.json",
+        "rust/logs/s4929def04c0ddac5-a1k.log"
+      ]
+    },
+    {
+      "id": "A1",
+      "part": "gui-hangup",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "гибель GUI: стенд закрывает все дескрипторы мастера PTY клиента, ядро шлёт клиенту SIGHUP; настоящий SIGKILL процесса GUI — клетка C1; затем новый клиент подключается к той же сессии",
+      "oracle": "наблюдатель процессов: PID и время старта нагрузки и хоста до и после; список сессий; барьер DSR через нового клиента",
+      "completion": "клиент вышел; нагрузка и хост — те же живые процессы; новый клиент стал лидером и передал ответ барьера",
+      "reason": "выполнено: c1 лидер; барьер через c1; нагрузка та же и жива; хост тот же и жив; сессия в списке; c2 лидер; барьер через c2; нагрузка та же после нового клиента",
+      "artifacts": [
+        "a1-gui-hangup.json",
+        "rust/logs/s4929def04c0ddac5-a1g.log"
+      ]
+    },
+    {
+      "id": "A2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "клиент c1 подключился и отключился клавишей Ctrl-\\, затем без клиентов фикстура пишет 4000 строк по 80 колонок и ED 3 (очистка истории: перенос истории — клетка B1), затем подключается c2; сессия без единого клиента — клетка A7",
+      "oracle": "квитанции фикстуры: поток закончен, записи и задержки записи; ревизия обработки хоста до и после; после attach — эталон и приёмник c2",
+      "completion": "квитанция конца потока; барьер DSR через c2; сравнение эталона с приёмником",
+      "reason": "выполнено: c1 лидер; барьер через c1; c1 отключился клавишей; без клиентов; поток закончен без клиентов; все строки записаны; хост обработал поток без клиентов; c2 лидер; барьер через c2; конец потока у c2",
+      "artifacts": [
+        "a2.json",
+        "rust/logs/s4929def04c0ddac5-a2.log"
+      ]
+    },
+    {
+      "id": "A3",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "через attach-клиент, ведущий сессию: run /bin/sleep 600, Ctrl-Z, bg 1, fg 1, Ctrl-C",
+      "oracle": "квитанции заданий и сигналов фикстуры shell с tcgetpgrp внутреннего PTY; группа переднего плана PTY клиента (tcgetpgrp мастера)",
+      "completion": "квитанция каждого шага; клиент жив и остаётся группой переднего плана своего PTY",
+      "reason": "выполнено: c1 лидер; run; run: задание на переднем плане; run: tpgid shell; run: PTY клиента; Ctrl-Z; Ctrl-Z: задание остановлено, терминал у shell; Ctrl-Z: PTY клиента; bg 1; bg 1: квитанция; bg 1: задание продолжено в фоне; fg 1; fg 1: терминал у задания; fg 1: квитанция; fg 1: задание на переднем плане; Ctrl-C; Ctrl-C: задание прервано, терминал у shell; Ctrl-C: PTY клиента; клиент жив после Ctrl-Z и Ctrl-C",
+      "artifacts": [
+        "a3.json",
+        "rust/logs/s4929def04c0ddac5-a3.log"
+      ]
+    },
+    {
+      "id": "A4",
+      "part": "reattach",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "attach, отключение Ctrl-\\, повторный attach и повторный ensure той же сессии",
+      "oracle": "наблюдатель процессов: ключ нагрузки; процессы с nonce нагрузки в аргументах; список сессий",
+      "completion": "второй клиент стал лидером; повторный ensure вернулся",
+      "reason": "выполнено: c1 лидер; c1 отключился; c2 лидер; барьер через c2; повторный ensure не создал нагрузку; нагрузка та же; одна нагрузка и один хост; одна сессия в списке",
+      "artifacts": [
+        "a4-reattach.json",
+        "rust/logs/s4929def04c0ddac5-a4r.log"
+      ]
+    },
+    {
+      "id": "A4",
+      "part": "concurrent-ensure",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "8 одновременных ensure одной сессии, у каждого своя нагрузка",
+      "oracle": "наблюдатель процессов: процессы с общим префиксом nonce нагрузок; сокеты в ZMX_DIR и каталоге подготовки; список сессий; готовность фикстуры",
+      "completion": "все ensure вернулись",
+      "reason": "выполнено: все ensure вернули одну нагрузку; нагрузку запустил ровно один ensure; один хост и одна нагрузка; один сокет и пустой каталог подготовки; одна сессия в списке; готова нагрузка победителя",
+      "artifacts": [
+        "a4-concurrent.json",
+        "rust/logs/s4929def04c0ddac5-a4c.log"
+      ]
+    },
+    {
+      "id": "A5",
+      "part": "workload-exit",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "нагрузка выходит сама (команда Exit фикстуре) при подключённом клиенте",
+      "oracle": "наблюдатель процессов по PID и времени старта: хост, нагрузка и её потомки; сокет — только сопутствующее наблюдение",
+      "completion": "выход нагрузки и хоста пойман kqueue; клиент вышел",
+      "reason": "выполнено: c1 лидер; нагрузка и хост вышли; нагрузка не исполняется; хост не исполняется; клиент вышел",
+      "artifacts": [
+        "a5-workload-exit.json",
+        "rust/logs/s4929def04c0ddac5-a5x.log"
+      ]
+    },
+    {
+      "id": "A5",
+      "part": "stop",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "stop сессии (zmx kill) при подключённом клиенте",
+      "oracle": "наблюдатель процессов по PID и времени старта: хост, нагрузка и её потомки; сокет — только сопутствующее наблюдение",
+      "completion": "stop вернулся после ожидания гибели процессов; клиент вышел",
+      "reason": "выполнено: c1 лидер; команда остановки; stop подтверждён гибелью процессов; нагрузка не исполняется; хост не исполняется; клиент вышел",
+      "artifacts": [
+        "a5-stop.json",
+        "rust/logs/s4929def04c0ddac5-a5s.log"
+      ]
+    },
+    {
+      "id": "A6",
+      "part": "shell",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "SIGKILL хосту сессии с фикстурой shell",
+      "oracle": "наблюдатель процессов по записи, сохранённой при ensure и перед сбоем (PID и время старта хоста, нагрузки и потомков); живые процессы с nonce нагрузки против записи; квитанции нагрузки и процесса, игнорирующего HUP; состояние сессии адаптера",
+      "completion": "выход хоста и нагрузки пойман kqueue; квитанция выхода нагрузки; каждый сохранённый процесс классифицирован, найденный отвечает на команду",
+      "reason": "выполнено: нагрузка вышла по потере PTY; состояние «хост потерян»; запись на диске находит выживших; оставшиеся процессы сессии найдены по записи",
+      "artifacts": [
+        "a6-shell.json",
+        "rust/logs/s4929def04c0ddac5-a6s.log"
+      ]
+    },
+    {
+      "id": "A6",
+      "part": "agent",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "SIGKILL хосту сессии с фикстурой agent и её потомком nohup-child, игнорирующим HUP",
+      "oracle": "наблюдатель процессов по записи, сохранённой при ensure и перед сбоем (PID и время старта хоста, нагрузки и потомков); живые процессы с nonce нагрузки против записи; квитанции нагрузки и процесса, игнорирующего HUP; состояние сессии адаптера",
+      "completion": "выход хоста и нагрузки пойман kqueue; квитанция выхода нагрузки; каждый сохранённый процесс классифицирован, найденный отвечает на команду",
+      "reason": "выполнено: нагрузка вышла по потере PTY; состояние «хост потерян»; запись на диске находит выживших; оставшиеся процессы сессии найдены по записи; процесс, игнорирующий HUP, среди сохранённых; процесс, игнорирующий HUP, отвечает",
+      "artifacts": [
+        "a6-agent.json",
+        "rust/logs/s4929def04c0ddac5-a6a.log"
+      ]
+    },
+    {
+      "id": "A6",
+      "part": "background",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "SIGKILL хосту сессии с фикстурой shell и фоновым заданием nohup-child, игнорирующим HUP (запущено через zmx send)",
+      "oracle": "наблюдатель процессов по записи, сохранённой при ensure и перед сбоем (PID и время старта хоста, нагрузки и потомков); живые процессы с nonce нагрузки против записи; квитанции нагрузки и процесса, игнорирующего HUP; состояние сессии адаптера",
+      "completion": "выход хоста и нагрузки пойман kqueue; квитанция выхода нагрузки; каждый сохранённый процесс классифицирован, найденный отвечает на команду",
+      "reason": "выполнено: нагрузка вышла по потере PTY; состояние «хост потерян»; запись на диске находит выживших; оставшиеся процессы сессии найдены по записи; процесс, игнорирующий HUP, среди сохранённых; процесс, игнорирующий HUP, отвечает",
+      "artifacts": [
+        "a6-background.json",
+        "rust/logs/s4929def04c0ddac5-a6b.log"
+      ]
+    },
+    {
+      "id": "A7",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "сессия создана ensure и ни разу не имела клиента; фикстура пишет заголовок, перо, 62 строки, позиционирование и режимы; повторный ensure; затем первый attach",
+      "oracle": "эталон и приёмник первого клиента; журнал демона: назначения лидера и отправка снимка; ревизия обработки без клиента",
+      "completion": "c1 стал лидером, барьер DSR через c1 пройден, состояния сняты",
+      "reason": "выполнено: хост обработал вывод без клиента; ensure без скрытого attach; c1 лидер; барьер через c1; первый attach",
+      "artifacts": [
+        "a7.json",
+        "rust/logs/s4929def04c0ddac5-a7.log"
+      ]
+    }
+  ],
+  "metrics": [],
+  "diagnostics": {
+    "notes": []
+  }
+}

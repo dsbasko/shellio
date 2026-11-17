@@ -1,0 +1,550 @@
+{
+  "bridge": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "после восстановления",
+        "ok": true
+      },
+      {
+        "detail": "[]",
+        "name": "воспроизведение без ответов, отчётов и эффектов",
+        "ok": true
+      },
+      {
+        "detail": "равно",
+        "name": "извлечённое у приёмника равно извлечённому у источника",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "суффикс decrc",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "bridge_state_differences": [],
+      "cause": null,
+      "inexpressible": [],
+      "payload": {
+        "body": 266,
+        "boundary": 74,
+        "continuation": 0,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "b3 00",
+        "b3 01",
+        "b3 02",
+        "b3 03",
+        "b3 04",
+        "b3 05",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "moved",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "после восстановления.reference_text": [
+        "b3 00",
+        "b3 01",
+        "b3 02",
+        "b3 03",
+        "b3 04",
+        "b3 05",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "moved",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс decrc.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс decrc.receiver_text": [
+        "b3 00",
+        "b3 01",
+        "b3 02",
+        "b3 03",
+        "b3 04    R",
+        "b3 05",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "moved",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс decrc.reference_text": [
+        "b3 00",
+        "b3 01",
+        "b3 02",
+        "b3 03",
+        "b3 04    R",
+        "b3 05",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "moved",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    "unsupported": null
+  },
+  "formatter": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Differs, расхождений 4, нормализовано 0, не наблюдалось 0\n  saved_cursor.x: эталон 9, приёмник 0\n  saved_cursor.y: эталон 4, приёмник 0\n  saved_cursor.style.fg: эталон Palette(2), приёмник Default\n  saved_cursor.style.bold: эталон true, приёмник false",
+        "name": "после восстановления",
+        "ok": false
+      },
+      {
+        "detail": "профиль 2: Differs, расхождений 12, нормализовано 0, не наблюдалось 0\n  active[0][0].text: эталон \"b\", приёмник \"R\"\n  active[4][9].text: эталон \"R\", приёмник \"\"\n  active[4][9].style.fg: эталон Palette(2), приёмник Default\n  active[4][9].style.bold: эталон true, приёмник false\n  cursor.x: эталон 10, приёмник 1\n  cursor.y: эталон 4, приёмник 0\n  cursor.style.fg: эталон Palette(2), приёмник Default\n  cursor.style.bold: эталон true, приёмник false\n  saved_cursor.x: эталон 9, приёмник 0\n  saved_cursor.y: эталон 4, приёмник 0\n  saved_cursor.style.fg: эталон Palette(2), приёмник Default\n  saved_cursor.style.bold: эталон true, приёмник false",
+        "name": "суффикс decrc",
+        "ok": false
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "payload": {
+        "body": 5683,
+        "boundary": 74,
+        "continuation": 0,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 4,
+        "mismatches": [
+          {
+            "path": "saved_cursor.x",
+            "receiver": "0",
+            "reference": "9"
+          },
+          {
+            "path": "saved_cursor.y",
+            "receiver": "0",
+            "reference": "4"
+          },
+          {
+            "path": "saved_cursor.style.fg",
+            "receiver": "Default",
+            "reference": "Palette(2)"
+          },
+          {
+            "path": "saved_cursor.style.bold",
+            "receiver": "false",
+            "reference": "true"
+          }
+        ],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "b3 00",
+        "b3 01",
+        "b3 02",
+        "b3 03",
+        "b3 04",
+        "b3 05",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "moved",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "после восстановления.reference_text": [
+        "b3 00",
+        "b3 01",
+        "b3 02",
+        "b3 03",
+        "b3 04",
+        "b3 05",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "moved",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс decrc.comparison": {
+        "mismatch_count": 12,
+        "mismatches": [
+          {
+            "path": "active[0][0].text",
+            "receiver": "\"R\"",
+            "reference": "\"b\""
+          },
+          {
+            "path": "active[4][9].text",
+            "receiver": "\"\"",
+            "reference": "\"R\""
+          },
+          {
+            "path": "active[4][9].style.fg",
+            "receiver": "Default",
+            "reference": "Palette(2)"
+          },
+          {
+            "path": "active[4][9].style.bold",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "cursor.x",
+            "receiver": "1",
+            "reference": "10"
+          },
+          {
+            "path": "cursor.y",
+            "receiver": "0",
+            "reference": "4"
+          },
+          {
+            "path": "cursor.style.fg",
+            "receiver": "Default",
+            "reference": "Palette(2)"
+          },
+          {
+            "path": "cursor.style.bold",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "saved_cursor.x",
+            "receiver": "0",
+            "reference": "9"
+          },
+          {
+            "path": "saved_cursor.y",
+            "receiver": "0",
+            "reference": "4"
+          },
+          {
+            "path": "saved_cursor.style.fg",
+            "receiver": "Default",
+            "reference": "Palette(2)"
+          },
+          {
+            "path": "saved_cursor.style.bold",
+            "receiver": "false",
+            "reference": "true"
+          }
+        ],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс decrc.receiver_text": [
+        "R3 00",
+        "b3 01",
+        "b3 02",
+        "b3 03",
+        "b3 04",
+        "b3 05",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "moved",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс decrc.reference_text": [
+        "b3 00",
+        "b3 01",
+        "b3 02",
+        "b3 03",
+        "b3 04    R",
+        "b3 05",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "moved",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    "unsupported": null
+  },
+  "snapshot": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "после восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "суффикс decrc",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "payload": {
+        "body": 1215,
+        "boundary": 74,
+        "continuation": null,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "b3 00",
+        "b3 01",
+        "b3 02",
+        "b3 03",
+        "b3 04",
+        "b3 05",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "moved",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "после восстановления.reference_text": [
+        "b3 00",
+        "b3 01",
+        "b3 02",
+        "b3 03",
+        "b3 04",
+        "b3 05",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "moved",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс decrc.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс decrc.receiver_text": [
+        "b3 00",
+        "b3 01",
+        "b3 02",
+        "b3 03",
+        "b3 04    R",
+        "b3 05",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "moved",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс decrc.reference_text": [
+        "b3 00",
+        "b3 01",
+        "b3 02",
+        "b3 03",
+        "b3 04    R",
+        "b3 05",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "moved",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    "unsupported": null
+  }
+}

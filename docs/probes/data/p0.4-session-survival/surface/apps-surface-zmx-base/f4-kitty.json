@@ -1,0 +1,123 @@
+{
+  "checks": [
+    {
+      "detail": "gui11 завершилась ExitStatus(unix_wait_status(9))",
+      "name": "SIGKILL gui11",
+      "ok": true
+    },
+    {
+      "detail": "нагрузка или хост погибли",
+      "name": "нагрузка и хост живы после SIGKILL GUI",
+      "ok": true
+    },
+    {
+      "detail": "клавиша, без хоста, через кандидата: []",
+      "name": "кодирование до SIGKILL как без хоста",
+      "ok": true
+    },
+    {
+      "detail": "клавиша, без хоста, через кандидата: []",
+      "name": "кодирование после attach как без хоста",
+      "ok": true
+    }
+  ],
+  "not_proven": null,
+  "observed": {
+    "after": {
+      "Ok": [
+        [
+          "ctrl-a",
+          "1b5b39373b3575"
+        ],
+        [
+          "shift-enter",
+          "1b5b31333b3275"
+        ],
+        [
+          "ctrl-enter",
+          "1b5b31333b3575"
+        ],
+        [
+          "alt-x",
+          "1b5b3132303b3375"
+        ],
+        [
+          "shift-tab",
+          "1b5b393b3275"
+        ],
+        [
+          "ctrl-shift-up",
+          "1b5b313b3641"
+        ],
+        [
+          "escape",
+          "1b5b323775"
+        ]
+      ]
+    },
+    "before": {
+      "Ok": [
+        [
+          "ctrl-a",
+          "1b5b39373b3575"
+        ],
+        [
+          "shift-enter",
+          "1b5b31333b3275"
+        ],
+        [
+          "ctrl-enter",
+          "1b5b31333b3575"
+        ],
+        [
+          "alt-x",
+          "1b5b3132303b3375"
+        ],
+        [
+          "shift-tab",
+          "1b5b393b3275"
+        ],
+        [
+          "ctrl-shift-up",
+          "1b5b313b3641"
+        ],
+        [
+          "escape",
+          "1b5b323775"
+        ]
+      ]
+    },
+    "control": {
+      "Ok": [
+        [
+          "ctrl-a",
+          "1b5b39373b3575"
+        ],
+        [
+          "shift-enter",
+          "1b5b31333b3275"
+        ],
+        [
+          "ctrl-enter",
+          "1b5b31333b3575"
+        ],
+        [
+          "alt-x",
+          "1b5b3132303b3375"
+        ],
+        [
+          "shift-tab",
+          "1b5b393b3275"
+        ],
+        [
+          "ctrl-shift-up",
+          "1b5b313b3641"
+        ],
+        [
+          "escape",
+          "1b5b323775"
+        ]
+      ]
+    }
+  }
+}

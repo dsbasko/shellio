@@ -1,0 +1,8 @@
+{
+  "installed": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/bundle/probe-session-surface.app",
+  "runtime": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/runtime",
+  "generations": [
+    { "generation": 1, "app": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/bundle/generations/1/probe-session-surface.app" },
+    { "generation": 2, "app": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/bundle/generations/2/probe-session-surface.app" }
+  ]
+}

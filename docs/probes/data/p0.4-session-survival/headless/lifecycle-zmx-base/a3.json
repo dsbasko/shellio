@@ -1,0 +1,117 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "run",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "run: задание на переднем плане",
+      "ok": true,
+      "detail": "Started { foreground: true }, tcgetpgrp Some(39163), задание 39163"
+    },
+    {
+      "name": "run: tpgid shell",
+      "ok": true,
+      "detail": "Some(39163)"
+    },
+    {
+      "name": "run: PTY клиента",
+      "ok": true,
+      "detail": "tcgetpgrp 39162, клиент 39162"
+    },
+    {
+      "name": "Ctrl-Z",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "Ctrl-Z: задание остановлено, терминал у shell",
+      "ok": true,
+      "detail": "Stopped { signal: \"SIGTSTP\" }, tcgetpgrp Some(39160)"
+    },
+    {
+      "name": "Ctrl-Z: PTY клиента",
+      "ok": true,
+      "detail": "tcgetpgrp 39162, клиент 39162"
+    },
+    {
+      "name": "bg 1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "bg 1: квитанция",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "bg 1: задание продолжено в фоне",
+      "ok": true,
+      "detail": "Continued { foreground: false }"
+    },
+    {
+      "name": "fg 1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "fg 1: терминал у задания",
+      "ok": true,
+      "detail": "tcgetpgrp Some(39163)"
+    },
+    {
+      "name": "fg 1: квитанция",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "fg 1: задание на переднем плане",
+      "ok": true,
+      "detail": "Continued { foreground: true }"
+    },
+    {
+      "name": "Ctrl-C",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "Ctrl-C: задание прервано, терминал у shell",
+      "ok": true,
+      "detail": "Signaled { signal: \"SIGINT\" }, tcgetpgrp Some(39160)"
+    },
+    {
+      "name": "Ctrl-C: PTY клиента",
+      "ok": true,
+      "detail": "tcgetpgrp 39162, клиент 39162"
+    },
+    {
+      "name": "клиент жив после Ctrl-Z и Ctrl-C",
+      "ok": true,
+      "detail": "PID 39162"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "record": {
+      "host": {
+        "pid": 39159,
+        "start_us": 1794931190677330
+      },
+      "session": "s9cc3e0704540fa2c-a3",
+      "workload": {
+        "pid": 39160,
+        "start_us": 1794931190679008
+      },
+      "workload_pgid": 39160,
+      "workload_sid": 39160
+    }
+  }
+}

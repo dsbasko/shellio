@@ -1,0 +1,54 @@
+{
+  "checks": [
+    {
+      "detail": "gui3 завершилась ExitStatus(unix_wait_status(9))",
+      "name": "SIGKILL gui3",
+      "ok": true
+    },
+    {
+      "detail": "нагрузка или хост погибли",
+      "name": "нагрузка и хост живы после SIGKILL GUI",
+      "ok": true
+    },
+    {
+      "detail": "ok",
+      "name": "файл nvim как без хоста",
+      "ok": true
+    },
+    {
+      "detail": "PID 56413 жив",
+      "name": "nvim вышел по :wq",
+      "ok": true
+    },
+    {
+      "detail": "gui6 завершилась ExitStatus(unix_wait_status(9))",
+      "name": "SIGKILL gui6",
+      "ok": true
+    },
+    {
+      "detail": "нагрузка или хост погибли",
+      "name": "фикстура и хост живы после SIGKILL GUI",
+      "ok": true
+    },
+    {
+      "detail": "блоков 1",
+      "name": "фикстура: одна квитанция блока 2004 с текстом вставки",
+      "ok": true
+    }
+  ],
+  "not_proven": null,
+  "observed": {
+    "candidate": {
+      "Ok": null
+    },
+    "control": {
+      "Ok": null
+    },
+    "fixture_candidate": [
+      "70737320706173746520626567696e0a202074776f207370616365730a20202020666f7572207370616365730a202074776f20616761696e0a656e64"
+    ],
+    "fixture_control": [
+      "70737320706173746520626567696e0a202074776f207370616365730a20202020666f7572207370616365730a202074776f20616761696e0a656e64"
+    ]
+  }
+}

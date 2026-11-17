@@ -1,0 +1,91 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "GUI поколения 1 лидера c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "один ответ при живом клиенте",
+      "ok": true,
+      "detail": "ровно ожидаемые ответы: {Clipboard: 1}"
+    },
+    {
+      "name": "данные GUI лидера дошли до нагрузки",
+      "ok": true,
+      "detail": "данные ответов: [Some(\"Z3VpLWNsaXBib2FyZA==\")]"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "нет повторного ответа при новом подключении",
+      "ok": true,
+      "detail": "ровно ожидаемые ответы: {Clipboard: 1}"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "gui.asks": [
+      {
+        "generation": 1,
+        "serial": 1
+      }
+    ],
+    "record": {
+      "host": {
+        "pid": 40278,
+        "start_us": 1794931248628115
+      },
+      "session": "s8e5045f7ab4284bb-d4c",
+      "workload": {
+        "pid": 40279,
+        "start_us": 1794931248631541
+      },
+      "workload_pgid": 40279,
+      "workload_sid": 40279
+    },
+    "нет повторного ответа при новом подключении.responses": [
+      [
+        "clipboard",
+        "1b5d35323b633b5a3356704c574e7361584269623246795a413d3d1b5c"
+      ]
+    ],
+    "нет повторного ответа при новом подключении.tally": {
+      "expected": {
+        "clipboard": 1
+      },
+      "seen": {
+        "clipboard": 1
+      }
+    },
+    "один ответ при живом клиенте.responses": [
+      [
+        "clipboard",
+        "1b5d35323b633b5a3356704c574e7361584269623246795a413d3d1b5c"
+      ]
+    ],
+    "один ответ при живом клиенте.tally": {
+      "expected": {
+        "clipboard": 1
+      },
+      "seen": {
+        "clipboard": 1
+      }
+    }
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "повторный ensure не создал нагрузку",
+      "ok": true,
+      "detail": "created false, нагрузка ProcessKey { pid: 39356, start_us: 1794931199644977 }"
+    },
+    {
+      "name": "нагрузка та же",
+      "ok": true,
+      "detail": "PID 39356 старт 1794931199644977: Same(ProcessInfo { key: ProcessKey { pid: 39356, start_us: 1794931199644977 }, ppid: 39355, pgid: 39356, sid: Some(39356), tpgid: Some(39356), tty: Some(268435459), state: Running, exiting: false, comm: \"probe-session-f\" })"
+    },
+    {
+      "name": "одна нагрузка и один хост",
+      "ok": true,
+      "detail": "[ProcessKey { pid: 39355, start_us: 1794931199642579 }, ProcessKey { pid: 39356, start_us: 1794931199644977 }], ожидалось [ProcessKey { pid: 39355, start_us: 1794931199642579 }, ProcessKey { pid: 39356, start_us: 1794931199644977 }]"
+    },
+    {
+      "name": "одна сессия в списке",
+      "ok": true,
+      "detail": "[Listed { name: \"s4929def04c0ddac5-a4r\", workload_pid: Some(39356), clients: Some(1), error: None }]"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "ensure_again": {
+      "command": {
+        "args": [
+          "status",
+          "s4929def04c0ddac5-a4r"
+        ],
+        "code": null,
+        "elapsed_ms": 0,
+        "signal": null,
+        "stderr": "",
+        "stdout": ""
+      },
+      "created": false,
+      "record": {
+        "host": {
+          "pid": 39355,
+          "start_us": 1794931199642579
+        },
+        "session": "s4929def04c0ddac5-a4r",
+        "workload": {
+          "pid": 39356,
+          "start_us": 1794931199644977
+        },
+        "workload_pgid": 39356,
+        "workload_sid": 39356
+      }
+    },
+    "leaders": 0,
+    "processes": [
+      {
+        "pid": 39355,
+        "start_us": 1794931199642579
+      },
+      {
+        "pid": 39356,
+        "start_us": 1794931199644977
+      }
+    ],
+    "record": {
+      "host": {
+        "pid": 39355,
+        "start_us": 1794931199642579
+      },
+      "session": "s4929def04c0ddac5-a4r",
+      "workload": {
+        "pid": 39356,
+        "start_us": 1794931199644977
+      },
+      "workload_pgid": 39356,
+      "workload_sid": 39356
+    },
+    "нагрузка та же": {
+      "comm": "probe-session-f",
+      "exiting": false,
+      "key": {
+        "pid": 39356,
+        "start_us": 1794931199644977
+      },
+      "kind": "same",
+      "pgid": 39356,
+      "ppid": 39355,
+      "sid": 39356,
+      "state": "running",
+      "tpgid": 39356,
+      "tty": 268435459
+    }
+  }
+}

@@ -1,0 +1,182 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после attach",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0"
+    },
+    {
+      "name": "суффикс alt-exit через кандидата",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после суффикса alt-exit",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "record": {
+      "host": {
+        "pid": 39731,
+        "start_us": 1794931217354883
+      },
+      "session": "saa5e6cd26c42cc70-b2",
+      "workload": {
+        "pid": 39732,
+        "start_us": 1794931217358252
+      },
+      "workload_pgid": 39732,
+      "workload_sid": 39732
+    },
+    "после attach.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после attach.receiver_text": [
+      "alt screen",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "                   alt-cursor",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после attach.reference_text": [
+      "alt screen",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "                   alt-cursor",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса alt-exit.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после суффикса alt-exit.receiver_text": [
+      "main 00",
+      "main 01",
+      "mainmain-cursorA",
+      "main 03",
+      "main 04",
+      "main 05",
+      "main 06",
+      "main 07",
+      "main 08",
+      "main 09",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса alt-exit.reference_text": [
+      "main 00",
+      "main 01",
+      "mainmain-cursorA",
+      "main 03",
+      "main 04",
+      "main 05",
+      "main 06",
+      "main 07",
+      "main 08",
+      "main 09",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  }
+}

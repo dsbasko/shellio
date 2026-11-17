@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "scenario": "geometry",
+  "backend": "zmx",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "7ad4beea9f66-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0",
+      "features": [
+        "vt"
+      ]
+    },
+    "versions": {
+      "vt": "ghostty-vt 1.4.0 (83fb95624b04)",
+      "zig-vt": "0.17.1",
+      "zig-zmx": "0.16.0",
+      "zmx": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+      "zmx-prev": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm"
+    },
+    "stamps": {
+      "vt": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+      "zmx": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+      "zmx-prev": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579"
+    },
+    "normalization_profile": 2,
+    "process": {
+      "pid": 40980,
+      "nonce": "83b2212322cc3dfe",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.83b2212322cc3dfe",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_COMMIT": "7ad4beea9f66-dirty",
+        "SHELLIO_PROBE_HOST_V1": "/Users/dsbasko/Develop/dsbasko/shellio/target/proto-v1/release/probe-session-host",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_SETS_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival",
+        "SHELLIO_PROBE_STAMP_VT": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+        "SHELLIO_PROBE_STAMP_ZMX": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+        "SHELLIO_PROBE_STAMP_ZMX_PREV": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579",
+        "SHELLIO_PROBE_VERSION_VT": "ghostty-vt 1.4.0 (83fb95624b04)",
+        "SHELLIO_PROBE_VERSION_ZIG_VT": "0.17.1",
+        "SHELLIO_PROBE_VERSION_ZIG_ZMX": "0.16.0",
+        "SHELLIO_PROBE_VERSION_ZMX": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_PROBE_VERSION_ZMX_PREV": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.83b2212322cc3dfe",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko"
+      },
+      "env_extra": []
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "cells": [
+    {
+      "id": "F1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "c1 80×24 ведёт; c2 100×30 подключается без захвата и меняет размер; c3 110×32 забирает лидерство; прежний лидер c1 меняет размер (устаревший ресайз)",
+      "oracle": "квитанции SIGWINCH фикстуры с TIOCGWINSZ; сообщения о роли клиентов; отсутствие размера — до квитанции следующего ресайза лидера",
+      "completion": "квитанция размера каждого шага лидера получена, роли сняты",
+      "reason": "выполнено: c1 лидер; c2 ведомый; подключение c2: размер лидера c1 дошёл; подключение c2: размер c2 не дошёл; ресайз ведомого c2: размер свидетеля c1 дошёл; ресайз ведомого c2: размер c2 не дошёл; c3 забрал лидерство; захват c3: нагрузка получила размер c3; c1 стал ведомым; устаревший ресайз прежнего лидера c1: размер свидетеля c3 дошёл; устаревший ресайз прежнего лидера c1: размер c1 не дошёл; три клиента подключены",
+      "artifacts": [
+        "f1.json",
+        "zmx/logs/s83b2212322cc3dfe-f1.log"
+      ]
+    },
+    {
+      "id": "F3",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "лидер c1 80×24; ввод из CLI обоими путями: zmx send и zmx type; затем ресайз лидера",
+      "oracle": "квитанции прочитанных байтов фикстуры; квитанции SIGWINCH; роль c1 и назначения лидера в журнале демона; число клиентов",
+      "completion": "фикстура прочитала ввод каждого пути, квитанция ресайза лидера получена",
+      "reason": "выполнено: c1 лидер; ввод send принят; фикстура прочитала ввод send; ввод type принят; фикстура прочитала ввод type; ресайз лидера после ввода дошёл; ввод из CLI не менял размер; ввод из CLI не перехватил лидерство; ввод из CLI не стал клиентом",
+      "artifacts": [
+        "f3.json",
+        "zmx/logs/s83b2212322cc3dfe-f3.log"
+      ]
+    }
+  ],
+  "metrics": [],
+  "diagnostics": {
+    "notes": []
+  }
+}

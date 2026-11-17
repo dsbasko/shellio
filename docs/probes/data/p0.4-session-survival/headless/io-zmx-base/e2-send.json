@@ -1,0 +1,36 @@
+{
+  "checks": [
+    {
+      "name": "ввод сверх предела доставлен или отвергнут явно",
+      "ok": false,
+      "detail": "операция ответила успехом, а дошло 0 из 524288 байт: потеря молчаливая"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "after_marker_bytes": 0,
+    "daemon_log_drops": [
+      "[1794931257] [warning] (default): pty input dropped 524288 bytes (buffer full, shell not reading)"
+    ],
+    "marker_attempts": 1,
+    "outcome": "Ok(Sent)",
+    "reads_while_paused": 0,
+    "received": 0,
+    "record": {
+      "host": {
+        "pid": 40462,
+        "start_us": 1794931257366291
+      },
+      "session": "s617b8df124486fa8-e2-send",
+      "workload": {
+        "pid": 40463,
+        "start_us": 1794931257368316
+      },
+      "workload_pgid": 40463,
+      "workload_sid": 40463
+    },
+    "sent": 524288
+  }
+}

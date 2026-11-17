@@ -1,0 +1,354 @@
+{
+  "bridge-boundary-cpr": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "[]",
+        "name": "C API отдал нагрузку восстановления на каждом разрезе",
+        "ok": true
+      },
+      {
+        "detail": "разрезов 3, записей журнала 0",
+        "name": "за время воспроизведения клиент не дал ни ответа, ни эффекта",
+        "ok": true
+      },
+      {
+        "detail": "разрезов 3, ответов 3, нужного вида 3",
+        "name": "хост ответил ровно один раз на каждый разрез",
+        "ok": true
+      },
+      {
+        "detail": "разрезов 3, continuation не отдана 3, ответов клиента 0",
+        "name": "после остатка клиент не ответил: префикс запроса в continuation не отдан",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "cuts": [
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 1,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 2,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 3,
+          "withheld": true
+        }
+      ],
+      "host_responses": [
+        [
+          "cursor-position",
+          "1b5b323b3152"
+        ],
+        [
+          "cursor-position",
+          "1b5b323b3152"
+        ],
+        [
+          "cursor-position",
+          "1b5b323b3152"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "bridge-boundary-da1": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "[]",
+        "name": "C API отдал нагрузку восстановления на каждом разрезе",
+        "ok": true
+      },
+      {
+        "detail": "разрезов 2, записей журнала 0",
+        "name": "за время воспроизведения клиент не дал ни ответа, ни эффекта",
+        "ok": true
+      },
+      {
+        "detail": "разрезов 2, ответов 2, нужного вида 2",
+        "name": "хост ответил ровно один раз на каждый разрез",
+        "ok": true
+      },
+      {
+        "detail": "разрезов 2, continuation не отдана 2, ответов клиента 0",
+        "name": "после остатка клиент не ответил: префикс запроса в continuation не отдан",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "cuts": [
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 1,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 2,
+          "withheld": true
+        }
+      ],
+      "host_responses": [
+        [
+          "da1",
+          "1b5b3f36323b32323b353263"
+        ],
+        [
+          "da1",
+          "1b5b3f36323b32323b353263"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "bridge-boundary-decrqm-dec": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "[]",
+        "name": "C API отдал нагрузку восстановления на каждом разрезе",
+        "ok": true
+      },
+      {
+        "detail": "разрезов 8, записей журнала 0",
+        "name": "за время воспроизведения клиент не дал ни ответа, ни эффекта",
+        "ok": true
+      },
+      {
+        "detail": "разрезов 8, ответов 8, нужного вида 8",
+        "name": "хост ответил ровно один раз на каждый разрез",
+        "ok": true
+      },
+      {
+        "detail": "разрезов 8, continuation не отдана 8, ответов клиента 0",
+        "name": "после остатка клиент не ответил: префикс запроса в continuation не отдан",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "cuts": [
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 1,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 2,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 3,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 4,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 5,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 6,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 7,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 8,
+          "withheld": true
+        }
+      ],
+      "host_responses": [
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "bridge-boundary-osc11": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "[]",
+        "name": "C API отдал нагрузку восстановления на каждом разрезе",
+        "ok": true
+      },
+      {
+        "detail": "разрезов 7, записей журнала 0",
+        "name": "за время воспроизведения клиент не дал ни ответа, ни эффекта",
+        "ok": true
+      },
+      {
+        "detail": "разрезов 7, ответов 7, нужного вида 7",
+        "name": "хост ответил ровно один раз на каждый разрез",
+        "ok": true
+      },
+      {
+        "detail": "разрезов 7, continuation не отдана 7, ответов клиента 0",
+        "name": "после остатка клиент не ответил: префикс запроса в continuation не отдан",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "cuts": [
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 1,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 2,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 3,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 4,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 5,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 6,
+          "withheld": true
+        },
+        {
+          "client_after_rest": [],
+          "continuation": 0,
+          "replay": [],
+          "split": 7,
+          "withheld": true
+        }
+      ],
+      "host_responses": [
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ],
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ],
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ],
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ],
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ],
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ],
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ]
+      ]
+    },
+    "unsupported": null
+  }
+}

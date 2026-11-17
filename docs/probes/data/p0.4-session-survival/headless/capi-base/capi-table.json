@@ -1,0 +1,428 @@
+[
+  {
+    "cell": "capi-B1",
+    "detail": "5 расхождений: active.wrap, active.wrap_continuation, history.wrap, history.wrap_continuation, title",
+    "part": "formatter",
+    "verdict": "lost"
+  },
+  {
+    "cell": "capi-B1",
+    "detail": "совпало с эталоном",
+    "part": "snapshot",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B1",
+    "detail": "совпало с эталоном",
+    "part": "bridge",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B2",
+    "detail": "после суффикса 83 расхождений: active.text, cursor.x, cursor.y, saved_cursor.x, saved_cursor.y",
+    "part": "formatter",
+    "verdict": "suffix-only"
+  },
+  {
+    "cell": "capi-B2",
+    "detail": "совпало с эталоном",
+    "part": "snapshot",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B2",
+    "detail": "совпало с эталоном",
+    "part": "bridge",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B3",
+    "detail": "4 расхождений: saved_cursor.style.bold, saved_cursor.style.fg, saved_cursor.x, saved_cursor.y",
+    "part": "formatter",
+    "verdict": "lost"
+  },
+  {
+    "cell": "capi-B3",
+    "detail": "совпало с эталоном",
+    "part": "snapshot",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B3",
+    "detail": "совпало с эталоном",
+    "part": "bridge",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B4",
+    "detail": "1 расхождений: kitty_stack",
+    "part": "formatter",
+    "verdict": "lost"
+  },
+  {
+    "cell": "capi-B4",
+    "detail": "совпало с эталоном",
+    "part": "snapshot",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B4",
+    "detail": "совпало с эталоном",
+    "part": "bridge",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B5",
+    "detail": "совпало с эталоном",
+    "part": "formatter",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B5",
+    "detail": "совпало с эталоном",
+    "part": "snapshot",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B5",
+    "detail": "совпало с эталоном",
+    "part": "bridge",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B6",
+    "detail": "3 расхождений: active.width, active.wrap, active.wrap_continuation",
+    "part": "formatter",
+    "verdict": "lost"
+  },
+  {
+    "cell": "capi-B6",
+    "detail": "совпало с эталоном",
+    "part": "snapshot",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B6",
+    "detail": "совпало с эталоном",
+    "part": "bridge",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B9",
+    "detail": "90 расхождений: active.wrap, active.wrap_continuation, history.wrap, history.wrap_continuation",
+    "part": "formatter",
+    "verdict": "lost"
+  },
+  {
+    "cell": "capi-B9",
+    "detail": "совпало с эталоном",
+    "part": "snapshot",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B9",
+    "detail": "совпало с эталоном",
+    "part": "bridge",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "formatter-csi",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "snapshot-csi",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "bridge-csi",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "formatter-osc",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "snapshot-osc",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "bridge-osc",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "formatter-dcs",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "snapshot-dcs",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "bridge-dcs",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "formatter-utf8",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "snapshot-utf8",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "bridge-utf8",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "formatter-esc",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "snapshot-esc",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B7",
+    "detail": "совпало с эталоном",
+    "part": "bridge-esc",
+    "verdict": "restored"
+  },
+  {
+    "cell": "capi-B8",
+    "detail": "граница точна на 228 срезах; полное сравнение на выборке: 17 из 18 расходятся (active.wrap, active.wrap_continuation, history.wrap, history.wrap_continuation)",
+    "part": "formatter",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-B8",
+    "detail": "граница точна на 228 срезах; полное сравнение на выборке: 0 из 18 расходятся",
+    "part": "snapshot",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-B8",
+    "detail": "граница точна на 228 срезах; полное сравнение на выборке: 0 из 18 расходятся",
+    "part": "bridge",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D1",
+    "detail": "pass: выполнено: ровно один ответ хоста на каждый запрос по порядку; DA1 из колбэка профиля хоста; XTVERSION из колбэка профиля хоста",
+    "part": "host",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D1",
+    "detail": "fail: клиент не отвечает на запросы, которые обслужил хост: клиент с WRITE_PTY ответил 9 раз на 9 запросов: C API не помечает обслуженные запросы в потоке, хосту нужен свой фильтр",
+    "part": "client-stream",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D1",
+    "detail": "fail: ровно один ответ на запрос среди хоста и клиента: хост 1, клиент 1: continuation отдаёт клиенту префикс запроса, остаток живым потоком завершает его у клиента",
+    "part": "restore-boundary-formatter",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D1",
+    "detail": "fail: ровно один ответ на запрос среди хоста и клиента: хост 1, клиент 1: continuation отдаёт клиенту префикс запроса, остаток живым потоком завершает его у клиента",
+    "part": "restore-boundary-snapshot",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D1",
+    "detail": "pass: выполнено: хост ответил ровно один раз; ровно один ответ на запрос среди хоста и клиента",
+    "part": "restore-boundary-bridge",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D2",
+    "detail": "pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+    "part": "da1",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D2",
+    "detail": "pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+    "part": "da2",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D2",
+    "detail": "pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+    "part": "cpr",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D2",
+    "detail": "pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+    "part": "decrqm-dec",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D2",
+    "detail": "pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+    "part": "decrqm-ansi",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D2",
+    "detail": "pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+    "part": "osc10",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D2",
+    "detail": "pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+    "part": "osc11",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D2",
+    "detail": "pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+    "part": "osc4",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D2",
+    "detail": "pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+    "part": "xtversion",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D2",
+    "detail": "pass: выполнено: C API отдал нагрузку восстановления на каждом разрезе; за время воспроизведения клиент не дал ни ответа, ни эффекта; хост ответил ровно один раз на каждый разрез; после остатка клиент не ответил: префикс запроса в continuation не отдан",
+    "part": "bridge-boundary-da1",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D2",
+    "detail": "pass: выполнено: C API отдал нагрузку восстановления на каждом разрезе; за время воспроизведения клиент не дал ни ответа, ни эффекта; хост ответил ровно один раз на каждый разрез; после остатка клиент не ответил: префикс запроса в continuation не отдан",
+    "part": "bridge-boundary-cpr",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D2",
+    "detail": "pass: выполнено: C API отдал нагрузку восстановления на каждом разрезе; за время воспроизведения клиент не дал ни ответа, ни эффекта; хост ответил ровно один раз на каждый разрез; после остатка клиент не ответил: префикс запроса в continuation не отдан",
+    "part": "bridge-boundary-decrqm-dec",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D2",
+    "detail": "pass: выполнено: C API отдал нагрузку восстановления на каждом разрезе; за время воспроизведения клиент не дал ни ответа, ни эффекта; хост ответил ровно один раз на каждый разрез; после остатка клиент не ответил: префикс запроса в continuation не отдан",
+    "part": "bridge-boundary-osc11",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D3",
+    "detail": "pass: выполнено: хост выполнил запись один раз; восстановление не повторяет запись",
+    "part": "formatter-replay",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D3",
+    "detail": "pass: выполнено: хост выполнил запись один раз; восстановление не повторяет запись",
+    "part": "snapshot-replay",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D3",
+    "detail": "pass: выполнено: хост выполнил запись один раз; восстановление не повторяет запись",
+    "part": "bridge-replay",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D3",
+    "detail": "pass: выполнено: клиент выполнил разрезанную запись один раз и после остатка",
+    "part": "formatter-cut",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D3",
+    "detail": "pass: выполнено: клиент выполнил разрезанную запись один раз и после остатка",
+    "part": "snapshot-cut",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D3",
+    "detail": "pass: выполнено: клиент выполнил разрезанную запись один раз и после остатка",
+    "part": "bridge-cut",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D4",
+    "detail": "pass: выполнено: один ответ с данными колбэка",
+    "part": "sync",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D4",
+    "detail": "pass: выполнено: ровно один ответ на каждый разрез",
+    "part": "cut",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D4",
+    "detail": "pass: выполнено: возврат без ответа даёт ровно один пустой ответ",
+    "part": "no-reply",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D4",
+    "detail": "pass: выполнено: без колбэка терминал не отвечает",
+    "part": "unset",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D4",
+    "detail": "pass: выполнено: ответ GUI в срок доходит до программы; GUI молчит: по тайм-ауту программа получает пустой ответ; чтение PTY не стоит, пока поток разбора ждёт GUI; поздний ответ старого поколения отброшен, программа получает ответ своего; ровно один ответ на каждый запрос",
+    "part": "bounded-wait-threaded",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-D4",
+    "detail": "pass: выполнено: ответ GUI в срок доходит до программы; GUI молчит: по тайм-ауту программа получает пустой ответ; контроль: без отдельного потока чтения запись фикстуры стоит весь тайм-аут; поздний ответ старого поколения отброшен, программа получает ответ своего; ровно один ответ на каждый запрос",
+    "part": "bounded-wait-inline",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-budget",
+    "detail": "pass: выполнено: сверх бюджета continuation недоступна; сверх бюджета снимок недоступен; после конца последовательности continuation и снимок снова доступны",
+    "part": "over-budget",
+    "verdict": "checked"
+  },
+  {
+    "cell": "capi-budget",
+    "detail": "pass: выполнено: в пределах бюджета continuation равна префиксу; декодер отвергает снимок, если его предел меньше continuation; formatter после остатка; snapshot после остатка; bridge после остатка",
+    "part": "within-budget",
+    "verdict": "checked"
+  }
+]

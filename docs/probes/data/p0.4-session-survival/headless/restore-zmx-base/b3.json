@@ -1,0 +1,264 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после attach",
+      "ok": false,
+      "detail": "профиль 2: Differs, расхождений 4, нормализовано 0, не наблюдалось 0\n  saved_cursor.x: эталон 9, приёмник 0\n  saved_cursor.y: эталон 4, приёмник 0\n  saved_cursor.style.fg: эталон Palette(2), приёмник Default\n  saved_cursor.style.bold: эталон true, приёмник false"
+    },
+    {
+      "name": "суффикс decrc через кандидата",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после суффикса decrc",
+      "ok": false,
+      "detail": "профиль 2: Differs, расхождений 12, нормализовано 0, не наблюдалось 0\n  active[0][0].text: эталон \"b\", приёмник \"R\"\n  active[4][9].text: эталон \"R\", приёмник \"\"\n  active[4][9].style.fg: эталон Palette(2), приёмник Default\n  active[4][9].style.bold: эталон true, приёмник false\n  cursor.x: эталон 10, приёмник 1\n  cursor.y: эталон 4, приёмник 0\n  cursor.style.fg: эталон Palette(2), приёмник Default\n  cursor.style.bold: эталон true, приёмник false\n  saved_cursor.x: эталон 9, приёмник 0\n  saved_cursor.y: эталон 4, приёмник 0\n  saved_cursor.style.fg: эталон Palette(2), приёмник Default\n  saved_cursor.style.bold: эталон true, приёмник false"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "record": {
+      "host": {
+        "pid": 39576,
+        "start_us": 1794931208079665
+      },
+      "session": "s4f14f7d89048b99d-b3",
+      "workload": {
+        "pid": 39577,
+        "start_us": 1794931208082813
+      },
+      "workload_pgid": 39577,
+      "workload_sid": 39577
+    },
+    "после attach.comparison": {
+      "mismatch_count": 4,
+      "mismatches": [
+        {
+          "path": "saved_cursor.x",
+          "receiver": "0",
+          "reference": "9"
+        },
+        {
+          "path": "saved_cursor.y",
+          "receiver": "0",
+          "reference": "4"
+        },
+        {
+          "path": "saved_cursor.style.fg",
+          "receiver": "Default",
+          "reference": "Palette(2)"
+        },
+        {
+          "path": "saved_cursor.style.bold",
+          "receiver": "false",
+          "reference": "true"
+        }
+      ],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после attach.receiver_text": [
+      "b3 00",
+      "b3 01",
+      "b3 02",
+      "b3 03",
+      "b3 04",
+      "b3 05",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "moved",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после attach.reference_text": [
+      "b3 00",
+      "b3 01",
+      "b3 02",
+      "b3 03",
+      "b3 04",
+      "b3 05",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "moved",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса decrc.comparison": {
+      "mismatch_count": 12,
+      "mismatches": [
+        {
+          "path": "active[0][0].text",
+          "receiver": "\"R\"",
+          "reference": "\"b\""
+        },
+        {
+          "path": "active[4][9].text",
+          "receiver": "\"\"",
+          "reference": "\"R\""
+        },
+        {
+          "path": "active[4][9].style.fg",
+          "receiver": "Default",
+          "reference": "Palette(2)"
+        },
+        {
+          "path": "active[4][9].style.bold",
+          "receiver": "false",
+          "reference": "true"
+        },
+        {
+          "path": "cursor.x",
+          "receiver": "1",
+          "reference": "10"
+        },
+        {
+          "path": "cursor.y",
+          "receiver": "0",
+          "reference": "4"
+        },
+        {
+          "path": "cursor.style.fg",
+          "receiver": "Default",
+          "reference": "Palette(2)"
+        },
+        {
+          "path": "cursor.style.bold",
+          "receiver": "false",
+          "reference": "true"
+        },
+        {
+          "path": "saved_cursor.x",
+          "receiver": "0",
+          "reference": "9"
+        },
+        {
+          "path": "saved_cursor.y",
+          "receiver": "0",
+          "reference": "4"
+        },
+        {
+          "path": "saved_cursor.style.fg",
+          "receiver": "Default",
+          "reference": "Palette(2)"
+        },
+        {
+          "path": "saved_cursor.style.bold",
+          "receiver": "false",
+          "reference": "true"
+        }
+      ],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после суффикса decrc.receiver_text": [
+      "R3 00",
+      "b3 01",
+      "b3 02",
+      "b3 03",
+      "b3 04",
+      "b3 05",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "moved",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса decrc.reference_text": [
+      "b3 00",
+      "b3 01",
+      "b3 02",
+      "b3 03",
+      "b3 04    R",
+      "b3 05",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "moved",
+      "",
+      "",
+      "",
+      ""
+    ]
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "run",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "run: задание на переднем плане",
+      "ok": true,
+      "detail": "Started { foreground: true }, tcgetpgrp Some(39329), задание 39329"
+    },
+    {
+      "name": "run: tpgid shell",
+      "ok": true,
+      "detail": "Some(39329)"
+    },
+    {
+      "name": "run: PTY клиента",
+      "ok": true,
+      "detail": "tcgetpgrp 39328, клиент 39328"
+    },
+    {
+      "name": "Ctrl-Z",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "Ctrl-Z: задание остановлено, терминал у shell",
+      "ok": true,
+      "detail": "Stopped { signal: \"SIGTSTP\" }, tcgetpgrp Some(39327)"
+    },
+    {
+      "name": "Ctrl-Z: PTY клиента",
+      "ok": true,
+      "detail": "tcgetpgrp 39328, клиент 39328"
+    },
+    {
+      "name": "bg 1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "bg 1: квитанция",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "bg 1: задание продолжено в фоне",
+      "ok": true,
+      "detail": "Continued { foreground: false }"
+    },
+    {
+      "name": "fg 1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "fg 1: терминал у задания",
+      "ok": true,
+      "detail": "tcgetpgrp Some(39329)"
+    },
+    {
+      "name": "fg 1: квитанция",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "fg 1: задание на переднем плане",
+      "ok": true,
+      "detail": "Continued { foreground: true }"
+    },
+    {
+      "name": "Ctrl-C",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "Ctrl-C: задание прервано, терминал у shell",
+      "ok": true,
+      "detail": "Signaled { signal: \"SIGINT\" }, tcgetpgrp Some(39327)"
+    },
+    {
+      "name": "Ctrl-C: PTY клиента",
+      "ok": true,
+      "detail": "tcgetpgrp 39328, клиент 39328"
+    },
+    {
+      "name": "клиент жив после Ctrl-Z и Ctrl-C",
+      "ok": true,
+      "detail": "PID 39328"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "record": {
+      "host": {
+        "pid": 39326,
+        "start_us": 1794931198594859
+      },
+      "session": "s4929def04c0ddac5-a3",
+      "workload": {
+        "pid": 39327,
+        "start_us": 1794931198597782
+      },
+      "workload_pgid": 39327,
+      "workload_sid": 39327
+    }
+  }
+}

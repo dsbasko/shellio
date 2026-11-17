@@ -1,0 +1,160 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после остатка",
+      "ok": false,
+      "detail": "профиль 2: Differs, расхождений 8, нормализовано 0, не наблюдалось 0\n  active[1][0].text: эталон \"X\", приёмник \"l\"\n  active[1][1].text: эталон \"\", приёмник \"e\"\n  active[1][2].text: эталон \"\", приёмник \"-\"\n  active[1][3].text: эталон \"\", приёмник \"b\"\n  active[1][4].text: эталон \"\", приёмник \"7\"\n  active[1][5].text: эталон \"\", приёмник \"X\"\n  cursor.x: эталон 1, приёмник 6\n  title: эталон \"title-b7\", приёмник \"\""
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "prefix": "1b5d323b746974",
+    "record": {
+      "host": {
+        "pid": 39636,
+        "start_us": 1794931211424105
+      },
+      "session": "s4f14f7d89048b99d-b7osc",
+      "workload": {
+        "pid": 39637,
+        "start_us": 1794931211426267
+      },
+      "workload_pgid": 39637,
+      "workload_sid": 39637
+    },
+    "rest": "6c652d62370758",
+    "revision": {
+      "after": 5,
+      "before": 4,
+      "violations": []
+    },
+    "после остатка.comparison": {
+      "mismatch_count": 8,
+      "mismatches": [
+        {
+          "path": "active[1][0].text",
+          "receiver": "\"l\"",
+          "reference": "\"X\""
+        },
+        {
+          "path": "active[1][1].text",
+          "receiver": "\"e\"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[1][2].text",
+          "receiver": "\"-\"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[1][3].text",
+          "receiver": "\"b\"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[1][4].text",
+          "receiver": "\"7\"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[1][5].text",
+          "receiver": "\"X\"",
+          "reference": "\"\""
+        },
+        {
+          "path": "cursor.x",
+          "receiver": "6",
+          "reference": "1"
+        },
+        {
+          "path": "title",
+          "receiver": "\"\"",
+          "reference": "\"title-b7\""
+        }
+      ],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после остатка.receiver_text": [
+      "before the cut",
+      "le-b7X",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после остатка.reference_text": [
+      "before the cut",
+      "X",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  }
+}

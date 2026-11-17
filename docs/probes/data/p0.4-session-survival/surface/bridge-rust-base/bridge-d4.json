@@ -1,0 +1,24 @@
+{
+  "after_kill": {
+    "gui2_reads": [],
+    "pending": "запрос хоста ClipboardAsk { serial: 2, generation: 1 } без ответа",
+    "responses": [
+      [
+        "clipboard",
+        "1b5d35323b633b1b5c"
+      ]
+    ]
+  },
+  "gui1": "gui11",
+  "gui2": "gui12",
+  "live": {
+    "asked": "запрос хоста ClipboardAsk { serial: 1, generation: 1 }, ответ соединением GUI",
+    "responses": [
+      [
+        "clipboard",
+        "1b5d35323b633b596e4a705a47646c4c5751301b5c"
+      ]
+    ]
+  },
+  "session": "s5bcd9055f0339792-d4"
+}

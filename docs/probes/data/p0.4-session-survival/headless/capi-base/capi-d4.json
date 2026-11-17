@@ -1,0 +1,239 @@
+{
+  "bounded-wait-inline": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "Some(\"Z3VpLWNsaXBib2FyZA==\")",
+        "name": "ответ GUI в срок доходит до программы",
+        "ok": true
+      },
+      {
+        "detail": "Some(\"\")",
+        "name": "GUI молчит: по тайм-ауту программа получает пустой ответ",
+        "ok": true
+      },
+      {
+        "detail": "поток фикстуры закончен после ответа, задержки записи 1005 мс (2 раз)",
+        "name": "контроль: без отдельного потока чтения запись фикстуры стоит весь тайм-аут",
+        "ok": true
+      },
+      {
+        "detail": "ответ Some(\"Z3VpLWNsaXBib2FyZA==\"), отброшены [2]",
+        "name": "поздний ответ старого поколения отброшен, программа получает ответ своего",
+        "ok": true
+      },
+      {
+        "detail": "GuiLog { requests: [1, 2, 3], answered: [1, 3], timeouts: [2], dropped: [2], waited_ms: [0, 1005, 0] }",
+        "name": "ровно один ответ на каждый запрос",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "flood": {
+        "done_before_answer_ms": -9.412083,
+        "writes": {
+          "bytes": 160020,
+          "stalled_ns": 1005468167,
+          "stalls": 2
+        }
+      },
+      "gui_log": {
+        "answered": [
+          1,
+          3
+        ],
+        "dropped": [
+          2
+        ],
+        "requests": [
+          1,
+          2,
+          3
+        ],
+        "timeouts": [
+          2
+        ],
+        "waited_ms": [
+          0,
+          1005,
+          0
+        ]
+      },
+      "host_fed": 160030
+    },
+    "unsupported": null
+  },
+  "bounded-wait-threaded": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "Some(\"Z3VpLWNsaXBib2FyZA==\")",
+        "name": "ответ GUI в срок доходит до программы",
+        "ok": true
+      },
+      {
+        "detail": "Some(\"\")",
+        "name": "GUI молчит: по тайм-ауту программа получает пустой ответ",
+        "ok": true
+      },
+      {
+        "detail": "поток фикстуры закончен до ответа, задержки записи 0 мс (0 раз)",
+        "name": "чтение PTY не стоит, пока поток разбора ждёт GUI",
+        "ok": true
+      },
+      {
+        "detail": "ответ Some(\"Z3VpLWNsaXBib2FyZA==\"), отброшены [2]",
+        "name": "поздний ответ старого поколения отброшен, программа получает ответ своего",
+        "ok": true
+      },
+      {
+        "detail": "GuiLog { requests: [1, 2, 3], answered: [1, 3], timeouts: [2], dropped: [2], waited_ms: [0, 1005, 0] }",
+        "name": "ровно один ответ на каждый запрос",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "flood": {
+        "done_before_answer_ms": 1002.649917,
+        "writes": {
+          "bytes": 160020,
+          "stalled_ns": 0,
+          "stalls": 0
+        }
+      },
+      "gui_log": {
+        "answered": [
+          1,
+          3
+        ],
+        "dropped": [
+          2
+        ],
+        "requests": [
+          1,
+          2,
+          3
+        ],
+        "timeouts": [
+          2
+        ],
+        "waited_ms": [
+          0,
+          1005,
+          0
+        ]
+      },
+      "host_fed": 160030
+    },
+    "unsupported": null
+  },
+  "cut": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "разрезов 9, ответов 9",
+        "name": "ровно один ответ на каждый разрез",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "responses": [
+        [
+          "clipboard",
+          "1b5d35323b633b6332686c6247787062793177636d39695a53316a62476c77596d3968636d513d1b5c"
+        ],
+        [
+          "clipboard",
+          "1b5d35323b633b6332686c6247787062793177636d39695a53316a62476c77596d3968636d513d1b5c"
+        ],
+        [
+          "clipboard",
+          "1b5d35323b633b6332686c6247787062793177636d39695a53316a62476c77596d3968636d513d1b5c"
+        ],
+        [
+          "clipboard",
+          "1b5d35323b633b6332686c6247787062793177636d39695a53316a62476c77596d3968636d513d1b5c"
+        ],
+        [
+          "clipboard",
+          "1b5d35323b633b6332686c6247787062793177636d39695a53316a62476c77596d3968636d513d1b5c"
+        ],
+        [
+          "clipboard",
+          "1b5d35323b633b6332686c6247787062793177636d39695a53316a62476c77596d3968636d513d1b5c"
+        ],
+        [
+          "clipboard",
+          "1b5d35323b633b6332686c6247787062793177636d39695a53316a62476c77596d3968636d513d1b5c"
+        ],
+        [
+          "clipboard",
+          "1b5d35323b633b6332686c6247787062793177636d39695a53316a62476c77596d3968636d513d1b5c"
+        ],
+        [
+          "clipboard",
+          "1b5d35323b633b6332686c6247787062793177636d39695a53316a62476c77596d3968636d513d1b5c"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "no-reply": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "[Some(\"\")]",
+        "name": "возврат без ответа даёт ровно один пустой ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "responses": [
+        [
+          "clipboard",
+          "1b5d35323b633b1b5c"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "sync": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "[Some(\"c2hlbGxpby1wcm9iZS1jbGlwYm9hcmQ=\")]",
+        "name": "один ответ с данными колбэка",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "responses": [
+        [
+          "clipboard",
+          "1b5d35323b633b6332686c6247787062793177636d39695a53316a62476c77596d3968636d513d1b5c"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "unset": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "[]",
+        "name": "без колбэка терминал не отвечает",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "responses": []
+    },
+    "unsupported": null
+  }
+}

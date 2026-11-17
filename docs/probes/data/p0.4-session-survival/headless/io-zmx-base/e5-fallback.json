@@ -1,0 +1,43 @@
+{
+  "checks": [
+    {
+      "name": "без пути подготовки публикация не идёт молча",
+      "ok": false,
+      "detail": "сокет опубликован, хотя .s/40586 — 107 байт больше 103: запасной путь патча 0003, прямой bind под именем сессии"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "adapter_refusal": "Err(\"путь подготовки /tmp/pss-617b8df124486fa8/pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp/.s/<pid> — 107 байт, больше 103: патч 0003 опубликовал бы сокет неатомарно\")",
+    "dir": "/tmp/pss-617b8df124486fa8/pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+    "exit": "ExitStatus(unix_wait_status(256))",
+    "final_len": 102,
+    "host_pid": 40586,
+    "killed": [
+      40587,
+      40586
+    ],
+    "published": true,
+    "ready": {
+      "foreground_pgid": 40587,
+      "mode": "emitter",
+      "nonce": "s617b8df124486fa8-e5a-w",
+      "pgid": 40587,
+      "pid": 40587,
+      "ppid": 40586,
+      "raw": true,
+      "sid": 40587,
+      "size": {
+        "cols": 80,
+        "rows": 24,
+        "xpixel": 800,
+        "ypixel": 480
+      },
+      "tty": "/dev/ttys008"
+    },
+    "staged": [],
+    "staged_len": 107
+  }
+}

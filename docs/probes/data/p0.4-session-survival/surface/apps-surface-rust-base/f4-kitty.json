@@ -1,0 +1,9 @@
+{
+  "checks": [],
+  "not_proven": "контроль без хоста: c: ctrl-enter не дошла до вида: ",
+  "observed": {
+    "control": {
+      "Err": "c: ctrl-enter не дошла до вида: "
+    }
+  }
+}

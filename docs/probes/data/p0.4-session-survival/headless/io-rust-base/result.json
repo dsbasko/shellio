@@ -1,0 +1,217 @@
+{
+  "schema": 1,
+  "scenario": "io",
+  "backend": "rust",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "7ad4beea9f66-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0",
+      "features": [
+        "vt"
+      ]
+    },
+    "versions": {
+      "vt": "ghostty-vt 1.4.0 (83fb95624b04)",
+      "zig-vt": "0.17.1",
+      "zig-zmx": "0.16.0",
+      "zmx": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+      "zmx-prev": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm"
+    },
+    "stamps": {
+      "vt": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+      "zmx": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+      "zmx-prev": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579"
+    },
+    "normalization_profile": 2,
+    "process": {
+      "pid": 40741,
+      "nonce": "db49c7f9c9880d58",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.db49c7f9c9880d58",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_COMMIT": "7ad4beea9f66-dirty",
+        "SHELLIO_PROBE_HOST_V1": "/Users/dsbasko/Develop/dsbasko/shellio/target/proto-v1/release/probe-session-host",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_SETS_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival",
+        "SHELLIO_PROBE_STAMP_VT": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+        "SHELLIO_PROBE_STAMP_ZMX": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+        "SHELLIO_PROBE_STAMP_ZMX_PREV": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579",
+        "SHELLIO_PROBE_VERSION_VT": "ghostty-vt 1.4.0 (83fb95624b04)",
+        "SHELLIO_PROBE_VERSION_ZIG_VT": "0.17.1",
+        "SHELLIO_PROBE_VERSION_ZIG_ZMX": "0.16.0",
+        "SHELLIO_PROBE_VERSION_ZMX": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_PROBE_VERSION_ZMX_PREV": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.db49c7f9c9880d58",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko"
+      },
+      "env_extra": []
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "cells": [
+    {
+      "id": "E1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "клиент c1 подключён и остановлен SIGSTOP; фикстура пишет 32 и 64 МиБ строками по 128 байт без паузы в двух сессиях; после потока c1 продолжен, затем подключается c2",
+      "oracle": "квитанции фикстуры (поток закончен, задержки записи); снимок хоста с последней строкой; клиенты по списку во время остановки; разрыв с причиной в журнале и состоянии хоста и код выхода c1 после продолжения; последняя строка у приёмника c2; ri_phys_footprint хоста до и после каждого объёма; предел удвоения E1_LIMIT 8 МиБ",
+      "completion": "квитанция конца потока или срок 180 с; снимок хоста после неё",
+      "reason": "выполнено: e1-v: c1 лидер; барьер через e1-v: c1; e1-v: хост читает PTY при остановленном клиенте; e1-v: поток записан целиком; e1-v: хост обработал последнюю строку; e1-v: явный разрыв медленного клиента или обратное давление; e1-v: разрыв с причиной в журнале и состоянии хоста; e1-v: c1 после продолжения получил причину разрыва; e1-v: c2 лидер; барьер через e1-v: c2; e1-v: повторный снимок у c2 с последней строкой потока; e1-2v: c1 лидер; барьер через e1-2v: c1; e1-2v: хост читает PTY при остановленном клиенте; e1-2v: поток записан целиком; e1-2v: хост обработал последнюю строку; e1-2v: явный разрыв медленного клиента или обратное давление; e1-2v: разрыв с причиной в журнале и состоянии хоста; e1-2v: c1 после продолжения получил причину разрыва; e1-2v: c2 лидер; барьер через e1-2v: c2; e1-2v: повторный снимок у c2 с последней строкой потока; прирост памяти при удвоении объёма не больше предела",
+      "artifacts": [
+        "e1.json",
+        "rust/logs/sdb49c7f9c9880d58-e1-v.log",
+        "rust/logs/sdb49c7f9c9880d58-e1-2v.log"
+      ]
+    },
+    {
+      "id": "E2",
+      "part": "send",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "чтение фикстуры остановлено; 512 КиБ ввода управляющим вводом с номером (путь send) без клиента; затем чтение возобновлено и отправлен маркер конца",
+      "oracle": "квитанции прочитанных байтов до маркера против отправленного; ответ операции ввода",
+      "completion": "маркер конца ввода прочитан фикстурой",
+      "reason": "выполнено: явный отказ без частичной доставки",
+      "artifacts": [
+        "e2-send.json",
+        "rust/logs/sdb49c7f9c9880d58-e2-send.log"
+      ]
+    },
+    {
+      "id": "E2",
+      "part": "type",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "чтение фикстуры остановлено; 512 КиБ ввода управляющим вводом с номером (путь type) без клиента; затем чтение возобновлено и отправлен маркер конца",
+      "oracle": "квитанции прочитанных байтов до маркера против отправленного; ответ операции ввода",
+      "completion": "маркер конца ввода прочитан фикстурой",
+      "reason": "выполнено: явный отказ без частичной доставки",
+      "artifacts": [
+        "e2-type.json",
+        "rust/logs/sdb49c7f9c9880d58-e2-type.log"
+      ]
+    },
+    {
+      "id": "E3",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "ввод «e3retry» с номером, соединение закрыто без чтения подтверждения; тот же номер повторён с подтверждением и ещё раз; затем маркер конца",
+      "oracle": "квитанции прочитанных байтов: сколько раз ввод дошёл; ответы операций: «неизвестно» у потерянного подтверждения, «повтор» у повтора принятого номера",
+      "completion": "маркер конца ввода прочитан фикстурой",
+      "reason": "выполнено: потерянное подтверждение даёт итог «неизвестно»; повтор после потерянного подтверждения принят или узнан как повтор; повтор принятого номера подтверждён как повтор; повтор не дублирует ввод",
+      "artifacts": [
+        "e3.json",
+        "rust/logs/sdb49c7f9c9880d58-e3.log"
+      ]
+    },
+    {
+      "id": "E4",
+      "part": "socket",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "c1 подключён и остановлен; фикстура пишет 140 перерисовок экрана (больше 256 КиБ) и начало CSI 38;2; c1 убит SIGKILL посреди последовательности; фикстура пишет остаток; подключается c2",
+      "oracle": "эталон и приёмник c2",
+      "completion": "c2 стал лидером, барьер DSR через c2 пройден, состояния сняты",
+      "reason": "выполнено: c1 лидер; барьер через c1; c1 убит посреди последовательности; c2 лидер; барьер через c2; после обрыва у c2",
+      "artifacts": [
+        "e4-socket.json",
+        "rust/logs/sdb49c7f9c9880d58-e4-sock.log"
+      ]
+    },
+    {
+      "id": "E4",
+      "part": "pty",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "чтение фикстуры остановлено; 128 КиБ сырого ввода без клиента (меньше предела 256 КиБ) — запись в PTY частями; затем чтение возобновлено и отправлен маркер конца",
+      "oracle": "квитанции прочитанных байтов: ввод целиком и по порядку; квитанций чтения между подтверждениями остановки и возобновления нет",
+      "completion": "маркер конца ввода прочитан фикстурой, после него — тишина 1 с",
+      "reason": "выполнено: ввод отправлен; ввод дошёл целиком и по порядку",
+      "artifacts": [
+        "e4-pty.json",
+        "rust/logs/sdb49c7f9c9880d58-e4-pty.log"
+      ]
+    },
+    {
+      "id": "E4",
+      "part": "exit-tail",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "лидер c1 подключён; фикстура пишет 140 перерисовок экрана и последнюю строку и сразу выходит с кодом 7",
+      "oracle": "эталон и приёмник c1 после выхода клиента; код выхода c1 (0 — кадр выхода нагрузки); выход хоста",
+      "completion": "маршрут c1 закрыт выходом клиента, хост вышел",
+      "reason": "выполнено: c1 лидер; барьер через c1; c1 вышел после выхода нагрузки; c1 получил кадр выхода нагрузки; хвост у c1 после выхода; хост вышел после выхода нагрузки",
+      "artifacts": [
+        "e4-exit-tail.json",
+        "rust/logs/sdb49c7f9c9880d58-e4-tail.log"
+      ]
+    },
+    {
+      "id": "E5",
+      "part": "window",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "ensure с точками остановки хоста после bind и после listen; в каждой точке — сокеты каталога, list, состояние сессии и attach-клиент",
+      "oracle": "список сокетов (временное имя есть, имени сессии нет), list без сессии, attach-клиент отказывает и сессию не создаёт; после публикации — одна нагрузка, сокет без временного имени, лидер и барьер через attach",
+      "completion": "хост прошёл обе точки, ensure вернулся, барьер через клиента пройден",
+      "reason": "выполнено: bound: точка по порядку; bound: имени сессии нет, временное есть; bound: list без сессии; bound: сессии нет; bound: attach отказал явно; listening: точка по порядку; listening: имени сессии нет, временное есть; listening: list без сессии; listening: сессии нет; listening: attach отказал явно; ensure создал сессию; после публикации: имя сессии без временного; после публикации: list видит нагрузку; c1 лидер; барьер через c1",
+      "artifacts": [
+        "e5-window.json",
+        "rust/logs/sdb49c7f9c9880d58-e5w.log"
+      ]
+    },
+    {
+      "id": "E5",
+      "part": "long-path",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "каталог сокетов, где имя сессии занимает ровно 103 байт пути, а временное имя .<имя>.<pid> не помещается в sun_path",
+      "oracle": "итог ensure, сокеты каталога, процессы с меткой нагрузки",
+      "completion": "ensure вернулся",
+      "reason": "выполнено: ensure отказал явно из-за длины пути; сокетов нет; нагрузка не запускалась и хоста нет",
+      "artifacts": [
+        "e5-long-path.json",
+        "rust/logs/sdb49c7f9c9880d58-e5l.log"
+      ]
+    },
+    {
+      "id": "E5",
+      "part": "stress",
+      "status": "not_run",
+      "requirement": "research",
+      "stimulus": "8 одновременных ensure одной сессии и 8 потоков по 16 list",
+      "oracle": "одна нагрузка и один хост, сокет и пустой каталог подготовки, list без ошибок по сессии; попадание в окно публикации не доказывается",
+      "completion": "все ensure и list вернулись",
+      "not_run_cause": "stand",
+      "reason": "стресс не доказывает попадание в окно; окно Rust-хоста доказано точками остановки, часть window",
+      "artifacts": [
+        "e5-stress.json",
+        "rust/logs/sdb49c7f9c9880d58-e5.log"
+      ]
+    }
+  ],
+  "metrics": [],
+  "diagnostics": {
+    "notes": []
+  }
+}

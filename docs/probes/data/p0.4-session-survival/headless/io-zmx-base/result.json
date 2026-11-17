@@ -1,0 +1,206 @@
+{
+  "schema": 1,
+  "scenario": "io",
+  "backend": "zmx",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "7ad4beea9f66-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0",
+      "features": [
+        "vt"
+      ]
+    },
+    "versions": {
+      "vt": "ghostty-vt 1.4.0 (83fb95624b04)",
+      "zig-vt": "0.17.1",
+      "zig-zmx": "0.16.0",
+      "zmx": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+      "zmx-prev": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm"
+    },
+    "stamps": {
+      "vt": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+      "zmx": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+      "zmx-prev": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579"
+    },
+    "normalization_profile": 2,
+    "process": {
+      "pid": 40381,
+      "nonce": "617b8df124486fa8",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.617b8df124486fa8",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_COMMIT": "7ad4beea9f66-dirty",
+        "SHELLIO_PROBE_HOST_V1": "/Users/dsbasko/Develop/dsbasko/shellio/target/proto-v1/release/probe-session-host",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_SETS_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival",
+        "SHELLIO_PROBE_STAMP_VT": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+        "SHELLIO_PROBE_STAMP_ZMX": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+        "SHELLIO_PROBE_STAMP_ZMX_PREV": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579",
+        "SHELLIO_PROBE_VERSION_VT": "ghostty-vt 1.4.0 (83fb95624b04)",
+        "SHELLIO_PROBE_VERSION_ZIG_VT": "0.17.1",
+        "SHELLIO_PROBE_VERSION_ZIG_ZMX": "0.16.0",
+        "SHELLIO_PROBE_VERSION_ZMX": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_PROBE_VERSION_ZMX_PREV": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.617b8df124486fa8",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko"
+      },
+      "env_extra": []
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "cells": [
+    {
+      "id": "E1",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "клиент c1 подключён и остановлен SIGSTOP; фикстура пишет 32 и 64 МиБ строками по 128 байт без паузы в двух сессиях",
+      "oracle": "квитанции фикстуры (поток закончен, задержки записи); снимок хоста с последней строкой; клиенты по списку во время остановки; ri_phys_footprint хоста до и после каждого объёма; предел удвоения E1_LIMIT 8 МиБ",
+      "completion": "квитанция конца потока или срок 180 с; снимок хоста после неё",
+      "reason": "e1-v: явный разрыв медленного клиента или обратное давление: клиент не отключён и поток не остановлен: Live { workload_pid: 40385, clients: 1 }; e1-2v: явный разрыв медленного клиента или обратное давление: клиент не отключён и поток не остановлен: Live { workload_pid: 40431, clients: 1 }; прирост памяти при удвоении объёма не больше предела: приросты 41762840 и 76562504 байт, удвоение добавило 34799664 байт, предел 8388608",
+      "defect_origin": "host",
+      "artifacts": [
+        "e1.json",
+        "zmx/logs/s617b8df124486fa8-e1-v.log",
+        "zmx/logs/s617b8df124486fa8-e1-2v.log"
+      ]
+    },
+    {
+      "id": "E2",
+      "part": "send",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "чтение фикстуры остановлено; 512 КиБ ввода путём zmx send без клиента; затем чтение возобновлено и отправлен маркер конца",
+      "oracle": "квитанции прочитанных байтов до маркера против отправленного; ответ операции ввода",
+      "completion": "маркер конца ввода прочитан фикстурой",
+      "reason": "ввод сверх предела доставлен или отвергнут явно: операция ответила успехом, а дошло 0 из 524288 байт: потеря молчаливая",
+      "defect_origin": "host",
+      "artifacts": [
+        "e2-send.json",
+        "zmx/logs/s617b8df124486fa8-e2-send.log"
+      ]
+    },
+    {
+      "id": "E2",
+      "part": "type",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "чтение фикстуры остановлено; 512 КиБ ввода путём zmx type без клиента; затем чтение возобновлено и отправлен маркер конца",
+      "oracle": "квитанции прочитанных байтов до маркера против отправленного; ответ операции ввода",
+      "completion": "маркер конца ввода прочитан фикстурой",
+      "reason": "выполнено: явный отказ без частичной доставки",
+      "artifacts": [
+        "e2-type.json",
+        "zmx/logs/s617b8df124486fa8-e2-type.log"
+      ]
+    },
+    {
+      "id": "E3",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "zmx type «e3retry» с подтверждением, затем тот же запрос повторён, как после потерянного подтверждения; затем маркер конца",
+      "oracle": "квитанции прочитанных байтов: сколько раз ввод дошёл; ответы операций",
+      "completion": "маркер конца ввода прочитан фикстурой",
+      "reason": "повтор не дублирует ввод: ввод дошёл 2 раз: у zmx type нет номера запроса, повтор неотличим от нового ввода",
+      "defect_origin": "host",
+      "artifacts": [
+        "e3.json",
+        "zmx/logs/s617b8df124486fa8-e3.log"
+      ]
+    },
+    {
+      "id": "E4",
+      "part": "socket",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "c1 подключён и остановлен; фикстура пишет 140 перерисовок экрана (больше 256 КиБ) и начало CSI 38;2; c1 убит SIGKILL посреди последовательности; фикстура пишет остаток; подключается c2",
+      "oracle": "эталон и приёмник c2",
+      "completion": "c2 стал лидером, барьер DSR через c2 пройден, состояния сняты",
+      "reason": "выполнено: c1 лидер; барьер через c1; c1 убит посреди последовательности; c2 лидер; барьер через c2; после обрыва у c2",
+      "artifacts": [
+        "e4-socket.json",
+        "zmx/logs/s617b8df124486fa8-e4-sock.log"
+      ]
+    },
+    {
+      "id": "E4",
+      "part": "pty",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "чтение фикстуры остановлено; 128 КиБ сырого ввода без клиента (меньше предела 256 КиБ) — запись в PTY частями; затем чтение возобновлено и отправлен маркер конца",
+      "oracle": "квитанции прочитанных байтов: ввод целиком и по порядку; квитанций чтения между подтверждениями остановки и возобновления нет",
+      "completion": "маркер конца ввода прочитан фикстурой, после него — тишина 1 с",
+      "reason": "ввод дошёл целиком и по порядку: дошло 0 из 131072 байт до маркера, первое расхождение None",
+      "defect_origin": "host",
+      "artifacts": [
+        "e4-pty.json",
+        "zmx/logs/s617b8df124486fa8-e4-pty.log"
+      ]
+    },
+    {
+      "id": "E5",
+      "part": "fallback-path",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "ZMX_DIR длиной 98 байт, сессия «e5a»: имя сессии помещается в sun_path, а .s/<pid> демона — нет; zmx attach запущен напрямую (адаптер такой каталог отвергает)",
+      "oracle": "сокет сессии после команды, PID демона и длина его пути подготовки; опубликованный при невозможном пути подготовки сокет — прямой bind без атомарной публикации",
+      "completion": "команда создания вышла; сокет и процессы проверены",
+      "reason": "без пути подготовки публикация не идёт молча: сокет опубликован, хотя .s/40586 — 107 байт больше 103: запасной путь патча 0003, прямой bind под именем сессии",
+      "defect_origin": "host",
+      "artifacts": [
+        "e5-fallback.json"
+      ]
+    },
+    {
+      "id": "E5",
+      "part": "staging-unwritable",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "ZMX_DIR с каталогом .s без права записи (0500), ensure сессии «e5u»",
+      "oracle": "итог ensure, сокет сессии и каталог подготовки",
+      "completion": "ensure вернулся",
+      "reason": "выполнено: без записи в каталог подготовки публикация не идёт молча",
+      "artifacts": [
+        "e5-staging.json"
+      ]
+    },
+    {
+      "id": "E5",
+      "part": "stress",
+      "status": "not_run",
+      "requirement": "research",
+      "stimulus": "8 одновременных ensure одной сессии и 8 потоков по 16 list; attach zmx без нагрузки создал бы сессию сам, поэтому attach в окне — это ensure",
+      "oracle": "одна нагрузка и один хост, сокет и пустой каталог подготовки, list без ошибок по сессии; попадание в окно публикации не доказывается",
+      "completion": "все ensure и list вернулись",
+      "not_run_cause": "stand",
+      "reason": "попадание list и ensure в окно между bind, listen и публикацией не доказано: точку остановки в zmx без патча не поставить",
+      "artifacts": [
+        "e5-stress.json",
+        "zmx/logs/s617b8df124486fa8-e5.log"
+      ]
+    }
+  ],
+  "metrics": [],
+  "diagnostics": {
+    "notes": []
+  }
+}

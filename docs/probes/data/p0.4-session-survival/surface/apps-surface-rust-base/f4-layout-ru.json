@@ -1,0 +1,33 @@
+{
+  "checks": [
+    {
+      "detail": "gui10 завершилась ExitStatus(unix_wait_status(9))",
+      "name": "SIGKILL gui10",
+      "ok": true
+    },
+    {
+      "detail": "нагрузка или хост погибли",
+      "name": "нагрузка и хост живы после SIGKILL GUI",
+      "ok": true
+    },
+    {
+      "detail": "ok",
+      "name": "файл nvim как без хоста",
+      "ok": true
+    },
+    {
+      "detail": "PID 56476 жив",
+      "name": "nvim вышел по :wq",
+      "ok": true
+    }
+  ],
+  "not_proven": null,
+  "observed": {
+    "candidate": {
+      "Ok": null
+    },
+    "control": {
+      "Ok": null
+    }
+  }
+}

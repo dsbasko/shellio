@@ -1,0 +1,182 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после attach",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0"
+    },
+    {
+      "name": "суффикс kitty-pop через кандидата",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после суффикса kitty-pop",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "record": {
+      "host": {
+        "pid": 39780,
+        "start_us": 1794931219496033
+      },
+      "session": "saa5e6cd26c42cc70-b4",
+      "workload": {
+        "pid": 39781,
+        "start_us": 1794931219499451
+      },
+      "workload_pgid": 39781,
+      "workload_sid": 39781
+    },
+    "после attach.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после attach.receiver_text": [
+      "kitty",
+      "flags 3",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после attach.reference_text": [
+      "kitty",
+      "flags 3",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса kitty-pop.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после суффикса kitty-pop.receiver_text": [
+      "kitty",
+      "flags 3",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса kitty-pop.reference_text": [
+      "kitty",
+      "flags 3",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  }
+}

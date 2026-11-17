@@ -1,0 +1,706 @@
+{
+  "schema": 1,
+  "scenario": "queries",
+  "backend": "rust",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "7ad4beea9f66-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0",
+      "features": [
+        "vt"
+      ]
+    },
+    "versions": {
+      "vt": "ghostty-vt 1.4.0 (83fb95624b04)",
+      "zig-vt": "0.17.1",
+      "zig-zmx": "0.16.0",
+      "zmx": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+      "zmx-prev": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm"
+    },
+    "stamps": {
+      "vt": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+      "zmx": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+      "zmx-prev": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579"
+    },
+    "normalization_profile": 2,
+    "process": {
+      "pid": 40179,
+      "nonce": "8e5045f7ab4284bb",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.8e5045f7ab4284bb",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_COMMIT": "7ad4beea9f66-dirty",
+        "SHELLIO_PROBE_HOST_V1": "/Users/dsbasko/Develop/dsbasko/shellio/target/proto-v1/release/probe-session-host",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_SETS_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival",
+        "SHELLIO_PROBE_STAMP_VT": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+        "SHELLIO_PROBE_STAMP_ZMX": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+        "SHELLIO_PROBE_STAMP_ZMX_PREV": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579",
+        "SHELLIO_PROBE_VERSION_VT": "ghostty-vt 1.4.0 (83fb95624b04)",
+        "SHELLIO_PROBE_VERSION_ZIG_VT": "0.17.1",
+        "SHELLIO_PROBE_VERSION_ZIG_ZMX": "0.16.0",
+        "SHELLIO_PROBE_VERSION_ZMX": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_PROBE_VERSION_ZMX_PREV": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.8e5045f7ab4284bb",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko"
+      },
+      "env_extra": []
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "cells": [
+    {
+      "id": "D1",
+      "part": "без-клиента",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "сессия ни разу без клиента; фикстура query отправляет da1, da2, cpr, decrqm-dec, decrqm-ansi, osc10, osc11, osc4, xtversion",
+      "oracle": "счётчик ответов фикстуры по видам; приёмники отвечают через PTY attach-клиента",
+      "completion": "барьер DSR через каждого живого клиента или, без клиента, контрольный DA после запросов",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d1h.json",
+        "rust/logs/s8e5045f7ab4284bb-d1h.log"
+      ]
+    },
+    {
+      "id": "D1",
+      "part": "один-клиент",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "один клиент-лидер c1; фикстура query отправляет da1, da2, cpr, decrqm-dec, decrqm-ansi, osc10, osc11, osc4, xtversion",
+      "oracle": "счётчик ответов фикстуры по видам; приёмники отвечают через PTY attach-клиента",
+      "completion": "барьер DSR через каждого живого клиента или, без клиента, контрольный DA после запросов",
+      "reason": "выполнено: c1 лидер; ровно один ответ",
+      "artifacts": [
+        "d1o.json",
+        "rust/logs/s8e5045f7ab4284bb-d1o.log"
+      ]
+    },
+    {
+      "id": "D1",
+      "part": "два-клиента",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "лидер c1 и ведомый c2 того же размера; фикстура query отправляет da1, da2, cpr, decrqm-dec, decrqm-ansi, osc10, osc11, osc4, xtversion",
+      "oracle": "счётчик ответов фикстуры по видам; приёмники отвечают через PTY attach-клиента",
+      "completion": "барьер DSR через каждого живого клиента или, без клиента, контрольный DA после запросов",
+      "reason": "выполнено: c1 лидер; c2 ведомый; ровно один ответ",
+      "artifacts": [
+        "d1t.json",
+        "rust/logs/s8e5045f7ab4284bb-d1t.log"
+      ]
+    },
+    {
+      "id": "D1",
+      "part": "обрыв-лидера",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "лидер c1 остановлен SIGSTOP до запросов и убит SIGKILL после них, затем подключается c2; фикстура query отправляет da1, da2, cpr, decrqm-dec, decrqm-ansi, osc10, osc11, osc4, xtversion",
+      "oracle": "счётчик ответов фикстуры по видам; приёмники отвечают через PTY attach-клиента",
+      "completion": "барьер DSR через каждого живого клиента или, без клиента, контрольный DA после запросов",
+      "reason": "выполнено: c1 лидер; c2 лидер; ровно один ответ",
+      "artifacts": [
+        "d1l.json",
+        "rust/logs/s8e5045f7ab4284bb-d1l.log"
+      ]
+    },
+    {
+      "id": "D1",
+      "part": "обрыв-лидера-при-ведомом",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "лидер c1 и ведомый c2; c1 остановлен SIGSTOP до запросов и убит SIGKILL после них; фикстура query отправляет da1, da2, cpr, decrqm-dec, decrqm-ansi, osc10, osc11, osc4, xtversion",
+      "oracle": "счётчик ответов фикстуры по видам; приёмники отвечают через PTY attach-клиента",
+      "completion": "барьер DSR через каждого живого клиента или, без клиента, контрольный DA после запросов",
+      "reason": "выполнено: c1 лидер; c2 ведомый; c3 лидер; ровно один ответ",
+      "artifacts": [
+        "d1f.json",
+        "rust/logs/s8e5045f7ab4284bb-d1f.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-da1-1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос da1 1b5b63 разрезан после 1 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-da1-2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос da1 1b5b63 разрезан после 2 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-cpr-1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос cpr 1b5b366e разрезан после 1 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-cpr-2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос cpr 1b5b366e разрезан после 2 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-cpr-3",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос cpr 1b5b366e разрезан после 3 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-xtversion-1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 1 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-xtversion-2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 2 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-xtversion-3",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 3 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-xtversion-4",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 4 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-osc11-1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 1 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-osc11-2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 2 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-osc11-3",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 3 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-osc11-4",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 4 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-osc11-5",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 5 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-osc11-6",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 6 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "без-клиента-osc11-7",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 7 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2h.json",
+        "rust/logs/s8e5045f7ab4284bb-d2h.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-da1-1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос da1 1b5b63 разрезан после 1 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-da1-2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос da1 1b5b63 разрезан после 2 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-cpr-1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос cpr 1b5b366e разрезан после 1 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-cpr-2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос cpr 1b5b366e разрезан после 2 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-cpr-3",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос cpr 1b5b366e разрезан после 3 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-xtversion-1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 1 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-xtversion-2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 2 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-xtversion-3",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 3 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-xtversion-4",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос xtversion 1b5b3e3071 разрезан после 4 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-osc11-1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 1 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-osc11-2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 2 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-osc11-3",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 3 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-osc11-4",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 4 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-osc11-5",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 5 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-osc11-6",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 6 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "один-клиент-osc11-7",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "запрос osc11 1b5d31313b3f1b5c разрезан после 7 байт; префикс, разбор ровно префикса одним куском, остаток",
+      "oracle": "счётчик ответов фикстуры; граница — по протоколу разреза через событие разбора наблюдателя Rust-хоста",
+      "completion": "барьер DSR через клиента или контрольный DA без клиента",
+      "reason": "выполнено: ровно один ответ",
+      "artifacts": [
+        "d2c.json",
+        "rust/logs/s8e5045f7ab4284bb-d2c.log"
+      ]
+    },
+    {
+      "id": "D3",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "при живом лидере c1 фикстура пишет OSC 52 записи; c1 отключается клавишей, подключается c2 (повторный attach со снимком); затем без клиента ещё одна запись OSC 52 и подключение c3",
+      "oracle": "журнал эффектов приёмника каждого клиента",
+      "completion": "барьер DSR через каждого клиента после записи и после подключения",
+      "reason": "выполнено: c1 лидер; эффект один раз при живом клиенте; c1 отключился клавишей; c2 лидер; нет повтора при новом подключении; c2 отключился клавишей; c3 лидер; запись без клиента не повторяется больше одного раза",
+      "artifacts": [
+        "d3.json",
+        "rust/logs/s8e5045f7ab4284bb-d3.log"
+      ]
+    },
+    {
+      "id": "D4",
+      "part": "клиент",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "лидер c1 и GUI его поколения, GUI сразу отвечает на чтение OSC 52; затем c1 отключается и подключается c2",
+      "oracle": "счётчик ответов фикстуры вида clipboard",
+      "completion": "барьер DSR через живых клиентов или контрольный DA без клиента",
+      "reason": "выполнено: c1 лидер; GUI поколения 1 лидера c1; один ответ при живом клиенте; данные GUI лидера дошли до нагрузки; c1 отключился клавишей; c2 лидер; нет повторного ответа при новом подключении",
+      "artifacts": [
+        "d4c.json",
+        "rust/logs/s8e5045f7ab4284bb-d4c.log"
+      ]
+    },
+    {
+      "id": "D4",
+      "part": "без-gui",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "сессия без клиента и без GUI: чтение OSC 52",
+      "oracle": "счётчик ответов фикстуры вида clipboard",
+      "completion": "барьер DSR через живых клиентов или контрольный DA без клиента",
+      "reason": "выполнено: явный ответ без GUI",
+      "artifacts": [
+        "d4h.json",
+        "rust/logs/s8e5045f7ab4284bb-d4h.log"
+      ]
+    },
+    {
+      "id": "D4",
+      "part": "поздний-ответ",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "лидер c1 и GUI его поколения, который молчит; фикстура читает OSC 52, c2 забирает лидерство, GUI c1 отвечает поздно от имени прежнего поколения",
+      "oracle": "счётчик ответов фикстуры вида clipboard",
+      "completion": "барьер DSR через живых клиентов или контрольный DA без клиента",
+      "reason": "выполнено: c1 лидер; GUI поколения 1 лидера c1; чтение дошло до GUI c1; c2 забрал лидерство; поздний ответ прежнего лидера отброшен; ожидание закончилось одним пустым ответом",
+      "artifacts": [
+        "d4l.json",
+        "rust/logs/s8e5045f7ab4284bb-d4l.log"
+      ]
+    },
+    {
+      "id": "D4",
+      "part": "поколение-и-тайм-аут",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "по части поздний-ответ; затем GUI нового лидера c2 молчит на чтение OSC 52 до срока хоста и отвечает после него",
+      "oracle": "ответы фикстуры вида clipboard и их данные, счётчики чтения буфера обмена в состоянии хоста",
+      "completion": "часть поздний-ответ закончена, барьер DSR через c2 после ответа по сроку",
+      "reason": "выполнено: ответ прежнего поколения отброшен (часть поздний-ответ); GUI поколения 2 лидера c2; чтение дошло до GUI c2; без ответа GUI хост отвечает пусто по сроку; ответ GUI после срока отброшен",
+      "artifacts": [
+        "d4g.json",
+        "d4l.json",
+        "rust/logs/s8e5045f7ab4284bb-d4l.log"
+      ]
+    },
+    {
+      "id": "D5",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "при лидере c1 фикстура включает 1004 и 2048, окно c1 получает фокус (приёмник c1 и сообщение GUI поколения c1); фикстура спрашивает DECRQM 1004; фикстура включает 2033, GUI c1 сообщает скрытие окна; c1 отключается клавишей; подключается c2 того же размера и получает фокус тем же путём; GUI прежнего поколения сообщает потерю фокуса",
+      "oracle": "счётчик отчётов фокуса, размера, видимости и ответов DECRQM фикстуры по событиям; квитанции SIGWINCH; отказ хоста GUI прежнего поколения",
+      "completion": "барьер DSR через живого клиента после каждого события",
+      "reason": "выполнено: c1 лидер; GUI поколения 1 лидера c1; включение 2048: один отчёт размера; фокус через GUI c1; фокус окна c1: один FocusIn; DECRQM 1004: один ответ хоста «установлен»; скрытие окна через GUI c1; скрытие окна c1: один отчёт видимости; c1 отключился клавишей; c2 лидер; GUI поколения 2 лидера c2; фокус через GUI c2; GUI прежнего поколения отвергнут; отключение c1: FocusOut не повторяется; подключение c2: не больше одного отчёта размера и с размером окна; фокус окна c2: один FocusIn",
+      "artifacts": [
+        "d5.json",
+        "rust/logs/s8e5045f7ab4284bb-d5.log"
+      ]
+    },
+    {
+      "id": "D6",
+      "part": "без-клиента",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "сессия ни разу без клиента; snapshot, list, input raw и input typed управляющими соединениями хоста",
+      "oracle": "время каждой операции против предела, квитанции прочитанного ввода",
+      "completion": "каждая операция вернулась или вышел срок команды кандидата",
+      "reason": "выполнено: snapshot; snapshot не блокируется; list; list не блокируется; input raw; input raw не блокируется; input typed; input typed не блокируется; ввод дошёл до нагрузки",
+      "artifacts": [
+        "d6h.json",
+        "rust/logs/s8e5045f7ab4284bb-d6h.log"
+      ]
+    },
+    {
+      "id": "D6",
+      "part": "зависший-клиент",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "лидер c1 остановлен SIGSTOP на время операций; snapshot, list, input raw и input typed управляющими соединениями хоста",
+      "oracle": "время каждой операции против предела, квитанции прочитанного ввода",
+      "completion": "каждая операция вернулась или вышел срок команды кандидата",
+      "reason": "выполнено: c1 лидер; snapshot; snapshot не блокируется; list; list не блокируется; input raw; input raw не блокируется; input typed; input typed не блокируется; ввод дошёл до нагрузки",
+      "artifacts": [
+        "d6s.json",
+        "rust/logs/s8e5045f7ab4284bb-d6s.log"
+      ]
+    }
+  ],
+  "metrics": [],
+  "diagnostics": {
+    "notes": []
+  }
+}

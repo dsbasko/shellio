@@ -1,0 +1,96 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 ведомый",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "подключение c2: размер лидера c1 дошёл",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "подключение c2: размер c2 не дошёл",
+      "ok": true,
+      "detail": "квитанции размера: [\"81×24\"]"
+    },
+    {
+      "name": "ресайз ведомого c2: размер свидетеля c1 дошёл",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "ресайз ведомого c2: размер c2 не дошёл",
+      "ok": true,
+      "detail": "квитанции размера после отметки: [\"82×24\"]"
+    },
+    {
+      "name": "c3 забрал лидерство",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "захват c3: нагрузка получила размер c3",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 стал ведомым",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "устаревший ресайз прежнего лидера c1: размер свидетеля c3 дошёл",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "устаревший ресайз прежнего лидера c1: размер c1 не дошёл",
+      "ok": true,
+      "detail": "квитанции размера после отметки: [\"111×32\"]"
+    },
+    {
+      "name": "три клиента подключены",
+      "ok": true,
+      "detail": "Live { workload_pid: 40984, clients: 3 }"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "attach-c2.winches": [
+      "81×24"
+    ],
+    "liveness": {
+      "clients": 3,
+      "state": "live",
+      "workload_pid": 40984
+    },
+    "record": {
+      "host": {
+        "pid": 40983,
+        "start_us": 1794931278946955
+      },
+      "session": "s83b2212322cc3dfe-f1",
+      "workload": {
+        "pid": 40984,
+        "start_us": 1794931278948173
+      },
+      "workload_pgid": 40984,
+      "workload_sid": 40984
+    },
+    "ресайз ведомого c2.winches": [
+      "82×24"
+    ],
+    "устаревший ресайз прежнего лидера c1.winches": [
+      "111×32"
+    ]
+  }
+}

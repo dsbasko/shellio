@@ -1,0 +1,117 @@
+{
+  "a": {
+    "grid": {
+      "cell_height_px": 30,
+      "cell_width_px": 16,
+      "cols": 80,
+      "height_px": 720,
+      "rows": 24,
+      "width_px": 1280
+    },
+    "lines": [
+      "c4-both"
+    ],
+    "pid": 55249
+  },
+  "b": {
+    "after_close": [
+      "c4-both",
+      "c4-after"
+    ],
+    "grid": {
+      "cell_height_px": 30,
+      "cell_width_px": 16,
+      "cols": 100,
+      "height_px": 900,
+      "rows": 30,
+      "width_px": 1600
+    },
+    "lines": [
+      "c4-both"
+    ],
+    "pid": 55253
+  },
+  "ready": {
+    "cols": 80,
+    "rows": 24,
+    "xpixel": 0,
+    "ypixel": 0
+  },
+  "receipts": [
+    {
+      "event": {
+        "foreground_pgid": 55248,
+        "kind": "ready",
+        "mode": "emitter",
+        "nonce": "s5bcd9055f0339792-c4-w",
+        "pgid": 55248,
+        "pid": 55248,
+        "ppid": 55247,
+        "raw": true,
+        "sid": 55248,
+        "size": {
+          "cols": 80,
+          "rows": 24,
+          "xpixel": 0,
+          "ypixel": 0
+        },
+        "tty": "/dev/ttys011"
+      },
+      "seq": 1,
+      "t_ns": 582470143041541
+    },
+    {
+      "event": {
+        "kind": "winch",
+        "size": {
+          "cols": 80,
+          "rows": 24,
+          "xpixel": 1280,
+          "ypixel": 720
+        }
+      },
+      "seq": 2,
+      "t_ns": 582470312330083
+    },
+    {
+      "event": {
+        "bytes": 13,
+        "error": null,
+        "id": 1,
+        "kind": "ack"
+      },
+      "seq": 3,
+      "t_ns": 582470477115375
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 1,
+        "kind": "read"
+      },
+      "seq": 4,
+      "t_ns": 582470477299500
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 1,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 5,
+      "t_ns": 582470477313791
+    },
+    {
+      "event": {
+        "bytes": 10,
+        "error": null,
+        "id": 2,
+        "kind": "ack"
+      },
+      "seq": 6,
+      "t_ns": 582470503195000
+    }
+  ],
+  "session": "s5bcd9055f0339792-c4"
+}

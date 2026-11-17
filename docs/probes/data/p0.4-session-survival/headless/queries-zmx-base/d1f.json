@@ -1,0 +1,57 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 ведомый",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c3 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "ровно один ответ",
+      "ok": false,
+      "detail": "не хватает [(Da1, 1), (Da2, 1), (CursorPosition, 1), (ModeReport, 2), (ForegroundColor, 1), (BackgroundColor, 1), (Palette, 1), (XtVersion, 1)], лишние []"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "c1.exit": "ExitStatus(unix_wait_status(9))",
+    "record": {
+      "host": {
+        "pid": 39972,
+        "start_us": 1794931234424935
+      },
+      "session": "sc58f947c70918a01-d1f",
+      "workload": {
+        "pid": 39973,
+        "start_us": 1794931234426795
+      },
+      "workload_pgid": 39973,
+      "workload_sid": 39973
+    },
+    "ровно один ответ.responses": [],
+    "ровно один ответ.tally": {
+      "expected": {
+        "background-color": 1,
+        "cursor-position": 1,
+        "da1": 1,
+        "da2": 1,
+        "foreground-color": 1,
+        "mode-report": 2,
+        "palette": 1,
+        "xt-version": 1
+      },
+      "seen": {}
+    }
+  }
+}

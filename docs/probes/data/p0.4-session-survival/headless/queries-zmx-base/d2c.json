@@ -1,0 +1,607 @@
+{
+  "record": {
+    "host": {
+      "pid": 40041,
+      "start_us": 1794931235591667
+    },
+    "session": "sc58f947c70918a01-d2c",
+    "workload": {
+      "pid": 40042,
+      "start_us": 1794931235594102
+    },
+    "workload_pgid": 40042,
+    "workload_sid": 40042
+  },
+  "один-клиент-cpr-1": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {CursorPosition: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 10,
+        "before": 9
+      },
+      "ровно один ответ.responses": [
+        [
+          "cursor-position",
+          "1b5b313b3152"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "cursor-position": 1
+        },
+        "seen": {
+          "cursor-position": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-cpr-2": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {CursorPosition: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 13,
+        "before": 12
+      },
+      "ровно один ответ.responses": [
+        [
+          "cursor-position",
+          "1b5b313b3152"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "cursor-position": 1
+        },
+        "seen": {
+          "cursor-position": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-cpr-3": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {CursorPosition: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 16,
+        "before": 15
+      },
+      "ровно один ответ.responses": [
+        [
+          "cursor-position",
+          "1b5b313b3152"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "cursor-position": 1
+        },
+        "seen": {
+          "cursor-position": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-da1-1": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {Da1: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 4,
+        "before": 3
+      },
+      "ровно один ответ.responses": [
+        [
+          "da1",
+          "1b5b3f36323b32323b353263"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "da1": 1
+        },
+        "seen": {
+          "da1": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-da1-2": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {Da1: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 7,
+        "before": 6
+      },
+      "ровно один ответ.responses": [
+        [
+          "da1",
+          "1b5b3f36323b32323b353263"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "da1": 1
+        },
+        "seen": {
+          "da1": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-osc11-1": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {BackgroundColor: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 31,
+        "before": 30
+      },
+      "ровно один ответ.responses": [
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "background-color": 1
+        },
+        "seen": {
+          "background-color": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-osc11-2": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {BackgroundColor: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 34,
+        "before": 33
+      },
+      "ровно один ответ.responses": [
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "background-color": 1
+        },
+        "seen": {
+          "background-color": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-osc11-3": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {BackgroundColor: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 37,
+        "before": 36
+      },
+      "ровно один ответ.responses": [
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "background-color": 1
+        },
+        "seen": {
+          "background-color": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-osc11-4": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {BackgroundColor: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 40,
+        "before": 39
+      },
+      "ровно один ответ.responses": [
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "background-color": 1
+        },
+        "seen": {
+          "background-color": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-osc11-5": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {BackgroundColor: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 43,
+        "before": 42
+      },
+      "ровно один ответ.responses": [
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "background-color": 1
+        },
+        "seen": {
+          "background-color": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-osc11-6": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {BackgroundColor: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 46,
+        "before": 45
+      },
+      "ровно один ответ.responses": [
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "background-color": 1
+        },
+        "seen": {
+          "background-color": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-osc11-7": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {BackgroundColor: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 49,
+        "before": 48
+      },
+      "ровно один ответ.responses": [
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "background-color": 1
+        },
+        "seen": {
+          "background-color": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-xtversion-1": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {XtVersion: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 19,
+        "before": 18
+      },
+      "ровно один ответ.responses": [
+        [
+          "xt-version",
+          "1b503e7c7368656c6c696f2d70726f62652d7265636569766572286331291b5c"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "xt-version": 1
+        },
+        "seen": {
+          "xt-version": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-xtversion-2": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {XtVersion: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 22,
+        "before": 21
+      },
+      "ровно один ответ.responses": [
+        [
+          "xt-version",
+          "1b503e7c7368656c6c696f2d70726f62652d7265636569766572286331291b5c"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "xt-version": 1
+        },
+        "seen": {
+          "xt-version": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-xtversion-3": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {XtVersion: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 25,
+        "before": 24
+      },
+      "ровно один ответ.responses": [
+        [
+          "xt-version",
+          "1b503e7c7368656c6c696f2d70726f62652d7265636569766572286331291b5c"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "xt-version": 1
+        },
+        "seen": {
+          "xt-version": 1
+        }
+      }
+    },
+    "unsupported": null
+  },
+  "один-клиент-xtversion-4": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "ревизия до префикса",
+        "ok": true
+      },
+      {
+        "detail": "ровно ожидаемые ответы: {XtVersion: 1}",
+        "name": "ровно один ответ",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "revision": {
+        "after": 28,
+        "before": 27
+      },
+      "ровно один ответ.responses": [
+        [
+          "xt-version",
+          "1b503e7c7368656c6c696f2d70726f62652d7265636569766572286331291b5c"
+        ]
+      ],
+      "ровно один ответ.tally": {
+        "expected": {
+          "xt-version": 1
+        },
+        "seen": {
+          "xt-version": 1
+        }
+      }
+    },
+    "unsupported": null
+  }
+}

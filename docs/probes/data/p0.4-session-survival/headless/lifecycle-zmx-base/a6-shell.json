@@ -1,0 +1,99 @@
+{
+  "checks": [
+    {
+      "name": "нагрузка вышла по потере PTY",
+      "ok": true,
+      "detail": "квитанция Ok(\"hangup\"), жива после ожидания: false"
+    },
+    {
+      "name": "состояние «хост потерян»",
+      "ok": true,
+      "detail": "Lost"
+    },
+    {
+      "name": "оставшиеся процессы сессии найдены по записи",
+      "ok": true,
+      "detail": "живы по записи [], вне записи []"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "found": [
+      {
+        "alive": false,
+        "identity": {
+          "kind": "gone"
+        },
+        "key": {
+          "pid": 39211,
+          "start_us": 1794931193463598
+        },
+        "ppid": null
+      },
+      {
+        "alive": false,
+        "identity": {
+          "comm": "probe-session-f",
+          "exiting": true,
+          "key": {
+            "pid": 39212,
+            "start_us": 1794931193465702
+          },
+          "kind": "same",
+          "pgid": 39212,
+          "ppid": 1,
+          "sid": null,
+          "state": "running",
+          "tpgid": 39212,
+          "tty": 268435464
+        },
+        "key": {
+          "pid": 39212,
+          "start_us": 1794931193465702
+        },
+        "ppid": 1
+      }
+    ],
+    "killed_host": {
+      "pid": 39211,
+      "start_us": 1794931193463598
+    },
+    "record": {
+      "host": {
+        "pid": 39211,
+        "start_us": 1794931193463598
+      },
+      "session": "s9cc3e0704540fa2c-a6s",
+      "workload": {
+        "pid": 39212,
+        "start_us": 1794931193465702
+      },
+      "workload_pgid": 39212,
+      "workload_sid": 39212
+    },
+    "remaining_by_record": "поиск оставшихся процессов по записи на диске",
+    "running_with_nonce": [],
+    "saved": [
+      {
+        "pid": 39211,
+        "start_us": 1794931193463598
+      },
+      {
+        "pid": 39212,
+        "start_us": 1794931193465702
+      }
+    ],
+    "sockets_before_liveness": {
+      "sessions": [
+        "s9cc3e0704540fa2c-a6s"
+      ],
+      "staged": []
+    },
+    "survivors": [],
+    "workload_exit": {
+      "Ok": "hangup"
+    }
+  }
+}

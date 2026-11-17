@@ -1,0 +1,1081 @@
+{
+  "schema": 1,
+  "scenario": "capi",
+  "backend": null,
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "7ad4beea9f66-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0",
+      "features": [
+        "vt"
+      ]
+    },
+    "versions": {
+      "vt": "ghostty-vt 1.4.0 (83fb95624b04)",
+      "zig-vt": "0.17.1",
+      "zig-zmx": "0.16.0",
+      "zmx": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+      "zmx-prev": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm"
+    },
+    "stamps": {
+      "vt": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+      "zmx": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+      "zmx-prev": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579"
+    },
+    "normalization_profile": 2,
+    "process": {
+      "pid": 39455,
+      "nonce": "35c13d5248a52b82",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.35c13d5248a52b82",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_COMMIT": "7ad4beea9f66-dirty",
+        "SHELLIO_PROBE_HOST_V1": "/Users/dsbasko/Develop/dsbasko/shellio/target/proto-v1/release/probe-session-host",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_SETS_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival",
+        "SHELLIO_PROBE_STAMP_VT": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+        "SHELLIO_PROBE_STAMP_ZMX": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+        "SHELLIO_PROBE_STAMP_ZMX_PREV": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579",
+        "SHELLIO_PROBE_VERSION_VT": "ghostty-vt 1.4.0 (83fb95624b04)",
+        "SHELLIO_PROBE_VERSION_ZIG_VT": "0.17.1",
+        "SHELLIO_PROBE_VERSION_ZIG_ZMX": "0.16.0",
+        "SHELLIO_PROBE_VERSION_ZMX": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_PROBE_VERSION_ZMX_PREV": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.35c13d5248a52b82",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko"
+      },
+      "env_extra": []
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "cells": [
+    {
+      "id": "capi-B1",
+      "part": "formatter",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "заголовок, 40 строк истории с SGR 8/256/RGB, подчёркивания с цветом, мягко перенесённая гиперссылка в истории и в активной области, перо и открытая гиперссылка на конце; восстановление formatter; суффиксы: link-tail",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "после восстановления: профиль 2: Differs, расхождений 5, нормализовано 0, не наблюдалось 0\n  active[21].wrap: эталон true, приёмник false\n  active[22].wrap_continuation: эталон true, приёмник false\n  history[15].wrap_continuation: эталон true, приёмник false\n  history[16].wrap: эталон true, приёмник false\n  title: эталон \"pss-capi-b1\", приёмник \"\"; суффикс link-tail: профиль 2: Differs, расхождений 5, нормализовано 0, не наблюдалось 0\n  active[21].wrap: эталон true, приёмник false\n  active[22].wrap_continuation: эталон true, приёмник false\n  history[15].wrap_continuation: эталон true, приёмник false\n  history[16].wrap: эталон true, приёмник false\n  title: эталон \"pss-capi-b1\", приёмник \"\"",
+      "defect_origin": "vt",
+      "artifacts": [
+        "capi-b1.json"
+      ]
+    },
+    {
+      "id": "capi-B1",
+      "part": "snapshot",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "заголовок, 40 строк истории с SGR 8/256/RGB, подчёркивания с цветом, мягко перенесённая гиперссылка в истории и в активной области, перо и открытая гиперссылка на конце; восстановление snapshot; суффиксы: link-tail",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; суффикс link-tail",
+      "artifacts": [
+        "capi-b1.json"
+      ]
+    },
+    {
+      "id": "capi-B1",
+      "part": "bridge",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "заголовок, 40 строк истории с SGR 8/256/RGB, подчёркивания с цветом, мягко перенесённая гиперссылка в истории и в активной области, перо и открытая гиперссылка на конце; восстановление bridge; суффиксы: link-tail",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; воспроизведение без ответов, отчётов и эффектов; извлечённое у приёмника равно извлечённому у источника; суффикс link-tail",
+      "artifacts": [
+        "capi-b1.json"
+      ]
+    },
+    {
+      "id": "capi-B2",
+      "part": "formatter",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "основной экран с текстом, затем alternate screen 1049 со своим текстом; восстановление formatter; суффиксы: alt-exit",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "суффикс alt-exit: профиль 2: Differs, расхождений 83, нормализовано 0, не наблюдалось 0\n  active[0][0].text: эталон \"m\", приёмник \"A\"\n  active[0][1].text: эталон \"a\", приёмник \"\"\n  active[0][2].text: эталон \"i\", приёмник \"\"\n  active[0][3].text: эталон \"n\", приёмник \"\"\n  active[0][4].text: эталон \" \", приёмник \"\"\n  active[0][5].text: эталон \"0\", приёмник \"\"\n  active[0][6].text: эталон \"0\", приёмник \"\"\n  active[1][0].text: эталон \"m\", приёмник \"\"\n  active[1][1].text: эталон \"a\", приёмник \"\"\n  active[1][2].text: эталон \"i\", приёмник \"\"\n  active[1][3].text: эталон \"n\", приёмник \"\"\n  active[1][4].text: эталон \" \", приёмник \"\"\n  active[1][5].text: эталон \"0\", приёмник \"\"\n  active[1][6].text: эталон \"1\", приёмник \"\"\n  active[2][0].text: эталон \"m\", приёмник \"\"\n  active[2][1].text: эталон \"a\", приёмник \"\"\n  active[2][2].text: эталон \"i\", приёмник \"\"\n  active[2][3].text: эталон \"n\", приёмник \"\"\n  active[2][4].text: эталон \"m\", приёмник \"\"\n  active[2][5].text: эталон \"a\", приёмник \"\"\n  active[2][6].text: эталон \"i\", приёмник \"\"\n  active[2][7].text: эталон \"n\", приёмник \"\"\n  active[2][8].text: эталон \"-\", приёмник \"\"\n  active[2][9].text: эталон \"c\", приёмник \"\"\n  active[2][10].text: эталон \"u\", приёмник \"\"\n  active[2][11].text: эталон \"r\", приёмник \"\"\n  active[2][12].text: эталон \"s\", приёмник \"\"\n  active[2][13].text: эталон \"o\", приёмник \"\"\n  active[2][14].text: эталон \"r\", приёмник \"\"\n  active[2][15].text: эталон \"A\", приёмник \"\"\n  active[3][0].text: эталон \"m\", приёмник \"\"\n  active[3][1].text: эталон \"a\", приёмник \"\"\n  active[3][2].text: эталон \"i\", приёмник \"\"\n  active[3][3].text: эталон \"n\", приёмник \"\"\n  active[3][4].text: эталон \" \", приёмник \"\"\n  active[3][5].text: эталон \"0\", приёмник \"\"\n  active[3][6].text: эталон \"3\", приёмник \"\"\n  active[4][0].text: эталон \"m\", приёмник \"\"\n  active[4][1].text: эталон \"a\", приёмник \"\"\n  active[4][2].text: эталон \"i\", приёмник \"\"\n  active[4][3].text: эталон \"n\", приёмник \"\"\n  active[4][4].text: эталон \" \", приёмник \"\"\n  active[4][5].text: эталон \"0\", приёмник \"\"\n  active[4][6].text: эталон \"4\", приёмник \"\"\n  active[5][0].text: эталон \"m\", приёмник \"\"\n  active[5][1].text: эталон \"a\", приёмник \"\"\n  active[5][2].text: эталон \"i\", приёмник \"\"\n  active[5][3].text: эталон \"n\", приёмник \"\"\n  active[5][4].text: эталон \" \", приёмник \"\"\n  active[5][5].text: эталон \"0\", приёмник \"\"\n  active[5][6].text: эталон \"5\", приёмник \"\"\n  active[6][0].text: эталон \"m\", приёмник \"\"\n  active[6][1].text: эталон \"a\", приёмник \"\"\n  active[6][2].text: эталон \"i\", приёмник \"\"\n  active[6][3].text: эталон \"n\", приёмник \"\"\n  active[6][4].text: эталон \" \", приёмник \"\"\n  active[6][5].text: эталон \"0\", приёмник \"\"\n  active[6][6].text: эталон \"6\", приёмник \"\"\n  active[7][0].text: эталон \"m\", приёмник \"\"\n  active[7][1].text: эталон \"a\", приёмник \"\"\n  active[7][2].text: эталон \"i\", приёмник \"\"\n  active[7][3].text: эталон \"n\", приёмник \"\"\n  active[7][4].text: эталон \" \", приёмник \"\"\n  active[7][5].text: эталон \"0\", приёмник \"\"\n  active[7][6].text: эталон \"7\", приёмник \"\"\n  active[8][0].text: эталон \"m\", приёмник \"\"\n  active[8][1].text: эталон \"a\", приёмник \"\"\n  active[8][2].text: эталон \"i\", приёмник \"\"\n  active[8][3].text: эталон \"n\", приёмник \"\"\n  active[8][4].text: эталон \" \", приёмник \"\"\n  active[8][5].text: эталон \"0\", приёмник \"\"\n  active[8][6].text: эталон \"8\", приёмник \"\"\n  active[9][0].text: эталон \"m\", приёмник \"\"\n  active[9][1].text: эталон \"a\", приёмник \"\"\n  active[9][2].text: эталон \"i\", приёмник \"\"\n  active[9][3].text: эталон \"n\", приёмник \"\"\n  active[9][4].text: эталон \" \", приёмник \"\"\n  active[9][5].text: эталон \"0\", приёмник \"\"\n  active[9][6].text: эталон \"9\", приёмник \"\"\n  cursor.x: эталон 16, приёмник 1\n  cursor.y: эталон 2, приёмник 0\n  saved_cursor.x: эталон 15, приёмник 0\n  saved_cursor.y: эталон 2, приёмник 0",
+      "defect_origin": "vt",
+      "artifacts": [
+        "capi-b2.json"
+      ]
+    },
+    {
+      "id": "capi-B2",
+      "part": "snapshot",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "основной экран с текстом, затем alternate screen 1049 со своим текстом; восстановление snapshot; суффиксы: alt-exit",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; суффикс alt-exit",
+      "artifacts": [
+        "capi-b2.json"
+      ]
+    },
+    {
+      "id": "capi-B2",
+      "part": "bridge",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "основной экран с текстом, затем alternate screen 1049 со своим текстом; восстановление bridge; суффиксы: alt-exit",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; воспроизведение без ответов, отчётов и эффектов; извлечённое у приёмника равно извлечённому у источника; суффикс alt-exit",
+      "artifacts": [
+        "capi-b2.json"
+      ]
+    },
+    {
+      "id": "capi-B3",
+      "part": "formatter",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "DECSC с позицией и пером, затем другое перо и позиция; восстановление formatter; суффиксы: decrc",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "после восстановления: профиль 2: Differs, расхождений 4, нормализовано 0, не наблюдалось 0\n  saved_cursor.x: эталон 9, приёмник 0\n  saved_cursor.y: эталон 4, приёмник 0\n  saved_cursor.style.fg: эталон Palette(2), приёмник Default\n  saved_cursor.style.bold: эталон true, приёмник false; суффикс decrc: профиль 2: Differs, расхождений 12, нормализовано 0, не наблюдалось 0\n  active[0][0].text: эталон \"b\", приёмник \"R\"\n  active[4][9].text: эталон \"R\", приёмник \"\"\n  active[4][9].style.fg: эталон Palette(2), приёмник Default\n  active[4][9].style.bold: эталон true, приёмник false\n  cursor.x: эталон 10, приёмник 1\n  cursor.y: эталон 4, приёмник 0\n  cursor.style.fg: эталон Palette(2), приёмник Default\n  cursor.style.bold: эталон true, приёмник false\n  saved_cursor.x: эталон 9, приёмник 0\n  saved_cursor.y: эталон 4, приёмник 0\n  saved_cursor.style.fg: эталон Palette(2), приёмник Default\n  saved_cursor.style.bold: эталон true, приёмник false",
+      "defect_origin": "vt",
+      "artifacts": [
+        "capi-b3.json"
+      ]
+    },
+    {
+      "id": "capi-B3",
+      "part": "snapshot",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "DECSC с позицией и пером, затем другое перо и позиция; восстановление snapshot; суффиксы: decrc",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; суффикс decrc",
+      "artifacts": [
+        "capi-b3.json"
+      ]
+    },
+    {
+      "id": "capi-B3",
+      "part": "bridge",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "DECSC с позицией и пером, затем другое перо и позиция; восстановление bridge; суффиксы: decrc",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; воспроизведение без ответов, отчётов и эффектов; извлечённое у приёмника равно извлечённому у источника; суффикс decrc",
+      "artifacts": [
+        "capi-b3.json"
+      ]
+    },
+    {
+      "id": "capi-B4",
+      "part": "formatter",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "стек Kitty: push 1, push 3, текст; восстановление formatter; суффиксы: kitty-pop",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "после восстановления: профиль 2: Differs, расхождений 1, нормализовано 0, не наблюдалось 0\n  kitty_stack: эталон [3, 1], приёмник [3]; суффикс kitty-pop: профиль 2: Differs, расхождений 4, нормализовано 0, не наблюдалось 0\n  kitty_flags: эталон 1, приёмник 0\n  input.key:ctrl-a: эталон Some(\"1b5b39373b3575\"), приёмник Some(\"01\")\n  input.key:escape: эталон Some(\"1b5b323775\"), приёмник Some(\"1b\")\n  kitty_stack: эталон [1], приёмник []",
+      "defect_origin": "vt",
+      "artifacts": [
+        "capi-b4.json"
+      ]
+    },
+    {
+      "id": "capi-B4",
+      "part": "snapshot",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "стек Kitty: push 1, push 3, текст; восстановление snapshot; суффиксы: kitty-pop",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; суффикс kitty-pop",
+      "artifacts": [
+        "capi-b4.json"
+      ]
+    },
+    {
+      "id": "capi-B4",
+      "part": "bridge",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "стек Kitty: push 1, push 3, текст; восстановление bridge; суффиксы: kitty-pop",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; воспроизведение без ответов, отчётов и эффектов; извлечённое у приёмника равно извлечённому у источника; суффикс kitty-pop",
+      "artifacts": [
+        "capi-b4.json"
+      ]
+    },
+    {
+      "id": "capi-B5",
+      "part": "formatter",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "мышь 1000+1006, bracketed paste, DECCKM, DECKPAM, табуляторы 5 и 17, DECSTBM 5–15 с DECOM, режим 2048; восстановление formatter; суффиксы: tab, margins",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; суффикс tab; суффикс margins",
+      "artifacts": [
+        "capi-b5.json"
+      ]
+    },
+    {
+      "id": "capi-B5",
+      "part": "snapshot",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "мышь 1000+1006, bracketed paste, DECCKM, DECKPAM, табуляторы 5 и 17, DECSTBM 5–15 с DECOM, режим 2048; восстановление snapshot; суффиксы: tab, margins",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; суффикс tab; суффикс margins",
+      "artifacts": [
+        "capi-b5.json"
+      ]
+    },
+    {
+      "id": "capi-B5",
+      "part": "bridge",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "мышь 1000+1006, bracketed paste, DECCKM, DECKPAM, табуляторы 5 и 17, DECSTBM 5–15 с DECOM, режим 2048; восстановление bridge; суффиксы: tab, margins",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; воспроизведение без ответов, отчётов и эффектов; извлечённое у приёмника равно извлечённому у источника; суффикс tab; суффикс margins",
+      "artifacts": [
+        "capi-b5.json"
+      ]
+    },
+    {
+      "id": "capi-B6",
+      "part": "formatter",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "широкий символ на границе строки, комбинирующие и emoji, напечатанные пробелы против пустых клеток, строка до отложенного переноса; восстановление formatter; суффиксы: pending-wrap",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "после восстановления: профиль 2: Differs, расхождений 3, нормализовано 0, не наблюдалось 0\n  active[0].wrap: эталон true, приёмник false\n  active[0][79].width: эталон SpacerHead, приёмник Narrow\n  active[1].wrap_continuation: эталон true, приёмник false; суффикс pending-wrap: профиль 2: Differs, расхождений 3, нормализовано 0, не наблюдалось 0\n  active[0].wrap: эталон true, приёмник false\n  active[0][79].width: эталон SpacerHead, приёмник Narrow\n  active[1].wrap_continuation: эталон true, приёмник false",
+      "defect_origin": "vt",
+      "artifacts": [
+        "capi-b6.json"
+      ]
+    },
+    {
+      "id": "capi-B6",
+      "part": "snapshot",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "широкий символ на границе строки, комбинирующие и emoji, напечатанные пробелы против пустых клеток, строка до отложенного переноса; восстановление snapshot; суффиксы: pending-wrap",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; суффикс pending-wrap",
+      "artifacts": [
+        "capi-b6.json"
+      ]
+    },
+    {
+      "id": "capi-B6",
+      "part": "bridge",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "широкий символ на границе строки, комбинирующие и emoji, напечатанные пробелы против пустых клеток, строка до отложенного переноса; восстановление bridge; суффиксы: pending-wrap",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; воспроизведение без ответов, отчётов и эффектов; извлечённое у приёмника равно извлечённому у источника; суффикс pending-wrap",
+      "artifacts": [
+        "capi-b6.json"
+      ]
+    },
+    {
+      "id": "capi-B9",
+      "part": "formatter",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "мягко перенесённые строки 120 и 200 колонок в истории и активной области; восстановление formatter; суффиксы: resize",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "после восстановления: профиль 2: Differs, расхождений 90, нормализовано 0, не наблюдалось 0\n  active[0].wrap: эталон true, приёмник false\n  active[1].wrap: эталон true, приёмник false\n  active[1].wrap_continuation: эталон true, приёмник false\n  active[2].wrap_continuation: эталон true, приёмник false\n  active[3].wrap: эталон true, приёмник false\n  active[4].wrap_continuation: эталон true, приёмник false\n  active[5].wrap: эталон true, приёмник false\n  active[6].wrap: эталон true, приёмник false\n  active[6].wrap_continuation: эталон true, приёмник false\n  active[7].wrap_continuation: эталон true, приёмник false\n  active[8].wrap: эталон true, приёмник false\n  active[9].wrap_continuation: эталон true, приёмник false\n  active[10].wrap: эталон true, приёмник false\n  active[11].wrap: эталон true, приёмник false\n  active[11].wrap_continuation: эталон true, приёмник false\n  active[12].wrap_continuation: эталон true, приёмник false\n  active[13].wrap: эталон true, приёмник false\n  active[14].wrap_continuation: эталон true, приёмник false\n  active[15].wrap: эталон true, приёмник false\n  active[16].wrap: эталон true, приёмник false\n  active[16].wrap_continuation: эталон true, приёмник false\n  active[17].wrap_continuation: эталон true, приёмник false\n  active[18].wrap: эталон true, приёмник false\n  active[19].wrap_continuation: эталон true, приёмник false\n  active[20].wrap: эталон true, приёмник false\n  active[21].wrap: эталон true, приёмник false\n  active[21].wrap_continuation: эталон true, приёмник false\n  active[22].wrap_continuation: эталон true, приёмник false\n  history[1].wrap_continuation: эталон true, приёмник false\n  history[2].wrap: эталон true, приёмник false\n  history[3].wrap_continuation: эталон true, приёмник false\n  history[4].wrap: эталон true, приёмник false\n  history[4].wrap_continuation: эталон true, приёмник false\n  history[5].wrap: эталон true, приёмник false\n  history[6].wrap_continuation: эталон true, приёмник false\n  history[7].wrap: эталон true, приёмник false\n  history[8].wrap_continuation: эталон true, приёмник false\n  history[9].wrap: эталон true, приёмник false\n  history[9].wrap_continuation: эталон true, приёмник false\n  history[10].wrap: эталон true, приёмник false\n  history[11].wrap_continuation: эталон true, приёмник false\n  history[12].wrap: эталон true, приёмник false\n  history[13].wrap_continuation: эталон true, приёмник false\n  history[14].wrap: эталон true, приёмник false\n  history[14].wrap_continuation: эталон true, приёмник false\n  history[15].wrap: эталон true, приёмник false\n  history[16].wrap_continuation: эталон true, приёмник false\n  history[17].wrap: эталон true, приёмник false\n  history[18].wrap_continuation: эталон true, приёмник false\n  history[19].wrap: эталон true, приёмник false\n  history[19].wrap_continuation: эталон true, приёмник false\n  history[20].wrap: эталон true, приёмник false\n  history[21].wrap_continuation: эталон true, приёмник false\n  history[22].wrap: эталон true, приёмник false\n  history[23].wrap_continuation: эталон true, приёмник false\n  history[24].wrap: эталон true, приёмник false\n  history[24].wrap_continuation: эталон true, приёмник false\n  history[25].wrap: эталон true, приёмник false\n  history[26].wrap_continuation: эталон true, приёмник false\n  history[27].wrap: эталон true, приёмник false\n  history[28].wrap_continuation: эталон true, приёмник false\n  history[29].wrap: эталон true, приёмник false\n  history[29].wrap_continuation: эталон true, приёмник false\n  history[30].wrap: эталон true, приёмник false\n  history[31].wrap_continuation: эталон true, приёмник false\n  history[32].wrap: эталон true, приёмник false\n  history[33].wrap_continuation: эталон true, приёмник false\n  history[34].wrap: эталон true, приёмник false\n  history[34].wrap_continuation: эталон true, приёмник false\n  history[35].wrap: эталон true, приёмник false\n  history[36].wrap_continuation: эталон true, приёмник false\n  history[37].wrap: эталон true, приёмник false\n  history[38].wrap_continuation: эталон true, приёмник false\n  history[39].wrap: эталон true, приёмник false\n  history[39].wrap_continuation: эталон true, приёмник false\n  history[40].wrap: эталон true, приёмник false\n  history[41].wrap_continuation: эталон true, приёмник false\n  history[42].wrap: эталон true, приёмник false\n  history[43].wrap_continuation: эталон true, приёмник false\n  history[44].wrap: эталон true, приёмник false\n  history[44].wrap_continuation: эталон true, приёмник false\n  history[45].wrap: эталон true, приёмник false\n  history[46].wrap_continuation: эталон true, приёмник false\n  history[47].wrap: эталон true, приёмник false\n  history[48].wrap_continuation: эталон true, приёмник false\n  history[49].wrap: эталон true, приёмник false\n  history[49].wrap_continuation: эталон true, приёмник false\n  history[50].wrap: эталон true, приёмник false\n  history[51].wrap_continuation: эталон true, приёмник false\n  history[52].wrap: эталон true, приёмник false; суффикс resize: профиль 2: Differs, расхождений 90, нормализовано 0, не наблюдалось 0\n  active[0].wrap: эталон true, приёмник false\n  active[1].wrap: эталон true, приёмник false\n  active[1].wrap_continuation: эталон true, приёмник false\n  active[2].wrap_continuation: эталон true, приёмник false\n  active[3].wrap: эталон true, приёмник false\n  active[4].wrap_continuation: эталон true, приёмник false\n  active[5].wrap: эталон true, приёмник false\n  active[6].wrap: эталон true, приёмник false\n  active[6].wrap_continuation: эталон true, приёмник false\n  active[7].wrap_continuation: эталон true, приёмник false\n  active[8].wrap: эталон true, приёмник false\n  active[9].wrap_continuation: эталон true, приёмник false\n  active[10].wrap: эталон true, приёмник false\n  active[11].wrap: эталон true, приёмник false\n  active[11].wrap_continuation: эталон true, приёмник false\n  active[12].wrap_continuation: эталон true, приёмник false\n  active[13].wrap: эталон true, приёмник false\n  active[14].wrap_continuation: эталон true, приёмник false\n  active[15].wrap: эталон true, приёмник false\n  active[16].wrap: эталон true, приёмник false\n  active[16].wrap_continuation: эталон true, приёмник false\n  active[17].wrap_continuation: эталон true, приёмник false\n  active[18].wrap: эталон true, приёмник false\n  active[19].wrap_continuation: эталон true, приёмник false\n  active[20].wrap: эталон true, приёмник false\n  active[21].wrap: эталон true, приёмник false\n  active[21].wrap_continuation: эталон true, приёмник false\n  active[22].wrap_continuation: эталон true, приёмник false\n  history[1].wrap_continuation: эталон true, приёмник false\n  history[2].wrap: эталон true, приёмник false\n  history[3].wrap_continuation: эталон true, приёмник false\n  history[4].wrap: эталон true, приёмник false\n  history[4].wrap_continuation: эталон true, приёмник false\n  history[5].wrap: эталон true, приёмник false\n  history[6].wrap_continuation: эталон true, приёмник false\n  history[7].wrap: эталон true, приёмник false\n  history[8].wrap_continuation: эталон true, приёмник false\n  history[9].wrap: эталон true, приёмник false\n  history[9].wrap_continuation: эталон true, приёмник false\n  history[10].wrap: эталон true, приёмник false\n  history[11].wrap_continuation: эталон true, приёмник false\n  history[12].wrap: эталон true, приёмник false\n  history[13].wrap_continuation: эталон true, приёмник false\n  history[14].wrap: эталон true, приёмник false\n  history[14].wrap_continuation: эталон true, приёмник false\n  history[15].wrap: эталон true, приёмник false\n  history[16].wrap_continuation: эталон true, приёмник false\n  history[17].wrap: эталон true, приёмник false\n  history[18].wrap_continuation: эталон true, приёмник false\n  history[19].wrap: эталон true, приёмник false\n  history[19].wrap_continuation: эталон true, приёмник false\n  history[20].wrap: эталон true, приёмник false\n  history[21].wrap_continuation: эталон true, приёмник false\n  history[22].wrap: эталон true, приёмник false\n  history[23].wrap_continuation: эталон true, приёмник false\n  history[24].wrap: эталон true, приёмник false\n  history[24].wrap_continuation: эталон true, приёмник false\n  history[25].wrap: эталон true, приёмник false\n  history[26].wrap_continuation: эталон true, приёмник false\n  history[27].wrap: эталон true, приёмник false\n  history[28].wrap_continuation: эталон true, приёмник false\n  history[29].wrap: эталон true, приёмник false\n  history[29].wrap_continuation: эталон true, приёмник false\n  history[30].wrap: эталон true, приёмник false\n  history[31].wrap_continuation: эталон true, приёмник false\n  history[32].wrap: эталон true, приёмник false\n  history[33].wrap_continuation: эталон true, приёмник false\n  history[34].wrap: эталон true, приёмник false\n  history[34].wrap_continuation: эталон true, приёмник false\n  history[35].wrap: эталон true, приёмник false\n  history[36].wrap_continuation: эталон true, приёмник false\n  history[37].wrap: эталон true, приёмник false\n  history[38].wrap_continuation: эталон true, приёмник false\n  history[39].wrap: эталон true, приёмник false\n  history[39].wrap_continuation: эталон true, приёмник false\n  history[40].wrap: эталон true, приёмник false\n  history[41].wrap_continuation: эталон true, приёмник false\n  history[42].wrap: эталон true, приёмник false\n  history[43].wrap_continuation: эталон true, приёмник false\n  history[44].wrap: эталон true, приёмник false\n  history[44].wrap_continuation: эталон true, приёмник false\n  history[45].wrap: эталон true, приёмник false\n  history[46].wrap_continuation: эталон true, приёмник false\n  history[47].wrap: эталон true, приёмник false\n  history[48].wrap_continuation: эталон true, приёмник false\n  history[49].wrap: эталон true, приёмник false\n  history[49].wrap_continuation: эталон true, приёмник false\n  history[50].wrap: эталон true, приёмник false\n  history[51].wrap_continuation: эталон true, приёмник false\n  history[52].wrap: эталон true, приёмник false",
+      "defect_origin": "vt",
+      "artifacts": [
+        "capi-b9.json"
+      ]
+    },
+    {
+      "id": "capi-B9",
+      "part": "snapshot",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "мягко перенесённые строки 120 и 200 колонок в истории и активной области; восстановление snapshot; суффиксы: resize",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; суффикс resize",
+      "artifacts": [
+        "capi-b9.json"
+      ]
+    },
+    {
+      "id": "capi-B9",
+      "part": "bridge",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "мягко перенесённые строки 120 и 200 колонок в истории и активной области; восстановление bridge; суффиксы: resize",
+      "oracle": "эталон против приёмника, восстановленного из исходного терминала, сразу и после каждого суффикса",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, состояния сняты после восстановления и после суффиксов",
+      "reason": "выполнено: C API отдал нагрузку восстановления; после восстановления; воспроизведение без ответов, отчётов и эффектов; извлечённое у приёмника равно извлечённому у источника; суффикс resize",
+      "artifacts": [
+        "capi-b9.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "formatter-csi",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (formatter-csi)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "snapshot-csi",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (snapshot-csi)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "bridge-csi",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (bridge-csi)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; воспроизведение без ответов, отчётов и эффектов; извлечённое у приёмника равно извлечённому у источника; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "formatter-osc",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (formatter-osc)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "snapshot-osc",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (snapshot-osc)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "bridge-osc",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (bridge-osc)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; воспроизведение без ответов, отчётов и эффектов; извлечённое у приёмника равно извлечённому у источника; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "formatter-dcs",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (formatter-dcs)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "snapshot-dcs",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (snapshot-dcs)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "bridge-dcs",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (bridge-dcs)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; воспроизведение без ответов, отчётов и эффектов; извлечённое у приёмника равно извлечённому у источника; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "formatter-utf8",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (formatter-utf8)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "snapshot-utf8",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (snapshot-utf8)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "bridge-utf8",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (bridge-utf8)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; воспроизведение без ответов, отчётов и эффектов; извлечённое у приёмника равно извлечённому у источника; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "formatter-esc",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (formatter-esc)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "snapshot-esc",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (snapshot-esc)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B7",
+      "part": "bridge-esc",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вывод с пером, затем префикс последовательности до точки восстановления, остаток и метка после неё (bridge-esc)",
+      "oracle": "эталон против приёмника сразу после восстановления и после остатка",
+      "completion": "исходный терминал получил префикс отдельной записью до восстановления и не на ground; остаток подан после",
+      "reason": "выполнено: continuation равна незавершённой части префикса; после восстановления; воспроизведение без ответов, отчётов и эффектов; извлечённое у приёмника равно извлечённому у источника; после остатка",
+      "artifacts": [
+        "capi-b7.json"
+      ]
+    },
+    {
+      "id": "capi-B8",
+      "part": "formatter",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "поток 300 нумерованных строк по 100 колонок из фикстуры; в одном процессе восстановление formatter на каждом байте двух строк середины и на выборке, затем остаток потока",
+      "oracle": "счётчик строк потока у приёмника без пропуска и повтора, строки приёмника против эталона",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, все срезы проверены",
+      "reason": "выполнено: нет пропуска и повтора байтов на границе",
+      "artifacts": [
+        "capi-b8.json"
+      ]
+    },
+    {
+      "id": "capi-B8",
+      "part": "snapshot",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "поток 300 нумерованных строк по 100 колонок из фикстуры; в одном процессе восстановление snapshot на каждом байте двух строк середины и на выборке, затем остаток потока",
+      "oracle": "счётчик строк потока у приёмника без пропуска и повтора, строки приёмника против эталона",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, все срезы проверены",
+      "reason": "выполнено: нет пропуска и повтора байтов на границе",
+      "artifacts": [
+        "capi-b8.json"
+      ]
+    },
+    {
+      "id": "capi-B8",
+      "part": "bridge",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "поток 300 нумерованных строк по 100 колонок из фикстуры; в одном процессе восстановление bridge на каждом байте двух строк середины и на выборке, затем остаток потока",
+      "oracle": "счётчик строк потока у приёмника без пропуска и повтора, строки приёмника против эталона",
+      "completion": "исходный терминал получил весь поток и совпал с эталоном, все срезы проверены",
+      "reason": "выполнено: нет пропуска и повтора байтов на границе",
+      "artifacts": [
+        "capi-b8.json"
+      ]
+    },
+    {
+      "id": "capi-D1",
+      "part": "host",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "DA1, DA2, CPR, DECRQM частный и ANSI, OSC 10, 11, 4, XTVERSION целиком; хост — исходный терминал с колбэками",
+      "oracle": "квитанции ответов фикстуры по видам и байтам",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: ровно один ответ хоста на каждый запрос по порядку; DA1 из колбэка профиля хоста; XTVERSION из колбэка профиля хоста",
+      "artifacts": [
+        "capi-d1.json"
+      ]
+    },
+    {
+      "id": "capi-D1",
+      "part": "client-stream",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "те же запросы живым потоком клиенту, восстановленному formatter на ground",
+      "oracle": "ответы клиента из его журнала",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "клиент не отвечает на запросы, которые обслужил хост: клиент с WRITE_PTY ответил 9 раз на 9 запросов: C API не помечает обслуженные запросы в потоке, хосту нужен свой фильтр",
+      "defect_origin": "vt",
+      "artifacts": [
+        "capi-d1.json"
+      ]
+    },
+    {
+      "id": "capi-D1",
+      "part": "restore-boundary-formatter",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "DA1 разрезан после 2 байт точкой восстановления formatter; остаток хосту и клиенту",
+      "oracle": "ответы хоста по квитанциям фикстуры и ответы клиента из его журнала",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "ровно один ответ на запрос среди хоста и клиента: хост 1, клиент 1: continuation отдаёт клиенту префикс запроса, остаток живым потоком завершает его у клиента",
+      "defect_origin": "vt",
+      "artifacts": [
+        "capi-d1.json"
+      ]
+    },
+    {
+      "id": "capi-D1",
+      "part": "restore-boundary-snapshot",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "DA1 разрезан после 2 байт точкой восстановления snapshot; остаток хосту и клиенту",
+      "oracle": "ответы хоста по квитанциям фикстуры и ответы клиента из его журнала",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "ровно один ответ на запрос среди хоста и клиента: хост 1, клиент 1: continuation отдаёт клиенту префикс запроса, остаток живым потоком завершает его у клиента",
+      "defect_origin": "vt",
+      "artifacts": [
+        "capi-d1.json"
+      ]
+    },
+    {
+      "id": "capi-D1",
+      "part": "restore-boundary-bridge",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "DA1 разрезан после 2 байт точкой восстановления bridge; остаток хосту и клиенту",
+      "oracle": "ответы хоста по квитанциям фикстуры и ответы клиента из его журнала",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: хост ответил ровно один раз; ровно один ответ на запрос среди хоста и клиента",
+      "artifacts": [
+        "capi-d1.json"
+      ]
+    },
+    {
+      "id": "capi-D2",
+      "part": "da1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "Da1 разрезан на каждой границе байта: префикс отдельной записью исходному терминалу, остаток после",
+      "oracle": "квитанции ответов фикстуры; граница — по числу байтов, полученных исходным терминалом до остатка",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "artifacts": [
+        "capi-d2.json"
+      ]
+    },
+    {
+      "id": "capi-D2",
+      "part": "da2",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "Da2 разрезан на каждой границе байта: префикс отдельной записью исходному терминалу, остаток после",
+      "oracle": "квитанции ответов фикстуры; граница — по числу байтов, полученных исходным терминалом до остатка",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "artifacts": [
+        "capi-d2.json"
+      ]
+    },
+    {
+      "id": "capi-D2",
+      "part": "cpr",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "CursorPosition разрезан на каждой границе байта: префикс отдельной записью исходному терминалу, остаток после",
+      "oracle": "квитанции ответов фикстуры; граница — по числу байтов, полученных исходным терминалом до остатка",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "artifacts": [
+        "capi-d2.json"
+      ]
+    },
+    {
+      "id": "capi-D2",
+      "part": "decrqm-dec",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "ModeDec { mode: 2004 } разрезан на каждой границе байта: префикс отдельной записью исходному терминалу, остаток после",
+      "oracle": "квитанции ответов фикстуры; граница — по числу байтов, полученных исходным терминалом до остатка",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "artifacts": [
+        "capi-d2.json"
+      ]
+    },
+    {
+      "id": "capi-D2",
+      "part": "decrqm-ansi",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "ModeAnsi { mode: 4 } разрезан на каждой границе байта: префикс отдельной записью исходному терминалу, остаток после",
+      "oracle": "квитанции ответов фикстуры; граница — по числу байтов, полученных исходным терминалом до остатка",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "artifacts": [
+        "capi-d2.json"
+      ]
+    },
+    {
+      "id": "capi-D2",
+      "part": "osc10",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "ForegroundColor разрезан на каждой границе байта: префикс отдельной записью исходному терминалу, остаток после",
+      "oracle": "квитанции ответов фикстуры; граница — по числу байтов, полученных исходным терминалом до остатка",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "artifacts": [
+        "capi-d2.json"
+      ]
+    },
+    {
+      "id": "capi-D2",
+      "part": "osc11",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "BackgroundColor разрезан на каждой границе байта: префикс отдельной записью исходному терминалу, остаток после",
+      "oracle": "квитанции ответов фикстуры; граница — по числу байтов, полученных исходным терминалом до остатка",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "artifacts": [
+        "capi-d2.json"
+      ]
+    },
+    {
+      "id": "capi-D2",
+      "part": "osc4",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "Palette { index: 1 } разрезан на каждой границе байта: префикс отдельной записью исходному терминалу, остаток после",
+      "oracle": "квитанции ответов фикстуры; граница — по числу байтов, полученных исходным терминалом до остатка",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "artifacts": [
+        "capi-d2.json"
+      ]
+    },
+    {
+      "id": "capi-D2",
+      "part": "xtversion",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "XtVersion разрезан на каждой границе байта: префикс отдельной записью исходному терминалу, остаток после",
+      "oracle": "квитанции ответов фикстуры; граница — по числу байтов, полученных исходным терминалом до остатка",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "artifacts": [
+        "capi-d2.json"
+      ]
+    },
+    {
+      "id": "capi-D2",
+      "part": "bridge-boundary-da1",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "Da1 разрезан точкой восстановления моста на каждой границе байта: префикс хосту до восстановления, остаток хосту; continuation — префикс запроса — клиенту не отдаётся, остаток не пересылается",
+      "oracle": "журнал приёмника за время воспроизведения; квитанции ответов фикстуры",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: C API отдал нагрузку восстановления на каждом разрезе; за время воспроизведения клиент не дал ни ответа, ни эффекта; хост ответил ровно один раз на каждый разрез; после остатка клиент не ответил: префикс запроса в continuation не отдан",
+      "artifacts": [
+        "capi-d2-bridge.json"
+      ]
+    },
+    {
+      "id": "capi-D2",
+      "part": "bridge-boundary-cpr",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "CursorPosition разрезан точкой восстановления моста на каждой границе байта: префикс хосту до восстановления, остаток хосту; continuation — префикс запроса — клиенту не отдаётся, остаток не пересылается",
+      "oracle": "журнал приёмника за время воспроизведения; квитанции ответов фикстуры",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: C API отдал нагрузку восстановления на каждом разрезе; за время воспроизведения клиент не дал ни ответа, ни эффекта; хост ответил ровно один раз на каждый разрез; после остатка клиент не ответил: префикс запроса в continuation не отдан",
+      "artifacts": [
+        "capi-d2-bridge.json"
+      ]
+    },
+    {
+      "id": "capi-D2",
+      "part": "bridge-boundary-decrqm-dec",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "ModeDec { mode: 2004 } разрезан точкой восстановления моста на каждой границе байта: префикс хосту до восстановления, остаток хосту; continuation — префикс запроса — клиенту не отдаётся, остаток не пересылается",
+      "oracle": "журнал приёмника за время воспроизведения; квитанции ответов фикстуры",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: C API отдал нагрузку восстановления на каждом разрезе; за время воспроизведения клиент не дал ни ответа, ни эффекта; хост ответил ровно один раз на каждый разрез; после остатка клиент не ответил: префикс запроса в continuation не отдан",
+      "artifacts": [
+        "capi-d2-bridge.json"
+      ]
+    },
+    {
+      "id": "capi-D2",
+      "part": "bridge-boundary-osc11",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "BackgroundColor разрезан точкой восстановления моста на каждой границе байта: префикс хосту до восстановления, остаток хосту; continuation — префикс запроса — клиенту не отдаётся, остаток не пересылается",
+      "oracle": "журнал приёмника за время воспроизведения; квитанции ответов фикстуры",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: C API отдал нагрузку восстановления на каждом разрезе; за время воспроизведения клиент не дал ни ответа, ни эффекта; хост ответил ровно один раз на каждый разрез; после остатка клиент не ответил: префикс запроса в continuation не отдан",
+      "artifacts": [
+        "capi-d2-bridge.json"
+      ]
+    },
+    {
+      "id": "capi-D3",
+      "part": "formatter-replay",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "OSC 52 записи целиком до точки восстановления formatter",
+      "oracle": "журнал эффектов хоста и клиента",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: хост выполнил запись один раз; восстановление не повторяет запись",
+      "artifacts": [
+        "capi-d3.json"
+      ]
+    },
+    {
+      "id": "capi-D3",
+      "part": "snapshot-replay",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "OSC 52 записи целиком до точки восстановления snapshot",
+      "oracle": "журнал эффектов хоста и клиента",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: хост выполнил запись один раз; восстановление не повторяет запись",
+      "artifacts": [
+        "capi-d3.json"
+      ]
+    },
+    {
+      "id": "capi-D3",
+      "part": "bridge-replay",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "OSC 52 записи целиком до точки восстановления bridge",
+      "oracle": "журнал эффектов хоста и клиента",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: хост выполнил запись один раз; восстановление не повторяет запись",
+      "artifacts": [
+        "capi-d3.json"
+      ]
+    },
+    {
+      "id": "capi-D3",
+      "part": "formatter-cut",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "OSC 52 записи разрезан точкой восстановления formatter: префикс до неё, остаток после",
+      "oracle": "журнал эффектов хоста и клиента",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: клиент выполнил разрезанную запись один раз и после остатка",
+      "artifacts": [
+        "capi-d3.json"
+      ]
+    },
+    {
+      "id": "capi-D3",
+      "part": "snapshot-cut",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "OSC 52 записи разрезан точкой восстановления snapshot: префикс до неё, остаток после",
+      "oracle": "журнал эффектов хоста и клиента",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: клиент выполнил разрезанную запись один раз и после остатка",
+      "artifacts": [
+        "capi-d3.json"
+      ]
+    },
+    {
+      "id": "capi-D3",
+      "part": "bridge-cut",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "OSC 52 записи разрезан точкой восстановления bridge: префикс до неё, остаток после",
+      "oracle": "журнал эффектов хоста и клиента",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: клиент выполнил разрезанную запись один раз и после остатка",
+      "artifacts": [
+        "capi-d3.json"
+      ]
+    },
+    {
+      "id": "capi-D4",
+      "part": "sync",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "OSC 52 чтения, колбэк отвечает до возврата",
+      "oracle": "квитанции ответов фикстуры",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: один ответ с данными колбэка",
+      "artifacts": [
+        "capi-d4.json"
+      ]
+    },
+    {
+      "id": "capi-D4",
+      "part": "cut",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "OSC 52 чтения разрезан на каждой границе байта",
+      "oracle": "квитанции ответов фикстуры",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: ровно один ответ на каждый разрез",
+      "artifacts": [
+        "capi-d4.json"
+      ]
+    },
+    {
+      "id": "capi-D4",
+      "part": "no-reply",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "OSC 52 чтения, колбэк возвращается без reply",
+      "oracle": "квитанции ответов фикстуры",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: возврат без ответа даёт ровно один пустой ответ",
+      "artifacts": [
+        "capi-d4.json"
+      ]
+    },
+    {
+      "id": "capi-D4",
+      "part": "unset",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "OSC 52 чтения без колбэка CLIPBOARD_READ",
+      "oracle": "квитанции ответов фикстуры",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: без колбэка терминал не отвечает",
+      "artifacts": [
+        "capi-d4.json"
+      ]
+    },
+    {
+      "id": "capi-D4",
+      "part": "bounded-wait-threaded",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "модель хоста ждёт ответ модели GUI в колбэке до 1000 мс с поколением; чтение PTY в отдельном потоке с очередью до 4 МиБ; GUI отвечает сразу, молчит, отвечает поздно; пока поток разбора ждёт, фикстура пишет 2000 строк по 78 колонок",
+      "oracle": "квитанции ответов фикстуры, квитанция конца потока с задержками записи, журнал поколений модели",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: ответ GUI в срок доходит до программы; GUI молчит: по тайм-ауту программа получает пустой ответ; чтение PTY не стоит, пока поток разбора ждёт GUI; поздний ответ старого поколения отброшен, программа получает ответ своего; ровно один ответ на каждый запрос",
+      "artifacts": [
+        "capi-d4.json"
+      ]
+    },
+    {
+      "id": "capi-D4",
+      "part": "bounded-wait-inline",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "модель хоста ждёт ответ модели GUI в колбэке до 1000 мс с поколением; чтение PTY в потоке разбора (контроль); GUI отвечает сразу, молчит, отвечает поздно; пока поток разбора ждёт, фикстура пишет 2000 строк по 78 колонок",
+      "oracle": "квитанции ответов фикстуры, квитанция конца потока с задержками записи, журнал поколений модели",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: ответ GUI в срок доходит до программы; GUI молчит: по тайм-ауту программа получает пустой ответ; контроль: без отдельного потока чтения запись фикстуры стоит весь тайм-аут; поздний ответ старого поколения отброшен, программа получает ответ своего; ровно один ответ на каждый запрос",
+      "artifacts": [
+        "capi-d4.json"
+      ]
+    },
+    {
+      "id": "capi-budget",
+      "part": "over-budget",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "OSC 2 длиной 1049600 байт при бюджете 1048576 не закончен в точке восстановления, затем остаток",
+      "oracle": "результаты continuation, снимка и formatter исходного терминала; приёмник formatter без continuation против эталона",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: сверх бюджета continuation недоступна; сверх бюджета снимок недоступен; после конца последовательности continuation и снимок снова доступны",
+      "artifacts": [
+        "capi-budget.json"
+      ]
+    },
+    {
+      "id": "capi-budget",
+      "part": "within-budget",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "OSC 2 длиной 1048512 байт при бюджете 1048576 не закончен в точке восстановления; восстановление обоими способами, затем остаток",
+      "oracle": "continuation и снимок исходного терминала, пределы декодера, приёмники против эталона после остатка",
+      "completion": "контрольный CPR после запросов получен: ответы на всё раньше прочитаны фикстурой",
+      "reason": "выполнено: в пределах бюджета continuation равна префиксу; декодер отвергает снимок, если его предел меньше continuation; formatter после остатка; snapshot после остатка; bridge после остатка",
+      "artifacts": [
+        "capi-budget.json"
+      ]
+    }
+  ],
+  "metrics": [],
+  "diagnostics": {
+    "notes": [
+      "capi-B1 formatter: Lost — 5 расхождений: active.wrap, active.wrap_continuation, history.wrap, history.wrap_continuation, title",
+      "capi-B1 snapshot: Restored — совпало с эталоном",
+      "capi-B1 bridge: Restored — совпало с эталоном",
+      "capi-B2 formatter: SuffixOnly — после суффикса 83 расхождений: active.text, cursor.x, cursor.y, saved_cursor.x, saved_cursor.y",
+      "capi-B2 snapshot: Restored — совпало с эталоном",
+      "capi-B2 bridge: Restored — совпало с эталоном",
+      "capi-B3 formatter: Lost — 4 расхождений: saved_cursor.style.bold, saved_cursor.style.fg, saved_cursor.x, saved_cursor.y",
+      "capi-B3 snapshot: Restored — совпало с эталоном",
+      "capi-B3 bridge: Restored — совпало с эталоном",
+      "capi-B4 formatter: Lost — 1 расхождений: kitty_stack",
+      "capi-B4 snapshot: Restored — совпало с эталоном",
+      "capi-B4 bridge: Restored — совпало с эталоном",
+      "capi-B5 formatter: Restored — совпало с эталоном",
+      "capi-B5 snapshot: Restored — совпало с эталоном",
+      "capi-B5 bridge: Restored — совпало с эталоном",
+      "capi-B6 formatter: Lost — 3 расхождений: active.width, active.wrap, active.wrap_continuation",
+      "capi-B6 snapshot: Restored — совпало с эталоном",
+      "capi-B6 bridge: Restored — совпало с эталоном",
+      "capi-B9 formatter: Lost — 90 расхождений: active.wrap, active.wrap_continuation, history.wrap, history.wrap_continuation",
+      "capi-B9 snapshot: Restored — совпало с эталоном",
+      "capi-B9 bridge: Restored — совпало с эталоном",
+      "capi-B7 formatter-csi: Restored — совпало с эталоном",
+      "capi-B7 snapshot-csi: Restored — совпало с эталоном",
+      "capi-B7 bridge-csi: Restored — совпало с эталоном",
+      "capi-B7 formatter-osc: Restored — совпало с эталоном",
+      "capi-B7 snapshot-osc: Restored — совпало с эталоном",
+      "capi-B7 bridge-osc: Restored — совпало с эталоном",
+      "capi-B7 formatter-dcs: Restored — совпало с эталоном",
+      "capi-B7 snapshot-dcs: Restored — совпало с эталоном",
+      "capi-B7 bridge-dcs: Restored — совпало с эталоном",
+      "capi-B7 formatter-utf8: Restored — совпало с эталоном",
+      "capi-B7 snapshot-utf8: Restored — совпало с эталоном",
+      "capi-B7 bridge-utf8: Restored — совпало с эталоном",
+      "capi-B7 formatter-esc: Restored — совпало с эталоном",
+      "capi-B7 snapshot-esc: Restored — совпало с эталоном",
+      "capi-B7 bridge-esc: Restored — совпало с эталоном",
+      "capi-B8 formatter: Checked — граница точна на 228 срезах; полное сравнение на выборке: 17 из 18 расходятся (active.wrap, active.wrap_continuation, history.wrap, history.wrap_continuation)",
+      "capi-B8 snapshot: Checked — граница точна на 228 срезах; полное сравнение на выборке: 0 из 18 расходятся",
+      "capi-B8 bridge: Checked — граница точна на 228 срезах; полное сравнение на выборке: 0 из 18 расходятся",
+      "capi-D1 host: Checked — pass: выполнено: ровно один ответ хоста на каждый запрос по порядку; DA1 из колбэка профиля хоста; XTVERSION из колбэка профиля хоста",
+      "capi-D1 client-stream: Checked — fail: клиент не отвечает на запросы, которые обслужил хост: клиент с WRITE_PTY ответил 9 раз на 9 запросов: C API не помечает обслуженные запросы в потоке, хосту нужен свой фильтр",
+      "capi-D1 restore-boundary-formatter: Checked — fail: ровно один ответ на запрос среди хоста и клиента: хост 1, клиент 1: continuation отдаёт клиенту префикс запроса, остаток живым потоком завершает его у клиента",
+      "capi-D1 restore-boundary-snapshot: Checked — fail: ровно один ответ на запрос среди хоста и клиента: хост 1, клиент 1: continuation отдаёт клиенту префикс запроса, остаток живым потоком завершает его у клиента",
+      "capi-D1 restore-boundary-bridge: Checked — pass: выполнено: хост ответил ровно один раз; ровно один ответ на запрос среди хоста и клиента",
+      "capi-D2 da1: Checked — pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "capi-D2 da2: Checked — pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "capi-D2 cpr: Checked — pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "capi-D2 decrqm-dec: Checked — pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "capi-D2 decrqm-ansi: Checked — pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "capi-D2 osc10: Checked — pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "capi-D2 osc11: Checked — pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "capi-D2 osc4: Checked — pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "capi-D2 xtversion: Checked — pass: выполнено: ровно один ответ на каждый разрез; ответ не зависит от разреза",
+      "capi-D2 bridge-boundary-da1: Checked — pass: выполнено: C API отдал нагрузку восстановления на каждом разрезе; за время воспроизведения клиент не дал ни ответа, ни эффекта; хост ответил ровно один раз на каждый разрез; после остатка клиент не ответил: префикс запроса в continuation не отдан",
+      "capi-D2 bridge-boundary-cpr: Checked — pass: выполнено: C API отдал нагрузку восстановления на каждом разрезе; за время воспроизведения клиент не дал ни ответа, ни эффекта; хост ответил ровно один раз на каждый разрез; после остатка клиент не ответил: префикс запроса в continuation не отдан",
+      "capi-D2 bridge-boundary-decrqm-dec: Checked — pass: выполнено: C API отдал нагрузку восстановления на каждом разрезе; за время воспроизведения клиент не дал ни ответа, ни эффекта; хост ответил ровно один раз на каждый разрез; после остатка клиент не ответил: префикс запроса в continuation не отдан",
+      "capi-D2 bridge-boundary-osc11: Checked — pass: выполнено: C API отдал нагрузку восстановления на каждом разрезе; за время воспроизведения клиент не дал ни ответа, ни эффекта; хост ответил ровно один раз на каждый разрез; после остатка клиент не ответил: префикс запроса в continuation не отдан",
+      "capi-D3 formatter-replay: Checked — pass: выполнено: хост выполнил запись один раз; восстановление не повторяет запись",
+      "capi-D3 snapshot-replay: Checked — pass: выполнено: хост выполнил запись один раз; восстановление не повторяет запись",
+      "capi-D3 bridge-replay: Checked — pass: выполнено: хост выполнил запись один раз; восстановление не повторяет запись",
+      "capi-D3 formatter-cut: Checked — pass: выполнено: клиент выполнил разрезанную запись один раз и после остатка",
+      "capi-D3 snapshot-cut: Checked — pass: выполнено: клиент выполнил разрезанную запись один раз и после остатка",
+      "capi-D3 bridge-cut: Checked — pass: выполнено: клиент выполнил разрезанную запись один раз и после остатка",
+      "capi-D4 sync: Checked — pass: выполнено: один ответ с данными колбэка",
+      "capi-D4 cut: Checked — pass: выполнено: ровно один ответ на каждый разрез",
+      "capi-D4 no-reply: Checked — pass: выполнено: возврат без ответа даёт ровно один пустой ответ",
+      "capi-D4 unset: Checked — pass: выполнено: без колбэка терминал не отвечает",
+      "capi-D4 bounded-wait-threaded: Checked — pass: выполнено: ответ GUI в срок доходит до программы; GUI молчит: по тайм-ауту программа получает пустой ответ; чтение PTY не стоит, пока поток разбора ждёт GUI; поздний ответ старого поколения отброшен, программа получает ответ своего; ровно один ответ на каждый запрос",
+      "capi-D4 bounded-wait-inline: Checked — pass: выполнено: ответ GUI в срок доходит до программы; GUI молчит: по тайм-ауту программа получает пустой ответ; контроль: без отдельного потока чтения запись фикстуры стоит весь тайм-аут; поздний ответ старого поколения отброшен, программа получает ответ своего; ровно один ответ на каждый запрос",
+      "capi-budget over-budget: Checked — pass: выполнено: сверх бюджета continuation недоступна; сверх бюджета снимок недоступен; после конца последовательности continuation и снимок снова доступны",
+      "capi-budget within-budget: Checked — pass: выполнено: в пределах бюджета continuation равна префиксу; декодер отвергает снимок, если его предел меньше continuation; formatter после остатка; snapshot после остатка; bridge после остатка"
+    ]
+  }
+}

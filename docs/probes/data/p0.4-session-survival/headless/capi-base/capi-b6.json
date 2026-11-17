@@ -1,0 +1,500 @@
+{
+  "bridge": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "после восстановления",
+        "ok": true
+      },
+      {
+        "detail": "[]",
+        "name": "воспроизведение без ответов, отчётов и эффектов",
+        "ok": true
+      },
+      {
+        "detail": "равно",
+        "name": "извлечённое у приёмника равно извлечённому у источника",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "суффикс pending-wrap",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "bridge_state_differences": [],
+      "cause": null,
+      "inexpressible": [],
+      "payload": {
+        "body": 425,
+        "boundary": 238,
+        "continuation": 0,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "世界",
+        "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+        "a   b     c",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "после восстановления.reference_text": [
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "世界",
+        "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+        "a   b     c",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс pending-wrap.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс pending-wrap.receiver_text": [
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "世界",
+        "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+        "a   b     c",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "W",
+        "",
+        "",
+        ""
+      ],
+      "суффикс pending-wrap.reference_text": [
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "世界",
+        "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+        "a   b     c",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "W",
+        "",
+        "",
+        ""
+      ]
+    },
+    "unsupported": null
+  },
+  "formatter": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Differs, расхождений 3, нормализовано 0, не наблюдалось 0\n  active[0].wrap: эталон true, приёмник false\n  active[0][79].width: эталон SpacerHead, приёмник Narrow\n  active[1].wrap_continuation: эталон true, приёмник false",
+        "name": "после восстановления",
+        "ok": false
+      },
+      {
+        "detail": "профиль 2: Differs, расхождений 3, нормализовано 0, не наблюдалось 0\n  active[0].wrap: эталон true, приёмник false\n  active[0][79].width: эталон SpacerHead, приёмник Narrow\n  active[1].wrap_continuation: эталон true, приёмник false",
+        "name": "суффикс pending-wrap",
+        "ok": false
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "payload": {
+        "body": 5875,
+        "boundary": 238,
+        "continuation": 0,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 3,
+        "mismatches": [
+          {
+            "path": "active[0].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[0][79].width",
+            "receiver": "Narrow",
+            "reference": "SpacerHead"
+          },
+          {
+            "path": "active[1].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          }
+        ],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "世界",
+        "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+        "a   b     c",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "после восстановления.reference_text": [
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "世界",
+        "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+        "a   b     c",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс pending-wrap.comparison": {
+        "mismatch_count": 3,
+        "mismatches": [
+          {
+            "path": "active[0].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[0][79].width",
+            "receiver": "Narrow",
+            "reference": "SpacerHead"
+          },
+          {
+            "path": "active[1].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          }
+        ],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс pending-wrap.receiver_text": [
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "世界",
+        "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+        "a   b     c",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "W",
+        "",
+        "",
+        ""
+      ],
+      "суффикс pending-wrap.reference_text": [
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "世界",
+        "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+        "a   b     c",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "W",
+        "",
+        "",
+        ""
+      ]
+    },
+    "unsupported": null
+  },
+  "snapshot": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "после восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "суффикс pending-wrap",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "payload": {
+        "body": 2168,
+        "boundary": 238,
+        "continuation": null,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "世界",
+        "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+        "a   b     c",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "после восстановления.reference_text": [
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "世界",
+        "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+        "a   b     c",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс pending-wrap.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс pending-wrap.receiver_text": [
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "世界",
+        "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+        "a   b     c",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "W",
+        "",
+        "",
+        ""
+      ],
+      "суффикс pending-wrap.reference_text": [
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "世界",
+        "é café 👍🏽 🇺🇸 👨‍👩‍👧 ok",
+        "a   b     c",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "W",
+        "",
+        "",
+        ""
+      ]
+    },
+    "unsupported": null
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "checks": [
+    {
+      "name": "zmx screen к старому демону: явное состояние",
+      "ok": false,
+      "detail": "2005 мс: Err(Failed(\"zmx: CommandRun { args: [\\\"screen\\\", \\\"sfab15eacd9a08d47-g\\\"], code: Some(1), signal: None, stdout: \\\"\\\", stderr: \\\"error: screen failed for \\\\\\\"sfab15eacd9a08d47-g\\\\\\\": Timeout\\\\n\\\", elapsed_ms: 2005 }\"))"
+    },
+    {
+      "name": "zmx type к старому демону: явное состояние",
+      "ok": false,
+      "detail": "2012 мс: Err(Failed(\"zmx type: CommandRun { args: [\\\"type\\\", \\\"sfab15eacd9a08d47-g\\\"], code: Some(1), signal: None, stdout: \\\"\\\", stderr: \\\"error: type failed for \\\\\\\"sfab15eacd9a08d47-g\\\\\\\": Timeout\\\\n\\\", elapsed_ms: 2012 }\"))"
+    },
+    {
+      "name": "ensure текущего поколения не перезапустил нагрузку",
+      "ok": true,
+      "detail": "нагрузка ProcessKey { pid: 41030, start_us: 1794931282260787 }, до ensure ProcessKey { pid: 41030, start_us: 1794931282260787 }"
+    },
+    {
+      "name": "сессия жива",
+      "ok": true,
+      "detail": "Live { workload_pid: 41030, clients: 0 }"
+    },
+    {
+      "name": "нагрузка та же",
+      "ok": true,
+      "detail": "PID 41030 старт 1794931282260787: Same(ProcessInfo { key: ProcessKey { pid: 41030, start_us: 1794931282260787 }, ppid: 41029, pgid: 41030, sid: Some(41030), tpgid: Some(41030), tty: Some(268435464), state: Running, exiting: false, comm: \"probe-session-f\" })"
+    },
+    {
+      "name": "демон zmx-prev тот же",
+      "ok": true,
+      "detail": "PID 41029 старт 1794931282259380: Same(ProcessInfo { key: ProcessKey { pid: 41029, start_us: 1794931282259380 }, ppid: 1, pgid: 41029, sid: Some(41029), tpgid: None, tty: None, state: Running, exiting: false, comm: \"zmx\" })"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "daemon_log": {
+      "leaders": 2,
+      "lines": 63
+    },
+    "ensure": {
+      "elapsed_ms": 18,
+      "result": "Ok(Ensured { record: HostRecord { session: SessionId(\"sfab15eacd9a08d47-g\"), host: ProcessKey { pid: 41029, start_us: 1794931282259380 }, workload: ProcessKey { pid: 41030, start_us: 1794931282260787 }, workload_pgid: 41030, workload_sid: Some(41030) }, created: true, command: CommandRun { args: [\"attach\", \"sfab15eacd9a08d47-g\", \"/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-fixture\", \"--mode\", \"emitter\", \"--channel\", \"/tmp/pss-fab15eacd9a08d47/c.sock\", \"--nonce\", \"sfab15eacd9a08d47-g-w\"], code: Some(1), signal: None, stdout: \"\", stderr: \"\", elapsed_ms: 9 } })"
+    },
+    "liveness": {
+      "clients": 0,
+      "state": "live",
+      "workload_pid": 41030
+    },
+    "record": {
+      "host": {
+        "pid": 41029,
+        "start_us": 1794931282259380
+      },
+      "session": "sfab15eacd9a08d47-g",
+      "workload": {
+        "pid": 41030,
+        "start_us": 1794931282260787
+      },
+      "workload_pgid": 41030,
+      "workload_sid": 41030
+    },
+    "screen": {
+      "elapsed_ms": 2005,
+      "result": "Err(Failed(\"zmx: CommandRun { args: [\\\"screen\\\", \\\"sfab15eacd9a08d47-g\\\"], code: Some(1), signal: None, stdout: \\\"\\\", stderr: \\\"error: screen failed for \\\\\\\"sfab15eacd9a08d47-g\\\\\\\": Timeout\\\\n\\\", elapsed_ms: 2005 }\"))"
+    },
+    "type": {
+      "elapsed_ms": 2012,
+      "result": "Err(Failed(\"zmx type: CommandRun { args: [\\\"type\\\", \\\"sfab15eacd9a08d47-g\\\"], code: Some(1), signal: None, stdout: \\\"\\\", stderr: \\\"error: type failed for \\\\\\\"sfab15eacd9a08d47-g\\\\\\\": Timeout\\\\n\\\", elapsed_ms: 2012 }\"))"
+    },
+    "демон zmx-prev тот же": {
+      "comm": "zmx",
+      "exiting": false,
+      "key": {
+        "pid": 41029,
+        "start_us": 1794931282259380
+      },
+      "kind": "same",
+      "pgid": 41029,
+      "ppid": 1,
+      "sid": 41029,
+      "state": "running",
+      "tpgid": null,
+      "tty": null
+    },
+    "нагрузка та же": {
+      "comm": "probe-session-f",
+      "exiting": false,
+      "key": {
+        "pid": 41030,
+        "start_us": 1794931282260787
+      },
+      "kind": "same",
+      "pgid": 41030,
+      "ppid": 41029,
+      "sid": 41030,
+      "state": "running",
+      "tpgid": 41030,
+      "tty": 268435464
+    }
+  }
+}

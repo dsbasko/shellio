@@ -1,0 +1,666 @@
+{
+  "schema": 1,
+  "run_dir": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/20261117-211051-46612",
+  "percentile_method": "nearest-rank",
+  "totals": {
+    "processes": 7,
+    "execution_ok": 7,
+    "execution_errors": 0,
+    "cells": {
+      "pass": 20,
+      "fail": 4,
+      "not_run": 2,
+      "unsupported": 0
+    },
+    "required": {
+      "pass": 20,
+      "fail": 4,
+      "not_run": 2,
+      "unsupported": 0
+    }
+  },
+  "processes": [
+    {
+      "dir": "apps-surface-rust-base",
+      "scenario": "apps-surface",
+      "backend": "rust",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 7
+    },
+    {
+      "dir": "apps-surface-zmx-base",
+      "scenario": "apps-surface",
+      "backend": "zmx",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 7
+    },
+    {
+      "dir": "bridge-rust-base",
+      "scenario": "bridge",
+      "backend": "rust",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 9
+    },
+    {
+      "dir": "bridge-zmx-base",
+      "scenario": "bridge",
+      "backend": "zmx",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 9
+    },
+    {
+      "dir": "report-policy-base",
+      "scenario": "report-policy",
+      "backend": null,
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 18
+    },
+    {
+      "dir": "update-rust-base",
+      "scenario": "update",
+      "backend": "rust",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 1
+    },
+    {
+      "dir": "update-zmx-base",
+      "scenario": "update",
+      "backend": "zmx",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 1
+    }
+  ],
+  "cells": [
+    {
+      "id": "C1",
+      "backend": "zmx",
+      "requirement": "required",
+      "status": "fail",
+      "parts": [
+        {
+          "dir": "bridge-zmx-base",
+          "requirement": "required",
+          "status": "fail",
+          "defect_origin": "vt",
+          "reason": "restored-lines: строка 20: ожидалось Some(\"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv\"), в поверхности Some(\"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzab\") (строк 23 и 24); cursor-marker: строка 20: ожидалось Some(\"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv\"), в поверхности Some(\"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzab\") (строк 23 и 24)"
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "backend": "rust",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "bridge-rust-base",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: gui1-killed; workload-and-host-alive; no-redraw; restored-lines; cursor-marker"
+        }
+      ]
+    },
+    {
+      "id": "C2",
+      "backend": "zmx",
+      "requirement": "required",
+      "status": "fail",
+      "parts": [
+        {
+          "dir": "bridge-zmx-base",
+          "requirement": "required",
+          "status": "fail",
+          "defect_origin": "host",
+          "reason": "restore-quiet: 1b5b491b5b491b5b34383b32343b38303b3732303b3132383074 ([\"focus-in\", \"focus-in\", \"size\"])"
+        }
+      ]
+    },
+    {
+      "id": "C2",
+      "backend": "rust",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "bridge-rust-base",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: restore-quiet"
+        }
+      ]
+    },
+    {
+      "id": "C3",
+      "backend": "zmx",
+      "requirement": "required",
+      "status": "fail",
+      "parts": [
+        {
+          "dir": "bridge-zmx-base",
+          "requirement": "required",
+          "status": "fail",
+          "defect_origin": "vt",
+          "reason": "kitty-pop: ввод: 611b4f411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e против эталона 1b5b3937751b5b411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e; decrc: вид: строка 0: ожидалось Some(\"alt-screen-text\"), в поверхности Some(\"@lt-screen-text\") (строк 8 и 3); leave-alt: вид: строка 0: ожидалось Some(\"main-1\"), в поверхности Some(\"#\") (строк 3 и 1)"
+        }
+      ]
+    },
+    {
+      "id": "C3",
+      "backend": "rust",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "bridge-rust-base",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: restored: вид; restored: ввод; kitty-pop: вид; kitty-pop: ввод; kitty-pop-2: вид; kitty-pop-2: ввод; decrc: вид; decrc: ввод; leave-alt: вид; leave-alt: ввод"
+        }
+      ]
+    },
+    {
+      "id": "C4",
+      "backend": "zmx",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "bridge-zmx-base",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: a-shows-output; b-shows-output; size-from-leader; workload-and-host-alive; b-live-after-close"
+        }
+      ]
+    },
+    {
+      "id": "C4",
+      "backend": "rust",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "bridge-rust-base",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: a-shows-output; b-shows-output; size-from-leader; workload-and-host-alive; b-live-after-close"
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "backend": "zmx",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "bridge-zmx-base",
+          "part": "surface",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: одна GUI: ровно один ответ на каждый запрос по порядку; две GUI: ровно один ответ на каждый запрос по порядку"
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "backend": "rust",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "bridge-rust-base",
+          "part": "surface",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: одна GUI: ровно один ответ на каждый запрос по порядку; две GUI: ровно один ответ на каждый запрос по порядку"
+        }
+      ]
+    },
+    {
+      "id": "D3",
+      "backend": "zmx",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "bridge-zmx-base",
+          "part": "surface",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: live-once; no-replay; journal-survived-kill"
+        }
+      ]
+    },
+    {
+      "id": "D3",
+      "backend": "rust",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "bridge-rust-base",
+          "part": "surface",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: live-once; no-replay; journal-survived-kill"
+        }
+      ]
+    },
+    {
+      "id": "D4",
+      "backend": "zmx",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "bridge-zmx-base",
+          "part": "surface",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: live: ровно один ответ с данными GUI; после SIGKILL: не больше одного ответа и без данных; после SIGKILL: GUI №2 запроса не получила"
+        }
+      ]
+    },
+    {
+      "id": "D4",
+      "backend": "rust",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "bridge-rust-base",
+          "part": "surface",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: live: ровно один ответ с данными GUI; live: поверхность запроса не получила; после SIGKILL: не больше одного ответа и без данных; после SIGKILL: GUI №2 запроса не получила"
+        }
+      ]
+    },
+    {
+      "id": "D5",
+      "backend": "zmx",
+      "requirement": "required",
+      "status": "fail",
+      "parts": [
+        {
+          "dir": "bridge-zmx-base",
+          "part": "surface",
+          "requirement": "required",
+          "status": "fail",
+          "defect_origin": "host",
+          "reason": "новая GUI: один FocusIn, FocusOut не больше одного: [(FocusOut, \"1b5b4f\"), (FocusIn, \"1b5b49\"), (FocusIn, \"1b5b49\"), (SizeReport, \"1b5b34383b32343b38303b3732303b3132383074\")]"
+        }
+      ]
+    },
+    {
+      "id": "D5",
+      "backend": "rust",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "bridge-rust-base",
+          "part": "surface",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: включение 2048: один отчёт размера с сеткой окна; focus-out: ровно один отчёт; focus-in: ровно один отчёт; ресайз окна: SIGWINCH и ровно один отчёт размера с новой сеткой; новая GUI: один FocusIn, FocusOut не больше одного; новая GUI: не больше одного отчёта размера и с её сеткой"
+        }
+      ]
+    },
+    {
+      "id": "F2",
+      "backend": "zmx",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "bridge-zmx-base",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: cells; pixels; content-scale; rescaled-winsize; cell-follows-scale"
+        }
+      ]
+    },
+    {
+      "id": "F2",
+      "backend": "rust",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "bridge-rust-base",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: cells; pixels; content-scale; rescaled-winsize; cell-follows-scale"
+        }
+      ]
+    },
+    {
+      "id": "F4",
+      "backend": "zmx",
+      "requirement": "required",
+      "status": "not_run",
+      "parts": [
+        {
+          "dir": "apps-surface-zmx-base",
+          "part": "nvim-surface",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: SIGKILL gui2; нагрузка и хост живы после SIGKILL GUI; вид после attach равен виду до SIGKILL GUI; nvim вышел по :wqa; Ctrl-V Shift-Enter до SIGKILL вставил то же, что без хоста; Ctrl-V Shift-Enter после attach даёт то же, что до SIGKILL; остальные строки файла не тронуты"
+        },
+        {
+          "dir": "apps-surface-zmx-base",
+          "part": "paste",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: SIGKILL gui5; нагрузка и хост живы после SIGKILL GUI; файл nvim как без хоста; nvim вышел по :wq; SIGKILL gui8; фикстура и хост живы после SIGKILL GUI; фикстура: одна квитанция блока 2004 с текстом вставки"
+        },
+        {
+          "dir": "apps-surface-zmx-base",
+          "part": "kitty",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: SIGKILL gui11; нагрузка и хост живы после SIGKILL GUI; кодирование до SIGKILL как без хоста; кодирование после attach как без хоста"
+        },
+        {
+          "dir": "apps-surface-zmx-base",
+          "part": "layout-ru",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: SIGKILL gui14; нагрузка и хост живы после SIGKILL GUI; файл nvim как без хоста; nvim вышел по :wq"
+        },
+        {
+          "dir": "apps-surface-zmx-base",
+          "part": "dead-key",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: SIGKILL gui17; нагрузка и хост живы после SIGKILL GUI; файл nvim как без хоста; nvim вышел по :wq"
+        },
+        {
+          "dir": "apps-surface-zmx-base",
+          "part": "ime",
+          "requirement": "research",
+          "status": "not_run",
+          "not_run_cause": "stand",
+          "reason": "контроль без хоста: IME не закоммитил текст по Return: keyDown 45 flags=0x0 chars=\"n\" | setMarkedText \"n\" | sent press 45 mods=0 text=\"n\" composing handled=false | sent release 45 mods=0 text=\"\" handled=false | keyDown 34 flags=0x0 chars=\"i\" | setMarkedText \"に\" | sent press 34 mods=0 text=\"i\" composing handled=false | sent release 34 mods=0 text=\"\" handled=false | keyDown 4 flags=0x0 chars=\"h\" | setMarkedText \"にh\" | sent press 4 mods=0 text=\"h\" composing handled=false | sent release 4 mods=0 text=\"\" handled=false | keyDown 31 flags=0x0 chars=\"o\" | setMarkedText \"にほ\" | sent press 31 mods=0 text=\"o\" composing handled=false | sent release 31 mods=0 text=\"\" handled=false | keyDown 45 flags=0x0 chars=\"n\" | setMarkedText \"にほn\" | sent press 45 mods=0 text=\"n\" composing handled=false | sent release 45 mods=0 text=\"\" handled=false | keyDown 45 flags=0x0 chars=\"n\" | setMarkedText \"日本\" | sent press 45 mods=0 text=\"n\" composing handled=false | sent release 45 mods=0 text=\"\" handled=false | keyDown 49 flags=0x0 chars=\" \" | setMarkedText \"日本\" | sent press 49 mods=0 text=\" \" composing handled=false | sent release 49 mods=0 text=\"\" handled=false | keyDown 36 flags=0x0 chars=\"\\r\" | keyDown 36: съедено composition | keyDown 40 flags=0x0 chars=\"k\" | sent press 40 mods=0 text=\"k\" composing handled=false | sent release 40 mods=0 text=\"\" handled=false | keyDown 0 flags=0x0 chars=\"a\" | sent press 0 mods=0 text=\"a\" composing handled=false | sent release 0 mods=0 text=\"\" handled=false | keyDown 53 flags=0x0 chars=\"\\u{1b}\" | keyDown 53: съедено composition | keyDown 53 flags=0x0 chars=\"\\u{1b}\" | keyDown 53: съедено composition"
+        },
+        {
+          "dir": "apps-surface-zmx-base",
+          "part": "switch",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: каждый attach показывает свою сессию, ввод доходит; последний attach a для :wq; nvim a вышел по :wq; файл a на диске: ввод всех циклов без потерь; фикстура b жива"
+        }
+      ]
+    },
+    {
+      "id": "F4",
+      "backend": "rust",
+      "requirement": "required",
+      "status": "not_run",
+      "parts": [
+        {
+          "dir": "apps-surface-rust-base",
+          "part": "nvim-surface",
+          "requirement": "required",
+          "status": "not_run",
+          "not_run_cause": "surface",
+          "reason": "контроль без хоста: вид не дошёл до шага «строка «pss-mid»»"
+        },
+        {
+          "dir": "apps-surface-rust-base",
+          "part": "paste",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: SIGKILL gui3; нагрузка и хост живы после SIGKILL GUI; файл nvim как без хоста; nvim вышел по :wq; SIGKILL gui6; фикстура и хост живы после SIGKILL GUI; фикстура: одна квитанция блока 2004 с текстом вставки"
+        },
+        {
+          "dir": "apps-surface-rust-base",
+          "part": "kitty",
+          "requirement": "required",
+          "status": "not_run",
+          "not_run_cause": "stand",
+          "reason": "контроль без хоста: c: ctrl-enter не дошла до вида: "
+        },
+        {
+          "dir": "apps-surface-rust-base",
+          "part": "layout-ru",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: SIGKILL gui10; нагрузка и хост живы после SIGKILL GUI; файл nvim как без хоста; nvim вышел по :wq"
+        },
+        {
+          "dir": "apps-surface-rust-base",
+          "part": "dead-key",
+          "requirement": "required",
+          "status": "not_run",
+          "not_run_cause": "surface",
+          "reason": "контроль без хоста: файл \"\", ожидался \"é\\n\""
+        },
+        {
+          "dir": "apps-surface-rust-base",
+          "part": "ime",
+          "requirement": "research",
+          "status": "not_run",
+          "not_run_cause": "stand",
+          "reason": "контроль без хоста: IME не закоммитил текст по Return: keyDown 45 flags=0x0 chars=\"n\" | setMarkedText \"n\" | sent press 45 mods=0 text=\"n\" composing handled=false | sent release 45 mods=0 text=\"\" handled=false | keyDown 34 flags=0x0 chars=\"i\" | setMarkedText \"に\" | sent press 34 mods=0 text=\"i\" composing handled=false | sent release 34 mods=0 text=\"\" handled=false | keyDown 4 flags=0x0 chars=\"h\" | setMarkedText \"にh\" | sent press 4 mods=0 text=\"h\" composing handled=false | sent release 4 mods=0 text=\"\" handled=false | keyDown 31 flags=0x0 chars=\"o\" | setMarkedText \"にほ\" | sent press 31 mods=0 text=\"o\" composing handled=false | sent release 31 mods=0 text=\"\" handled=false | keyDown 45 flags=0x0 chars=\"n\" | setMarkedText \"にほn\" | sent press 45 mods=0 text=\"n\" composing handled=false | sent release 45 mods=0 text=\"\" handled=false | keyDown 45 flags=0x0 chars=\"n\" | setMarkedText \"日本\" | sent press 45 mods=0 text=\"n\" composing handled=false | sent release 45 mods=0 text=\"\" handled=false | keyDown 49 flags=0x0 chars=\" \" | setMarkedText \"日本\" | sent press 49 mods=0 text=\" \" composing handled=false | sent release 49 mods=0 text=\"\" handled=false | keyDown 36 flags=0x0 chars=\"\\r\" | keyDown 36: съедено composition | keyDown 40 flags=0x0 chars=\"k\" | sent press 40 mods=0 text=\"k\" composing handled=false | sent release 40 mods=0 text=\"\" handled=false | keyDown 0 flags=0x0 chars=\"a\" | sent press 0 mods=0 text=\"a\" composing handled=false | sent release 0 mods=0 text=\"\" handled=false | keyDown 53 flags=0x0 chars=\"\\u{1b}\" | keyDown 53: съедено composition | keyDown 53 flags=0x0 chars=\"\\u{1b}\" | keyDown 53: съедено composition"
+        },
+        {
+          "dir": "apps-surface-rust-base",
+          "part": "switch",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: каждый attach показывает свою сессию, ввод доходит; последний attach a для :wq; nvim a вышел по :wq; файл a на диске: ввод всех циклов без потерь; фикстура b жива"
+        }
+      ]
+    },
+    {
+      "id": "G3",
+      "backend": "zmx",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "update-zmx-base",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: host-from-runtime; gui1-killed; alive-after-swap; new-generation-lists; new-generation-ensure-keeps-workload; new-generation-attach; view-after-headless-output; view-after-live-output; input-via-new-generation; control-input-new-generation; workload-and-host-unchanged; host-still-from-runtime"
+        }
+      ]
+    },
+    {
+      "id": "G3",
+      "backend": "rust",
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "update-rust-base",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: host-from-runtime; gui1-killed; alive-after-swap; new-generation-lists; new-generation-ensure-keeps-workload; new-generation-attach; view-after-headless-output; view-after-live-output; input-via-new-generation; control-input-new-generation; workload-and-host-unchanged; host-still-from-runtime"
+        }
+      ]
+    },
+    {
+      "id": "surface-C1",
+      "backend": null,
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "report-policy-base",
+          "part": "control-separate",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: текст после восстановления по read_text; курсор после восстановления по CPR; символ живого потока в позиции курсора по read_text"
+        },
+        {
+          "dir": "report-policy-base",
+          "part": "policy-separate",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: текст после восстановления по read_text; курсор после восстановления по CPR; символ живого потока в позиции курсора по read_text"
+        },
+        {
+          "dir": "report-policy-base",
+          "part": "filter-separate",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: текст после восстановления по read_text; курсор после восстановления по CPR; символ живого потока в позиции курсора по read_text"
+        },
+        {
+          "dir": "report-policy-base",
+          "part": "control-mixed",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: текст после восстановления по read_text; курсор после восстановления по CPR; символ живого потока в позиции курсора по read_text"
+        },
+        {
+          "dir": "report-policy-base",
+          "part": "policy-mixed",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: текст после восстановления по read_text; курсор после восстановления по CPR; символ живого потока в позиции курсора по read_text"
+        },
+        {
+          "dir": "report-policy-base",
+          "part": "filter-mixed",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: текст после восстановления по read_text; курсор после восстановления по CPR; символ живого потока в позиции курсора по read_text"
+        }
+      ]
+    },
+    {
+      "id": "surface-C2",
+      "backend": null,
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "report-policy-base",
+          "part": "policy-separate",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: записанные байты без режимов отчётов (независимый разбор); replay: ни одного байта от поверхности; key: ни одного байта от поверхности; live: ни одного байта от поверхности; focus-out: ни одного байта от поверхности; focus-in: ни одного байта от поверхности; hidden: ни одного байта от поверхности; visible: ни одного байта от поверхности; resize: ни одного байта от поверхности; scheme: ни одного байта от поверхности"
+        },
+        {
+          "dir": "report-policy-base",
+          "part": "filter-separate",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: записанные байты без режимов отчётов (независимый разбор); replay: ни одного байта от поверхности; key: ни одного байта от поверхности; live: ни одного байта от поверхности; focus-out: ни одного байта от поверхности; focus-in: ни одного байта от поверхности; hidden: ни одного байта от поверхности; visible: ни одного байта от поверхности; resize: ни одного байта от поверхности; scheme: ни одного байта от поверхности"
+        },
+        {
+          "dir": "report-policy-base",
+          "part": "policy-mixed",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: записанные байты без режимов отчётов (независимый разбор); replay: ни одного байта от поверхности; key: ни одного байта от поверхности; live: ни одного байта от поверхности; focus-out: ни одного байта от поверхности; focus-in: ни одного байта от поверхности; hidden: ни одного байта от поверхности; visible: ни одного байта от поверхности; resize: ни одного байта от поверхности; scheme: ни одного байта от поверхности"
+        },
+        {
+          "dir": "report-policy-base",
+          "part": "filter-mixed",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: записанные байты без режимов отчётов (независимый разбор); replay: ни одного байта от поверхности; key: ни одного байта от поверхности; live: ни одного байта от поверхности; focus-out: ни одного байта от поверхности; focus-in: ни одного байта от поверхности; hidden: ни одного байта от поверхности; visible: ни одного байта от поверхности; resize: ни одного байта от поверхности; scheme: ни одного байта от поверхности"
+        }
+      ]
+    },
+    {
+      "id": "surface-C3",
+      "backend": null,
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "report-policy-base",
+          "part": "control-separate",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: 2004 после восстановления: вставка в CSI 200~ … 201~; 2004 после живого потока: вставка в CSI 200~ … 201~; DECCKM: «вверх» кодируется CSI O A"
+        },
+        {
+          "dir": "report-policy-base",
+          "part": "policy-separate",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: 2004 после восстановления: вставка в CSI 200~ … 201~; 2004 после живого потока: вставка в CSI 200~ … 201~; DECCKM: «вверх» кодируется CSI O A"
+        },
+        {
+          "dir": "report-policy-base",
+          "part": "filter-separate",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: 2004 после восстановления: вставка в CSI 200~ … 201~; 2004 после живого потока: вставка в CSI 200~ … 201~; DECCKM: «вверх» кодируется CSI O A"
+        },
+        {
+          "dir": "report-policy-base",
+          "part": "control-mixed",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: 2004 после восстановления: вставка в CSI 200~ … 201~; 2004 после живого потока: вставка в CSI 200~ … 201~; DECCKM: «вверх» кодируется CSI O A"
+        },
+        {
+          "dir": "report-policy-base",
+          "part": "policy-mixed",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: 2004 после восстановления: вставка в CSI 200~ … 201~; 2004 после живого потока: вставка в CSI 200~ … 201~; DECCKM: «вверх» кодируется CSI O A"
+        },
+        {
+          "dir": "report-policy-base",
+          "part": "filter-mixed",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: 2004 после восстановления: вставка в CSI 200~ … 201~; 2004 после живого потока: вставка в CSI 200~ … 201~; DECCKM: «вверх» кодируется CSI O A"
+        }
+      ]
+    },
+    {
+      "id": "surface-control",
+      "backend": null,
+      "requirement": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "report-policy-base",
+          "part": "separate",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: replay: отчёт поверхности виден; live: отчёт поверхности виден; focus-out: отчёт поверхности виден; focus-in: отчёт поверхности виден; hidden: отчёт поверхности виден; visible: отчёт поверхности виден; resize: отчёт поверхности виден; scheme: отчёт поверхности виден"
+        },
+        {
+          "dir": "report-policy-base",
+          "part": "mixed",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "выполнено: replay: отчёт поверхности виден; live: отчёт поверхности виден; focus-out: отчёт поверхности виден; focus-in: отчёт поверхности виден; hidden: отчёт поверхности виден; visible: отчёт поверхности виден; resize: отчёт поверхности виден; scheme: отчёт поверхности виден"
+        }
+      ]
+    }
+  ],
+  "metrics": []
+}

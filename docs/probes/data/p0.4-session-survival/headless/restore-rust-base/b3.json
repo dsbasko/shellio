@@ -1,0 +1,182 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после attach",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0"
+    },
+    {
+      "name": "суффикс decrc через кандидата",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после суффикса decrc",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "record": {
+      "host": {
+        "pid": 39774,
+        "start_us": 1794931218426094
+      },
+      "session": "saa5e6cd26c42cc70-b3",
+      "workload": {
+        "pid": 39775,
+        "start_us": 1794931218429542
+      },
+      "workload_pgid": 39775,
+      "workload_sid": 39775
+    },
+    "после attach.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после attach.receiver_text": [
+      "b3 00",
+      "b3 01",
+      "b3 02",
+      "b3 03",
+      "b3 04",
+      "b3 05",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "moved",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после attach.reference_text": [
+      "b3 00",
+      "b3 01",
+      "b3 02",
+      "b3 03",
+      "b3 04",
+      "b3 05",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "moved",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса decrc.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после суффикса decrc.receiver_text": [
+      "b3 00",
+      "b3 01",
+      "b3 02",
+      "b3 03",
+      "b3 04    R",
+      "b3 05",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "moved",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса decrc.reference_text": [
+      "b3 00",
+      "b3 01",
+      "b3 02",
+      "b3 03",
+      "b3 04    R",
+      "b3 05",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "moved",
+      "",
+      "",
+      "",
+      ""
+    ]
+  }
+}

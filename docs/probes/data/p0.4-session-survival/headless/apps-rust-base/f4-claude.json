@@ -1,0 +1,64 @@
+{
+  "checks": [
+    {
+      "detail": "ok",
+      "name": "c1 лидер",
+      "ok": true
+    },
+    {
+      "detail": "ok",
+      "name": "SIGKILL c1",
+      "ok": true
+    },
+    {
+      "detail": "PID 44674 старт 1794931664877353: Same(ProcessInfo { key: ProcessKey { pid: 44674, start_us: 1794931664877353 }, ppid: 44673, pgid: 44674, sid: Some(44674), tpgid: Some(44674), tty: Some(268435459), state: Running, exiting: false, comm: \"claude.exe\" })",
+      "name": "агент жив после SIGKILL клиента",
+      "ok": true
+    },
+    {
+      "detail": "ok",
+      "name": "c2 лидер",
+      "ok": true
+    },
+    {
+      "detail": "нет 0 номеров из 150 за 120 с",
+      "name": "ответ дописан после attach",
+      "ok": true
+    },
+    {
+      "detail": "до SIGKILL 29 строк ответа, после attach 150",
+      "name": "строки до SIGKILL на месте по порядку",
+      "ok": true
+    },
+    {
+      "detail": "PID 44674 старт 1794931664877353: Same(ProcessInfo { key: ProcessKey { pid: 44674, start_us: 1794931664877353 }, ppid: 44673, pgid: 44674, sid: Some(44674), tpgid: Some(44674), tty: Some(268435459), state: Running, exiting: false, comm: \"claude.exe\" })",
+      "name": "агент жив после attach",
+      "ok": true
+    }
+  ],
+  "facts": {
+    "after": {
+      "count": 150,
+      "first": 1,
+      "last": 150,
+      "missing": 0,
+      "repeats": 0
+    },
+    "before": {
+      "count": 29,
+      "first": 1,
+      "last": 29,
+      "missing": 121,
+      "repeats": 0
+    },
+    "control_echo": false,
+    "discard": [],
+    "echo": false,
+    "enters": 0,
+    "finish_ms": 5,
+    "start_ms": 2465,
+    "survivors": 0
+  },
+  "not_proven": "эхо ввода не видно и у c1 до SIGKILL: стенд не распознаёт поле ввода агента",
+  "session": "s4a4b51a782587cee-claude"
+}

@@ -1,0 +1,230 @@
+{
+  "checks": [
+    {
+      "name": "снимок поколения без v1: явное состояние несовместимости",
+      "ok": true,
+      "detail": "Err(Incompatible(\"несовместимое поколение: хост выбрал протокол 1, клиент понимает 2\"))"
+    },
+    {
+      "name": "ввод поколения без v1: явное состояние несовместимости",
+      "ok": true,
+      "detail": "Err(Incompatible(\"несовместимое поколение: хост выбрал протокол 1, клиент понимает 2\"))"
+    },
+    {
+      "name": "attach-клиент поколения без v1 вышел с кодом несовместимости",
+      "ok": true,
+      "detail": "Ok(ExitStatus(unix_wait_status(1280)))"
+    },
+    {
+      "name": "ensure поколения без v1: явное состояние, нагрузка не запускается",
+      "ok": true,
+      "detail": "Err(Incompatible(\"несовместимое поколение: хост выбрал протокол 1, клиент понимает 2\"))"
+    },
+    {
+      "name": "состояние сессии для поколения без v1 — несовместимость",
+      "ok": true,
+      "detail": "Incompatible { reason: \"несовместимое поколение: хост выбрал протокол 1, клиент понимает 2\" }"
+    },
+    {
+      "name": "процессов сессии не прибавилось",
+      "ok": true,
+      "detail": "до 2, после 2"
+    },
+    {
+      "name": "нагрузка та же",
+      "ok": true,
+      "detail": "PID 41089 старт 1794931287515341: Same(ProcessInfo { key: ProcessKey { pid: 41089, start_us: 1794931287515341 }, ppid: 41088, pgid: 41089, sid: Some(41089), tpgid: Some(41089), tty: Some(268435459), state: Running, exiting: false, comm: \"probe-session-f\" })"
+    },
+    {
+      "name": "хост v1 тот же",
+      "ok": true,
+      "detail": "PID 41088 старт 1794931287510152: Same(ProcessInfo { key: ProcessKey { pid: 41088, start_us: 1794931287510152 }, ppid: 1, pgid: 41087, sid: Some(41087), tpgid: None, tty: None, state: Running, exiting: false, comm: \"probe-session-h\" })"
+    },
+    {
+      "name": "текущее поколение по-прежнему говорит с хостом v1",
+      "ok": true,
+      "detail": "Status { host: ProcessKey { pid: 41088, start_us: 1794931287510152 }, workload: ProcessKey { pid: 41089, start_us: 1794931287515341 }, workload_pgid: 41089, workload_sid: Some(41089), clients: 0, leader: false, reads: 6, read_bytes: 87, parsed_bytes: 87, replies: 0, dropped_replies: 8, clipboard: ClipStats { requests: 0, answered: 0, timeouts: 0, cancelled: 0, no_gui: 0, dropped: 0 }, size: Winsize { rows: 24, cols: 80, xpixel: 800, ypixel: 480 }, generation: 2, evictions: 0, input_queued: 0 }"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "attach": {
+      "elapsed_ms": 6,
+      "exit": "Ok(ExitStatus(unix_wait_status(1280)))"
+    },
+    "ensure": {
+      "elapsed_ms": 0,
+      "result": "Err(Incompatible(\"несовместимое поколение: хост выбрал протокол 1, клиент понимает 2\"))"
+    },
+    "input": {
+      "elapsed_ms": 0,
+      "result": "Err(Incompatible(\"несовместимое поколение: хост выбрал протокол 1, клиент понимает 2\"))"
+    },
+    "liveness": {
+      "reason": "несовместимое поколение: хост выбрал протокол 1, клиент понимает 2",
+      "state": "incompatible"
+    },
+    "record": {
+      "host": {
+        "pid": 41088,
+        "start_us": 1794931287510152
+      },
+      "session": "s542175d19281e737-g",
+      "workload": {
+        "pid": 41089,
+        "start_us": 1794931287515341
+      },
+      "workload_pgid": 41089,
+      "workload_sid": 41089
+    },
+    "rejected_attach_traces": {
+      "clients_after": 0,
+      "generation_after": 2,
+      "generation_before": 1,
+      "winch_receipts": 0
+    },
+    "snapshot": {
+      "elapsed_ms": 0,
+      "result": "Err(Incompatible(\"несовместимое поколение: хост выбрал протокол 1, клиент понимает 2\"))"
+    },
+    "status_after": {
+      "clients": 0,
+      "clipboard": {
+        "answered": 0,
+        "cancelled": 0,
+        "dropped": 0,
+        "no_gui": 0,
+        "requests": 0,
+        "timeouts": 0
+      },
+      "dropped_replies": 8,
+      "evictions": 0,
+      "generation": 2,
+      "host": {
+        "pid": 41088,
+        "start_us": 1794931287510152
+      },
+      "input_queued": 0,
+      "leader": false,
+      "parsed_bytes": 87,
+      "read_bytes": 87,
+      "reads": 6,
+      "replies": 0,
+      "size": {
+        "cols": 80,
+        "rows": 24,
+        "xpixel": 800,
+        "ypixel": 480
+      },
+      "workload": {
+        "pid": 41089,
+        "start_us": 1794931287515341
+      },
+      "workload_pgid": 41089,
+      "workload_sid": 41089
+    },
+    "status_before": {
+      "clients": 0,
+      "clipboard": {
+        "answered": 0,
+        "cancelled": 0,
+        "dropped": 0,
+        "no_gui": 0,
+        "requests": 0,
+        "timeouts": 0
+      },
+      "dropped_replies": 8,
+      "evictions": 0,
+      "generation": 1,
+      "host": {
+        "pid": 41088,
+        "start_us": 1794931287510152
+      },
+      "input_queued": 0,
+      "leader": false,
+      "parsed_bytes": 87,
+      "read_bytes": 87,
+      "reads": 6,
+      "replies": 0,
+      "size": {
+        "cols": 80,
+        "rows": 24,
+        "xpixel": 800,
+        "ypixel": 480
+      },
+      "workload": {
+        "pid": 41089,
+        "start_us": 1794931287515341
+      },
+      "workload_pgid": 41089,
+      "workload_sid": 41089
+    },
+    "stop": {
+      "alive_after_command": [
+        {
+          "pid": 41088,
+          "start_us": 1794931287510152
+        },
+        {
+          "pid": 41089,
+          "start_us": 1794931287515341
+        }
+      ],
+      "command": {
+        "args": [
+          "stop",
+          "s542175d19281e737-g"
+        ],
+        "code": 0,
+        "elapsed_ms": 0,
+        "signal": null,
+        "stderr": "",
+        "stdout": "Ok(Done)"
+      },
+      "processes": [
+        {
+          "pid": 41088,
+          "start_us": 1794931287510152
+        },
+        {
+          "pid": 41089,
+          "start_us": 1794931287515341
+        }
+      ],
+      "survivors": [],
+      "waited_ms": 1041
+    },
+    "нагрузка та же": {
+      "comm": "probe-session-f",
+      "exiting": false,
+      "key": {
+        "pid": 41089,
+        "start_us": 1794931287515341
+      },
+      "kind": "same",
+      "pgid": 41089,
+      "ppid": 41088,
+      "sid": 41089,
+      "state": "running",
+      "tpgid": 41089,
+      "tty": 268435459
+    },
+    "хост v1 тот же": {
+      "comm": "probe-session-h",
+      "exiting": false,
+      "key": {
+        "pid": 41088,
+        "start_us": 1794931287510152
+      },
+      "kind": "same",
+      "pgid": 41087,
+      "ppid": 1,
+      "sid": 41087,
+      "state": "running",
+      "tpgid": null,
+      "tty": null
+    }
+  }
+}

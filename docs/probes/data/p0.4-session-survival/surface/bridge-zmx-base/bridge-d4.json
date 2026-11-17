@@ -1,0 +1,19 @@
+{
+  "after_kill": {
+    "gui2_reads": [],
+    "pending": "запрос 2 в журнале GUI №1 без ответа",
+    "responses": []
+  },
+  "gui1": "gui11",
+  "gui2": "gui12",
+  "live": {
+    "asked": "запрос 1 в журнале GUI №1, ответ после него",
+    "responses": [
+      [
+        "clipboard",
+        "1b5d35323b633b596e4a705a47646c4c5751301b5c"
+      ]
+    ]
+  },
+  "session": "sebc93353e66519b2-d4"
+}

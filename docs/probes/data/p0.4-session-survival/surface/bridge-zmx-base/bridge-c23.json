@@ -1,0 +1,1105 @@
+{
+  "c2_before_hex": "1b5b491b5b491b5b34383b32343b38303b3732303b3132383074",
+  "control": {
+    "expected_input_hex": "1b5b39373b3b3937751b5b411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e",
+    "input_hex": "1b5b39373b3b3937751b5b411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e",
+    "lines": [
+      "alt-screen-text",
+      "",
+      "alt-line-3"
+    ]
+  },
+  "gui2": {
+    "pid": 54827,
+    "steps": [
+      {
+        "input_hex": "1b5b39373b3b3937751b5b411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e",
+        "lines": [
+          "alt-screen-text",
+          "",
+          "alt-line-3"
+        ],
+        "step": "restored"
+      },
+      {
+        "input_hex": "611b4f411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e",
+        "lines": [
+          "alt-screen-text",
+          "",
+          "alt-line-3"
+        ],
+        "step": "kitty-pop"
+      },
+      {
+        "input_hex": "611b4f411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e",
+        "lines": [
+          "alt-screen-text",
+          "",
+          "alt-line-3"
+        ],
+        "step": "kitty-pop-2"
+      },
+      {
+        "input_hex": "611b4f411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e",
+        "lines": [
+          "@lt-screen-text",
+          "",
+          "alt-line-3"
+        ],
+        "step": "decrc"
+      },
+      {
+        "input_hex": "611b4f411b5b3c303b363b344d1b5b3c303b363b346d1b5b3230307e7073732d70617374651b5b3230317e",
+        "lines": [
+          "#"
+        ],
+        "step": "leave-alt"
+      }
+    ]
+  },
+  "receipts_after_kill": [
+    {
+      "event": {
+        "hex": "1b5b4f",
+        "index": 13,
+        "kind": "read"
+      },
+      "seq": 27,
+      "t_ns": 582457776246708
+    },
+    {
+      "event": {
+        "hex": "1b5b4f",
+        "index": 12,
+        "kind": "response",
+        "response": "focus-out"
+      },
+      "seq": 28,
+      "t_ns": 582457776288625
+    },
+    {
+      "event": {
+        "hex": "7073732d63322d647261696e",
+        "index": 14,
+        "kind": "read"
+      },
+      "seq": 29,
+      "t_ns": 582457781728541
+    },
+    {
+      "event": {
+        "kind": "winch",
+        "size": {
+          "cols": 80,
+          "rows": 24,
+          "xpixel": 1280,
+          "ypixel": 720
+        }
+      },
+      "seq": 30,
+      "t_ns": 582457956140833
+    },
+    {
+      "event": {
+        "hex": "1b5b49",
+        "index": 15,
+        "kind": "read"
+      },
+      "seq": 31,
+      "t_ns": 582457956155416
+    },
+    {
+      "event": {
+        "hex": "1b5b49",
+        "index": 13,
+        "kind": "response",
+        "response": "focus-in"
+      },
+      "seq": 32,
+      "t_ns": 582457956164208
+    },
+    {
+      "event": {
+        "hex": "1b5b49",
+        "index": 16,
+        "kind": "read"
+      },
+      "seq": 33,
+      "t_ns": 582457956273250
+    },
+    {
+      "event": {
+        "hex": "1b5b49",
+        "index": 14,
+        "kind": "response",
+        "response": "focus-in"
+      },
+      "seq": 34,
+      "t_ns": 582457956283041
+    },
+    {
+      "event": {
+        "hex": "1b5b34383b32343b38303b3732303b3132383074",
+        "index": 17,
+        "kind": "read"
+      },
+      "seq": 35,
+      "t_ns": 582457956292666
+    },
+    {
+      "event": {
+        "hex": "1b5b34383b32343b38303b3732303b3132383074",
+        "index": 15,
+        "kind": "response",
+        "response": "size-report"
+      },
+      "seq": 36,
+      "t_ns": 582457956302708
+    },
+    {
+      "event": {
+        "bytes": 4,
+        "error": null,
+        "id": 2,
+        "kind": "ack"
+      },
+      "seq": 37,
+      "t_ns": 582457963793375
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 18,
+        "kind": "read"
+      },
+      "seq": 38,
+      "t_ns": 582457963880458
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 16,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 39,
+      "t_ns": 582457963888500
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 19,
+        "kind": "read"
+      },
+      "seq": 40,
+      "t_ns": 582457971815791
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 17,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 41,
+      "t_ns": 582457971829250
+    },
+    {
+      "event": {
+        "hex": "7073732d63322d726573746f7265",
+        "index": 20,
+        "kind": "read"
+      },
+      "seq": 42,
+      "t_ns": 582457971850875
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 21,
+        "kind": "read"
+      },
+      "seq": 43,
+      "t_ns": 582457971853875
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 18,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 44,
+      "t_ns": 582457971865250
+    },
+    {
+      "event": {
+        "hex": "1b5b39373b3b393775",
+        "index": 22,
+        "kind": "read"
+      },
+      "seq": 45,
+      "t_ns": 582457982229083
+    },
+    {
+      "event": {
+        "hex": "1b5b39373b3b393775",
+        "index": 19,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 46,
+      "t_ns": 582457982246041
+    },
+    {
+      "event": {
+        "hex": "1b5b41",
+        "index": 23,
+        "kind": "read"
+      },
+      "seq": 47,
+      "t_ns": 582457982247625
+    },
+    {
+      "event": {
+        "hex": "1b5b41",
+        "index": 20,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 48,
+      "t_ns": 582457982251083
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 24,
+        "kind": "read"
+      },
+      "seq": 49,
+      "t_ns": 582457982785041
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 21,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 50,
+      "t_ns": 582457982793875
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 25,
+        "kind": "read"
+      },
+      "seq": 51,
+      "t_ns": 582457982803250
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 22,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 52,
+      "t_ns": 582457982811166
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 26,
+        "kind": "read"
+      },
+      "seq": 53,
+      "t_ns": 582457986684833
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 23,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 54,
+      "t_ns": 582457986694250
+    },
+    {
+      "event": {
+        "hex": "7073732d7061737465",
+        "index": 27,
+        "kind": "read"
+      },
+      "seq": 55,
+      "t_ns": 582457986699250
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 28,
+        "kind": "read"
+      },
+      "seq": 56,
+      "t_ns": 582457986717541
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 24,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 57,
+      "t_ns": 582457986723166
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 29,
+        "kind": "read"
+      },
+      "seq": 58,
+      "t_ns": 582457989328541
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 25,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 59,
+      "t_ns": 582457989335916
+    },
+    {
+      "event": {
+        "hex": "7073732d63332d726573746f726564",
+        "index": 30,
+        "kind": "read"
+      },
+      "seq": 60,
+      "t_ns": 582457989347958
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 31,
+        "kind": "read"
+      },
+      "seq": 61,
+      "t_ns": 582457989365875
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 26,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 62,
+      "t_ns": 582457989373458
+    },
+    {
+      "event": {
+        "bytes": 8,
+        "error": null,
+        "id": 3,
+        "kind": "ack"
+      },
+      "seq": 63,
+      "t_ns": 582457995102208
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 32,
+        "kind": "read"
+      },
+      "seq": 64,
+      "t_ns": 582457995172125
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 27,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 65,
+      "t_ns": 582457995176875
+    },
+    {
+      "event": {
+        "hex": "611b4f41",
+        "index": 33,
+        "kind": "read"
+      },
+      "seq": 66,
+      "t_ns": 582458007275625
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 34,
+        "kind": "read"
+      },
+      "seq": 67,
+      "t_ns": 582458008114666
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 28,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 68,
+      "t_ns": 582458008123500
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 35,
+        "kind": "read"
+      },
+      "seq": 69,
+      "t_ns": 582458008137125
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 29,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 70,
+      "t_ns": 582458008142666
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 36,
+        "kind": "read"
+      },
+      "seq": 71,
+      "t_ns": 582458013787625
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 30,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 72,
+      "t_ns": 582458013795833
+    },
+    {
+      "event": {
+        "hex": "7073732d7061737465",
+        "index": 37,
+        "kind": "read"
+      },
+      "seq": 73,
+      "t_ns": 582458013809125
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 38,
+        "kind": "read"
+      },
+      "seq": 74,
+      "t_ns": 582458013824250
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 31,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 75,
+      "t_ns": 582458013830208
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e7073732d63332d6b697474792d706f70",
+        "index": 39,
+        "kind": "read"
+      },
+      "seq": 76,
+      "t_ns": 582458017420375
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 32,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 77,
+      "t_ns": 582458017429083
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 40,
+        "kind": "read"
+      },
+      "seq": 78,
+      "t_ns": 582458017435666
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 33,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 79,
+      "t_ns": 582458017441875
+    },
+    {
+      "event": {
+        "bytes": 8,
+        "error": null,
+        "id": 4,
+        "kind": "ack"
+      },
+      "seq": 80,
+      "t_ns": 582458023707333
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 41,
+        "kind": "read"
+      },
+      "seq": 81,
+      "t_ns": 582458023794833
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 34,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 82,
+      "t_ns": 582458023806000
+    },
+    {
+      "event": {
+        "hex": "61",
+        "index": 42,
+        "kind": "read"
+      },
+      "seq": 83,
+      "t_ns": 582458033180083
+    },
+    {
+      "event": {
+        "hex": "1b4f41",
+        "index": 43,
+        "kind": "read"
+      },
+      "seq": 84,
+      "t_ns": 582458033214750
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 44,
+        "kind": "read"
+      },
+      "seq": 85,
+      "t_ns": 582458034117000
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 35,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 86,
+      "t_ns": 582458034123666
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 45,
+        "kind": "read"
+      },
+      "seq": 87,
+      "t_ns": 582458034137000
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 36,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 88,
+      "t_ns": 582458034143208
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 46,
+        "kind": "read"
+      },
+      "seq": 89,
+      "t_ns": 582458039813291
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 37,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 90,
+      "t_ns": 582458039820958
+    },
+    {
+      "event": {
+        "hex": "7073732d7061737465",
+        "index": 47,
+        "kind": "read"
+      },
+      "seq": 91,
+      "t_ns": 582458039835625
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 48,
+        "kind": "read"
+      },
+      "seq": 92,
+      "t_ns": 582458039855458
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 38,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 93,
+      "t_ns": 582458039861833
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 49,
+        "kind": "read"
+      },
+      "seq": 94,
+      "t_ns": 582458042283958
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 39,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 95,
+      "t_ns": 582458042294500
+    },
+    {
+      "event": {
+        "hex": "7073732d63332d6b697474792d706f702d32",
+        "index": 50,
+        "kind": "read"
+      },
+      "seq": 96,
+      "t_ns": 582458042308583
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 51,
+        "kind": "read"
+      },
+      "seq": 97,
+      "t_ns": 582458042317500
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 40,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 98,
+      "t_ns": 582458042320916
+    },
+    {
+      "event": {
+        "bytes": 7,
+        "error": null,
+        "id": 5,
+        "kind": "ack"
+      },
+      "seq": 99,
+      "t_ns": 582458048539958
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 52,
+        "kind": "read"
+      },
+      "seq": 100,
+      "t_ns": 582458048621333
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 41,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 101,
+      "t_ns": 582458048629708
+    },
+    {
+      "event": {
+        "hex": "61",
+        "index": 53,
+        "kind": "read"
+      },
+      "seq": 102,
+      "t_ns": 582458057240791
+    },
+    {
+      "event": {
+        "hex": "1b4f41",
+        "index": 54,
+        "kind": "read"
+      },
+      "seq": 103,
+      "t_ns": 582458057284833
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 55,
+        "kind": "read"
+      },
+      "seq": 104,
+      "t_ns": 582458058090125
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 42,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 105,
+      "t_ns": 582458058102666
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 56,
+        "kind": "read"
+      },
+      "seq": 106,
+      "t_ns": 582458058118125
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 43,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 107,
+      "t_ns": 582458058127208
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 57,
+        "kind": "read"
+      },
+      "seq": 108,
+      "t_ns": 582458063343583
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 44,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 109,
+      "t_ns": 582458063350916
+    },
+    {
+      "event": {
+        "hex": "7073732d7061737465",
+        "index": 58,
+        "kind": "read"
+      },
+      "seq": 110,
+      "t_ns": 582458063372791
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 59,
+        "kind": "read"
+      },
+      "seq": 111,
+      "t_ns": 582458063401000
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 45,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 112,
+      "t_ns": 582458063408583
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 60,
+        "kind": "read"
+      },
+      "seq": 113,
+      "t_ns": 582458066238958
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 46,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 114,
+      "t_ns": 582458066250541
+    },
+    {
+      "event": {
+        "hex": "7073732d63332d6465637263",
+        "index": 61,
+        "kind": "read"
+      },
+      "seq": 115,
+      "t_ns": 582458066243125
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 62,
+        "kind": "read"
+      },
+      "seq": 116,
+      "t_ns": 582458066279708
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 47,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 117,
+      "t_ns": 582458066286583
+    },
+    {
+      "event": {
+        "bytes": 13,
+        "error": null,
+        "id": 6,
+        "kind": "ack"
+      },
+      "seq": 118,
+      "t_ns": 582458071871791
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 63,
+        "kind": "read"
+      },
+      "seq": 119,
+      "t_ns": 582458071979791
+    },
+    {
+      "event": {
+        "hex": "1b5b306e",
+        "index": 48,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 120,
+      "t_ns": 582458071990083
+    },
+    {
+      "event": {
+        "hex": "61",
+        "index": 64,
+        "kind": "read"
+      },
+      "seq": 121,
+      "t_ns": 582458083133291
+    },
+    {
+      "event": {
+        "hex": "1b4f41",
+        "index": 65,
+        "kind": "read"
+      },
+      "seq": 122,
+      "t_ns": 582458083213500
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 66,
+        "kind": "read"
+      },
+      "seq": 123,
+      "t_ns": 582458084204333
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b344d",
+        "index": 49,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 124,
+      "t_ns": 582458084217208
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 67,
+        "kind": "read"
+      },
+      "seq": 125,
+      "t_ns": 582458084228041
+    },
+    {
+      "event": {
+        "hex": "1b5b3c303b363b346d",
+        "index": 50,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 126,
+      "t_ns": 582458084237000
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 68,
+        "kind": "read"
+      },
+      "seq": 127,
+      "t_ns": 582458089910958
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 51,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 128,
+      "t_ns": 582458089929875
+    },
+    {
+      "event": {
+        "hex": "7073732d7061737465",
+        "index": 69,
+        "kind": "read"
+      },
+      "seq": 129,
+      "t_ns": 582458089934291
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 70,
+        "kind": "read"
+      },
+      "seq": 130,
+      "t_ns": 582458089960625
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 52,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 131,
+      "t_ns": 582458089968833
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 71,
+        "kind": "read"
+      },
+      "seq": 132,
+      "t_ns": 582458091320250
+    },
+    {
+      "event": {
+        "hex": "1b5b3230307e",
+        "index": 53,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 133,
+      "t_ns": 582458091331416
+    },
+    {
+      "event": {
+        "hex": "7073732d63332d6c656176652d616c74",
+        "index": 72,
+        "kind": "read"
+      },
+      "seq": 134,
+      "t_ns": 582458091347875
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 73,
+        "kind": "read"
+      },
+      "seq": 135,
+      "t_ns": 582458091367708
+    },
+    {
+      "event": {
+        "hex": "1b5b3230317e",
+        "index": 54,
+        "kind": "response",
+        "response": "other-csi"
+      },
+      "seq": 136,
+      "t_ns": 582458091374583
+    }
+  ],
+  "session": "sebc93353e66519b2-c23"
+}

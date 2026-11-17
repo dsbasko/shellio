@@ -1,0 +1,216 @@
+{
+  "checks": [
+    {
+      "name": "bound: точка по порядку",
+      "ok": true,
+      "detail": "пришла «bound», ожидалась «bound»"
+    },
+    {
+      "name": "bound: имени сессии нет, временное есть",
+      "ok": true,
+      "detail": "SocketEntries { sessions: [], staged: [\".sdb49c7f9c9880d58-e5w.40942\"] }"
+    },
+    {
+      "name": "bound: list без сессии",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "bound: сессии нет",
+      "ok": true,
+      "detail": "Absent"
+    },
+    {
+      "name": "bound: attach отказал явно",
+      "ok": true,
+      "detail": "{\"code\":1,\"stderr\":\"probe-session-attach: нет сессии /tmp/pss-db49c7f9c9880d58/r/sdb49c7f9c9880d58-e5w: No such file or directory (os error 2)\\n\"}"
+    },
+    {
+      "name": "listening: точка по порядку",
+      "ok": true,
+      "detail": "пришла «listening», ожидалась «listening»"
+    },
+    {
+      "name": "listening: имени сессии нет, временное есть",
+      "ok": true,
+      "detail": "SocketEntries { sessions: [], staged: [\".sdb49c7f9c9880d58-e5w.40942\"] }"
+    },
+    {
+      "name": "listening: list без сессии",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "listening: сессии нет",
+      "ok": true,
+      "detail": "Absent"
+    },
+    {
+      "name": "listening: attach отказал явно",
+      "ok": true,
+      "detail": "{\"code\":1,\"stderr\":\"probe-session-attach: нет сессии /tmp/pss-db49c7f9c9880d58/r/sdb49c7f9c9880d58-e5w: No such file or directory (os error 2)\\n\"}"
+    },
+    {
+      "name": "ensure создал сессию",
+      "ok": true,
+      "detail": "HostRecord { session: SessionId(\"sdb49c7f9c9880d58-e5w\"), host: ProcessKey { pid: 40942, start_us: 1794931277838033 }, workload: ProcessKey { pid: 40945, start_us: 1794931277843582 }, workload_pgid: 40945, workload_sid: Some(40945) }"
+    },
+    {
+      "name": "после публикации: имя сессии без временного",
+      "ok": true,
+      "detail": "SocketEntries { sessions: [\"sdb49c7f9c9880d58-e5w\"], staged: [] }"
+    },
+    {
+      "name": "после публикации: list видит нагрузку",
+      "ok": true,
+      "detail": "[Listed { name: \"sdb49c7f9c9880d58-e5w\", workload_pid: Some(40945), clients: Some(0), error: None }]"
+    },
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "cleanup": [],
+    "ensured": {
+      "command": {
+        "args": [
+          "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-host",
+          "serve",
+          "--dir",
+          "/tmp/pss-db49c7f9c9880d58/r",
+          "--session",
+          "sdb49c7f9c9880d58-e5w",
+          "--size",
+          "24x80x800x480",
+          "--tag",
+          "pss-db49c7f9c9880d58",
+          "--",
+          "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-fixture",
+          "--mode",
+          "emitter",
+          "--channel",
+          "/tmp/pss-db49c7f9c9880d58/c.sock",
+          "--nonce",
+          "sdb49c7f9c9880d58-e5w-w"
+        ],
+        "code": 0,
+        "elapsed_ms": 8,
+        "signal": null,
+        "stderr": "",
+        "stdout": "{\"launch\":\"ready\",\"detail\":{\"session\":\"sdb49c7f9c9880d58-e5w\",\"host\":{\"pid\":40942,\"start_us\":1794931277838033},\"workload\":{\"pid\":40945,\"start_us\":1794931277843582},\"workload_pgid\":40945,\"workload_sid\":40945}}\n"
+      },
+      "created": true,
+      "record": {
+        "host": {
+          "pid": 40942,
+          "start_us": 1794931277838033
+        },
+        "session": "sdb49c7f9c9880d58-e5w",
+        "workload": {
+          "pid": 40945,
+          "start_us": 1794931277843582
+        },
+        "workload_pgid": 40945,
+        "workload_sid": 40945
+      }
+    },
+    "point.bound": {
+      "attach": {
+        "code": 1,
+        "stderr": "probe-session-attach: нет сессии /tmp/pss-db49c7f9c9880d58/r/sdb49c7f9c9880d58-e5w: No such file or directory (os error 2)\n"
+      },
+      "list": [],
+      "liveness": {
+        "state": "absent"
+      },
+      "sockets": {
+        "sessions": [],
+        "staged": [
+          ".sdb49c7f9c9880d58-e5w.40942"
+        ]
+      }
+    },
+    "point.listening": {
+      "attach": {
+        "code": 1,
+        "stderr": "probe-session-attach: нет сессии /tmp/pss-db49c7f9c9880d58/r/sdb49c7f9c9880d58-e5w: No such file or directory (os error 2)\n"
+      },
+      "list": [],
+      "liveness": {
+        "state": "absent"
+      },
+      "sockets": {
+        "sessions": [],
+        "staged": [
+          ".sdb49c7f9c9880d58-e5w.40942"
+        ]
+      }
+    },
+    "points": [
+      "bound",
+      "listening"
+    ],
+    "ready": {
+      "foreground_pgid": 40945,
+      "mode": "emitter",
+      "nonce": "sdb49c7f9c9880d58-e5w-w",
+      "pgid": 40945,
+      "pid": 40945,
+      "ppid": 40942,
+      "raw": true,
+      "sid": 40945,
+      "size": {
+        "cols": 80,
+        "rows": 24,
+        "xpixel": 800,
+        "ypixel": 480
+      },
+      "tty": "/dev/ttys003"
+    },
+    "stop": {
+      "alive_after_command": [
+        {
+          "pid": 40942,
+          "start_us": 1794931277838033
+        },
+        {
+          "pid": 40945,
+          "start_us": 1794931277843582
+        }
+      ],
+      "command": {
+        "args": [
+          "stop",
+          "sdb49c7f9c9880d58-e5w"
+        ],
+        "code": 0,
+        "elapsed_ms": 0,
+        "signal": null,
+        "stderr": "",
+        "stdout": "Ok(Done)"
+      },
+      "processes": [
+        {
+          "pid": 40942,
+          "start_us": 1794931277838033
+        },
+        {
+          "pid": 40945,
+          "start_us": 1794931277843582
+        }
+      ],
+      "survivors": [],
+      "waited_ms": 1034
+    }
+  }
+}

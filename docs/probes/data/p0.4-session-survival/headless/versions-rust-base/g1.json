@@ -1,0 +1,308 @@
+{
+  "checks": [
+    {
+      "name": "клиент текущего поколения стал лидером",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через клиента",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после attach",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0"
+    },
+    {
+      "name": "attach-клиент текущего поколения договорился о протоколе 1",
+      "ok": true,
+      "detail": "журнал хоста: [(1, 2)]"
+    },
+    {
+      "name": "кадры восстановления пришли протоколом 1",
+      "ok": true,
+      "detail": "версия 1"
+    },
+    {
+      "name": "восстановление — VT-байты без заголовка GHOSTSNP",
+      "ok": true,
+      "detail": "263 байт, заголовок GHOSTSNP: false"
+    },
+    {
+      "name": "VT-байты восстановления в чистом терминале",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0"
+    },
+    {
+      "name": "ввод attach-клиента текущего поколения дошёл до нагрузки",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "ввод управляющим соединением подтверждён хостом v1",
+      "ok": true,
+      "detail": "Ok(Accepted)"
+    },
+    {
+      "name": "ввод управляющим соединением дошёл до нагрузки",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер после живого вывода",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "живой поток",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0"
+    },
+    {
+      "name": "ensure текущего поколения нашёл сессию хоста v1",
+      "ok": true,
+      "detail": "created false, нагрузка ProcessKey { pid: 41089, start_us: 1794931287515341 }, до ProcessKey { pid: 41089, start_us: 1794931287515341 }"
+    },
+    {
+      "name": "нагрузка та же",
+      "ok": true,
+      "detail": "PID 41089 старт 1794931287515341: Same(ProcessInfo { key: ProcessKey { pid: 41089, start_us: 1794931287515341 }, ppid: 41088, pgid: 41089, sid: Some(41089), tpgid: Some(41089), tty: Some(268435459), state: Running, exiting: false, comm: \"probe-session-f\" })"
+    },
+    {
+      "name": "хост v1 тот же",
+      "ok": true,
+      "detail": "PID 41088 старт 1794931287510152: Same(ProcessInfo { key: ProcessKey { pid: 41088, start_us: 1794931287510152 }, ppid: 1, pgid: 41087, sid: Some(41087), tpgid: None, tty: None, state: Running, exiting: false, comm: \"probe-session-h\" })"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "VT-байты восстановления в чистом терминале.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "VT-байты восстановления в чистом терминале.text": [
+      "prev host line",
+      "second reverse",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "attach_protocols": [
+      [
+        1,
+        2
+      ]
+    ],
+    "c1.role": "leader:1",
+    "control_input": "Ok(Accepted)",
+    "record": {
+      "host": {
+        "pid": 41088,
+        "start_us": 1794931287510152
+      },
+      "session": "s542175d19281e737-g",
+      "workload": {
+        "pid": 41089,
+        "start_us": 1794931287515341
+      },
+      "workload_pgid": 41089,
+      "workload_sid": 41089
+    },
+    "restore.bytes": 263,
+    "restore.welcome": {
+      "generation": 1,
+      "host": "probe-session-host 0.1.0, протокол 1",
+      "offset": 64,
+      "role": "follower",
+      "session": "s542175d19281e737-g",
+      "version": 1,
+      "vt": "1.4.0"
+    },
+    "welcome": {
+      "generation": 0,
+      "host": "probe-session-host 0.1.0, протокол 1",
+      "offset": 0,
+      "role": "unowned",
+      "session": "s542175d19281e737-g",
+      "version": 1,
+      "vt": "1.4.0"
+    },
+    "живой поток.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "живой поток.receiver_text": [
+      "prev host line",
+      "second reverse",
+      "live after attach",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "живой поток.reference_text": [
+      "prev host line",
+      "second reverse",
+      "live after attach",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "нагрузка та же": {
+      "comm": "probe-session-f",
+      "exiting": false,
+      "key": {
+        "pid": 41089,
+        "start_us": 1794931287515341
+      },
+      "kind": "same",
+      "pgid": 41089,
+      "ppid": 41088,
+      "sid": 41089,
+      "state": "running",
+      "tpgid": 41089,
+      "tty": 268435459
+    },
+    "после attach.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после attach.receiver_text": [
+      "prev host line",
+      "second reverse",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после attach.reference_text": [
+      "prev host line",
+      "second reverse",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "хост v1 тот же": {
+      "comm": "probe-session-h",
+      "exiting": false,
+      "key": {
+        "pid": 41088,
+        "start_us": 1794931287510152
+      },
+      "kind": "same",
+      "pgid": 41087,
+      "ppid": 1,
+      "sid": 41087,
+      "state": "running",
+      "tpgid": null,
+      "tty": null
+    }
+  }
+}

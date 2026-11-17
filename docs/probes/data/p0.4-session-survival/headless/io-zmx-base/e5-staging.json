@@ -1,0 +1,17 @@
+{
+  "checks": [
+    {
+      "name": "без записи в каталог подготовки публикация не идёт молча",
+      "ok": true,
+      "detail": "сессия не создана: отказ явный"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "ensure": "Err(Failed(\"после ensure сессии e5u нет в списке: CommandRun { args: [\\\"attach\\\", \\\"e5u\\\", \\\"/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-fixture\\\", \\\"--mode\\\", \\\"emitter\\\", \\\"--channel\\\", \\\"/tmp/pss-617b8df124486fa8/c.sock\\\", \\\"--nonce\\\", \\\"s617b8df124486fa8-e5u-w\\\"], code: Some(1), signal: None, stdout: \\\"\\\", stderr: \\\"\\\", elapsed_ms: 4 }\"))",
+    "killed": [],
+    "published": false
+  }
+}

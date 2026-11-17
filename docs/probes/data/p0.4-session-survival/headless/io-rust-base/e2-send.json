@@ -1,0 +1,36 @@
+{
+  "checks": [
+    {
+      "name": "явный отказ без частичной доставки",
+      "ok": true,
+      "detail": "отказ «ввод 524288 байт отвергнут: очередь заполнена: 524288 байт не помещаются, занято 0 из 262144», дошло 0 байт"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "after_marker_bytes": 0,
+    "daemon_log_drops": [
+      "probe-session-host: ввод 524288 байт соединения 1 (источник 1877c57a8e3ffdc8, номер 1): Rejected(\"ввод 524288 байт отвергнут: очередь заполнена: 524288 байт не помещаются, занято 0 из 262144\")"
+    ],
+    "marker_attempts": 1,
+    "outcome": "Ok(Rejected(\"ввод 524288 байт отвергнут: очередь заполнена: 524288 байт не помещаются, занято 0 из 262144\"))",
+    "reads_while_paused": 0,
+    "received": 0,
+    "record": {
+      "host": {
+        "pid": 40796,
+        "start_us": 1794931268476408
+      },
+      "session": "sdb49c7f9c9880d58-e2-send",
+      "workload": {
+        "pid": 40797,
+        "start_us": 1794931268479594
+      },
+      "workload_pgid": 40797,
+      "workload_sid": 40797
+    },
+    "sent": 524288
+  }
+}

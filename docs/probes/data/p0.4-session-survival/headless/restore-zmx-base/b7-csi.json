@@ -1,0 +1,150 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после остатка",
+      "ok": false,
+      "detail": "профиль 2: Differs, расхождений 6, нормализовано 0, не наблюдалось 0\n  active[1][0].text: эталон \"X\", приёмник \"1\"\n  active[1][0].style.fg: эталон Palette(1), приёмник Default\n  active[1][1].text: эталон \"\", приёмник \"m\"\n  active[1][2].text: эталон \"\", приёмник \"X\"\n  cursor.x: эталон 1, приёмник 3\n  cursor.style.fg: эталон Palette(1), приёмник Default"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "prefix": "1b5b33",
+    "record": {
+      "host": {
+        "pid": 39626,
+        "start_us": 1794931210857180
+      },
+      "session": "s4f14f7d89048b99d-b7csi",
+      "workload": {
+        "pid": 39627,
+        "start_us": 1794931210859009
+      },
+      "workload_pgid": 39627,
+      "workload_sid": 39627
+    },
+    "rest": "316d58",
+    "revision": {
+      "after": 5,
+      "before": 4,
+      "violations": []
+    },
+    "после остатка.comparison": {
+      "mismatch_count": 6,
+      "mismatches": [
+        {
+          "path": "active[1][0].text",
+          "receiver": "\"1\"",
+          "reference": "\"X\""
+        },
+        {
+          "path": "active[1][0].style.fg",
+          "receiver": "Default",
+          "reference": "Palette(1)"
+        },
+        {
+          "path": "active[1][1].text",
+          "receiver": "\"m\"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[1][2].text",
+          "receiver": "\"X\"",
+          "reference": "\"\""
+        },
+        {
+          "path": "cursor.x",
+          "receiver": "3",
+          "reference": "1"
+        },
+        {
+          "path": "cursor.style.fg",
+          "receiver": "Default",
+          "reference": "Palette(1)"
+        }
+      ],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после остатка.receiver_text": [
+      "before the cut",
+      "1mX",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после остатка.reference_text": [
+      "before the cut",
+      "X",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  }
+}

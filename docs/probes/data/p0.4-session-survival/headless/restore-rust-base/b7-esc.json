@@ -1,0 +1,126 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после остатка",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "parsed": {
+      "base": 20,
+      "parsed": [
+        {
+          "ground": false,
+          "held": 1,
+          "offset": 21,
+          "read": 1
+        }
+      ]
+    },
+    "prefix": "1b",
+    "record": {
+      "host": {
+        "pid": 39859,
+        "start_us": 1794931228048344
+      },
+      "session": "saa5e6cd26c42cc70-b7esc",
+      "workload": {
+        "pid": 39860,
+        "start_us": 1794931228051205
+      },
+      "workload_pgid": 39860,
+      "workload_sid": 39860
+    },
+    "rest": "3758",
+    "violations": [],
+    "после остатка.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после остатка.receiver_text": [
+      "before the cut",
+      "X",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после остатка.reference_text": [
+      "before the cut",
+      "X",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  }
+}

@@ -1,0 +1,324 @@
+{
+  "candidate": "rust",
+  "evidence": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "исполняемый файл хоста Some(\"/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/runtime/1/probe-session-host\"), ожидался /Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/runtime/1/probe-session-host",
+        "name": "host-from-runtime",
+        "ok": true
+      },
+      {
+        "detail": "GUI №1 завершилась ExitStatus(unix_wait_status(9))",
+        "name": "gui1-killed",
+        "ok": true
+      },
+      {
+        "detail": "нагрузка и хост с прежними PID и временем старта после замены бандла",
+        "name": "alive-after-swap",
+        "ok": true
+      },
+      {
+        "detail": "сессия s25a1421d80882aa2-g3 с нагрузкой PID 55501 и 0 клиентами",
+        "name": "new-generation-lists",
+        "ok": true
+      },
+      {
+        "detail": "нагрузка ProcessKey { pid: 55501, start_us: 1794931874555847 } и хост ProcessKey { pid: 55500, start_us: 1794931874550145 }, были ProcessKey { pid: 55501, start_us: 1794931874555847 } и ProcessKey { pid: 55500, start_us: 1794931874550145 }",
+        "name": "new-generation-ensure-keeps-workload",
+        "ok": true
+      },
+      {
+        "detail": "клиент нового поколения в списке сессии",
+        "name": "new-generation-attach",
+        "ok": true
+      },
+      {
+        "detail": "строки равны эталону",
+        "name": "view-after-headless-output",
+        "ok": true
+      },
+      {
+        "detail": "строки равны эталону",
+        "name": "view-after-live-output",
+        "ok": true
+      },
+      {
+        "detail": "маркер pss-g3-gui вставкой через GUI №2 дошёл до нагрузки",
+        "name": "input-via-new-generation",
+        "ok": true
+      },
+      {
+        "detail": "маркер pss-g3-control дошёл с квитанцией фикстуры",
+        "name": "control-input-new-generation",
+        "ok": true
+      },
+      {
+        "detail": "нагрузка и хост с прежними PID и временем старта в конце клетки",
+        "name": "workload-and-host-unchanged",
+        "ok": true
+      },
+      {
+        "detail": "исполняемый файл хоста в конце Some(\"/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/runtime/1/probe-session-host\")",
+        "name": "host-still-from-runtime",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {},
+    "unsupported": null
+  },
+  "expected": {
+    "headless": {
+      "alternate": false,
+      "cursor_x": 7,
+      "cursor_y": 23,
+      "lines": [
+        "update-old-10",
+        "update-old-11",
+        "update-old-12",
+        "update-old-13",
+        "update-old-14",
+        "update-old-15",
+        "update-old-16",
+        "update-old-17",
+        "update-old-18",
+        "update-old-19",
+        "update-old-20",
+        "update-old-21",
+        "update-old-22",
+        "update-old-23",
+        "update-old-24",
+        "update-old-25",
+        "update-old-26",
+        "update-old-27",
+        "update-old-28",
+        "update-old-29",
+        "update-old-30",
+        "prompt>",
+        "headless-1 while no client",
+        "prompt>"
+      ]
+    },
+    "live": {
+      "alternate": false,
+      "cursor_x": 7,
+      "cursor_y": 23,
+      "lines": [
+        "update-old-12",
+        "update-old-13",
+        "update-old-14",
+        "update-old-15",
+        "update-old-16",
+        "update-old-17",
+        "update-old-18",
+        "update-old-19",
+        "update-old-20",
+        "update-old-21",
+        "update-old-22",
+        "update-old-23",
+        "update-old-24",
+        "update-old-25",
+        "update-old-26",
+        "update-old-27",
+        "update-old-28",
+        "update-old-29",
+        "update-old-30",
+        "prompt>",
+        "headless-1 while no client",
+        "prompt>",
+        "live-1 after update",
+        "prompt>"
+      ]
+    },
+    "restored": {
+      "alternate": false,
+      "cursor_x": 7,
+      "cursor_y": 23,
+      "lines": [
+        "update-old-08",
+        "update-old-09",
+        "update-old-10",
+        "update-old-11",
+        "update-old-12",
+        "update-old-13",
+        "update-old-14",
+        "update-old-15",
+        "update-old-16",
+        "update-old-17",
+        "update-old-18",
+        "update-old-19",
+        "update-old-20",
+        "update-old-21",
+        "update-old-22",
+        "update-old-23",
+        "update-old-24",
+        "update-old-25",
+        "update-old-26",
+        "update-old-27",
+        "update-old-28",
+        "update-old-29",
+        "update-old-30",
+        "prompt>"
+      ]
+    }
+  },
+  "generations": {
+    "cdhash": "d4cc64b58f3fd4c2545a88d794aa438fe6c42590",
+    "current": 1,
+    "installed": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/bundle/probe-session-surface.app",
+    "next": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/bundle/generations/2/probe-session-surface.app",
+    "next_cdhash": "3a5300bb7c469c44f82bba9aae2b0d987b98c350",
+    "requirement": "identifier \"io.github.dsbasko.shellio.probe.session-survival\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+  },
+  "gui1": {
+    "lines": [
+      "update-old-08",
+      "update-old-09",
+      "update-old-10",
+      "update-old-11",
+      "update-old-12",
+      "update-old-13",
+      "update-old-14",
+      "update-old-15",
+      "update-old-16",
+      "update-old-17",
+      "update-old-18",
+      "update-old-19",
+      "update-old-20",
+      "update-old-21",
+      "update-old-22",
+      "update-old-23",
+      "update-old-24",
+      "update-old-25",
+      "update-old-26",
+      "update-old-27",
+      "update-old-28",
+      "update-old-29",
+      "update-old-30",
+      "prompt>"
+    ],
+    "pid": 55504
+  },
+  "gui2": {
+    "observed": {
+      "Ok": {
+        "after_live": [
+          "update-old-12",
+          "update-old-13",
+          "update-old-14",
+          "update-old-15",
+          "update-old-16",
+          "update-old-17",
+          "update-old-18",
+          "update-old-19",
+          "update-old-20",
+          "update-old-21",
+          "update-old-22",
+          "update-old-23",
+          "update-old-24",
+          "update-old-25",
+          "update-old-26",
+          "update-old-27",
+          "update-old-28",
+          "update-old-29",
+          "update-old-30",
+          "prompt>",
+          "headless-1 while no client",
+          "prompt>",
+          "live-1 after update",
+          "prompt>"
+        ],
+        "control": true,
+        "paste_before_marker_hex": "",
+        "restored": [
+          "update-old-10",
+          "update-old-11",
+          "update-old-12",
+          "update-old-13",
+          "update-old-14",
+          "update-old-15",
+          "update-old-16",
+          "update-old-17",
+          "update-old-18",
+          "update-old-19",
+          "update-old-20",
+          "update-old-21",
+          "update-old-22",
+          "update-old-23",
+          "update-old-24",
+          "update-old-25",
+          "update-old-26",
+          "update-old-27",
+          "update-old-28",
+          "update-old-29",
+          "update-old-30",
+          "prompt>",
+          "headless-1 while no client",
+          "prompt>"
+        ]
+      }
+    },
+    "pid": 55535
+  },
+  "headless_bytes": 46,
+  "host": {
+    "pid": 55500,
+    "start_us": 1794931874550145
+  },
+  "host_path": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/runtime/1/probe-session-host",
+  "new_generation": {
+    "ensure": {
+      "Ok": {
+        "host": {
+          "pid": 55500,
+          "start_us": 1794931874550145
+        },
+        "session": "s25a1421d80882aa2-g3",
+        "workload": {
+          "pid": 55501,
+          "start_us": 1794931874555847
+        },
+        "workload_pgid": 55501,
+        "workload_sid": 55501
+      }
+    },
+    "generation": 2,
+    "list": {
+      "Ok": "сессия s25a1421d80882aa2-g3 с нагрузкой PID 55501 и 0 клиентами"
+    }
+  },
+  "runtime": [
+    {
+      "dir": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/runtime/1",
+      "files": [
+        "probe-session-host",
+        "probe-session-attach",
+        "zmx"
+      ],
+      "generation": 1,
+      "reused": false
+    },
+    {
+      "dir": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/runtime/2",
+      "files": [
+        "probe-session-host",
+        "probe-session-attach",
+        "zmx"
+      ],
+      "generation": 2,
+      "reused": false
+    }
+  ],
+  "session": "s25a1421d80882aa2-g3",
+  "swap": {
+    "installed_cdhash": "3a5300bb7c469c44f82bba9aae2b0d987b98c350",
+    "installed_generation": 2,
+    "staged": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival/bundle/.next-55487/probe-session-surface.app",
+    "swap_us": 31623
+  },
+  "workload": {
+    "pid": 55501,
+    "start_us": 1794931874555847
+  }
+}

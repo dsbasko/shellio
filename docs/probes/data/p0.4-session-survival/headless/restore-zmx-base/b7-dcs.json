@@ -1,0 +1,135 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после остатка",
+      "ok": false,
+      "detail": "профиль 2: Differs, расхождений 3, нормализовано 0, не наблюдалось 0\n  active[1][0].text: эталон \"X\", приёмник \"m\"\n  active[1][1].text: эталон \"\", приёмник \"X\"\n  cursor.x: эталон 1, приёмник 2"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "prefix": "1b502471",
+    "record": {
+      "host": {
+        "pid": 39646,
+        "start_us": 1794931211990522
+      },
+      "session": "s4f14f7d89048b99d-b7dcs",
+      "workload": {
+        "pid": 39647,
+        "start_us": 1794931211993687
+      },
+      "workload_pgid": 39647,
+      "workload_sid": 39647
+    },
+    "rest": "6d1b5c58",
+    "revision": {
+      "after": 5,
+      "before": 4,
+      "violations": []
+    },
+    "после остатка.comparison": {
+      "mismatch_count": 3,
+      "mismatches": [
+        {
+          "path": "active[1][0].text",
+          "receiver": "\"m\"",
+          "reference": "\"X\""
+        },
+        {
+          "path": "active[1][1].text",
+          "receiver": "\"X\"",
+          "reference": "\"\""
+        },
+        {
+          "path": "cursor.x",
+          "receiver": "2",
+          "reference": "1"
+        }
+      ],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после остатка.receiver_text": [
+      "before the cut",
+      "mX",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после остатка.reference_text": [
+      "before the cut",
+      "X",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  }
+}

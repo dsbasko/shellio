@@ -1,0 +1,426 @@
+{
+  "checks": [
+    {
+      "name": "все ensure вернули одну нагрузку",
+      "ok": true,
+      "detail": "[ProcessKey { pid: 39384, start_us: 1794931200699237 }, ProcessKey { pid: 39384, start_us: 1794931200699237 }, ProcessKey { pid: 39384, start_us: 1794931200699237 }, ProcessKey { pid: 39384, start_us: 1794931200699237 }, ProcessKey { pid: 39384, start_us: 1794931200699237 }, ProcessKey { pid: 39384, start_us: 1794931200699237 }, ProcessKey { pid: 39384, start_us: 1794931200699237 }, ProcessKey { pid: 39384, start_us: 1794931200699237 }]"
+    },
+    {
+      "name": "нагрузку запустил ровно один ensure",
+      "ok": true,
+      "detail": "[1]"
+    },
+    {
+      "name": "один хост и одна нагрузка",
+      "ok": true,
+      "detail": "[ProcessKey { pid: 39372, start_us: 1794931200696079 }, ProcessKey { pid: 39384, start_us: 1794931200699237 }], ожидалось [ProcessKey { pid: 39372, start_us: 1794931200696079 }, ProcessKey { pid: 39384, start_us: 1794931200699237 }]"
+    },
+    {
+      "name": "один сокет и пустой каталог подготовки",
+      "ok": true,
+      "detail": "SocketEntries { sessions: [\"s4929def04c0ddac5-a4c\"], staged: [] }"
+    },
+    {
+      "name": "одна сессия в списке",
+      "ok": true,
+      "detail": "1"
+    },
+    {
+      "name": "готова нагрузка победителя",
+      "ok": true,
+      "detail": "s4929def04c0ddac5-a4c-w1 PID 39384"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "ensured": [
+      {
+        "command": {
+          "args": [
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-host",
+            "serve",
+            "--dir",
+            "/tmp/pss-4929def04c0ddac5/r",
+            "--session",
+            "s4929def04c0ddac5-a4c",
+            "--size",
+            "24x80x800x480",
+            "--tag",
+            "pss-4929def04c0ddac5",
+            "--",
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-fixture",
+            "--mode",
+            "emitter",
+            "--channel",
+            "/tmp/pss-4929def04c0ddac5/c.sock",
+            "--nonce",
+            "s4929def04c0ddac5-a4c-w0"
+          ],
+          "code": 0,
+          "elapsed_ms": 4,
+          "signal": null,
+          "stderr": "",
+          "stdout": "{\"launch\":\"busy\",\"detail\":\"/tmp/pss-4929def04c0ddac5/r/s4929def04c0ddac5-a4c\"}\n"
+        },
+        "created": false,
+        "index": 0,
+        "record": {
+          "host": {
+            "pid": 39372,
+            "start_us": 1794931200696079
+          },
+          "session": "s4929def04c0ddac5-a4c",
+          "workload": {
+            "pid": 39384,
+            "start_us": 1794931200699237
+          },
+          "workload_pgid": 39384,
+          "workload_sid": 39384
+        }
+      },
+      {
+        "command": {
+          "args": [
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-host",
+            "serve",
+            "--dir",
+            "/tmp/pss-4929def04c0ddac5/r",
+            "--session",
+            "s4929def04c0ddac5-a4c",
+            "--size",
+            "24x80x800x480",
+            "--tag",
+            "pss-4929def04c0ddac5",
+            "--",
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-fixture",
+            "--mode",
+            "emitter",
+            "--channel",
+            "/tmp/pss-4929def04c0ddac5/c.sock",
+            "--nonce",
+            "s4929def04c0ddac5-a4c-w1"
+          ],
+          "code": 0,
+          "elapsed_ms": 7,
+          "signal": null,
+          "stderr": "",
+          "stdout": "{\"launch\":\"ready\",\"detail\":{\"session\":\"s4929def04c0ddac5-a4c\",\"host\":{\"pid\":39372,\"start_us\":1794931200696079},\"workload\":{\"pid\":39384,\"start_us\":1794931200699237},\"workload_pgid\":39384,\"workload_sid\":39384}}\n"
+        },
+        "created": true,
+        "index": 1,
+        "record": {
+          "host": {
+            "pid": 39372,
+            "start_us": 1794931200696079
+          },
+          "session": "s4929def04c0ddac5-a4c",
+          "workload": {
+            "pid": 39384,
+            "start_us": 1794931200699237
+          },
+          "workload_pgid": 39384,
+          "workload_sid": 39384
+        }
+      },
+      {
+        "command": {
+          "args": [
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-host",
+            "serve",
+            "--dir",
+            "/tmp/pss-4929def04c0ddac5/r",
+            "--session",
+            "s4929def04c0ddac5-a4c",
+            "--size",
+            "24x80x800x480",
+            "--tag",
+            "pss-4929def04c0ddac5",
+            "--",
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-fixture",
+            "--mode",
+            "emitter",
+            "--channel",
+            "/tmp/pss-4929def04c0ddac5/c.sock",
+            "--nonce",
+            "s4929def04c0ddac5-a4c-w2"
+          ],
+          "code": 0,
+          "elapsed_ms": 5,
+          "signal": null,
+          "stderr": "",
+          "stdout": "{\"launch\":\"busy\",\"detail\":\"/tmp/pss-4929def04c0ddac5/r/s4929def04c0ddac5-a4c\"}\n"
+        },
+        "created": false,
+        "index": 2,
+        "record": {
+          "host": {
+            "pid": 39372,
+            "start_us": 1794931200696079
+          },
+          "session": "s4929def04c0ddac5-a4c",
+          "workload": {
+            "pid": 39384,
+            "start_us": 1794931200699237
+          },
+          "workload_pgid": 39384,
+          "workload_sid": 39384
+        }
+      },
+      {
+        "command": {
+          "args": [
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-host",
+            "serve",
+            "--dir",
+            "/tmp/pss-4929def04c0ddac5/r",
+            "--session",
+            "s4929def04c0ddac5-a4c",
+            "--size",
+            "24x80x800x480",
+            "--tag",
+            "pss-4929def04c0ddac5",
+            "--",
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-fixture",
+            "--mode",
+            "emitter",
+            "--channel",
+            "/tmp/pss-4929def04c0ddac5/c.sock",
+            "--nonce",
+            "s4929def04c0ddac5-a4c-w3"
+          ],
+          "code": 0,
+          "elapsed_ms": 5,
+          "signal": null,
+          "stderr": "",
+          "stdout": "{\"launch\":\"busy\",\"detail\":\"/tmp/pss-4929def04c0ddac5/r/s4929def04c0ddac5-a4c\"}\n"
+        },
+        "created": false,
+        "index": 3,
+        "record": {
+          "host": {
+            "pid": 39372,
+            "start_us": 1794931200696079
+          },
+          "session": "s4929def04c0ddac5-a4c",
+          "workload": {
+            "pid": 39384,
+            "start_us": 1794931200699237
+          },
+          "workload_pgid": 39384,
+          "workload_sid": 39384
+        }
+      },
+      {
+        "command": {
+          "args": [
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-host",
+            "serve",
+            "--dir",
+            "/tmp/pss-4929def04c0ddac5/r",
+            "--session",
+            "s4929def04c0ddac5-a4c",
+            "--size",
+            "24x80x800x480",
+            "--tag",
+            "pss-4929def04c0ddac5",
+            "--",
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-fixture",
+            "--mode",
+            "emitter",
+            "--channel",
+            "/tmp/pss-4929def04c0ddac5/c.sock",
+            "--nonce",
+            "s4929def04c0ddac5-a4c-w4"
+          ],
+          "code": 0,
+          "elapsed_ms": 6,
+          "signal": null,
+          "stderr": "",
+          "stdout": "{\"launch\":\"busy\",\"detail\":\"/tmp/pss-4929def04c0ddac5/r/s4929def04c0ddac5-a4c\"}\n"
+        },
+        "created": false,
+        "index": 4,
+        "record": {
+          "host": {
+            "pid": 39372,
+            "start_us": 1794931200696079
+          },
+          "session": "s4929def04c0ddac5-a4c",
+          "workload": {
+            "pid": 39384,
+            "start_us": 1794931200699237
+          },
+          "workload_pgid": 39384,
+          "workload_sid": 39384
+        }
+      },
+      {
+        "command": {
+          "args": [
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-host",
+            "serve",
+            "--dir",
+            "/tmp/pss-4929def04c0ddac5/r",
+            "--session",
+            "s4929def04c0ddac5-a4c",
+            "--size",
+            "24x80x800x480",
+            "--tag",
+            "pss-4929def04c0ddac5",
+            "--",
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-fixture",
+            "--mode",
+            "emitter",
+            "--channel",
+            "/tmp/pss-4929def04c0ddac5/c.sock",
+            "--nonce",
+            "s4929def04c0ddac5-a4c-w5"
+          ],
+          "code": 0,
+          "elapsed_ms": 6,
+          "signal": null,
+          "stderr": "",
+          "stdout": "{\"launch\":\"busy\",\"detail\":\"/tmp/pss-4929def04c0ddac5/r/s4929def04c0ddac5-a4c\"}\n"
+        },
+        "created": false,
+        "index": 5,
+        "record": {
+          "host": {
+            "pid": 39372,
+            "start_us": 1794931200696079
+          },
+          "session": "s4929def04c0ddac5-a4c",
+          "workload": {
+            "pid": 39384,
+            "start_us": 1794931200699237
+          },
+          "workload_pgid": 39384,
+          "workload_sid": 39384
+        }
+      },
+      {
+        "command": {
+          "args": [
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-host",
+            "serve",
+            "--dir",
+            "/tmp/pss-4929def04c0ddac5/r",
+            "--session",
+            "s4929def04c0ddac5-a4c",
+            "--size",
+            "24x80x800x480",
+            "--tag",
+            "pss-4929def04c0ddac5",
+            "--",
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-fixture",
+            "--mode",
+            "emitter",
+            "--channel",
+            "/tmp/pss-4929def04c0ddac5/c.sock",
+            "--nonce",
+            "s4929def04c0ddac5-a4c-w6"
+          ],
+          "code": 0,
+          "elapsed_ms": 6,
+          "signal": null,
+          "stderr": "",
+          "stdout": "{\"launch\":\"busy\",\"detail\":\"/tmp/pss-4929def04c0ddac5/r/s4929def04c0ddac5-a4c\"}\n"
+        },
+        "created": false,
+        "index": 6,
+        "record": {
+          "host": {
+            "pid": 39372,
+            "start_us": 1794931200696079
+          },
+          "session": "s4929def04c0ddac5-a4c",
+          "workload": {
+            "pid": 39384,
+            "start_us": 1794931200699237
+          },
+          "workload_pgid": 39384,
+          "workload_sid": 39384
+        }
+      },
+      {
+        "command": {
+          "args": [
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-host",
+            "serve",
+            "--dir",
+            "/tmp/pss-4929def04c0ddac5/r",
+            "--session",
+            "s4929def04c0ddac5-a4c",
+            "--size",
+            "24x80x800x480",
+            "--tag",
+            "pss-4929def04c0ddac5",
+            "--",
+            "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-fixture",
+            "--mode",
+            "emitter",
+            "--channel",
+            "/tmp/pss-4929def04c0ddac5/c.sock",
+            "--nonce",
+            "s4929def04c0ddac5-a4c-w7"
+          ],
+          "code": 0,
+          "elapsed_ms": 4,
+          "signal": null,
+          "stderr": "",
+          "stdout": "{\"launch\":\"busy\",\"detail\":\"/tmp/pss-4929def04c0ddac5/r/s4929def04c0ddac5-a4c\"}\n"
+        },
+        "created": false,
+        "index": 7,
+        "record": {
+          "host": {
+            "pid": 39372,
+            "start_us": 1794931200696079
+          },
+          "session": "s4929def04c0ddac5-a4c",
+          "workload": {
+            "pid": 39384,
+            "start_us": 1794931200699237
+          },
+          "workload_pgid": 39384,
+          "workload_sid": 39384
+        }
+      }
+    ],
+    "processes": [
+      {
+        "pid": 39372,
+        "start_us": 1794931200696079
+      },
+      {
+        "pid": 39384,
+        "start_us": 1794931200699237
+      }
+    ],
+    "ready": {
+      "foreground_pgid": 39384,
+      "mode": "emitter",
+      "nonce": "s4929def04c0ddac5-a4c-w1",
+      "pgid": 39384,
+      "pid": 39384,
+      "ppid": 39372,
+      "raw": true,
+      "sid": 39384,
+      "size": {
+        "cols": 80,
+        "rows": 24,
+        "xpixel": 800,
+        "ypixel": 480
+      },
+      "tty": "/dev/ttys003"
+    },
+    "sockets": {
+      "sessions": [
+        "s4929def04c0ddac5-a4c"
+      ],
+      "staged": []
+    }
+  }
+}

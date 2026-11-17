@@ -1,0 +1,135 @@
+{
+  "checks": [
+    {
+      "name": "нагрузка вышла по потере PTY",
+      "ok": true,
+      "detail": "квитанция Ok(\"hangup\"), жива после ожидания: false"
+    },
+    {
+      "name": "состояние «хост потерян»",
+      "ok": true,
+      "detail": "Lost"
+    },
+    {
+      "name": "оставшиеся процессы сессии найдены по записи",
+      "ok": true,
+      "detail": "живы по записи [ProcessKey { pid: 39224, start_us: 1794931193543179 }], вне записи []"
+    },
+    {
+      "name": "процесс, игнорирующий HUP, среди сохранённых",
+      "ok": true,
+      "detail": "PID 39224"
+    },
+    {
+      "name": "процесс, игнорирующий HUP, отвечает",
+      "ok": true,
+      "detail": "ok"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "cleanup_hup_child_exited": true,
+    "found": [
+      {
+        "alive": false,
+        "identity": {
+          "kind": "gone"
+        },
+        "key": {
+          "pid": 39220,
+          "start_us": 1794931193524532
+        },
+        "ppid": null
+      },
+      {
+        "alive": false,
+        "identity": {
+          "kind": "gone"
+        },
+        "key": {
+          "pid": 39221,
+          "start_us": 1794931193525660
+        },
+        "ppid": null
+      },
+      {
+        "alive": true,
+        "identity": {
+          "comm": "probe-session-f",
+          "exiting": false,
+          "key": {
+            "pid": 39224,
+            "start_us": 1794931193543179
+          },
+          "kind": "same",
+          "pgid": 39224,
+          "ppid": 1,
+          "sid": 39221,
+          "state": "running",
+          "tpgid": null,
+          "tty": null
+        },
+        "key": {
+          "pid": 39224,
+          "start_us": 1794931193543179
+        },
+        "ppid": 1
+      }
+    ],
+    "killed_host": {
+      "pid": 39220,
+      "start_us": 1794931193524532
+    },
+    "record": {
+      "host": {
+        "pid": 39220,
+        "start_us": 1794931193524532
+      },
+      "session": "s9cc3e0704540fa2c-a6b",
+      "workload": {
+        "pid": 39221,
+        "start_us": 1794931193525660
+      },
+      "workload_pgid": 39221,
+      "workload_sid": 39221
+    },
+    "remaining_by_record": "поиск оставшихся процессов по записи на диске",
+    "running_with_nonce": [
+      {
+        "pid": 39224,
+        "start_us": 1794931193543179
+      }
+    ],
+    "saved": [
+      {
+        "pid": 39220,
+        "start_us": 1794931193524532
+      },
+      {
+        "pid": 39221,
+        "start_us": 1794931193525660
+      },
+      {
+        "pid": 39224,
+        "start_us": 1794931193543179
+      }
+    ],
+    "sockets_before_liveness": {
+      "sessions": [
+        "s9cc3e0704540fa2c-a6b"
+      ],
+      "staged": []
+    },
+    "survivors": [
+      {
+        "pid": 39224,
+        "start_us": 1794931193543179
+      }
+    ],
+    "workload_exit": {
+      "Ok": "hangup"
+    }
+  }
+}

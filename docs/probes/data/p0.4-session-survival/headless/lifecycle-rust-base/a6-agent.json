@@ -1,0 +1,158 @@
+{
+  "checks": [
+    {
+      "name": "нагрузка вышла по потере PTY",
+      "ok": true,
+      "detail": "квитанция Ok(\"hangup\"), жива после ожидания: false"
+    },
+    {
+      "name": "состояние «хост потерян»",
+      "ok": true,
+      "detail": "Lost"
+    },
+    {
+      "name": "запись на диске находит выживших",
+      "ok": true,
+      "detail": "по записи [ProcessKey { pid: 39439, start_us: 1794931201823874 }], выжили [ProcessKey { pid: 39439, start_us: 1794931201823874 }]"
+    },
+    {
+      "name": "оставшиеся процессы сессии найдены по записи",
+      "ok": true,
+      "detail": "живы по записи [ProcessKey { pid: 39439, start_us: 1794931201823874 }], вне записи []"
+    },
+    {
+      "name": "процесс, игнорирующий HUP, среди сохранённых",
+      "ok": true,
+      "detail": "PID 39439"
+    },
+    {
+      "name": "процесс, игнорирующий HUP, отвечает",
+      "ok": true,
+      "detail": "ok"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "cleanup_hup_child_exited": true,
+    "found": [
+      {
+        "alive": false,
+        "identity": {
+          "kind": "gone"
+        },
+        "key": {
+          "pid": 39437,
+          "start_us": 1794931201817512
+        },
+        "ppid": null
+      },
+      {
+        "alive": false,
+        "identity": {
+          "comm": "probe-session-f",
+          "exiting": true,
+          "key": {
+            "pid": 39438,
+            "start_us": 1794931201819774
+          },
+          "kind": "same",
+          "pgid": 39438,
+          "ppid": 1,
+          "sid": null,
+          "state": "running",
+          "tpgid": 39438,
+          "tty": 268435459
+        },
+        "key": {
+          "pid": 39438,
+          "start_us": 1794931201819774
+        },
+        "ppid": 1
+      },
+      {
+        "alive": true,
+        "identity": {
+          "comm": "probe-session-f",
+          "exiting": false,
+          "key": {
+            "pid": 39439,
+            "start_us": 1794931201823874
+          },
+          "kind": "same",
+          "pgid": 39438,
+          "ppid": 39438,
+          "sid": 39438,
+          "state": "running",
+          "tpgid": 39438,
+          "tty": 268435459
+        },
+        "key": {
+          "pid": 39439,
+          "start_us": 1794931201823874
+        },
+        "ppid": 39438
+      }
+    ],
+    "killed_host": {
+      "pid": 39437,
+      "start_us": 1794931201817512
+    },
+    "record": {
+      "host": {
+        "pid": 39437,
+        "start_us": 1794931201817512
+      },
+      "session": "s4929def04c0ddac5-a6a",
+      "workload": {
+        "pid": 39438,
+        "start_us": 1794931201819774
+      },
+      "workload_pgid": 39438,
+      "workload_sid": 39438
+    },
+    "remaining_by_record": [
+      {
+        "pid": 39439,
+        "start_us": 1794931201823874
+      }
+    ],
+    "running_with_nonce": [
+      {
+        "pid": 39439,
+        "start_us": 1794931201823874
+      }
+    ],
+    "saved": [
+      {
+        "pid": 39437,
+        "start_us": 1794931201817512
+      },
+      {
+        "pid": 39438,
+        "start_us": 1794931201819774
+      },
+      {
+        "pid": 39439,
+        "start_us": 1794931201823874
+      }
+    ],
+    "sockets_before_liveness": {
+      "sessions": [
+        "s4929def04c0ddac5-a6a",
+        "s4929def04c0ddac5-a6s"
+      ],
+      "staged": []
+    },
+    "survivors": [
+      {
+        "pid": 39439,
+        "start_us": 1794931201823874
+      }
+    ],
+    "workload_exit": {
+      "Ok": "hangup"
+    }
+  }
+}

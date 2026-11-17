@@ -1,0 +1,110 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "нагрузка та же и жива",
+      "ok": true,
+      "detail": "PID 39106 старт 1794931189545931: Same(ProcessInfo { key: ProcessKey { pid: 39106, start_us: 1794931189545931 }, ppid: 39105, pgid: 39106, sid: Some(39106), tpgid: Some(39106), tty: Some(268435464), state: Running, exiting: false, comm: \"probe-session-f\" })"
+    },
+    {
+      "name": "хост тот же и жив",
+      "ok": true,
+      "detail": "PID 39105 старт 1794931189544328: Same(ProcessInfo { key: ProcessKey { pid: 39105, start_us: 1794931189544328 }, ppid: 1, pgid: 39105, sid: Some(39105), tpgid: None, tty: None, state: Running, exiting: false, comm: \"zmx\" })"
+    },
+    {
+      "name": "сессия в списке",
+      "ok": true,
+      "detail": "Live { workload_pid: 39106, clients: 0 }"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "нагрузка та же после нового клиента",
+      "ok": true,
+      "detail": "PID 39106 старт 1794931189545931: Same(ProcessInfo { key: ProcessKey { pid: 39106, start_us: 1794931189545931 }, ppid: 39105, pgid: 39106, sid: Some(39106), tpgid: Some(39106), tty: Some(268435464), state: Running, exiting: false, comm: \"probe-session-f\" })"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "c1.exit": "ExitStatus(unix_wait_status(1))",
+    "c1.role": "leader:1",
+    "cleanup": [],
+    "record": {
+      "host": {
+        "pid": 39105,
+        "start_us": 1794931189544328
+      },
+      "session": "s9cc3e0704540fa2c-a1g",
+      "workload": {
+        "pid": 39106,
+        "start_us": 1794931189545931
+      },
+      "workload_pgid": 39106,
+      "workload_sid": 39106
+    },
+    "нагрузка та же и жива": {
+      "comm": "probe-session-f",
+      "exiting": false,
+      "key": {
+        "pid": 39106,
+        "start_us": 1794931189545931
+      },
+      "kind": "same",
+      "pgid": 39106,
+      "ppid": 39105,
+      "sid": 39106,
+      "state": "running",
+      "tpgid": 39106,
+      "tty": 268435464
+    },
+    "нагрузка та же после нового клиента": {
+      "comm": "probe-session-f",
+      "exiting": false,
+      "key": {
+        "pid": 39106,
+        "start_us": 1794931189545931
+      },
+      "kind": "same",
+      "pgid": 39106,
+      "ppid": 39105,
+      "sid": 39106,
+      "state": "running",
+      "tpgid": 39106,
+      "tty": 268435464
+    },
+    "хост тот же и жив": {
+      "comm": "zmx",
+      "exiting": false,
+      "key": {
+        "pid": 39105,
+        "start_us": 1794931189544328
+      },
+      "kind": "same",
+      "pgid": 39105,
+      "ppid": 1,
+      "sid": 39105,
+      "state": "running",
+      "tpgid": null,
+      "tty": null
+    }
+  }
+}

@@ -1,0 +1,267 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после attach",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 1, не наблюдалось 0"
+    },
+    {
+      "name": "суффикс tab через кандидата",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после суффикса tab",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 1, не наблюдалось 0"
+    },
+    {
+      "name": "суффикс margins через кандидата",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после суффикса margins",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 1, не наблюдалось 0"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "record": {
+      "host": {
+        "pid": 39786,
+        "start_us": 1794931220563277
+      },
+      "session": "saa5e6cd26c42cc70-b5",
+      "workload": {
+        "pid": 39787,
+        "start_us": 1794931220566201
+      },
+      "workload_pgid": 39787,
+      "workload_sid": 39787
+    },
+    "после attach.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [
+        {
+          "path": "modes.?2048",
+          "rule": "report-modes-at-host"
+        }
+      ],
+      "normalized_count": 1,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после attach.receiver_text": [
+      "b5 00",
+      "b5 01",
+      "b5 02",
+      "",
+      "",
+      "in region",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после attach.reference_text": [
+      "b5 00",
+      "b5 01",
+      "b5 02",
+      "",
+      "",
+      "in region",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса margins.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [
+        {
+          "path": "modes.?2048",
+          "rule": "report-modes-at-host"
+        }
+      ],
+      "normalized_count": 1,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после суффикса margins.receiver_text": [
+      "b5 00",
+      "b5 01",
+      "b5 02",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "M",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса margins.reference_text": [
+      "b5 00",
+      "b5 01",
+      "b5 02",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "M",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса tab.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [
+        {
+          "path": "modes.?2048",
+          "rule": "report-modes-at-host"
+        }
+      ],
+      "normalized_count": 1,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после суффикса tab.receiver_text": [
+      "b5 00",
+      "b5 01",
+      "b5 02",
+      "",
+      "",
+      "in rTgion       T",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после суффикса tab.reference_text": [
+      "b5 00",
+      "b5 01",
+      "b5 02",
+      "",
+      "",
+      "in rTgion       T",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  }
+}

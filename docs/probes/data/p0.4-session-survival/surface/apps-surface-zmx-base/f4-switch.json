@@ -1,0 +1,127 @@
+{
+  "checks": [
+    {
+      "detail": "10 циклов",
+      "name": "каждый attach показывает свою сессию, ввод доходит",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "последний attach a для :wq",
+      "ok": true
+    },
+    {
+      "detail": "PID 56106 жив",
+      "name": "nvim a вышел по :wq",
+      "ok": true
+    },
+    {
+      "detail": "файл \"pss switch a0123456789\\n\", ожидался \"pss switch a0123456789\\n\"",
+      "name": "файл a на диске: ввод всех циклов без потерь",
+      "ok": true
+    },
+    {
+      "detail": "нагрузка или хост b погибли",
+      "name": "фикстура b жива",
+      "ok": true
+    }
+  ],
+  "not_proven": null,
+  "observed": {
+    "control": {
+      "Ok": null
+    },
+    "cycles": [
+      {
+        "a_input": true,
+        "a_screen": true,
+        "b_input": true,
+        "b_max_visible": 6,
+        "b_progress_before_attach": 0,
+        "b_screen": true,
+        "cycle": 0
+      },
+      {
+        "a_input": true,
+        "a_screen": true,
+        "b_input": true,
+        "b_max_visible": 8,
+        "b_progress_before_attach": 6,
+        "b_screen": true,
+        "cycle": 1
+      },
+      {
+        "a_input": true,
+        "a_screen": true,
+        "b_input": true,
+        "b_max_visible": 11,
+        "b_progress_before_attach": 9,
+        "b_screen": true,
+        "cycle": 2
+      },
+      {
+        "a_input": true,
+        "a_screen": true,
+        "b_input": true,
+        "b_max_visible": 14,
+        "b_progress_before_attach": 12,
+        "b_screen": true,
+        "cycle": 3
+      },
+      {
+        "a_input": true,
+        "a_screen": true,
+        "b_input": true,
+        "b_max_visible": 17,
+        "b_progress_before_attach": 15,
+        "b_screen": true,
+        "cycle": 4
+      },
+      {
+        "a_input": true,
+        "a_screen": true,
+        "b_input": true,
+        "b_max_visible": 20,
+        "b_progress_before_attach": 18,
+        "b_screen": true,
+        "cycle": 5
+      },
+      {
+        "a_input": true,
+        "a_screen": true,
+        "b_input": true,
+        "b_max_visible": 23,
+        "b_progress_before_attach": 21,
+        "b_screen": true,
+        "cycle": 6
+      },
+      {
+        "a_input": true,
+        "a_screen": true,
+        "b_input": true,
+        "b_max_visible": 27,
+        "b_progress_before_attach": 24,
+        "b_screen": true,
+        "cycle": 7
+      },
+      {
+        "a_input": true,
+        "a_screen": true,
+        "b_input": true,
+        "b_max_visible": 29,
+        "b_progress_before_attach": 27,
+        "b_screen": true,
+        "cycle": 8
+      },
+      {
+        "a_input": true,
+        "a_screen": true,
+        "b_input": true,
+        "b_max_visible": 32,
+        "b_progress_before_attach": 30,
+        "b_screen": true,
+        "cycle": 9
+      }
+    ]
+  }
+}

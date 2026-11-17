@@ -1,0 +1,118 @@
+{
+  "checks": [
+    {
+      "detail": "gui2 завершилась ExitStatus(unix_wait_status(9))",
+      "name": "SIGKILL gui2",
+      "ok": true
+    },
+    {
+      "detail": "нагрузка или хост погибли",
+      "name": "нагрузка и хост живы после SIGKILL GUI",
+      "ok": true
+    },
+    {
+      "detail": "строки, разбиение, номера, строка режима и маркер курсора совпали",
+      "name": "вид после attach равен виду до SIGKILL GUI",
+      "ok": true
+    },
+    {
+      "detail": "PID 55645 жив",
+      "name": "nvim вышел по :wqa",
+      "ok": true
+    },
+    {
+      "detail": "кандидат 3c532d43523e, без хоста 3c532d43523e",
+      "name": "Ctrl-V Shift-Enter до SIGKILL вставил то же, что без хоста",
+      "ok": true
+    },
+    {
+      "detail": "до 3c532d43523e после 3c532d43523e",
+      "name": "Ctrl-V Shift-Enter после attach даёт то же, что до SIGKILL",
+      "ok": true
+    },
+    {
+      "detail": "строки вне вставки изменились",
+      "name": "остальные строки файла не тронуты",
+      "ok": true
+    }
+  ],
+  "not_proven": null,
+  "observed": {
+    "control": {
+      "Ok": {
+        "first": "3c532d43523e",
+        "rest_intact": true,
+        "second": "3c532d43523e"
+      }
+    },
+    "file_insert": {
+      "first": "3c532d43523e",
+      "rest_intact": true,
+      "second": "3c532d43523e"
+    },
+    "screen_after": {
+      "cursor": [
+        70.0,
+        11.0
+      ],
+      "lines": [
+        "  1 001 pss line 001                    │ 50 050 pss line 050",
+        "  2 002 pss line 002                    │ 51 051 pss line 051",
+        "  3 003 pss line 003                    │ 52 052 pss line 052",
+        "  4 004 pss line 004                    │ 53 053 pss line 053",
+        "  5 005 pss line 005                    │ 54 054 pss line 054",
+        "  6 006 pss line 006                    │ 55 055 pss line 055",
+        "  7 007 pss line 007                    │ 56 056 pss line 056",
+        "  8 008 pss line 008                    │ 57 057 pss line 057",
+        "  9 009 pss line 009                    │ 58 058 pss line 058",
+        " 10 010 pss line 010                    │ 59 059 pss line 059",
+        " 11 011 pss line 011                    │ 60 060 pss line 060",
+        " 12 012 pss line 012                    │ 61 pss-before <S-CR> pss-mid",
+        " 13 013 pss line 013                    │ 62 061 pss line 061",
+        " 14 014 pss line 014                    │ 63 062 pss line 062",
+        " 15 015 pss line 015                    │ 64 063 pss line 063",
+        " 16 016 pss line 016                    │ 65 064 pss line 064",
+        " 17 017 pss line 017                    │ 66 065 pss line 065",
+        " 18 018 pss line 018                    │ 67 066 pss line 066",
+        " 19 019 pss line 019                    │ 68 067 pss line 067",
+        " 20 020 pss line 020                    │ 69 068 pss line 068",
+        " 21 021 pss line 021                    │ 70 069 pss line 069",
+        " 22 022 pss line 022                    │ 71 070 pss line 070",
+        "<nvim-surface.txt [+] 1,1            Top <vim-surface.txt [+] 61,26          49%",
+        "-- INSERT --"
+      ]
+    },
+    "screen_before": {
+      "cursor": [
+        70.0,
+        11.0
+      ],
+      "lines": [
+        "  1 001 pss line 001                    │ 50 050 pss line 050",
+        "  2 002 pss line 002                    │ 51 051 pss line 051",
+        "  3 003 pss line 003                    │ 52 052 pss line 052",
+        "  4 004 pss line 004                    │ 53 053 pss line 053",
+        "  5 005 pss line 005                    │ 54 054 pss line 054",
+        "  6 006 pss line 006                    │ 55 055 pss line 055",
+        "  7 007 pss line 007                    │ 56 056 pss line 056",
+        "  8 008 pss line 008                    │ 57 057 pss line 057",
+        "  9 009 pss line 009                    │ 58 058 pss line 058",
+        " 10 010 pss line 010                    │ 59 059 pss line 059",
+        " 11 011 pss line 011                    │ 60 060 pss line 060",
+        " 12 012 pss line 012                    │ 61 pss-before <S-CR> pss-mid",
+        " 13 013 pss line 013                    │ 62 061 pss line 061",
+        " 14 014 pss line 014                    │ 63 062 pss line 062",
+        " 15 015 pss line 015                    │ 64 063 pss line 063",
+        " 16 016 pss line 016                    │ 65 064 pss line 064",
+        " 17 017 pss line 017                    │ 66 065 pss line 065",
+        " 18 018 pss line 018                    │ 67 066 pss line 066",
+        " 19 019 pss line 019                    │ 68 067 pss line 067",
+        " 20 020 pss line 020                    │ 69 068 pss line 068",
+        " 21 021 pss line 021                    │ 70 069 pss line 069",
+        " 22 022 pss line 022                    │ 71 070 pss line 070",
+        "<nvim-surface.txt [+] 1,1            Top <vim-surface.txt [+] 61,26          49%",
+        "-- INSERT --"
+      ]
+    }
+  }
+}

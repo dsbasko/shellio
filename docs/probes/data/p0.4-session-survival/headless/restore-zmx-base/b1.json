@@ -1,0 +1,1184 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после attach",
+      "ok": false,
+      "detail": "профиль 2: Differs, расхождений 108, нормализовано 0, не наблюдалось 0\n  active[21].wrap: эталон true, приёмник false\n  active[21][0].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][1].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][2].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][3].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][4].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][5].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][6].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][7].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][8].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][9].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][10].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][11].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][12].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][13].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][14].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][15].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][16].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][17].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][18].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][19].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][20].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][21].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][22].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][23].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][24].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][25].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][26].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][27].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][28].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][29].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][30].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][31].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][32].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][33].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][34].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][35].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][36].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][37].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][38].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][39].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][40].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][41].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][42].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][43].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][44].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][45].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][46].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][47].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][48].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][49].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][50].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][51].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][52].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][53].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][54].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][55].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][56].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][57].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][58].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][59].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][60].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][61].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][62].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][63].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][64].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][65].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][66].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][67].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][68].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][69].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][70].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][71].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][72].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][73].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][74].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][75].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][76].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][77].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][78].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][79].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22].wrap_continuation: эталон true, приёмник false\n  active[22][0].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][1].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][2].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][3].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][4].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][5].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][6].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][7].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][8].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][9].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][10].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][11].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][12].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][13].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][14].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][15].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][16].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][17].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None"
+    },
+    {
+      "name": "суффикс link-tail через кандидата",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после суффикса link-tail",
+      "ok": false,
+      "detail": "профиль 2: Differs, расхождений 108, нормализовано 0, не наблюдалось 0\n  active[21].wrap: эталон true, приёмник false\n  active[21][0].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][1].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][2].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][3].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][4].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][5].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][6].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][7].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][8].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][9].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][10].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][11].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][12].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][13].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][14].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][15].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][16].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][17].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][18].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][19].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][20].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][21].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][22].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][23].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][24].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][25].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][26].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][27].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][28].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][29].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][30].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][31].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][32].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][33].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][34].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][35].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][36].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][37].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][38].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][39].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][40].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][41].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][42].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][43].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][44].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][45].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][46].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][47].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][48].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][49].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][50].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][51].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][52].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][53].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][54].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][55].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][56].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][57].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][58].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][59].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][60].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][61].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][62].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][63].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][64].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][65].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][66].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][67].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][68].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][69].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][70].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][71].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][72].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][73].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][74].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][75].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][76].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][77].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][78].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][79].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22].wrap_continuation: эталон true, приёмник false\n  active[22][0].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][1].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][2].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][3].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][4].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][5].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][6].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][7].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][8].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][9].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][10].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][11].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][12].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][13].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][14].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][15].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][16].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][17].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "record": {
+      "host": {
+        "pid": 39558,
+        "start_us": 1794931206973251
+      },
+      "session": "s4f14f7d89048b99d-b1",
+      "workload": {
+        "pid": 39560,
+        "start_us": 1794931206974232
+      },
+      "workload_pgid": 39560,
+      "workload_sid": 39560
+    },
+    "после attach.comparison": {
+      "mismatch_count": 108,
+      "mismatches": [
+        {
+          "path": "active[21].wrap",
+          "receiver": "false",
+          "reference": "true"
+        },
+        {
+          "path": "active[21][0].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][1].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][2].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][3].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][4].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][5].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][6].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][7].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][8].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][9].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][10].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][11].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][12].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][13].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][14].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][15].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][16].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][17].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][18].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][19].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][20].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][21].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][22].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][23].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][24].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][25].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][26].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][27].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][28].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][29].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][30].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][31].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][32].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][33].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][34].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][35].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][36].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][37].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][38].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][39].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][40].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][41].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][42].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][43].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][44].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][45].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][46].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][47].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][48].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][49].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][50].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][51].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][52].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][53].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][54].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][55].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][56].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][57].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][58].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][59].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][60].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][61].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][62].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][63].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][64].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][65].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][66].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][67].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][68].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][69].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][70].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][71].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][72].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][73].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][74].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][75].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][76].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][77].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][78].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][79].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22].wrap_continuation",
+          "receiver": "false",
+          "reference": "true"
+        },
+        {
+          "path": "active[22][0].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][1].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][2].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][3].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][4].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][5].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][6].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][7].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][8].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][9].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][10].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][11].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][12].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][13].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][14].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][15].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][16].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][17].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        }
+      ],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после attach.receiver_text": [
+      "line 20 plain",
+      "line 21 plain",
+      "line 22 plain",
+      "line 23 plain",
+      "line 24 plain",
+      "line 25 plain",
+      "line 26 plain",
+      "line 27 plain",
+      "line 28 plain",
+      "line 29 plain",
+      "line 30 plain",
+      "line 31 plain",
+      "line 32 plain",
+      "line 33 plain",
+      "line 34 plain",
+      "line 35 plain",
+      "line 36 plain",
+      "line 37 plain",
+      "line 38 plain",
+      "line 39 plain",
+      "curly strike",
+      "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "LLLLLLLLLLLLLLLLLLLL",
+      "pen open"
+    ],
+    "после attach.reference_text": [
+      "line 20 plain",
+      "line 21 plain",
+      "line 22 plain",
+      "line 23 plain",
+      "line 24 plain",
+      "line 25 plain",
+      "line 26 plain",
+      "line 27 plain",
+      "line 28 plain",
+      "line 29 plain",
+      "line 30 plain",
+      "line 31 plain",
+      "line 32 plain",
+      "line 33 plain",
+      "line 34 plain",
+      "line 35 plain",
+      "line 36 plain",
+      "line 37 plain",
+      "line 38 plain",
+      "line 39 plain",
+      "curly strike",
+      "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "LLLLLLLLLLLLLLLLLLLL",
+      "pen open"
+    ],
+    "после суффикса link-tail.comparison": {
+      "mismatch_count": 108,
+      "mismatches": [
+        {
+          "path": "active[21].wrap",
+          "receiver": "false",
+          "reference": "true"
+        },
+        {
+          "path": "active[21][0].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][1].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][2].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][3].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][4].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][5].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][6].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][7].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][8].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][9].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][10].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][11].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][12].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][13].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][14].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][15].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][16].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][17].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][18].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][19].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][20].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][21].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][22].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][23].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][24].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][25].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][26].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][27].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][28].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][29].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][30].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][31].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][32].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][33].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][34].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][35].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][36].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][37].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][38].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][39].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][40].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][41].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][42].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][43].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][44].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][45].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][46].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][47].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][48].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][49].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][50].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][51].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][52].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][53].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][54].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][55].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][56].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][57].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][58].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][59].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][60].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][61].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][62].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][63].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][64].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][65].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][66].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][67].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][68].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][69].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][70].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][71].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][72].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][73].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][74].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][75].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][76].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][77].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][78].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[21][79].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22].wrap_continuation",
+          "receiver": "false",
+          "reference": "true"
+        },
+        {
+          "path": "active[22][0].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][1].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][2].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][3].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][4].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][5].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][6].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][7].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][8].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][9].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][10].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][11].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][12].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][13].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][14].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][15].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][16].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        },
+        {
+          "path": "active[22][17].hyperlink",
+          "receiver": "None",
+          "reference": "Some(\"https://example.test/b1-active\")"
+        }
+      ],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после суффикса link-tail.receiver_text": [
+      "line 20 plain",
+      "line 21 plain",
+      "line 22 plain",
+      "line 23 plain",
+      "line 24 plain",
+      "line 25 plain",
+      "line 26 plain",
+      "line 27 plain",
+      "line 28 plain",
+      "line 29 plain",
+      "line 30 plain",
+      "line 31 plain",
+      "line 32 plain",
+      "line 33 plain",
+      "line 34 plain",
+      "line 35 plain",
+      "line 36 plain",
+      "line 37 plain",
+      "line 38 plain",
+      "line 39 plain",
+      "curly strike",
+      "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "LLLLLLLLLLLLLLLLLLLL",
+      "pen opentail end"
+    ],
+    "после суффикса link-tail.reference_text": [
+      "line 20 plain",
+      "line 21 plain",
+      "line 22 plain",
+      "line 23 plain",
+      "line 24 plain",
+      "line 25 plain",
+      "line 26 plain",
+      "line 27 plain",
+      "line 28 plain",
+      "line 29 plain",
+      "line 30 plain",
+      "line 31 plain",
+      "line 32 plain",
+      "line 33 plain",
+      "line 34 plain",
+      "line 35 plain",
+      "line 36 plain",
+      "line 37 plain",
+      "line 38 plain",
+      "line 39 plain",
+      "curly strike",
+      "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "LLLLLLLLLLLLLLLLLLLL",
+      "pen opentail end"
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "checks": [
+    {
+      "detail": "ok",
+      "name": "c1 лидер",
+      "ok": true
+    }
+  ],
+  "facts": {
+    "discard": [],
+    "enters": 0,
+    "start_ms": 120005,
+    "survivors": 0
+  },
+  "not_proven": "ответ не начался за 120 с: нет входа, сети или экран агента не распознан",
+  "session": "s4a4b51a782587cee-codex"
+}

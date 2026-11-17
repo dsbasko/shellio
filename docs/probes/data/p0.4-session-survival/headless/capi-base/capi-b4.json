@@ -1,0 +1,495 @@
+{
+  "bridge": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "после восстановления",
+        "ok": true
+      },
+      {
+        "detail": "[]",
+        "name": "воспроизведение без ответов, отчётов и эффектов",
+        "ok": true
+      },
+      {
+        "detail": "равно",
+        "name": "извлечённое у приёмника равно извлечённому у источника",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "суффикс kitty-pop",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "bridge_state_differences": [],
+      "cause": null,
+      "inexpressible": [],
+      "payload": {
+        "body": 221,
+        "boundary": 24,
+        "continuation": 0,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "kitty",
+        "flags 3",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "после восстановления.reference_text": [
+        "kitty",
+        "flags 3",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс kitty-pop.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс kitty-pop.receiver_text": [
+        "kitty",
+        "flags 3",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс kitty-pop.reference_text": [
+        "kitty",
+        "flags 3",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    "unsupported": null
+  },
+  "formatter": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Differs, расхождений 1, нормализовано 0, не наблюдалось 0\n  kitty_stack: эталон [3, 1], приёмник [3]",
+        "name": "после восстановления",
+        "ok": false
+      },
+      {
+        "detail": "профиль 2: Differs, расхождений 4, нормализовано 0, не наблюдалось 0\n  kitty_flags: эталон 1, приёмник 0\n  input.key:ctrl-a: эталон Some(\"1b5b39373b3575\"), приёмник Some(\"01\")\n  input.key:escape: эталон Some(\"1b5b323775\"), приёмник Some(\"1b\")\n  kitty_stack: эталон [1], приёмник []",
+        "name": "суффикс kitty-pop",
+        "ok": false
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "payload": {
+        "body": 5666,
+        "boundary": 24,
+        "continuation": 0,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 1,
+        "mismatches": [
+          {
+            "path": "kitty_stack",
+            "receiver": "[3]",
+            "reference": "[3, 1]"
+          }
+        ],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "kitty",
+        "flags 3",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "после восстановления.reference_text": [
+        "kitty",
+        "flags 3",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс kitty-pop.comparison": {
+        "mismatch_count": 4,
+        "mismatches": [
+          {
+            "path": "kitty_flags",
+            "receiver": "0",
+            "reference": "1"
+          },
+          {
+            "path": "input.key:ctrl-a",
+            "receiver": "Some(\"01\")",
+            "reference": "Some(\"1b5b39373b3575\")"
+          },
+          {
+            "path": "input.key:escape",
+            "receiver": "Some(\"1b\")",
+            "reference": "Some(\"1b5b323775\")"
+          },
+          {
+            "path": "kitty_stack",
+            "receiver": "[]",
+            "reference": "[1]"
+          }
+        ],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс kitty-pop.receiver_text": [
+        "kitty",
+        "flags 3",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс kitty-pop.reference_text": [
+        "kitty",
+        "flags 3",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    "unsupported": null
+  },
+  "snapshot": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "после восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "суффикс kitty-pop",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "payload": {
+        "body": 1169,
+        "boundary": 24,
+        "continuation": null,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "kitty",
+        "flags 3",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "после восстановления.reference_text": [
+        "kitty",
+        "flags 3",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс kitty-pop.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс kitty-pop.receiver_text": [
+        "kitty",
+        "flags 3",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "суффикс kitty-pop.reference_text": [
+        "kitty",
+        "flags 3",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    "unsupported": null
+  }
+}

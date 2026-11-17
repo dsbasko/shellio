@@ -1,0 +1,122 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "повторный ensure не создал нагрузку",
+      "ok": true,
+      "detail": "created false, нагрузка ProcessKey { pid: 39168, start_us: 1794931191236329 }"
+    },
+    {
+      "name": "нагрузка та же",
+      "ok": true,
+      "detail": "PID 39168 старт 1794931191236329: Same(ProcessInfo { key: ProcessKey { pid: 39168, start_us: 1794931191236329 }, ppid: 39167, pgid: 39168, sid: Some(39168), tpgid: Some(39168), tty: Some(268435464), state: Running, exiting: false, comm: \"probe-session-f\" })"
+    },
+    {
+      "name": "одна нагрузка и один хост",
+      "ok": true,
+      "detail": "[ProcessKey { pid: 39167, start_us: 1794931191234150 }, ProcessKey { pid: 39168, start_us: 1794931191236329 }], ожидалось [ProcessKey { pid: 39167, start_us: 1794931191234150 }, ProcessKey { pid: 39168, start_us: 1794931191236329 }]"
+    },
+    {
+      "name": "одна сессия в списке",
+      "ok": true,
+      "detail": "[Listed { name: \"s9cc3e0704540fa2c-a4r\", workload_pid: Some(39168), clients: Some(1), error: None }]"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "ensure_again": {
+      "command": {
+        "args": [
+          "attach",
+          "s9cc3e0704540fa2c-a4r",
+          "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-fixture",
+          "--mode",
+          "emitter",
+          "--channel",
+          "/tmp/pss-9cc3e0704540fa2c/c.sock",
+          "--nonce",
+          "s9cc3e0704540fa2c-a4r-w"
+        ],
+        "code": 1,
+        "elapsed_ms": 3,
+        "signal": null,
+        "stderr": "",
+        "stdout": ""
+      },
+      "created": false,
+      "record": {
+        "host": {
+          "pid": 39167,
+          "start_us": 1794931191234150
+        },
+        "session": "s9cc3e0704540fa2c-a4r",
+        "workload": {
+          "pid": 39168,
+          "start_us": 1794931191236329
+        },
+        "workload_pgid": 39168,
+        "workload_sid": 39168
+      }
+    },
+    "leaders": 2,
+    "processes": [
+      {
+        "pid": 39167,
+        "start_us": 1794931191234150
+      },
+      {
+        "pid": 39168,
+        "start_us": 1794931191236329
+      }
+    ],
+    "record": {
+      "host": {
+        "pid": 39167,
+        "start_us": 1794931191234150
+      },
+      "session": "s9cc3e0704540fa2c-a4r",
+      "workload": {
+        "pid": 39168,
+        "start_us": 1794931191236329
+      },
+      "workload_pgid": 39168,
+      "workload_sid": 39168
+    },
+    "нагрузка та же": {
+      "comm": "probe-session-f",
+      "exiting": false,
+      "key": {
+        "pid": 39168,
+        "start_us": 1794931191236329
+      },
+      "kind": "same",
+      "pgid": 39168,
+      "ppid": 39167,
+      "sid": 39168,
+      "state": "running",
+      "tpgid": 39168,
+      "tty": 268435464
+    }
+  }
+}

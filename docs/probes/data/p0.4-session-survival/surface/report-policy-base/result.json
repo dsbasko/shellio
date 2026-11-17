@@ -1,0 +1,322 @@
+{
+  "schema": 1,
+  "scenario": "report-policy",
+  "backend": null,
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "7ad4beea9f66-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0",
+      "features": [
+        "surface"
+      ]
+    },
+    "versions": {
+      "ghostty-surface": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "vt": "ghostty-vt 1.4.0 (83fb95624b04)",
+      "zig-vt": "0.17.1",
+      "zig-zmx": "0.16.0",
+      "zmx": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+      "zmx-prev": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm"
+    },
+    "stamps": {
+      "ghostty-surface": "51b581ba6cc144a861f09b4ab2bc5d818417000cbd43c4a87fd4a0382b515990",
+      "vt": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+      "zmx": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+      "zmx-prev": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579"
+    },
+    "normalization_profile": 2,
+    "process": {
+      "pid": 54711,
+      "nonce": "330ba65c531ced24",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.330ba65c531ced24",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_COMMIT": "7ad4beea9f66-dirty",
+        "SHELLIO_PROBE_HOST_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/release",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_SETS_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival",
+        "SHELLIO_PROBE_STAMP_SURFACE": "51b581ba6cc144a861f09b4ab2bc5d818417000cbd43c4a87fd4a0382b515990",
+        "SHELLIO_PROBE_STAMP_VT": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+        "SHELLIO_PROBE_STAMP_ZMX": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+        "SHELLIO_PROBE_STAMP_ZMX_PREV": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579",
+        "SHELLIO_PROBE_VERSION_SURFACE": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+        "SHELLIO_PROBE_VERSION_VT": "ghostty-vt 1.4.0 (83fb95624b04)",
+        "SHELLIO_PROBE_VERSION_ZIG_VT": "0.17.1",
+        "SHELLIO_PROBE_VERSION_ZIG_ZMX": "0.16.0",
+        "SHELLIO_PROBE_VERSION_ZMX": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_PROBE_VERSION_ZMX_PREV": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.330ba65c531ced24",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "cells": [
+    {
+      "id": "surface-control",
+      "part": "separate",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "сцена separate с режимами отчётов и живой поток без фильтра, фокус, видимость, ресайз и схема явными вызовами",
+      "oracle": "квитанции прочитанных байтов фикстуры: отчёт поверхности на каждой стадии",
+      "completion": "маркер-вставка каждой стадии прочитан фикстурой",
+      "reason": "выполнено: replay: отчёт поверхности виден; live: отчёт поверхности виден; focus-out: отчёт поверхности виден; focus-in: отчёт поверхности виден; hidden: отчёт поверхности виден; visible: отчёт поверхности виден; resize: отчёт поверхности виден; scheme: отчёт поверхности виден",
+      "artifacts": [
+        "report-policy/control-separate.json"
+      ]
+    },
+    {
+      "id": "surface-C1",
+      "part": "control-separate",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "RIS и байты кодировщика сцены separate (passthrough) в новой поверхности, затем «@» живым потоком",
+      "oracle": "ghostty_surface_read_text видимой области против строк VT-источника; CPR",
+      "completion": "граница по DSR и маркер-вставка прочитаны фикстурой",
+      "reason": "выполнено: текст после восстановления по read_text; курсор после восстановления по CPR; символ живого потока в позиции курсора по read_text",
+      "artifacts": [
+        "report-policy/control-separate.json"
+      ]
+    },
+    {
+      "id": "surface-C3",
+      "part": "control-separate",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вставка маркера через ghostty_surface_text и нажатие «вверх» через ghostty_surface_key после восстановления и живого потока",
+      "oracle": "квитанции прочитанных байтов фикстуры: обёртка вставки и кодирование клавиши",
+      "completion": "маркер-вставка прочитан фикстурой",
+      "reason": "выполнено: 2004 после восстановления: вставка в CSI 200~ … 201~; 2004 после живого потока: вставка в CSI 200~ … 201~; DECCKM: «вверх» кодируется CSI O A",
+      "artifacts": [
+        "report-policy/control-separate.json"
+      ]
+    },
+    {
+      "id": "surface-C2",
+      "part": "policy-separate",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "сцена separate (policy), живой поток со смешанными CSI через фильтр, фокус, видимость, ресайз и схема после восстановления",
+      "oracle": "квитанции прочитанных байтов фикстуры за вычетом ответа на DSR стенда и кодирования клавиши; записанные байты — квитанции emitted",
+      "completion": "маркер-вставка каждой стадии прочитан фикстурой",
+      "reason": "выполнено: записанные байты без режимов отчётов (независимый разбор); replay: ни одного байта от поверхности; key: ни одного байта от поверхности; live: ни одного байта от поверхности; focus-out: ни одного байта от поверхности; focus-in: ни одного байта от поверхности; hidden: ни одного байта от поверхности; visible: ни одного байта от поверхности; resize: ни одного байта от поверхности; scheme: ни одного байта от поверхности",
+      "artifacts": [
+        "report-policy/policy-separate.json"
+      ]
+    },
+    {
+      "id": "surface-C1",
+      "part": "policy-separate",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "RIS и байты кодировщика сцены separate (canonical) в новой поверхности, затем «@» живым потоком",
+      "oracle": "ghostty_surface_read_text видимой области против строк VT-источника; CPR",
+      "completion": "граница по DSR и маркер-вставка прочитаны фикстурой",
+      "reason": "выполнено: текст после восстановления по read_text; курсор после восстановления по CPR; символ живого потока в позиции курсора по read_text",
+      "artifacts": [
+        "report-policy/policy-separate.json"
+      ]
+    },
+    {
+      "id": "surface-C3",
+      "part": "policy-separate",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вставка маркера через ghostty_surface_text и нажатие «вверх» через ghostty_surface_key после восстановления и живого потока",
+      "oracle": "квитанции прочитанных байтов фикстуры: обёртка вставки и кодирование клавиши",
+      "completion": "маркер-вставка прочитан фикстурой",
+      "reason": "выполнено: 2004 после восстановления: вставка в CSI 200~ … 201~; 2004 после живого потока: вставка в CSI 200~ … 201~; DECCKM: «вверх» кодируется CSI O A",
+      "artifacts": [
+        "report-policy/policy-separate.json"
+      ]
+    },
+    {
+      "id": "surface-C2",
+      "part": "filter-separate",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "сцена separate (filter), живой поток со смешанными CSI через фильтр, фокус, видимость, ресайз и схема после восстановления",
+      "oracle": "квитанции прочитанных байтов фикстуры за вычетом ответа на DSR стенда и кодирования клавиши; записанные байты — квитанции emitted",
+      "completion": "маркер-вставка каждой стадии прочитан фикстурой",
+      "reason": "выполнено: записанные байты без режимов отчётов (независимый разбор); replay: ни одного байта от поверхности; key: ни одного байта от поверхности; live: ни одного байта от поверхности; focus-out: ни одного байта от поверхности; focus-in: ни одного байта от поверхности; hidden: ни одного байта от поверхности; visible: ни одного байта от поверхности; resize: ни одного байта от поверхности; scheme: ни одного байта от поверхности",
+      "artifacts": [
+        "report-policy/filter-separate.json"
+      ]
+    },
+    {
+      "id": "surface-C1",
+      "part": "filter-separate",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "RIS и байты кодировщика сцены separate (passthrough) в новой поверхности, затем «@» живым потоком",
+      "oracle": "ghostty_surface_read_text видимой области против строк VT-источника; CPR",
+      "completion": "граница по DSR и маркер-вставка прочитаны фикстурой",
+      "reason": "выполнено: текст после восстановления по read_text; курсор после восстановления по CPR; символ живого потока в позиции курсора по read_text",
+      "artifacts": [
+        "report-policy/filter-separate.json"
+      ]
+    },
+    {
+      "id": "surface-C3",
+      "part": "filter-separate",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вставка маркера через ghostty_surface_text и нажатие «вверх» через ghostty_surface_key после восстановления и живого потока",
+      "oracle": "квитанции прочитанных байтов фикстуры: обёртка вставки и кодирование клавиши",
+      "completion": "маркер-вставка прочитан фикстурой",
+      "reason": "выполнено: 2004 после восстановления: вставка в CSI 200~ … 201~; 2004 после живого потока: вставка в CSI 200~ … 201~; DECCKM: «вверх» кодируется CSI O A",
+      "artifacts": [
+        "report-policy/filter-separate.json"
+      ]
+    },
+    {
+      "id": "surface-control",
+      "part": "mixed",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "сцена mixed с режимами отчётов и живой поток без фильтра, фокус, видимость, ресайз и схема явными вызовами",
+      "oracle": "квитанции прочитанных байтов фикстуры: отчёт поверхности на каждой стадии",
+      "completion": "маркер-вставка каждой стадии прочитан фикстурой",
+      "reason": "выполнено: replay: отчёт поверхности виден; live: отчёт поверхности виден; focus-out: отчёт поверхности виден; focus-in: отчёт поверхности виден; hidden: отчёт поверхности виден; visible: отчёт поверхности виден; resize: отчёт поверхности виден; scheme: отчёт поверхности виден",
+      "artifacts": [
+        "report-policy/control-mixed.json"
+      ]
+    },
+    {
+      "id": "surface-C1",
+      "part": "control-mixed",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "RIS и байты кодировщика сцены mixed (passthrough) в новой поверхности, затем «@» живым потоком",
+      "oracle": "ghostty_surface_read_text видимой области против строк VT-источника; CPR",
+      "completion": "граница по DSR и маркер-вставка прочитаны фикстурой",
+      "reason": "выполнено: текст после восстановления по read_text; курсор после восстановления по CPR; символ живого потока в позиции курсора по read_text",
+      "artifacts": [
+        "report-policy/control-mixed.json"
+      ]
+    },
+    {
+      "id": "surface-C3",
+      "part": "control-mixed",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вставка маркера через ghostty_surface_text и нажатие «вверх» через ghostty_surface_key после восстановления и живого потока",
+      "oracle": "квитанции прочитанных байтов фикстуры: обёртка вставки и кодирование клавиши",
+      "completion": "маркер-вставка прочитан фикстурой",
+      "reason": "выполнено: 2004 после восстановления: вставка в CSI 200~ … 201~; 2004 после живого потока: вставка в CSI 200~ … 201~; DECCKM: «вверх» кодируется CSI O A",
+      "artifacts": [
+        "report-policy/control-mixed.json"
+      ]
+    },
+    {
+      "id": "surface-C2",
+      "part": "policy-mixed",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "сцена mixed (policy), живой поток со смешанными CSI через фильтр, фокус, видимость, ресайз и схема после восстановления",
+      "oracle": "квитанции прочитанных байтов фикстуры за вычетом ответа на DSR стенда и кодирования клавиши; записанные байты — квитанции emitted",
+      "completion": "маркер-вставка каждой стадии прочитан фикстурой",
+      "reason": "выполнено: записанные байты без режимов отчётов (независимый разбор); replay: ни одного байта от поверхности; key: ни одного байта от поверхности; live: ни одного байта от поверхности; focus-out: ни одного байта от поверхности; focus-in: ни одного байта от поверхности; hidden: ни одного байта от поверхности; visible: ни одного байта от поверхности; resize: ни одного байта от поверхности; scheme: ни одного байта от поверхности",
+      "artifacts": [
+        "report-policy/policy-mixed.json"
+      ]
+    },
+    {
+      "id": "surface-C1",
+      "part": "policy-mixed",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "RIS и байты кодировщика сцены mixed (canonical) в новой поверхности, затем «@» живым потоком",
+      "oracle": "ghostty_surface_read_text видимой области против строк VT-источника; CPR",
+      "completion": "граница по DSR и маркер-вставка прочитаны фикстурой",
+      "reason": "выполнено: текст после восстановления по read_text; курсор после восстановления по CPR; символ живого потока в позиции курсора по read_text",
+      "artifacts": [
+        "report-policy/policy-mixed.json"
+      ]
+    },
+    {
+      "id": "surface-C3",
+      "part": "policy-mixed",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вставка маркера через ghostty_surface_text и нажатие «вверх» через ghostty_surface_key после восстановления и живого потока",
+      "oracle": "квитанции прочитанных байтов фикстуры: обёртка вставки и кодирование клавиши",
+      "completion": "маркер-вставка прочитан фикстурой",
+      "reason": "выполнено: 2004 после восстановления: вставка в CSI 200~ … 201~; 2004 после живого потока: вставка в CSI 200~ … 201~; DECCKM: «вверх» кодируется CSI O A",
+      "artifacts": [
+        "report-policy/policy-mixed.json"
+      ]
+    },
+    {
+      "id": "surface-C2",
+      "part": "filter-mixed",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "сцена mixed (filter), живой поток со смешанными CSI через фильтр, фокус, видимость, ресайз и схема после восстановления",
+      "oracle": "квитанции прочитанных байтов фикстуры за вычетом ответа на DSR стенда и кодирования клавиши; записанные байты — квитанции emitted",
+      "completion": "маркер-вставка каждой стадии прочитан фикстурой",
+      "reason": "выполнено: записанные байты без режимов отчётов (независимый разбор); replay: ни одного байта от поверхности; key: ни одного байта от поверхности; live: ни одного байта от поверхности; focus-out: ни одного байта от поверхности; focus-in: ни одного байта от поверхности; hidden: ни одного байта от поверхности; visible: ни одного байта от поверхности; resize: ни одного байта от поверхности; scheme: ни одного байта от поверхности",
+      "artifacts": [
+        "report-policy/filter-mixed.json"
+      ]
+    },
+    {
+      "id": "surface-C1",
+      "part": "filter-mixed",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "RIS и байты кодировщика сцены mixed (passthrough) в новой поверхности, затем «@» живым потоком",
+      "oracle": "ghostty_surface_read_text видимой области против строк VT-источника; CPR",
+      "completion": "граница по DSR и маркер-вставка прочитаны фикстурой",
+      "reason": "выполнено: текст после восстановления по read_text; курсор после восстановления по CPR; символ живого потока в позиции курсора по read_text",
+      "artifacts": [
+        "report-policy/filter-mixed.json"
+      ]
+    },
+    {
+      "id": "surface-C3",
+      "part": "filter-mixed",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "вставка маркера через ghostty_surface_text и нажатие «вверх» через ghostty_surface_key после восстановления и живого потока",
+      "oracle": "квитанции прочитанных байтов фикстуры: обёртка вставки и кодирование клавиши",
+      "completion": "маркер-вставка прочитан фикстурой",
+      "reason": "выполнено: 2004 после восстановления: вставка в CSI 200~ … 201~; 2004 после живого потока: вставка в CSI 200~ … 201~; DECCKM: «вверх» кодируется CSI O A",
+      "artifacts": [
+        "report-policy/filter-mixed.json"
+      ]
+    }
+  ],
+  "metrics": [],
+  "diagnostics": {
+    "notes": [
+      "сцены: профиль v2, штамп VT bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+      "libghostty: wakeup 31, действий 61",
+      "до восстановления в поверхности: Some(\"Last login: Tue Nov 17 20:45:03 on ttys017\")"
+    ]
+  }
+}

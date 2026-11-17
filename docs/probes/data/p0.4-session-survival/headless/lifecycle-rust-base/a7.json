@@ -1,0 +1,182 @@
+{
+  "checks": [
+    {
+      "name": "хост обработал вывод без клиента",
+      "ok": true,
+      "detail": "ревизия 65"
+    },
+    {
+      "name": "ensure без скрытого attach",
+      "ok": true,
+      "detail": "восстановлений до attach: 0, клиентов 0, лидер false"
+    },
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "первый attach",
+      "ok": true,
+      "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "daemon_log": {
+      "restores": 1
+    },
+    "ensure_again": {
+      "command": {
+        "args": [
+          "status",
+          "s4929def04c0ddac5-a7"
+        ],
+        "code": null,
+        "elapsed_ms": 0,
+        "signal": null,
+        "stderr": "",
+        "stdout": ""
+      },
+      "created": false,
+      "record": {
+        "host": {
+          "pid": 39447,
+          "start_us": 1794931201864340
+        },
+        "session": "s4929def04c0ddac5-a7",
+        "workload": {
+          "pid": 39448,
+          "start_us": 1794931201866257
+        },
+        "workload_pgid": 39448,
+        "workload_sid": 39448
+      }
+    },
+    "headless_snapshot": {
+      "alternate": false,
+      "cols": 80,
+      "cursor_x": 13,
+      "cursor_y": 11,
+      "revision": 65,
+      "rows": 24,
+      "text": "headless line 037\nheadless line 038\nheadless line 039\nheadless line 040\nheadless positioned\nheadless line 042\nheadless line 043\nheadless line 044\nheadless line 045\nheadless line 046\nheadless line 047\nhecursor here 048\nheadless line 049\nheadless line 050\nheadless line 051\nheadless line 052\nheadless line 053\nheadless line 054\nheadless line 055\nheadless line 056\nheadless line 057\nheadless line 058\nheadless line 059\n"
+    },
+    "record": {
+      "host": {
+        "pid": 39447,
+        "start_us": 1794931201864340
+      },
+      "session": "s4929def04c0ddac5-a7",
+      "workload": {
+        "pid": 39448,
+        "start_us": 1794931201866257
+      },
+      "workload_pgid": 39448,
+      "workload_sid": 39448
+    },
+    "status_before_attach": {
+      "clients": 0,
+      "clipboard": {
+        "answered": 0,
+        "cancelled": 0,
+        "dropped": 0,
+        "no_gui": 0,
+        "requests": 0,
+        "timeouts": 0
+      },
+      "dropped_replies": 0,
+      "evictions": 0,
+      "generation": 0,
+      "host": {
+        "pid": 39447,
+        "start_us": 1794931201864340
+      },
+      "input_queued": 0,
+      "leader": false,
+      "parsed_bytes": 1229,
+      "read_bytes": 1229,
+      "reads": 65,
+      "replies": 0,
+      "size": {
+        "cols": 80,
+        "rows": 24,
+        "xpixel": 800,
+        "ypixel": 480
+      },
+      "workload": {
+        "pid": 39448,
+        "start_us": 1794931201866257
+      },
+      "workload_pgid": 39448,
+      "workload_sid": 39448
+    },
+    "первый attach.comparison": {
+      "mismatch_count": 0,
+      "mismatches": [],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "первый attach.receiver_text": [
+      "headless line 037",
+      "headless line 038",
+      "headless line 039",
+      "headless line 040",
+      "headless positioned",
+      "headless line 042",
+      "headless line 043",
+      "headless line 044",
+      "headless line 045",
+      "headless line 046",
+      "headless line 047",
+      "hecursor here 048",
+      "headless line 049",
+      "headless line 050",
+      "headless line 051",
+      "headless line 052",
+      "headless line 053",
+      "headless line 054",
+      "headless line 055",
+      "headless line 056",
+      "headless line 057",
+      "headless line 058",
+      "headless line 059",
+      ""
+    ],
+    "первый attach.reference_text": [
+      "headless line 037",
+      "headless line 038",
+      "headless line 039",
+      "headless line 040",
+      "headless positioned",
+      "headless line 042",
+      "headless line 043",
+      "headless line 044",
+      "headless line 045",
+      "headless line 046",
+      "headless line 047",
+      "hecursor here 048",
+      "headless line 049",
+      "headless line 050",
+      "headless line 051",
+      "headless line 052",
+      "headless line 053",
+      "headless line 054",
+      "headless line 055",
+      "headless line 056",
+      "headless line 057",
+      "headless line 058",
+      "headless line 059",
+      ""
+    ]
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "эффект один раз при живом клиенте",
+      "ok": true,
+      "detail": "записей буфера обмена у c1: 1"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "нет повтора при новом подключении",
+      "ok": true,
+      "detail": "записей буфера обмена у c2: 0"
+    },
+    {
+      "name": "c2 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c3 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "запись без клиента не повторяется больше одного раза",
+      "ok": true,
+      "detail": "записей буфера обмена у c3: 0"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "c1.journal": [
+      {
+        "kind": "role",
+        "report": "leader:1"
+      },
+      {
+        "hex": "1b5b306e",
+        "kind": "reply"
+      },
+      {
+        "contents": [
+          [
+            "text/plain",
+            "68656c6c6f"
+          ]
+        ],
+        "kind": "clipboard-write",
+        "location": 0
+      },
+      {
+        "hex": "1b5b306e",
+        "kind": "reply"
+      }
+    ],
+    "c2.journal": [
+      {
+        "kind": "role",
+        "report": "leader:3"
+      },
+      {
+        "hex": "1b5b306e",
+        "kind": "reply"
+      }
+    ],
+    "c3.journal": [
+      {
+        "kind": "role",
+        "report": "leader:5"
+      },
+      {
+        "hex": "1b5b306e",
+        "kind": "reply"
+      }
+    ],
+    "record": {
+      "host": {
+        "pid": 40080,
+        "start_us": 1794931236216699
+      },
+      "session": "sc58f947c70918a01-d3",
+      "workload": {
+        "pid": 40081,
+        "start_us": 1794931236219785
+      },
+      "workload_pgid": 40081,
+      "workload_sid": 40081
+    },
+    "запись без клиента доставлена при подключении": 0
+  }
+}

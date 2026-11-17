@@ -1,0 +1,52 @@
+{
+  "checks": [
+    {
+      "name": "явный ответ без GUI",
+      "ok": true,
+      "detail": "ровно ожидаемые ответы: {Clipboard: 1}"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "clipboard": {
+      "answered": 0,
+      "cancelled": 0,
+      "dropped": 0,
+      "no_gui": 1,
+      "requests": 1,
+      "timeouts": 0
+    },
+    "payloads": [
+      ""
+    ],
+    "record": {
+      "host": {
+        "pid": 40302,
+        "start_us": 1794931249696658
+      },
+      "session": "s8e5045f7ab4284bb-d4h",
+      "workload": {
+        "pid": 40303,
+        "start_us": 1794931249699731
+      },
+      "workload_pgid": 40303,
+      "workload_sid": 40303
+    },
+    "явный ответ без GUI.responses": [
+      [
+        "clipboard",
+        "1b5d35323b633b1b5c"
+      ]
+    ],
+    "явный ответ без GUI.tally": {
+      "expected": {
+        "clipboard": 1
+      },
+      "seen": {
+        "clipboard": 1
+      }
+    }
+  }
+}

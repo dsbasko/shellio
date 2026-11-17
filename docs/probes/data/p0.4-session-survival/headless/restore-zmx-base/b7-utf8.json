@@ -1,0 +1,150 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "после остатка",
+      "ok": false,
+      "detail": "профиль 2: Differs, расхождений 6, нормализовано 0, не наблюдалось 0\n  active[1][2].text: эталон \"世\", приёмник \"�\"\n  active[1][2].width: эталон Wide, приёмник Narrow\n  active[1][3].text: эталон \"\", приёмник \"X\"\n  active[1][3].width: эталон SpacerTail, приёмник Narrow\n  active[1][4].text: эталон \"X\", приёмник \"\"\n  cursor.x: эталон 5, приёмник 4"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "prefix": "6162e4b8",
+    "record": {
+      "host": {
+        "pid": 39691,
+        "start_us": 1794931212553209
+      },
+      "session": "s4f14f7d89048b99d-b7utf8",
+      "workload": {
+        "pid": 39692,
+        "start_us": 1794931212555190
+      },
+      "workload_pgid": 39692,
+      "workload_sid": 39692
+    },
+    "rest": "9658",
+    "revision": {
+      "after": 5,
+      "before": 4,
+      "violations": []
+    },
+    "после остатка.comparison": {
+      "mismatch_count": 6,
+      "mismatches": [
+        {
+          "path": "active[1][2].text",
+          "receiver": "\"�\"",
+          "reference": "\"世\""
+        },
+        {
+          "path": "active[1][2].width",
+          "receiver": "Narrow",
+          "reference": "Wide"
+        },
+        {
+          "path": "active[1][3].text",
+          "receiver": "\"X\"",
+          "reference": "\"\""
+        },
+        {
+          "path": "active[1][3].width",
+          "receiver": "Narrow",
+          "reference": "SpacerTail"
+        },
+        {
+          "path": "active[1][4].text",
+          "receiver": "\"\"",
+          "reference": "\"X\""
+        },
+        {
+          "path": "cursor.x",
+          "receiver": "4",
+          "reference": "5"
+        }
+      ],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "после остатка.receiver_text": [
+      "before the cut",
+      "ab�X",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "после остатка.reference_text": [
+      "before the cut",
+      "ab世X",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  }
+}

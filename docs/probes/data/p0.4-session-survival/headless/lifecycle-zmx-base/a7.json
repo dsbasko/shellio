@@ -1,0 +1,655 @@
+{
+  "checks": [
+    {
+      "name": "хост обработал вывод без клиента",
+      "ok": true,
+      "detail": "ревизия 27"
+    },
+    {
+      "name": "ensure без скрытого attach",
+      "ok": true,
+      "detail": "назначений лидера до attach: 0"
+    },
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "первый attach",
+      "ok": false,
+      "detail": "профиль 2: Differs, расхождений 411, нормализовано 0, не наблюдалось 0\n  active[0][0].text: эталон \"h\", приёмник \"\"\n  active[0][1].text: эталон \"e\", приёмник \"\"\n  active[0][2].text: эталон \"a\", приёмник \"\"\n  active[0][3].text: эталон \"d\", приёмник \"\"\n  active[0][4].text: эталон \"l\", приёмник \"\"\n  active[0][5].text: эталон \"e\", приёмник \"\"\n  active[0][6].text: эталон \"s\", приёмник \"\"\n  active[0][7].text: эталон \"s\", приёмник \"\"\n  active[0][8].text: эталон \" \", приёмник \"\"\n  active[0][9].text: эталон \"l\", приёмник \"\"\n  active[0][10].text: эталон \"i\", приёмник \"\"\n  active[0][11].text: эталон \"n\", приёмник \"\"\n  active[0][12].text: эталон \"e\", приёмник \"\"\n  active[0][13].text: эталон \" \", приёмник \"\"\n  active[0][14].text: эталон \"0\", приёмник \"\"\n  active[0][15].text: эталон \"3\", приёмник \"\"\n  active[0][16].text: эталон \"7\", приёмник \"\"\n  active[1][0].text: эталон \"h\", приёмник \"\"\n  active[1][1].text: эталон \"e\", приёмник \"\"\n  active[1][2].text: эталон \"a\", приёмник \"\"\n  active[1][3].text: эталон \"d\", приёмник \"\"\n  active[1][4].text: эталон \"l\", приёмник \"\"\n  active[1][5].text: эталон \"e\", приёмник \"\"\n  active[1][6].text: эталон \"s\", приёмник \"\"\n  active[1][7].text: эталон \"s\", приёмник \"\"\n  active[1][8].text: эталон \" \", приёмник \"\"\n  active[1][9].text: эталон \"l\", приёмник \"\"\n  active[1][10].text: эталон \"i\", приёмник \"\"\n  active[1][11].text: эталон \"n\", приёмник \"\"\n  active[1][12].text: эталон \"e\", приёмник \"\"\n  active[1][13].text: эталон \" \", приёмник \"\"\n  active[1][14].text: эталон \"0\", приёмник \"\"\n  active[1][15].text: эталон \"3\", приёмник \"\"\n  active[1][16].text: эталон \"8\", приёмник \"\"\n  active[2][0].text: эталон \"h\", приёмник \"\"\n  active[2][1].text: эталон \"e\", приёмник \"\"\n  active[2][2].text: эталон \"a\", приёмник \"\"\n  active[2][3].text: эталон \"d\", приёмник \"\"\n  active[2][4].text: эталон \"l\", приёмник \"\"\n  active[2][5].text: эталон \"e\", приёмник \"\"\n  active[2][6].text: эталон \"s\", приёмник \"\"\n  active[2][7].text: эталон \"s\", приёмник \"\"\n  active[2][8].text: эталон \" \", приёмник \"\"\n  active[2][9].text: эталон \"l\", приёмник \"\"\n  active[2][10].text: эталон \"i\", приёмник \"\"\n  active[2][11].text: эталон \"n\", приёмник \"\"\n  active[2][12].text: эталон \"e\", приёмник \"\"\n  active[2][13].text: эталон \" \", приёмник \"\"\n  active[2][14].text: эталон \"0\", приёмник \"\"\n  active[2][15].text: эталон \"3\", приёмник \"\"\n  active[2][16].text: эталон \"9\", приёмник \"\"\n  active[3][0].text: эталон \"h\", приёмник \"\"\n  active[3][1].text: эталон \"e\", приёмник \"\"\n  active[3][2].text: эталон \"a\", приёмник \"\"\n  active[3][3].text: эталон \"d\", приёмник \"\"\n  active[3][4].text: эталон \"l\", приёмник \"\"\n  active[3][5].text: эталон \"e\", приёмник \"\"\n  active[3][6].text: эталон \"s\", приёмник \"\"\n  active[3][7].text: эталон \"s\", приёмник \"\"\n  active[3][8].text: эталон \" \", приёмник \"\"\n  active[3][9].text: эталон \"l\", приёмник \"\"\n  active[3][10].text: эталон \"i\", приёмник \"\"\n  active[3][11].text: эталон \"n\", приёмник \"\"\n  active[3][12].text: эталон \"e\", приёмник \"\"\n  active[3][13].text: эталон \" \", приёмник \"\"\n  active[3][14].text: эталон \"0\", приёмник \"\"\n  active[3][15].text: эталон \"4\", приёмник \"\"\n  active[3][16].text: эталон \"0\", приёмник \"\"\n  active[4][0].text: эталон \"h\", приёмник \"\"\n  active[4][1].text: эталон \"e\", приёмник \"\"\n  active[4][2].text: эталон \"a\", приёмник \"\"\n  active[4][3].text: эталон \"d\", приёмник \"\"\n  active[4][4].text: эталон \"l\", приёмник \"\"\n  active[4][5].text: эталон \"e\", приёмник \"\"\n  active[4][6].text: эталон \"s\", приёмник \"\"\n  active[4][7].text: эталон \"s\", приёмник \"\"\n  active[4][8].text: эталон \" \", приёмник \"\"\n  active[4][9].text: эталон \"p\", приёмник \"\"\n  active[4][9].style.underline: эталон 1, приёмник 0\n  active[4][10].text: эталон \"o\", приёмник \"\"\n  active[4][10].style.underline: эталон 1, приёмник 0\n  active[4][11].text: эталон \"s\", приёмник \"\"\n  active[4][11].style.underline: эталон 1, приёмник 0\n  active[4][12].text: эталон \"i\", приёмник \"\"\n  active[4][12].style.underline: эталон 1, приёмник 0\n  active[4][13].text: эталон \"t\", приёмник \"\"\n  active[4][13].style.underline: эталон 1, приёмник 0\n  active[4][14].text: эталон \"i\", приёмник \"\"\n  active[4][14].style.underline: эталон 1, приёмник 0\n  active[4][15].text: эталон \"o\", приёмник \"\"\n  active[4][15].style.underline: эталон 1, приёмник 0\n  active[4][16].text: эталон \"n\", приёмник \"\"\n  active[4][16].style.underline: эталон 1, приёмник 0\n  active[4][17].text: эталон \"e\", приёмник \"\"\n  active[4][17].style.underline: эталон 1, приёмник 0\n  active[4][18].text: эталон \"d\", приёмник \"\"\n  active[4][18].style.underline: эталон 1, приёмник 0\n  active[5][0].text: эталон \"h\", приёмник \"\"\n  active[5][1].text: эталон \"e\", приёмник \"\"\n  active[5][2].text: эталон \"a\", приёмник \"\""
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "daemon_log": {
+      "leaders": 1,
+      "snapshots": 0
+    },
+    "ensure_again": {
+      "command": {
+        "args": [
+          "attach",
+          "s9cc3e0704540fa2c-a7",
+          "/Users/dsbasko/Develop/dsbasko/shellio/target/release/probe-session-fixture",
+          "--mode",
+          "emitter",
+          "--channel",
+          "/tmp/pss-9cc3e0704540fa2c/c.sock",
+          "--nonce",
+          "s9cc3e0704540fa2c-a7-w"
+        ],
+        "code": 1,
+        "elapsed_ms": 2,
+        "signal": null,
+        "stderr": "",
+        "stdout": ""
+      },
+      "created": false,
+      "record": {
+        "host": {
+          "pid": 39226,
+          "start_us": 1794931193556319
+        },
+        "session": "s9cc3e0704540fa2c-a7",
+        "workload": {
+          "pid": 39227,
+          "start_us": 1794931193557346
+        },
+        "workload_pgid": 39227,
+        "workload_sid": 39227
+      }
+    },
+    "headless_snapshot": {
+      "alternate": false,
+      "cols": 80,
+      "cursor_x": 13,
+      "cursor_y": 11,
+      "revision": 27,
+      "rows": 24,
+      "text": "headless line 037\nheadless line 038\nheadless line 039\nheadless line 040\nheadless positioned\nheadless line 042\nheadless line 043\nheadless line 044\nheadless line 045\nheadless line 046\nheadless line 047\nhecursor here 048\nheadless line 049\nheadless line 050\nheadless line 051\nheadless line 052\nheadless line 053\nheadless line 054\nheadless line 055\nheadless line 056\nheadless line 057\nheadless line 058\nheadless line 059"
+    },
+    "record": {
+      "host": {
+        "pid": 39226,
+        "start_us": 1794931193556319
+      },
+      "session": "s9cc3e0704540fa2c-a7",
+      "workload": {
+        "pid": 39227,
+        "start_us": 1794931193557346
+      },
+      "workload_pgid": 39227,
+      "workload_sid": 39227
+    },
+    "первый attach.comparison": {
+      "mismatch_count": 411,
+      "mismatches": [
+        {
+          "path": "active[0][0].text",
+          "receiver": "\"\"",
+          "reference": "\"h\""
+        },
+        {
+          "path": "active[0][1].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[0][2].text",
+          "receiver": "\"\"",
+          "reference": "\"a\""
+        },
+        {
+          "path": "active[0][3].text",
+          "receiver": "\"\"",
+          "reference": "\"d\""
+        },
+        {
+          "path": "active[0][4].text",
+          "receiver": "\"\"",
+          "reference": "\"l\""
+        },
+        {
+          "path": "active[0][5].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[0][6].text",
+          "receiver": "\"\"",
+          "reference": "\"s\""
+        },
+        {
+          "path": "active[0][7].text",
+          "receiver": "\"\"",
+          "reference": "\"s\""
+        },
+        {
+          "path": "active[0][8].text",
+          "receiver": "\"\"",
+          "reference": "\" \""
+        },
+        {
+          "path": "active[0][9].text",
+          "receiver": "\"\"",
+          "reference": "\"l\""
+        },
+        {
+          "path": "active[0][10].text",
+          "receiver": "\"\"",
+          "reference": "\"i\""
+        },
+        {
+          "path": "active[0][11].text",
+          "receiver": "\"\"",
+          "reference": "\"n\""
+        },
+        {
+          "path": "active[0][12].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[0][13].text",
+          "receiver": "\"\"",
+          "reference": "\" \""
+        },
+        {
+          "path": "active[0][14].text",
+          "receiver": "\"\"",
+          "reference": "\"0\""
+        },
+        {
+          "path": "active[0][15].text",
+          "receiver": "\"\"",
+          "reference": "\"3\""
+        },
+        {
+          "path": "active[0][16].text",
+          "receiver": "\"\"",
+          "reference": "\"7\""
+        },
+        {
+          "path": "active[1][0].text",
+          "receiver": "\"\"",
+          "reference": "\"h\""
+        },
+        {
+          "path": "active[1][1].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[1][2].text",
+          "receiver": "\"\"",
+          "reference": "\"a\""
+        },
+        {
+          "path": "active[1][3].text",
+          "receiver": "\"\"",
+          "reference": "\"d\""
+        },
+        {
+          "path": "active[1][4].text",
+          "receiver": "\"\"",
+          "reference": "\"l\""
+        },
+        {
+          "path": "active[1][5].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[1][6].text",
+          "receiver": "\"\"",
+          "reference": "\"s\""
+        },
+        {
+          "path": "active[1][7].text",
+          "receiver": "\"\"",
+          "reference": "\"s\""
+        },
+        {
+          "path": "active[1][8].text",
+          "receiver": "\"\"",
+          "reference": "\" \""
+        },
+        {
+          "path": "active[1][9].text",
+          "receiver": "\"\"",
+          "reference": "\"l\""
+        },
+        {
+          "path": "active[1][10].text",
+          "receiver": "\"\"",
+          "reference": "\"i\""
+        },
+        {
+          "path": "active[1][11].text",
+          "receiver": "\"\"",
+          "reference": "\"n\""
+        },
+        {
+          "path": "active[1][12].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[1][13].text",
+          "receiver": "\"\"",
+          "reference": "\" \""
+        },
+        {
+          "path": "active[1][14].text",
+          "receiver": "\"\"",
+          "reference": "\"0\""
+        },
+        {
+          "path": "active[1][15].text",
+          "receiver": "\"\"",
+          "reference": "\"3\""
+        },
+        {
+          "path": "active[1][16].text",
+          "receiver": "\"\"",
+          "reference": "\"8\""
+        },
+        {
+          "path": "active[2][0].text",
+          "receiver": "\"\"",
+          "reference": "\"h\""
+        },
+        {
+          "path": "active[2][1].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[2][2].text",
+          "receiver": "\"\"",
+          "reference": "\"a\""
+        },
+        {
+          "path": "active[2][3].text",
+          "receiver": "\"\"",
+          "reference": "\"d\""
+        },
+        {
+          "path": "active[2][4].text",
+          "receiver": "\"\"",
+          "reference": "\"l\""
+        },
+        {
+          "path": "active[2][5].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[2][6].text",
+          "receiver": "\"\"",
+          "reference": "\"s\""
+        },
+        {
+          "path": "active[2][7].text",
+          "receiver": "\"\"",
+          "reference": "\"s\""
+        },
+        {
+          "path": "active[2][8].text",
+          "receiver": "\"\"",
+          "reference": "\" \""
+        },
+        {
+          "path": "active[2][9].text",
+          "receiver": "\"\"",
+          "reference": "\"l\""
+        },
+        {
+          "path": "active[2][10].text",
+          "receiver": "\"\"",
+          "reference": "\"i\""
+        },
+        {
+          "path": "active[2][11].text",
+          "receiver": "\"\"",
+          "reference": "\"n\""
+        },
+        {
+          "path": "active[2][12].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[2][13].text",
+          "receiver": "\"\"",
+          "reference": "\" \""
+        },
+        {
+          "path": "active[2][14].text",
+          "receiver": "\"\"",
+          "reference": "\"0\""
+        },
+        {
+          "path": "active[2][15].text",
+          "receiver": "\"\"",
+          "reference": "\"3\""
+        },
+        {
+          "path": "active[2][16].text",
+          "receiver": "\"\"",
+          "reference": "\"9\""
+        },
+        {
+          "path": "active[3][0].text",
+          "receiver": "\"\"",
+          "reference": "\"h\""
+        },
+        {
+          "path": "active[3][1].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[3][2].text",
+          "receiver": "\"\"",
+          "reference": "\"a\""
+        },
+        {
+          "path": "active[3][3].text",
+          "receiver": "\"\"",
+          "reference": "\"d\""
+        },
+        {
+          "path": "active[3][4].text",
+          "receiver": "\"\"",
+          "reference": "\"l\""
+        },
+        {
+          "path": "active[3][5].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[3][6].text",
+          "receiver": "\"\"",
+          "reference": "\"s\""
+        },
+        {
+          "path": "active[3][7].text",
+          "receiver": "\"\"",
+          "reference": "\"s\""
+        },
+        {
+          "path": "active[3][8].text",
+          "receiver": "\"\"",
+          "reference": "\" \""
+        },
+        {
+          "path": "active[3][9].text",
+          "receiver": "\"\"",
+          "reference": "\"l\""
+        },
+        {
+          "path": "active[3][10].text",
+          "receiver": "\"\"",
+          "reference": "\"i\""
+        },
+        {
+          "path": "active[3][11].text",
+          "receiver": "\"\"",
+          "reference": "\"n\""
+        },
+        {
+          "path": "active[3][12].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[3][13].text",
+          "receiver": "\"\"",
+          "reference": "\" \""
+        },
+        {
+          "path": "active[3][14].text",
+          "receiver": "\"\"",
+          "reference": "\"0\""
+        },
+        {
+          "path": "active[3][15].text",
+          "receiver": "\"\"",
+          "reference": "\"4\""
+        },
+        {
+          "path": "active[3][16].text",
+          "receiver": "\"\"",
+          "reference": "\"0\""
+        },
+        {
+          "path": "active[4][0].text",
+          "receiver": "\"\"",
+          "reference": "\"h\""
+        },
+        {
+          "path": "active[4][1].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[4][2].text",
+          "receiver": "\"\"",
+          "reference": "\"a\""
+        },
+        {
+          "path": "active[4][3].text",
+          "receiver": "\"\"",
+          "reference": "\"d\""
+        },
+        {
+          "path": "active[4][4].text",
+          "receiver": "\"\"",
+          "reference": "\"l\""
+        },
+        {
+          "path": "active[4][5].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[4][6].text",
+          "receiver": "\"\"",
+          "reference": "\"s\""
+        },
+        {
+          "path": "active[4][7].text",
+          "receiver": "\"\"",
+          "reference": "\"s\""
+        },
+        {
+          "path": "active[4][8].text",
+          "receiver": "\"\"",
+          "reference": "\" \""
+        },
+        {
+          "path": "active[4][9].text",
+          "receiver": "\"\"",
+          "reference": "\"p\""
+        },
+        {
+          "path": "active[4][9].style.underline",
+          "receiver": "0",
+          "reference": "1"
+        },
+        {
+          "path": "active[4][10].text",
+          "receiver": "\"\"",
+          "reference": "\"o\""
+        },
+        {
+          "path": "active[4][10].style.underline",
+          "receiver": "0",
+          "reference": "1"
+        },
+        {
+          "path": "active[4][11].text",
+          "receiver": "\"\"",
+          "reference": "\"s\""
+        },
+        {
+          "path": "active[4][11].style.underline",
+          "receiver": "0",
+          "reference": "1"
+        },
+        {
+          "path": "active[4][12].text",
+          "receiver": "\"\"",
+          "reference": "\"i\""
+        },
+        {
+          "path": "active[4][12].style.underline",
+          "receiver": "0",
+          "reference": "1"
+        },
+        {
+          "path": "active[4][13].text",
+          "receiver": "\"\"",
+          "reference": "\"t\""
+        },
+        {
+          "path": "active[4][13].style.underline",
+          "receiver": "0",
+          "reference": "1"
+        },
+        {
+          "path": "active[4][14].text",
+          "receiver": "\"\"",
+          "reference": "\"i\""
+        },
+        {
+          "path": "active[4][14].style.underline",
+          "receiver": "0",
+          "reference": "1"
+        },
+        {
+          "path": "active[4][15].text",
+          "receiver": "\"\"",
+          "reference": "\"o\""
+        },
+        {
+          "path": "active[4][15].style.underline",
+          "receiver": "0",
+          "reference": "1"
+        },
+        {
+          "path": "active[4][16].text",
+          "receiver": "\"\"",
+          "reference": "\"n\""
+        },
+        {
+          "path": "active[4][16].style.underline",
+          "receiver": "0",
+          "reference": "1"
+        },
+        {
+          "path": "active[4][17].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[4][17].style.underline",
+          "receiver": "0",
+          "reference": "1"
+        },
+        {
+          "path": "active[4][18].text",
+          "receiver": "\"\"",
+          "reference": "\"d\""
+        },
+        {
+          "path": "active[4][18].style.underline",
+          "receiver": "0",
+          "reference": "1"
+        },
+        {
+          "path": "active[5][0].text",
+          "receiver": "\"\"",
+          "reference": "\"h\""
+        },
+        {
+          "path": "active[5][1].text",
+          "receiver": "\"\"",
+          "reference": "\"e\""
+        },
+        {
+          "path": "active[5][2].text",
+          "receiver": "\"\"",
+          "reference": "\"a\""
+        }
+      ],
+      "normalized": [],
+      "normalized_count": 0,
+      "profile": 2,
+      "unobserved": []
+    },
+    "первый attach.receiver_text": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "первый attach.reference_text": [
+      "headless line 037",
+      "headless line 038",
+      "headless line 039",
+      "headless line 040",
+      "headless positioned",
+      "headless line 042",
+      "headless line 043",
+      "headless line 044",
+      "headless line 045",
+      "headless line 046",
+      "headless line 047",
+      "hecursor here 048",
+      "headless line 049",
+      "headless line 050",
+      "headless line 051",
+      "headless line 052",
+      "headless line 053",
+      "headless line 054",
+      "headless line 055",
+      "headless line 056",
+      "headless line 057",
+      "headless line 058",
+      "headless line 059",
+      ""
+    ]
+  }
+}

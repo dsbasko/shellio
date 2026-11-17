@@ -1,0 +1,1370 @@
+{
+  "bridge": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "после восстановления",
+        "ok": true
+      },
+      {
+        "detail": "[]",
+        "name": "воспроизведение без ответов, отчётов и эффектов",
+        "ok": true
+      },
+      {
+        "detail": "равно",
+        "name": "извлечённое у приёмника равно извлечённому у источника",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "суффикс resize",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "bridge_state_differences": [],
+      "cause": null,
+      "inexpressible": [],
+      "payload": {
+        "body": 5018,
+        "boundary": 4864,
+        "continuation": 0,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "cccccccccccccccccccccccccccccccccccccccc",
+        "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddd",
+        "tail"
+      ],
+      "после восстановления.reference_text": [
+        "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "cccccccccccccccccccccccccccccccccccccccc",
+        "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddd",
+        "tail"
+      ],
+      "суффикс resize.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс resize.receiver_text": [
+        "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "cccccccccccccccccccccccccccccccccccccccc",
+        "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddd",
+        "tailZ"
+      ],
+      "суффикс resize.reference_text": [
+        "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "cccccccccccccccccccccccccccccccccccccccc",
+        "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddd",
+        "tailZ"
+      ]
+    },
+    "unsupported": null
+  },
+  "formatter": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Differs, расхождений 90, нормализовано 0, не наблюдалось 0\n  active[0].wrap: эталон true, приёмник false\n  active[1].wrap: эталон true, приёмник false\n  active[1].wrap_continuation: эталон true, приёмник false\n  active[2].wrap_continuation: эталон true, приёмник false\n  active[3].wrap: эталон true, приёмник false\n  active[4].wrap_continuation: эталон true, приёмник false\n  active[5].wrap: эталон true, приёмник false\n  active[6].wrap: эталон true, приёмник false\n  active[6].wrap_continuation: эталон true, приёмник false\n  active[7].wrap_continuation: эталон true, приёмник false\n  active[8].wrap: эталон true, приёмник false\n  active[9].wrap_continuation: эталон true, приёмник false\n  active[10].wrap: эталон true, приёмник false\n  active[11].wrap: эталон true, приёмник false\n  active[11].wrap_continuation: эталон true, приёмник false\n  active[12].wrap_continuation: эталон true, приёмник false\n  active[13].wrap: эталон true, приёмник false\n  active[14].wrap_continuation: эталон true, приёмник false\n  active[15].wrap: эталон true, приёмник false\n  active[16].wrap: эталон true, приёмник false\n  active[16].wrap_continuation: эталон true, приёмник false\n  active[17].wrap_continuation: эталон true, приёмник false\n  active[18].wrap: эталон true, приёмник false\n  active[19].wrap_continuation: эталон true, приёмник false\n  active[20].wrap: эталон true, приёмник false\n  active[21].wrap: эталон true, приёмник false\n  active[21].wrap_continuation: эталон true, приёмник false\n  active[22].wrap_continuation: эталон true, приёмник false\n  history[1].wrap_continuation: эталон true, приёмник false\n  history[2].wrap: эталон true, приёмник false\n  history[3].wrap_continuation: эталон true, приёмник false\n  history[4].wrap: эталон true, приёмник false\n  history[4].wrap_continuation: эталон true, приёмник false\n  history[5].wrap: эталон true, приёмник false\n  history[6].wrap_continuation: эталон true, приёмник false\n  history[7].wrap: эталон true, приёмник false\n  history[8].wrap_continuation: эталон true, приёмник false\n  history[9].wrap: эталон true, приёмник false\n  history[9].wrap_continuation: эталон true, приёмник false\n  history[10].wrap: эталон true, приёмник false\n  history[11].wrap_continuation: эталон true, приёмник false\n  history[12].wrap: эталон true, приёмник false\n  history[13].wrap_continuation: эталон true, приёмник false\n  history[14].wrap: эталон true, приёмник false\n  history[14].wrap_continuation: эталон true, приёмник false\n  history[15].wrap: эталон true, приёмник false\n  history[16].wrap_continuation: эталон true, приёмник false\n  history[17].wrap: эталон true, приёмник false\n  history[18].wrap_continuation: эталон true, приёмник false\n  history[19].wrap: эталон true, приёмник false\n  history[19].wrap_continuation: эталон true, приёмник false\n  history[20].wrap: эталон true, приёмник false\n  history[21].wrap_continuation: эталон true, приёмник false\n  history[22].wrap: эталон true, приёмник false\n  history[23].wrap_continuation: эталон true, приёмник false\n  history[24].wrap: эталон true, приёмник false\n  history[24].wrap_continuation: эталон true, приёмник false\n  history[25].wrap: эталон true, приёмник false\n  history[26].wrap_continuation: эталон true, приёмник false\n  history[27].wrap: эталон true, приёмник false\n  history[28].wrap_continuation: эталон true, приёмник false\n  history[29].wrap: эталон true, приёмник false\n  history[29].wrap_continuation: эталон true, приёмник false\n  history[30].wrap: эталон true, приёмник false\n  history[31].wrap_continuation: эталон true, приёмник false\n  history[32].wrap: эталон true, приёмник false\n  history[33].wrap_continuation: эталон true, приёмник false\n  history[34].wrap: эталон true, приёмник false\n  history[34].wrap_continuation: эталон true, приёмник false\n  history[35].wrap: эталон true, приёмник false\n  history[36].wrap_continuation: эталон true, приёмник false\n  history[37].wrap: эталон true, приёмник false\n  history[38].wrap_continuation: эталон true, приёмник false\n  history[39].wrap: эталон true, приёмник false\n  history[39].wrap_continuation: эталон true, приёмник false\n  history[40].wrap: эталон true, приёмник false\n  history[41].wrap_continuation: эталон true, приёмник false\n  history[42].wrap: эталон true, приёмник false\n  history[43].wrap_continuation: эталон true, приёмник false\n  history[44].wrap: эталон true, приёмник false\n  history[44].wrap_continuation: эталон true, приёмник false\n  history[45].wrap: эталон true, приёмник false\n  history[46].wrap_continuation: эталон true, приёмник false\n  history[47].wrap: эталон true, приёмник false\n  history[48].wrap_continuation: эталон true, приёмник false\n  history[49].wrap: эталон true, приёмник false\n  history[49].wrap_continuation: эталон true, приёмник false\n  history[50].wrap: эталон true, приёмник false\n  history[51].wrap_continuation: эталон true, приёмник false\n  history[52].wrap: эталон true, приёмник false",
+        "name": "после восстановления",
+        "ok": false
+      },
+      {
+        "detail": "профиль 2: Differs, расхождений 90, нормализовано 0, не наблюдалось 0\n  active[0].wrap: эталон true, приёмник false\n  active[1].wrap: эталон true, приёмник false\n  active[1].wrap_continuation: эталон true, приёмник false\n  active[2].wrap_continuation: эталон true, приёмник false\n  active[3].wrap: эталон true, приёмник false\n  active[4].wrap_continuation: эталон true, приёмник false\n  active[5].wrap: эталон true, приёмник false\n  active[6].wrap: эталон true, приёмник false\n  active[6].wrap_continuation: эталон true, приёмник false\n  active[7].wrap_continuation: эталон true, приёмник false\n  active[8].wrap: эталон true, приёмник false\n  active[9].wrap_continuation: эталон true, приёмник false\n  active[10].wrap: эталон true, приёмник false\n  active[11].wrap: эталон true, приёмник false\n  active[11].wrap_continuation: эталон true, приёмник false\n  active[12].wrap_continuation: эталон true, приёмник false\n  active[13].wrap: эталон true, приёмник false\n  active[14].wrap_continuation: эталон true, приёмник false\n  active[15].wrap: эталон true, приёмник false\n  active[16].wrap: эталон true, приёмник false\n  active[16].wrap_continuation: эталон true, приёмник false\n  active[17].wrap_continuation: эталон true, приёмник false\n  active[18].wrap: эталон true, приёмник false\n  active[19].wrap_continuation: эталон true, приёмник false\n  active[20].wrap: эталон true, приёмник false\n  active[21].wrap: эталон true, приёмник false\n  active[21].wrap_continuation: эталон true, приёмник false\n  active[22].wrap_continuation: эталон true, приёмник false\n  history[1].wrap_continuation: эталон true, приёмник false\n  history[2].wrap: эталон true, приёмник false\n  history[3].wrap_continuation: эталон true, приёмник false\n  history[4].wrap: эталон true, приёмник false\n  history[4].wrap_continuation: эталон true, приёмник false\n  history[5].wrap: эталон true, приёмник false\n  history[6].wrap_continuation: эталон true, приёмник false\n  history[7].wrap: эталон true, приёмник false\n  history[8].wrap_continuation: эталон true, приёмник false\n  history[9].wrap: эталон true, приёмник false\n  history[9].wrap_continuation: эталон true, приёмник false\n  history[10].wrap: эталон true, приёмник false\n  history[11].wrap_continuation: эталон true, приёмник false\n  history[12].wrap: эталон true, приёмник false\n  history[13].wrap_continuation: эталон true, приёмник false\n  history[14].wrap: эталон true, приёмник false\n  history[14].wrap_continuation: эталон true, приёмник false\n  history[15].wrap: эталон true, приёмник false\n  history[16].wrap_continuation: эталон true, приёмник false\n  history[17].wrap: эталон true, приёмник false\n  history[18].wrap_continuation: эталон true, приёмник false\n  history[19].wrap: эталон true, приёмник false\n  history[19].wrap_continuation: эталон true, приёмник false\n  history[20].wrap: эталон true, приёмник false\n  history[21].wrap_continuation: эталон true, приёмник false\n  history[22].wrap: эталон true, приёмник false\n  history[23].wrap_continuation: эталон true, приёмник false\n  history[24].wrap: эталон true, приёмник false\n  history[24].wrap_continuation: эталон true, приёмник false\n  history[25].wrap: эталон true, приёмник false\n  history[26].wrap_continuation: эталон true, приёмник false\n  history[27].wrap: эталон true, приёмник false\n  history[28].wrap_continuation: эталон true, приёмник false\n  history[29].wrap: эталон true, приёмник false\n  history[29].wrap_continuation: эталон true, приёмник false\n  history[30].wrap: эталон true, приёмник false\n  history[31].wrap_continuation: эталон true, приёмник false\n  history[32].wrap: эталон true, приёмник false\n  history[33].wrap_continuation: эталон true, приёмник false\n  history[34].wrap: эталон true, приёмник false\n  history[34].wrap_continuation: эталон true, приёмник false\n  history[35].wrap: эталон true, приёмник false\n  history[36].wrap_continuation: эталон true, приёмник false\n  history[37].wrap: эталон true, приёмник false\n  history[38].wrap_continuation: эталон true, приёмник false\n  history[39].wrap: эталон true, приёмник false\n  history[39].wrap_continuation: эталон true, приёмник false\n  history[40].wrap: эталон true, приёмник false\n  history[41].wrap_continuation: эталон true, приёмник false\n  history[42].wrap: эталон true, приёмник false\n  history[43].wrap_continuation: эталон true, приёмник false\n  history[44].wrap: эталон true, приёмник false\n  history[44].wrap_continuation: эталон true, приёмник false\n  history[45].wrap: эталон true, приёмник false\n  history[46].wrap_continuation: эталон true, приёмник false\n  history[47].wrap: эталон true, приёмник false\n  history[48].wrap_continuation: эталон true, приёмник false\n  history[49].wrap: эталон true, приёмник false\n  history[49].wrap_continuation: эталон true, приёмник false\n  history[50].wrap: эталон true, приёмник false\n  history[51].wrap_continuation: эталон true, приёмник false\n  history[52].wrap: эталон true, приёмник false",
+        "name": "суффикс resize",
+        "ok": false
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "payload": {
+        "body": 10556,
+        "boundary": 4864,
+        "continuation": 0,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 90,
+        "mismatches": [
+          {
+            "path": "active[0].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[1].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[1].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[2].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[3].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[4].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[5].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[6].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[6].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[7].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[8].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[9].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[10].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[11].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[11].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[12].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[13].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[14].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[15].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[16].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[16].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[17].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[18].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[19].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[20].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[21].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[21].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[22].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[1].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[2].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[3].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[4].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[4].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[5].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[6].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[7].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[8].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[9].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[9].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[10].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[11].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[12].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[13].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[14].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[14].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[15].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[16].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[17].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[18].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[19].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[19].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[20].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[21].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[22].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[23].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[24].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[24].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[25].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[26].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[27].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[28].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[29].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[29].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[30].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[31].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[32].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[33].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[34].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[34].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[35].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[36].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[37].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[38].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[39].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[39].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[40].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[41].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[42].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[43].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[44].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[44].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[45].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[46].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[47].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[48].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[49].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[49].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[50].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[51].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[52].wrap",
+            "receiver": "false",
+            "reference": "true"
+          }
+        ],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "cccccccccccccccccccccccccccccccccccccccc",
+        "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddd",
+        "tail"
+      ],
+      "после восстановления.reference_text": [
+        "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "cccccccccccccccccccccccccccccccccccccccc",
+        "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddd",
+        "tail"
+      ],
+      "суффикс resize.comparison": {
+        "mismatch_count": 90,
+        "mismatches": [
+          {
+            "path": "active[0].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[1].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[1].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[2].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[3].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[4].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[5].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[6].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[6].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[7].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[8].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[9].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[10].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[11].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[11].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[12].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[13].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[14].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[15].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[16].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[16].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[17].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[18].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[19].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[20].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[21].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[21].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[22].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[1].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[2].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[3].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[4].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[4].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[5].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[6].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[7].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[8].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[9].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[9].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[10].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[11].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[12].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[13].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[14].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[14].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[15].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[16].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[17].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[18].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[19].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[19].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[20].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[21].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[22].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[23].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[24].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[24].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[25].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[26].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[27].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[28].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[29].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[29].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[30].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[31].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[32].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[33].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[34].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[34].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[35].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[36].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[37].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[38].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[39].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[39].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[40].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[41].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[42].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[43].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[44].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[44].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[45].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[46].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[47].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[48].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[49].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[49].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[50].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[51].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[52].wrap",
+            "receiver": "false",
+            "reference": "true"
+          }
+        ],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс resize.receiver_text": [
+        "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "cccccccccccccccccccccccccccccccccccccccc",
+        "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddd",
+        "tailZ"
+      ],
+      "суффикс resize.reference_text": [
+        "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "cccccccccccccccccccccccccccccccccccccccc",
+        "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddd",
+        "tailZ"
+      ]
+    },
+    "unsupported": null
+  },
+  "snapshot": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "после восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "суффикс resize",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "payload": {
+        "body": 6117,
+        "boundary": 4864,
+        "continuation": null,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "cccccccccccccccccccccccccccccccccccccccc",
+        "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddd",
+        "tail"
+      ],
+      "после восстановления.reference_text": [
+        "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "cccccccccccccccccccccccccccccccccccccccc",
+        "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddd",
+        "tail"
+      ],
+      "суффикс resize.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс resize.receiver_text": [
+        "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "cccccccccccccccccccccccccccccccccccccccc",
+        "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddd",
+        "tailZ"
+      ],
+      "суффикс resize.reference_text": [
+        "r21:vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+        "r22:wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "r23:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "r24:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "r25:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "r26:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "r27:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "r28:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "cccccccccccccccccccccccccccccccccccccccc",
+        "r29:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddddddddddd",
+        "tailZ"
+      ]
+    },
+    "unsupported": null
+  }
+}

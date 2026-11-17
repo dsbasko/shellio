@@ -1,0 +1,236 @@
+{
+  "bridge-cut": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "при восстановлении 0, всего 1",
+        "name": "клиент выполнил разрезанную запись один раз и после остатка",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "both_sides": "хост выполнил 2 записей, клиент 1: одна сторона — решение хоста",
+      "client_writes": [
+        [
+          [
+            "text/plain",
+            "776f726c64"
+          ]
+        ]
+      ],
+      "host_writes": [
+        [
+          [
+            "text/plain",
+            "68656c6c6f"
+          ]
+        ],
+        [
+          [
+            "text/plain",
+            "776f726c64"
+          ]
+        ]
+      ],
+      "payload": {
+        "body": 222,
+        "boundary": 41,
+        "continuation": 11,
+        "restore_journal": [],
+        "withheld": false
+      }
+    },
+    "unsupported": null
+  },
+  "bridge-replay": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "1",
+        "name": "хост выполнил запись один раз",
+        "ok": true
+      },
+      {
+        "detail": "записей у клиента 0",
+        "name": "восстановление не повторяет запись",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "host_writes": [
+        [
+          [
+            "text/plain",
+            "68656c6c6f"
+          ]
+        ]
+      ],
+      "payload": {
+        "body": 211,
+        "boundary": 30,
+        "continuation": 0,
+        "restore_journal": [],
+        "withheld": false
+      }
+    },
+    "unsupported": null
+  },
+  "formatter-cut": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "при восстановлении 0, всего 1",
+        "name": "клиент выполнил разрезанную запись один раз и после остатка",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "both_sides": "хост выполнил 2 записей, клиент 1: одна сторона — решение хоста",
+      "client_writes": [
+        [
+          [
+            "text/plain",
+            "776f726c64"
+          ]
+        ]
+      ],
+      "host_writes": [
+        [
+          [
+            "text/plain",
+            "68656c6c6f"
+          ]
+        ],
+        [
+          [
+            "text/plain",
+            "776f726c64"
+          ]
+        ]
+      ],
+      "payload": {
+        "body": 5659,
+        "boundary": 41,
+        "continuation": 11,
+        "restore_journal": [],
+        "withheld": false
+      }
+    },
+    "unsupported": null
+  },
+  "formatter-replay": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "1",
+        "name": "хост выполнил запись один раз",
+        "ok": true
+      },
+      {
+        "detail": "записей у клиента 0",
+        "name": "восстановление не повторяет запись",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "host_writes": [
+        [
+          [
+            "text/plain",
+            "68656c6c6f"
+          ]
+        ]
+      ],
+      "payload": {
+        "body": 5659,
+        "boundary": 30,
+        "continuation": 0,
+        "restore_journal": [],
+        "withheld": false
+      }
+    },
+    "unsupported": null
+  },
+  "snapshot-cut": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "при восстановлении 0, всего 1",
+        "name": "клиент выполнил разрезанную запись один раз и после остатка",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "both_sides": "хост выполнил 2 записей, клиент 1: одна сторона — решение хоста",
+      "client_writes": [
+        [
+          [
+            "text/plain",
+            "776f726c64"
+          ]
+        ]
+      ],
+      "host_writes": [
+        [
+          [
+            "text/plain",
+            "68656c6c6f"
+          ]
+        ],
+        [
+          [
+            "text/plain",
+            "776f726c64"
+          ]
+        ]
+      ],
+      "payload": {
+        "body": 1180,
+        "boundary": 41,
+        "continuation": null,
+        "restore_journal": [],
+        "withheld": false
+      }
+    },
+    "unsupported": null
+  },
+  "snapshot-replay": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "1",
+        "name": "хост выполнил запись один раз",
+        "ok": true
+      },
+      {
+        "detail": "записей у клиента 0",
+        "name": "восстановление не повторяет запись",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "host_writes": [
+        [
+          [
+            "text/plain",
+            "68656c6c6f"
+          ]
+        ]
+      ],
+      "payload": {
+        "body": 1169,
+        "boundary": 30,
+        "continuation": null,
+        "restore_journal": [],
+        "withheld": false
+      }
+    },
+    "unsupported": null
+  }
+}

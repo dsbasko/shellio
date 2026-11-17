@@ -1,0 +1,525 @@
+{
+  "bridge": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "после восстановления",
+        "ok": true
+      },
+      {
+        "detail": "[]",
+        "name": "воспроизведение без ответов, отчётов и эффектов",
+        "ok": true
+      },
+      {
+        "detail": "равно",
+        "name": "извлечённое у приёмника равно извлечённому у источника",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "суффикс link-tail",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "bridge_state_differences": [],
+      "cause": null,
+      "inexpressible": [],
+      "payload": {
+        "body": 1866,
+        "boundary": 1583,
+        "continuation": 0,
+        "restore_journal": [
+          {
+            "kind": "title-changed",
+            "title": "pss-capi-b1"
+          }
+        ],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "line 20 plain",
+        "line 21 plain",
+        "line 22 plain",
+        "line 23 plain",
+        "line 24 plain",
+        "line 25 plain",
+        "line 26 plain",
+        "line 27 plain",
+        "line 28 plain",
+        "line 29 plain",
+        "line 30 plain",
+        "line 31 plain",
+        "line 32 plain",
+        "line 33 plain",
+        "line 34 plain",
+        "line 35 plain",
+        "line 36 plain",
+        "line 37 plain",
+        "line 38 plain",
+        "line 39 plain",
+        "curly strike",
+        "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "LLLLLLLLLLLLLLLLLLLL",
+        "pen open"
+      ],
+      "после восстановления.reference_text": [
+        "line 20 plain",
+        "line 21 plain",
+        "line 22 plain",
+        "line 23 plain",
+        "line 24 plain",
+        "line 25 plain",
+        "line 26 plain",
+        "line 27 plain",
+        "line 28 plain",
+        "line 29 plain",
+        "line 30 plain",
+        "line 31 plain",
+        "line 32 plain",
+        "line 33 plain",
+        "line 34 plain",
+        "line 35 plain",
+        "line 36 plain",
+        "line 37 plain",
+        "line 38 plain",
+        "line 39 plain",
+        "curly strike",
+        "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "LLLLLLLLLLLLLLLLLLLL",
+        "pen open"
+      ],
+      "суффикс link-tail.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс link-tail.receiver_text": [
+        "line 20 plain",
+        "line 21 plain",
+        "line 22 plain",
+        "line 23 plain",
+        "line 24 plain",
+        "line 25 plain",
+        "line 26 plain",
+        "line 27 plain",
+        "line 28 plain",
+        "line 29 plain",
+        "line 30 plain",
+        "line 31 plain",
+        "line 32 plain",
+        "line 33 plain",
+        "line 34 plain",
+        "line 35 plain",
+        "line 36 plain",
+        "line 37 plain",
+        "line 38 plain",
+        "line 39 plain",
+        "curly strike",
+        "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "LLLLLLLLLLLLLLLLLLLL",
+        "pen opentail end"
+      ],
+      "суффикс link-tail.reference_text": [
+        "line 20 plain",
+        "line 21 plain",
+        "line 22 plain",
+        "line 23 plain",
+        "line 24 plain",
+        "line 25 plain",
+        "line 26 plain",
+        "line 27 plain",
+        "line 28 plain",
+        "line 29 plain",
+        "line 30 plain",
+        "line 31 plain",
+        "line 32 plain",
+        "line 33 plain",
+        "line 34 plain",
+        "line 35 plain",
+        "line 36 plain",
+        "line 37 plain",
+        "line 38 plain",
+        "line 39 plain",
+        "curly strike",
+        "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "LLLLLLLLLLLLLLLLLLLL",
+        "pen opentail end"
+      ]
+    },
+    "unsupported": null
+  },
+  "formatter": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Differs, расхождений 5, нормализовано 0, не наблюдалось 0\n  active[21].wrap: эталон true, приёмник false\n  active[22].wrap_continuation: эталон true, приёмник false\n  history[15].wrap_continuation: эталон true, приёмник false\n  history[16].wrap: эталон true, приёмник false\n  title: эталон \"pss-capi-b1\", приёмник \"\"",
+        "name": "после восстановления",
+        "ok": false
+      },
+      {
+        "detail": "профиль 2: Differs, расхождений 5, нормализовано 0, не наблюдалось 0\n  active[21].wrap: эталон true, приёмник false\n  active[22].wrap_continuation: эталон true, приёмник false\n  history[15].wrap_continuation: эталон true, приёмник false\n  history[16].wrap: эталон true, приёмник false\n  title: эталон \"pss-capi-b1\", приёмник \"\"",
+        "name": "суффикс link-tail",
+        "ok": false
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "payload": {
+        "body": 7471,
+        "boundary": 1583,
+        "continuation": 0,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 5,
+        "mismatches": [
+          {
+            "path": "active[21].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[22].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[15].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[16].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "title",
+            "receiver": "\"\"",
+            "reference": "\"pss-capi-b1\""
+          }
+        ],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "line 20 plain",
+        "line 21 plain",
+        "line 22 plain",
+        "line 23 plain",
+        "line 24 plain",
+        "line 25 plain",
+        "line 26 plain",
+        "line 27 plain",
+        "line 28 plain",
+        "line 29 plain",
+        "line 30 plain",
+        "line 31 plain",
+        "line 32 plain",
+        "line 33 plain",
+        "line 34 plain",
+        "line 35 plain",
+        "line 36 plain",
+        "line 37 plain",
+        "line 38 plain",
+        "line 39 plain",
+        "curly strike",
+        "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "LLLLLLLLLLLLLLLLLLLL",
+        "pen open"
+      ],
+      "после восстановления.reference_text": [
+        "line 20 plain",
+        "line 21 plain",
+        "line 22 plain",
+        "line 23 plain",
+        "line 24 plain",
+        "line 25 plain",
+        "line 26 plain",
+        "line 27 plain",
+        "line 28 plain",
+        "line 29 plain",
+        "line 30 plain",
+        "line 31 plain",
+        "line 32 plain",
+        "line 33 plain",
+        "line 34 plain",
+        "line 35 plain",
+        "line 36 plain",
+        "line 37 plain",
+        "line 38 plain",
+        "line 39 plain",
+        "curly strike",
+        "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "LLLLLLLLLLLLLLLLLLLL",
+        "pen open"
+      ],
+      "суффикс link-tail.comparison": {
+        "mismatch_count": 5,
+        "mismatches": [
+          {
+            "path": "active[21].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "active[22].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[15].wrap_continuation",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "history[16].wrap",
+            "receiver": "false",
+            "reference": "true"
+          },
+          {
+            "path": "title",
+            "receiver": "\"\"",
+            "reference": "\"pss-capi-b1\""
+          }
+        ],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс link-tail.receiver_text": [
+        "line 20 plain",
+        "line 21 plain",
+        "line 22 plain",
+        "line 23 plain",
+        "line 24 plain",
+        "line 25 plain",
+        "line 26 plain",
+        "line 27 plain",
+        "line 28 plain",
+        "line 29 plain",
+        "line 30 plain",
+        "line 31 plain",
+        "line 32 plain",
+        "line 33 plain",
+        "line 34 plain",
+        "line 35 plain",
+        "line 36 plain",
+        "line 37 plain",
+        "line 38 plain",
+        "line 39 plain",
+        "curly strike",
+        "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "LLLLLLLLLLLLLLLLLLLL",
+        "pen opentail end"
+      ],
+      "суффикс link-tail.reference_text": [
+        "line 20 plain",
+        "line 21 plain",
+        "line 22 plain",
+        "line 23 plain",
+        "line 24 plain",
+        "line 25 plain",
+        "line 26 plain",
+        "line 27 plain",
+        "line 28 plain",
+        "line 29 plain",
+        "line 30 plain",
+        "line 31 plain",
+        "line 32 plain",
+        "line 33 plain",
+        "line 34 plain",
+        "line 35 plain",
+        "line 36 plain",
+        "line 37 plain",
+        "line 38 plain",
+        "line 39 plain",
+        "curly strike",
+        "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "LLLLLLLLLLLLLLLLLLLL",
+        "pen opentail end"
+      ]
+    },
+    "unsupported": null
+  },
+  "snapshot": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "ok",
+        "name": "C API отдал нагрузку восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "после восстановления",
+        "ok": true
+      },
+      {
+        "detail": "профиль 2: Equal, расхождений 0, нормализовано 0, не наблюдалось 0",
+        "name": "суффикс link-tail",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "payload": {
+        "body": 5768,
+        "boundary": 1583,
+        "continuation": null,
+        "restore_journal": [],
+        "withheld": false
+      },
+      "после восстановления.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "после восстановления.receiver_text": [
+        "line 20 plain",
+        "line 21 plain",
+        "line 22 plain",
+        "line 23 plain",
+        "line 24 plain",
+        "line 25 plain",
+        "line 26 plain",
+        "line 27 plain",
+        "line 28 plain",
+        "line 29 plain",
+        "line 30 plain",
+        "line 31 plain",
+        "line 32 plain",
+        "line 33 plain",
+        "line 34 plain",
+        "line 35 plain",
+        "line 36 plain",
+        "line 37 plain",
+        "line 38 plain",
+        "line 39 plain",
+        "curly strike",
+        "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "LLLLLLLLLLLLLLLLLLLL",
+        "pen open"
+      ],
+      "после восстановления.reference_text": [
+        "line 20 plain",
+        "line 21 plain",
+        "line 22 plain",
+        "line 23 plain",
+        "line 24 plain",
+        "line 25 plain",
+        "line 26 plain",
+        "line 27 plain",
+        "line 28 plain",
+        "line 29 plain",
+        "line 30 plain",
+        "line 31 plain",
+        "line 32 plain",
+        "line 33 plain",
+        "line 34 plain",
+        "line 35 plain",
+        "line 36 plain",
+        "line 37 plain",
+        "line 38 plain",
+        "line 39 plain",
+        "curly strike",
+        "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "LLLLLLLLLLLLLLLLLLLL",
+        "pen open"
+      ],
+      "суффикс link-tail.comparison": {
+        "mismatch_count": 0,
+        "mismatches": [],
+        "normalized": [],
+        "normalized_count": 0,
+        "profile": 2,
+        "unobserved": []
+      },
+      "суффикс link-tail.receiver_text": [
+        "line 20 plain",
+        "line 21 plain",
+        "line 22 plain",
+        "line 23 plain",
+        "line 24 plain",
+        "line 25 plain",
+        "line 26 plain",
+        "line 27 plain",
+        "line 28 plain",
+        "line 29 plain",
+        "line 30 plain",
+        "line 31 plain",
+        "line 32 plain",
+        "line 33 plain",
+        "line 34 plain",
+        "line 35 plain",
+        "line 36 plain",
+        "line 37 plain",
+        "line 38 plain",
+        "line 39 plain",
+        "curly strike",
+        "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "LLLLLLLLLLLLLLLLLLLL",
+        "pen opentail end"
+      ],
+      "суффикс link-tail.reference_text": [
+        "line 20 plain",
+        "line 21 plain",
+        "line 22 plain",
+        "line 23 plain",
+        "line 24 plain",
+        "line 25 plain",
+        "line 26 plain",
+        "line 27 plain",
+        "line 28 plain",
+        "line 29 plain",
+        "line 30 plain",
+        "line 31 plain",
+        "line 32 plain",
+        "line 33 plain",
+        "line 34 plain",
+        "line 35 plain",
+        "line 36 plain",
+        "line 37 plain",
+        "line 38 plain",
+        "line 39 plain",
+        "curly strike",
+        "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+        "LLLLLLLLLLLLLLLLLLLL",
+        "pen opentail end"
+      ]
+    },
+    "unsupported": null
+  }
+}

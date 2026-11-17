@@ -1,0 +1,83 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "ввод send принят",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "фикстура прочитала ввод send",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "ввод type принят",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "фикстура прочитала ввод type",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "ресайз лидера после ввода дошёл",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "ввод из CLI не менял размер",
+      "ok": true,
+      "detail": "квитанции размера после отметки: [\"81×24\"]"
+    },
+    {
+      "name": "ввод из CLI не перехватил лидерство",
+      "ok": true,
+      "detail": "роль c1 leader:1 → leader:1, назначений лидера 1 → 1"
+    },
+    {
+      "name": "ввод из CLI не стал клиентом",
+      "ok": true,
+      "detail": "Live { workload_pid: 40994, clients: 1 }"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "leadership": {
+      "leaders_after": 1,
+      "leaders_before": 1,
+      "role_after": "leader:1",
+      "role_before": "leader:1"
+    },
+    "liveness": {
+      "clients": 1,
+      "state": "live",
+      "workload_pid": 40994
+    },
+    "record": {
+      "host": {
+        "pid": 40993,
+        "start_us": 1794931279502597
+      },
+      "session": "s83b2212322cc3dfe-f3",
+      "workload": {
+        "pid": 40994,
+        "start_us": 1794931279505119
+      },
+      "workload_pgid": 40994,
+      "workload_sid": 40994
+    },
+    "send.outcome": "Ok(Sent)",
+    "type.outcome": "Ok(Accepted)",
+    "winches": [
+      "81×24"
+    ]
+  }
+}

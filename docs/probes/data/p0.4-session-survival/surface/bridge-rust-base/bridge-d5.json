@@ -1,0 +1,59 @@
+{
+  "session": "s5bcd9055f0339792-d5",
+  "stages": {
+    "enable": [
+      [
+        "size-report",
+        "1b5b34383b32343b38303b3732303b3132383074"
+      ]
+    ],
+    "focus-in": [
+      [
+        "focus-in",
+        "1b5b49"
+      ]
+    ],
+    "focus-out": [
+      [
+        "focus-out",
+        "1b5b4f"
+      ]
+    ],
+    "reconnect": [
+      [
+        "size-report",
+        "1b5b34383b32343b38303b3732303b3132383074"
+      ],
+      [
+        "focus-in",
+        "1b5b49"
+      ]
+    ],
+    "resize": [
+      [
+        "size-report",
+        "1b5b34383b32383b39303b3834303b3134343074"
+      ]
+    ]
+  },
+  "winches": [
+    {
+      "cols": 80,
+      "rows": 24,
+      "xpixel": 1280,
+      "ypixel": 720
+    },
+    {
+      "cols": 90,
+      "rows": 28,
+      "xpixel": 1440,
+      "ypixel": 840
+    },
+    {
+      "cols": 80,
+      "rows": 24,
+      "xpixel": 1280,
+      "ypixel": 720
+    }
+  ]
+}

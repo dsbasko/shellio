@@ -1,0 +1,313 @@
+{
+  "profile": 2,
+  "vt_stamp": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+  "scenes": [
+    {
+      "name": "text",
+      "cols": 80,
+      "rows": 24,
+      "source_hex": "6272696467652d746578742d30310d0a6272696467652d746578742d30320d0a6272696467652d746578742d30330d0a6272696467652d746578742d30340d0a6272696467652d746578742d30350d0a6272696467652d746578742d30360d0a1b5b313b33326d6272696467652d746578742d30371b5b306d0d0a6272696467652d746578742d30380d0a6272696467652d746578742d30390d0a6272696467652d746578742d31300d0a6272696467652d746578742d31310d0a6272696467652d746578742d31320d0a6272696467652d746578742d31330d0a1b5b313b33326d6272696467652d746578742d31341b5b306d0d0a6272696467652d746578742d31350d0a6272696467652d746578742d31360d0a6272696467652d746578742d31370d0a6272696467652d746578742d31380d0a6272696467652d746578742d31390d0a6272696467652d746578742d32300d0a1b5b313b33326d6272696467652d746578742d32311b5b306d0d0a6272696467652d746578742d32320d0a6272696467652d746578742d32330d0a6272696467652d746578742d32340d0a6272696467652d746578742d32350d0a6272696467652d746578742d32360d0a6272696467652d746578742d32370d0a1b5b313b33326d6272696467652d746578742d32381b5b306d0d0a6272696467652d746578742d32390d0a6272696467652d746578742d33300d0a1b5d383b3b68747470733a2f2f6578616d706c652e696e76616c69642f7073731b5c6c696e6b1b5d383b3b1b5c206166746572206c696e6b0d0a6162636465666768696a6b6c6d6e6f707172737475767778797a6162636465666768696a6b6c6d6e6f707172737475767778797a6162636465666768696a6b6c6d6e6f707172737475767778797a6162636465666768696a6b6c6d6e6f707172737475760d0a30313233343536373839303132333435363738393031323334353637383930313233343536373839303132333435363738393031323334353637383930313233343536373839303132333435363738390d0a70726f6d70743e",
+      "steps": [
+        {
+          "name": "restored",
+          "suffix_hex": "",
+          "view": {
+            "lines": [
+              "bridge-text-12",
+              "bridge-text-13",
+              "bridge-text-14",
+              "bridge-text-15",
+              "bridge-text-16",
+              "bridge-text-17",
+              "bridge-text-18",
+              "bridge-text-19",
+              "bridge-text-20",
+              "bridge-text-21",
+              "bridge-text-22",
+              "bridge-text-23",
+              "bridge-text-24",
+              "bridge-text-25",
+              "bridge-text-26",
+              "bridge-text-27",
+              "bridge-text-28",
+              "bridge-text-29",
+              "bridge-text-30",
+              "link after link",
+              "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv",
+              "01234567890123456789012345678901234567890123456789012345678901234567890123456789",
+              "prompt>"
+            ],
+            "cursor_x": 7,
+            "cursor_y": 23,
+            "alternate": false
+          },
+          "probes": null
+        },
+        {
+          "name": "marker",
+          "suffix_hex": "40",
+          "view": {
+            "lines": [
+              "bridge-text-12",
+              "bridge-text-13",
+              "bridge-text-14",
+              "bridge-text-15",
+              "bridge-text-16",
+              "bridge-text-17",
+              "bridge-text-18",
+              "bridge-text-19",
+              "bridge-text-20",
+              "bridge-text-21",
+              "bridge-text-22",
+              "bridge-text-23",
+              "bridge-text-24",
+              "bridge-text-25",
+              "bridge-text-26",
+              "bridge-text-27",
+              "bridge-text-28",
+              "bridge-text-29",
+              "bridge-text-30",
+              "link after link",
+              "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv",
+              "01234567890123456789012345678901234567890123456789012345678901234567890123456789",
+              "prompt>@"
+            ],
+            "cursor_x": 8,
+            "cursor_y": 23,
+            "alternate": false
+          },
+          "probes": null
+        }
+      ]
+    },
+    {
+      "name": "modes",
+      "cols": 80,
+      "rows": 24,
+      "source_hex": "6d61696e2d310d0a6d61696e2d320d0a1b5b3f31303439681b5b48616c742d73637265656e2d746578740d0a1b5b383b3230481b371b5b333b3148616c742d6c696e652d331b5b3f31303034681b5b3f32303438681b5b3f32303034681b5b3f31681b5b3f31303030681b5b3f31303036681b5b3e38751b5b3e323475",
+      "steps": [
+        {
+          "name": "restored",
+          "suffix_hex": "",
+          "view": {
+            "lines": [
+              "alt-screen-text",
+              "",
+              "alt-line-3"
+            ],
+            "cursor_x": 10,
+            "cursor_y": 2,
+            "alternate": true
+          },
+          "probes": {
+            "key_a_hex": "1b5b39373b3b393775",
+            "key_up_hex": "1b5b41",
+            "click_hex": "1b5b3c303b363b344d1b5b3c303b363b346d",
+            "paste_hex": "1b5b3230307e7073732d70617374651b5b3230317e"
+          }
+        },
+        {
+          "name": "kitty-pop",
+          "suffix_hex": "1b5b3c75",
+          "view": {
+            "lines": [
+              "alt-screen-text",
+              "",
+              "alt-line-3"
+            ],
+            "cursor_x": 10,
+            "cursor_y": 2,
+            "alternate": true
+          },
+          "probes": {
+            "key_a_hex": "1b5b393775",
+            "key_up_hex": "1b5b41",
+            "click_hex": "1b5b3c303b363b344d1b5b3c303b363b346d",
+            "paste_hex": "1b5b3230307e7073732d70617374651b5b3230317e"
+          }
+        },
+        {
+          "name": "kitty-pop-2",
+          "suffix_hex": "1b5b3c75",
+          "view": {
+            "lines": [
+              "alt-screen-text",
+              "",
+              "alt-line-3"
+            ],
+            "cursor_x": 10,
+            "cursor_y": 2,
+            "alternate": true
+          },
+          "probes": {
+            "key_a_hex": "61",
+            "key_up_hex": "1b4f41",
+            "click_hex": "1b5b3c303b363b344d1b5b3c303b363b346d",
+            "paste_hex": "1b5b3230307e7073732d70617374651b5b3230317e"
+          }
+        },
+        {
+          "name": "decrc",
+          "suffix_hex": "1b3840",
+          "view": {
+            "lines": [
+              "alt-screen-text",
+              "",
+              "alt-line-3",
+              "",
+              "",
+              "",
+              "",
+              "                   @"
+            ],
+            "cursor_x": 20,
+            "cursor_y": 7,
+            "alternate": true
+          },
+          "probes": {
+            "key_a_hex": "61",
+            "key_up_hex": "1b4f41",
+            "click_hex": "1b5b3c303b363b344d1b5b3c303b363b346d",
+            "paste_hex": "1b5b3230307e7073732d70617374651b5b3230317e"
+          }
+        },
+        {
+          "name": "leave-alt",
+          "suffix_hex": "1b5b3f313034396c23",
+          "view": {
+            "lines": [
+              "main-1",
+              "main-2",
+              "#"
+            ],
+            "cursor_x": 1,
+            "cursor_y": 2,
+            "alternate": false
+          },
+          "probes": {
+            "key_a_hex": "61",
+            "key_up_hex": "1b4f41",
+            "click_hex": "1b5b3c303b363b344d1b5b3c303b363b346d",
+            "paste_hex": "1b5b3230307e7073732d70617374651b5b3230317e"
+          }
+        }
+      ]
+    },
+    {
+      "name": "update",
+      "cols": 80,
+      "rows": 24,
+      "source_hex": "7570646174652d6f6c642d30310d0a7570646174652d6f6c642d30320d0a7570646174652d6f6c642d30330d0a7570646174652d6f6c642d30340d0a1b5b313b33346d7570646174652d6f6c642d30351b5b306d0d0a7570646174652d6f6c642d30360d0a7570646174652d6f6c642d30370d0a7570646174652d6f6c642d30380d0a7570646174652d6f6c642d30390d0a1b5b313b33346d7570646174652d6f6c642d31301b5b306d0d0a7570646174652d6f6c642d31310d0a7570646174652d6f6c642d31320d0a7570646174652d6f6c642d31330d0a7570646174652d6f6c642d31340d0a1b5b313b33346d7570646174652d6f6c642d31351b5b306d0d0a7570646174652d6f6c642d31360d0a7570646174652d6f6c642d31370d0a7570646174652d6f6c642d31380d0a7570646174652d6f6c642d31390d0a1b5b313b33346d7570646174652d6f6c642d32301b5b306d0d0a7570646174652d6f6c642d32310d0a7570646174652d6f6c642d32320d0a7570646174652d6f6c642d32330d0a7570646174652d6f6c642d32340d0a1b5b313b33346d7570646174652d6f6c642d32351b5b306d0d0a7570646174652d6f6c642d32360d0a7570646174652d6f6c642d32370d0a7570646174652d6f6c642d32380d0a7570646174652d6f6c642d32390d0a1b5b313b33346d7570646174652d6f6c642d33301b5b306d0d0a70726f6d70743e",
+      "steps": [
+        {
+          "name": "restored",
+          "suffix_hex": "",
+          "view": {
+            "lines": [
+              "update-old-08",
+              "update-old-09",
+              "update-old-10",
+              "update-old-11",
+              "update-old-12",
+              "update-old-13",
+              "update-old-14",
+              "update-old-15",
+              "update-old-16",
+              "update-old-17",
+              "update-old-18",
+              "update-old-19",
+              "update-old-20",
+              "update-old-21",
+              "update-old-22",
+              "update-old-23",
+              "update-old-24",
+              "update-old-25",
+              "update-old-26",
+              "update-old-27",
+              "update-old-28",
+              "update-old-29",
+              "update-old-30",
+              "prompt>"
+            ],
+            "cursor_x": 7,
+            "cursor_y": 23,
+            "alternate": false
+          },
+          "probes": null
+        },
+        {
+          "name": "headless",
+          "suffix_hex": "0d0a686561646c6573732d31201b5b33326d7768696c65206e6f20636c69656e741b5b306d0d0a70726f6d70743e",
+          "view": {
+            "lines": [
+              "update-old-10",
+              "update-old-11",
+              "update-old-12",
+              "update-old-13",
+              "update-old-14",
+              "update-old-15",
+              "update-old-16",
+              "update-old-17",
+              "update-old-18",
+              "update-old-19",
+              "update-old-20",
+              "update-old-21",
+              "update-old-22",
+              "update-old-23",
+              "update-old-24",
+              "update-old-25",
+              "update-old-26",
+              "update-old-27",
+              "update-old-28",
+              "update-old-29",
+              "update-old-30",
+              "prompt>",
+              "headless-1 while no client",
+              "prompt>"
+            ],
+            "cursor_x": 7,
+            "cursor_y": 23,
+            "alternate": false
+          },
+          "probes": null
+        },
+        {
+          "name": "live",
+          "suffix_hex": "0d0a6c6976652d31206166746572207570646174650d0a70726f6d70743e",
+          "view": {
+            "lines": [
+              "update-old-12",
+              "update-old-13",
+              "update-old-14",
+              "update-old-15",
+              "update-old-16",
+              "update-old-17",
+              "update-old-18",
+              "update-old-19",
+              "update-old-20",
+              "update-old-21",
+              "update-old-22",
+              "update-old-23",
+              "update-old-24",
+              "update-old-25",
+              "update-old-26",
+              "update-old-27",
+              "update-old-28",
+              "update-old-29",
+              "update-old-30",
+              "prompt>",
+              "headless-1 while no client",
+              "prompt>",
+              "live-1 after update",
+              "prompt>"
+            ],
+            "cursor_x": 7,
+            "cursor_y": 23,
+            "alternate": false
+          },
+          "probes": null
+        }
+      ]
+    }
+  ]
+}

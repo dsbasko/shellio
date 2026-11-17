@@ -1,0 +1,199 @@
+{
+  "client-stream": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "клиент с WRITE_PTY ответил 9 раз на 9 запросов: C API не помечает обслуженные запросы в потоке, хосту нужен свой фильтр",
+        "name": "клиент не отвечает на запросы, которые обслужил хост",
+        "ok": false
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "client_replies": [
+        "da1",
+        "da2",
+        "cursor-position",
+        "mode-report",
+        "mode-report",
+        "foreground-color",
+        "background-color",
+        "palette",
+        "xt-version"
+      ],
+      "payload": {
+        "body": 5657,
+        "boundary": 71,
+        "continuation": 0,
+        "restore_journal": [],
+        "withheld": false
+      }
+    },
+    "unsupported": null
+  },
+  "host": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "[Da1, Da2, CursorPosition, ModeReport, ModeReport, ForegroundColor, BackgroundColor, Palette, XtVersion]",
+        "name": "ровно один ответ хоста на каждый запрос по порядку",
+        "ok": true
+      },
+      {
+        "detail": "Some((Da1, \"1b5b3f36323b32323b353263\"))",
+        "name": "DA1 из колбэка профиля хоста",
+        "ok": true
+      },
+      {
+        "detail": "Some((XtVersion, \"1b503e7c7368656c6c696f2d70726f62652d726563656976657228686f7374291b5c\"))",
+        "name": "XTVERSION из колбэка профиля хоста",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "responses": [
+        [
+          "da1",
+          "1b5b3f36323b32323b353263"
+        ],
+        [
+          "da2",
+          "1b5b3e313b373b3063"
+        ],
+        [
+          "cursor-position",
+          "1b5b323b3152"
+        ],
+        [
+          "mode-report",
+          "1b5b3f323030343b322479"
+        ],
+        [
+          "mode-report",
+          "1b5b343b322479"
+        ],
+        [
+          "foreground-color",
+          "1b5d31303b7267623a646464642f646464642f646464641b5c"
+        ],
+        [
+          "background-color",
+          "1b5d31313b7267623a316531652f316531652f316531651b5c"
+        ],
+        [
+          "palette",
+          "1b5d343b313b7267623a636363632f363636362f363636361b5c"
+        ],
+        [
+          "xt-version",
+          "1b503e7c7368656c6c696f2d70726f62652d726563656976657228686f7374291b5c"
+        ]
+      ]
+    },
+    "unsupported": null
+  },
+  "restore-boundary-bridge": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "1",
+        "name": "хост ответил ровно один раз",
+        "ok": true
+      },
+      {
+        "detail": "хост 1, клиент 0: continuation отдаёт клиенту префикс запроса, остаток живым потоком завершает его у клиента",
+        "name": "ровно один ответ на запрос среди хоста и клиента",
+        "ok": true
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "client_replies": [],
+      "host_responses": [
+        [
+          "da1",
+          "1b5b3f36323b32323b353263"
+        ]
+      ],
+      "payload": {
+        "body": 209,
+        "boundary": 73,
+        "continuation": 0,
+        "restore_journal": [],
+        "withheld": true
+      }
+    },
+    "unsupported": null
+  },
+  "restore-boundary-formatter": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "1",
+        "name": "хост ответил ровно один раз",
+        "ok": true
+      },
+      {
+        "detail": "хост 1, клиент 1: continuation отдаёт клиенту префикс запроса, остаток живым потоком завершает его у клиента",
+        "name": "ровно один ответ на запрос среди хоста и клиента",
+        "ok": false
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "client_replies": [
+        "da1"
+      ],
+      "host_responses": [
+        [
+          "da1",
+          "1b5b3f36323b32323b353263"
+        ]
+      ],
+      "payload": {
+        "body": 5657,
+        "boundary": 73,
+        "continuation": 2,
+        "restore_journal": [],
+        "withheld": false
+      }
+    },
+    "unsupported": null
+  },
+  "restore-boundary-snapshot": {
+    "cause": null,
+    "checks": [
+      {
+        "detail": "1",
+        "name": "хост ответил ровно один раз",
+        "ok": true
+      },
+      {
+        "detail": "хост 1, клиент 1: continuation отдаёт клиенту префикс запроса, остаток живым потоком завершает его у клиента",
+        "name": "ровно один ответ на запрос среди хоста и клиента",
+        "ok": false
+      }
+    ],
+    "not_proven": null,
+    "observed": {
+      "client_replies": [
+        "da1"
+      ],
+      "host_responses": [
+        [
+          "da1",
+          "1b5b3f36323b32323b353263"
+        ]
+      ],
+      "payload": {
+        "body": 1169,
+        "boundary": 73,
+        "continuation": null,
+        "restore_journal": [],
+        "withheld": false
+      }
+    },
+    "unsupported": null
+  }
+}

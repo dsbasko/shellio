@@ -1,0 +1,94 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "включение 2048: один отчёт размера",
+      "ok": true,
+      "detail": "[(SizeReport, \"1b5b34383b32343b38303b3438303b38303074\")]"
+    },
+    {
+      "name": "фокус окна c1: один FocusIn",
+      "ok": true,
+      "detail": "[(FocusIn, \"1b5b49\")]"
+    },
+    {
+      "name": "c1 отключился клавишей",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "отключение c1: FocusOut не повторяется",
+      "ok": true,
+      "detail": "FocusOut: 1"
+    },
+    {
+      "name": "подключение c2: не больше одного отчёта размера и с размером окна",
+      "ok": true,
+      "detail": "отчёты размера: [\"1b5b34383b32343b38303b3438303b38303074\"]"
+    },
+    {
+      "name": "фокус окна c2: один FocusIn",
+      "ok": false,
+      "detail": "FocusIn: 2"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "detach.focus_out": 1,
+    "enable.responses": [
+      [
+        "size-report",
+        "1b5b34383b32343b38303b3438303b38303074"
+      ]
+    ],
+    "focus.responses": [
+      [
+        "focus-in",
+        "1b5b49"
+      ]
+    ],
+    "reattach.responses": [
+      [
+        "focus-out",
+        "1b5b4f"
+      ],
+      [
+        "focus-in",
+        "1b5b49"
+      ],
+      [
+        "size-report",
+        "1b5b34383b32343b38303b3438303b38303074"
+      ],
+      [
+        "focus-in",
+        "1b5b49"
+      ]
+    ],
+    "reattach.sigwinch": 1,
+    "record": {
+      "host": {
+        "pid": 40111,
+        "start_us": 1794931238442657
+      },
+      "session": "sc58f947c70918a01-d5",
+      "workload": {
+        "pid": 40112,
+        "start_us": 1794931238444890
+      },
+      "workload_pgid": 40112,
+      "workload_sid": 40112
+    }
+  }
+}

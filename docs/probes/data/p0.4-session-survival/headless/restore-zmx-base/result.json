@@ -1,0 +1,263 @@
+{
+  "schema": 1,
+  "scenario": "restore",
+  "backend": "zmx",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "7ad4beea9f66-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0",
+      "features": [
+        "vt"
+      ]
+    },
+    "versions": {
+      "vt": "ghostty-vt 1.4.0 (83fb95624b04)",
+      "zig-vt": "0.17.1",
+      "zig-zmx": "0.16.0",
+      "zmx": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+      "zmx-prev": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm"
+    },
+    "stamps": {
+      "vt": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+      "zmx": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+      "zmx-prev": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579"
+    },
+    "normalization_profile": 2,
+    "process": {
+      "pid": 39555,
+      "nonce": "4f14f7d89048b99d",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.4f14f7d89048b99d",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_COMMIT": "7ad4beea9f66-dirty",
+        "SHELLIO_PROBE_HOST_V1": "/Users/dsbasko/Develop/dsbasko/shellio/target/proto-v1/release/probe-session-host",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_SETS_DIR": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/session-survival",
+        "SHELLIO_PROBE_STAMP_VT": "bc58d0fbe13604c8157f21f705367a037eff10bafa5126c33c23a5c4630e5c48",
+        "SHELLIO_PROBE_STAMP_ZMX": "3bacc2b40b11e10beea3d816e8aadc2c7d76c46db3826137db21cac8f898fa94",
+        "SHELLIO_PROBE_STAMP_ZMX_PREV": "d71e680c7ebf9ffc36cef2dff94ee2f04867f9f791057cf46577d73fbaaf2579",
+        "SHELLIO_PROBE_VERSION_VT": "ghostty-vt 1.4.0 (83fb95624b04)",
+        "SHELLIO_PROBE_VERSION_ZIG_VT": "0.17.1",
+        "SHELLIO_PROBE_VERSION_ZIG_ZMX": "0.16.0",
+        "SHELLIO_PROBE_VERSION_ZMX": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_PROBE_VERSION_ZMX_PREV": "zmx 0.8.1; ghostty_vt ghostty-1.3.2-dev-5UdBC4FtYAV-PdFOt-gceWieTHLri0H4ztHtd6Tr4dGj+agterm",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.4f14f7d89048b99d",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko"
+      },
+      "env_extra": []
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "cells": [
+    {
+      "id": "B1",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "c1 подключился и отключился; без клиентов: заголовок, 40 строк истории с SGR 8/256/RGB, подчёркивания с цветом, мягко перенесённая гиперссылка в истории и в активной области, перо и открытая гиперссылка на конце; затем attach c2; суффиксы через кандидата: link-tail",
+      "oracle": "эталон и приёмник c2 сразу после attach и после каждого суффикса",
+      "completion": "c2 лидер, барьер DSR через c2 после attach и после каждого шага суффикса, состояния сняты",
+      "reason": "после attach: профиль 2: Differs, расхождений 108, нормализовано 0, не наблюдалось 0\n  active[21].wrap: эталон true, приёмник false\n  active[21][0].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][1].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][2].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][3].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][4].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][5].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][6].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][7].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][8].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][9].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][10].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][11].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][12].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][13].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][14].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][15].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][16].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][17].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][18].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][19].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][20].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][21].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][22].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][23].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][24].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][25].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][26].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][27].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][28].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][29].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][30].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][31].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][32].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][33].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][34].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][35].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][36].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][37].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][38].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][39].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][40].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][41].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][42].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][43].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][44].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][45].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][46].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][47].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][48].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][49].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][50].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][51].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][52].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][53].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][54].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][55].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][56].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][57].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][58].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][59].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][60].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][61].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][62].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][63].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][64].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][65].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][66].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][67].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][68].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][69].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][70].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][71].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][72].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][73].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][74].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][75].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][76].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][77].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][78].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][79].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22].wrap_continuation: эталон true, приёмник false\n  active[22][0].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][1].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][2].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][3].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][4].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][5].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][6].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][7].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][8].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][9].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][10].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][11].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][12].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][13].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][14].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][15].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][16].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][17].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None; после суффикса link-tail: профиль 2: Differs, расхождений 108, нормализовано 0, не наблюдалось 0\n  active[21].wrap: эталон true, приёмник false\n  active[21][0].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][1].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][2].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][3].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][4].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][5].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][6].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][7].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][8].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][9].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][10].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][11].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][12].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][13].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][14].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][15].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][16].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][17].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][18].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][19].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][20].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][21].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][22].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][23].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][24].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][25].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][26].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][27].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][28].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][29].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][30].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][31].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][32].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][33].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][34].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][35].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][36].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][37].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][38].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][39].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][40].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][41].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][42].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][43].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][44].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][45].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][46].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][47].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][48].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][49].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][50].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][51].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][52].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][53].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][54].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][55].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][56].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][57].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][58].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][59].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][60].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][61].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][62].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][63].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][64].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][65].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][66].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][67].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][68].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][69].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][70].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][71].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][72].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][73].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][74].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][75].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][76].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][77].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][78].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[21][79].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22].wrap_continuation: эталон true, приёмник false\n  active[22][0].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][1].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][2].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][3].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][4].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][5].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][6].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][7].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][8].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][9].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][10].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][11].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][12].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][13].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][14].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][15].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][16].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None\n  active[22][17].hyperlink: эталон Some(\"https://example.test/b1-active\"), приёмник None",
+      "defect_origin": "vt",
+      "artifacts": [
+        "b1.json",
+        "zmx/logs/s4f14f7d89048b99d-b1.log"
+      ]
+    },
+    {
+      "id": "B2",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "c1 подключился и отключился; без клиентов: основной экран с текстом, затем alternate screen 1049 со своим текстом; затем attach c2; суффиксы через кандидата: alt-exit",
+      "oracle": "эталон и приёмник c2 сразу после attach и после каждого суффикса",
+      "completion": "c2 лидер, барьер DSR через c2 после attach и после каждого шага суффикса, состояния сняты",
+      "reason": "после attach: профиль 2: Differs, расхождений 19, нормализовано 0, не наблюдалось 0\n  active[9][0].text: эталон \"\", приёмник \" \"\n  active[9][1].text: эталон \"\", приёмник \" \"\n  active[9][2].text: эталон \"\", приёмник \" \"\n  active[9][3].text: эталон \"\", приёмник \" \"\n  active[9][4].text: эталон \"\", приёмник \" \"\n  active[9][5].text: эталон \"\", приёмник \" \"\n  active[9][6].text: эталон \"\", приёмник \" \"\n  active[9][7].text: эталон \"\", приёмник \" \"\n  active[9][8].text: эталон \"\", приёмник \" \"\n  active[9][9].text: эталон \"\", приёмник \" \"\n  active[9][10].text: эталон \"\", приёмник \" \"\n  active[9][11].text: эталон \"\", приёмник \" \"\n  active[9][12].text: эталон \"\", приёмник \" \"\n  active[9][13].text: эталон \"\", приёмник \" \"\n  active[9][14].text: эталон \"\", приёмник \" \"\n  active[9][15].text: эталон \"\", приёмник \" \"\n  active[9][16].text: эталон \"\", приёмник \" \"\n  active[9][17].text: эталон \"\", приёмник \" \"\n  active[9][18].text: эталон \"\", приёмник \" \"; после суффикса alt-exit: профиль 2: Differs, расхождений 83, нормализовано 0, не наблюдалось 0\n  active[0][0].text: эталон \"m\", приёмник \"A\"\n  active[0][1].text: эталон \"a\", приёмник \"\"\n  active[0][2].text: эталон \"i\", приёмник \"\"\n  active[0][3].text: эталон \"n\", приёмник \"\"\n  active[0][4].text: эталон \" \", приёмник \"\"\n  active[0][5].text: эталон \"0\", приёмник \"\"\n  active[0][6].text: эталон \"0\", приёмник \"\"\n  active[1][0].text: эталон \"m\", приёмник \"\"\n  active[1][1].text: эталон \"a\", приёмник \"\"\n  active[1][2].text: эталон \"i\", приёмник \"\"\n  active[1][3].text: эталон \"n\", приёмник \"\"\n  active[1][4].text: эталон \" \", приёмник \"\"\n  active[1][5].text: эталон \"0\", приёмник \"\"\n  active[1][6].text: эталон \"1\", приёмник \"\"\n  active[2][0].text: эталон \"m\", приёмник \"\"\n  active[2][1].text: эталон \"a\", приёмник \"\"\n  active[2][2].text: эталон \"i\", приёмник \"\"\n  active[2][3].text: эталон \"n\", приёмник \"\"\n  active[2][4].text: эталон \"m\", приёмник \"\"\n  active[2][5].text: эталон \"a\", приёмник \"\"\n  active[2][6].text: эталон \"i\", приёмник \"\"\n  active[2][7].text: эталон \"n\", приёмник \"\"\n  active[2][8].text: эталон \"-\", приёмник \"\"\n  active[2][9].text: эталон \"c\", приёмник \"\"\n  active[2][10].text: эталон \"u\", приёмник \"\"\n  active[2][11].text: эталон \"r\", приёмник \"\"\n  active[2][12].text: эталон \"s\", приёмник \"\"\n  active[2][13].text: эталон \"o\", приёмник \"\"\n  active[2][14].text: эталон \"r\", приёмник \"\"\n  active[2][15].text: эталон \"A\", приёмник \"\"\n  active[3][0].text: эталон \"m\", приёмник \"\"\n  active[3][1].text: эталон \"a\", приёмник \"\"\n  active[3][2].text: эталон \"i\", приёмник \"\"\n  active[3][3].text: эталон \"n\", приёмник \"\"\n  active[3][4].text: эталон \" \", приёмник \"\"\n  active[3][5].text: эталон \"0\", приёмник \"\"\n  active[3][6].text: эталон \"3\", приёмник \"\"\n  active[4][0].text: эталон \"m\", приёмник \"\"\n  active[4][1].text: эталон \"a\", приёмник \"\"\n  active[4][2].text: эталон \"i\", приёмник \"\"\n  active[4][3].text: эталон \"n\", приёмник \"\"\n  active[4][4].text: эталон \" \", приёмник \"\"\n  active[4][5].text: эталон \"0\", приёмник \"\"\n  active[4][6].text: эталон \"4\", приёмник \"\"\n  active[5][0].text: эталон \"m\", приёмник \"\"\n  active[5][1].text: эталон \"a\", приёмник \"\"\n  active[5][2].text: эталон \"i\", приёмник \"\"\n  active[5][3].text: эталон \"n\", приёмник \"\"\n  active[5][4].text: эталон \" \", приёмник \"\"\n  active[5][5].text: эталон \"0\", приёмник \"\"\n  active[5][6].text: эталон \"5\", приёмник \"\"\n  active[6][0].text: эталон \"m\", приёмник \"\"\n  active[6][1].text: эталон \"a\", приёмник \"\"\n  active[6][2].text: эталон \"i\", приёмник \"\"\n  active[6][3].text: эталон \"n\", приёмник \"\"\n  active[6][4].text: эталон \" \", приёмник \"\"\n  active[6][5].text: эталон \"0\", приёмник \"\"\n  active[6][6].text: эталон \"6\", приёмник \"\"\n  active[7][0].text: эталон \"m\", приёмник \"\"\n  active[7][1].text: эталон \"a\", приёмник \"\"\n  active[7][2].text: эталон \"i\", приёмник \"\"\n  active[7][3].text: эталон \"n\", приёмник \"\"\n  active[7][4].text: эталон \" \", приёмник \"\"\n  active[7][5].text: эталон \"0\", приёмник \"\"\n  active[7][6].text: эталон \"7\", приёмник \"\"\n  active[8][0].text: эталон \"m\", приёмник \"\"\n  active[8][1].text: эталон \"a\", приёмник \"\"\n  active[8][2].text: эталон \"i\", приёмник \"\"\n  active[8][3].text: эталон \"n\", приёмник \"\"\n  active[8][4].text: эталон \" \", приёмник \"\"\n  active[8][5].text: эталон \"0\", приёмник \"\"\n  active[8][6].text: эталон \"8\", приёмник \"\"\n  active[9][0].text: эталон \"m\", приёмник \"\"\n  active[9][1].text: эталон \"a\", приёмник \"\"\n  active[9][2].text: эталон \"i\", приёмник \"\"\n  active[9][3].text: эталон \"n\", приёмник \"\"\n  active[9][4].text: эталон \" \", приёмник \"\"\n  active[9][5].text: эталон \"0\", приёмник \"\"\n  active[9][6].text: эталон \"9\", приёмник \"\"\n  cursor.x: эталон 16, приёмник 1\n  cursor.y: эталон 2, приёмник 0\n  saved_cursor.x: эталон 15, приёмник 0\n  saved_cursor.y: эталон 2, приёмник 0",
+      "defect_origin": "vt",
+      "artifacts": [
+        "b2.json",
+        "zmx/logs/s4f14f7d89048b99d-b2.log"
+      ]
+    },
+    {
+      "id": "B3",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "c1 подключился и отключился; без клиентов: DECSC с позицией и пером, затем другое перо и позиция; затем attach c2; суффиксы через кандидата: decrc",
+      "oracle": "эталон и приёмник c2 сразу после attach и после каждого суффикса",
+      "completion": "c2 лидер, барьер DSR через c2 после attach и после каждого шага суффикса, состояния сняты",
+      "reason": "после attach: профиль 2: Differs, расхождений 4, нормализовано 0, не наблюдалось 0\n  saved_cursor.x: эталон 9, приёмник 0\n  saved_cursor.y: эталон 4, приёмник 0\n  saved_cursor.style.fg: эталон Palette(2), приёмник Default\n  saved_cursor.style.bold: эталон true, приёмник false; после суффикса decrc: профиль 2: Differs, расхождений 12, нормализовано 0, не наблюдалось 0\n  active[0][0].text: эталон \"b\", приёмник \"R\"\n  active[4][9].text: эталон \"R\", приёмник \"\"\n  active[4][9].style.fg: эталон Palette(2), приёмник Default\n  active[4][9].style.bold: эталон true, приёмник false\n  cursor.x: эталон 10, приёмник 1\n  cursor.y: эталон 4, приёмник 0\n  cursor.style.fg: эталон Palette(2), приёмник Default\n  cursor.style.bold: эталон true, приёмник false\n  saved_cursor.x: эталон 9, приёмник 0\n  saved_cursor.y: эталон 4, приёмник 0\n  saved_cursor.style.fg: эталон Palette(2), приёмник Default\n  saved_cursor.style.bold: эталон true, приёмник false",
+      "defect_origin": "vt",
+      "artifacts": [
+        "b3.json",
+        "zmx/logs/s4f14f7d89048b99d-b3.log"
+      ]
+    },
+    {
+      "id": "B4",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "c1 подключился и отключился; без клиентов: стек Kitty: push 1, push 3, текст; затем attach c2; суффиксы через кандидата: kitty-pop",
+      "oracle": "эталон и приёмник c2 сразу после attach и после каждого суффикса",
+      "completion": "c2 лидер, барьер DSR через c2 после attach и после каждого шага суффикса, состояния сняты",
+      "reason": "после attach: профиль 2: Differs, расхождений 1, нормализовано 0, не наблюдалось 0\n  kitty_stack: эталон [3, 1], приёмник [3]; после суффикса kitty-pop: профиль 2: Differs, расхождений 4, нормализовано 0, не наблюдалось 0\n  kitty_flags: эталон 1, приёмник 0\n  input.key:ctrl-a: эталон Some(\"1b5b39373b3575\"), приёмник Some(\"01\")\n  input.key:escape: эталон Some(\"1b5b323775\"), приёмник Some(\"1b\")\n  kitty_stack: эталон [1], приёмник []",
+      "defect_origin": "vt",
+      "artifacts": [
+        "b4.json",
+        "zmx/logs/s4f14f7d89048b99d-b4.log"
+      ]
+    },
+    {
+      "id": "B5",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "c1 подключился и отключился; без клиентов: мышь 1000+1006, bracketed paste, DECCKM, DECKPAM, табуляторы 5 и 17, DECSTBM 5–15 с DECOM, режим 2048; затем attach c2; суффиксы через кандидата: tab, margins",
+      "oracle": "эталон и приёмник c2 сразу после attach и после каждого суффикса",
+      "completion": "c2 лидер, барьер DSR через c2 после attach и после каждого шага суффикса, состояния сняты",
+      "reason": "после attach: профиль 2: Differs, расхождений 1, нормализовано 0, не наблюдалось 0\n  cursor.y: эталон 5, приёмник 9; после суффикса tab: профиль 2: Differs, расхождений 5, нормализовано 0, не наблюдалось 0\n  active[5][4].text: эталон \"T\", приёмник \"e\"\n  active[5][16].text: эталон \"T\", приёмник \"\"\n  active[9][8].text: эталон \"\", приёмник \"T\"\n  active[9][16].text: эталон \"\", приёмник \"T\"\n  cursor.y: эталон 5, приёмник 9",
+      "defect_origin": "vt",
+      "artifacts": [
+        "b5.json",
+        "zmx/logs/s4f14f7d89048b99d-b5.log"
+      ]
+    },
+    {
+      "id": "B6",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "c1 подключился и отключился; без клиентов: широкий символ на границе строки, комбинирующие и emoji, напечатанные пробелы против пустых клеток, строка до отложенного переноса; затем attach c2; суффиксы через кандидата: pending-wrap",
+      "oracle": "эталон и приёмник c2 сразу после attach и после каждого суффикса",
+      "completion": "c2 лидер, барьер DSR через c2 после attach и после каждого шага суффикса, состояния сняты",
+      "reason": "после attach: профиль 2: Differs, расхождений 8, нормализовано 0, не наблюдалось 0\n  active[0].wrap: эталон true, приёмник false\n  active[0][79].width: эталон SpacerHead, приёмник Narrow\n  active[1].wrap_continuation: эталон true, приёмник false\n  active[3][5].text: эталон \"\", приёмник \" \"\n  active[3][6].text: эталон \"\", приёмник \" \"\n  active[3][7].text: эталон \"\", приёмник \" \"\n  active[3][8].text: эталон \"\", приёмник \" \"\n  active[3][9].text: эталон \"\", приёмник \" \"; после суффикса pending-wrap: профиль 2: Differs, расхождений 8, нормализовано 0, не наблюдалось 0\n  active[0].wrap: эталон true, приёмник false\n  active[0][79].width: эталон SpacerHead, приёмник Narrow\n  active[1].wrap_continuation: эталон true, приёмник false\n  active[3][5].text: эталон \"\", приёмник \" \"\n  active[3][6].text: эталон \"\", приёмник \" \"\n  active[3][7].text: эталон \"\", приёмник \" \"\n  active[3][8].text: эталон \"\", приёмник \" \"\n  active[3][9].text: эталон \"\", приёмник \" \"",
+      "defect_origin": "vt",
+      "artifacts": [
+        "b6.json",
+        "zmx/logs/s4f14f7d89048b99d-b6.log"
+      ]
+    },
+    {
+      "id": "B7",
+      "part": "csi",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "c1 подключился и отключился; без клиентов фикстура пишет строку и префикс csi (1b5b33), хост его прочитал (ревизия +1); attach c2 посреди последовательности; фикстура пишет остаток (316d58)",
+      "oracle": "эталон и приёмник c2 после остатка: суффикс — сам остаток последовательности",
+      "completion": "ревизия обработки выросла ровно на единицу без других событий фикстуры, c2 лидер, барьер DSR через c2 после остатка",
+      "reason": "после остатка: профиль 2: Differs, расхождений 6, нормализовано 0, не наблюдалось 0\n  active[1][0].text: эталон \"X\", приёмник \"1\"\n  active[1][0].style.fg: эталон Palette(1), приёмник Default\n  active[1][1].text: эталон \"\", приёмник \"m\"\n  active[1][2].text: эталон \"\", приёмник \"X\"\n  cursor.x: эталон 1, приёмник 3\n  cursor.style.fg: эталон Palette(1), приёмник Default",
+      "defect_origin": "host",
+      "artifacts": [
+        "b7-csi.json",
+        "zmx/logs/s4f14f7d89048b99d-b7csi.log"
+      ]
+    },
+    {
+      "id": "B7",
+      "part": "osc",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "c1 подключился и отключился; без клиентов фикстура пишет строку и префикс osc (1b5d323b746974), хост его прочитал (ревизия +1); attach c2 посреди последовательности; фикстура пишет остаток (6c652d62370758)",
+      "oracle": "эталон и приёмник c2 после остатка: суффикс — сам остаток последовательности",
+      "completion": "ревизия обработки выросла ровно на единицу без других событий фикстуры, c2 лидер, барьер DSR через c2 после остатка",
+      "reason": "после остатка: профиль 2: Differs, расхождений 8, нормализовано 0, не наблюдалось 0\n  active[1][0].text: эталон \"X\", приёмник \"l\"\n  active[1][1].text: эталон \"\", приёмник \"e\"\n  active[1][2].text: эталон \"\", приёмник \"-\"\n  active[1][3].text: эталон \"\", приёмник \"b\"\n  active[1][4].text: эталон \"\", приёмник \"7\"\n  active[1][5].text: эталон \"\", приёмник \"X\"\n  cursor.x: эталон 1, приёмник 6\n  title: эталон \"title-b7\", приёмник \"\"",
+      "defect_origin": "host",
+      "artifacts": [
+        "b7-osc.json",
+        "zmx/logs/s4f14f7d89048b99d-b7osc.log"
+      ]
+    },
+    {
+      "id": "B7",
+      "part": "dcs",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "c1 подключился и отключился; без клиентов фикстура пишет строку и префикс dcs (1b502471), хост его прочитал (ревизия +1); attach c2 посреди последовательности; фикстура пишет остаток (6d1b5c58)",
+      "oracle": "эталон и приёмник c2 после остатка: суффикс — сам остаток последовательности",
+      "completion": "ревизия обработки выросла ровно на единицу без других событий фикстуры, c2 лидер, барьер DSR через c2 после остатка",
+      "reason": "после остатка: профиль 2: Differs, расхождений 3, нормализовано 0, не наблюдалось 0\n  active[1][0].text: эталон \"X\", приёмник \"m\"\n  active[1][1].text: эталон \"\", приёмник \"X\"\n  cursor.x: эталон 1, приёмник 2",
+      "defect_origin": "host",
+      "artifacts": [
+        "b7-dcs.json",
+        "zmx/logs/s4f14f7d89048b99d-b7dcs.log"
+      ]
+    },
+    {
+      "id": "B7",
+      "part": "utf8",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "c1 подключился и отключился; без клиентов фикстура пишет строку и префикс utf8 (6162e4b8), хост его прочитал (ревизия +1); attach c2 посреди последовательности; фикстура пишет остаток (9658)",
+      "oracle": "эталон и приёмник c2 после остатка: суффикс — сам остаток последовательности",
+      "completion": "ревизия обработки выросла ровно на единицу без других событий фикстуры, c2 лидер, барьер DSR через c2 после остатка",
+      "reason": "после остатка: профиль 2: Differs, расхождений 6, нормализовано 0, не наблюдалось 0\n  active[1][2].text: эталон \"世\", приёмник \"�\"\n  active[1][2].width: эталон Wide, приёмник Narrow\n  active[1][3].text: эталон \"\", приёмник \"X\"\n  active[1][3].width: эталон SpacerTail, приёмник Narrow\n  active[1][4].text: эталон \"X\", приёмник \"\"\n  cursor.x: эталон 5, приёмник 4",
+      "defect_origin": "host",
+      "artifacts": [
+        "b7-utf8.json",
+        "zmx/logs/s4f14f7d89048b99d-b7utf8.log"
+      ]
+    },
+    {
+      "id": "B7",
+      "part": "esc",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "c1 подключился и отключился; без клиентов фикстура пишет строку и префикс esc (1b), хост его прочитал (ревизия +1); attach c2 посреди последовательности; фикстура пишет остаток (3758)",
+      "oracle": "эталон и приёмник c2 после остатка: суффикс — сам остаток последовательности",
+      "completion": "ревизия обработки выросла ровно на единицу без других событий фикстуры, c2 лидер, барьер DSR через c2 после остатка",
+      "reason": "после остатка: профиль 2: Differs, расхождений 4, нормализовано 0, не наблюдалось 0\n  active[1][0].text: эталон \"X\", приёмник \"7\"\n  active[1][1].text: эталон \"\", приёмник \"X\"\n  cursor.x: эталон 1, приёмник 2\n  saved_cursor.y: эталон 1, приёмник 0",
+      "defect_origin": "host",
+      "artifacts": [
+        "b7-esc.json",
+        "zmx/logs/s4f14f7d89048b99d-b7esc.log"
+      ]
+    },
+    {
+      "id": "B8",
+      "status": "pass",
+      "requirement": "required",
+      "stimulus": "c1 подключился и отключился; без клиентов фикстура начинает поток 800 нумерованных строк по 78 колонок с темпом строка в 2500 мкс; после первой квитанции хода подключается c2",
+      "oracle": "номера строк потока у приёмника c2 идут подряд без пропуска и повтора до последней; активная область совпадает с эталоном",
+      "completion": "квитанция конца потока позже, чем c2 стал лидером (attach внутри потока), барьер DSR через c2",
+      "reason": "выполнено: c1 лидер; барьер через c1; c1 отключился клавишей; c2 лидер; барьер через c2; номера строк у c2 подряд до последней; активная область c2 совпадает с эталоном",
+      "artifacts": [
+        "b8.json",
+        "zmx/logs/s4f14f7d89048b99d-b8.log"
+      ]
+    },
+    {
+      "id": "B9",
+      "status": "fail",
+      "requirement": "required",
+      "stimulus": "c1 подключился и отключился; без клиентов: мягко перенесённые строки 120 и 200 колонок в истории и активной области; затем attach c2; суффиксы через кандидата: resize",
+      "oracle": "эталон и приёмник c2 сразу после attach и после каждого суффикса",
+      "completion": "c2 лидер, барьер DSR через c2 после attach и после каждого шага суффикса, состояния сняты",
+      "reason": "после attach: профиль 2: Differs, расхождений 2302, нормализовано 0, не наблюдалось 0\n  active[0].wrap: эталон true, приёмник false\n  active[1].wrap: эталон true, приёмник false\n  active[1].wrap_continuation: эталон true, приёмник false\n  active[2].wrap_continuation: эталон true, приёмник false\n  active[3].wrap: эталон true, приёмник false\n  active[4].wrap_continuation: эталон true, приёмник false\n  active[5].wrap: эталон true, приёмник false\n  active[6].wrap: эталон true, приёмник false\n  active[6].wrap_continuation: эталон true, приёмник false\n  active[7].wrap_continuation: эталон true, приёмник false\n  active[8].wrap: эталон true, приёмник false\n  active[9].wrap_continuation: эталон true, приёмник false\n  active[10].wrap: эталон true, приёмник false\n  active[11].wrap: эталон true, приёмник false\n  active[11].wrap_continuation: эталон true, приёмник false\n  active[12].wrap_continuation: эталон true, приёмник false\n  active[13].wrap: эталон true, приёмник false\n  active[14].wrap_continuation: эталон true, приёмник false\n  active[15].wrap: эталон true, приёмник false\n  active[16].wrap: эталон true, приёмник false\n  active[16].wrap_continuation: эталон true, приёмник false\n  active[17].wrap_continuation: эталон true, приёмник false\n  active[18].wrap: эталон true, приёмник false\n  active[19].wrap_continuation: эталон true, приёмник false\n  active[20].wrap: эталон true, приёмник false\n  active[21].wrap: эталон true, приёмник false\n  active[21].wrap_continuation: эталон true, приёмник false\n  active[22].wrap_continuation: эталон true, приёмник false\n  history_total: эталон 52, приёмник 28\n  history.len: эталон 52, приёмник 28\n  history[1].wrap_continuation: эталон true, приёмник false\n  history[1][0].text: эталон \"u\", приёмник \"r\"\n  history[1][1].text: эталон \"u\", приёмник \"1\"\n  history[1][2].text: эталон \"u\", приёмник \"1\"\n  history[1][3].text: эталон \"u\", приёмник \":\"\n  history[1][4].text: эталон \"u\", приёмник \"l\"\n  history[1][5].text: эталон \"u\", приёмник \"l\"\n  history[1][6].text: эталон \"u\", приёмник \"l\"\n  history[1][7].text: эталон \"u\", приёмник \"l\"\n  history[1][8].text: эталон \"u\", приёмник \"l\"\n  history[1][9].text: эталон \"u\", приёмник \"l\"\n  history[1][10].text: эталон \"u\", приёмник \"l\"\n  history[1][11].text: эталон \"u\", приёмник \"l\"\n  history[1][12].text: эталон \"u\", приёмник \"l\"\n  history[1][13].text: эталон \"u\", приёмник \"l\"\n  history[1][14].text: эталон \"u\", приёмник \"l\"\n  history[1][15].text: эталон \"u\", приёмник \"l\"\n  history[1][16].text: эталон \"u\", приёмник \"l\"\n  history[1][17].text: эталон \"u\", приёмник \"l\"\n  history[1][18].text: эталон \"u\", приёмник \"l\"\n  history[1][19].text: эталон \"u\", приёмник \"l\"\n  history[1][20].text: эталон \"u\", приёмник \"l\"\n  history[1][21].text: эталон \"u\", приёмник \"l\"\n  history[1][22].text: эталон \"u\", приёмник \"l\"\n  history[1][23].text: эталон \"u\", приёмник \"l\"\n  history[1][24].text: эталон \"u\", приёмник \"l\"\n  history[1][25].text: эталон \"u\", приёмник \"l\"\n  history[1][26].text: эталон \"u\", приёмник \"l\"\n  history[1][27].text: эталон \"u\", приёмник \"l\"\n  history[1][28].text: эталон \"u\", приёмник \"l\"\n  history[1][29].text: эталон \"u\", приёмник \"l\"\n  history[1][30].text: эталон \"u\", приёмник \"l\"\n  history[1][31].text: эталон \"u\", приёмник \"l\"\n  history[1][32].text: эталон \"u\", приёмник \"l\"\n  history[1][33].text: эталон \"u\", приёмник \"l\"\n  history[1][34].text: эталон \"u\", приёмник \"l\"\n  history[1][35].text: эталон \"u\", приёмник \"l\"\n  history[1][36].text: эталон \"u\", приёмник \"l\"\n  history[1][37].text: эталон \"u\", приёмник \"l\"\n  history[1][38].text: эталон \"u\", приёмник \"l\"\n  history[1][39].text: эталон \"u\", приёмник \"l\"\n  history[1][40].text: эталон \"\", приёмник \"l\"\n  history[1][41].text: эталон \"\", приёмник \"l\"\n  history[1][42].text: эталон \"\", приёмник \"l\"\n  history[1][43].text: эталон \"\", приёмник \"l\"\n  history[1][44].text: эталон \"\", приёмник \"l\"\n  history[1][45].text: эталон \"\", приёмник \"l\"\n  history[1][46].text: эталон \"\", приёмник \"l\"\n  history[1][47].text: эталон \"\", приёмник \"l\"\n  history[1][48].text: эталон \"\", приёмник \"l\"\n  history[1][49].text: эталон \"\", приёмник \"l\"\n  history[1][50].text: эталон \"\", приёмник \"l\"\n  history[1][51].text: эталон \"\", приёмник \"l\"\n  history[1][52].text: эталон \"\", приёмник \"l\"\n  history[1][53].text: эталон \"\", приёмник \"l\"\n  history[1][54].text: эталон \"\", приёмник \"l\"\n  history[1][55].text: эталон \"\", приёмник \"l\"\n  history[1][56].text: эталон \"\", приёмник \"l\"\n  history[1][57].text: эталон \"\", приёмник \"l\"\n  history[1][58].text: эталон \"\", приёмник \"l\"\n  history[1][59].text: эталон \"\", приёмник \"l\"\n  history[1][60].text: эталон \"\", приёмник \"l\"\n  history[1][61].text: эталон \"\", приёмник \"l\"\n  history[1][62].text: эталон \"\", приёмник \"l\"\n  history[1][63].text: эталон \"\", приёмник \"l\"\n  history[1][64].text: эталон \"\", приёмник \"l\"\n  history[1][65].text: эталон \"\", приёмник \"l\"\n  history[1][66].text: эталон \"\", приёмник \"l\"\n  history[1][67].text: эталон \"\", приёмник \"l\"\n  history[1][68].text: эталон \"\", приёмник \"l\"; после суффикса resize: профиль 2: Differs, расхождений 2302, нормализовано 0, не наблюдалось 0\n  active[0].wrap: эталон true, приёмник false\n  active[1].wrap: эталон true, приёмник false\n  active[1].wrap_continuation: эталон true, приёмник false\n  active[2].wrap_continuation: эталон true, приёмник false\n  active[3].wrap: эталон true, приёмник false\n  active[4].wrap_continuation: эталон true, приёмник false\n  active[5].wrap: эталон true, приёмник false\n  active[6].wrap: эталон true, приёмник false\n  active[6].wrap_continuation: эталон true, приёмник false\n  active[7].wrap_continuation: эталон true, приёмник false\n  active[8].wrap: эталон true, приёмник false\n  active[9].wrap_continuation: эталон true, приёмник false\n  active[10].wrap: эталон true, приёмник false\n  active[11].wrap: эталон true, приёмник false\n  active[11].wrap_continuation: эталон true, приёмник false\n  active[12].wrap_continuation: эталон true, приёмник false\n  active[13].wrap: эталон true, приёмник false\n  active[14].wrap_continuation: эталон true, приёмник false\n  active[15].wrap: эталон true, приёмник false\n  active[16].wrap: эталон true, приёмник false\n  active[16].wrap_continuation: эталон true, приёмник false\n  active[17].wrap_continuation: эталон true, приёмник false\n  active[18].wrap: эталон true, приёмник false\n  active[19].wrap_continuation: эталон true, приёмник false\n  active[20].wrap: эталон true, приёмник false\n  active[21].wrap: эталон true, приёмник false\n  active[21].wrap_continuation: эталон true, приёмник false\n  active[22].wrap_continuation: эталон true, приёмник false\n  history_total: эталон 52, приёмник 28\n  history.len: эталон 52, приёмник 28\n  history[1].wrap_continuation: эталон true, приёмник false\n  history[1][0].text: эталон \"u\", приёмник \"r\"\n  history[1][1].text: эталон \"u\", приёмник \"1\"\n  history[1][2].text: эталон \"u\", приёмник \"1\"\n  history[1][3].text: эталон \"u\", приёмник \":\"\n  history[1][4].text: эталон \"u\", приёмник \"l\"\n  history[1][5].text: эталон \"u\", приёмник \"l\"\n  history[1][6].text: эталон \"u\", приёмник \"l\"\n  history[1][7].text: эталон \"u\", приёмник \"l\"\n  history[1][8].text: эталон \"u\", приёмник \"l\"\n  history[1][9].text: эталон \"u\", приёмник \"l\"\n  history[1][10].text: эталон \"u\", приёмник \"l\"\n  history[1][11].text: эталон \"u\", приёмник \"l\"\n  history[1][12].text: эталон \"u\", приёмник \"l\"\n  history[1][13].text: эталон \"u\", приёмник \"l\"\n  history[1][14].text: эталон \"u\", приёмник \"l\"\n  history[1][15].text: эталон \"u\", приёмник \"l\"\n  history[1][16].text: эталон \"u\", приёмник \"l\"\n  history[1][17].text: эталон \"u\", приёмник \"l\"\n  history[1][18].text: эталон \"u\", приёмник \"l\"\n  history[1][19].text: эталон \"u\", приёмник \"l\"\n  history[1][20].text: эталон \"u\", приёмник \"l\"\n  history[1][21].text: эталон \"u\", приёмник \"l\"\n  history[1][22].text: эталон \"u\", приёмник \"l\"\n  history[1][23].text: эталон \"u\", приёмник \"l\"\n  history[1][24].text: эталон \"u\", приёмник \"l\"\n  history[1][25].text: эталон \"u\", приёмник \"l\"\n  history[1][26].text: эталон \"u\", приёмник \"l\"\n  history[1][27].text: эталон \"u\", приёмник \"l\"\n  history[1][28].text: эталон \"u\", приёмник \"l\"\n  history[1][29].text: эталон \"u\", приёмник \"l\"\n  history[1][30].text: эталон \"u\", приёмник \"l\"\n  history[1][31].text: эталон \"u\", приёмник \"l\"\n  history[1][32].text: эталон \"u\", приёмник \"l\"\n  history[1][33].text: эталон \"u\", приёмник \"l\"\n  history[1][34].text: эталон \"u\", приёмник \"l\"\n  history[1][35].text: эталон \"u\", приёмник \"l\"\n  history[1][36].text: эталон \"u\", приёмник \"l\"\n  history[1][37].text: эталон \"u\", приёмник \"l\"\n  history[1][38].text: эталон \"u\", приёмник \"l\"\n  history[1][39].text: эталон \"u\", приёмник \"l\"\n  history[1][40].text: эталон \"\", приёмник \"l\"\n  history[1][41].text: эталон \"\", приёмник \"l\"\n  history[1][42].text: эталон \"\", приёмник \"l\"\n  history[1][43].text: эталон \"\", приёмник \"l\"\n  history[1][44].text: эталон \"\", приёмник \"l\"\n  history[1][45].text: эталон \"\", приёмник \"l\"\n  history[1][46].text: эталон \"\", приёмник \"l\"\n  history[1][47].text: эталон \"\", приёмник \"l\"\n  history[1][48].text: эталон \"\", приёмник \"l\"\n  history[1][49].text: эталон \"\", приёмник \"l\"\n  history[1][50].text: эталон \"\", приёмник \"l\"\n  history[1][51].text: эталон \"\", приёмник \"l\"\n  history[1][52].text: эталон \"\", приёмник \"l\"\n  history[1][53].text: эталон \"\", приёмник \"l\"\n  history[1][54].text: эталон \"\", приёмник \"l\"\n  history[1][55].text: эталон \"\", приёмник \"l\"\n  history[1][56].text: эталон \"\", приёмник \"l\"\n  history[1][57].text: эталон \"\", приёмник \"l\"\n  history[1][58].text: эталон \"\", приёмник \"l\"\n  history[1][59].text: эталон \"\", приёмник \"l\"\n  history[1][60].text: эталон \"\", приёмник \"l\"\n  history[1][61].text: эталон \"\", приёмник \"l\"\n  history[1][62].text: эталон \"\", приёмник \"l\"\n  history[1][63].text: эталон \"\", приёмник \"l\"\n  history[1][64].text: эталон \"\", приёмник \"l\"\n  history[1][65].text: эталон \"\", приёмник \"l\"\n  history[1][66].text: эталон \"\", приёмник \"l\"\n  history[1][67].text: эталон \"\", приёмник \"l\"\n  history[1][68].text: эталон \"\", приёмник \"l\"",
+      "defect_origin": "vt",
+      "artifacts": [
+        "b9.json",
+        "zmx/logs/s4f14f7d89048b99d-b9.log"
+      ]
+    }
+  ],
+  "metrics": [],
+  "diagnostics": {
+    "notes": []
+  }
+}

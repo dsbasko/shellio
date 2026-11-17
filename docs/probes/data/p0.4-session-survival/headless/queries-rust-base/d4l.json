@@ -1,0 +1,106 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "GUI поколения 1 лидера c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "чтение дошло до GUI c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "c2 забрал лидерство",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "поздний ответ прежнего лидера отброшен",
+      "ok": true,
+      "detail": "данные ответов [Some(\"\")], отброшено хостом 1"
+    },
+    {
+      "name": "ожидание закончилось одним пустым ответом",
+      "ok": true,
+      "detail": "данные ответов [Some(\"\")]; отменено 1, по сроку 0"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "c1.ask": {
+      "generation": 1,
+      "serial": 1
+    },
+    "c1.journal": [
+      {
+        "kind": "role",
+        "report": "leader:1"
+      },
+      {
+        "hex": "1b5b306e",
+        "kind": "reply"
+      },
+      {
+        "kind": "role",
+        "report": "follower:2"
+      },
+      {
+        "hex": "1b5b306e",
+        "kind": "reply"
+      },
+      {
+        "hex": "1b5b306e",
+        "kind": "reply"
+      }
+    ],
+    "c2.journal": [
+      {
+        "kind": "role",
+        "report": "leader:2"
+      },
+      {
+        "hex": "1b5b306e",
+        "kind": "reply"
+      },
+      {
+        "hex": "1b5b306e",
+        "kind": "reply"
+      }
+    ],
+    "clipboard": {
+      "answered": 0,
+      "cancelled": 1,
+      "dropped": 1,
+      "no_gui": 0,
+      "requests": 1,
+      "timeouts": 0
+    },
+    "record": {
+      "host": {
+        "pid": 40341,
+        "start_us": 1794931250750958
+      },
+      "session": "s8e5045f7ab4284bb-d4l",
+      "workload": {
+        "pid": 40342,
+        "start_us": 1794931250753781
+      },
+      "workload_pgid": 40342,
+      "workload_sid": 40342
+    },
+    "responses": [
+      [
+        "clipboard",
+        "1b5d35323b633b1b5c"
+      ]
+    ]
+  }
+}

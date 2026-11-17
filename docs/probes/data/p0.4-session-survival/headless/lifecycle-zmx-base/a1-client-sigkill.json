@@ -1,0 +1,110 @@
+{
+  "checks": [
+    {
+      "name": "c1 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c1",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "нагрузка та же и жива",
+      "ok": true,
+      "detail": "PID 39094 старт 1794931188647125: Same(ProcessInfo { key: ProcessKey { pid: 39094, start_us: 1794931188647125 }, ppid: 39093, pgid: 39094, sid: Some(39094), tpgid: Some(39094), tty: Some(268435464), state: Running, exiting: false, comm: \"probe-session-f\" })"
+    },
+    {
+      "name": "хост тот же и жив",
+      "ok": true,
+      "detail": "PID 39093 старт 1794931188645778: Same(ProcessInfo { key: ProcessKey { pid: 39093, start_us: 1794931188645778 }, ppid: 1, pgid: 39093, sid: Some(39093), tpgid: None, tty: None, state: Running, exiting: false, comm: \"zmx\" })"
+    },
+    {
+      "name": "сессия в списке",
+      "ok": true,
+      "detail": "Live { workload_pid: 39094, clients: 0 }"
+    },
+    {
+      "name": "c2 лидер",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "барьер через c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "нагрузка та же после нового клиента",
+      "ok": true,
+      "detail": "PID 39094 старт 1794931188647125: Same(ProcessInfo { key: ProcessKey { pid: 39094, start_us: 1794931188647125 }, ppid: 39093, pgid: 39094, sid: Some(39094), tpgid: Some(39094), tty: Some(268435464), state: Running, exiting: false, comm: \"probe-session-f\" })"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "c1.exit": "ExitStatus(unix_wait_status(9))",
+    "c1.role": "leader:1",
+    "cleanup": [],
+    "record": {
+      "host": {
+        "pid": 39093,
+        "start_us": 1794931188645778
+      },
+      "session": "s9cc3e0704540fa2c-a1k",
+      "workload": {
+        "pid": 39094,
+        "start_us": 1794931188647125
+      },
+      "workload_pgid": 39094,
+      "workload_sid": 39094
+    },
+    "нагрузка та же и жива": {
+      "comm": "probe-session-f",
+      "exiting": false,
+      "key": {
+        "pid": 39094,
+        "start_us": 1794931188647125
+      },
+      "kind": "same",
+      "pgid": 39094,
+      "ppid": 39093,
+      "sid": 39094,
+      "state": "running",
+      "tpgid": 39094,
+      "tty": 268435464
+    },
+    "нагрузка та же после нового клиента": {
+      "comm": "probe-session-f",
+      "exiting": false,
+      "key": {
+        "pid": 39094,
+        "start_us": 1794931188647125
+      },
+      "kind": "same",
+      "pgid": 39094,
+      "ppid": 39093,
+      "sid": 39094,
+      "state": "running",
+      "tpgid": 39094,
+      "tty": 268435464
+    },
+    "хост тот же и жив": {
+      "comm": "zmx",
+      "exiting": false,
+      "key": {
+        "pid": 39093,
+        "start_us": 1794931188645778
+      },
+      "kind": "same",
+      "pgid": 39093,
+      "ppid": 1,
+      "sid": 39093,
+      "state": "running",
+      "tpgid": null,
+      "tty": null
+    }
+  }
+}

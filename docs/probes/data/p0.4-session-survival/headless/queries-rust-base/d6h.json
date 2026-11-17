@@ -1,0 +1,86 @@
+{
+  "checks": [
+    {
+      "name": "snapshot",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "snapshot не блокируется",
+      "ok": true,
+      "detail": "0 мс, предел 5000 мс"
+    },
+    {
+      "name": "list",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "list не блокируется",
+      "ok": true,
+      "detail": "0 мс, предел 5000 мс"
+    },
+    {
+      "name": "input raw",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "input raw не блокируется",
+      "ok": true,
+      "detail": "0 мс, предел 5000 мс"
+    },
+    {
+      "name": "input typed",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "input typed не блокируется",
+      "ok": true,
+      "detail": "0 мс, предел 5000 мс"
+    },
+    {
+      "name": "ввод дошёл до нагрузки",
+      "ok": true,
+      "detail": "прочитано: 7879"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "input raw.elapsed_ms": 0,
+    "input typed.elapsed_ms": 0,
+    "input_raw": {
+      "outcome": "sent"
+    },
+    "input_typed": {
+      "outcome": "accepted"
+    },
+    "list": [
+      {
+        "clients": 0,
+        "error": null,
+        "name": "s8e5045f7ab4284bb-d6h",
+        "workload_pid": 40354
+      }
+    ],
+    "list.elapsed_ms": 0,
+    "record": {
+      "host": {
+        "pid": 40353,
+        "start_us": 1794931252875161
+      },
+      "session": "s8e5045f7ab4284bb-d6h",
+      "workload": {
+        "pid": 40354,
+        "start_us": 1794931252877550
+      },
+      "workload_pgid": 40354,
+      "workload_sid": 40354
+    },
+    "snapshot.elapsed_ms": 0,
+    "snapshot.revision": 0
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "checks": [
+    {
+      "name": "первый ввод принят",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "повтор не дублирует ввод",
+      "ok": false,
+      "detail": "ввод дошёл 2 раз: у zmx type нет номера запроса, повтор неотличим от нового ввода"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "after_marker_bytes": 0,
+    "first": "Ok(Accepted)",
+    "marker_attempts": 1,
+    "received": "e3retrye3retry",
+    "record": {
+      "host": {
+        "pid": 40478,
+        "start_us": 1794931260515485
+      },
+      "session": "s617b8df124486fa8-e3",
+      "workload": {
+        "pid": 40479,
+        "start_us": 1794931260517998
+      },
+      "workload_pgid": 40479,
+      "workload_sid": 40479
+    },
+    "retry": "Ok(Accepted)",
+    "unknown_outcome": "zmx type различает «принято», «отказ» и прочую ошибку; ответа «неизвестно» с номером для повтора нет"
+  }
+}

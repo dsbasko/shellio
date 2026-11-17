@@ -1,0 +1,61 @@
+{
+  "checks": [
+    {
+      "name": "ответ прежнего поколения отброшен (часть поздний-ответ)",
+      "ok": true,
+      "detail": "отброшено хостом 1"
+    },
+    {
+      "name": "GUI поколения 2 лидера c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "чтение дошло до GUI c2",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "name": "без ответа GUI хост отвечает пусто по сроку",
+      "ok": true,
+      "detail": "данные ответов [Some(\"\")] через 1005 мс, по сроку 0 → 1"
+    },
+    {
+      "name": "ответ GUI после срока отброшен",
+      "ok": true,
+      "detail": "отброшено 1 → 2"
+    }
+  ],
+  "not_proven": null,
+  "cause": null,
+  "unsupported": null,
+  "observed": {
+    "timeout.ask": {
+      "generation": 2,
+      "serial": 2
+    },
+    "timeout.clipboard_after": {
+      "answered": 0,
+      "cancelled": 1,
+      "dropped": 2,
+      "no_gui": 0,
+      "requests": 2,
+      "timeouts": 1
+    },
+    "timeout.clipboard_before": {
+      "answered": 0,
+      "cancelled": 1,
+      "dropped": 1,
+      "no_gui": 0,
+      "requests": 1,
+      "timeouts": 0
+    },
+    "timeout.responses": [
+      [
+        "clipboard",
+        "1b5d35323b633b1b5c"
+      ]
+    ],
+    "timeout.waited_ms": 1005
+  }
+}
