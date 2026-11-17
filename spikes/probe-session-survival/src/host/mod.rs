@@ -802,6 +802,8 @@ impl<'a> Hub<'a> {
         let dropped = conn
             .out
             .evict(proto::encode(conn.codec, &Message::Evicted(reason.clone())));
+        // Иначе дескриптор держит поток чтения: упавший по сроку писатель не закроет сокет.
+        let _ = conn.stream.shutdown(std::net::Shutdown::Read);
         self.evictions += 1;
         eprintln!("{HOST_NAME}: клиент {id} разорван: {reason}; отброшено {dropped} байт очереди");
         self.forget(id, conn.purpose);

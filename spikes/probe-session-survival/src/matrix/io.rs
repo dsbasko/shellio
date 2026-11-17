@@ -602,25 +602,30 @@ fn e2_attach(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> R
         }))
     })??;
     evidence.note("client_input", format!("{passed:?}"));
-    let ended = matches!(passed, Err(WaitError::Ended(_)));
-    let exit = if ended {
-        Some(client.wait_exit())
-    } else {
-        None
-    };
-    evidence.note("c1_exit", format!("{exit:?}"));
     let id = session.id.clone();
-    let received = if ended {
-        drain_until_marker_via(session, evidence, |marker| {
+    // Весь ввод в терминале c1 ещё не значит, что c1 жив: хост разбирает накопленные события
+    // ввода позже и может разорвать его после записи. Путь маркера выбирается на каждой попытке.
+    let paths = std::cell::RefCell::new(Vec::new());
+    let received = drain_until_marker_via(session, evidence, |marker| {
+        let live = client.route()?.end().is_none();
+        paths.borrow_mut().push(if live { "c1" } else { "raw" });
+        if live {
+            client.input(marker)
+        } else {
             stand
                 .main()
                 .input(&id, marker, InputPath::Raw)
                 .map(|_| ())
                 .map_err(|err| err.to_string())
-        })?
+        }
+    })?;
+    evidence.note("marker_paths", paths.into_inner());
+    let exit = if client.route()?.end().is_some() {
+        Some(client.wait_exit())
     } else {
-        drain_until_marker_via(session, evidence, |marker| client.input(marker))?
+        None
     };
+    evidence.note("c1_exit", format!("{exit:?}"));
     let Some(received) = received else {
         return Ok(());
     };
