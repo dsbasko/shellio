@@ -22,7 +22,9 @@ use serde::Serialize;
 use crate::args::Target;
 use crate::backend::rust::{self as rust_host, RustHost};
 use crate::backend::zmx::{self, ZmxSet};
-use crate::backend::{self as backend, Backend, HostRecord, Lead, SessionId, Workload, signal};
+use crate::backend::{
+    self as backend, Backend, HostRecord, InputPath, Lead, SessionId, Workload, signal,
+};
 use crate::fixture::channel::{Command, Event, Link, LinkError, Listener, Receipt, hex, unhex};
 use crate::fixture::query::{Query, ResponseKind};
 use crate::fixture::{self, Mode};
@@ -31,8 +33,8 @@ use crate::host::attach::ATTACH_NAME;
 use crate::launch;
 use crate::matrix::Candidate;
 use crate::matrix::bridge::{
-    self, BARRIER, CLICK, Effect, GuiCommand, Hello, KEYCODE_A, KEYCODE_UP, PASTE_TEXT, Reply,
-    SceneSpec, Scenes, Step,
+    self, BARRIER, BARRIER_REPLY, CLICK, Effect, GuiCommand, Hello, KEYCODE_A, KEYCODE_UP,
+    PASTE_TEXT, Reply, SceneSpec, Scenes, Step,
 };
 use crate::matrix::evidence::{self, Evidence, Spec};
 use crate::matrix::report_policy::{self, SCENES_DIR};
@@ -491,6 +493,28 @@ impl Driver {
         }
     }
 
+    /// Ввод `marker` через кандидата без клиента и позиция во вводе фикстуры сразу после него;
+    /// `None` — маркер не дошёл за срок.
+    fn drain(&self, session: &mut Session, marker: &str) -> Result<Option<Mark>, String> {
+        let start = Mark::at(session.link.log());
+        self.backend
+            .input(&session.id, marker.as_bytes(), InputPath::Raw)
+            .map_err(|err| format!("ввод {marker} через кандидата: {err}"))?;
+        let mut end = None;
+        pull_until(&mut session.link, WAIT, |log| {
+            let input = bridge::input_since(log, 0);
+            end = input
+                .get(start.bytes..)
+                .and_then(|rest| report_policy::split_at_marker(rest, marker))
+                .map(|fence| start.bytes + fence.end);
+            end.is_some()
+        })?;
+        Ok(end.map(|bytes| Mark {
+            bytes,
+            barriers: bridge::barrier_replies(session.link.log()),
+        }))
+    }
+
     /// Соединение роли GUI от имени текущего лидера (Rust-хост).
     fn host_gui(&self, id: &SessionId) -> Result<Option<rust_host::Gui>, String> {
         let Some(rust) = &self.rust else {
@@ -649,7 +673,7 @@ impl Driver {
         if !barrier(&mut session.link, &source)? {
             return Err("предусловие C2/C3: GUI №1 не ответила на барьер".to_owned());
         }
-        let mut consumed = bridge::input_since(session.link.log(), 0).len();
+        let mut consumed = Mark::at(session.link.log());
         let live_lines = first.lines()?;
         let live_input = probe(
             &mut first,
@@ -689,7 +713,17 @@ impl Driver {
         let kill_mark = session.link.log().len();
         self.kill(&mut first)?;
         self.wait_clients(&session.id, 0)?;
-        consumed = bridge::input_since(session.link.log(), 0).len();
+        // Окно C2 начинается после всего, что вызвала гибель GUI №1: ввод через кандидата идёт
+        // в PTY нагрузки после его собственных байтов отключения.
+        let drained = self.drain(&mut session, "pss-c2-drain")?;
+        c2.note("drain", drained);
+        let Some(after_drain) = drained else {
+            let reason = "ввод через кандидата перед GUI №2 не дошёл до фикстуры".to_owned();
+            c2.not_proven = Some(reason.clone());
+            c3.not_proven = Some(reason);
+            return self.c2_c3_cells(&c2, &c3, &record);
+        };
+        consumed = after_drain;
         let mut second = self.open(&session.id, Lead::IfFree, scene.cols, scene.rows)?;
         self.wait_clients(&session.id, 1)?;
         if !barrier(&mut session.link, b"")? {
@@ -1520,12 +1554,28 @@ fn barrier(link: &mut Link, bytes: &[u8]) -> Result<bool, String> {
     pull_until(link, WAIT, |log| bridge::barrier_replies(log) > before)
 }
 
-/// Маркер-вставка через поверхность и байты от неё до маркера после `consumed`; `None` — маркер
-/// не дошёл до фикстуры за срок.
+/// Позиция во вводе фикстуры: прочитанные байты и ответы на барьеры стенда до неё.
+#[derive(Clone, Copy, Debug, Default, Serialize)]
+struct Mark {
+    bytes: usize,
+    barriers: usize,
+}
+
+impl Mark {
+    fn at(log: &[Receipt]) -> Mark {
+        Mark {
+            bytes: bridge::input_since(log, 0).len(),
+            barriers: bridge::barrier_replies(log),
+        }
+    }
+}
+
+/// Маркер-вставка через поверхность и байты от неё до маркера после `consumed` без ответов на
+/// барьеры стенда за это время; `None` — маркер не дошёл до фикстуры за срок.
 fn fence(
     window: &mut Window,
     link: &mut Link,
-    consumed: &mut usize,
+    consumed: &mut Mark,
     marker: &str,
 ) -> Result<Option<Vec<u8>>, String> {
     window.paste(marker)?;
@@ -1534,13 +1584,18 @@ fn fence(
     pull_until(link, WAIT, |log| {
         let input = bridge::input_since(log, 0);
         found = input
-            .get(start..)
+            .get(start.bytes..)
             .and_then(|rest| report_policy::split_at_marker(rest, marker));
         found.is_some()
     })?;
     Ok(found.map(|fence| {
-        *consumed = start + fence.end;
-        fence.before
+        let barriers = bridge::barrier_replies(link.log());
+        let replies = vec![BARRIER_REPLY.to_vec(); barriers.saturating_sub(start.barriers)];
+        *consumed = Mark {
+            bytes: start.bytes + fence.end,
+            barriers,
+        };
+        report_policy::unexpected(&fence.before, &replies)
     }))
 }
 
@@ -1548,7 +1603,7 @@ fn fence(
 fn probe(
     window: &mut Window,
     link: &mut Link,
-    consumed: &mut usize,
+    consumed: &mut Mark,
     marker: &str,
 ) -> Result<Option<Vec<u8>>, String> {
     window.command(&GuiCommand::Key {
