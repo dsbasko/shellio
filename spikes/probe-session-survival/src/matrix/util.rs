@@ -48,6 +48,41 @@ pub fn revision_boundary(before: u64, after: u64, violations: &[String]) -> Resu
     }
 }
 
+/// Предусловие протокола разреза Rust-хоста: от точки покоя `base` (всё прочитанное хостом
+/// разобрано) префикс длиной `len` прочитан и разобран ровно одним куском. `events` — события
+/// `Parsed` наблюдателя как пары «прочитано куском, разобрано всего».
+pub fn parsed_boundary(
+    events: &[(u64, u64)],
+    base: u64,
+    len: u64,
+    violations: &[String],
+) -> Result<(), String> {
+    if !violations.is_empty() {
+        return Err(format!(
+            "предусловие разреза нарушено: {}",
+            violations.join("; ")
+        ));
+    }
+    let after: Vec<(u64, u64)> = events
+        .iter()
+        .copied()
+        .filter(|(_, offset)| *offset > base)
+        .collect();
+    match after[..] {
+        [] => Err(format!("после точки покоя {base} хост ничего не разобрал")),
+        [(read, offset)] if read == len && offset == base + len => Ok(()),
+        [(read, offset)] => Err(format!(
+            "один кусок {read} байт до {offset}, ожидался префикс {len} байт до {}",
+            base + len
+        )),
+        _ => Err(format!(
+            "после точки покоя {base} кусков {}: {after:?}; префикс прочитан не одним куском \
+             или было другое чтение",
+            after.len()
+        )),
+    }
+}
+
 /// Итог подсчёта ответов: сколько каких ждали и сколько каких пришло по квитанциям фикстуры.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Tally {
@@ -156,6 +191,33 @@ mod tests {
         }
         assert!(cuts(b"x").is_empty());
         assert!(cuts(b"").is_empty());
+    }
+
+    #[test]
+    fn parsed_boundary_requires_one_piece_of_exactly_the_prefix_after_the_quiet_point() {
+        // События до точки покоя не считаются.
+        assert_eq!(parsed_boundary(&[(16, 100), (3, 103)], 100, 3, &[]), Ok(()));
+        assert!(
+            parsed_boundary(&[(16, 100)], 100, 3, &[])
+                .unwrap_err()
+                .contains("ничего не разобрал")
+        );
+        assert!(
+            parsed_boundary(&[(1, 101), (2, 103)], 100, 3, &[])
+                .unwrap_err()
+                .contains("кусков 2")
+        );
+        assert!(
+            parsed_boundary(&[(5, 105)], 100, 3, &[])
+                .unwrap_err()
+                .contains("ожидался префикс 3")
+        );
+        let violations = vec!["сигнал 28".to_owned()];
+        assert!(
+            parsed_boundary(&[(3, 103)], 100, 3, &violations)
+                .unwrap_err()
+                .contains("сигнал 28")
+        );
     }
 
     #[test]

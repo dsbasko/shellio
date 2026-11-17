@@ -208,6 +208,26 @@ pub fn block_signal(signal: libc::c_int) -> io::Result<()> {
     Ok(())
 }
 
+extern "C" fn never_runs(_: libc::c_int) {}
+
+/// Блокирует сигнал в вызывающем потоке и ставит ему обработчик, который не выполняется: XNU
+/// отбрасывает при генерации сигнал с действием «игнорировать» по умолчанию (`SIGWINCH`) даже
+/// заблокированным, и `sigwait` его не дождался бы. Звать до запуска потоков.
+pub fn block_for_sigwait(signal: libc::c_int) -> io::Result<()> {
+    block_signal(signal)?;
+    // SAFETY: структура обнуляется и заполняется до вызова; обработчик — функция с ABI C.
+    let status = unsafe {
+        let mut action: libc::sigaction = std::mem::zeroed();
+        action.sa_sigaction = never_runs as extern "C" fn(libc::c_int) as libc::sighandler_t;
+        libc::sigemptyset(&mut action.sa_mask);
+        libc::sigaction(signal, &action, std::ptr::null_mut())
+    };
+    if status != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
 pub fn winsize(fd: BorrowedFd<'_>) -> io::Result<Winsize> {
     let mut size = Winsize::cells(0, 0).raw();
     // SAFETY: `fd` открыт, `size` живёт на время вызова.
@@ -346,6 +366,24 @@ mod tests {
     use std::os::fd::AsFd;
 
     use super::*;
+
+    #[test]
+    fn blocked_sigwinch_reaches_sigwait() {
+        let waited = std::thread::spawn(|| {
+            block_for_sigwait(libc::SIGWINCH).unwrap();
+            // SAFETY: сигнал адресован этому потоку, где он заблокирован; набор на стеке.
+            unsafe {
+                assert_eq!(libc::pthread_kill(libc::pthread_self(), libc::SIGWINCH), 0);
+                let mut set: libc::sigset_t = std::mem::zeroed();
+                libc::sigemptyset(&mut set);
+                libc::sigaddset(&mut set, libc::SIGWINCH);
+                let mut sig = 0;
+                assert_eq!(libc::sigwait(&set, &mut sig), 0);
+                sig
+            }
+        });
+        assert_eq!(waited.join().unwrap(), libc::SIGWINCH);
+    }
 
     #[test]
     fn opened_pty_has_size_cloexec_and_a_name() {

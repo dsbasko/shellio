@@ -126,7 +126,7 @@ fn run(options: &Options) -> Result<(), String> {
     if let Some(termios) = &saved {
         let _ = pty::set_termios(stdin.as_fd(), &pty::raw_mode(termios));
     }
-    pty::block_signal(libc::SIGWINCH).map_err(|err| format!("маска SIGWINCH: {err}"))?;
+    pty::block_for_sigwait(libc::SIGWINCH).map_err(|err| format!("маска SIGWINCH: {err}"))?;
     let mut out = io::stdout().lock();
     if let Some(prefix) = &options.role_prefix {
         let _ = out.write_all(&role_title(prefix, welcome.role, welcome.generation));

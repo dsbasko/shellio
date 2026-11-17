@@ -1,10 +1,11 @@
-//! Рубеж B — восстановление экрана на zmx, клетки B1–B9.
+//! Рубеж B — восстановление экрана на zmx (задача 9) и на Rust-хосте (задача 12), клетки B1–B9.
 //!
-//! Сцены и суффиксы — те же, что у ранней проверки C API (`capi`), поэтому итог zmx сопоставим с
-//! таблицей возможностей C API. Первый attach после работы без единого клиента у zmx снимка не
-//! получает (A7), поэтому каждая клетка сначала подключает и отключает клиента c1: сцена идёт без
-//! клиента, восстанавливает её второй клиент c2. Эталон получает исходные байты фикстуры, приёмник
-//! c2 — только то, что отдал attach-клиент.
+//! Сцены и суффиксы — те же, что у ранней проверки C API (`capi`), поэтому итог кандидатов
+//! сопоставим с таблицей возможностей C API. Первый attach после работы без единого клиента у zmx
+//! снимка не получает (A7), поэтому каждая клетка сначала подключает и отключает клиента c1: сцена
+//! идёт без клиента, восстанавливает её второй клиент c2. Rust-хост проходит тот же сюжет. Эталон
+//! получает исходные байты фикстуры, приёмник c2 — только то, что отдал attach-клиент. Граница
+//! разреза B7 у zmx — ревизия `zmx screen`, у Rust-хоста — событие разбора наблюдателя.
 
 use std::time::Instant;
 
@@ -36,11 +37,10 @@ const B8_INTERVAL_US: u64 = 2500;
 const B8_WIDTH: u16 = COLS - 2;
 
 pub fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
-    match target.backend {
-        Some(Candidate::Zmx) => {}
-        other => return Err(format!("restore идёт на zmx, а не на {other:?}")),
-    }
-    let mut stand = Stand::new(&target.out, environment)?;
+    let candidate = target
+        .backend
+        .ok_or("restore идёт на кандидате, а не на стенде")?;
+    let mut stand = Stand::for_candidate(&target.out, environment, candidate)?;
     let outcome = cells(&mut stand);
     let cleanup = stand.teardown();
     let mut report = outcome?;
@@ -180,8 +180,11 @@ fn story_cell(stand: &mut Stand, story: &Story) -> Result<Cell, String> {
             completion: "c2 лидер, барьер DSR через c2 после attach и после каждого шага суффикса, \
                          состояния сняты",
             // Снимок zmx — formatter его ghostty 1.3.2-dev; те же потери у formatter 1.4 в
-            // сценарии capi.
-            origin: DefectOrigin::Vt,
+            // сценарии capi. Восстановление Rust-хоста — его кодировщик поверх C API.
+            origin: match stand.candidate {
+                Candidate::Zmx => DefectOrigin::Vt,
+                Candidate::Rust => DefectOrigin::Host,
+            },
         },
         &evidence,
         &format!("{label}.json"),
@@ -235,9 +238,9 @@ fn processed(stand: &Stand, session: &Session, marker: &str) -> Result<Option<u6
     let deadline = Instant::now() + WAIT;
     loop {
         let snapshot = stand
-            .zmx
+            .main()
             .snapshot(&session.id)
-            .map_err(|err| format!("zmx screen: {err}"))?;
+            .map_err(|err| format!("снимок хоста: {err}"))?;
         if snapshot.text.contains(marker) {
             return Ok(Some(snapshot.revision));
         }
@@ -278,15 +281,27 @@ fn b7(stand: &mut Stand) -> Result<Vec<Cell>, String> {
                 part: Some(variant),
                 stimulus: format!(
                     "c1 подключился и отключился; без клиентов фикстура пишет строку и префикс \
-                     {variant} ({}), хост его прочитал (ревизия +1); attach c2 посреди \
+                     {variant} ({}), хост его прочитал ({}); attach c2 посреди \
                      последовательности; фикстура пишет остаток ({})",
                     hex(prefix),
+                    match stand.candidate {
+                        Candidate::Zmx => "ревизия +1",
+                        Candidate::Rust => "один кусок разбора",
+                    },
                     hex(rest)
                 ),
                 oracle: "эталон и приёмник c2 после остатка: суффикс — сам остаток \
                          последовательности",
-                completion: "ревизия обработки выросла ровно на единицу без других событий \
-                             фикстуры, c2 лидер, барьер DSR через c2 после остатка",
+                completion: match stand.candidate {
+                    Candidate::Zmx => {
+                        "ревизия обработки выросла ровно на единицу без других событий \
+                         фикстуры, c2 лидер, барьер DSR через c2 после остатка"
+                    }
+                    Candidate::Rust => {
+                        "от точки покоя хост разобрал ровно префикс одним куском без других \
+                         событий фикстуры, c2 лидер, барьер DSR через c2 после остатка"
+                    }
+                },
                 origin: DefectOrigin::Host,
             },
             &evidence,
@@ -312,15 +327,39 @@ fn b7_body(
         evidence.not_proven = Some("хост не показал строку перед разрезом".to_owned());
         return Ok(());
     };
-    let mark = session.link.log().len();
-    emit(&mut session.link, &mut reference, prefix)?;
-    let after = revision_after(stand, session, before)?;
-    let violations = cut_violations(&session.link.log()[mark..]);
-    evidence.note(
-        "revision",
-        json!({ "before": before, "after": after, "violations": violations }),
-    );
-    if let Err(reason) = util::revision_boundary(before, after, &violations) {
+    let boundary = match stand.candidate {
+        Candidate::Zmx => {
+            let mark = session.link.log().len();
+            emit(&mut session.link, &mut reference, prefix)?;
+            let after = revision_after(stand, session, before)?;
+            let violations = cut_violations(&session.link.log()[mark..]);
+            evidence.note(
+                "revision",
+                json!({ "before": before, "after": after, "violations": violations }),
+            );
+            util::revision_boundary(before, after, &violations)
+        }
+        Candidate::Rust => {
+            let cut = stand.parsed_cut(&session.id)?;
+            let mark = session.link.log().len();
+            emit(&mut session.link, &mut reference, prefix)?;
+            let pending = cut.end(prefix.len(), &[]);
+            let violations = cut_violations(&session.link.log()[mark..]);
+            evidence.note("parsed", &pending.0);
+            evidence.note("violations", &violations);
+            pending.1.and_then(|()| {
+                if violations.is_empty() {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "предусловие разреза нарушено: {}",
+                        violations.join("; ")
+                    ))
+                }
+            })
+        }
+    };
+    if let Err(reason) = boundary {
         evidence.not_proven = Some(format!("граница разреза не доказана: {reason}"));
         return Ok(());
     }

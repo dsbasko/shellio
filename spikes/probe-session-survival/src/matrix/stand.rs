@@ -17,8 +17,10 @@ use std::fs;
 use std::os::fd::{AsFd, OwnedFd};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ExitStatus};
+use std::time::Instant;
 
 use serde::Serialize;
+use serde_json::json;
 
 use crate::backend::rust::{self as rust_host, RustHost};
 use crate::backend::zmx::{self, ZmxSet};
@@ -31,6 +33,7 @@ use crate::fixture::{self, Mode};
 use crate::launch;
 use crate::matrix::Candidate;
 use crate::matrix::evidence::Evidence;
+use crate::matrix::util;
 use crate::observer::{self, Identity, ProcessKey};
 use crate::oracle::model::{Outcome, State, compare};
 use crate::oracle::vt::{
@@ -426,6 +429,86 @@ impl Stand {
         };
         fs::read_to_string(path).unwrap_or_default()
     }
+}
+
+/// Точка покоя Rust-хоста для протокола разреза: наблюдатель разбора подключён, всё прочитанное
+/// хостом разобрано, `base` — разобрано байт к этой точке.
+pub struct ParsedCut {
+    pub observer: rust_host::Observer,
+    pub base: u64,
+}
+
+impl Stand {
+    /// Rust-хост стенда; у zmx протокол разреза идёт через ревизию `zmx screen`.
+    pub fn rust(&self) -> Result<&RustHost, String> {
+        self.rust
+            .as_ref()
+            .ok_or_else(|| "стенд не на Rust-хосте".to_owned())
+    }
+
+    /// Наблюдатель разбора и точка покоя сессии `id`: прочитанное хостом равно разобранному.
+    pub fn parsed_cut(&self, id: &SessionId) -> Result<ParsedCut, String> {
+        let rust = self.rust()?;
+        let observer = rust
+            .observe(id)
+            .map_err(|err| format!("наблюдатель разбора: {err}"))?;
+        let deadline = Instant::now() + WAIT;
+        loop {
+            let status = rust
+                .status(id)
+                .map_err(|err| format!("состояние хоста: {err}"))?;
+            if status.read_bytes == status.parsed_bytes {
+                return Ok(ParsedCut {
+                    observer,
+                    base: status.parsed_bytes,
+                });
+            }
+            if Instant::now() >= deadline {
+                return Err(format!(
+                    "хост не пришёл в покой за {} с: прочитано {}, разобрано {}",
+                    WAIT.as_secs(),
+                    status.read_bytes,
+                    status.parsed_bytes
+                ));
+            }
+        }
+    }
+}
+
+impl ParsedCut {
+    /// Ждёт разбора префикса длиной `len`; итог — заметка для доказательств и граница разреза.
+    pub fn end(
+        &self,
+        len: usize,
+        violations: &[String],
+    ) -> (serde_json::Value, Result<(), String>) {
+        let target = self.base + len as u64;
+        let reached = self.observer.wait_offset(target, WAIT);
+        let events: Vec<rust_host::Parsed> = self
+            .observer
+            .events()
+            .into_iter()
+            .filter(|event| event.offset > self.base)
+            .collect();
+        let pieces: Vec<(u64, u64)> = events.iter().map(|e| (e.read, e.offset)).collect();
+        let verdict = match reached {
+            None => Err(format!(
+                "хост не разобрал префикс {len} байт за {} с",
+                WAIT.as_secs()
+            )),
+            Some(_) => util::parsed_boundary(&pieces, self.base, len as u64, violations),
+        };
+        (json!({ "base": self.base, "parsed": events }), verdict)
+    }
+}
+
+/// Поколение лидерства из последнего заголовка роли клиента.
+pub fn generation(client: &Client) -> Result<u32, String> {
+    client
+        .route()?
+        .with(|rx| rx.last_role().and_then(backend::parse_role))
+        .map(|report| report.generation)
+        .ok_or_else(|| format!("клиент {} не сообщил поколение", client.label))
 }
 
 pub struct Session {

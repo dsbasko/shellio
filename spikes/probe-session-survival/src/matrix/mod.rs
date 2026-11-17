@@ -190,10 +190,10 @@ impl Scenario {
     pub fn candidates(self) -> &'static [Candidate] {
         match self {
             Scenario::Smoke | Scenario::Capi | Scenario::ReportPolicy => &[],
-            Scenario::Lifecycle | Scenario::Io => &Candidate::ALL,
-            Scenario::Restore | Scenario::Queries | Scenario::Geometry | Scenario::Versions => {
-                &[Candidate::Zmx]
+            Scenario::Lifecycle | Scenario::Io | Scenario::Restore | Scenario::Queries => {
+                &Candidate::ALL
             }
+            Scenario::Geometry | Scenario::Versions => &[Candidate::Zmx],
         }
     }
 
@@ -584,7 +584,9 @@ pub(crate) mod tests {
         assert!(Scenario::Capi.candidates().is_empty());
         assert_eq!(Scenario::Lifecycle.candidates(), Candidate::ALL);
         assert_eq!(Scenario::Io.candidates(), Candidate::ALL);
-        assert_eq!(Scenario::Restore.candidates(), [Candidate::Zmx]);
+        assert_eq!(Scenario::Restore.candidates(), Candidate::ALL);
+        assert_eq!(Scenario::Queries.candidates(), Candidate::ALL);
+        assert_eq!(Scenario::Geometry.candidates(), [Candidate::Zmx]);
     }
 
     #[test]

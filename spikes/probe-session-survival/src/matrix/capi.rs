@@ -53,8 +53,8 @@ const BLOCK_FLOOD_WIDTH: u16 = 78;
 const READ_QUEUE_BYTES: usize = 4 << 20;
 const READ_CHUNK: usize = 64 << 10;
 /// Данные модели GUI для ответа на чтение буфера обмена.
-const GUI_CLIPBOARD: &[u8] = b"gui-clipboard";
-const LATE_CLIPBOARD: &[u8] = b"late-old-generation";
+pub(crate) const GUI_CLIPBOARD: &[u8] = b"gui-clipboard";
+pub(crate) const LATE_CLIPBOARD: &[u8] = b"late-old-generation";
 
 /// Запросы D1: ответы, которые хост даёт сам.
 pub(crate) const D1_QUERIES: [(&str, Query); 9] = [
@@ -2100,7 +2100,7 @@ fn d3(stand: &mut Stand) -> Result<Vec<Cell>, String> {
 
 // --- D4: чтение буфера обмена ---
 
-fn base64(data: &[u8]) -> String {
+pub(crate) fn base64(data: &[u8]) -> String {
     const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::new();
     for chunk in data.chunks(3) {
@@ -2122,7 +2122,7 @@ fn base64(data: &[u8]) -> String {
 }
 
 /// Полезная нагрузка ответа OSC 52: данные между `c;` и терминатором.
-fn osc52_payload(response_hex: &str) -> Option<String> {
+pub(crate) fn osc52_payload(response_hex: &str) -> Option<String> {
     let bytes = channel::unhex(response_hex)?;
     let text = String::from_utf8_lossy(&bytes).into_owned();
     let body = text.strip_prefix("\x1b]52;")?;
