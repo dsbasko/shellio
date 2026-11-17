@@ -416,6 +416,19 @@ impl Driver {
         );
         let _ = second.command(&GuiCommand::Quit);
         let _ = backend::wait_child(&mut second.child, WAIT);
+        let artifact = "bridge-c1.json";
+        crate::results::write_json(
+            &self.out,
+            artifact,
+            &serde_json::json!({
+                "session": session.id.as_str(),
+                "workload": session.record.workload,
+                "host": session.record.host,
+                "gui1": { "pid": first.hello.pid, "status": format!("{status:?}"), "text": before },
+                "alive_after_kill": alive,
+                "gui2": { "pid": second.hello.pid, "restored": restored, "cursor": cursor },
+            }),
+        )?;
         Ok(evidence::cell(
             Spec {
                 id: "C1",
@@ -429,7 +442,7 @@ impl Driver {
                 origin: DefectOrigin::Host,
             },
             &evidence,
-            Vec::new(),
+            vec![artifact.to_owned()],
         ))
     }
 
