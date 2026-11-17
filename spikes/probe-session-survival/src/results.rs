@@ -101,6 +101,9 @@ pub enum NotRunCause {
     Stand,
     /// Клетка для кандидата ещё не реализована; к концу плана таких не остаётся.
     Pending,
+    /// Контроль без хоста в той же поверхности провален: дефект поверхности P0.3, а не
+    /// кандидата (F4, задача 19).
+    Surface,
 }
 
 impl NotRunCause {
@@ -109,6 +112,7 @@ impl NotRunCause {
             NotRunCause::Excluded => "excluded",
             NotRunCause::Stand => "stand",
             NotRunCause::Pending => "pending",
+            NotRunCause::Surface => "surface",
         }
     }
 }

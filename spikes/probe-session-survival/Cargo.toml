@@ -19,6 +19,7 @@ surface = [
     "dep:objc2",
     "dep:objc2-app-kit",
     "dep:objc2-core-foundation",
+    "dep:objc2-core-graphics",
     "dep:objc2-foundation",
     "dep:shellio-sys-ghostty",
 ]
@@ -57,10 +58,14 @@ objc2 = { version = "0.6.5", optional = true }
 objc2-app-kit = { version = "0.3.2", optional = true, default-features = false, features = [
     "std",
     "objc2-core-foundation",
+    "objc2-core-graphics",
     "NSApplication",
+    "NSEvent",
     "NSGraphics",
     "NSResponder",
     "NSRunningApplication",
+    "NSTextInputClient",
+    "NSTextInputContext",
     "NSView",
     "NSWindow",
 ] }
@@ -69,9 +74,18 @@ objc2-core-foundation = { version = "0.3.2", optional = true, default-features =
     "CFRunLoop",
     "CFString",
 ] }
+objc2-core-graphics = { version = "0.3.2", optional = true, default-features = false, features = [
+    "std",
+    "CGEvent",
+    "CGEventTypes",
+] }
 objc2-foundation = { version = "0.3.2", optional = true, default-features = false, features = [
     "std",
+    "NSArray",
+    "NSAttributedString",
     "NSGeometry",
+    "NSObjCRuntime",
+    "NSRange",
     "NSString",
 ] }
 serde = { version = "1.0", features = ["derive"] }

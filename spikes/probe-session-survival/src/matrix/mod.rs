@@ -5,9 +5,13 @@
 //! отчётов, клетки стенда `surface-*`), задачи 15 — `bridge` (C1–C4, D1, D3–D5, F2 в поверхности на
 //! обоих кандидатах), задачи 16 — `update` (G3: замена подписанного бандла при живом хосте); все
 //! три идут в бинаре `probe-session-surface` с функцией `surface`. Сценарий задачи 17 — `measure`
-//! (сравнительные замеры без клеток, `crate::measure`). Общий стенд zmx — `stand`, чистые
-//! сценарные утилиты — `util`.
+//! (сравнительные замеры без клеток, `crate::measure`). Сценарии задачи 19 — проход F4
+//! исполнителем: `apps` (headless: nvim и агенты) и `apps-surface` (поверхность: nvim, вставка,
+//! протокол Kitty, источники ввода, IME, переключение сессий), модель частей — `apps`. Общий стенд
+//! zmx — `stand`, чистые сценарные утилиты — `util`.
 
+pub mod apps;
+pub mod apps_surface;
 pub mod bridge;
 #[cfg(feature = "vt")]
 pub mod capi;
@@ -164,10 +168,15 @@ pub enum Scenario {
     Update,
     /// Сравнительные замеры (задача 17): только замеры, без клеток.
     Measure,
+    /// Проход F4 исполнителем headless (задача 19): части `nvim`, `claude`, `codex`.
+    Apps,
+    /// Проход F4 исполнителем в поверхности (задача 19): части `nvim-surface`, `paste`, `kitty`,
+    /// `layout-ru`, `dead-key`, `ime`, `switch`.
+    AppsSurface,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 12] = [
+    pub const ALL: [Scenario; 14] = [
         Scenario::Smoke,
         Scenario::Lifecycle,
         Scenario::Capi,
@@ -180,6 +189,8 @@ impl Scenario {
         Scenario::Bridge,
         Scenario::Update,
         Scenario::Measure,
+        Scenario::Apps,
+        Scenario::AppsSurface,
     ];
 
     pub fn name(self) -> &'static str {
@@ -196,6 +207,8 @@ impl Scenario {
             Scenario::Bridge => "bridge",
             Scenario::Update => "update",
             Scenario::Measure => "measure",
+            Scenario::Apps => "apps",
+            Scenario::AppsSurface => "apps-surface",
         }
     }
 
@@ -217,7 +230,9 @@ impl Scenario {
             | Scenario::Versions
             | Scenario::Bridge
             | Scenario::Update
-            | Scenario::Measure => &Candidate::ALL,
+            | Scenario::Measure
+            | Scenario::Apps
+            | Scenario::AppsSurface => &Candidate::ALL,
         }
     }
 
@@ -233,7 +248,9 @@ impl Scenario {
             | Scenario::Queries
             | Scenario::Io
             | Scenario::Bridge
-            | Scenario::Measure => Duration::from_secs(900),
+            | Scenario::Measure
+            | Scenario::Apps
+            | Scenario::AppsSurface => Duration::from_secs(900),
         }
     }
 }
@@ -313,7 +330,8 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::Geometry => vt_only(target, environment, "geometry"),
         Scenario::Versions => vt_only(target, environment, "versions"),
         Scenario::Measure => vt_only(target, environment, "measure"),
-        Scenario::ReportPolicy | Scenario::Bridge | Scenario::Update => {
+        Scenario::Apps => vt_only(target, environment, "apps"),
+        Scenario::ReportPolicy | Scenario::Bridge | Scenario::Update | Scenario::AppsSurface => {
             surface_run(target, environment)
         }
     }
@@ -325,6 +343,7 @@ fn surface_run(target: &Target, environment: &Environment) -> Result<Report, Str
         Scenario::ReportPolicy => crate::surface::scene::run(target, environment),
         Scenario::Bridge => crate::surface::bridge::run(target, environment),
         Scenario::Update => crate::surface::update::run(target, environment),
+        Scenario::AppsSurface => crate::surface::apps::run(target, environment),
         other => Err(format!("сценарий {other} не из сценариев поверхности")),
     }
 }
@@ -347,6 +366,7 @@ fn vt_only(target: &Target, environment: &Environment, _name: &str) -> Result<Re
         Scenario::Geometry => geometry::run(target, environment),
         Scenario::Versions => versions::run(target, environment),
         Scenario::Measure => crate::measure::scenario::run(target, environment),
+        Scenario::Apps => apps::headless::run(target, environment),
         other => Err(format!("сценарий {other} не из headless-матрицы")),
     }
 }
@@ -629,6 +649,12 @@ pub(crate) mod tests {
         assert_eq!(Scenario::Geometry.candidates(), Candidate::ALL);
         assert_eq!(Scenario::Versions.candidates(), Candidate::ALL);
         assert_eq!(Scenario::Measure.candidates(), Candidate::ALL);
+        assert_eq!(Scenario::Apps.candidates(), Candidate::ALL);
+        assert_eq!(Scenario::AppsSurface.candidates(), Candidate::ALL);
+        assert_eq!(
+            Scenario::from_name("apps-surface"),
+            Some(Scenario::AppsSurface)
+        );
     }
 
     #[test]

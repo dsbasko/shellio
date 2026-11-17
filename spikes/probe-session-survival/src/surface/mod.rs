@@ -1,8 +1,10 @@
 //! Поверхность libghostty для сценариев пробы (функция `surface`, ADR-0034): FFI и запуск ghostty
 //! (`ghostty`), окно и вид (`view`), прогон сценария `report-policy` (`scene`), сценарий моста
-//! через attach-клиент кандидата (`bridge`) и замена подписанного бандла при живом хосте
-//! (`update`). Упрощённая копия P0.3: проба от `spikes/probe-ghostty-surface` не зависит.
+//! через attach-клиент кандидата (`bridge`), замена подписанного бандла при живом хосте
+//! (`update`) и проход F4 исполнителем (`apps`). Упрощённая копия P0.3: проба от
+//! `spikes/probe-ghostty-surface` не зависит.
 
+pub mod apps;
 pub mod bridge;
 pub mod ghostty;
 pub mod gui;

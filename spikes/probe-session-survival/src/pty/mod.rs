@@ -319,10 +319,24 @@ pub fn set_foreground_pgid(fd: BorrowedFd<'_>, pgid: i32) -> io::Result<()> {
     Ok(())
 }
 
+/// Имя терминала дескриптора. `ttyname_r` macOS 27 при параллельном открытии и закрытии PTY
+/// изредка отвечает `ERANGE` на буфер в 256 байт: имя устройства не нашлось в devfs. Тогда имя
+/// берётся у самого дескриптора через `F_GETPATH`.
 pub fn tty_name(fd: RawFd) -> io::Result<String> {
     let mut buf = [0 as libc::c_char; 256];
     // SAFETY: буфер действителен на `buf.len()` байт, при успехе строка завершена нулём.
     let status = unsafe { libc::ttyname_r(fd, buf.as_mut_ptr(), buf.len()) };
+    if status == libc::ERANGE {
+        let mut path = [0 as libc::c_char; libc::PATH_MAX as usize];
+        // SAFETY: `F_GETPATH` пишет путь с нулём в буфер размера `PATH_MAX`.
+        if unsafe { libc::fcntl(fd, libc::F_GETPATH, path.as_mut_ptr()) } == 0 {
+            // SAFETY: успешный `F_GETPATH` записал строку с нулём внутри буфера.
+            let name = unsafe { CStr::from_ptr(path.as_ptr()) }.to_string_lossy();
+            if name.starts_with("/dev/") {
+                return Ok(name.into_owned());
+            }
+        }
+    }
     if status != 0 {
         return Err(io::Error::from_raw_os_error(status));
     }

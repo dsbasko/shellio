@@ -23,6 +23,8 @@ pub struct Evidence {
     pub checks: Vec<Check>,
     /// Стенд не доказал условие клетки: часть получает `not_run`.
     pub not_proven: Option<String>,
+    /// Причина `not_run`; без неё — `stand`.
+    pub cause: Option<NotRunCause>,
     /// У кандидата доказанно нет нужной возможности: часть получает `unsupported`, если ни одна
     /// проверка не провалена.
     pub unsupported: Option<String>,
@@ -104,7 +106,8 @@ pub fn cell(spec: Spec<'_>, evidence: &Evidence, artifacts: Vec<String>) -> Cell
         stimulus: spec.stimulus,
         oracle: spec.oracle.to_owned(),
         completion: spec.completion.to_owned(),
-        not_run_cause: (status == Status::NotRun).then_some(NotRunCause::Stand),
+        not_run_cause: (status == Status::NotRun)
+            .then_some(evidence.cause.unwrap_or(NotRunCause::Stand)),
         reason,
         defect_origin: matches!(status, Status::Fail | Status::Unsupported).then_some(spec.origin),
         artifacts,
