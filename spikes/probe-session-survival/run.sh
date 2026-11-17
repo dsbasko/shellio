@@ -12,10 +12,14 @@
 #   run.sh surface [сценарий …]    сценарии в поверхности libghostty: сборка или сверка набора
 #                                  libghostty-vt и раннер с функцией vt, который строит байты сцен в
 #                                  каталог процесса (--scenes); затем сверка набора ghostty, clippy
-#                                  и тесты с функцией surface, бандл пробы, подписанный Shellio Dev
-#                                  (фикстура внутри подписывается раньше бандла), каждый сценарий
-#                                  через --launch бинаря бандла, затем --aggregate. Набор ghostty
-#                                  читает, блокировку vendor/ghostty.lock держит цель make
+#                                  и тесты с функцией surface, поколения бандла пробы, подписанные
+#                                  Shellio Dev (вспомогательные бинари внутри подписываются раньше
+#                                  бандла), в bundle/generations/<N>/; перед каждым процессом
+#                                  сценария установленный бандл bundle/ — копия поколения 1. Каждый
+#                                  сценарий через --launch бинаря установленного бандла, затем
+#                                  --aggregate. Для update ещё поколение 2, пустой runtime/ и
+#                                  generations.json в каталоге процесса. Набор ghostty читает,
+#                                  блокировку vendor/ghostty.lock держит цель make
 #   run.sh check <функции>         clippy --all-targets -D warnings и тесты с функциями через запятую
 #   run.sh bindings                сборка или сверка набора vt и генерация src/vt/bindings.rs
 #   run.sh bindings-check          сборка или сверка набора vt и сверка src/vt/bindings.rs с ним
@@ -37,11 +41,16 @@ ZMX_SH="$ROOT/spikes/probe-session-survival/scripts/zmx.sh"
 VT_SH="$ROOT/spikes/probe-session-survival/scripts/vt.sh"
 VT_BINDINGS="$ROOT/spikes/probe-session-survival/scripts/vt-bindings.sh"
 ALL_SCENARIOS="smoke lifecycle capi restore queries io geometry versions"
-SURFACE_SCENARIOS="report-policy bridge"
+SURFACE_SCENARIOS="report-policy bridge update"
 SURFACE_BIN="$ROOT/target/release/probe-session-surface"
 FIXTURE_BIN="$ROOT/target/release/probe-session-fixture"
+HOST_BIN="$ROOT/target/release/probe-session-host"
+ATTACH_BIN="$ROOT/target/release/probe-session-attach"
 APP_NAME="probe-session-surface.app"
 APP="$OUT_BASE/bundle/$APP_NAME"
+# Подписанные поколения бандла (G3) и рантаймы поколений: раскладка matrix::update.
+GEN_DIR="$OUT_BASE/bundle/generations"
+RUNTIME_DIR="$OUT_BASE/runtime"
 APP_BIN="$APP/Contents/MacOS/probe-session-surface"
 VENDOR="${SHELLIO_GHOSTTY_VENDOR:-$ROOT/vendor/ghostty}"
 REQUIREMENT="$ROOT/scripts/signing/requirement.txt"
@@ -182,18 +191,23 @@ sign() {
     fi
 }
 
-# Бандл пробы (раздел плана «Поверхность»): бинарь поверхности, фикстура рядом с ним (её ищет
-# стенд), ресурсы ghostty и terminfo из проверенного набора, лицензия ghostty. Собирается во
-# временном каталоге и заменяет прежний только подписанным; фикстура подписывается раньше бандла.
+# Поколение бандла пробы (раздел плана «Поверхность»): «bundle <поколение> <путь бандла>».
+# Бинарь поверхности, фикстура рядом с ним (её ищет стенд), хост, attach-клиент и копия zmx
+# текущего набора (их поколение копирует в runtime/<поколение>/, задача 16), ресурсы ghostty и
+# terminfo из проверенного набора, лицензии ghostty и zmx. CFBundleVersion — номер поколения.
+# Собирается во временном каталоге и заменяет прежний только подписанным; вспомогательные бинари
+# подписываются своими идентификаторами раньше бандла, бинарь набора zmx на месте не меняется.
 bundle() {
-    local version staging stage contents resources plist
+    local generation="$1" dest="$2" version staging stage contents resources plist helper zmx_set
+    [[ "$generation" =~ ^[1-9][0-9]*$ ]] || die "bundle: поколение «${generation}» не число"
+    zmx_set="$SETS_DIR/zmx"
     version="$(awk '
         /^\[/ { in_section = ($0 == "[workspace.package]") }
         in_section && /^version *= *"/ { sub(/^version *= *"/, ""); sub(/".*/, ""); print; exit }
     ' "$ROOT/Cargo.toml")"
     [ -n "$version" ] || die "в [workspace.package] Cargo.toml нет version"
-    mkdir -p "$OUT_BASE/bundle"
-    staging="$(mktemp -d "$OUT_BASE/bundle/.staging.XXXXXX")"
+    mkdir -p "$(dirname "$dest")"
+    staging="$(mktemp -d "$(dirname "$dest")/.staging.XXXXXX")"
     # shellcheck disable=SC2064 # путь фиксируется сейчас
     trap "rm -rf '$staging'" EXIT
     stage="$staging/$APP_NAME"
@@ -205,23 +219,61 @@ bundle() {
     }
     copy "$SURFACE_BIN" "$contents/MacOS/probe-session-surface"
     copy "$FIXTURE_BIN" "$contents/MacOS/probe-session-fixture"
+    copy "$HOST_BIN" "$contents/MacOS/probe-session-host"
+    copy "$ATTACH_BIN" "$contents/MacOS/probe-session-attach"
+    copy "$zmx_set/bin/zmx" "$contents/MacOS/zmx"
     copy "$VENDOR/share/ghostty" "$resources/ghostty"
     copy "$VENDOR/share/terminfo" "$resources/terminfo"
     copy "$VENDOR/LICENSE" "$resources/licenses/ghostty.txt"
+    copy "$zmx_set/LICENSE" "$resources/licenses/zmx.txt"
+    copy "$zmx_set/LICENSE.ghostty" "$resources/licenses/zmx-ghostty.txt"
     plist="$contents/Info.plist"
     copy "$ROOT/spikes/probe-session-survival/Info.plist" "$plist"
     plutil -replace CFBundleShortVersionString -string "$version" "$plist"
-    plutil -replace CFBundleVersion -string "$version" "$plist"
+    plutil -replace CFBundleVersion -string "$generation" "$plist"
     plutil -lint "$plist" >/dev/null || die "Info.plist бандла не проходит plutil -lint"
     [ "$(plutil -extract CFBundleIdentifier raw -o - "$plist")" = "$BUNDLE_ID" ] ||
         die "CFBundleIdentifier в Info.plist не $BUNDLE_ID"
     sign "$contents/MacOS/probe-session-fixture" "$FIXTURE_ID" "$staging"
+    for helper in host attach; do
+        sign "$contents/MacOS/probe-session-$helper" "$BUNDLE_ID.$helper" "$staging"
+    done
+    sign "$contents/MacOS/zmx" "$BUNDLE_ID.zmx" "$staging"
     sign "$stage" "$BUNDLE_ID" "$staging"
-    rm -rf "$APP"
-    mv "$stage" "$APP"
+    rm -rf "$dest"
+    mv "$stage" "$dest"
     rm -rf "$staging"
     trap - EXIT
-    echo "бандл $APP собран и подписан ($BUNDLE_ID)"
+    echo "бандл $dest собран и подписан ($BUNDLE_ID, поколение $generation)"
+}
+
+# Установленный бандл $APP — копия поколения «$1» из $GEN_DIR; прежний удаляется только после
+# готовой копии.
+install_generation() {
+    local source="$GEN_DIR/$1/$APP_NAME" staging
+    [ -d "$source" ] || die "нет поколения $1 бандла: $source"
+    mkdir -p "$(dirname "$APP")"
+    staging="$(mktemp -d "$(dirname "$APP")/.install.XXXXXX")"
+    ditto --norsrc --noextattr --noacl "$source" "$staging/$APP_NAME" ||
+        die "не удалось скопировать поколение $1 бандла"
+    rm -rf "$APP"
+    mv "$staging/$APP_NAME" "$APP"
+    rm -rf "$staging"
+}
+
+# generations.json процесса update (matrix::update::Manifest): установленный бандл, корень
+# рантаймов и подписанные поколения.
+write_generations() {
+    cat >"$1/generations.json" <<EOF_GENERATIONS
+{
+  "installed": "$APP",
+  "runtime": "$RUNTIME_DIR",
+  "generations": [
+    { "generation": 1, "app": "$GEN_DIR/1/$APP_NAME" },
+    { "generation": 2, "app": "$GEN_DIR/2/$APP_NAME" }
+  ]
+}
+EOF_GENERATIONS
 }
 
 # Конфигурация libghostty процесса сценария в его --out (surface::scene::CONFIG_FILE).
@@ -260,7 +312,7 @@ surface_facts() {
 surface_backends_of() {
     case "$1" in
         report-policy) echo - ;;
-        bridge) echo zmx rust ;;
+        bridge | update) echo zmx rust ;;
         *) die "у сценария поверхности $1 не заданы кандидаты" ;;
     esac
 }
@@ -292,7 +344,10 @@ cmd_surface() {
     cargo_with surface build --release
     build_info
     surface_facts
-    bundle
+    bundle 1 "$GEN_DIR/1/$APP_NAME"
+    case " $scenarios " in
+        *" update "*) bundle 2 "$GEN_DIR/2/$APP_NAME" ;;
+    esac
     SHELLIO_PROBE_HOST_DIR="$(dirname "$SURFACE_BIN")"
     [ -x "$SHELLIO_PROBE_HOST_DIR/probe-session-host" ] &&
         [ -x "$SHELLIO_PROBE_HOST_DIR/probe-session-attach" ] ||
@@ -314,6 +369,13 @@ cmd_surface() {
             mkdir "$out"
             total=$((total + 1))
             code=0
+            # Сценарий update заменяет установленный бандл, поэтому каждый процесс начинает с
+            # поколения 1 и пустого runtime/.
+            install_generation 1
+            if [ "$scenario" = update ]; then
+                rm -rf "$RUNTIME_DIR"
+                write_generations "$out"
+            fi
             if "$BIN" --scenes "$out" >"$out/scenes.txt" 2>&1; then
                 write_config "$out"
                 caffeinate -dimsu "$APP_BIN" --launch -- --scenario "$scenario" \
