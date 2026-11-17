@@ -14,6 +14,8 @@ use objc2::rc::Retained;
 use objc2_app_kit::NSView;
 
 use super::ghostty::{self, App, Config, Journal, Spec, Surface};
+use super::input::{self, Sources};
+use super::keyboard::KeyView;
 use super::view::{self, Shell};
 use crate::matrix::bridge::{EFFECTS_FILE, Grid, GuiCommand, Hello, Reply, Scale};
 
@@ -25,8 +27,26 @@ struct Open {
     id: u32,
     surface: Surface,
     _view: Retained<NSView>,
+    /// Вид с клавиатурой (проход F4): снимает поверхность до её освобождения.
+    keys: Option<Retained<KeyView>>,
     /// Масштаб содержимого поверхности, заданный последним.
     content: f64,
+}
+
+impl Drop for Open {
+    fn drop(&mut self) {
+        if let Some(keys) = &self.keys {
+            keys.set_surface(None);
+        }
+    }
+}
+
+/// Состояние GUI между командами.
+struct Gui<'a> {
+    app: &'a App,
+    shell: &'a Shell,
+    journal: &'a Arc<Journal>,
+    sources: Sources,
 }
 
 pub fn run(control: &Path, out: &Path, nonce: &str) -> Result<(), String> {
@@ -51,9 +71,17 @@ pub fn run(control: &Path, out: &Path, nonce: &str) -> Result<(), String> {
         .set_nonblocking(true)
         .map_err(|err| format!("сокет водителя: {err}"))?;
     let mut open: Option<Open> = None;
+    let mut gui = Gui {
+        app: &app,
+        shell: &shell,
+        journal: &journal,
+        sources: Sources::new(out),
+    };
+    let ns_app = shell.app();
     let mut buffer = Vec::new();
     let outcome = loop {
         view::pump(PUMP);
+        input::drain_now(&ns_app);
         if app.wants_tick() {
             app.tick();
         }
@@ -73,7 +101,7 @@ pub fn run(control: &Path, out: &Path, nonce: &str) -> Result<(), String> {
                     quit = true;
                     Reply::default()
                 }
-                Ok(command) => execute(&app, &shell, &journal, &mut open, command),
+                Ok(command) => execute(&mut gui, &mut open, command),
                 Err(err) => Reply {
                     error: Some(format!("команда не разобрана: {err}")),
                     ..Reply::default()
@@ -93,26 +121,73 @@ pub fn run(control: &Path, out: &Path, nonce: &str) -> Result<(), String> {
             break Ok(());
         }
     };
+    gui.sources.restore();
     drop(open);
     shell.close();
     drop(app);
     outcome
 }
 
-fn execute(
-    app: &App,
-    shell: &Shell,
-    journal: &Arc<Journal>,
-    open: &mut Option<Open>,
-    command: GuiCommand,
-) -> Reply {
+fn execute(gui: &mut Gui<'_>, open: &mut Option<Open>, command: GuiCommand) -> Reply {
+    let (app, shell, journal) = (gui.app, gui.shell, gui.journal);
     let result = match command {
         GuiCommand::Open {
             surface,
             command,
             cols,
             rows,
-        } => open_surface(app, shell, journal, open, surface, command, cols, rows),
+            keyboard,
+        } => open_surface(
+            app,
+            shell,
+            journal,
+            open,
+            OpenSpec {
+                id: surface,
+                command,
+                cols,
+                rows,
+                keyboard,
+            },
+        ),
+        GuiCommand::Strokes { surface, strokes } => current(open, surface).and_then(|open| {
+            let keys = open
+                .keys
+                .as_ref()
+                .ok_or("поверхность открыта без клавиатуры")?;
+            let ns_app = shell.app();
+            let stand = strokes
+                .into_iter()
+                .try_for_each(|stroke| input::post(&ns_app, stroke))
+                .err();
+            Ok(Reply {
+                input: Some(keys.take_journal()),
+                stand,
+                ..Reply::default()
+            })
+        }),
+        GuiCommand::Source { id } => {
+            let (current, stand) = match id {
+                Some(id) => match gui.sources.select(&id) {
+                    Ok(true) => (input::current(), None),
+                    Ok(false) => (
+                        input::current(),
+                        Some(format!("источник {id} не стал текущим")),
+                    ),
+                    Err(err) => (input::current(), Some(err)),
+                },
+                None => (gui.sources.restore().or_else(input::current), None),
+            };
+            Ok(Reply {
+                source: Some(current.unwrap_or_default()),
+                stand,
+                ..Reply::default()
+            })
+        }
+        GuiCommand::Binding { surface, action } => current(open, surface).map(|open| Reply {
+            handled: Some((open.surface.binding(&action), false)),
+            ..Reply::default()
+        }),
         GuiCommand::Close { surface } => match current(open, surface) {
             Ok(_) => {
                 *open = None;
@@ -195,17 +270,28 @@ fn current(open: &Option<Open>, surface: u32) -> Result<&Open, String> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+struct OpenSpec {
+    id: u32,
+    command: String,
+    cols: u16,
+    rows: u16,
+    keyboard: bool,
+}
+
 fn open_surface(
     app: &App,
     shell: &Shell,
     journal: &Arc<Journal>,
     open: &mut Option<Open>,
-    id: u32,
-    command: String,
-    cols: u16,
-    rows: u16,
+    request: OpenSpec,
 ) -> Result<Reply, String> {
+    let OpenSpec {
+        id,
+        command,
+        cols,
+        rows,
+        keyboard,
+    } = request;
     if let Some(current) = open {
         return Err(format!("уже открыта поверхность {}", current.id));
     }
@@ -214,8 +300,16 @@ fn open_surface(
         working_directory: "/tmp".to_owned(),
         scale: shell.scale(),
     };
-    let view = shell.view(640.0, 400.0);
+    let (view, keys) = if keyboard {
+        let keys = shell.key_view(640.0, 400.0);
+        (Retained::into_super(keys.clone()), Some(keys))
+    } else {
+        (shell.view(640.0, 400.0), None)
+    };
     let surface = Surface::tagged(app, &view, &spec, id, Arc::clone(journal))?;
+    if let Some(keys) = &keys {
+        keys.set_surface(Some(surface.raw()));
+    }
     surface.set_content_scale(spec.scale);
     surface.set_focus(true);
     surface.set_visible(true);
@@ -225,6 +319,7 @@ fn open_surface(
         id,
         surface,
         _view: view,
+        keys,
         content: spec.scale,
     });
     Ok(reply)

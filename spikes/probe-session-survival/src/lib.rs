@@ -63,6 +63,7 @@ pub fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Mode::Aggregate { run_dir } => aggregate(&run_dir),
+        Mode::F4 { runs } => f4(&runs),
         Mode::Scenes { out } => scenes(&out),
         Mode::Launch(launch) => match std::env::current_exe() {
             Ok(program) => launch::run(launch, &program),
@@ -118,6 +119,49 @@ fn aggregate(run_dir: &Path) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
+}
+
+/// Итог F4 по частям прогонов `runs` (`apps` и `apps-surface`), `f4.json` в первом из них.
+/// Ненулевой код — ошибка исполнения в одном из прогонов или самого свода.
+fn f4(runs: &[std::path::PathBuf]) -> ExitCode {
+    let built = runs
+        .iter()
+        .map(|run| results::aggregate(run))
+        .collect::<Result<Vec<_>, _>>()
+        .and_then(|summaries| {
+            let verdicts = matrix::apps::verdicts(&summaries)?;
+            let errors: usize = summaries
+                .iter()
+                .map(|summary| summary.totals.execution_errors)
+                .sum();
+            let file = serde_json::json!({
+                "runs": runs,
+                "execution_errors": errors,
+                "verdicts": verdicts
+                    .iter()
+                    .map(|(candidate, verdict)| {
+                        serde_json::json!({ "backend": candidate, "verdict": verdict })
+                    })
+                    .collect::<Vec<_>>(),
+            });
+            let path = results::write_json(&runs[0], "f4.json", &file)?;
+            Ok((verdicts, errors, path))
+        });
+    let (verdicts, errors, path) = match built {
+        Ok(built) => built,
+        Err(reason) => {
+            say(&format!("{PROBE_NAME}: --f4: {reason}"));
+            return ExitCode::from(EXIT_EXECUTION);
+        }
+    };
+    let mut stdout = io::stdout().lock();
+    let _ = write!(stdout, "{}", matrix::apps::render_verdicts(&verdicts));
+    let _ = writeln!(stdout, "итог F4: {}", path.display());
+    if errors > 0 {
+        let _ = writeln!(stdout, "ошибок исполнения в прогонах: {errors}");
+        return ExitCode::from(EXIT_EXECUTION);
+    }
+    ExitCode::SUCCESS
 }
 
 /// Байты сцен `report-policy` и ожидаемые виды сцен `bridge`: кодировщику и эталону нужно

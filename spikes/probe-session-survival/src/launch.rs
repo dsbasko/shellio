@@ -340,6 +340,7 @@ fn execute(launch: &Launch, program: &Path) -> Result<ExitCode, String> {
     .and_then(|env| supervise(&plan, &env, Some(deadline), &nonce, GRACE).map(|done| (env, done)));
     let state_dir_leftovers = list_dir(&state_dir);
     let _ = fs::remove_dir_all(&state_dir);
+    restore_input_sources(&out);
     let mut record = LaunchRecord {
         schema: results::SCHEMA,
         scenario: target.scenario.name().to_owned(),
@@ -392,6 +393,18 @@ fn execute(launch: &Launch, program: &Path) -> Result<ExitCode, String> {
     say(&describe(&record));
     Ok(exit_code(&record))
 }
+
+/// Источник ввода, который GUI прохода F4 выбрала и не вернула (процесс снят сторожем или
+/// `SIGKILL`): возврат по файлам состояния в каталогах GUI.
+#[cfg(feature = "surface")]
+fn restore_input_sources(out: &Path) {
+    for note in crate::surface::input::restore_all(out) {
+        say(&format!("{}: --launch: {note}", crate::PROBE_NAME));
+    }
+}
+
+#[cfg(not(feature = "surface"))]
+fn restore_input_sources(_out: &Path) {}
 
 /// Код выхода запуска: ошибка запуска — `EXIT_EXECUTION`, иначе код процесса сценария.
 fn exit_code(record: &LaunchRecord) -> ExitCode {

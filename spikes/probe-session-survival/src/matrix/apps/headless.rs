@@ -17,11 +17,12 @@ use crate::args::Target;
 use crate::backend::{SessionId, Workload};
 use crate::launch;
 use crate::matrix::apps::{
-    self, AGENT_COUNT, AGENT_NEXT, AGENT_PROMPT, NVIM_AFTER, NVIM_BEFORE, NVIM_MID, Numbers,
-    NvimFile, Outcome, Screen,
+    self, AGENT_CONTROL, AGENT_COUNT, AGENT_NEXT, AGENT_PROMPT, NVIM_AFTER, NVIM_BEFORE, NVIM_MID,
+    Numbers, NvimFile, Outcome, Screen,
 };
 use crate::matrix::stand::{self, Client, Stand, WAIT};
-use crate::oracle::vt::{Capture, Receiver};
+use crate::oracle::vt::{Capture, Config, Journaled, Receiver, ReceiverProfile, Route};
+use crate::pty::{self, PtyChild, Spawn};
 use crate::results::{Cell, DefectOrigin, Environment, NotRunCause, Report};
 use crate::vt::{Key, KeyAction, KeyEncoder, KeyInput, MODS_SHIFT};
 
@@ -35,6 +36,8 @@ const AGENT_MID: usize = 20;
 const AGENT_ENTERS: usize = 3;
 /// Строк в файле nvim: несколько экранов при 24 строках.
 const NVIM_LINES: usize = 120;
+/// `TERM` нагрузки у обоих кандидатов; контроль без хоста получает тот же.
+const TERM_VALUE: &str = "xterm-256color";
 
 pub fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
     let candidate = target
@@ -46,8 +49,20 @@ pub fn run(target: &Target, environment: &Environment) -> Result<Report, String>
         .get("PATH")
         .cloned()
         .ok_or("предусловие: нет PATH в окружении процесса")?;
+    let env: Vec<(String, String)> = launch::INHERITED
+        .iter()
+        .chain([launch::LANG].iter())
+        .filter_map(|name| {
+            environment
+                .process
+                .env
+                .get(*name)
+                .map(|value| ((*name).to_owned(), value.clone()))
+        })
+        .chain([("TERM".to_owned(), TERM_VALUE.to_owned())])
+        .collect();
     let mut stand = Stand::for_candidate(&target.out, environment, candidate)?;
-    let outcome = parts(&mut stand, &path);
+    let outcome = parts(&mut stand, &path, &env);
     let notes = stand.teardown();
     let mut report = Report {
         cells: outcome?,
@@ -57,8 +72,8 @@ pub fn run(target: &Target, environment: &Environment) -> Result<Report, String>
     Ok(report)
 }
 
-fn parts(stand: &mut Stand, path: &str) -> Result<Vec<Cell>, String> {
-    let mut cells = vec![apps::cell("nvim", &nvim(stand, path)?)?];
+fn parts(stand: &mut Stand, path: &str, env: &[(String, String)]) -> Result<Vec<Cell>, String> {
+    let mut cells = vec![apps::cell("nvim", &nvim(stand, path, env)?)?];
     for agent in ["claude", "codex"] {
         let outcome = self::agent(stand, agent, path)?;
         cells.push(apps::cell(agent, &outcome)?);
@@ -126,18 +141,20 @@ fn last_screen(client: &Client) -> Result<Option<Screen>, String> {
 
 /// Shift-Enter кодировщиком приёмника клиента при его текущих режимах.
 fn shift_enter(client: &Client) -> Result<Vec<u8>, String> {
-    client.route()?.with(|rx| {
-        let mut keys = KeyEncoder::new().map_err(|err| format!("кодировщик клавиш: {err}"))?;
-        keys.sync_from(rx.terminal());
-        keys.encode(&KeyInput {
-            key: Key::ENTER,
-            action: KeyAction::Press,
-            mods: MODS_SHIFT,
-            text: String::new(),
-            unshifted: None,
-        })
-        .map_err(|err| format!("Shift-Enter: {err}"))
+    client.route()?.with(encode_shift_enter)
+}
+
+fn encode_shift_enter(rx: &mut Receiver) -> Result<Vec<u8>, String> {
+    let mut keys = KeyEncoder::new().map_err(|err| format!("кодировщик клавиш: {err}"))?;
+    keys.sync_from(rx.terminal());
+    keys.encode(&KeyInput {
+        key: Key::ENTER,
+        action: KeyAction::Press,
+        mods: MODS_SHIFT,
+        text: String::new(),
+        unshifted: None,
     })
+    .map_err(|err| format!("Shift-Enter: {err}"))
 }
 
 fn kitty_flags(client: &Client) -> Result<u8, String> {
@@ -151,14 +168,6 @@ fn kitty_flags(client: &Client) -> Result<u8, String> {
         })
         .map(|state| state.kitty_flags)
         .map_err(|err| format!("состояние приёмника: {err}"))
-}
-
-/// Программа по имени в каталогах `PATH`.
-pub fn which(name: &str, path: &str) -> Option<PathBuf> {
-    path.split(':')
-        .filter(|dir| !dir.is_empty())
-        .map(|dir| PathBuf::from(dir).join(name))
-        .find(|candidate| candidate.is_file())
 }
 
 /// Шаг ввода с ожиданием экрана: провал ожидания — проверка части с последним экраном.
@@ -192,36 +201,126 @@ impl Steps<'_> {
     }
 }
 
-fn nvim(stand: &mut Stand, path: &str) -> Result<Outcome, String> {
-    let Some(program) = which("nvim", path) else {
+fn nvim(stand: &mut Stand, path: &str, env: &[(String, String)]) -> Result<Outcome, String> {
+    let Some(program) = apps::which("nvim", path) else {
         return Ok(Outcome::not_run(
             NotRunCause::Stand,
             "nvim нет в PATH окружения процесса",
         ));
     };
     let file = NvimFile::numbered(NVIM_LINES);
+    let mut outcome = Outcome {
+        origin: Some(DefectOrigin::Host),
+        ..Outcome::default()
+    };
+    let control = nvim_control(stand, &program, env, &file)?;
+    outcome.evidence.note("control", &control);
     let file_path = stand.out.join("nvim-headless.txt");
     fs::write(&file_path, file.contents())
         .map_err(|err| format!("{}: {err}", file_path.display()))?;
     let workload = Workload {
-        program,
+        program: PathBuf::from("/bin/sh"),
         args: vec![
+            "-c".to_owned(),
+            apps::START_ON_LINE.to_owned(),
+            program.display().to_string(),
             "--clean".to_owned(),
             "-n".to_owned(),
             file_path.display().to_string(),
         ],
     };
     let (id, record) = ensure_program(stand, "nvim", &workload)?;
-    let mut outcome = Outcome {
-        origin: Some(DefectOrigin::Host),
-        ..Outcome::default()
-    };
-    let result = nvim_steps(stand, &id, &record, &file, &file_path, &mut outcome);
+    let result = nvim_steps(
+        stand,
+        &id,
+        &record,
+        &file,
+        &file_path,
+        &control,
+        &mut outcome,
+    );
     outcome.artifacts.push(stand.artifact(
         "f4-nvim.json",
         &json!({ "session": id.as_str(), "evidence": &outcome.evidence }),
     )?);
     result.map(|()| outcome)
+}
+
+/// Что показал nvim без хоста в том же приёмнике стенда.
+#[derive(Debug, Default, serde::Serialize)]
+struct NvimControl {
+    /// Экран с файлом дошёл до условия.
+    started: bool,
+    kitty_flags: u8,
+    /// Shift-Enter кодировщиком приёмника при режимах nvim, hex.
+    shift_enter: String,
+    exited: bool,
+}
+
+/// Контроль без хоста: nvim прямо в PTY стенда с тем же приёмником и окружением, что у
+/// нагрузки кандидата. Показывает, включает ли nvim протокол Kitty у этого приёмника вообще.
+fn nvim_control(
+    stand: &Stand,
+    program: &std::path::Path,
+    env: &[(String, String)],
+    file: &NvimFile,
+) -> Result<NvimControl, String> {
+    let file_path = stand.out.join("nvim-control.txt");
+    fs::write(&file_path, file.contents())
+        .map_err(|err| format!("{}: {err}", file_path.display()))?;
+    let args = vec![
+        "--clean".to_owned(),
+        "-n".to_owned(),
+        file_path.display().to_string(),
+    ];
+    let config = Config {
+        cols: stand.size.cols,
+        rows: stand.size.rows,
+        ..stand.config.clone()
+    };
+    let receiver = Receiver::new("ctl", &config, ReceiverProfile::for_client("ctl"))
+        .map_err(|err| format!("приёмник контроля: {err}"))?;
+    let PtyChild {
+        master, mut child, ..
+    } = pty::spawn(&Spawn {
+        program,
+        args: &args,
+        env,
+        size: stand.size,
+    })
+    .map_err(|err| format!("nvim без хоста: {err}"))?;
+    let route = Route::start(master, receiver).map_err(|err| format!("маршрут контроля: {err}"))?;
+    let first = file.original[0].clone();
+    let mut control = NvimControl {
+        started: route
+            .wait_until(WAIT, |rx, _| {
+                screen_of(rx)
+                    .is_some_and(|s| s.lines.first().is_some_and(|line| line.contains(&first)))
+            })
+            .is_ok(),
+        ..NvimControl::default()
+    };
+    if control.started {
+        control.kitty_flags = route
+            .with(|rx| {
+                rx.capture(Capture {
+                    history: 0,
+                    hidden: false,
+                })
+            })
+            .map(|state| state.kitty_flags)
+            .map_err(|err| format!("состояние приёмника контроля: {err}"))?;
+        control.shift_enter = apps::hex(&route.with(encode_shift_enter)?);
+    }
+    route.input(b"\x1b:qa!\r");
+    let pid = child.id().cast_signed();
+    control.exited = launch::wait_exit(&[pid], WAIT).is_empty();
+    drop(route);
+    if !control.exited {
+        let _ = child.kill();
+    }
+    let _ = child.wait();
+    Ok(control)
 }
 
 fn nvim_steps(
@@ -230,6 +329,7 @@ fn nvim_steps(
     record: &crate::backend::HostRecord,
     file: &NvimFile,
     file_path: &std::path::Path,
+    control: &NvimControl,
     outcome: &mut Outcome,
 ) -> Result<(), String> {
     let mut c1 = stand.client(id, "c1")?;
@@ -240,6 +340,8 @@ fn nvim_steps(
     {
         return Ok(());
     }
+    // Строка для `read` обёртки: nvim стартует при подключённом c1.
+    c1.input(b"\r")?;
     let first = file.original[0].clone();
     let mut steps = Steps {
         outcome: &mut *outcome,
@@ -302,6 +404,35 @@ fn nvim_steps(
     evidence.note("kitty_flags_before", flags_before);
     evidence.note("shift_enter_before", apps::hex(&first_shift));
     evidence.note("screen_before", &before);
+    // Ответы приёмника c1 по порядку: какие запросы nvim при старте дошли до терминала клиента.
+    let replies: Vec<String> = c1.route()?.with(|rx| {
+        rx.journal()
+            .iter()
+            .filter_map(|entry| match &entry.event {
+                Journaled::Reply { hex } => Some(format!("{} {hex}", entry.at)),
+                _ => None,
+            })
+            .collect()
+    });
+    evidence.note("c1_replies", &replies);
+    // Наблюдение, а не проверка: в объявленном критерии части его нет (⚠️ задача 19).
+    evidence.note(
+        "kitty_vs_control",
+        json!({
+            "candidate": { "flags": flags_before, "shift_enter": apps::hex(&first_shift) },
+            "control": { "flags": control.kitty_flags, "shift_enter": &control.shift_enter },
+            "same": flags_before == control.kitty_flags
+                && apps::hex(&first_shift) == control.shift_enter,
+        }),
+    );
+    if !control.started || control.kitty_flags == 0 {
+        outcome.mark_not_run(
+            NotRunCause::Stand,
+            "nvim без хоста не включил протокол Kitty у приёмника стенда: сравнение \
+             Ctrl-V Shift-Enter не различает режимы клавиатуры",
+        );
+    }
+    let evidence = &mut outcome.evidence;
     evidence.require("SIGKILL c1", c1.kill(stand.main()));
     drop(c1);
     if !stand::same_alive(evidence, "nvim жив после SIGKILL клиента", record.workload)?
@@ -369,6 +500,13 @@ fn nvim_steps(
     match file.parse(&written) {
         Ok(insert) => {
             evidence.note("file_insert", &insert);
+            if insert.first == apps::hex(b"\r") {
+                outcome.mark_not_run(
+                    NotRunCause::Stand,
+                    "Ctrl-V Shift-Enter вставил голый CR: сравнение до и после ничего не доказывает",
+                );
+            }
+            let evidence = &mut outcome.evidence;
             evidence.check(
                 "Ctrl-V Shift-Enter после attach даёт то же, что до SIGKILL",
                 insert.same(),
@@ -460,7 +598,7 @@ fn wait_answer(
 }
 
 fn agent(stand: &mut Stand, name: &str, path: &str) -> Result<Outcome, String> {
-    let Some(program) = which(name, path) else {
+    let Some(program) = apps::which(name, path) else {
         return Ok(Outcome::not_run(
             NotRunCause::Stand,
             format!("{name} нет в PATH окружения процесса"),
@@ -530,6 +668,14 @@ fn agent_steps(
     let before = numbers_of(&c1)?;
     let summary_before = Numbers::of(&before, AGENT_COUNT);
     facts.insert("before".to_owned(), json!(summary_before));
+    // Контроль эха: тот же ввод без отправки у c1 до SIGKILL. Без него провал эха после attach
+    // не отличить от экрана агента, который стенд не понимает.
+    c1.input(AGENT_CONTROL.as_bytes())?;
+    let control_echo = wait_screen(&c1, WAIT, |s| {
+        s.lines.iter().any(|line| line.contains(AGENT_CONTROL))
+    })?
+    .is_some();
+    facts.insert("control_echo".to_owned(), json!(control_echo));
     let evidence = &mut outcome.evidence;
     evidence.require("SIGKILL c1", c1.kill(stand.main()));
     drop(c1);
@@ -582,11 +728,20 @@ fn agent_steps(
         s.lines.iter().any(|line| line.contains(AGENT_NEXT))
     })?
     .is_some();
-    evidence.check(
-        "следующий запрос вводится",
-        echoed,
-        format!("эхо ввода не видно за {} с", WAIT.as_secs()),
-    );
+    facts.insert("echo".to_owned(), json!(echoed));
+    if control_echo {
+        evidence.check(
+            "следующий запрос вводится",
+            echoed,
+            format!("эхо ввода не видно за {} с", WAIT.as_secs()),
+        );
+    } else {
+        outcome.mark_not_run(
+            NotRunCause::Stand,
+            "эхо ввода не видно и у c1 до SIGKILL: стенд не распознаёт поле ввода агента",
+        );
+    }
+    let evidence = &mut outcome.evidence;
     stand::same_alive(evidence, "агент жив после attach", record.workload)?;
     Ok(())
 }

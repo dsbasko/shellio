@@ -12,6 +12,9 @@ pub const USAGE: &str = "\
       кандидатами и не принимается у сценария стенда
   probe-session --aggregate <каталог прогона>
       summary.json прогона и сводка клеток по кандидатам
+  probe-session --f4 <каталог прогона> [--with <каталог прогона>]
+      итог клетки F4 по кандидатам из частей обоих прогонов (apps и apps-surface), f4.json в
+      каталоге --f4
   probe-session --scenes <каталог процесса>
       байты сцен report-policy кодировщиком моста и ожидаемые виды сцен bridge и update от эталона
       в <каталог>/scenes (функция vt)
@@ -51,6 +54,10 @@ pub enum Mode {
     },
     Aggregate {
         run_dir: PathBuf,
+    },
+    /// Итог F4 по частям прогонов `runs`; `f4.json` пишется в первый.
+    F4 {
+        runs: Vec<PathBuf>,
     },
     /// Сцены `report-policy` в каталог процесса.
     Scenes {
@@ -106,7 +113,10 @@ pub enum ArgsError {
 impl fmt::Display for ArgsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ArgsError::NoMode => write!(f, "нужен --scenario, --aggregate, --scenes или --launch"),
+            ArgsError::NoMode => write!(
+                f,
+                "нужен --scenario, --aggregate, --f4, --scenes или --launch"
+            ),
             ArgsError::UnknownArgument(arg) => write!(f, "неизвестный аргумент «{arg}»"),
             ArgsError::MissingValue(flag) => write!(f, "{flag} требует значения"),
             ArgsError::Repeated(flag) => write!(f, "{flag} указан дважды"),
@@ -173,19 +183,23 @@ enum Flag {
     Out,
     Nonce,
     Aggregate,
+    F4,
+    With,
     Scenes,
     Launch,
     Gui,
 }
 
 impl Flag {
-    const ALL: [Flag; 9] = [
+    const ALL: [Flag; 11] = [
         Flag::Scenario,
         Flag::Backend,
         Flag::Variant,
         Flag::Out,
         Flag::Nonce,
         Flag::Aggregate,
+        Flag::F4,
+        Flag::With,
         Flag::Scenes,
         Flag::Launch,
         Flag::Gui,
@@ -199,6 +213,8 @@ impl Flag {
             Flag::Out => "--out",
             Flag::Nonce => "--nonce",
             Flag::Aggregate => "--aggregate",
+            Flag::F4 => "--f4",
+            Flag::With => "--with",
             Flag::Scenes => "--scenes",
             Flag::Launch => "--launch",
             Flag::Gui => "--gui",
@@ -223,6 +239,8 @@ struct Raw {
     out: Option<PathBuf>,
     nonce: Option<String>,
     aggregate: Option<PathBuf>,
+    f4: Option<PathBuf>,
+    with: Option<PathBuf>,
     scenes: Option<PathBuf>,
     gui: Option<PathBuf>,
     launch: bool,
@@ -259,6 +277,17 @@ pub fn parse(args: &[String]) -> Result<Mode, ArgsError> {
             Some(flag) => Err(not_with(Flag::Aggregate, flag)),
             None => Ok(Mode::Aggregate { run_dir }),
         };
+    }
+    if let Some(first) = raw.f4.clone() {
+        if let Some(flag) = raw.extra(&[Flag::F4, Flag::With]) {
+            return Err(not_with(Flag::F4, flag));
+        }
+        return Ok(Mode::F4 {
+            runs: std::iter::once(first).chain(raw.with.clone()).collect(),
+        });
+    }
+    if raw.with.is_some() {
+        return Err(requires(Flag::With, Flag::F4));
     }
     if let Some(control) = raw.gui.clone() {
         if let Some(flag) = raw.extra(&[Flag::Gui, Flag::Out, Flag::Nonce]) {
@@ -364,6 +393,8 @@ fn parse_flags(args: &[String]) -> Result<Raw, ArgsError> {
             }
             Flag::Out => raw.out = Some(path(flag, value)?),
             Flag::Aggregate => raw.aggregate = Some(path(flag, value)?),
+            Flag::F4 => raw.f4 = Some(path(flag, value)?),
+            Flag::With => raw.with = Some(path(flag, value)?),
             Flag::Scenes => raw.scenes = Some(path(flag, value)?),
             Flag::Gui => raw.gui = Some(path(flag, value)?),
             Flag::Launch => {}
@@ -386,6 +417,7 @@ fn launch(raw: Raw, tail: &[String]) -> Result<Mode, ArgsError> {
         })),
         Mode::Help
         | Mode::Aggregate { .. }
+        | Mode::F4 { .. }
         | Mode::Scenes { .. }
         | Mode::Launch(_)
         | Mode::Gui { .. } => Err(ArgsError::LaunchTarget),
@@ -626,6 +658,36 @@ mod tests {
             parse_str(&["--aggregate", "run", "--out", "o"]),
             Err(ArgsError::NotWith {
                 mode: "--aggregate",
+                flag: "--out"
+            })
+        );
+    }
+
+    #[test]
+    fn f4_mode_takes_one_or_two_runs() {
+        assert_eq!(
+            parse_str(&["--f4", "a"]),
+            Ok(Mode::F4 {
+                runs: vec![PathBuf::from("a")]
+            })
+        );
+        assert_eq!(
+            parse_str(&["--with", "b", "--f4", "a"]),
+            Ok(Mode::F4 {
+                runs: vec![PathBuf::from("a"), PathBuf::from("b")]
+            })
+        );
+        assert_eq!(
+            parse_str(&["--with", "b"]),
+            Err(ArgsError::Requires {
+                mode: "--with",
+                flag: "--f4"
+            })
+        );
+        assert_eq!(
+            parse_str(&["--f4", "a", "--out", "o"]),
+            Err(ArgsError::NotWith {
+                mode: "--f4",
                 flag: "--out"
             })
         );

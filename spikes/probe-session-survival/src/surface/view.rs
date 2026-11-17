@@ -17,6 +17,8 @@ use objc2_app_kit::{
 use objc2_core_foundation::{CFRunLoop, kCFRunLoopDefaultMode};
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 
+use super::keyboard::KeyView;
+
 pub struct Shell {
     mtm: MainThreadMarker,
     window: Retained<NSWindow>,
@@ -43,6 +45,21 @@ impl Shell {
         window.setTitle(&NSString::from_str(title));
         window.orderFrontRegardless();
         Shell { mtm, window }
+    }
+
+    /// Новый вид с клавиатурой: содержимое окна и его first responder. Окно не становится key и
+    /// приложение не активируется: события стенд доставляет сам (`surface::input`).
+    pub fn key_view(&self, width: f64, height: f64) -> Retained<KeyView> {
+        let size = NSSize::new(width, height);
+        let view = KeyView::new(self.mtm, NSRect::new(NSPoint::ZERO, size));
+        self.window.setContentSize(size);
+        self.window.setContentView(Some(&view));
+        self.window.makeFirstResponder(Some(&view));
+        view
+    }
+
+    pub fn app(&self) -> Retained<NSApplication> {
+        NSApplication::sharedApplication(self.mtm)
     }
 
     /// Новый вид содержимого окна; прежний вид снимается с окна.

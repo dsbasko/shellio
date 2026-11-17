@@ -16,8 +16,9 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::matrix::Candidate;
 use crate::matrix::evidence::{self, Evidence};
-use crate::results::{Cell, DefectOrigin, NotRunCause, Requirement, Status};
+use crate::results::{Cell, CellPart, DefectOrigin, NotRunCause, Requirement, Status, SummaryFile};
 
 /// ID клетки прохода.
 pub const F4: &str = "F4";
@@ -291,6 +292,69 @@ pub fn rollup(results: &[PartResult]) -> Result<Verdict, String> {
     })
 }
 
+/// Части F4 строки сводки как итоги частей; часть без имени — ошибка стенда.
+pub fn part_results(parts: &[CellPart]) -> Result<Vec<PartResult>, String> {
+    parts
+        .iter()
+        .map(|part| {
+            let name = part
+                .part
+                .clone()
+                .ok_or_else(|| format!("часть F4 без имени в {}", part.dir))?;
+            Ok(PartResult {
+                part: name,
+                status: part.status,
+                cause: part.not_run_cause,
+            })
+        })
+        .collect()
+}
+
+/// Итог F4 каждого кандидата по сводкам прогонов: части `apps` и `apps-surface` идут разными
+/// целями и лежат в разных каталогах прогонов.
+pub fn verdicts(summaries: &[SummaryFile]) -> Result<Vec<(Candidate, Verdict)>, String> {
+    Candidate::ALL
+        .into_iter()
+        .map(|candidate| {
+            let mut results = Vec::new();
+            for summary in summaries {
+                for row in summary
+                    .cells
+                    .iter()
+                    .filter(|row| row.id == F4 && row.backend == Some(candidate))
+                {
+                    results.extend(part_results(&row.parts)?);
+                }
+            }
+            Ok((candidate, rollup(&results)?))
+        })
+        .collect()
+}
+
+/// Текст итога F4 по кандидатам.
+pub fn render_verdicts(verdicts: &[(Candidate, Verdict)]) -> String {
+    let mut text = String::new();
+    for (candidate, verdict) in verdicts {
+        text.push_str(&format!(
+            "F4 {}: {}{}\n",
+            candidate.name(),
+            verdict.status.name(),
+            if verdict.keeps_candidate {
+                ""
+            } else {
+                " (исключает кандидата по пункту 1)"
+            }
+        ));
+        for open in &verdict.open {
+            text.push_str(&format!("  обязательная {open}\n"));
+        }
+        for research in &verdict.research {
+            text.push_str(&format!("  исследование {research}\n"));
+        }
+    }
+    text
+}
+
 // --- экраны ---
 
 /// Видимый экран: строки и позиция курсора в единицах источника (клетки приёмника или точки
@@ -522,6 +586,8 @@ pub const AGENT_PROMPT: &str = "Reply with the integers from 1 to 150, one per l
                                 and nothing else. Do not use any tools.";
 /// Ввод следующего запроса без отправки: эхо в поле ввода агента.
 pub const AGENT_NEXT: &str = "pss next";
+/// Контроль эха у первого клиента до `SIGKILL`.
+pub const AGENT_CONTROL: &str = "pss ctl ";
 
 /// Номера строк ответа: строка, в которой после рамок, маркеров и пробелов стоит только число.
 pub fn answer_numbers(lines: &[String]) -> Vec<u64> {
@@ -583,6 +649,19 @@ pub fn kept_in_order(before: &[u64], after: &[u64]) -> bool {
 }
 
 // --- общее ---
+
+/// Нагрузка ждёт строку от первого клиента и только потом становится программой: её запросы при
+/// старте (протокол Kitty, DA1) уходят терминалу клиента, а не в пустоту. Аргументы `sh -c`:
+/// программа и её аргументы.
+pub const START_ON_LINE: &str = "IFS= read -r _ && exec \"$0\" \"$@\"";
+
+/// Программа по имени в каталогах `PATH`.
+pub fn which(name: &str, path: &str) -> Option<std::path::PathBuf> {
+    path.split(':')
+        .filter(|dir| !dir.is_empty())
+        .map(|dir| std::path::PathBuf::from(dir).join(name))
+        .find(|candidate| candidate.is_file())
+}
 
 pub fn hex(bytes: &[u8]) -> String {
     crate::fixture::channel::hex(bytes)

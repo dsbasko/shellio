@@ -408,6 +408,19 @@ impl Surface {
         })
     }
 
+    /// Указатель поверхности для вида с клавиатурой; вид снимает его до освобождения.
+    pub fn raw(&self) -> sys::ghostty_surface_t {
+        self.raw
+    }
+
+    /// Действие привязки, например `paste_from_clipboard`; `true` — выполнено.
+    pub fn binding(&self, action: &str) -> bool {
+        // SAFETY: поверхность жива; байты действия живут на время вызова, длина явная.
+        unsafe {
+            sys::ghostty_surface_binding_action(self.raw, action.as_ptr().cast(), action.len())
+        }
+    }
+
     /// Завершает чтение буфера обмена `request` текстом `text`. `false` — запроса нет.
     pub fn complete_clipboard(&self, request: u64, text: &str) -> bool {
         let Some(state) = self.tag.as_ref().and_then(|tag| tag.journal.take(request)) else {

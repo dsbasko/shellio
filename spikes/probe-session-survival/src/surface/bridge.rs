@@ -61,7 +61,7 @@ pub fn run(target: &Target, environment: &Environment) -> Result<Report, String>
         .backend
         .ok_or("предусловие: сценарий bridge идёт на кандидате (--backend)")?;
     let scenes = read_scenes(&target.out)?;
-    let mut driver = Driver::new(&target.out, environment, candidate)?;
+    let mut driver = Driver::create(&target.out, environment, candidate)?;
     let outcome = driver.cells(&scenes);
     let notes = driver.teardown();
     let mut report = Report {
@@ -200,7 +200,11 @@ pub(super) struct Session {
 }
 
 impl Driver {
-    fn new(out: &Path, environment: &Environment, candidate: Candidate) -> Result<Driver, String> {
+    pub(super) fn create(
+        out: &Path,
+        environment: &Environment,
+        candidate: Candidate,
+    ) -> Result<Driver, String> {
         let entry = &environment.process.env;
         let host_dir = required_dir(entry.get(launch::HOST_DIR), launch::HOST_DIR)?;
         let sets_dir = required_dir(entry.get(launch::SETS_DIR), launch::SETS_DIR)?;
@@ -303,7 +307,7 @@ impl Driver {
         )
     }
 
-    fn listener(&self) -> Result<&Listener, String> {
+    pub(super) fn listener(&self) -> Result<&Listener, String> {
         self.listener
             .as_ref()
             .ok_or_else(|| "сокет квитанций закрыт".to_owned())
@@ -385,6 +389,19 @@ impl Driver {
         cols: u16,
         rows: u16,
     ) -> Result<Window, String> {
+        let command = surface_command(&attach.program, &attach.args, &attach.env);
+        self.open_surface(command, cols, rows, false)
+    }
+
+    /// Новый GUI-процесс с поверхностью, команда которой — `command` для shell libghostty;
+    /// `keyboard` — вид с путём клавиатуры (проход F4).
+    pub(super) fn open_surface(
+        &mut self,
+        command: String,
+        cols: u16,
+        rows: u16,
+        keyboard: bool,
+    ) -> Result<Window, String> {
         self.windows += 1;
         let label = format!("gui{}", self.windows);
         let dir = self.out.join(&label);
@@ -432,9 +449,10 @@ impl Driver {
         };
         window.opened = window.command(&GuiCommand::Open {
             surface: 1,
-            command: surface_command(&attach.program, &attach.args, &attach.env),
+            command,
             cols,
             rows,
+            keyboard,
         })?;
         Ok(window)
     }
@@ -490,6 +508,53 @@ impl Driver {
             .map_err(|err| format!("{}: {err}", window.label))
     }
 
+    /// Окружение нагрузки и клиентов кандидата (без `TERM`).
+    pub(super) fn env(&self) -> &[(String, String)] {
+        &self.env
+    }
+
+    pub(super) fn fixture(&self) -> &Path {
+        &self.fixture
+    }
+
+    pub(super) fn root(&self) -> &Path {
+        &self.root
+    }
+
+    /// Сессия с нагрузкой `workload`, которая не фикстура: новизну доказывает отсутствие сессии
+    /// в `list` до `ensure`.
+    pub(super) fn ensure_program(
+        &mut self,
+        label: &str,
+        workload: &Workload,
+    ) -> Result<(SessionId, HostRecord), String> {
+        let id = SessionId::new(&format!("s{}-{label}", self.nonce))?;
+        let listed = self.backend.list().map_err(|err| format!("list: {err}"))?;
+        if listed.iter().any(|entry| entry.name == id.as_str()) {
+            return Err(format!("предусловие: сессия {id} уже есть до ensure"));
+        }
+        self.sessions.push(id.clone());
+        let ensured = self
+            .backend
+            .ensure(&id, workload, self.size)
+            .map_err(|err| format!("ensure {id}: {err}"))?;
+        Ok((id, ensured.record))
+    }
+
+    /// GUI-процесс с поверхностью к сессии `id` через attach-клиента кандидата.
+    pub(super) fn attach_window(
+        &mut self,
+        id: &SessionId,
+        keyboard: bool,
+    ) -> Result<Window, String> {
+        let attach = self
+            .backend
+            .attach_command(id, Lead::IfFree)
+            .map_err(|err| format!("команда attach: {err}"))?;
+        let command = surface_command(&attach.program, &attach.args, &attach.env);
+        self.open_surface(command, COLS, ROWS, keyboard)
+    }
+
     /// Нагрузка и хост живы.
     pub(super) fn alive(&self, session: &Session) -> Result<bool, String> {
         let keys = [session.record.workload, session.record.host];
@@ -498,7 +563,7 @@ impl Driver {
     }
 
     /// Журнал эффектов GUI; файла нет — ошибка стенда, а не ноль событий.
-    fn effects(&self, window: &str) -> Result<Vec<Effect>, String> {
+    pub(super) fn effects(&self, window: &str) -> Result<Vec<Effect>, String> {
         let path = self.out.join(window).join(bridge::EFFECTS_FILE);
         let journal = fs::read_to_string(&path)
             .map_err(|err| format!("журнал эффектов {}: {err}", path.display()))?;
@@ -515,7 +580,7 @@ impl Driver {
             .count())
     }
 
-    fn clipboard_reads(&self, window: &str) -> Result<Vec<u64>, String> {
+    pub(super) fn clipboard_reads(&self, window: &str) -> Result<Vec<u64>, String> {
         Ok(self
             .effects(window)?
             .iter()
@@ -527,7 +592,11 @@ impl Driver {
     }
 
     /// Номер запроса `count`-го чтения буфера обмена в журнале GUI; `None` — не пришёл за срок.
-    fn wait_clipboard_read(&self, window: &str, count: usize) -> Result<Option<u64>, String> {
+    pub(super) fn wait_clipboard_read(
+        &self,
+        window: &str,
+        count: usize,
+    ) -> Result<Option<u64>, String> {
         let deadline = Instant::now() + WAIT;
         loop {
             if let Some(request) = self.clipboard_reads(window)?.get(count - 1) {
@@ -1595,7 +1664,7 @@ pub(super) fn drain_with(
 
 /// Команда поверхности: RIS стирает приветствие `login(1)` до attach, затем attach-клиент с
 /// окружением кандидата, собранным с нуля, как у attach-клиента стенда.
-fn surface_command(program: &Path, args: &[String], env: &[(String, String)]) -> String {
+pub(super) fn surface_command(program: &Path, args: &[String], env: &[(String, String)]) -> String {
     let mut inner = vec!["/usr/bin/env".to_owned(), "-i".to_owned()];
     inner.extend(env.iter().map(|(name, value)| format!("{name}={value}")));
     inner.push(program.display().to_string());
@@ -1626,7 +1695,7 @@ pub(super) fn request(link: &mut Link, command: Command) -> Result<(), String> {
 }
 
 /// Квитанции, пока `done` над журналом не выполнено; `false` — срок вышел.
-fn pull_until(
+pub(super) fn pull_until(
     link: &mut Link,
     timeout: Duration,
     mut done: impl FnMut(&[Receipt]) -> bool,
@@ -1777,7 +1846,7 @@ fn wait_winch(
 }
 
 /// Строки вида, когда `done` выполнено; `false` — не дождались за срок (вывод клетки).
-fn wait_lines(
+pub(super) fn wait_lines(
     window: &mut Window,
     done: impl Fn(&Vec<String>) -> bool,
 ) -> Result<(bool, Vec<String>), String> {

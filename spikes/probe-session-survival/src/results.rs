@@ -783,11 +783,16 @@ pub fn aggregate(run_dir: &Path) -> Result<SummaryFile, String> {
     }
     let mut cells: Vec<CellRow> = rows.into_values().collect();
     for row in &mut cells {
-        row.status = row
-            .parts
-            .iter()
-            .filter(|part| part.requirement == row.requirement)
-            .fold(Status::Pass, |status, part| status.combine(part.status));
+        // F4 сводится по каталогу частей: обязательная часть, которой нет в прогоне, —
+        // `not_run` (`pending`), а не отсутствие провала.
+        row.status = if row.id == matrix::apps::F4 {
+            matrix::apps::rollup(&matrix::apps::part_results(&row.parts)?)?.status
+        } else {
+            row.parts
+                .iter()
+                .filter(|part| part.requirement == row.requirement)
+                .fold(Status::Pass, |status, part| status.combine(part.status))
+        };
     }
     for row in &cells {
         totals.cells.add(row.status);
@@ -1314,6 +1319,75 @@ mod tests {
             text.contains("not_run     research smoke стенд/stress (stand) [a]"),
             "часть исследования видна среди выводов кроме pass: {text}"
         );
+    }
+
+    #[test]
+    fn f4_rolls_up_by_part_catalog_across_runs() {
+        let tmp = TempDir::new("f4");
+        let part = |name: &str, status: Status| {
+            let spec = matrix::apps::part(name).unwrap();
+            Cell {
+                part: Some(name.to_owned()),
+                requirement: spec.requirement,
+                ..cell(matrix::apps::F4, status)
+            }
+        };
+        let apps = |scenario: &str, cells: Vec<Cell>| {
+            ResultFile::new(
+                scenario,
+                Some(Candidate::Zmx),
+                "base",
+                environment(),
+                Execution::Ok,
+                Report {
+                    cells,
+                    ..Report::default()
+                },
+            )
+        };
+        let headless = tmp.0.join("headless");
+        write_process(
+            &headless,
+            "apps-zmx-base",
+            &apps(
+                "apps",
+                vec![part("nvim", Status::Pass), part("claude", Status::Fail)],
+            ),
+        );
+        let first = aggregate(&headless).unwrap();
+        assert_eq!(first.cells.len(), 1);
+        assert_eq!(
+            first.cells[0].status,
+            Status::NotRun,
+            "части поверхности в прогоне нет: F4 не pass"
+        );
+
+        let surface = tmp.0.join("surface");
+        let surface_parts = matrix::apps::parts_of(matrix::apps::Place::Surface)
+            .map(|spec| part(spec.name, Status::Pass))
+            .collect();
+        write_process(
+            &surface,
+            "apps-surface-zmx-base",
+            &apps("apps-surface", surface_parts),
+        );
+        let second = aggregate(&surface).unwrap();
+        assert_eq!(second.cells[0].status, Status::NotRun, "нет части nvim");
+
+        let verdicts = matrix::apps::verdicts(&[first, second]).unwrap();
+        let (candidate, zmx) = &verdicts[0];
+        assert_eq!(*candidate, Candidate::Zmx);
+        assert_eq!(zmx.status, Status::Pass);
+        assert!(zmx.keeps_candidate && zmx.open.is_empty());
+        assert!(zmx.research.contains(&"claude: fail".to_owned()));
+        let (candidate, rust) = &verdicts[1];
+        assert_eq!(*candidate, Candidate::Rust);
+        assert_eq!(rust.status, Status::NotRun);
+        assert!(!rust.keeps_candidate);
+        assert!(rust.open.contains(&"nvim: not_run (pending)".to_owned()));
+        let text = matrix::apps::render_verdicts(&verdicts);
+        assert!(text.contains("F4 zmx: pass\n"), "{text}");
+        assert!(text.contains("F4 rust: not_run (исключает"), "{text}");
     }
 
     #[test]

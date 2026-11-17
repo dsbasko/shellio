@@ -22,11 +22,31 @@ pub const EFFECTS_FILE: &str = "effects.jsonl";
 #[serde(tag = "op", rename_all = "kebab-case")]
 pub enum GuiCommand {
     /// Новая поверхность `surface` с командой `command` (для shell libghostty) и сеткой.
+    /// `keyboard` — вид с путём клавиатуры P0.3 и клиентом ввода (проход F4).
     Open {
         surface: u32,
         command: String,
         cols: u16,
         rows: u16,
+        #[serde(default)]
+        keyboard: bool,
+    },
+    /// Клавиши синтетическими событиями по пути клавиатуры; ответ — журнал ввода вида.
+    Strokes {
+        surface: u32,
+        strokes: Vec<crate::matrix::apps_surface::Stroke>,
+    },
+    /// Источник ввода `id` (включается при необходимости); `None` — возврат прежнего и
+    /// выключение включённых стендом. Ответ — текущий источник.
+    Source {
+        #[serde(default)]
+        id: Option<String>,
+    },
+    /// Действие привязки поверхности (`ghostty_surface_binding_action`), например
+    /// `paste_from_clipboard`.
+    Binding {
+        surface: u32,
+        action: String,
     },
     /// Текст видимой области по `ghostty_surface_read_text`.
     Text {
@@ -96,8 +116,18 @@ pub struct Reply {
     /// `Scale`.
     pub scale: Option<Scale>,
     pub text: Option<String>,
-    /// Обработаны ли нажатие и отпускание (`Key`, `Click`).
+    /// Обработаны ли нажатие и отпускание (`Key`, `Click`, `Binding`).
     pub handled: Option<(bool, bool)>,
+    /// Журнал ввода вида после `Strokes`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input: Option<Vec<String>>,
+    /// Текущий источник ввода после `Source`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    /// Стенд не смог выполнить `Source` или `Strokes` (источника нет, включение отклонено,
+    /// событие не построено): часть получает `not_run (stand)`, а не ошибку исполнения.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stand: Option<String>,
 }
 
 /// Сетка по `ghostty_surface_size`.
@@ -502,10 +532,26 @@ mod tests {
                 command: "/bin/attach --session s".to_owned(),
                 cols: 80,
                 rows: 24,
+                keyboard: true,
             },
             GuiCommand::ClipboardReply {
                 request: 3,
                 text: "a\nb".to_owned(),
+            },
+            GuiCommand::Strokes {
+                surface: 1,
+                strokes: vec![crate::matrix::apps_surface::Stroke::with(
+                    14,
+                    crate::matrix::apps_surface::Mods::OPTION,
+                )],
+            },
+            GuiCommand::Source {
+                id: Some(crate::matrix::apps_surface::SOURCE_ABC.to_owned()),
+            },
+            GuiCommand::Source { id: None },
+            GuiCommand::Binding {
+                surface: 1,
+                action: "paste_from_clipboard".to_owned(),
             },
             GuiCommand::Quit,
         ];
@@ -529,6 +575,25 @@ mod tests {
         );
         assert_eq!(parse_effects("").unwrap(), Vec::new());
         assert!(parse_effects(&format!("garbage\n{line}\n")).is_err());
+    }
+
+    #[test]
+    fn open_without_keyboard_flag_uses_plain_view() {
+        let parsed: GuiCommand =
+            serde_json::from_str(r#"{"op":"open","surface":1,"command":"c","cols":80,"rows":24}"#)
+                .unwrap();
+        assert!(matches!(
+            parsed,
+            GuiCommand::Open {
+                keyboard: false,
+                ..
+            }
+        ));
+        let reply: Reply = serde_json::from_str(
+            r#"{"error":null,"grid":null,"scale":null,"text":null,"handled":null}"#,
+        )
+        .unwrap();
+        assert_eq!(reply.input, None);
     }
 
     #[test]

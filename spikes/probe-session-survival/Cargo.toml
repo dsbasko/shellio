@@ -77,15 +77,19 @@ objc2-core-foundation = { version = "0.3.2", optional = true, default-features =
 objc2-core-graphics = { version = "0.3.2", optional = true, default-features = false, features = [
     "std",
     "CGEvent",
+    "CGEventSource",
     "CGEventTypes",
+    "CGRemoteOperation",
 ] }
 objc2-foundation = { version = "0.3.2", optional = true, default-features = false, features = [
     "std",
     "NSArray",
     "NSAttributedString",
+    "NSDate",
     "NSGeometry",
     "NSObjCRuntime",
     "NSRange",
+    "NSRunLoop",
     "NSString",
 ] }
 serde = { version = "1.0", features = ["derive"] }
