@@ -75,6 +75,10 @@ pub const SURFACE_FACTS: [(&str, &str); 2] = [
 /// бинари zmx. Сам каталог в `environment` не попадает, его содержимое описывают штампы.
 pub const SETS_DIR: &str = "SHELLIO_PROBE_SETS_DIR";
 
+/// Хост предыдущего поколения для G1 и G2 Rust-хоста: `probe-session-host`, который `run.sh`
+/// собрал с функцией `proto-v1` в отдельный каталог cargo.
+pub const HOST_V1: &str = "SHELLIO_PROBE_HOST_V1";
+
 /// Переменные `run.sh`, которые запуск передаёт процессу сценария как есть, если они не пусты.
 fn passed_vars() -> impl Iterator<Item = &'static str> {
     BUILD_VARS
@@ -82,7 +86,7 @@ fn passed_vars() -> impl Iterator<Item = &'static str> {
         .chain(SET_VERSIONS.into_iter().map(|(name, _)| name))
         .chain(SET_STAMPS.into_iter().map(|(name, _)| name))
         .chain(SURFACE_FACTS.into_iter().map(|(name, _)| name))
-        .chain([SETS_DIR])
+        .chain([SETS_DIR, HOST_V1])
 }
 /// Префиксы, которых не бывает в окружении процесса сценария: терминал и ghostty, nvim и
 /// настоящие сессии пользователя.
@@ -862,6 +866,22 @@ mod tests {
         );
         assert_eq!(check_env(&env, Some("n1")), Check::default());
         assert!(!SETS_DIR.starts_with("ZMX_") && !SETS_DIR.starts_with("GHOSTTY_"));
+    }
+
+    #[test]
+    fn previous_host_generation_passes_through_launch() {
+        let parent = |name: &str| match name {
+            "HOME" => Some("/Users/t".to_owned()),
+            "PATH" => Some("/usr/bin".to_owned()),
+            HOST_V1 => Some("/r/target/proto-v1/release/probe-session-host".to_owned()),
+            _ => None,
+        };
+        let env = build_env(parent, "/tmp/shellio-probe-state.n1").unwrap();
+        assert!(env.contains(&(
+            HOST_V1.to_owned(),
+            "/r/target/proto-v1/release/probe-session-host".to_owned()
+        )));
+        assert_eq!(check_env(&env, Some("n1")), Check::default());
     }
 
     #[test]

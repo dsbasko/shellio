@@ -12,7 +12,8 @@
 //! Восстановление для attach и управляющий снимок делает поток разбора по команде, поэтому
 //! граница «восстановление → живой поток» — номер байта PTY. Клиенту кадры идут через его
 //! очередь с пределом в байтах, переполнение разрывает клиента с причиной; пределы очередей, номера
-//! ввода и правило размера — в [`io`].
+//! ввода и правило размера — в [`io`]. Версию протокола соединения выбирает поток соединения по
+//! `Hello` ([`proto::Versions::choose`]); дальше кадры соединения в обе стороны идут её кодеком.
 
 pub mod attach;
 pub mod effects;
@@ -57,7 +58,7 @@ use crate::bridge::ReportFilter;
 #[cfg(feature = "vt")]
 use crate::observer;
 #[cfg(feature = "vt")]
-use crate::proto::{self, Ack, Hello, Message, Purpose, Status, Welcome};
+use crate::proto::{self, Ack, Codec, Hello, Message, Purpose, Status, Welcome};
 #[cfg(feature = "vt")]
 use effects::Clipboard;
 #[cfg(feature = "vt")]
@@ -463,7 +464,8 @@ enum Event {
     /// Поток разбора дочитал PTY до конца.
     Drained,
     Exited(ExitStatus),
-    Conn(ConnId, UnixStream, Hello),
+    /// Новое соединение: `Hello` и версия, выбранная по нему, или причина отказа.
+    Conn(ConnId, UnixStream, Hello, Result<Codec, String>),
     Msg(ConnId, Message),
     Closed(ConnId),
     /// Запись клиенту не удалась: срок или разрыв соединения.
@@ -475,6 +477,10 @@ enum Event {
 #[cfg(feature = "vt")]
 struct Conn {
     purpose: Purpose,
+    /// Кодек версии соединения; у отвергнутого — кодек рукопожатия.
+    codec: Codec,
+    /// Наибольшая версия клиента из `Hello`.
+    client_max: u16,
     role: Role,
     out: Arc<ByteQueue>,
     stream: UnixStream,
@@ -722,7 +728,7 @@ impl<'a> Hub<'a> {
                         return 0;
                     }
                 }
-                Event::Conn(id, stream, hello) => self.connect(id, stream, hello),
+                Event::Conn(id, stream, hello, codec) => self.connect(id, stream, hello, codec),
                 Event::Msg(id, message) => self.message(id, message),
                 Event::Closed(id) => self.drop_conn(id, None),
                 Event::WriteFailed(id, reason) => {
@@ -755,7 +761,7 @@ impl<'a> Hub<'a> {
             Message::Output { .. } | Message::Parsed { .. } => Room::Limit,
             _ => Room::Always,
         };
-        match conn.out.push(proto::encode(message), room) {
+        match conn.out.push(proto::encode(conn.codec, message), room) {
             Ok(()) => {}
             Err(io::Refusal::Full {
                 len,
@@ -780,7 +786,7 @@ impl<'a> Hub<'a> {
         };
         let dropped = conn
             .out
-            .evict(proto::encode(&Message::Evicted(reason.clone())));
+            .evict(proto::encode(conn.codec, &Message::Evicted(reason.clone())));
         self.evictions += 1;
         eprintln!("{HOST_NAME}: клиент {id} разорван: {reason}; отброшено {dropped} байт очереди");
         self.forget(id, conn.purpose);
@@ -842,10 +848,14 @@ impl<'a> Hub<'a> {
         }
     }
 
-    fn welcome(&self, role: Role, offset: u64) -> Message {
+    fn welcome(&self, codec: Codec, role: Role, offset: u64) -> Message {
         Message::Welcome(Welcome {
-            version: proto::VERSION,
-            host: format!("{HOST_NAME} {}", env!("CARGO_PKG_VERSION")),
+            version: codec.version(),
+            host: format!(
+                "{HOST_NAME} {}, протокол {}",
+                env!("CARGO_PKG_VERSION"),
+                proto::SUPPORTED
+            ),
             vt: self.vt_version.clone(),
             session: self.options.session.to_string(),
             role,
@@ -858,7 +868,7 @@ impl<'a> Hub<'a> {
         let Some(conn) = self.conns.get(&id) else {
             return;
         };
-        let role = conn.role;
+        let (role, codec, client_max) = (conn.role, conn.codec, conn.client_max);
         let restored = match result {
             Ok(restored) => restored,
             Err(reason) => {
@@ -870,17 +880,18 @@ impl<'a> Hub<'a> {
         };
         eprintln!(
             "{HOST_NAME}: attach {id}: граница {offset}, восстановление {} байт, continuation {}, \
-             удержано {}{}",
+             удержано {}, протокол {} (клиент до {client_max}){}",
             restored.bytes.len(),
             restored.continuation,
             restored.held,
+            codec.version(),
             if restored.inexpressible.is_empty() {
                 String::new()
             } else {
                 format!(", не выражается: {}", restored.inexpressible.join("; "))
             }
         );
-        let welcome = self.welcome(role, offset);
+        let welcome = self.welcome(codec, role, offset);
         self.send(id, &welcome);
         for chunk in restored.bytes.chunks(RESTORE_FRAME) {
             self.send(id, &Message::Restore(chunk.to_vec()));
@@ -903,7 +914,13 @@ impl<'a> Hub<'a> {
         }
     }
 
-    fn connect(&mut self, id: ConnId, stream: UnixStream, hello: Hello) {
+    fn connect(
+        &mut self,
+        id: ConnId,
+        stream: UnixStream,
+        hello: Hello,
+        negotiated: Result<Codec, String>,
+    ) {
         let writer = match stream.try_clone() {
             Ok(writer) => writer,
             Err(err) => {
@@ -935,26 +952,28 @@ impl<'a> Hub<'a> {
             id,
             Conn {
                 purpose: hello.purpose,
+                codec: negotiated.clone().unwrap_or(Codec::HANDSHAKE),
+                client_max: hello.version,
                 role: Role::Unowned,
                 out,
                 stream,
                 live_from: None,
             },
         );
-        if hello.version != proto::VERSION {
-            self.send(
-                id,
-                &Message::Refused(format!(
-                    "версия протокола клиента {}, у хоста {}",
-                    hello.version,
-                    proto::VERSION
-                )),
-            );
-            self.drop_conn(id, None);
-            return;
-        }
+        let codec = match negotiated {
+            Ok(codec) => codec,
+            Err(reason) => {
+                eprintln!(
+                    "{HOST_NAME}: соединение {id} {:?} «{}»: {reason}",
+                    hello.purpose, hello.client
+                );
+                self.send(id, &Message::Refused(reason));
+                self.drop_conn(id, None);
+                return;
+            }
+        };
         if hello.purpose != Purpose::Attach {
-            let welcome = self.welcome(Role::Unowned, Counters::get(&self.counters.parsed));
+            let welcome = self.welcome(codec, Role::Unowned, Counters::get(&self.counters.parsed));
             self.send(id, &welcome);
             return;
         }
@@ -990,8 +1009,16 @@ impl<'a> Hub<'a> {
     }
 
     /// Ввод с номером: от управляющего соединения и от лидера; повтор принятого номера в PTY не
-    /// пишется, переполнение очереди — явный отказ целиком.
-    fn input(&mut self, id: ConnId, origin: Origin<ConnId>, input: InputId, bytes: Vec<u8>) {
+    /// пишется, переполнение очереди — явный отказ целиком. Без `ack_wanted` подтверждение не
+    /// шлётся, отказ остаётся в журнале.
+    fn input(
+        &mut self,
+        id: ConnId,
+        origin: Origin<ConnId>,
+        input: InputId,
+        bytes: Vec<u8>,
+        ack_wanted: bool,
+    ) {
         let len = bytes.len();
         let ack = if !self.lead.accepts_input(origin) {
             Ack::Rejected("ввод без лидерства".to_owned())
@@ -1012,14 +1039,16 @@ impl<'a> Hub<'a> {
                 input.source, input.seq
             );
         }
-        self.send(
-            id,
-            &Message::InputAck {
-                source: input.source,
-                seq: input.seq,
-                ack,
-            },
-        );
+        if ack_wanted {
+            self.send(
+                id,
+                &Message::InputAck {
+                    source: input.source,
+                    seq: input.seq,
+                    ack,
+                },
+            );
+        }
     }
 
     fn message(&mut self, id: ConnId, message: Message) {
@@ -1034,9 +1063,14 @@ impl<'a> Hub<'a> {
             (purpose == Purpose::Attach).then_some(Origin::Client(id))
         };
         match message {
-            Message::Input { source, seq, bytes } if origin.is_some() => {
+            Message::Input {
+                source,
+                seq,
+                bytes,
+                ack,
+            } if origin.is_some() => {
                 if let Some(origin) = origin {
-                    self.input(id, origin, InputId { source, seq }, bytes);
+                    self.input(id, origin, InputId { source, seq }, bytes, ack);
                 }
             }
             Message::Resize(size) => {
@@ -1049,7 +1083,8 @@ impl<'a> Hub<'a> {
             }
             Message::GuiBind { generation } if purpose == Purpose::Gui => {
                 if let Some(conn) = self.conns.get(&id) {
-                    self.clipboard.bind(id, generation, Arc::clone(&conn.out));
+                    self.clipboard
+                        .bind(id, generation, conn.codec, Arc::clone(&conn.out));
                 }
                 self.send(id, &Message::Done);
             }
@@ -1201,15 +1236,23 @@ fn conn_loop(id: ConnId, stream: UnixStream, events: SyncSender<Event>, clipboar
         Ok(reader) => reader,
         Err(_) => return,
     };
-    let hello = match proto::read_message(&mut reader) {
+    let hello = match proto::read_message(&mut reader, Codec::HANDSHAKE) {
         Ok(Some(Message::Hello(hello))) => hello,
         _ => return,
     };
-    if events.send(Event::Conn(id, stream, hello)).is_err() {
+    let negotiated = proto::SUPPORTED.choose(hello.version);
+    let codec = negotiated.clone();
+    if events
+        .send(Event::Conn(id, stream, hello, negotiated))
+        .is_err()
+    {
         return;
     }
+    let Ok(codec) = codec else {
+        return;
+    };
     loop {
-        match proto::read_message(&mut reader) {
+        match proto::read_message(&mut reader, codec) {
             Ok(Some(Message::ClipboardReply {
                 serial,
                 generation,

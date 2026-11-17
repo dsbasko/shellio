@@ -1,17 +1,26 @@
-//! Wire-формат Rust-хоста пробы (план P0.4, «Rust-хост»). Кадр: тег `u8`, длина тела `u32` в
-//! порядке big-endian, тело. Числа в теле — big-endian, строки и байты — с длиной `u32` впереди.
+//! Wire-формат Rust-хоста пробы (план P0.4, «Rust-хост», «Версии и обновление»). Кадр: тег `u8`,
+//! длина тела `u32` в порядке big-endian, тело. Числа в теле — big-endian, строки и байты — с длиной
+//! `u32` впереди.
 //!
-//! Соединение начинается с `Hello` клиента и `Welcome` или `Refused` хоста. Attach-клиент после
-//! этого получает состояние VT-байтами (`Restore`, кадрами), затем живой поток `Output` с номером
-//! первого байта PTY, шлёт ввод, ресайз и `Detach`. Ввод несёт источник и номер, хост отвечает
-//! `InputAck`: принят, повтор уже принятого номера или отказ с причиной. Клиент, чья очередь
-//! вывода переполнилась, получает `Evicted` с причиной и разрыв. Управляющее соединение (`list`, `stop`, ввод,
-//! ресайз и снимок без клиента) клиентом сессии не считается. Соединение роли GUI (`Gui`)
-//! привязывается к поколению лидера и несёт типизированные эффекты: чтение буфера обмена, фокус и
-//! видимость. Соединение наблюдения (`Observe`, только проба) получает событие разбора `Parsed`
-//! после каждого куска PTY.
+//! Соединение начинается рукопожатием: `Hello` клиента с наибольшей версией протокола, которую он
+//! понимает, и `Welcome` хоста с выбранной версией или `Refused` с причиной. Кадры рукопожатия
+//! (`Hello`, `Welcome`, `Refused`) одинаковы во всех версиях, остальные кадры обе стороны пишут и
+//! разбирают кодеком выбранной версии ([`Codec`]). Версия 1 заморожена в [`v1`] вместе с векторами
+//! `vectors/v1.txt`; текущая версия 2 добавляет в `Input` признак `ack`.
+//!
+//! Attach-клиент после рукопожатия получает состояние VT-байтами (`Restore`, кадрами), затем живой
+//! поток `Output` с номером первого байта PTY, шлёт ввод, ресайз и `Detach`. Снимок `GHOSTSNP`
+//! в протокол не входит: клиент VT не держит, поэтому формат снимка в совместимость поколений не
+//! входит. Ввод несёт источник и номер, хост отвечает `InputAck`: принят, повтор уже принятого
+//! номера или отказ с причиной. Клиент, чья очередь вывода переполнилась, получает `Evicted` с
+//! причиной и разрыв. Управляющее соединение (`list`, `stop`, ввод, ресайз и снимок без клиента)
+//! клиентом сессии не считается. Соединение роли GUI (`Gui`) привязывается к поколению лидера и
+//! несёт типизированные эффекты: чтение буфера обмена, фокус и видимость. Соединение наблюдения
+//! (`Observe`, только проба) получает событие разбора `Parsed` после каждого куска PTY.
 //!
 //! Модуль чистый, он идёт в `make check`.
+
+pub mod v1;
 
 use std::fmt;
 use std::io::{self, Read, Write};
@@ -22,8 +31,23 @@ use crate::backend::{Lead, Role, Snapshot};
 use crate::observer::ProcessKey;
 use crate::pty::Winsize;
 
-/// Версия протокола хоста. Задача 14 замораживает этот кодек как v1.
-pub const VERSION: u16 = 1;
+/// Версия текущего кодека.
+pub const VERSION: u16 = 2;
+/// Самая ранняя версия, кодек которой есть в этой сборке.
+pub const MIN_VERSION: u16 = 1;
+/// Версии, которые понимает эта сборка. Хост с функцией `proto-v1` — предыдущее поколение для G1
+/// и G2: он знает только замороженный v1.
+pub const SUPPORTED: Versions = if cfg!(feature = "proto-v1") {
+    Versions {
+        min: MIN_VERSION,
+        max: v1::VERSION,
+    }
+} else {
+    Versions {
+        min: MIN_VERSION,
+        max: VERSION,
+    }
+};
 /// Предел тела кадра.
 pub const MAX_BODY: usize = 1 << 20;
 /// Тег и длина.
@@ -126,11 +150,13 @@ pub enum Ack {
 pub enum Message {
     // --- клиент → хост ---
     Hello(Hello),
-    /// Ввод источника `source` с номером `seq`.
+    /// Ввод источника `source` с номером `seq`. `ack = false` (с версии 2) — клиент подтверждения
+    /// не читает, хост его не шлёт; в версии 1 признака нет, подтверждается каждый ввод.
     Input {
         source: u64,
         seq: u64,
         bytes: Vec<u8>,
+        ack: bool,
     },
     Resize(Winsize),
     StatusRequest,
@@ -236,11 +262,92 @@ impl fmt::Display for ProtoError {
 
 impl std::error::Error for ProtoError {}
 
+/// Диапазон версий протокола стороны.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Versions {
+    pub min: u16,
+    pub max: u16,
+}
+
+impl fmt::Display for Versions {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.min == self.max {
+            write!(f, "{}", self.min)
+        } else {
+            write!(f, "{}–{}", self.min, self.max)
+        }
+    }
+}
+
+impl Versions {
+    pub fn contains(self, version: u16) -> bool {
+        (self.min..=self.max).contains(&version)
+    }
+
+    /// Хост: версия соединения по наибольшей версии клиента из `Hello` — общая наибольшая, иначе
+    /// отказ с причиной.
+    pub fn choose(self, client_max: u16) -> Result<Codec, String> {
+        let chosen = client_max.min(self.max);
+        if chosen < self.min {
+            return Err(format!(
+                "несовместимое поколение: клиент понимает протокол до {client_max}, хост — {self}"
+            ));
+        }
+        Codec::of(chosen).ok_or_else(|| format!("у сборки нет кодека протокола {chosen}"))
+    }
+
+    /// Клиент: версия, которую выбрал хост, должна быть в его диапазоне.
+    pub fn confirm(self, chosen: u16) -> Result<Codec, String> {
+        if !self.contains(chosen) {
+            return Err(format!(
+                "несовместимое поколение: хост выбрал протокол {chosen}, клиент понимает {self}"
+            ));
+        }
+        Codec::of(chosen).ok_or_else(|| format!("у сборки нет кодека протокола {chosen}"))
+    }
+}
+
+/// Кодек кадров после рукопожатия.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Codec {
+    /// Замороженный [`v1`].
+    V1,
+    /// Текущий: `Input` с признаком `ack`.
+    V2,
+}
+
+impl Codec {
+    /// Кадры рукопожатия одинаковы во всех версиях; до `Welcome` стороны пишут и читают ими.
+    pub const HANDSHAKE: Codec = Codec::V1;
+
+    pub fn of(version: u16) -> Option<Codec> {
+        match version {
+            v1::VERSION => Some(Codec::V1),
+            VERSION => Some(Codec::V2),
+            _ => None,
+        }
+    }
+
+    pub fn version(self) -> u16 {
+        match self {
+            Codec::V1 => v1::VERSION,
+            Codec::V2 => VERSION,
+        }
+    }
+}
+
 // --- кодирование ---
 
 struct Body(Vec<u8>);
 
 impl Body {
+    fn frame(self, tag: u8) -> Vec<u8> {
+        let mut frame = Vec::with_capacity(HEADER + self.0.len());
+        frame.push(tag);
+        frame.extend_from_slice(&(self.0.len() as u32).to_be_bytes());
+        frame.extend_from_slice(&self.0);
+        frame
+    }
     fn u8(&mut self, value: u8) {
         self.0.push(value);
     }
@@ -326,8 +433,16 @@ fn role_code(role: Role) -> u8 {
     }
 }
 
-/// Кадр сообщения целиком.
-pub fn encode(message: &Message) -> Vec<u8> {
+/// Кадр сообщения кодеком `codec`.
+pub fn encode(codec: Codec, message: &Message) -> Vec<u8> {
+    match codec {
+        Codec::V1 => v1::encode(message),
+        Codec::V2 => encode_v2(message),
+    }
+}
+
+/// Кадр в формате версии 2: v1 и признак `ack` у `Input`.
+fn encode_v2(message: &Message) -> Vec<u8> {
     let mut body = Body(Vec::new());
     let tag = match message {
         Message::Hello(hello) => {
@@ -343,10 +458,16 @@ pub fn encode(message: &Message) -> Vec<u8> {
             body.size(hello.size);
             TAG_HELLO
         }
-        Message::Input { source, seq, bytes } => {
+        Message::Input {
+            source,
+            seq,
+            bytes,
+            ack,
+        } => {
             body.u64(*source);
             body.u64(*seq);
             body.bytes(bytes);
+            body.bool(*ack);
             TAG_INPUT
         }
         Message::Resize(size) => {
@@ -477,11 +598,7 @@ pub fn encode(message: &Message) -> Vec<u8> {
             TAG_EVICTED
         }
     };
-    let mut frame = Vec::with_capacity(HEADER + body.0.len());
-    frame.push(tag);
-    frame.extend_from_slice(&(body.0.len() as u32).to_be_bytes());
-    frame.extend_from_slice(&body.0);
-    frame
+    body.frame(tag)
 }
 
 // --- разбор ---
@@ -491,6 +608,13 @@ struct Fields<'a> {
 }
 
 impl<'a> Fields<'a> {
+    fn end(&self) -> Result<(), ProtoError> {
+        if self.rest.is_empty() {
+            Ok(())
+        } else {
+            Err(ProtoError::Malformed("лишние байты в теле"))
+        }
+    }
     fn take(&mut self, len: usize, what: &'static str) -> Result<&'a [u8], ProtoError> {
         if self.rest.len() < len {
             return Err(ProtoError::Malformed(what));
@@ -591,8 +715,15 @@ impl<'a> Fields<'a> {
     }
 }
 
-/// Сообщение по тегу и телу кадра.
-pub fn decode_body(tag: u8, body: &[u8]) -> Result<Message, ProtoError> {
+/// Сообщение по тегу и телу кадра кодеком `codec`.
+pub fn decode_body(codec: Codec, tag: u8, body: &[u8]) -> Result<Message, ProtoError> {
+    match codec {
+        Codec::V1 => v1::decode_body(tag, body),
+        Codec::V2 => decode_v2(tag, body),
+    }
+}
+
+fn decode_v2(tag: u8, body: &[u8]) -> Result<Message, ProtoError> {
     let mut fields = Fields { rest: body };
     let message = match tag {
         TAG_HELLO => Message::Hello(Hello {
@@ -612,6 +743,7 @@ pub fn decode_body(tag: u8, body: &[u8]) -> Result<Message, ProtoError> {
             source: fields.u64("input.source")?,
             seq: fields.u64("input.seq")?,
             bytes: fields.bytes("input.bytes")?,
+            ack: fields.bool("input.ack")?,
         },
         TAG_RESIZE => Message::Resize(fields.size("resize")?),
         TAG_STATUS_REQUEST => Message::StatusRequest,
@@ -706,19 +838,25 @@ pub fn decode_body(tag: u8, body: &[u8]) -> Result<Message, ProtoError> {
         TAG_EVICTED => Message::Evicted(fields.string("evicted")?),
         other => return Err(ProtoError::UnknownTag(other)),
     };
-    if !fields.rest.is_empty() {
-        return Err(ProtoError::Malformed("лишние байты в теле"));
-    }
+    fields.end()?;
     Ok(message)
 }
 
 /// Разбор потока кадров, пришедшего произвольными кусками.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Decoder {
+    codec: Codec,
     buf: Vec<u8>,
 }
 
 impl Decoder {
+    pub fn new(codec: Codec) -> Decoder {
+        Decoder {
+            codec,
+            buf: Vec::new(),
+        }
+    }
+
     pub fn push(&mut self, bytes: &[u8]) {
         self.buf.extend_from_slice(bytes);
     }
@@ -735,7 +873,7 @@ impl Decoder {
         if self.buf.len() < HEADER + len {
             return Ok(None);
         }
-        let message = decode_body(self.buf[0], &self.buf[HEADER..HEADER + len])?;
+        let message = decode_body(self.codec, self.buf[0], &self.buf[HEADER..HEADER + len])?;
         self.buf.drain(..HEADER + len);
         Ok(Some(message))
     }
@@ -746,13 +884,13 @@ impl Decoder {
     }
 }
 
-pub fn write_message(writer: &mut impl Write, message: &Message) -> io::Result<()> {
-    writer.write_all(&encode(message))?;
+pub fn write_message(writer: &mut impl Write, codec: Codec, message: &Message) -> io::Result<()> {
+    writer.write_all(&encode(codec, message))?;
     writer.flush()
 }
 
 /// Читает одно сообщение; `None` — соединение закрыто на границе кадра.
-pub fn read_message(reader: &mut impl Read) -> io::Result<Option<Message>> {
+pub fn read_message(reader: &mut impl Read, codec: Codec) -> io::Result<Option<Message>> {
     let mut header = [0u8; HEADER];
     let mut filled = 0;
     while filled < HEADER {
@@ -778,180 +916,534 @@ pub fn read_message(reader: &mut impl Read) -> io::Result<Option<Message>> {
     }
     let mut body = vec![0u8; len];
     reader.read_exact(&mut body)?;
-    decode_body(header[0], &body)
+    decode_body(codec, header[0], &body)
         .map(Some)
         .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))
+}
+
+/// Отказ рукопожатия на стороне клиента.
+#[derive(Debug)]
+pub enum HandshakeError {
+    Io(io::Error),
+    /// Хост ответил `Refused`.
+    Refused(String),
+    /// Хост выбрал версию вне диапазона клиента: несовместимое поколение.
+    Incompatible(String),
+    /// Вместо `Welcome` пришло другое сообщение или соединение закрылось.
+    Unexpected(String),
+}
+
+impl fmt::Display for HandshakeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HandshakeError::Io(err) => write!(f, "рукопожатие: {err}"),
+            HandshakeError::Refused(reason) => write!(f, "хост отказал: {reason}"),
+            HandshakeError::Incompatible(reason) | HandshakeError::Unexpected(reason) => {
+                f.write_str(reason)
+            }
+        }
+    }
+}
+
+/// Рукопожатие клиента: `Hello` с наибольшей версией из `versions`, затем `Welcome` с версией,
+/// которую выбрал хост, и её кодек для всех следующих кадров.
+pub fn handshake<S: Read + Write>(
+    stream: &mut S,
+    versions: Versions,
+    purpose: Purpose,
+    lead: Lead,
+    client: String,
+    size: Winsize,
+) -> Result<(Welcome, Codec), HandshakeError> {
+    let hello = Message::Hello(Hello {
+        version: versions.max,
+        purpose,
+        lead,
+        client,
+        size,
+    });
+    write_message(stream, Codec::HANDSHAKE, &hello).map_err(HandshakeError::Io)?;
+    match read_message(stream, Codec::HANDSHAKE).map_err(HandshakeError::Io)? {
+        Some(Message::Welcome(welcome)) => {
+            let codec = versions
+                .confirm(welcome.version)
+                .map_err(HandshakeError::Incompatible)?;
+            Ok((welcome, codec))
+        }
+        Some(Message::Refused(reason)) => Err(HandshakeError::Refused(reason)),
+        Some(other) => Err(HandshakeError::Unexpected(format!(
+            "вместо welcome: {other:?}"
+        ))),
+        None => Err(HandshakeError::Unexpected(
+            "хост закрыл соединение до welcome".to_owned(),
+        )),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn samples() -> Vec<Message> {
-        let size = Winsize {
+    const V1_VECTORS: &str = include_str!("vectors/v1.txt");
+
+    fn size() -> Winsize {
+        Winsize {
             rows: 24,
             cols: 80,
             xpixel: 640,
             ypixel: 384,
-        };
+        }
+    }
+
+    /// Сообщения в порядке векторов `vectors/v1.txt` с их именами; у `Input` — значение `ack`,
+    /// которое даёт разбор v1.
+    fn named() -> Vec<(&'static str, Message)> {
+        let size = size();
         let key = |pid| ProcessKey {
             pid,
             start_us: 1_794_854_604_000_123,
         };
         vec![
-            Message::Hello(Hello {
-                version: VERSION,
-                purpose: Purpose::Attach,
-                lead: Lead::Claim,
-                client: "attach 0.1.0".to_owned(),
-                size,
-            }),
-            Message::Input {
-                source: 0x5eed,
-                seq: 2,
-                bytes: b"\x03ls\r".to_vec(),
-            },
-            Message::Resize(size),
-            Message::StatusRequest,
-            Message::Stop,
-            Message::Detach,
-            Message::Welcome(Welcome {
-                version: VERSION,
-                host: "host 0.1.0".to_owned(),
-                vt: "нет".to_owned(),
-                session: "s1-a1".to_owned(),
-                role: Role::Leader,
-                generation: 3,
-                offset: 1 << 40,
-            }),
-            Message::Output {
-                offset: 7,
-                bytes: vec![0, 0x1b, b'[', 0xff],
-            },
-            Message::Status(Status {
-                host: key(10),
-                workload: key(11),
-                workload_pgid: 11,
-                workload_sid: None,
-                clients: 2,
-                leader: true,
-                reads: 5,
-                read_bytes: 4096,
-                parsed_bytes: 4000,
-                replies: 12,
-                dropped_replies: 4,
-                clipboard: ClipStats {
-                    requests: 3,
-                    answered: 1,
-                    timeouts: 1,
-                    cancelled: 0,
-                    no_gui: 1,
-                    dropped: 2,
+            (
+                "hello",
+                Message::Hello(Hello {
+                    version: 1,
+                    purpose: Purpose::Attach,
+                    lead: Lead::Claim,
+                    client: "attach 0.1.0".to_owned(),
+                    size,
+                }),
+            ),
+            (
+                "input",
+                Message::Input {
+                    source: 0x5eed,
+                    seq: 2,
+                    bytes: b"\x03ls\r".to_vec(),
+                    ack: true,
                 },
-                size,
-                generation: 3,
-                evictions: 1,
-                input_queued: 1 << 18,
-            }),
-            Message::SnapshotRequest,
-            Message::GuiBind { generation: 2 },
-            Message::Focus(true),
-            Message::Visible(false),
-            Message::ClipboardReply {
-                serial: 9,
-                generation: 2,
-                data: Some(b"clip".to_vec()),
-            },
-            Message::ClipboardReply {
-                serial: 10,
-                generation: 2,
-                data: None,
-            },
-            Message::Restore(b"\x1b[?25l".to_vec()),
-            Message::Snapshot(Snapshot {
-                revision: 4,
-                cols: 80,
-                rows: 24,
-                cursor_x: 3,
-                cursor_y: 1,
-                alternate: true,
-                text: "a\nb".to_owned(),
-            }),
-            Message::ClipboardRequest {
-                serial: 9,
-                generation: 2,
-            },
-            Message::Parsed {
-                read: 3,
-                offset: 1 << 33,
-                held: 2,
-                ground: false,
-            },
-            Message::Role {
-                role: Role::Follower,
-                generation: 4,
-            },
-            Message::Exited {
-                code: Some(0),
-                signal: None,
-            },
-            Message::Exited {
-                code: None,
-                signal: Some(9),
-            },
-            Message::Refused("нет сессии".to_owned()),
-            Message::Done,
-            Message::InputAck {
-                source: 0x5eed,
-                seq: 2,
-                ack: Ack::Accepted,
-            },
-            Message::InputAck {
-                source: 0x5eed,
-                seq: 2,
-                ack: Ack::Duplicate,
-            },
-            Message::InputAck {
-                source: 1,
-                seq: 9,
-                ack: Ack::Rejected("очередь заполнена".to_owned()),
-            },
-            Message::Evicted("очередь клиента переполнена".to_owned()),
+            ),
+            ("resize", Message::Resize(size)),
+            ("status-request", Message::StatusRequest),
+            ("stop", Message::Stop),
+            ("detach", Message::Detach),
+            (
+                "welcome",
+                Message::Welcome(Welcome {
+                    version: 1,
+                    host: "host 0.1.0".to_owned(),
+                    vt: "нет".to_owned(),
+                    session: "s1-a1".to_owned(),
+                    role: Role::Leader,
+                    generation: 3,
+                    offset: 1 << 40,
+                }),
+            ),
+            (
+                "output",
+                Message::Output {
+                    offset: 7,
+                    bytes: vec![0, 0x1b, b'[', 0xff],
+                },
+            ),
+            (
+                "status",
+                Message::Status(Status {
+                    host: key(10),
+                    workload: key(11),
+                    workload_pgid: 11,
+                    workload_sid: None,
+                    clients: 2,
+                    leader: true,
+                    reads: 5,
+                    read_bytes: 4096,
+                    parsed_bytes: 4000,
+                    replies: 12,
+                    dropped_replies: 4,
+                    clipboard: ClipStats {
+                        requests: 3,
+                        answered: 1,
+                        timeouts: 1,
+                        cancelled: 0,
+                        no_gui: 1,
+                        dropped: 2,
+                    },
+                    size,
+                    generation: 3,
+                    evictions: 1,
+                    input_queued: 1 << 18,
+                }),
+            ),
+            ("snapshot-request", Message::SnapshotRequest),
+            ("gui-bind", Message::GuiBind { generation: 2 }),
+            ("focus", Message::Focus(true)),
+            ("visible", Message::Visible(false)),
+            (
+                "clipboard-reply-data",
+                Message::ClipboardReply {
+                    serial: 9,
+                    generation: 2,
+                    data: Some(b"clip".to_vec()),
+                },
+            ),
+            (
+                "clipboard-reply-empty",
+                Message::ClipboardReply {
+                    serial: 10,
+                    generation: 2,
+                    data: None,
+                },
+            ),
+            ("restore", Message::Restore(b"\x1b[?25l".to_vec())),
+            (
+                "snapshot",
+                Message::Snapshot(Snapshot {
+                    revision: 4,
+                    cols: 80,
+                    rows: 24,
+                    cursor_x: 3,
+                    cursor_y: 1,
+                    alternate: true,
+                    text: "a\nb".to_owned(),
+                }),
+            ),
+            (
+                "clipboard-request",
+                Message::ClipboardRequest {
+                    serial: 9,
+                    generation: 2,
+                },
+            ),
+            (
+                "parsed",
+                Message::Parsed {
+                    read: 3,
+                    offset: 1 << 33,
+                    held: 2,
+                    ground: false,
+                },
+            ),
+            (
+                "role",
+                Message::Role {
+                    role: Role::Follower,
+                    generation: 4,
+                },
+            ),
+            (
+                "exited-code",
+                Message::Exited {
+                    code: Some(0),
+                    signal: None,
+                },
+            ),
+            (
+                "exited-signal",
+                Message::Exited {
+                    code: None,
+                    signal: Some(9),
+                },
+            ),
+            ("refused", Message::Refused("нет сессии".to_owned())),
+            ("done", Message::Done),
+            (
+                "input-ack-accepted",
+                Message::InputAck {
+                    source: 0x5eed,
+                    seq: 2,
+                    ack: Ack::Accepted,
+                },
+            ),
+            (
+                "input-ack-duplicate",
+                Message::InputAck {
+                    source: 0x5eed,
+                    seq: 2,
+                    ack: Ack::Duplicate,
+                },
+            ),
+            (
+                "input-ack-rejected",
+                Message::InputAck {
+                    source: 1,
+                    seq: 9,
+                    ack: Ack::Rejected("очередь заполнена".to_owned()),
+                },
+            ),
+            (
+                "evicted",
+                Message::Evicted("очередь клиента переполнена".to_owned()),
+            ),
         ]
     }
 
+    /// Все сообщения текущей версии, включая ввод без подтверждения.
+    fn samples() -> Vec<Message> {
+        let mut samples: Vec<Message> = named().into_iter().map(|(_, message)| message).collect();
+        samples.push(Message::Input {
+            source: 0x5eed,
+            seq: 3,
+            bytes: b"q".to_vec(),
+            ack: false,
+        });
+        samples
+    }
+
+    fn unhex(text: &str) -> Vec<u8> {
+        (0..text.len())
+            .step_by(2)
+            .map(|at| u8::from_str_radix(&text[at..at + 2], 16).unwrap())
+            .collect()
+    }
+
+    fn v1_vectors() -> Vec<(&'static str, Vec<u8>)> {
+        V1_VECTORS
+            .lines()
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .map(|line| {
+                let (name, frame) = line.split_once(' ').unwrap();
+                (name, unhex(frame))
+            })
+            .collect()
+    }
+
     #[test]
-    fn every_message_round_trips() {
+    fn v1_vectors_cover_every_tag_and_stay_frozen() {
+        let vectors = v1_vectors();
+        let named = named();
+        assert_eq!(
+            vectors.iter().map(|(name, _)| *name).collect::<Vec<_>>(),
+            named.iter().map(|(name, _)| *name).collect::<Vec<_>>()
+        );
+        let mut tags: Vec<u8> = vectors.iter().map(|(_, frame)| frame[0]).collect();
+        tags.dedup();
+        let expected: Vec<u8> = (TAG_HELLO..=TAG_CLIPBOARD_REPLY)
+            .chain(TAG_WELCOME..=TAG_EVICTED)
+            .collect();
+        let mut sorted = tags.clone();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(sorted, expected, "у каждого тега v1 есть вектор");
+        for ((name, frame), (_, message)) in vectors.iter().zip(&named) {
+            assert_eq!(&v1::encode(message), frame, "кодек v1 изменился: {name}");
+        }
+    }
+
+    #[test]
+    fn v1_vectors_are_decoded_by_the_current_code() {
+        for ((name, frame), (_, message)) in v1_vectors().iter().zip(named()) {
+            let mut reader = &frame[..];
+            assert_eq!(
+                read_message(&mut reader, Codec::V1).unwrap(),
+                Some(message),
+                "{name}"
+            );
+            assert!(reader.is_empty(), "{name}");
+        }
+    }
+
+    #[test]
+    fn handshake_frames_are_the_same_in_every_version() {
+        for (name, message) in named() {
+            if matches!(
+                message,
+                Message::Hello(_) | Message::Welcome(_) | Message::Refused(_)
+            ) {
+                assert_eq!(
+                    encode(Codec::V1, &message),
+                    encode(Codec::V2, &message),
+                    "{name}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn version_2_adds_ack_to_input_and_v1_rejects_it() {
+        let input = Message::Input {
+            source: 0x0102,
+            seq: 3,
+            bytes: b"q".to_vec(),
+            ack: false,
+        };
+        let v2 = encode(Codec::V2, &input);
+        assert_eq!(
+            v2,
+            [
+                2, 0, 0, 0, 22, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, b'q', 0
+            ]
+        );
+        // Кодек v1 признак не пишет: кадр — v2 без последнего байта, разбор даёт подтверждение.
+        let v1 = encode(Codec::V1, &input);
+        assert_eq!(&v1[HEADER..], &v2[HEADER..v2.len() - 1]);
+        assert!(matches!(
+            decode_body(Codec::V1, TAG_INPUT, &v2[HEADER..]),
+            Err(ProtoError::Malformed(_))
+        ));
+        assert!(matches!(
+            decode_body(Codec::V2, TAG_INPUT, &v1[HEADER..]),
+            Err(ProtoError::Malformed(_))
+        ));
+        assert_eq!(
+            decode_body(Codec::V1, TAG_INPUT, &v1[HEADER..]),
+            Ok(Message::Input {
+                source: 0x0102,
+                seq: 3,
+                bytes: b"q".to_vec(),
+                ack: true,
+            })
+        );
+    }
+
+    #[test]
+    fn negotiation_picks_the_highest_common_version() {
+        let current = Versions { min: 1, max: 2 };
+        let previous = Versions { min: 1, max: 1 };
+        // Текущий клиент и хост предыдущего поколения.
+        assert_eq!(previous.choose(current.max), Ok(Codec::V1));
+        assert_eq!(current.confirm(1), Ok(Codec::V1));
+        assert_eq!(current.choose(current.max), Ok(Codec::V2));
+        // Клиент предыдущего поколения и текущий хост.
+        assert_eq!(current.choose(previous.max), Ok(Codec::V1));
+        // Клиент будущего поколения: хост выбирает свою наибольшую.
+        assert_eq!(current.choose(7), Ok(Codec::V2));
+        assert_eq!(Codec::of(3), None);
+        assert_eq!(Codec::V2.version(), VERSION);
+        assert!(SUPPORTED.contains(MIN_VERSION) && SUPPORTED.min <= SUPPORTED.max);
+    }
+
+    #[test]
+    fn incompatible_generation_is_refused_with_a_reason() {
+        // Хост, отказавшийся от v1, и клиент, который знает только v1.
+        let host = Versions { min: 2, max: 2 };
+        let refused = host.choose(1).unwrap_err();
+        assert!(refused.contains("несовместимое поколение"), "{refused}");
+        assert!(
+            refused.contains("до 1") && refused.contains("хост — 2"),
+            "{refused}"
+        );
+        // Клиент, отказавшийся от v1, и хост, выбравший v1.
+        let client = Versions { min: 2, max: 2 };
+        let refused = client.confirm(1).unwrap_err();
+        assert!(refused.contains("выбрал протокол 1"), "{refused}");
+        assert!(refused.contains("понимает 2"), "{refused}");
+        // Хост выбрал версию выше наибольшей клиента.
+        let refused = Versions { min: 1, max: 2 }.confirm(3).unwrap_err();
+        assert!(refused.contains("понимает 1–2"), "{refused}");
+    }
+
+    /// Хост на другом конце сокета: принимает `Hello` и отвечает тем, что решит `answer`.
+    fn host_answers(
+        answer: impl FnOnce(Hello) -> Message + Send + 'static,
+    ) -> std::os::unix::net::UnixStream {
+        let (client, mut host) = std::os::unix::net::UnixStream::pair().unwrap();
+        std::thread::spawn(move || {
+            let Ok(Some(Message::Hello(hello))) = read_message(&mut host, Codec::HANDSHAKE) else {
+                return;
+            };
+            let _ = write_message(&mut host, Codec::HANDSHAKE, &answer(hello));
+        });
+        client
+    }
+
+    fn welcome_at(version: u16) -> Message {
+        Message::Welcome(Welcome {
+            version,
+            host: "host".to_owned(),
+            vt: "vt".to_owned(),
+            session: "s".to_owned(),
+            role: Role::Unowned,
+            generation: 0,
+            offset: 0,
+        })
+    }
+
+    #[test]
+    fn client_handshake_offers_its_highest_version_and_follows_the_host() {
+        let previous = Versions { min: 1, max: 1 };
+        let mut stream = host_answers(move |hello| match previous.choose(hello.version) {
+            Ok(codec) => welcome_at(codec.version()),
+            Err(reason) => Message::Refused(reason),
+        });
+        let (welcome, codec) = handshake(
+            &mut stream,
+            Versions { min: 1, max: 2 },
+            Purpose::Control,
+            Lead::IfFree,
+            "c".to_owned(),
+            size(),
+        )
+        .unwrap();
+        assert_eq!((welcome.version, codec), (1, Codec::V1));
+
+        let mut stream = host_answers(|_| welcome_at(1));
+        let err = handshake(
+            &mut stream,
+            Versions { min: 2, max: 2 },
+            Purpose::Attach,
+            Lead::IfFree,
+            "c".to_owned(),
+            size(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, HandshakeError::Incompatible(_)), "{err}");
+
+        let mut stream = host_answers(|_| Message::Refused("занято".to_owned()));
+        let err = handshake(
+            &mut stream,
+            SUPPORTED,
+            Purpose::Control,
+            Lead::IfFree,
+            "c".to_owned(),
+            size(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, HandshakeError::Refused(ref reason) if reason == "занято"));
+    }
+
+    #[test]
+    fn every_message_round_trips_in_the_current_version() {
         for message in samples() {
-            let frame = encode(&message);
+            let frame = encode(Codec::V2, &message);
             let len = u32::from_be_bytes([frame[1], frame[2], frame[3], frame[4]]) as usize;
             assert_eq!(frame.len(), HEADER + len, "{message:?}");
-            assert_eq!(decode_body(frame[0], &frame[HEADER..]), Ok(message.clone()));
+            assert_eq!(
+                decode_body(Codec::V2, frame[0], &frame[HEADER..]),
+                Ok(message.clone())
+            );
             let mut reader = &frame[..];
-            assert_eq!(read_message(&mut reader).unwrap(), Some(message));
-            assert_eq!(read_message(&mut reader).unwrap(), None);
+            assert_eq!(read_message(&mut reader, Codec::V2).unwrap(), Some(message));
+            assert_eq!(read_message(&mut reader, Codec::V2).unwrap(), None);
         }
     }
 
     #[test]
     fn wire_layout_is_tag_length_and_big_endian_fields() {
-        assert_eq!(
-            encode(&Message::Output {
-                offset: 0x0102,
-                bytes: b"ab".to_vec(),
-            }),
-            [
-                17, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 2, b'a', b'b'
-            ]
-        );
-        assert_eq!(encode(&Message::Done), [22, 0, 0, 0, 0]);
+        for codec in [Codec::V1, Codec::V2] {
+            assert_eq!(
+                encode(
+                    codec,
+                    &Message::Output {
+                        offset: 0x0102,
+                        bytes: b"ab".to_vec(),
+                    }
+                ),
+                [
+                    17, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 2, b'a', b'b'
+                ]
+            );
+            assert_eq!(encode(codec, &Message::Done), [22, 0, 0, 0, 0]);
+        }
     }
 
     #[test]
     fn decoder_assembles_frames_cut_at_every_byte() {
-        let stream: Vec<u8> = samples().iter().flat_map(encode).collect();
+        let stream: Vec<u8> = samples()
+            .iter()
+            .flat_map(|message| encode(Codec::V2, message))
+            .collect();
         for cut in 0..=stream.len() {
-            let mut decoder = Decoder::default();
+            let mut decoder = Decoder::new(Codec::V2);
             let mut got = Vec::new();
             for part in [&stream[..cut], &stream[cut..]] {
                 decoder.push(part);
@@ -966,46 +1458,50 @@ mod tests {
 
     #[test]
     fn damaged_frames_are_rejected() {
-        let mut decoder = Decoder::default();
-        decoder.push(&[99, 0, 0, 0, 0]);
-        assert_eq!(decoder.next_message(), Err(ProtoError::UnknownTag(99)));
+        for codec in [Codec::V1, Codec::V2] {
+            let mut decoder = Decoder::new(codec);
+            decoder.push(&[99, 0, 0, 0, 0]);
+            assert_eq!(decoder.next_message(), Err(ProtoError::UnknownTag(99)));
 
-        let mut decoder = Decoder::default();
-        decoder.push(&[TAG_INPUT, 0xff, 0xff, 0xff, 0xff]);
-        assert!(matches!(
-            decoder.next_message(),
-            Err(ProtoError::TooLarge(_))
-        ));
+            let mut decoder = Decoder::new(codec);
+            decoder.push(&[TAG_INPUT, 0xff, 0xff, 0xff, 0xff]);
+            assert!(matches!(
+                decoder.next_message(),
+                Err(ProtoError::TooLarge(_))
+            ));
 
-        // Длина строки внутри тела больше самого тела.
-        assert!(matches!(
-            decode_body(TAG_REFUSED, &[0, 0, 0, 9, b'x']),
-            Err(ProtoError::Malformed(_))
-        ));
-        assert!(matches!(
-            decode_body(TAG_DONE, &[1]),
-            Err(ProtoError::Malformed(_))
-        ));
-        assert!(matches!(
-            decode_body(TAG_ROLE, &[7, 0, 0, 0, 1]),
-            Err(ProtoError::Malformed(_))
-        ));
-        assert!(matches!(
-            decode_body(
-                TAG_INPUT_ACK,
-                &[0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 3]
-            ),
-            Err(ProtoError::Malformed(_))
-        ));
-        let input = Message::Input {
-            source: 1,
-            seq: 1,
-            bytes: b"abc".to_vec(),
-        };
-        let mut cut = &encode(&input)[..7];
-        assert_eq!(
-            read_message(&mut cut).unwrap_err().kind(),
-            io::ErrorKind::UnexpectedEof
-        );
+            // Длина строки внутри тела больше самого тела.
+            assert!(matches!(
+                decode_body(codec, TAG_REFUSED, &[0, 0, 0, 9, b'x']),
+                Err(ProtoError::Malformed(_))
+            ));
+            assert!(matches!(
+                decode_body(codec, TAG_DONE, &[1]),
+                Err(ProtoError::Malformed(_))
+            ));
+            assert!(matches!(
+                decode_body(codec, TAG_ROLE, &[7, 0, 0, 0, 1]),
+                Err(ProtoError::Malformed(_))
+            ));
+            assert!(matches!(
+                decode_body(
+                    codec,
+                    TAG_INPUT_ACK,
+                    &[0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 3]
+                ),
+                Err(ProtoError::Malformed(_))
+            ));
+            let input = Message::Input {
+                source: 1,
+                seq: 1,
+                bytes: b"abc".to_vec(),
+                ack: true,
+            };
+            let mut cut = &encode(codec, &input)[..7];
+            assert_eq!(
+                read_message(&mut cut, codec).unwrap_err().kind(),
+                io::ErrorKind::UnexpectedEof
+            );
+        }
     }
 }

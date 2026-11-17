@@ -159,6 +159,7 @@ impl Stand {
                     token: zmx_config.token.clone(),
                     timeout: COMMAND_TIMEOUT,
                     break_socket: None,
+                    versions: crate::proto::SUPPORTED,
                 })?)
             }
         };
@@ -249,11 +250,31 @@ impl Stand {
         id: &SessionId,
         mode: Mode,
     ) -> Result<Session, String> {
+        self.sessions.push(id.clone());
+        self.ensure_by(self.pick(set), id, mode)
+    }
+
+    /// Сессия на адаптере вне стенда: другое поколение Rust-хоста (G1, G2). Уборку его сессии
+    /// стенд делает через основной адаптер, если тот её знает, иначе — по nonce запуска.
+    pub fn ensure_with(
+        &mut self,
+        backend: &dyn Backend,
+        id: &SessionId,
+        mode: Mode,
+    ) -> Result<Session, String> {
+        self.sessions.push(id.clone());
+        self.ensure_by(backend, id, mode)
+    }
+
+    fn ensure_by(
+        &self,
+        backend: &dyn Backend,
+        id: &SessionId,
+        mode: Mode,
+    ) -> Result<Session, String> {
         let fixture_nonce = format!("{id}-w");
         let workload = self.workload(mode, &fixture_nonce)?;
-        self.sessions.push(id.clone());
-        let ensured = self
-            .pick(set)
+        let ensured = backend
             .ensure(id, &workload, self.size)
             .map_err(|err| format!("ensure {id}: {err}"))?;
         let (link, ready) = self.accept(Some(&fixture_nonce))?;

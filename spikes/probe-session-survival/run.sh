@@ -2,7 +2,9 @@
 # Сборка и запуск пробы P0.4 probe-session-survival (ADR-0034, ADR-0035).
 #   run.sh scenarios [сценарий …]  сборка или сверка наборов zmx (scripts/zmx.sh ensure) и набора
 #                                  libghostty-vt (scripts/vt.sh ensure), сверка привязок, clippy и
-#                                  тесты с функцией vt, сборка раннера, затем каждый
+#                                  тесты с функцией vt, сборка раннера; для versions ещё хост
+#                                  предыдущего поколения (функции vt и proto-v1) в отдельный
+#                                  каталог cargo target/proto-v1, затем каждый
 #                                  сценарий на каждом своём кандидате отдельным процессом через
 #                                  --launch под caffeinate -dimsu (временный SHELLIO_STATE_DIR
 #                                  создаёт --launch), выход в
@@ -26,6 +28,8 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CARGO="${CARGO:-cargo}"
 PACKAGE=probe-session-survival
 BIN="$ROOT/target/release/probe-session"
+# Хост предыдущего поколения (G1, G2): свой каталог cargo, чтобы не заменить текущий хост.
+HOST_V1_TARGET="$ROOT/target/proto-v1"
 OUT_BASE="$ROOT/target/probes/session-survival"
 # Каталог наборов пробы — как в scripts/zmx.sh и scripts/vt.sh.
 SETS_DIR="${SHELLIO_PROBE_SETS_DIR:-$OUT_BASE}"
@@ -77,6 +81,14 @@ cargo_with() {
         esac
     done
     (cd "$ROOT" && "$CARGO" "$subcommand" -p "$PACKAGE" --locked --features "$features" "$@")
+}
+
+# Хост с замороженным протоколом v1 для G1 и G2 Rust-хоста: отдельным вызовом cargo в свой
+# каталог, путь — процессу сценария (launch::HOST_V1).
+build_host_v1() {
+    cargo_with vt,proto-v1 build --release --bin probe-session-host --target-dir "$HOST_V1_TARGET"
+    export SHELLIO_PROBE_HOST_V1="$HOST_V1_TARGET/release/probe-session-host"
+    [ -x "$SHELLIO_PROBE_HOST_V1" ] || die "нет хоста v1 $SHELLIO_PROBE_HOST_V1"
 }
 
 # clippy и тесты с одним набором функций (ADR-0035, «Цель пробы»).
@@ -306,8 +318,7 @@ cmd_surface() {
 backends_of() {
     case "$1" in
         smoke | capi) echo - ;;
-        lifecycle | io | restore | queries | geometry) echo zmx rust ;;
-        versions) echo zmx ;;
+        lifecycle | io | restore | queries | geometry | versions) echo zmx rust ;;
         *) die "у сценария $1 не заданы кандидаты" ;;
     esac
 }
@@ -355,6 +366,9 @@ cmd_scenarios() {
     "$VT_BINDINGS" --check
     check_features vt
     cargo_with vt build --release
+    case " $scenarios " in
+        *" versions "*) build_host_v1 ;;
+    esac
     build_info
     mkdir -p "$OUT_BASE"
     run_dir="$OUT_BASE/$(date +%Y%m%d-%H%M%S)-$$"

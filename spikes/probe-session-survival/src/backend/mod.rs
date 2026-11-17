@@ -127,6 +127,11 @@ pub enum Liveness {
     Unreachable {
         error: String,
     },
+    /// Хост ответил, но общей версии протокола у поколений нет: сессия жива, говорить с ней это
+    /// поколение не может.
+    Incompatible {
+        reason: String,
+    },
     /// Хоста нет, а его сокет остался: хост потерян, а не завершён.
     Lost,
     /// Хоста нет и сокета нет: сессия закончилась.
@@ -261,6 +266,8 @@ impl StopOutcome {
 pub enum BackendError {
     /// У кандидата нет этой операции.
     Unsupported(String),
+    /// Хост другого поколения без общей версии протокола.
+    Incompatible(String),
     Failed(String),
 }
 
@@ -268,6 +275,7 @@ impl fmt::Display for BackendError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             BackendError::Unsupported(what) => write!(f, "нет у кандидата: {what}"),
+            BackendError::Incompatible(reason) => f.write_str(reason),
             BackendError::Failed(reason) => f.write_str(reason),
         }
     }

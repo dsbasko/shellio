@@ -4,6 +4,10 @@
 //! [`Launch`]. Проигравший гонку `ensure` получает «занято» и спрашивает победителя. Управляющее
 //! соединение (`list`, `stop`, ввод и ресайз без клиента) клиентом сессии не считается. `list`
 //! сокеты не удаляет.
+//!
+//! Каждое соединение начинается рукопожатием (`proto::handshake`) с диапазоном версий адаптера:
+//! хост другого поколения без общей версии даёт [`BackendError::Incompatible`], и `ensure` тогда
+//! нагрузку не запускает.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -26,7 +30,7 @@ use crate::host::{self, Launch, attach, registry, socket};
 use crate::launch;
 use crate::matrix::Candidate;
 use crate::observer::ProcessKey;
-use crate::proto::{self, Ack, Hello, Message, Purpose, Status, Welcome};
+use crate::proto::{self, Ack, Codec, HandshakeError, Message, Purpose, Status, Versions, Welcome};
 use crate::pty::Winsize;
 
 const ROLE_TITLE: &str = "pss-role;";
@@ -51,6 +55,16 @@ pub struct Config {
     pub timeout: Duration,
     /// Сокет точек остановки окна публикации (E5); `None` — хост не останавливается.
     pub break_socket: Option<PathBuf>,
+    /// Версии протокола, которые понимает это поколение адаптера и его attach-клиента; нижняя
+    /// выше [`proto::SUPPORTED`] — поколение, отказавшееся от старых версий (G2).
+    pub versions: Versions,
+}
+
+/// Соединение после рукопожатия.
+struct Conn {
+    stream: UnixStream,
+    welcome: Welcome,
+    codec: Codec,
 }
 
 pub struct RustHost {
@@ -98,8 +112,18 @@ impl RustHost {
         env
     }
 
-    /// Соединение назначения `purpose` после `Welcome`.
-    fn open(&self, id: &SessionId, purpose: Purpose) -> Result<(UnixStream, Welcome)> {
+    /// Соединение назначения `purpose` после рукопожатия: `Welcome` и кодек выбранной версии.
+    fn open(&self, id: &SessionId, purpose: Purpose) -> Result<Conn> {
+        self.open_with(id, purpose, Lead::IfFree, Winsize::cells(0, 0))
+    }
+
+    fn open_with(
+        &self,
+        id: &SessionId,
+        purpose: Purpose,
+        lead: Lead,
+        size: Winsize,
+    ) -> Result<Conn> {
         let path = Backend::socket_path(self, id);
         let failed = |what: &str, err: io::Error| BackendError::Failed(format!("{what}: {err}"));
         let mut stream = UnixStream::connect(&path)
@@ -107,45 +131,81 @@ impl RustHost {
         stream
             .set_read_timeout(Some(self.config.timeout))
             .map_err(|err| failed("срок чтения", err))?;
-        proto::write_message(
+        let (welcome, codec) = proto::handshake(
             &mut stream,
-            &Message::Hello(Hello {
-                version: proto::VERSION,
-                purpose,
-                lead: Lead::IfFree,
-                client: format!("probe-session {purpose:?}"),
-                size: Winsize::cells(0, 0),
-            }),
+            self.config.versions,
+            purpose,
+            lead,
+            format!("probe-session {purpose:?}"),
+            size,
         )
-        .map_err(|err| failed("hello", err))?;
-        match proto::read_message(&mut stream).map_err(|err| failed("welcome", err))? {
-            Some(Message::Welcome(welcome)) => Ok((stream, welcome)),
-            Some(Message::Refused(reason)) => {
-                Err(BackendError::Failed(format!("хост отказал: {reason}")))
+        .map_err(|err| match err {
+            HandshakeError::Incompatible(reason) => BackendError::Incompatible(reason),
+            other => BackendError::Failed(other.to_string()),
+        })?;
+        Ok(Conn {
+            stream,
+            welcome,
+            codec,
+        })
+    }
+
+    /// `Welcome` управляющего соединения: версия, которую выбрал хост, его сборка и ревизия VT.
+    pub fn welcome(&self, id: &SessionId) -> Result<Welcome> {
+        Ok(self.open(id, Purpose::Control)?.welcome)
+    }
+
+    /// Байты восстановления, которые хост отдаёт attach-клиенту: attach с `Lead::IfFree` и
+    /// размером `size`, `Welcome`, затем `Detach` и кадры `Restore` до `Done`. Если у сессии нет
+    /// лидера, это соединение им станет: стенд вызывает его при живом лидере.
+    pub fn restore_frames(&self, id: &SessionId, size: Winsize) -> Result<(Welcome, Vec<u8>)> {
+        let failed = |what: &str, err: io::Error| BackendError::Failed(format!("{what}: {err}"));
+        let Conn {
+            mut stream,
+            welcome,
+            codec,
+        } = self.open_with(id, Purpose::Attach, Lead::IfFree, size)?;
+        proto::write_message(&mut stream, codec, &Message::Detach)
+            .map_err(|err| failed("detach", err))?;
+        let mut restored = Vec::new();
+        loop {
+            match proto::read_message(&mut stream, codec)
+                .map_err(|err| failed("кадры восстановления", err))?
+            {
+                Some(Message::Restore(bytes)) => restored.extend_from_slice(&bytes),
+                Some(Message::Done) | None => return Ok((welcome, restored)),
+                Some(_) => {}
             }
-            other => Err(BackendError::Failed(format!("вместо welcome: {other:?}"))),
         }
     }
 
     /// Соединение роли GUI от имени лидера поколения `generation`. `auto` — данные, которыми GUI
     /// сразу отвечает на чтение буфера обмена; `None` — запросы ждут [`Gui::answer`].
     pub fn gui(&self, id: &SessionId, generation: u32, auto: Option<Vec<u8>>) -> Result<Gui> {
-        let (stream, _) = self.open(id, Purpose::Gui)?;
-        Gui::start(stream, generation, auto, self.config.timeout)
+        let conn = self.open(id, Purpose::Gui)?;
+        Gui::start(
+            conn.stream,
+            conn.codec,
+            generation,
+            auto,
+            self.config.timeout,
+        )
     }
 
     /// Наблюдатель разбора хоста: события `Parsed` после каждого куска PTY.
     pub fn observe(&self, id: &SessionId) -> Result<Observer> {
-        let (stream, welcome) = self.open(id, Purpose::Observe)?;
-        Observer::start(stream, welcome.offset)
+        let conn = self.open(id, Purpose::Observe)?;
+        Observer::start(conn.stream, conn.codec, conn.welcome.offset)
     }
 
     /// Управляющее соединение: hello, одно сообщение и ответ.
     pub fn control(&self, id: &SessionId, message: &Message) -> Result<Message> {
         let failed = |what: &str, err: io::Error| BackendError::Failed(format!("{what}: {err}"));
-        let (mut stream, _) = self.open(id, Purpose::Control)?;
-        proto::write_message(&mut stream, message).map_err(|err| failed("запрос", err))?;
-        proto::read_message(&mut stream)
+        let Conn {
+            mut stream, codec, ..
+        } = self.open(id, Purpose::Control)?;
+        proto::write_message(&mut stream, codec, message).map_err(|err| failed("запрос", err))?;
+        proto::read_message(&mut stream, codec)
             .map_err(|err| failed("ответ", err))?
             .ok_or_else(|| BackendError::Failed("хост закрыл соединение без ответа".to_owned()))
     }
@@ -161,17 +221,21 @@ impl RustHost {
         read_ack: bool,
     ) -> Result<InputOutcome> {
         let failed = |what: &str, err: io::Error| BackendError::Failed(format!("{what}: {err}"));
-        let (mut stream, _) = self.open(id, Purpose::Control)?;
+        let Conn {
+            mut stream, codec, ..
+        } = self.open(id, Purpose::Control)?;
         let message = Message::Input {
             source: input.source,
             seq: input.seq,
             bytes: bytes.to_vec(),
+            ack: true,
         };
-        proto::write_message(&mut stream, &message).map_err(|err| failed("ввод", err))?;
+        proto::write_message(&mut stream, codec, &message).map_err(|err| failed("ввод", err))?;
         if !read_ack {
             return Ok(InputOutcome::Unknown);
         }
-        match proto::read_message(&mut stream).map_err(|err| failed("подтверждение ввода", err))?
+        match proto::read_message(&mut stream, codec)
+            .map_err(|err| failed("подтверждение ввода", err))?
         {
             Some(Message::InputAck { source, seq, ack })
                 if source == input.source && seq == input.seq =>
@@ -293,17 +357,24 @@ impl Backend for RustHost {
     }
 
     fn ensure(&self, id: &SessionId, workload: &Workload, size: Winsize) -> Result<Ensured> {
-        if let Ok(status) = self.status(id) {
-            let record = RustHost::record_from(&status, id);
-            self.records().insert(id.clone(), record.clone());
-            return Ok(Ensured {
-                record,
-                created: false,
-                command: CommandRun {
-                    args: vec!["status".to_owned(), id.to_string()],
-                    ..CommandRun::default()
-                },
-            });
+        match self.status(id) {
+            Ok(status) => {
+                let record = RustHost::record_from(&status, id);
+                self.records().insert(id.clone(), record.clone());
+                return Ok(Ensured {
+                    record,
+                    created: false,
+                    command: CommandRun {
+                        args: vec!["status".to_owned(), id.to_string()],
+                        ..CommandRun::default()
+                    },
+                });
+            }
+            // Хост жив, но другого поколения: новая нагрузка заняла бы место живой сессии.
+            Err(BackendError::Incompatible(reason)) => {
+                return Err(BackendError::Incompatible(reason));
+            }
+            Err(_) => {}
         }
         let (launched, run) = self.launch(id, workload, size)?;
         let (record, created) = match launched {
@@ -337,6 +408,8 @@ impl Backend for RustHost {
                 socket: Backend::socket_path(self, id),
                 lead,
                 role_prefix: self.role_prefix(),
+                proto_min: (self.config.versions.min != proto::SUPPORTED.min)
+                    .then_some(self.config.versions.min),
             }
             .to_args(),
             env: self.env(),
@@ -440,6 +513,7 @@ impl Backend for RustHost {
                 workload_pid: status.workload.pid,
                 clients: status.clients,
             },
+            Err(BackendError::Incompatible(reason)) => Liveness::Incompatible { reason },
             Err(err) => Liveness::Unreachable {
                 error: err.to_string(),
             },
@@ -485,6 +559,20 @@ pub fn attach_events(log: &str) -> usize {
         .count()
 }
 
+/// Версии протокола attach-клиентов по журналу хоста: выбранная и наибольшая версия клиента из
+/// строк `attach <id>: … протокол <N> (клиент до <M>)`.
+pub fn attach_protocols(log: &str) -> Vec<(u16, u16)> {
+    log.lines()
+        .filter(|line| line.contains(": attach ") && line.contains(": граница "))
+        .filter_map(|line| {
+            let rest = line.split_once(", протокол ")?.1;
+            let (chosen, rest) = rest.split_once(" (клиент до ")?;
+            let (client, _) = rest.split_once(')')?;
+            Some((chosen.parse().ok()?, client.parse().ok()?))
+        })
+        .collect()
+}
+
 // --- роль GUI и наблюдение ---
 
 /// Запрос хоста на чтение буфера обмена, полученный GUI.
@@ -504,6 +592,7 @@ struct GuiInbox {
 /// Соединение роли GUI: типизированный путь эффектов UI.
 pub struct Gui {
     writer: Mutex<UnixStream>,
+    codec: Codec,
     inbox: Arc<(Mutex<GuiInbox>, Condvar)>,
     pub generation: u32,
     timeout: Duration,
@@ -512,6 +601,7 @@ pub struct Gui {
 impl Gui {
     fn start(
         stream: UnixStream,
+        codec: Codec,
         generation: u32,
         auto: Option<Vec<u8>>,
         timeout: Duration,
@@ -528,7 +618,7 @@ impl Gui {
             .name("gui".to_owned())
             .spawn(move || {
                 loop {
-                    let message = proto::read_message(&mut reader);
+                    let message = proto::read_message(&mut reader, codec);
                     let (lock, wake) = &*shared;
                     let mut inbox = lock.lock().unwrap_or_else(|p| p.into_inner());
                     match message {
@@ -537,6 +627,7 @@ impl Gui {
                             if let Some(data) = &auto {
                                 let _ = proto::write_message(
                                     &mut answerer,
+                                    codec,
                                     &Message::ClipboardReply {
                                         serial,
                                         generation,
@@ -558,6 +649,7 @@ impl Gui {
             .map_err(|err| failed("поток GUI", err))?;
         let gui = Gui {
             writer: Mutex::new(stream),
+            codec,
             inbox,
             generation,
             timeout,
@@ -570,7 +662,7 @@ impl Gui {
 
     fn write(&self, message: &Message) -> Result<()> {
         let mut writer = self.writer.lock().unwrap_or_else(|p| p.into_inner());
-        proto::write_message(&mut *writer, message)
+        proto::write_message(&mut *writer, self.codec, message)
             .map_err(|err| BackendError::Failed(format!("запись GUI: {err}")))
     }
 
@@ -677,7 +769,7 @@ pub struct Observer {
 }
 
 impl Observer {
-    fn start(stream: UnixStream, start: u64) -> Result<Observer> {
+    fn start(stream: UnixStream, codec: Codec, start: u64) -> Result<Observer> {
         let failed = |what: &str, err: io::Error| BackendError::Failed(format!("{what}: {err}"));
         stream
             .set_read_timeout(None)
@@ -691,7 +783,7 @@ impl Observer {
             .name("observe".to_owned())
             .spawn(move || {
                 loop {
-                    let message = proto::read_message(&mut reader);
+                    let message = proto::read_message(&mut reader, codec);
                     let (lock, wake) = &*shared;
                     let mut log = lock.lock().unwrap_or_else(|p| p.into_inner());
                     match message {
@@ -742,5 +834,22 @@ impl Observer {
             .wait_timeout_while(log, timeout, |log| reached(log).is_none() && !log.closed)
             .unwrap_or_else(|p| p.into_inner());
         reached(&log)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn attach_protocols_are_read_from_the_host_log() {
+        let log = "probe-session-host: attach 3: граница 120, восстановление 900 байт, \
+                   continuation 0, удержано 0, протокол 1 (клиент до 2)\n\
+                   probe-session-host: attach 5: граница 300, восстановление 10 байт, \
+                   continuation 2, удержано 1, протокол 2 (клиент до 2), не выражается: x\n\
+                   probe-session-host: клиент 3 разорван: протокол 1\n";
+        assert_eq!(attach_protocols(log), vec![(1, 2), (2, 2)]);
+        assert_eq!(attach_events(log), 2);
+        assert!(attach_protocols("probe-session-host: attach 1: граница 0").is_empty());
     }
 }

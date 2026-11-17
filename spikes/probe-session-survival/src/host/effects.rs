@@ -12,7 +12,7 @@ use std::sync::mpsc::SyncSender;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-use crate::proto::{self, ClipStats, Message};
+use crate::proto::{self, ClipStats, Codec, Message};
 
 /// Срок ответа GUI на чтение буфера обмена (модель задачи 8).
 pub const CLIPBOARD_TIMEOUT: Duration = Duration::from_secs(1);
@@ -75,12 +75,18 @@ impl<T: FrameSink + ?Sized> FrameSink for Arc<T> {
     }
 }
 
+struct Gui {
+    generation: u32,
+    codec: Codec,
+    frames: Arc<dyn FrameSink>,
+}
+
 #[derive(Default)]
 struct State {
     /// Поколение текущего лидера; `None` — лидера нет.
     leader: Option<u32>,
-    /// Соединения GUI: поколение, от имени которого они говорят, и очередь кадров.
-    guis: BTreeMap<u64, (u32, Arc<dyn FrameSink>)>,
+    /// Соединения GUI: поколение, от имени которого они говорят, кодек и очередь кадров.
+    guis: BTreeMap<u64, Gui>,
     serial: u64,
     pending: Option<Pending>,
     stats: ClipStats,
@@ -111,10 +117,17 @@ impl Clipboard {
         self.lock().stats
     }
 
-    pub fn bind(&self, conn: u64, generation: u32, frames: impl FrameSink + 'static) {
-        self.lock()
-            .guis
-            .insert(conn, (generation, Arc::new(frames) as Arc<dyn FrameSink>));
+    /// Соединение GUI `conn` говорит от имени поколения `generation`; его кадры пишутся кодеком
+    /// `codec`.
+    pub fn bind(&self, conn: u64, generation: u32, codec: Codec, frames: impl FrameSink + 'static) {
+        self.lock().guis.insert(
+            conn,
+            Gui {
+                generation,
+                codec,
+                frames: Arc::new(frames),
+            },
+        );
     }
 
     pub fn unbind(&self, conn: u64) {
@@ -124,7 +137,7 @@ impl Clipboard {
     /// Поколение соединения GUI, если оно говорит от имени текущего лидера.
     pub fn current(&self, conn: u64) -> bool {
         let state = self.lock();
-        matches!((state.guis.get(&conn), state.leader), (Some((generation, _)), Some(leader)) if *generation == leader)
+        matches!((state.guis.get(&conn), state.leader), (Some(gui), Some(leader)) if gui.generation == leader)
     }
 
     /// Новый лидер или его отсутствие: ожидание чужого поколения отменяется.
@@ -148,21 +161,24 @@ impl Clipboard {
             state.stats.no_gui += 1;
             return Read::NoGui;
         };
-        let Some(frames) = state
+        let Some((codec, frames)) = state
             .guis
             .values()
-            .find(|(generation, _)| *generation == leader)
-            .map(|(_, frames)| Arc::clone(frames))
+            .find(|gui| gui.generation == leader)
+            .map(|gui| (gui.codec, Arc::clone(&gui.frames)))
         else {
             state.stats.no_gui += 1;
             return Read::NoGui;
         };
         state.serial += 1;
         let serial = state.serial;
-        let frame = proto::encode(&Message::ClipboardRequest {
-            serial,
-            generation: leader,
-        });
+        let frame = proto::encode(
+            codec,
+            &Message::ClipboardRequest {
+                serial,
+                generation: leader,
+            },
+        );
         if !frames.offer(frame) {
             state.stats.no_gui += 1;
             return Read::NoGui;
@@ -222,7 +238,7 @@ impl Clipboard {
         data: Option<Vec<u8>>,
     ) -> Delivery {
         let mut state = self.lock();
-        let bound = state.guis.get(&conn).map(|(bound, _)| *bound);
+        let bound = state.guis.get(&conn).map(|gui| gui.generation);
         let accepted = match &mut state.pending {
             Some(pending)
                 if pending.serial == serial
@@ -255,7 +271,8 @@ mod tests {
     use super::*;
 
     fn request(frame: &[u8]) -> (u64, u32) {
-        match proto::read_message(&mut &frame[..]) {
+        // Кадр запроса одинаков в v1 и v2.
+        match proto::read_message(&mut &frame[..], Codec::V2) {
             Ok(Some(Message::ClipboardRequest { serial, generation })) => (serial, generation),
             other => panic!("вместо запроса: {other:?}"),
         }
@@ -275,7 +292,7 @@ mod tests {
         let clipboard = Arc::new(Clipboard::new(Duration::from_secs(30)));
         let (tx1, rx1) = mpsc::sync_channel(4);
         let (tx2, rx2) = mpsc::sync_channel(4);
-        clipboard.bind(10, 1, tx1);
+        clipboard.bind(10, 1, Codec::V2, tx1);
         clipboard.set_leader(Some(1));
         assert!(clipboard.current(10));
 
@@ -295,7 +312,7 @@ mod tests {
         assert_eq!(first.join().unwrap(), Read::Answered(b"gui".to_vec()));
 
         // Лидер c1 молчит, c2 забирает лидерство: ожидание отменено, ответ c1 опоздал.
-        clipboard.bind(20, 2, tx2);
+        clipboard.bind(20, 2, Codec::V1, tx2);
         let reader = Arc::clone(&clipboard);
         let second = thread::spawn(move || reader.read());
         let (late_serial, _) = request(&rx1.recv().unwrap());
@@ -320,7 +337,7 @@ mod tests {
     fn silent_gui_gives_a_timeout_and_a_later_answer_is_dropped() {
         let clipboard = Clipboard::new(Duration::from_millis(20));
         let (tx, rx) = mpsc::sync_channel(4);
-        clipboard.bind(1, 7, tx);
+        clipboard.bind(1, 7, Codec::V2, tx);
         clipboard.set_leader(Some(7));
         assert_eq!(clipboard.read(), Read::Timeout);
         let (serial, _) = request(&rx.recv().unwrap());

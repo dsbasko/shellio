@@ -147,7 +147,8 @@ pub enum Scenario {
     Io,
     /// Рубеж F без поверхности: источник размера и ввод из CLI, клетки F1 и F3.
     Geometry,
-    /// Рубеж G без бандла: соседние поколения кандидата, клетки G1 и G2.
+    /// Рубеж G без бандла: соседние поколения кандидата, клетки G1 и G2 (zmx — `zmx` и
+    /// `zmx-prev`, Rust-хост — текущий и сборка `proto-v1`).
     Versions,
     /// Политика отчётов в минимальной поверхности (задача 10, часть B): клетки `surface-*`.
     ReportPolicy,
@@ -194,8 +195,8 @@ impl Scenario {
             | Scenario::Io
             | Scenario::Restore
             | Scenario::Queries
-            | Scenario::Geometry => &Candidate::ALL,
-            Scenario::Versions => &[Candidate::Zmx],
+            | Scenario::Geometry
+            | Scenario::Versions => &Candidate::ALL,
         }
     }
 
@@ -589,6 +590,7 @@ pub(crate) mod tests {
         assert_eq!(Scenario::Restore.candidates(), Candidate::ALL);
         assert_eq!(Scenario::Queries.candidates(), Candidate::ALL);
         assert_eq!(Scenario::Geometry.candidates(), Candidate::ALL);
+        assert_eq!(Scenario::Versions.candidates(), Candidate::ALL);
     }
 
     #[test]
