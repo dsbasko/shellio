@@ -61,13 +61,12 @@ impl Terminal {
         pty::winsize(self.master.as_fd())
     }
 
-    /// Поток чтения: каждый прочитанный кусок — `on_read`, конец PTY — `on_end`. Чтение не ждёт
-    /// клиентов: очередь событий хоста одна, её разбирает главный поток хоста.
-    pub fn start_reader<E: Send + 'static>(
+    /// Поток чтения: каждый прочитанный кусок — `on_read` (`false` — читать дальше некуда), конец
+    /// PTY — `on_end`. Чтение не ждёт клиентов.
+    pub fn start_reader(
         &self,
-        events: SyncSender<E>,
-        on_read: fn(Vec<u8>) -> E,
-        on_end: fn(String) -> E,
+        mut on_read: impl FnMut(Vec<u8>) -> bool + Send + 'static,
+        on_end: impl FnOnce(String) + Send + 'static,
     ) -> io::Result<thread::JoinHandle<()>> {
         let mut file = File::from(self.master.try_clone()?);
         thread::Builder::new()
@@ -77,17 +76,17 @@ impl Terminal {
                 loop {
                     match file.read(&mut buf) {
                         Ok(0) => {
-                            let _ = events.send(on_end("EOF".to_owned()));
+                            on_end("EOF".to_owned());
                             return;
                         }
                         Ok(read) => {
-                            if events.send(on_read(buf[..read].to_vec())).is_err() {
+                            if !on_read(buf[..read].to_vec()) {
                                 return;
                             }
                         }
                         Err(err) if err.kind() == io::ErrorKind::Interrupted => {}
                         Err(err) => {
-                            let _ = events.send(on_end(err.to_string()));
+                            on_end(err.to_string());
                             return;
                         }
                     }
@@ -112,6 +111,7 @@ impl Terminal {
     }
 }
 
+#[derive(Clone)]
 pub struct InputQueue {
     tx: SyncSender<Vec<u8>>,
 }

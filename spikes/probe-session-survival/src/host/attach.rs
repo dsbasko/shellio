@@ -1,5 +1,6 @@
-//! Attach-клиент Rust-хоста (`probe-session-attach`), задача 11: протокол и байты без VT и без
-//! снимка. Клиент подключается только к опубликованному сокету и сессию не создаёт. Терминал
+//! Attach-клиент Rust-хоста (`probe-session-attach`): протокол и байты без VT. Состояние сессии
+//! приходит от хоста VT-байтами (`Restore`) до живого потока, клиент передаёт их терминалу как
+//! есть. Клиент подключается только к опубликованному сокету и сессию не создаёт. Терминал
 //! клиента переводится в raw-режим; `Ctrl-\` отключает клиента, конец терминала (hangup) завершает
 //! его. Роль клиент сообщает своему терминалу заголовком `<префикс><роль>:<поколение>`, как
 //! управляемый клиент zmx.
@@ -155,7 +156,7 @@ fn from_host(reader: &mut UnixStream, prefix: Option<&str>) {
     let mut out = io::stdout();
     loop {
         match proto::read_message(reader) {
-            Ok(Some(Message::Output { bytes, .. })) => {
+            Ok(Some(Message::Output { bytes, .. } | Message::Restore(bytes))) => {
                 if out.write_all(&bytes).and_then(|()| out.flush()).is_err() {
                     std::process::exit(1);
                 }

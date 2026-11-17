@@ -1,34 +1,66 @@
-//! Rust-хост пробы (план P0.4, «Rust-хост»), задача 11: жизненный цикл, сокет и живой поток без
-//! снимка. Процесс на сессию вне дерева запустившего: запускающий процесс выходит сразу, его
+//! Rust-хост пробы (план P0.4, «Rust-хост»): жизненный цикл, сокет (задача 11), VT с
+//! восстановлением для attach, ответы на запросы и эффекты UI (задача 12). Процесс на сессию вне дерева запустившего: запускающий процесс выходит сразу, его
 //! потомок делает `setsid` и запускает хост ещё одним `fork`, поэтому хост не лидер сессии и не
 //! получает управляющий терминал. Хост публикует сокет до запуска нагрузки (проигравший
 //! конкурентный `ensure` нагрузку не запускает), запускает нагрузку во втором PTY, пишет запись
 //! реестра и отчитывается одной строкой [`Launch`] в stdout.
 //!
-//! Главный поток хоста разбирает одну ограниченную очередь событий: куски PTY, соединения,
-//! сообщения и выход нагрузки. Чтение PTY не ждёт клиентов; клиенту кадры идут через его
+//! Потоки: читатель PTY кладёт куски в очередь разбора с пределом в байтах и не ждёт клиентов;
+//! поток разбора подаёт их в VT через автомат ответов (`responder`) и фильтр режимов отчётов,
+//! пишет ответы в PTY, а поток клиентам отдаёт главному потоку. Главный поток ведёт соединения,
+//! лидерство и очереди клиентов и никогда не ждёт GUI: чтение буфера обмена ждёт поток разбора.
+//! Восстановление для attach и управляющий снимок делает поток разбора по команде, поэтому
+//! граница «восстановление → живой поток» — номер байта PTY. Клиенту кадры идут через его
 //! ограниченную очередь, переполнение разрывает клиента с причиной в журнале.
 
 pub mod attach;
+pub mod effects;
 pub mod pty;
 pub mod registry;
+pub mod responder;
 pub mod socket;
+#[cfg(feature = "vt")]
+pub mod vt;
 
-use std::collections::BTreeMap;
-use std::io::{self, Write};
-use std::os::unix::net::UnixStream;
+use std::collections::VecDeque;
 use std::path::PathBuf;
-use std::process::ExitStatus;
-use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
-use std::thread;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Condvar, Mutex, MutexGuard};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use crate::backend::{HostRecord, Lead, Role, SessionId};
-use crate::observer;
-use crate::proto::{self, Hello, Message, Purpose, Status, Welcome};
+use crate::backend::{HostRecord, SessionId};
 use crate::pty::Winsize;
+
+#[cfg(feature = "vt")]
+use std::collections::BTreeMap;
+#[cfg(feature = "vt")]
+use std::io::{self, Write};
+#[cfg(feature = "vt")]
+use std::os::unix::net::UnixStream;
+#[cfg(feature = "vt")]
+use std::process::ExitStatus;
+#[cfg(feature = "vt")]
+use std::sync::Arc;
+#[cfg(feature = "vt")]
+use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
+#[cfg(feature = "vt")]
+use std::thread;
+
+#[cfg(feature = "vt")]
+use crate::backend::{Lead, Role};
+#[cfg(feature = "vt")]
+use crate::bridge::ReportFilter;
+#[cfg(feature = "vt")]
+use crate::observer;
+#[cfg(feature = "vt")]
+use crate::proto::{self, Hello, Message, Purpose, Status, Welcome};
+#[cfg(feature = "vt")]
+use effects::Clipboard;
+#[cfg(feature = "vt")]
+use responder::Responder;
+#[cfg(feature = "vt")]
 use socket::Point;
 
 pub const HOST_NAME: &str = "probe-session-host";
@@ -138,6 +170,7 @@ pub enum Launch {
     Failed(String),
 }
 
+#[cfg(feature = "vt")]
 /// Вход `probe-session-host`.
 pub fn main(args: &[String]) -> i32 {
     let options = match Options::parse(args) {
@@ -180,6 +213,7 @@ pub fn main(args: &[String]) -> i32 {
     serve(&options)
 }
 
+#[cfg(feature = "vt")]
 fn report(launch: &Launch) {
     let line = serde_json::to_string(launch).unwrap_or_else(|_| "{}".to_owned());
     let mut stdout = io::stdout().lock();
@@ -187,6 +221,7 @@ fn report(launch: &Launch) {
     let _ = stdout.flush();
 }
 
+#[cfg(feature = "vt")]
 /// stdin и stdout на `/dev/null`: запускающий дочитывает stdout до конца.
 fn detach_stdio() {
     if let Ok(null) = std::fs::OpenOptions::new()
@@ -203,6 +238,7 @@ fn detach_stdio() {
     }
 }
 
+#[cfg(feature = "vt")]
 fn pause_at(point: Point) {
     let Ok(path) = std::env::var(BREAK_ENV) else {
         return;
@@ -216,6 +252,7 @@ fn pause_at(point: Point) {
     let _ = io::Read::read(&mut stream, &mut go);
 }
 
+#[cfg(feature = "vt")]
 fn serve(options: &Options) -> i32 {
     let pid = std::process::id() as i32;
     let published =
@@ -271,6 +308,7 @@ fn serve(options: &Options) -> i32 {
     code
 }
 
+#[cfg(feature = "vt")]
 fn describe(options: &Options, workload: &pty::Workload) -> Result<HostRecord, String> {
     let host = observer::current()?;
     let info = observer::inspect(workload.pid())?
@@ -284,50 +322,265 @@ fn describe(options: &Options, workload: &pty::Workload) -> Result<HostRecord, S
     })
 }
 
+// --- очередь разбора ---
+
+pub type ConnId = u64;
+
+/// Предел байтов PTY в очереди разбора (модель задачи 8): пока поток разбора ждёт GUI, чтение
+/// продолжается до предела, затем ждёт.
+pub const PARSE_QUEUE_BYTES: usize = 4 << 20;
+/// Кадр восстановления: меньше `proto::MAX_BODY`.
+pub const RESTORE_FRAME: usize = 512 << 10;
+/// Срок дочитывания PTY после выхода нагрузки: фоновый потомок может держать ведомую сторону.
+pub const EXIT_DRAIN: Duration = Duration::from_secs(2);
+
+/// Вход потока разбора: куски PTY и команды главного потока в одном порядке.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ParseIn {
+    Bytes(Vec<u8>),
+    End(String),
+    Resize(Winsize),
+    Focus(bool),
+    Visible(bool),
+    Restore(ConnId),
+    Snapshot(ConnId),
+}
+
+/// Очередь разбора: байты PTY ждут места сверх предела, команды не ждут никогда.
+pub struct ParseQueue {
+    state: Mutex<(VecDeque<ParseIn>, usize)>,
+    ready: Condvar,
+    room: Condvar,
+    limit: usize,
+}
+
+impl ParseQueue {
+    pub fn new(limit: usize) -> ParseQueue {
+        ParseQueue {
+            state: Mutex::new((VecDeque::new(), 0)),
+            ready: Condvar::new(),
+            room: Condvar::new(),
+            limit,
+        }
+    }
+
+    fn lock(&self) -> MutexGuard<'_, (VecDeque<ParseIn>, usize)> {
+        self.state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    pub fn push_bytes(&self, bytes: Vec<u8>) {
+        let mut state = self.lock();
+        while state.1 > 0 && state.1 + bytes.len() > self.limit {
+            state = self
+                .room
+                .wait(state)
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+        }
+        state.1 += bytes.len();
+        state.0.push_back(ParseIn::Bytes(bytes));
+        self.ready.notify_one();
+    }
+
+    pub fn push(&self, item: ParseIn) {
+        let mut state = self.lock();
+        if let ParseIn::Bytes(bytes) = &item {
+            state.1 += bytes.len();
+        }
+        state.0.push_back(item);
+        self.ready.notify_one();
+    }
+
+    pub fn pop(&self) -> ParseIn {
+        let mut state = self.lock();
+        loop {
+            if let Some(item) = state.0.pop_front() {
+                if let ParseIn::Bytes(bytes) = &item {
+                    state.1 -= bytes.len();
+                    self.room.notify_all();
+                }
+                return item;
+            }
+            state = self
+                .ready
+                .wait(state)
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+        }
+    }
+
+    pub fn queued_bytes(&self) -> usize {
+        self.lock().1
+    }
+}
+
+/// Счётчики хоста для `Status`.
+#[derive(Debug, Default)]
+pub struct Counters {
+    pub reads: AtomicU64,
+    pub read_bytes: AtomicU64,
+    pub parsed: AtomicU64,
+    pub replies: AtomicU64,
+    pub dropped: AtomicU64,
+}
+
+impl Counters {
+    pub fn get(value: &AtomicU64) -> u64 {
+        value.load(Ordering::Acquire)
+    }
+
+    pub fn add(value: &AtomicU64, by: usize) {
+        value.fetch_add(by as u64, Ordering::AcqRel);
+    }
+}
+
 // --- главный поток ---
 
-type ConnId = u64;
-
+#[cfg(feature = "vt")]
 enum Event {
-    Pty(Vec<u8>),
-    PtyEnd(String),
+    Output {
+        offset: u64,
+        bytes: Vec<u8>,
+    },
+    Parsed {
+        read: u64,
+        offset: u64,
+        held: u32,
+        ground: bool,
+    },
+    Restored {
+        id: ConnId,
+        offset: u64,
+        result: Result<vt::Restored, String>,
+    },
+    Snapshot {
+        id: ConnId,
+        result: Result<crate::backend::Snapshot, String>,
+    },
+    /// Поток разбора дочитал PTY до конца.
+    Drained,
     Exited(ExitStatus),
     Conn(ConnId, UnixStream, Hello),
     Msg(ConnId, Message),
     Closed(ConnId),
     StopDeadline,
+    DrainDeadline,
 }
 
+#[cfg(feature = "vt")]
 struct Conn {
     purpose: Purpose,
+    role: Role,
     frames: SyncSender<Vec<u8>>,
     stream: UnixStream,
+    writer: Option<thread::JoinHandle<()>>,
+    /// Номер байта PTY, с которого attach-клиент получает живой поток; `None` — ещё не
+    /// восстановлен.
+    live_from: Option<u64>,
 }
 
+#[cfg(feature = "vt")]
 struct Hub<'a> {
     options: &'a Options,
     record: HostRecord,
     terminal: pty::Terminal,
     input: pty::InputQueue,
+    queue: Arc<ParseQueue>,
+    counters: Arc<Counters>,
+    clipboard: Arc<Clipboard>,
     events: Receiver<Event>,
     sender: SyncSender<Event>,
     conns: BTreeMap<ConnId, Conn>,
     leader: Option<ConnId>,
     generation: u32,
-    offset: u64,
-    reads: u64,
     size: Winsize,
     stopping: bool,
+    exit: Option<ExitStatus>,
+    drained: bool,
+    vt_version: String,
 }
 
-fn on_read(bytes: Vec<u8>) -> Event {
-    Event::Pty(bytes)
+/// Поток разбора: VT, автомат ответов и фильтр режимов отчётов.
+#[cfg(feature = "vt")]
+struct Parser {
+    queue: Arc<ParseQueue>,
+    events: SyncSender<Event>,
+    input: pty::InputQueue,
+    counters: Arc<Counters>,
 }
 
-fn on_end(reason: String) -> Event {
-    Event::PtyEnd(reason)
+#[cfg(feature = "vt")]
+impl Parser {
+    fn reply(&self, bytes: Vec<u8>) {
+        if bytes.is_empty() {
+            return;
+        }
+        Counters::add(&self.counters.replies, bytes.len());
+        if let Err(reason) = self.input.push(bytes) {
+            eprintln!("{HOST_NAME}: ответ хоста не записан: {reason}");
+        }
+    }
+
+    fn run(self, mut vt: vt::HostVt) {
+        let mut responder = Responder::new();
+        let mut filter = ReportFilter::new();
+        let mut offset = 0u64;
+        loop {
+            match self.queue.pop() {
+                ParseIn::Bytes(bytes) => {
+                    let start = offset;
+                    offset += bytes.len() as u64;
+                    let fed = responder.feed(&mut vt, &bytes);
+                    Counters::add(&self.counters.parsed, bytes.len());
+                    Counters::add(&self.counters.dropped, fed.dropped.len());
+                    self.reply(fed.replies);
+                    let client = filter.push(&fed.client);
+                    let held = responder.held().len() + filter.held().len();
+                    if !client.is_empty() {
+                        let _ = self.events.send(Event::Output {
+                            offset: start,
+                            bytes: client,
+                        });
+                    }
+                    let _ = self.events.send(Event::Parsed {
+                        read: bytes.len() as u64,
+                        offset,
+                        held: held as u32,
+                        ground: vt.ground(),
+                    });
+                }
+                ParseIn::End(reason) => {
+                    eprintln!("{HOST_NAME}: конец PTY: {reason}");
+                    let _ = self.events.send(Event::Drained);
+                    return;
+                }
+                ParseIn::Resize(size) => match vt.resize(size) {
+                    Ok(report) => self.reply(report),
+                    Err(err) => eprintln!("{HOST_NAME}: ресайз VT: {err}"),
+                },
+                ParseIn::Focus(gained) => self.reply(vt.focus(gained)),
+                ParseIn::Visible(visible) => self.reply(vt.visibility(visible)),
+                ParseIn::Restore(id) => {
+                    let mut held = filter.held().to_vec();
+                    held.extend_from_slice(responder.held());
+                    let _ = self.events.send(Event::Restored {
+                        id,
+                        offset,
+                        result: vt.restore(&held),
+                    });
+                }
+                ParseIn::Snapshot(id) => {
+                    let _ = self.events.send(Event::Snapshot {
+                        id,
+                        result: vt.snapshot(),
+                    });
+                }
+            }
+        }
+    }
 }
 
+#[cfg(feature = "vt")]
 impl<'a> Hub<'a> {
     fn start(
         options: &'a Options,
@@ -336,14 +589,45 @@ impl<'a> Hub<'a> {
         published: &socket::Published,
     ) -> Result<Hub<'a>, String> {
         let (sender, events) = mpsc::sync_channel(EVENT_QUEUE);
-        workload
-            .terminal
-            .start_reader(sender.clone(), on_read, on_end)
-            .map_err(|err| format!("поток чтения PTY: {err}"))?;
+        let queue = Arc::new(ParseQueue::new(PARSE_QUEUE_BYTES));
+        let counters = Arc::new(Counters::default());
+        let clipboard = Arc::new(Clipboard::new(effects::CLIPBOARD_TIMEOUT));
+        let size = workload.terminal.size().unwrap_or(options.size);
+        let host_vt = vt::HostVt::new(size, Arc::clone(&clipboard))
+            .map_err(|err| format!("VT хоста: {err}"))?;
         let input = workload
             .terminal
             .start_writer()
             .map_err(|err| format!("поток записи PTY: {err}"))?;
+        let (reads, ends) = (Arc::clone(&queue), Arc::clone(&queue));
+        let read_counters = Arc::clone(&counters);
+        workload
+            .terminal
+            .start_reader(
+                move |bytes| {
+                    Counters::add(&read_counters.reads, 1);
+                    Counters::add(&read_counters.read_bytes, bytes.len());
+                    reads.push_bytes(bytes);
+                    true
+                },
+                move |reason| ends.push(ParseIn::End(reason)),
+            )
+            .map_err(|err| format!("поток чтения PTY: {err}"))?;
+        let parser = Parser {
+            queue: Arc::clone(&queue),
+            events: sender.clone(),
+            input: input.clone(),
+            counters: Arc::clone(&counters),
+        };
+        // VT создаётся здесь, но живёт только в потоке разбора: терминал передаётся туда целиком.
+        let parse_vt = SendVt(host_vt);
+        thread::Builder::new()
+            .name("parse".to_owned())
+            .spawn(move || {
+                let SendVt(host_vt) = parse_vt;
+                parser.run(host_vt);
+            })
+            .map_err(|err| format!("поток разбора: {err}"))?;
         let pty::Workload {
             mut child,
             terminal,
@@ -362,36 +646,75 @@ impl<'a> Hub<'a> {
             .try_clone()
             .map_err(|err| format!("слушатель: {err}"))?;
         let accepts = sender.clone();
+        let deliveries = Arc::clone(&clipboard);
         thread::Builder::new()
             .name("accept".to_owned())
-            .spawn(move || accept_loop(listener, accepts))
+            .spawn(move || accept_loop(listener, accepts, deliveries))
             .map_err(|err| format!("поток приёма: {err}"))?;
-        let size = terminal.size().unwrap_or(options.size);
         Ok(Hub {
             options,
             record,
             terminal,
             input,
+            queue,
+            counters,
+            clipboard,
             events,
             sender,
             conns: BTreeMap::new(),
             leader: None,
             generation: 0,
-            offset: 0,
-            reads: 0,
             size,
             stopping: false,
+            exit: None,
+            drained: false,
+            vt_version: crate::vt::library_version()
+                .unwrap_or_else(|err| format!("неизвестна: {err}")),
         })
     }
 
     fn run(mut self) -> i32 {
         while let Ok(event) = self.events.recv() {
             match event {
-                Event::Pty(bytes) => self.output(bytes),
-                Event::PtyEnd(reason) => eprintln!("{HOST_NAME}: конец PTY: {reason}"),
+                Event::Output { offset, bytes } => self.output(offset, bytes),
+                Event::Parsed {
+                    read,
+                    offset,
+                    held,
+                    ground,
+                } => self.parsed(read, offset, held, ground),
+                Event::Restored { id, offset, result } => self.restored(id, offset, result),
+                Event::Snapshot { id, result } => {
+                    let reply = match result {
+                        Ok(snapshot) => Message::Snapshot(snapshot),
+                        Err(reason) => Message::Refused(reason),
+                    };
+                    self.send(id, &reply);
+                }
+                Event::Drained => {
+                    self.drained = true;
+                    if let Some(status) = self.exit {
+                        self.exited(status);
+                        return 0;
+                    }
+                }
                 Event::Exited(status) => {
-                    self.exited(status);
-                    return 0;
+                    self.exit = Some(status);
+                    if self.drained {
+                        self.exited(status);
+                        return 0;
+                    }
+                    self.after(EXIT_DRAIN, Event::DrainDeadline);
+                }
+                Event::DrainDeadline => {
+                    if let Some(status) = self.exit {
+                        eprintln!(
+                            "{HOST_NAME}: PTY не дочитан за {} мс после выхода нагрузки",
+                            EXIT_DRAIN.as_millis()
+                        );
+                        self.exited(status);
+                        return 0;
+                    }
                 }
                 Event::Conn(id, stream, hello) => self.connect(id, stream, hello),
                 Event::Msg(id, message) => self.message(id, message),
@@ -400,6 +723,17 @@ impl<'a> Hub<'a> {
             }
         }
         1
+    }
+
+    fn after(&self, delay: Duration, event: Event) {
+        let sender = self.sender.clone();
+        let _ = thread::Builder::new()
+            .name("deadline".to_owned())
+            .spawn(move || {
+                let (_keep, wait) = mpsc::channel::<()>();
+                let _ = wait.recv_timeout(delay);
+                let _ = sender.send(event);
+            });
     }
 
     fn send(&mut self, id: ConnId, message: &Message) {
@@ -424,30 +758,95 @@ impl<'a> Hub<'a> {
         if let Some(reason) = reason {
             eprintln!("{HOST_NAME}: клиент {id} разорван: {reason}");
         }
+        if conn.purpose == Purpose::Gui {
+            self.clipboard.unbind(id);
+        }
         if self.leader == Some(id) {
             self.leader = None;
+            self.clipboard.set_leader(None);
         }
     }
 
-    fn attach_ids(&self) -> Vec<ConnId> {
+    fn ids(&self, purpose: Purpose) -> Vec<ConnId> {
         self.conns
             .iter()
-            .filter(|(_, conn)| conn.purpose == Purpose::Attach)
+            .filter(|(_, conn)| conn.purpose == purpose)
             .map(|(id, _)| *id)
             .collect()
     }
 
-    fn output(&mut self, bytes: Vec<u8>) {
-        let message = Message::Output {
-            offset: self.offset,
-            bytes,
-        };
-        if let Message::Output { bytes, .. } = &message {
-            self.offset += bytes.len() as u64;
-        }
-        self.reads += 1;
-        for id in self.attach_ids() {
+    fn output(&mut self, offset: u64, bytes: Vec<u8>) {
+        let message = Message::Output { offset, bytes };
+        let live: Vec<ConnId> = self
+            .conns
+            .iter()
+            .filter(|(_, conn)| {
+                conn.purpose == Purpose::Attach && conn.live_from.is_some_and(|from| from <= offset)
+            })
+            .map(|(id, _)| *id)
+            .collect();
+        for id in live {
             self.send(id, &message);
+        }
+    }
+
+    fn parsed(&mut self, read: u64, offset: u64, held: u32, ground: bool) {
+        let message = Message::Parsed {
+            read,
+            offset,
+            held,
+            ground,
+        };
+        for id in self.ids(Purpose::Observe) {
+            self.send(id, &message);
+        }
+    }
+
+    fn welcome(&self, role: Role, offset: u64) -> Message {
+        Message::Welcome(Welcome {
+            version: proto::VERSION,
+            host: format!("{HOST_NAME} {}", env!("CARGO_PKG_VERSION")),
+            vt: self.vt_version.clone(),
+            session: self.options.session.to_string(),
+            role,
+            generation: self.generation,
+            offset,
+        })
+    }
+
+    fn restored(&mut self, id: ConnId, offset: u64, result: Result<vt::Restored, String>) {
+        let Some(conn) = self.conns.get(&id) else {
+            return;
+        };
+        let role = conn.role;
+        let restored = match result {
+            Ok(restored) => restored,
+            Err(reason) => {
+                eprintln!("{HOST_NAME}: attach {id}: отказ восстановления: {reason}");
+                self.send(id, &Message::Refused(reason));
+                self.drop_conn(id, None);
+                return;
+            }
+        };
+        eprintln!(
+            "{HOST_NAME}: attach {id}: граница {offset}, восстановление {} байт, continuation {}, \
+             удержано {}{}",
+            restored.bytes.len(),
+            restored.continuation,
+            restored.held,
+            if restored.inexpressible.is_empty() {
+                String::new()
+            } else {
+                format!(", не выражается: {}", restored.inexpressible.join("; "))
+            }
+        );
+        let welcome = self.welcome(role, offset);
+        self.send(id, &welcome);
+        for chunk in restored.bytes.chunks(RESTORE_FRAME) {
+            self.send(id, &Message::Restore(chunk.to_vec()));
+        }
+        if let Some(conn) = self.conns.get_mut(&id) {
+            conn.live_from = Some(offset);
         }
     }
 
@@ -456,7 +855,10 @@ impl<'a> Hub<'a> {
             return;
         }
         match self.terminal.resize(size) {
-            Ok(()) => self.size = size,
+            Ok(()) => {
+                self.size = size;
+                self.queue.push(ParseIn::Resize(size));
+            }
             Err(err) => eprintln!("{HOST_NAME}: ресайз: {err}"),
         }
     }
@@ -483,15 +885,18 @@ impl<'a> Hub<'a> {
                     }
                 }
             });
-        if spawned.is_err() {
+        let Ok(handle) = spawned else {
             return;
-        }
+        };
         self.conns.insert(
             id,
             Conn {
                 purpose: hello.purpose,
+                role: Role::Unowned,
                 frames,
                 stream,
+                writer: Some(handle),
+                live_from: None,
             },
         );
         if hello.version != proto::VERSION {
@@ -506,44 +911,48 @@ impl<'a> Hub<'a> {
             self.drop_conn(id, None);
             return;
         }
-        let role = match hello.purpose {
-            Purpose::Control => Role::Unowned,
-            Purpose::Attach => {
-                let previous = self.leader;
-                let leads = match hello.lead {
-                    Lead::Claim => true,
-                    Lead::IfFree => previous.is_none(),
-                };
-                if leads {
-                    self.leader = Some(id);
-                    self.generation += 1;
-                    if let Some(previous) = previous {
-                        let generation = self.generation;
-                        self.send(
-                            previous,
-                            &Message::Role {
-                                role: Role::Follower,
-                                generation,
-                            },
-                        );
-                    }
-                    self.resize(hello.size);
-                    Role::Leader
-                } else {
-                    Role::Follower
+        if hello.purpose != Purpose::Attach {
+            let welcome = self.welcome(Role::Unowned, Counters::get(&self.counters.parsed));
+            self.send(id, &welcome);
+            return;
+        }
+        let previous = self.leader;
+        let leads = match hello.lead {
+            Lead::Claim => true,
+            Lead::IfFree => previous.is_none(),
+        };
+        let role = if leads {
+            self.leader = Some(id);
+            self.generation += 1;
+            self.clipboard.set_leader(Some(self.generation));
+            if let Some(previous) = previous {
+                let generation = self.generation;
+                if let Some(conn) = self.conns.get_mut(&previous) {
+                    conn.role = Role::Follower;
+                }
+                if self
+                    .conns
+                    .get(&previous)
+                    .is_some_and(|conn| conn.live_from.is_some())
+                {
+                    self.send(
+                        previous,
+                        &Message::Role {
+                            role: Role::Follower,
+                            generation,
+                        },
+                    );
                 }
             }
+            self.resize(hello.size);
+            Role::Leader
+        } else {
+            Role::Follower
         };
-        let welcome = Message::Welcome(Welcome {
-            version: proto::VERSION,
-            host: format!("{HOST_NAME} {}", env!("CARGO_PKG_VERSION")),
-            vt: "нет: до задачи 12".to_owned(),
-            session: self.options.session.to_string(),
-            role,
-            generation: self.generation,
-            offset: self.offset,
-        });
-        self.send(id, &welcome);
+        if let Some(conn) = self.conns.get_mut(&id) {
+            conn.role = role;
+        }
+        self.queue.push(ParseIn::Restore(id));
     }
 
     fn message(&mut self, id: ConnId, message: Message) {
@@ -554,15 +963,21 @@ impl<'a> Hub<'a> {
         let control = purpose == Purpose::Control;
         match message {
             Message::Input(bytes) => {
-                let pushed = self.input.push(bytes);
                 if control {
-                    let reply = match pushed {
+                    let reply = match self.input.push(bytes) {
                         Ok(()) => Message::Done,
                         Err(reason) => Message::Refused(reason),
                     };
                     self.send(id, &reply);
-                } else if let Err(reason) = pushed {
-                    eprintln!("{HOST_NAME}: ввод клиента {id} отвергнут: {reason}");
+                } else if purpose == Purpose::Attach && self.leader == Some(id) {
+                    if let Err(reason) = self.input.push(bytes) {
+                        eprintln!("{HOST_NAME}: ввод клиента {id} отвергнут: {reason}");
+                    }
+                } else {
+                    eprintln!(
+                        "{HOST_NAME}: ввод клиента {id} без лидерства отброшен ({} байт)",
+                        bytes.len()
+                    );
                 }
             }
             Message::Resize(size) => {
@@ -573,16 +988,42 @@ impl<'a> Hub<'a> {
                     self.send(id, &Message::Done);
                 }
             }
+            Message::GuiBind { generation } if purpose == Purpose::Gui => {
+                if let Some(conn) = self.conns.get(&id) {
+                    self.clipboard.bind(id, generation, conn.frames.clone());
+                }
+                self.send(id, &Message::Done);
+            }
+            Message::Focus(_) | Message::Visible(_) if purpose == Purpose::Gui => {
+                if !self.clipboard.current(id) {
+                    self.send(
+                        id,
+                        &Message::Refused("GUI не текущего поколения лидера".to_owned()),
+                    );
+                    return;
+                }
+                self.queue.push(match message {
+                    Message::Focus(gained) => ParseIn::Focus(gained),
+                    Message::Visible(visible) => ParseIn::Visible(visible),
+                    _ => return,
+                });
+                self.send(id, &Message::Done);
+            }
+            Message::SnapshotRequest => self.queue.push(ParseIn::Snapshot(id)),
             Message::StatusRequest => {
                 let status = Message::Status(Status {
                     host: self.record.host,
                     workload: self.record.workload,
                     workload_pgid: self.record.workload_pgid,
                     workload_sid: self.record.workload_sid,
-                    clients: self.attach_ids().len() as u32,
+                    clients: self.ids(Purpose::Attach).len() as u32,
                     leader: self.leader.is_some(),
-                    reads: self.reads,
-                    read_bytes: self.offset,
+                    reads: Counters::get(&self.counters.reads),
+                    read_bytes: Counters::get(&self.counters.read_bytes),
+                    parsed_bytes: Counters::get(&self.counters.parsed),
+                    replies: Counters::get(&self.counters.replies),
+                    dropped_replies: Counters::get(&self.counters.dropped),
+                    clipboard: self.clipboard.stats(),
                     size: self.size,
                 });
                 self.send(id, &status);
@@ -612,14 +1053,7 @@ impl<'a> Hub<'a> {
         let pgid = self.record.workload_pgid;
         let _ = crate::backend::signal(-pgid, libc::SIGHUP);
         let _ = crate::backend::signal(-pgid, libc::SIGCONT);
-        let deadline = self.sender.clone();
-        let _ = thread::Builder::new()
-            .name("stop-deadline".to_owned())
-            .spawn(move || {
-                let (_keep, wait) = mpsc::channel::<()>();
-                let _ = wait.recv_timeout(STOP_GRACE);
-                let _ = deadline.send(Event::StopDeadline);
-            });
+        self.after(STOP_GRACE, Event::StopDeadline);
     }
 
     /// `SIGKILL` всем живым процессам сессии нагрузки, кроме самого хоста.
@@ -632,6 +1066,8 @@ impl<'a> Hub<'a> {
         }
     }
 
+    /// Нагрузка вышла и PTY дочитан (или вышел срок): клиенты получают выход, их очереди
+    /// дописываются до конца, затем хост выходит.
     fn exited(&mut self, status: ExitStatus) {
         use std::os::unix::process::ExitStatusExt;
         if self.stopping {
@@ -641,17 +1077,38 @@ impl<'a> Hub<'a> {
             code: status.code(),
             signal: status.signal(),
         };
-        for id in self.attach_ids() {
+        for id in self.ids(Purpose::Attach) {
             self.send(id, &message);
         }
-        for (_, conn) in std::mem::take(&mut self.conns) {
+        let queued = self.queue.queued_bytes();
+        if queued > 0 {
+            eprintln!("{HOST_NAME}: при выходе в очереди разбора {queued} байт");
+        }
+        for (_, mut conn) in std::mem::take(&mut self.conns) {
             drop(conn.frames);
-            let _ = conn.stream.shutdown(std::net::Shutdown::Read);
+            if let Some(writer) = conn.writer.take() {
+                let _ = writer.join();
+            }
+            let _ = conn.stream.shutdown(std::net::Shutdown::Both);
         }
     }
 }
 
-fn accept_loop(listener: std::os::unix::net::UnixListener, events: SyncSender<Event>) {
+/// Терминал VT переходит в поток разбора целиком и больше нигде не используется.
+#[cfg(feature = "vt")]
+struct SendVt(vt::HostVt);
+
+// SAFETY: `HostVt` создан в главном потоке до запуска потока разбора, передаётся туда один раз и
+// используется только там; колбэки терминала держат `Arc` на потокобезопасные данные.
+#[cfg(feature = "vt")]
+unsafe impl Send for SendVt {}
+
+#[cfg(feature = "vt")]
+fn accept_loop(
+    listener: std::os::unix::net::UnixListener,
+    events: SyncSender<Event>,
+    clipboard: Arc<Clipboard>,
+) {
     let mut next: ConnId = 1;
     for stream in listener.incoming() {
         let Ok(stream) = stream else {
@@ -660,13 +1117,17 @@ fn accept_loop(listener: std::os::unix::net::UnixListener, events: SyncSender<Ev
         let id = next;
         next += 1;
         let events = events.clone();
+        let clipboard = Arc::clone(&clipboard);
         let _ = thread::Builder::new()
             .name(format!("conn-{id}"))
-            .spawn(move || conn_loop(id, stream, events));
+            .spawn(move || conn_loop(id, stream, events, &clipboard));
     }
 }
 
-fn conn_loop(id: ConnId, stream: UnixStream, events: SyncSender<Event>) {
+/// Чтение кадров соединения. Ответ GUI на чтение буфера обмена доставляется прямо в
+/// [`Clipboard`]: главный поток в это время может быть занят, а поток разбора ждёт ответ.
+#[cfg(feature = "vt")]
+fn conn_loop(id: ConnId, stream: UnixStream, events: SyncSender<Event>, clipboard: &Clipboard) {
     let mut reader = match stream.try_clone() {
         Ok(reader) => reader,
         Err(_) => return,
@@ -680,6 +1141,18 @@ fn conn_loop(id: ConnId, stream: UnixStream, events: SyncSender<Event>) {
     }
     loop {
         match proto::read_message(&mut reader) {
+            Ok(Some(Message::ClipboardReply {
+                serial,
+                generation,
+                data,
+            })) => {
+                if clipboard.deliver(id, serial, generation, data) == effects::Delivery::Dropped {
+                    eprintln!(
+                        "{HOST_NAME}: ответ GUI {id} на чтение буфера обмена {serial} поколения \
+                         {generation} отброшен"
+                    );
+                }
+            }
             Ok(Some(message)) => {
                 if events.send(Event::Msg(id, message)).is_err() {
                     return;
@@ -715,6 +1188,34 @@ mod tests {
         assert_eq!(Options::parse(&options.to_args()), Ok(options));
         assert!(Options::parse(&["serve".to_owned(), "--dir".to_owned()]).is_err());
         assert!(parse_size("0x80x0x0").is_err());
+    }
+
+    #[test]
+    fn parse_queue_keeps_order_and_counts_only_bytes() {
+        let queue = ParseQueue::new(8);
+        queue.push_bytes(b"abcd".to_vec());
+        queue.push(ParseIn::Restore(3));
+        queue.push_bytes(b"efgh".to_vec());
+        assert_eq!(queue.queued_bytes(), 8);
+        // Команда не ждёт места.
+        queue.push(ParseIn::Focus(true));
+        assert_eq!(queue.pop(), ParseIn::Bytes(b"abcd".to_vec()));
+        assert_eq!(queue.pop(), ParseIn::Restore(3));
+        assert_eq!(queue.queued_bytes(), 4);
+        assert_eq!(queue.pop(), ParseIn::Bytes(b"efgh".to_vec()));
+        assert_eq!(queue.pop(), ParseIn::Focus(true));
+        assert_eq!(queue.queued_bytes(), 0);
+    }
+
+    #[test]
+    fn parse_queue_holds_the_reader_until_there_is_room() {
+        let queue = std::sync::Arc::new(ParseQueue::new(4));
+        queue.push_bytes(b"abcd".to_vec());
+        let writer = std::sync::Arc::clone(&queue);
+        let reader = std::thread::spawn(move || writer.push_bytes(b"ef".to_vec()));
+        assert_eq!(queue.pop(), ParseIn::Bytes(b"abcd".to_vec()));
+        reader.join().unwrap();
+        assert_eq!(queue.pop(), ParseIn::Bytes(b"ef".to_vec()));
     }
 
     #[test]

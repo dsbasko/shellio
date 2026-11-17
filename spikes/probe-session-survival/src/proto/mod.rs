@@ -2,9 +2,12 @@
 //! порядке big-endian, тело. Числа в теле — big-endian, строки и байты — с длиной `u32` впереди.
 //!
 //! Соединение начинается с `Hello` клиента и `Welcome` или `Refused` хоста. Attach-клиент после
-//! этого получает живой поток `Output` с номером первого байта, шлёт ввод, ресайз и `Detach`.
-//! Управляющее соединение (`list`, `stop`, ввод и ресайз без клиента) клиентом сессии не
-//! считается. Снимка в минимальном протоколе нет: он приходит в задаче 12.
+//! этого получает состояние VT-байтами (`Restore`, кадрами), затем живой поток `Output` с номером
+//! первого байта PTY, шлёт ввод, ресайз и `Detach`. Управляющее соединение (`list`, `stop`, ввод,
+//! ресайз и снимок без клиента) клиентом сессии не считается. Соединение роли GUI (`Gui`)
+//! привязывается к поколению лидера и несёт типизированные эффекты: чтение буфера обмена, фокус и
+//! видимость. Соединение наблюдения (`Observe`, только проба) получает событие разбора `Parsed`
+//! после каждого куска PTY.
 //!
 //! Модуль чистый, он идёт в `make check`.
 
@@ -13,7 +16,7 @@ use std::io::{self, Read, Write};
 
 use serde::{Deserialize, Serialize};
 
-use crate::backend::{Lead, Role};
+use crate::backend::{Lead, Role, Snapshot};
 use crate::observer::ProcessKey;
 use crate::pty::Winsize;
 
@@ -32,6 +35,24 @@ pub enum Purpose {
     Attach,
     /// Операция без клиента: состояние, ввод, ресайз, остановка.
     Control,
+    /// Роль GUI лидера: буфер обмена, фокус, видимость; привязка — `GuiBind`.
+    Gui,
+    /// Наблюдение пробы: события разбора для протокола разреза.
+    Observe,
+}
+
+/// Счётчики чтения буфера обмена через роль GUI.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClipStats {
+    pub requests: u32,
+    pub answered: u32,
+    pub timeouts: u32,
+    /// Ожидание отменено сменой лидера.
+    pub cancelled: u32,
+    /// Запрос без GUI текущего лидера: пустой ответ сразу.
+    pub no_gui: u32,
+    /// Отброшенные ответы: чужое поколение, чужой запрос или ответ после срока.
+    pub dropped: u32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -70,9 +91,16 @@ pub struct Status {
     /// Подключённые attach-клиенты.
     pub clients: u32,
     pub leader: bool,
-    /// Чтения PTY хостом: ревизия обработки до задачи 12.
+    /// Чтения PTY хостом.
     pub reads: u64,
     pub read_bytes: u64,
+    /// Байты, поданные в VT хоста потоком разбора.
+    pub parsed_bytes: u64,
+    /// Байты ответов хоста, записанные в PTY нагрузки.
+    pub replies: u64,
+    /// Байты ответов VT хоста на переданные клиенту запросы: отброшены, отвечает клиент.
+    pub dropped_replies: u64,
+    pub clipboard: ClipStats,
     pub size: Winsize,
 }
 
@@ -85,6 +113,19 @@ pub enum Message {
     StatusRequest,
     Stop,
     Detach,
+    SnapshotRequest,
+    /// Первое сообщение соединения `Gui`: поколение лидера, от имени которого оно говорит.
+    GuiBind {
+        generation: u32,
+    },
+    Focus(bool),
+    Visible(bool),
+    ClipboardReply {
+        serial: u64,
+        generation: u32,
+        /// `None` — у GUI нет данных.
+        data: Option<Vec<u8>>,
+    },
     // --- хост → клиент ---
     Welcome(Welcome),
     Output {
@@ -92,6 +133,20 @@ pub enum Message {
         bytes: Vec<u8>,
     },
     Status(Status),
+    /// Часть состояния VT-байтами до живого потока.
+    Restore(Vec<u8>),
+    Snapshot(Snapshot),
+    ClipboardRequest {
+        serial: u64,
+        generation: u32,
+    },
+    /// Кусок PTY разобран: длина куска, разобрано всего, удержано от клиентов, VT в ground.
+    Parsed {
+        read: u64,
+        offset: u64,
+        held: u32,
+        ground: bool,
+    },
     Role {
         role: Role,
         generation: u32,
@@ -112,6 +167,11 @@ const TAG_RESIZE: u8 = 3;
 const TAG_STATUS_REQUEST: u8 = 4;
 const TAG_STOP: u8 = 5;
 const TAG_DETACH: u8 = 6;
+const TAG_SNAPSHOT_REQUEST: u8 = 7;
+const TAG_GUI_BIND: u8 = 8;
+const TAG_FOCUS: u8 = 9;
+const TAG_VISIBLE: u8 = 10;
+const TAG_CLIPBOARD_REPLY: u8 = 11;
 const TAG_WELCOME: u8 = 16;
 const TAG_OUTPUT: u8 = 17;
 const TAG_STATUS: u8 = 18;
@@ -119,6 +179,10 @@ const TAG_ROLE: u8 = 19;
 const TAG_EXITED: u8 = 20;
 const TAG_REFUSED: u8 = 21;
 const TAG_DONE: u8 = 22;
+const TAG_RESTORE: u8 = 23;
+const TAG_SNAPSHOT: u8 = 24;
+const TAG_CLIPBOARD_REQUEST: u8 = 25;
+const TAG_PARSED: u8 = 26;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ProtoError {
@@ -162,6 +226,30 @@ impl Body {
     }
     fn i64(&mut self, value: i64) {
         self.0.extend_from_slice(&value.to_be_bytes());
+    }
+    fn bool(&mut self, value: bool) {
+        self.u8(u8::from(value));
+    }
+    fn opt_bytes(&mut self, value: Option<&[u8]>) {
+        match value {
+            Some(value) => {
+                self.u8(1);
+                self.bytes(value);
+            }
+            None => self.u8(0),
+        }
+    }
+    fn clip(&mut self, stats: ClipStats) {
+        for value in [
+            stats.requests,
+            stats.answered,
+            stats.timeouts,
+            stats.cancelled,
+            stats.no_gui,
+            stats.dropped,
+        ] {
+            self.u32(value);
+        }
     }
     fn opt_i32(&mut self, value: Option<i32>) {
         match value {
@@ -215,6 +303,8 @@ pub fn encode(message: &Message) -> Vec<u8> {
             body.u8(match hello.purpose {
                 Purpose::Attach => 0,
                 Purpose::Control => 1,
+                Purpose::Gui => 2,
+                Purpose::Observe => 3,
             });
             body.u8(lead_code(hello.lead));
             body.str(&hello.client);
@@ -232,6 +322,60 @@ pub fn encode(message: &Message) -> Vec<u8> {
         Message::StatusRequest => TAG_STATUS_REQUEST,
         Message::Stop => TAG_STOP,
         Message::Detach => TAG_DETACH,
+        Message::SnapshotRequest => TAG_SNAPSHOT_REQUEST,
+        Message::GuiBind { generation } => {
+            body.u32(*generation);
+            TAG_GUI_BIND
+        }
+        Message::Focus(on) => {
+            body.bool(*on);
+            TAG_FOCUS
+        }
+        Message::Visible(on) => {
+            body.bool(*on);
+            TAG_VISIBLE
+        }
+        Message::ClipboardReply {
+            serial,
+            generation,
+            data,
+        } => {
+            body.u64(*serial);
+            body.u32(*generation);
+            body.opt_bytes(data.as_deref());
+            TAG_CLIPBOARD_REPLY
+        }
+        Message::Restore(bytes) => {
+            body.bytes(bytes);
+            TAG_RESTORE
+        }
+        Message::Snapshot(snapshot) => {
+            body.u64(snapshot.revision);
+            body.u16(snapshot.cols);
+            body.u16(snapshot.rows);
+            body.u16(snapshot.cursor_x);
+            body.u16(snapshot.cursor_y);
+            body.bool(snapshot.alternate);
+            body.str(&snapshot.text);
+            TAG_SNAPSHOT
+        }
+        Message::ClipboardRequest { serial, generation } => {
+            body.u64(*serial);
+            body.u32(*generation);
+            TAG_CLIPBOARD_REQUEST
+        }
+        Message::Parsed {
+            read,
+            offset,
+            held,
+            ground,
+        } => {
+            body.u64(*read);
+            body.u64(*offset);
+            body.u32(*held);
+            body.bool(*ground);
+            TAG_PARSED
+        }
         Message::Welcome(welcome) => {
             body.u16(welcome.version);
             body.str(&welcome.host);
@@ -256,6 +400,10 @@ pub fn encode(message: &Message) -> Vec<u8> {
             body.u8(u8::from(status.leader));
             body.u64(status.reads);
             body.u64(status.read_bytes);
+            body.u64(status.parsed_bytes);
+            body.u64(status.replies);
+            body.u64(status.dropped_replies);
+            body.clip(status.clipboard);
             body.size(status.size);
             TAG_STATUS
         }
@@ -320,6 +468,30 @@ impl<'a> Fields<'a> {
     fn i64(&mut self, what: &'static str) -> Result<i64, ProtoError> {
         Ok(i64::from_be_bytes(self.array(what)?))
     }
+    fn bool(&mut self, what: &'static str) -> Result<bool, ProtoError> {
+        match self.u8(what)? {
+            0 => Ok(false),
+            1 => Ok(true),
+            _ => Err(ProtoError::Malformed(what)),
+        }
+    }
+    fn opt_bytes(&mut self, what: &'static str) -> Result<Option<Vec<u8>>, ProtoError> {
+        match self.u8(what)? {
+            0 => Ok(None),
+            1 => Ok(Some(self.bytes(what)?)),
+            _ => Err(ProtoError::Malformed(what)),
+        }
+    }
+    fn clip(&mut self) -> Result<ClipStats, ProtoError> {
+        Ok(ClipStats {
+            requests: self.u32("clip.requests")?,
+            answered: self.u32("clip.answered")?,
+            timeouts: self.u32("clip.timeouts")?,
+            cancelled: self.u32("clip.cancelled")?,
+            no_gui: self.u32("clip.no_gui")?,
+            dropped: self.u32("clip.dropped")?,
+        })
+    }
     fn opt_i32(&mut self, what: &'static str) -> Result<Option<i32>, ProtoError> {
         match self.u8(what)? {
             0 => Ok(None),
@@ -374,6 +546,8 @@ pub fn decode_body(tag: u8, body: &[u8]) -> Result<Message, ProtoError> {
             purpose: match fields.u8("hello.purpose")? {
                 0 => Purpose::Attach,
                 1 => Purpose::Control,
+                2 => Purpose::Gui,
+                3 => Purpose::Observe,
                 _ => return Err(ProtoError::Malformed("hello.purpose")),
             },
             lead: fields.lead()?,
@@ -385,6 +559,37 @@ pub fn decode_body(tag: u8, body: &[u8]) -> Result<Message, ProtoError> {
         TAG_STATUS_REQUEST => Message::StatusRequest,
         TAG_STOP => Message::Stop,
         TAG_DETACH => Message::Detach,
+        TAG_SNAPSHOT_REQUEST => Message::SnapshotRequest,
+        TAG_GUI_BIND => Message::GuiBind {
+            generation: fields.u32("gui_bind.generation")?,
+        },
+        TAG_FOCUS => Message::Focus(fields.bool("focus")?),
+        TAG_VISIBLE => Message::Visible(fields.bool("visible")?),
+        TAG_CLIPBOARD_REPLY => Message::ClipboardReply {
+            serial: fields.u64("clipboard_reply.serial")?,
+            generation: fields.u32("clipboard_reply.generation")?,
+            data: fields.opt_bytes("clipboard_reply.data")?,
+        },
+        TAG_RESTORE => Message::Restore(fields.bytes("restore")?),
+        TAG_SNAPSHOT => Message::Snapshot(Snapshot {
+            revision: fields.u64("snapshot.revision")?,
+            cols: fields.u16("snapshot.cols")?,
+            rows: fields.u16("snapshot.rows")?,
+            cursor_x: fields.u16("snapshot.cursor_x")?,
+            cursor_y: fields.u16("snapshot.cursor_y")?,
+            alternate: fields.bool("snapshot.alternate")?,
+            text: fields.string("snapshot.text")?,
+        }),
+        TAG_CLIPBOARD_REQUEST => Message::ClipboardRequest {
+            serial: fields.u64("clipboard_request.serial")?,
+            generation: fields.u32("clipboard_request.generation")?,
+        },
+        TAG_PARSED => Message::Parsed {
+            read: fields.u64("parsed.read")?,
+            offset: fields.u64("parsed.offset")?,
+            held: fields.u32("parsed.held")?,
+            ground: fields.bool("parsed.ground")?,
+        },
         TAG_WELCOME => Message::Welcome(Welcome {
             version: fields.u16("welcome.version")?,
             host: fields.string("welcome.host")?,
@@ -411,6 +616,10 @@ pub fn decode_body(tag: u8, body: &[u8]) -> Result<Message, ProtoError> {
             },
             reads: fields.u64("status.reads")?,
             read_bytes: fields.u64("status.read_bytes")?,
+            parsed_bytes: fields.u64("status.parsed_bytes")?,
+            replies: fields.u64("status.replies")?,
+            dropped_replies: fields.u64("status.dropped_replies")?,
+            clipboard: fields.clip()?,
             size: fields.size("status.size")?,
         }),
         TAG_ROLE => Message::Role {
@@ -552,8 +761,53 @@ mod tests {
                 leader: true,
                 reads: 5,
                 read_bytes: 4096,
+                parsed_bytes: 4000,
+                replies: 12,
+                dropped_replies: 4,
+                clipboard: ClipStats {
+                    requests: 3,
+                    answered: 1,
+                    timeouts: 1,
+                    cancelled: 0,
+                    no_gui: 1,
+                    dropped: 2,
+                },
                 size,
             }),
+            Message::SnapshotRequest,
+            Message::GuiBind { generation: 2 },
+            Message::Focus(true),
+            Message::Visible(false),
+            Message::ClipboardReply {
+                serial: 9,
+                generation: 2,
+                data: Some(b"clip".to_vec()),
+            },
+            Message::ClipboardReply {
+                serial: 10,
+                generation: 2,
+                data: None,
+            },
+            Message::Restore(b"\x1b[?25l".to_vec()),
+            Message::Snapshot(Snapshot {
+                revision: 4,
+                cols: 80,
+                rows: 24,
+                cursor_x: 3,
+                cursor_y: 1,
+                alternate: true,
+                text: "a\nb".to_owned(),
+            }),
+            Message::ClipboardRequest {
+                serial: 9,
+                generation: 2,
+            },
+            Message::Parsed {
+                read: 3,
+                offset: 1 << 33,
+                held: 2,
+                ground: false,
+            },
             Message::Role {
                 role: Role::Follower,
                 generation: 4,
