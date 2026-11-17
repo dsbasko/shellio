@@ -1,5 +1,5 @@
-//! Рубеж A — жизненный цикл сессии (план P0.4, «Рубежи и клетки»), клетки A1–A7. Задача 7 гонит
-//! их на zmx текущей комбинации.
+//! Рубеж A — жизненный цикл сессии (план P0.4, «Рубежи и клетки»), клетки A1–A7 на zmx текущей
+//! комбинации (задача 7) и на Rust-хосте (задача 11: A7 и сравнение A2 после attach ждут снимка).
 //! Стенд и пути сокетов — `matrix::stand`.
 
 use std::thread;
@@ -9,12 +9,12 @@ use serde_json::json;
 
 use crate::args::Target;
 use crate::backend::zmx;
-use crate::backend::{Backend, InputPath, Liveness, SessionId, Workload};
+use crate::backend::{self, BackendError, InputPath, Liveness, SessionId, Workload};
 use crate::fixture::channel::{Command, Event, JobChange, Link};
 use crate::fixture::{self, Mode, flood_line};
 use crate::launch;
 use crate::matrix::Candidate;
-use crate::matrix::evidence::{Evidence, Spec, cell};
+use crate::matrix::evidence::{Evidence, Spec, cell, later};
 use crate::matrix::stand::{
     COLS, DETACH_KEY, STOP_GRACE, Session, Stand, WAIT, barrier, compare_states, emit, identity,
     same_alive,
@@ -24,17 +24,18 @@ use crate::oracle::vt::Reference;
 use crate::results::{Cell, DefectOrigin, Environment, Report};
 
 const FLOOD_LINES: u64 = 4000;
+/// Причина `not_run` клеток Rust-хоста, которым нужен снимок.
+pub const SNAPSHOT_LATER: &str = "до задачи 12: attach-клиент Rust-хоста пока без снимка";
 /// Одновременных `ensure` одной сессии в A4.
 const RACERS: usize = 8;
 /// Причины выхода фикстуры при потере PTY.
 const PTY_LOSS: [&str; 2] = ["hangup", "pty-closed"];
 
 pub fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
-    match target.backend {
-        Some(Candidate::Zmx) => {}
-        other => return Err(format!("lifecycle идёт на zmx, а не на {other:?}")),
-    }
-    let mut stand = Stand::new(&target.out, environment)?;
+    let Some(candidate) = target.backend else {
+        return Err("lifecycle идёт на кандидате".to_owned());
+    };
+    let mut stand = Stand::for_candidate(&target.out, environment, candidate)?;
     let outcome = cells(&mut stand);
     let cleanup = stand.teardown();
     let mut report = outcome?;
@@ -50,7 +51,10 @@ fn cells(stand: &mut Stand) -> Result<Report, String> {
     report.cells.extend(a4(stand)?);
     report.cells.extend(a5(stand)?);
     report.cells.extend(a6(stand)?);
-    report.cells.push(a7(stand)?);
+    report.cells.push(match stand.candidate {
+        Candidate::Zmx => a7(stand)?,
+        Candidate::Rust => later("A7", None, SNAPSHOT_LATER),
+    });
     Ok(report)
 }
 
@@ -113,7 +117,7 @@ fn a1_part(
         return Ok(());
     }
     let exit = if part == "client-sigkill" {
-        first.kill(&stand.zmx)?
+        first.kill(stand.main())?
     } else {
         first.hangup()?
     };
@@ -121,7 +125,7 @@ fn a1_part(
     same_alive(evidence, "нагрузка та же и жива", session.record.workload)?;
     same_alive(evidence, "хост тот же и жив", session.record.host)?;
     let liveness = stand
-        .zmx
+        .main()
         .liveness(&session.id)
         .map_err(|err| err.to_string())?;
     evidence.check(
@@ -188,7 +192,7 @@ fn a2_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
     };
     evidence.note("c1.exit", format!("{exit:?}"));
     let liveness = stand
-        .zmx
+        .main()
         .liveness(&session.id)
         .map_err(|err| err.to_string())?;
     evidence.check(
@@ -197,7 +201,7 @@ fn a2_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
         format!("{liveness:?}"),
     );
     let before = stand
-        .zmx
+        .main()
         .read_boundary(&session.id)
         .map_err(|err| err.to_string())?;
     session
@@ -246,7 +250,7 @@ fn a2_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
     }
     emit(&mut session.link, &mut reference, b"\x1b[3J")?;
     let after = stand
-        .zmx
+        .main()
         .read_boundary(&session.id)
         .map_err(|err| err.to_string())?;
     evidence.note("revision", json!({ "before": before, "after": after }));
@@ -263,7 +267,14 @@ fn a2_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
     {
         return Ok(());
     }
-    compare_states(evidence, "конец потока у c2", &reference, &second)?;
+    match stand.candidate {
+        Candidate::Zmx => {
+            compare_states(evidence, "конец потока у c2", &reference, &second)?;
+        }
+        Candidate::Rust => {
+            evidence.not_proven = Some(format!("конец потока после attach: {SNAPSHOT_LATER}"))
+        }
+    }
     Ok(())
 }
 
@@ -526,7 +537,7 @@ fn a4_reattach(
     }
     let workload_args = stand.workload(Mode::Emitter, &session.fixture_nonce)?;
     let again = stand
-        .zmx
+        .main()
         .ensure(&session.id, &workload_args, stand.size)
         .map_err(|err| format!("повторный ensure: {err}"))?;
     evidence.note("ensure_again", &again);
@@ -548,7 +559,7 @@ fn a4_reattach(
         found == expected,
         format!("{found:?}, ожидалось {expected:?}"),
     );
-    let listed = stand.zmx.list().map_err(|err| err.to_string())?;
+    let listed = stand.main().list().map_err(|err| err.to_string())?;
     let entries: Vec<_> = listed
         .iter()
         .filter(|entry| entry.name == session.id.as_str())
@@ -573,11 +584,11 @@ fn a4_concurrent(stand: &Stand, id: &SessionId, evidence: &mut Evidence) -> Resu
                 .map(|workload| (nonce, workload))
         })
         .collect::<Result<_, _>>()?;
-    let (zmx, size) = (&stand.zmx, stand.size);
+    let (backend, size) = (stand.main(), stand.size);
     let results: Vec<_> = thread::scope(|scope| {
         let handles: Vec<_> = workloads
             .iter()
-            .map(|(_, workload)| scope.spawn(move || zmx.ensure(id, workload, size)))
+            .map(|(_, workload)| scope.spawn(move || backend.ensure(id, workload, size)))
             .collect();
         handles
             .into_iter()
@@ -633,9 +644,9 @@ fn a4_concurrent(stand: &Stand, id: &SessionId, evidence: &mut Evidence) -> Resu
         format!("{found:?}, ожидалось {expected:?}"),
     );
     let sockets = stand
-        .zmx
+        .main()
         .socket_entries()
-        .map_err(|err| format!("сокеты zmx: {err}"))?;
+        .map_err(|err| format!("сокеты кандидата: {err}"))?;
     evidence.note("sockets", &sockets);
     evidence.check(
         "один сокет и пустой каталог подготовки",
@@ -648,7 +659,7 @@ fn a4_concurrent(stand: &Stand, id: &SessionId, evidence: &mut Evidence) -> Resu
             && sockets.staged.is_empty(),
         format!("{sockets:?}"),
     );
-    let listed = stand.zmx.list().map_err(|err| err.to_string())?;
+    let listed = stand.main().list().map_err(|err| err.to_string())?;
     let entries = listed
         .iter()
         .filter(|entry| entry.name == id.as_str())
@@ -733,7 +744,7 @@ fn a5_part(
         );
     } else {
         let outcome = stand
-            .zmx
+            .main()
             .stop(&session.id, STOP_GRACE)
             .map_err(|err| format!("stop: {err}"))?;
         evidence.note("stop", &outcome);
@@ -765,13 +776,13 @@ fn a5_part(
     let exit = client.wait_exit();
     evidence.require("клиент вышел", exit);
     let liveness = stand
-        .zmx
+        .main()
         .liveness(&session.id)
         .map_err(|err| err.to_string())?;
     evidence.note("liveness", &liveness);
     evidence.note(
         "socket_present",
-        stand.zmx.socket_path(&session.id).exists(),
+        stand.main().socket_path(&session.id).exists(),
     );
     Ok(())
 }
@@ -861,9 +872,9 @@ fn a6_part(
                 fixture::command_args(Mode::NohupChild, stand.listener()?.path(), &nonce, None);
             let line = format!("run {} {} &\n", stand.fixture.display(), args.join(" "));
             stand
-                .zmx
+                .main()
                 .input(&session.id, line.as_bytes(), InputPath::Raw)
-                .map_err(|err| format!("zmx send: {err}"))?;
+                .map_err(|err| format!("ввод без клиента: {err}"))?;
             let (_, change, _) = job(&mut session.link)?;
             if change != (JobChange::Started { foreground: false }) {
                 return Err(format!("фоновое задание: {change:?}"));
@@ -876,10 +887,10 @@ fn a6_part(
         }
         _ => {}
     }
-    let saved = zmx::session_processes(&session.record).map_err(|err| err.to_string())?;
+    let saved = backend::session_processes(&session.record).map_err(|err| err.to_string())?;
     evidence.note("saved", &saved);
     let host = stand
-        .zmx
+        .main()
         .kill_host(&session.id, WAIT)
         .map_err(|err| format!("kill_host: {err}"))?;
     evidence.note("killed_host", host);
@@ -904,12 +915,12 @@ fn a6_part(
         ),
     );
     let sockets = stand
-        .zmx
+        .main()
         .socket_entries()
-        .map_err(|err| format!("сокеты zmx: {err}"))?;
+        .map_err(|err| format!("сокеты кандидата: {err}"))?;
     evidence.note("sockets_before_liveness", &sockets);
     let liveness = stand
-        .zmx
+        .main()
         .liveness(&session.id)
         .map_err(|err| err.to_string())?;
     evidence.check(
@@ -932,7 +943,21 @@ fn a6_part(
         }));
     }
     evidence.note("found", found);
-    let survivors = zmx::alive(&saved).map_err(|err| err.to_string())?;
+    let survivors = backend::alive(&saved).map_err(|err| err.to_string())?;
+    match stand.main().remaining(&session.id) {
+        Ok(remaining) => {
+            evidence.note("remaining_by_record", &remaining);
+            evidence.check(
+                "запись на диске находит выживших",
+                survivors.iter().all(|key| remaining.contains(key)),
+                format!("по записи {remaining:?}, выжили {survivors:?}"),
+            );
+        }
+        Err(BackendError::Unsupported(what)) => evidence.note("remaining_by_record", what),
+        Err(err) => {
+            evidence.check("запись на диске находит выживших", false, err);
+        }
+    }
     let running = processes_with(&session.fixture_nonce)?;
     evidence.note("survivors", &survivors);
     evidence.note("running_with_nonce", &running);
@@ -1019,7 +1044,7 @@ fn a7_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
         emit(&mut session.link, &mut reference, &step)?;
     }
     let snapshot = stand
-        .zmx
+        .main()
         .snapshot(&session.id)
         .map_err(|err| err.to_string())?;
     evidence.note("headless_snapshot", &snapshot);
@@ -1029,7 +1054,7 @@ fn a7_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
         format!("ревизия {}", snapshot.revision),
     );
     let again = stand
-        .zmx
+        .main()
         .ensure(
             &session.id,
             &stand.workload(Mode::Emitter, &session.fixture_nonce)?,

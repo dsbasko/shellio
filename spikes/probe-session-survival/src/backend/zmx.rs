@@ -30,8 +30,10 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     Backend, BackendError, ClientCommand, CommandRun, Ensured, HostRecord, InputOutcome, InputPath,
-    Lead, Listed, Liveness, Result, SessionId, Snapshot, StopOutcome, Workload, signal, wait_child,
+    Lead, Listed, Liveness, Result, SessionId, Snapshot, StopOutcome, Workload, judge_liveness,
+    kill_recorded_host, signal, wait_child,
 };
+pub use super::{Role, RoleReport, SocketEntries, alive, parse_role, session_processes};
 use crate::launch;
 use crate::matrix::Candidate;
 use crate::observer::{self, ProcessKey};
@@ -207,13 +209,6 @@ impl Zmx {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
-}
-
-/// Сокеты в каталоге zmx.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SocketEntries {
-    pub sessions: Vec<String>,
-    pub staged: Vec<String>,
 }
 
 fn sockets_in(dir: &Path) -> io::Result<Vec<String>> {
@@ -400,23 +395,17 @@ impl Backend for Zmx {
     fn liveness(&self, id: &SessionId) -> Result<Liveness> {
         let socket_present = fs::symlink_metadata(self.socket_path(id))
             .is_ok_and(|meta| meta.file_type().is_socket());
-        match self.record(id) {
-            Some(record) => {
-                let host = observer::identify(record.host).map_err(BackendError::Failed)?;
-                if !host.is_alive() {
-                    return Ok(if socket_present {
-                        Liveness::Lost
-                    } else {
-                        Liveness::Ended
-                    });
+        let record = self.record(id);
+        let mut listed = None;
+        let judged = judge_liveness(record.as_ref(), socket_present, || {
+            let entries = match self.list() {
+                Ok(entries) => entries,
+                Err(err) => {
+                    listed = Some(err);
+                    return Liveness::Absent;
                 }
-            }
-            None if !socket_present => return Ok(Liveness::Absent),
-            None => {}
-        }
-        let listed = self.list()?;
-        Ok(
-            match listed.into_iter().find(|entry| entry.name == id.as_str()) {
+            };
+            match entries.into_iter().find(|entry| entry.name == id.as_str()) {
                 Some(Listed {
                     error: Some(error), ..
                 }) => Liveness::Unreachable { error },
@@ -434,8 +423,12 @@ impl Backend for Zmx {
                 None => Liveness::Unreachable {
                     error: "хост жив, но сессии нет в списке".to_owned(),
                 },
-            },
-        )
+            }
+        })?;
+        match listed {
+            Some(err) => Err(err),
+            None => Ok(judged),
+        }
     }
 
     fn read_boundary(&self, id: &SessionId) -> Result<u64> {
@@ -449,60 +442,20 @@ impl Backend for Zmx {
             .then(|| role_prefix(&self.config.token))
     }
 
+    fn socket_path(&self, id: &SessionId) -> PathBuf {
+        Zmx::socket_path(self, id)
+    }
+
+    fn socket_entries(&self) -> io::Result<SocketEntries> {
+        Zmx::socket_entries(self)
+    }
+
     fn kill_host(&self, id: &SessionId, timeout: Duration) -> Result<ProcessKey> {
         let record = self
             .record(id)
             .ok_or_else(|| BackendError::Failed(format!("нет записи о сессии {id}")))?;
-        let host = observer::identify(record.host).map_err(BackendError::Failed)?;
-        if !host.is_alive() {
-            return Err(BackendError::Failed(format!(
-                "хост {id} уже не тот процесс: {host:?}"
-            )));
-        }
-        signal(record.host.pid, libc::SIGKILL)
-            .map_err(|err| BackendError::Failed(format!("SIGKILL хосту {id}: {err}")))?;
-        if !launch::wait_exit(&[record.host.pid], timeout).is_empty() {
-            return Err(BackendError::Failed(format!(
-                "хост {id} не вышел после SIGKILL за {} мс",
-                timeout.as_millis()
-            )));
-        }
-        Ok(record.host)
+        kill_recorded_host(&record, timeout)
     }
-}
-
-/// Хост, нагрузка и её потомки на момент вызова. Потомки ищутся только у живого хоста: PID
-/// вышедшего мог занять чужой процесс.
-pub fn session_processes(record: &HostRecord) -> Result<Vec<ProcessKey>> {
-    let mut keys = vec![record.host];
-    let host_alive = observer::identify(record.host)
-        .map_err(BackendError::Failed)?
-        .is_alive();
-    if host_alive {
-        for info in observer::descendants(record.host.pid).map_err(BackendError::Failed)? {
-            if !keys.contains(&info.key) {
-                keys.push(info.key);
-            }
-        }
-    }
-    if !keys.contains(&record.workload) {
-        keys.push(record.workload);
-    }
-    Ok(keys)
-}
-
-/// Те из процессов, что ещё исполняются тем же процессом.
-pub fn alive(keys: &[ProcessKey]) -> Result<Vec<ProcessKey>> {
-    let mut found = Vec::new();
-    for key in keys {
-        if observer::identify(*key)
-            .map_err(BackendError::Failed)?
-            .is_alive()
-        {
-            found.push(*key);
-        }
-    }
-    Ok(found)
 }
 
 // --- чистые части ---
@@ -584,35 +537,6 @@ pub fn command_env(config: &Config, kind: EnvKind) -> Result<Vec<(String, String
 /// Префикс заголовка, которым управляемый клиент сообщает роль.
 pub fn role_prefix(token: &str) -> String {
     format!("{ROLE_TITLE}{token}:")
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum Role {
-    Unowned,
-    Leader,
-    Follower,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RoleReport {
-    pub role: Role,
-    pub generation: u32,
-}
-
-/// Остаток заголовка роли после префикса: `<роль>:<поколение>`.
-pub fn parse_role(report: &str) -> Option<RoleReport> {
-    let (role, generation) = report.split_once(':')?;
-    let role = match role {
-        "unowned" => Role::Unowned,
-        "leader" => Role::Leader,
-        "follower" => Role::Follower,
-        _ => return None,
-    };
-    Some(RoleReport {
-        role,
-        generation: generation.parse().ok()?,
-    })
 }
 
 /// Разбор `zmx list`: строки `name=…\tpid=…\tclients=…\t…` или `name=…\terr=…\tstatus=…`, перед
@@ -1115,21 +1039,9 @@ mod tests {
     }
 
     #[test]
-    fn role_reports_are_parsed() {
-        assert_eq!(
-            parse_role("leader:3"),
-            Some(RoleReport {
-                role: Role::Leader,
-                generation: 3
-            })
-        );
-        assert_eq!(
-            parse_role("follower:0").map(|r| r.role),
-            Some(Role::Follower)
-        );
-        assert_eq!(parse_role("boss:1"), None);
-        assert_eq!(parse_role("leader"), None);
+    fn role_prefix_carries_the_token() {
         assert_eq!(role_prefix("t1"), "zmx-role;t1:");
+        assert_eq!(parse_role("leader:3").map(|r| r.role), Some(Role::Leader));
     }
 
     #[test]

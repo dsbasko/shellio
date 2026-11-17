@@ -5,6 +5,7 @@
 //! Модуль чистый: команды кандидатов запускаются как процессы, FFI нет, поэтому разбор их вывода и
 //! построение команд идут в `make check`.
 
+pub mod rust;
 pub mod zmx;
 
 use std::fmt;
@@ -17,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::launch;
 use crate::matrix::Candidate;
-use crate::observer::ProcessKey;
+use crate::observer::{self, ProcessKey};
 use crate::pty::Winsize;
 
 /// Имя сессии: строчные латинские буквы, цифры и дефисы, не с дефиса. Короткое: путь сокета
@@ -176,6 +177,55 @@ pub enum Lead {
     Claim,
 }
 
+/// Роль attach-клиента, которую он сообщает своему терминалу заголовком
+/// `<префикс><роль>:<поколение>` (`Backend::role_prefix`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Role {
+    Unowned,
+    Leader,
+    Follower,
+}
+
+impl Role {
+    pub fn name(self) -> &'static str {
+        match self {
+            Role::Unowned => "unowned",
+            Role::Leader => "leader",
+            Role::Follower => "follower",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoleReport {
+    pub role: Role,
+    pub generation: u32,
+}
+
+/// Остаток заголовка роли после префикса: `<роль>:<поколение>`.
+pub fn parse_role(report: &str) -> Option<RoleReport> {
+    let (role, generation) = report.split_once(':')?;
+    let role = match role {
+        "unowned" => Role::Unowned,
+        "leader" => Role::Leader,
+        "follower" => Role::Follower,
+        _ => return None,
+    };
+    Some(RoleReport {
+        role,
+        generation: generation.parse().ok()?,
+    })
+}
+
+/// Сокеты в каталоге кандидата: опубликованные имена сессий и сокеты, ещё не опубликованные
+/// (каталог подготовки zmx, временные имена Rust-хоста).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SocketEntries {
+    pub sessions: Vec<String>,
+    pub staged: Vec<String>,
+}
+
 /// Команда attach-клиента: стенд запускает её в PTY окна клиента.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientCommand {
@@ -249,6 +299,16 @@ pub trait Backend {
     fn read_boundary(&self, id: &SessionId) -> Result<u64>;
     /// Префикс заголовка, которым клиент сообщает терминалу роль; `None` — клиент её не сообщает.
     fn role_prefix(&self) -> Option<String>;
+    /// Путь опубликованного сокета сессии.
+    fn socket_path(&self, id: &SessionId) -> PathBuf;
+    /// Сокеты каталога кандидата без обращения к хостам.
+    fn socket_entries(&self) -> io::Result<SocketEntries>;
+    /// Живые процессы сессии, найденные только по записи на диске: после потери хоста.
+    fn remaining(&self, _id: &SessionId) -> Result<Vec<ProcessKey>> {
+        Err(BackendError::Unsupported(
+            "поиск оставшихся процессов по записи на диске".to_owned(),
+        ))
+    }
 
     // --- управление сбоями ---
 
@@ -272,6 +332,83 @@ pub trait Backend {
         signal(client.id() as i32, sig)
             .map_err(|err| BackendError::Failed(format!("сигнал {sig} клиенту: {err}")))
     }
+}
+
+/// Хост, нагрузка и её потомки на момент вызова. Потомки ищутся только у живого хоста: PID
+/// вышедшего мог занять чужой процесс.
+pub fn session_processes(record: &HostRecord) -> Result<Vec<ProcessKey>> {
+    let mut keys = vec![record.host];
+    let host_alive = observer::identify(record.host)
+        .map_err(BackendError::Failed)?
+        .is_alive();
+    if host_alive {
+        for info in observer::descendants(record.host.pid).map_err(BackendError::Failed)? {
+            if !keys.contains(&info.key) {
+                keys.push(info.key);
+            }
+        }
+    }
+    if !keys.contains(&record.workload) {
+        keys.push(record.workload);
+    }
+    Ok(keys)
+}
+
+/// Те из процессов, что ещё исполняются тем же процессом.
+pub fn alive(keys: &[ProcessKey]) -> Result<Vec<ProcessKey>> {
+    let mut found = Vec::new();
+    for key in keys {
+        if observer::identify(*key)
+            .map_err(BackendError::Failed)?
+            .is_alive()
+        {
+            found.push(*key);
+        }
+    }
+    Ok(found)
+}
+
+/// `SIGKILL` хосту по записи и ожидание его выхода.
+pub fn kill_recorded_host(record: &HostRecord, timeout: Duration) -> Result<ProcessKey> {
+    let id = &record.session;
+    let host = observer::identify(record.host).map_err(BackendError::Failed)?;
+    if !host.is_alive() {
+        return Err(BackendError::Failed(format!(
+            "хост {id} уже не тот процесс: {host:?}"
+        )));
+    }
+    signal(record.host.pid, libc::SIGKILL)
+        .map_err(|err| BackendError::Failed(format!("SIGKILL хосту {id}: {err}")))?;
+    if !launch::wait_exit(&[record.host.pid], timeout).is_empty() {
+        return Err(BackendError::Failed(format!(
+            "хост {id} не вышел после SIGKILL за {} мс",
+            timeout.as_millis()
+        )));
+    }
+    Ok(record.host)
+}
+
+/// Состояние сессии по записи, сокету и ответу хоста; общее правило обоих кандидатов.
+pub fn judge_liveness(
+    record: Option<&HostRecord>,
+    socket_present: bool,
+    ask: impl FnOnce() -> Liveness,
+) -> Result<Liveness> {
+    match record {
+        Some(record) => {
+            let host = observer::identify(record.host).map_err(BackendError::Failed)?;
+            if !host.is_alive() {
+                return Ok(if socket_present {
+                    Liveness::Lost
+                } else {
+                    Liveness::Ended
+                });
+            }
+        }
+        None if !socket_present => return Ok(Liveness::Absent),
+        None => {}
+    }
+    Ok(ask())
 }
 
 pub fn signal(pid: i32, sig: libc::c_int) -> io::Result<()> {
@@ -340,6 +477,54 @@ mod tests {
         assert!(outcome.confirmed());
         outcome.survivors.push(key);
         assert!(!outcome.confirmed());
+    }
+
+    #[test]
+    fn role_reports_are_parsed() {
+        assert_eq!(
+            parse_role("leader:3"),
+            Some(RoleReport {
+                role: Role::Leader,
+                generation: 3
+            })
+        );
+        assert_eq!(
+            parse_role("follower:0").map(|r| r.role),
+            Some(Role::Follower)
+        );
+        assert_eq!(parse_role("boss:1"), None);
+        assert_eq!(parse_role("leader"), None);
+        assert_eq!(Role::Follower.name(), "follower");
+    }
+
+    #[test]
+    fn liveness_without_a_live_host_depends_on_the_socket() {
+        let gone = HostRecord {
+            session: SessionId::new("s1").unwrap(),
+            // PID 1 с нулевым временем старта — не тот процесс.
+            host: ProcessKey {
+                pid: 1,
+                start_us: 0,
+            },
+            workload: ProcessKey {
+                pid: 1,
+                start_us: 0,
+            },
+            workload_pgid: 1,
+            workload_sid: None,
+        };
+        let never =
+            || -> Liveness { panic!("хоста нет, спрашивать некого") };
+        assert_eq!(judge_liveness(Some(&gone), true, never), Ok(Liveness::Lost));
+        assert_eq!(
+            judge_liveness(Some(&gone), false, never),
+            Ok(Liveness::Ended)
+        );
+        assert_eq!(judge_liveness(None, false, never), Ok(Liveness::Absent));
+        assert_eq!(
+            judge_liveness(None, true, || Liveness::Ended),
+            Ok(Liveness::Ended)
+        );
     }
 
     #[test]

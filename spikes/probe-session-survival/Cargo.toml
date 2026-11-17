@@ -38,6 +38,15 @@ name = "probe-session-fixture"
 path = "src/bin/fixture.rs"
 
 [[bin]]
+name = "probe-session-host"
+path = "src/bin/host.rs"
+required-features = ["vt"]
+
+[[bin]]
+name = "probe-session-attach"
+path = "src/bin/attach.rs"
+
+[[bin]]
 name = "probe-session-surface"
 path = "src/bin/surface.rs"
 required-features = ["surface"]

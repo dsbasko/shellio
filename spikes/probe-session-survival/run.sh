@@ -306,7 +306,8 @@ cmd_surface() {
 backends_of() {
     case "$1" in
         smoke | capi) echo - ;;
-        lifecycle | restore | queries | io | geometry | versions) echo zmx ;;
+        lifecycle | io) echo zmx rust ;;
+        restore | queries | geometry | versions) echo zmx ;;
         *) die "у сценария $1 не заданы кандидаты" ;;
     esac
 }

@@ -15,6 +15,8 @@ pub mod io;
 #[cfg(feature = "vt")]
 pub mod lifecycle;
 #[cfg(feature = "vt")]
+pub mod publish;
+#[cfg(feature = "vt")]
 pub mod queries;
 pub mod report_policy;
 #[cfg(feature = "vt")]
@@ -188,12 +190,10 @@ impl Scenario {
     pub fn candidates(self) -> &'static [Candidate] {
         match self {
             Scenario::Smoke | Scenario::Capi | Scenario::ReportPolicy => &[],
-            Scenario::Lifecycle
-            | Scenario::Restore
-            | Scenario::Queries
-            | Scenario::Io
-            | Scenario::Geometry
-            | Scenario::Versions => &[Candidate::Zmx],
+            Scenario::Lifecycle | Scenario::Io => &Candidate::ALL,
+            Scenario::Restore | Scenario::Queries | Scenario::Geometry | Scenario::Versions => {
+                &[Candidate::Zmx]
+            }
         }
     }
 
@@ -582,7 +582,9 @@ pub(crate) mod tests {
         }
         assert!(Scenario::Smoke.candidates().is_empty());
         assert!(Scenario::Capi.candidates().is_empty());
-        assert_eq!(Scenario::Lifecycle.candidates(), [Candidate::Zmx]);
+        assert_eq!(Scenario::Lifecycle.candidates(), Candidate::ALL);
+        assert_eq!(Scenario::Io.candidates(), Candidate::ALL);
+        assert_eq!(Scenario::Restore.candidates(), [Candidate::Zmx]);
     }
 
     #[test]

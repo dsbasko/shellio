@@ -20,13 +20,16 @@ use std::process::{Child, ExitStatus};
 
 use serde::Serialize;
 
-use crate::backend::zmx::{self, Role, ZmxSet};
+use crate::backend::rust::{self as rust_host, RustHost};
+use crate::backend::zmx::{self, ZmxSet};
 use crate::backend::{
-    Backend, HostRecord, Lead, Liveness, SessionId, Workload, signal, wait_child,
+    self as backend, Backend, HostRecord, Lead, Liveness, Role, SessionId, Workload, signal,
+    wait_child,
 };
 use crate::fixture::channel::{Command, Event, Link, Listener, Ready, hex};
 use crate::fixture::{self, Mode};
 use crate::launch;
+use crate::matrix::Candidate;
 use crate::matrix::evidence::Evidence;
 use crate::observer::{self, Identity, ProcessKey};
 use crate::oracle::model::{Outcome, State, compare};
@@ -57,6 +60,10 @@ pub struct Stand {
     pub zmx: zmx::Zmx,
     /// Комбинация `zmx-prev` в том же `ZMX_DIR` и с тем же токеном: G1 и G2.
     pub prev: zmx::Zmx,
+    /// Кандидат процесса сценария: его сессии создают `ensure` и `client`.
+    pub candidate: Candidate,
+    /// Rust-хост в каталоге `/tmp/pss-<nonce>/r`, журналы — в `<out>/rust/logs`.
+    pub rust: Option<RustHost>,
     pub config: Config,
     pub size: Winsize,
     pub sessions: Vec<SessionId>,
@@ -64,6 +71,15 @@ pub struct Stand {
 
 impl Stand {
     pub fn new(out: &Path, environment: &Environment) -> Result<Stand, String> {
+        Stand::for_candidate(out, environment, Candidate::Zmx)
+    }
+
+    /// Стенд кандидата `candidate`; zmx готовится всегда: на нём идут G1 и G2.
+    pub fn for_candidate(
+        out: &Path,
+        environment: &Environment,
+        candidate: Candidate,
+    ) -> Result<Stand, String> {
         let nonce = environment
             .process
             .nonce
@@ -124,6 +140,25 @@ impl Stand {
             binary: prev_binary,
             ..zmx_config.clone()
         })?;
+        let rust = match candidate {
+            Candidate::Zmx => None,
+            Candidate::Rust => {
+                let bin_dir = program.parent().ok_or("каталог раннера")?;
+                let dir = root.join("r");
+                fs::create_dir(&dir).map_err(|err| format!("{}: {err}", dir.display()))?;
+                Some(RustHost::new(rust_host::Config {
+                    host: bin_dir.join(crate::host::HOST_NAME),
+                    attach: bin_dir.join(crate::host::attach::ATTACH_NAME),
+                    dir,
+                    logs: out.join("rust").join("logs"),
+                    cwd: root.clone(),
+                    env: zmx_config.env.clone(),
+                    token: zmx_config.token.clone(),
+                    timeout: COMMAND_TIMEOUT,
+                    break_socket: None,
+                })?)
+            }
+        };
         let zmx = zmx::Zmx::new(zmx_config)?;
         let config = Config::new(COLS, ROWS);
         let size = config.winsize(COLS, ROWS);
@@ -135,6 +170,8 @@ impl Stand {
             fixture,
             zmx,
             prev,
+            candidate,
+            rust,
             config,
             size,
             sessions: Vec::new(),
@@ -167,7 +204,22 @@ impl Stand {
     /// Сессия с фикстурой и её готовность. Размер PTY нагрузки — размер окна стенда: иначе
     /// attach менял бы размер и эталону понадобился бы ресайз.
     pub fn ensure(&mut self, id: &SessionId, mode: Mode) -> Result<Session, String> {
-        self.ensure_on(ZmxSet::Current, id, mode)
+        self.ensure_via(None, id, mode)
+    }
+
+    /// Кандидат процесса сценария.
+    pub fn main(&self) -> &(dyn Backend + Sync) {
+        match &self.rust {
+            Some(rust) => rust,
+            None => &self.zmx,
+        }
+    }
+
+    fn pick(&self, set: Option<ZmxSet>) -> &(dyn Backend + Sync) {
+        match set {
+            Some(set) => self.backend(set),
+            None => self.main(),
+        }
     }
 
     /// Комбинация zmx стенда.
@@ -185,11 +237,20 @@ impl Stand {
         id: &SessionId,
         mode: Mode,
     ) -> Result<Session, String> {
+        self.ensure_via(Some(set), id, mode)
+    }
+
+    fn ensure_via(
+        &mut self,
+        set: Option<ZmxSet>,
+        id: &SessionId,
+        mode: Mode,
+    ) -> Result<Session, String> {
         let fixture_nonce = format!("{id}-w");
         let workload = self.workload(mode, &fixture_nonce)?;
         self.sessions.push(id.clone());
         let ensured = self
-            .backend(set)
+            .pick(set)
             .ensure(id, &workload, self.size)
             .map_err(|err| format!("ensure {id}: {err}"))?;
         let (link, ready) = self.accept(Some(&fixture_nonce))?;
@@ -239,7 +300,7 @@ impl Stand {
     }
 
     pub fn client(&self, id: &SessionId, label: &str) -> Result<Client, String> {
-        self.client_with(ZmxSet::Current, id, label, Lead::IfFree, self.size)
+        self.client_on(self.main(), id, label, Lead::IfFree, self.size)
     }
 
     /// Клиент комбинации `set` с правилом лидерства `lead` в окне размера `size`.
@@ -251,7 +312,17 @@ impl Stand {
         lead: Lead,
         size: Winsize,
     ) -> Result<Client, String> {
-        let backend = self.backend(set);
+        self.client_on(self.backend(set), id, label, lead, size)
+    }
+
+    pub fn client_on(
+        &self,
+        backend: &dyn Backend,
+        id: &SessionId,
+        label: &str,
+        lead: Lead,
+        size: Winsize,
+    ) -> Result<Client, String> {
         let command = backend
             .attach_command(id, lead)
             .map_err(|err| format!("команда attach: {err}"))?;
@@ -291,18 +362,18 @@ impl Stand {
     /// Останавливает сессию и добивает её процессы: уборка стенда, а не вывод клетки.
     pub fn discard(&self, id: &SessionId) -> Vec<String> {
         let mut notes = Vec::new();
-        let Some(record) = self.zmx.record(id) else {
+        let main = self.main();
+        let Some(record) = main.record(id) else {
             return notes;
         };
-        let processes = zmx::session_processes(&record).unwrap_or_else(|_| vec![record.host]);
-        if self
-            .zmx
+        let processes = backend::session_processes(&record).unwrap_or_else(|_| vec![record.host]);
+        if main
             .liveness(id)
             .is_ok_and(|state| matches!(state, Liveness::Live { .. }))
         {
-            let _ = self.zmx.stop(id, STOP_GRACE);
+            let _ = main.stop(id, STOP_GRACE);
         }
-        let survivors = zmx::alive(&processes).unwrap_or_default();
+        let survivors = backend::alive(&processes).unwrap_or_default();
         for key in &survivors {
             let _ = signal(key.pid, libc::SIGKILL);
             notes.push(format!("уборка {id}: SIGKILL PID {}", key.pid));
@@ -342,11 +413,18 @@ impl Stand {
     }
 
     pub fn log_name(&self, id: &SessionId) -> String {
-        format!("zmx/logs/{id}.log")
+        match self.candidate {
+            Candidate::Zmx => format!("zmx/logs/{id}.log"),
+            Candidate::Rust => format!("rust/logs/{id}.log"),
+        }
     }
 
     pub fn daemon_log(&self, id: &SessionId) -> String {
-        fs::read_to_string(self.zmx.session_log(id)).unwrap_or_default()
+        let path = match &self.rust {
+            Some(rust) => rust.session_log(id),
+            None => self.zmx.session_log(id),
+        };
+        fs::read_to_string(path).unwrap_or_default()
     }
 }
 
@@ -385,7 +463,7 @@ impl Client {
         route
             .wait_until(WAIT, |rx, _| {
                 rx.last_role()
-                    .and_then(zmx::parse_role)
+                    .and_then(backend::parse_role)
                     .is_some_and(|report| report.role == Role::Leader)
             })
             .map_err(|err| format!("клиент {} не стал лидером: {err}", self.label))?;

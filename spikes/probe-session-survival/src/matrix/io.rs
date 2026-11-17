@@ -24,7 +24,8 @@ use crate::fixture::channel::{Command, Event, Link, LinkError, hex, unhex};
 use crate::fixture::{Mode, flood_line};
 use crate::launch;
 use crate::matrix::Candidate;
-use crate::matrix::evidence::{Evidence, Spec, cell};
+use crate::matrix::evidence::{Evidence, Spec, cell, later};
+use crate::matrix::publish;
 use crate::matrix::stand::{
     COMMAND_TIMEOUT, Client, STOP_GRACE, Session, Stand, WAIT, barrier, compare_states,
 };
@@ -67,11 +68,10 @@ const E5_NAME: &str = "e5a";
 const E5_SHORT_NAME: &str = "e5u";
 
 pub fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
-    match target.backend {
-        Some(Candidate::Zmx) => {}
-        other => return Err(format!("io идёт на zmx, а не на {other:?}")),
-    }
-    let mut stand = Stand::new(&target.out, environment)?;
+    let Some(candidate) = target.backend else {
+        return Err("io идёт на кандидате".to_owned());
+    };
+    let mut stand = Stand::for_candidate(&target.out, environment, candidate)?;
     let outcome = cells(&mut stand);
     let cleanup = stand.teardown();
     let mut report = outcome?;
@@ -79,8 +79,20 @@ pub fn run(target: &Target, environment: &Environment) -> Result<Report, String>
     Ok(report)
 }
 
+/// Причина `not_run` клеток E1–E4 Rust-хоста.
+pub const QUEUES_LATER: &str =
+    "до задачи 13: очереди, обратное давление и подтверждение ввода Rust-хоста";
+
 fn cells(stand: &mut Stand) -> Result<Report, String> {
     let mut report = Report::default();
+    if stand.candidate == Candidate::Rust {
+        for id in ["E1", "E2", "E3", "E4"] {
+            report.cells.push(later(id, None, QUEUES_LATER));
+        }
+        report.cells.extend(publish::cells(stand)?);
+        report.cells.push(e5_stress_cell(stand)?);
+        return Ok(report);
+    }
     report.cells.push(e1(stand)?);
     report.cells.extend(e2(stand)?);
     report.cells.push(e3(stand)?);
@@ -718,6 +730,11 @@ fn e5(stand: &mut Stand) -> Result<Vec<Cell>, String> {
         vec![artifact],
     ));
 
+    cells.push(e5_stress_cell(stand)?);
+    Ok(cells)
+}
+
+fn e5_stress_cell(stand: &mut Stand) -> Result<Cell, String> {
     let id = stand.session("e5")?;
     stand.sessions.push(id.clone());
     let mut evidence = Evidence::default();
@@ -729,11 +746,17 @@ fn e5(stand: &mut Stand) -> Result<Vec<Cell>, String> {
         Spec {
             id: "E5",
             part: Some("stress"),
-            stimulus: format!(
-                "{E5_RACERS} одновременных ensure одной сессии и {E5_RACERS} потоков по \
-                 {E5_LISTS} list; attach zmx без нагрузки создал бы сессию сам, поэтому attach \
-                 в окне — это ensure"
-            ),
+            stimulus: match stand.candidate {
+                Candidate::Zmx => format!(
+                    "{E5_RACERS} одновременных ensure одной сессии и {E5_RACERS} потоков по \
+                     {E5_LISTS} list; attach zmx без нагрузки создал бы сессию сам, поэтому \
+                     attach в окне — это ensure"
+                ),
+                Candidate::Rust => format!(
+                    "{E5_RACERS} одновременных ensure одной сессии и {E5_RACERS} потоков по \
+                     {E5_LISTS} list"
+                ),
+            },
             oracle: "одна нагрузка и один хост, сокет и пустой каталог подготовки, list без \
                      ошибок по сессии; попадание в окно публикации не доказывается",
             completion: "все ensure и list вернулись",
@@ -743,8 +766,7 @@ fn e5(stand: &mut Stand) -> Result<Vec<Cell>, String> {
         vec![artifact, stand.log_name(&id)],
     );
     stress.requirement = Requirement::Research;
-    cells.push(stress);
-    Ok(cells)
+    Ok(stress)
 }
 
 /// Каталог длиной ровно `len` байт внутри корня стенда.
@@ -929,7 +951,7 @@ fn e5_stress(stand: &Stand, id: &SessionId, evidence: &mut Evidence) -> Result<(
     let workloads = (0..E5_RACERS)
         .map(|index| stand.workload(Mode::Emitter, &format!("{prefix}{index}")))
         .collect::<Result<Vec<_>, _>>()?;
-    let (backend, size) = (&stand.zmx, stand.size);
+    let (backend, size) = (stand.main(), stand.size);
     let started = Instant::now();
     let (ensured, listed) = thread::scope(|scope| {
         let racers: Vec<_> = workloads
@@ -989,9 +1011,9 @@ fn e5_stress(stand: &Stand, id: &SessionId, evidence: &mut Evidence) -> Result<(
         format!("нагрузки {keys:?}, победители {winners:?}"),
     );
     let sockets = stand
-        .zmx
+        .main()
         .socket_entries()
-        .map_err(|err| format!("сокеты zmx: {err}"))?;
+        .map_err(|err| format!("сокеты кандидата: {err}"))?;
     evidence.note("sockets", &sockets);
     evidence.check(
         "один сокет и пустой каталог подготовки",
@@ -1012,10 +1034,13 @@ fn e5_stress(stand: &Stand, id: &SessionId, evidence: &mut Evidence) -> Result<(
             }
         }
     }
-    evidence.not_proven = Some(
-        "попадание list и ensure в окно между bind, listen и публикацией не доказано: точку \
-         остановки в zmx без патча не поставить"
+    evidence.not_proven = Some(match stand.candidate {
+        Candidate::Zmx => "попадание list и ensure в окно между bind, listen и публикацией не \
+                           доказано: точку остановки в zmx без патча не поставить"
             .to_owned(),
-    );
+        Candidate::Rust => "стресс не доказывает попадание в окно; окно Rust-хоста доказано \
+                            точками остановки, часть window"
+            .to_owned(),
+    });
     Ok(())
 }

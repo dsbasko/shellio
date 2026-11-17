@@ -111,6 +111,26 @@ pub fn cell(spec: Spec<'_>, evidence: &Evidence, artifacts: Vec<String>) -> Cell
     }
 }
 
+/// Клетка, которую кандидат пока не может пройти по плану: `not_run` с причиной стенда.
+pub fn later(id: &str, part: Option<&str>, reason: &str) -> Cell {
+    let evidence = Evidence {
+        not_proven: Some(reason.to_owned()),
+        ..Evidence::default()
+    };
+    cell(
+        Spec {
+            id,
+            part,
+            stimulus: "не запускалась".to_owned(),
+            oracle: "—",
+            completion: "—",
+            origin: DefectOrigin::Host,
+        },
+        &evidence,
+        Vec::new(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
