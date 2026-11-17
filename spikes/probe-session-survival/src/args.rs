@@ -12,6 +12,8 @@ pub const USAGE: &str = "\
       кандидатами и не принимается у сценария стенда
   probe-session --aggregate <каталог прогона>
       summary.json прогона и сводка клеток по кандидатам
+  probe-session --scenes <каталог процесса>
+      байты сцен report-policy кодировщиком моста в <каталог>/scenes (функция vt)
   probe-session --launch -- <аргументы сценария>
       процесс сценария с окружением, собранным с нуля, временным SHELLIO_STATE_DIR и внешним
       сторожем
@@ -46,6 +48,10 @@ pub enum Mode {
     },
     Aggregate {
         run_dir: PathBuf,
+    },
+    /// Сцены `report-policy` в каталог процесса.
+    Scenes {
+        out: PathBuf,
     },
     Launch(Launch),
 }
@@ -90,7 +96,7 @@ pub enum ArgsError {
 impl fmt::Display for ArgsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ArgsError::NoMode => write!(f, "нужен --scenario, --aggregate или --launch"),
+            ArgsError::NoMode => write!(f, "нужен --scenario, --aggregate, --scenes или --launch"),
             ArgsError::UnknownArgument(arg) => write!(f, "неизвестный аргумент «{arg}»"),
             ArgsError::MissingValue(flag) => write!(f, "{flag} требует значения"),
             ArgsError::Repeated(flag) => write!(f, "{flag} указан дважды"),
@@ -157,17 +163,19 @@ enum Flag {
     Out,
     Nonce,
     Aggregate,
+    Scenes,
     Launch,
 }
 
 impl Flag {
-    const ALL: [Flag; 7] = [
+    const ALL: [Flag; 8] = [
         Flag::Scenario,
         Flag::Backend,
         Flag::Variant,
         Flag::Out,
         Flag::Nonce,
         Flag::Aggregate,
+        Flag::Scenes,
         Flag::Launch,
     ];
 
@@ -179,6 +187,7 @@ impl Flag {
             Flag::Out => "--out",
             Flag::Nonce => "--nonce",
             Flag::Aggregate => "--aggregate",
+            Flag::Scenes => "--scenes",
             Flag::Launch => "--launch",
         }
     }
@@ -201,6 +210,7 @@ struct Raw {
     out: Option<PathBuf>,
     nonce: Option<String>,
     aggregate: Option<PathBuf>,
+    scenes: Option<PathBuf>,
     launch: bool,
 }
 
@@ -234,6 +244,12 @@ pub fn parse(args: &[String]) -> Result<Mode, ArgsError> {
         return match raw.extra(&[Flag::Aggregate]) {
             Some(flag) => Err(not_with(Flag::Aggregate, flag)),
             None => Ok(Mode::Aggregate { run_dir }),
+        };
+    }
+    if let Some(out) = raw.scenes.clone() {
+        return match raw.extra(&[Flag::Scenes]) {
+            Some(flag) => Err(not_with(Flag::Scenes, flag)),
+            None => Ok(Mode::Scenes { out }),
         };
     }
     match (raw.scenario, raw.out) {
@@ -320,6 +336,7 @@ fn parse_flags(args: &[String]) -> Result<Raw, ArgsError> {
             }
             Flag::Out => raw.out = Some(path(flag, value)?),
             Flag::Aggregate => raw.aggregate = Some(path(flag, value)?),
+            Flag::Scenes => raw.scenes = Some(path(flag, value)?),
             Flag::Launch => {}
         }
     }
@@ -338,7 +355,9 @@ fn launch(raw: Raw, tail: &[String]) -> Result<Mode, ArgsError> {
             target,
             args: tail.to_vec(),
         })),
-        Mode::Help | Mode::Aggregate { .. } | Mode::Launch(_) => Err(ArgsError::LaunchTarget),
+        Mode::Help | Mode::Aggregate { .. } | Mode::Scenes { .. } | Mode::Launch(_) => {
+            Err(ArgsError::LaunchTarget)
+        }
     }
 }
 

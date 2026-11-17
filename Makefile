@@ -25,7 +25,7 @@ PROBE_SESSION := spikes/probe-session-survival/run.sh
 # Цели, читающие vendor/ghostty/, выполняют весь рецепт под одной блокировкой набора: рецепт цели X
 # лежит во внутренней цели locked-X и запускается вложенным make. Вторая такая цель сразу получает отказ.
 LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run test-bundle \
-	probe-ghostty probe-ghostty-demo
+	probe-ghostty probe-ghostty-demo probe-session-surface
 
 .PHONY: setup test-scripts probe-appkit probe-appkit-demo probe-session $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
 
@@ -121,3 +121,8 @@ locked-probe-ghostty-demo:
 # с функцией vt идут здесь, а не в check (ADR-0034, «Уточнено в P0.4»; ADR-0035).
 probe-session:
 	CARGO=$(CARGO) $(PROBE_SESSION) scenarios $(SCENARIOS)
+
+# Проба P0.4 в поверхности libghostty: читает набор ghostty и держит блокировку весь рецепт;
+# clippy и тесты с функцией surface идут здесь (ADR-0034, ADR-0035).
+locked-probe-session-surface:
+	CARGO=$(CARGO) $(PROBE_SESSION) surface $(SCENARIOS)

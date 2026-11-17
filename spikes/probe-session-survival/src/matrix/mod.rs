@@ -1,7 +1,9 @@
 //! Матрица рубежей A–G: кандидаты, каталог клеток, сценарии и процесс сценария. Сценарии рубежей
 //! добавляют задачи плана: сценарии стенда `smoke` и `capi` (ранняя проверка C API), рубеж A —
 //! `lifecycle`, headless-матрица задачи 9 — `restore` (B), `queries` (D), `io` (E), `geometry`
-//! (F1, F3) и `versions` (G1, G2). Общий стенд zmx — `stand`, чистые сценарные утилиты — `util`.
+//! (F1, F3) и `versions` (G1, G2). Сценарий поверхности задачи 10 — `report-policy` (политика
+//! отчётов, клетки стенда `surface-*`), он идёт в бинаре `probe-session-surface` с функцией
+//! `surface`. Общий стенд zmx — `stand`, чистые сценарные утилиты — `util`.
 
 #[cfg(feature = "vt")]
 pub mod capi;
@@ -14,6 +16,7 @@ pub mod io;
 pub mod lifecycle;
 #[cfg(feature = "vt")]
 pub mod queries;
+pub mod report_policy;
 #[cfg(feature = "vt")]
 pub mod restore;
 #[cfg(feature = "vt")]
@@ -82,9 +85,10 @@ pub const MATRIX_CELLS: [&str; 38] = [
     "G1", "G2", "G3", // версии
 ];
 
-/// Клетки стенда, вне матрицы и без кандидата: самопроверка и сюжеты ранней проверки C API
-/// (`capi-<клетка матрицы>`). Сюжет C API доказывает осуществимость, а не `pass` клетки кандидата.
-pub const STAND_CELLS: [&str; 15] = [
+/// Клетки стенда, вне матрицы и без кандидата: самопроверка, сюжеты ранней проверки C API
+/// (`capi-<клетка матрицы>`) и политики отчётов в поверхности (`surface-<клетка матрицы>`,
+/// `surface-control`). Они доказывают осуществимость, а не `pass` клетки кандидата.
+pub const STAND_CELLS: [&str; 19] = [
     SMOKE_CELL,
     "capi-B1",
     "capi-B2",
@@ -100,6 +104,10 @@ pub const STAND_CELLS: [&str; 15] = [
     "capi-D3",
     "capi-D4",
     "capi-budget",
+    "surface-C1",
+    "surface-C2",
+    "surface-C3",
+    "surface-control",
 ];
 
 const SMOKE_CELL: &str = "smoke";
@@ -139,10 +147,12 @@ pub enum Scenario {
     Geometry,
     /// Рубеж G без бандла: соседние поколения кандидата, клетки G1 и G2.
     Versions,
+    /// Политика отчётов в минимальной поверхности (задача 10, часть B): клетки `surface-*`.
+    ReportPolicy,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 8] = [
+    pub const ALL: [Scenario; 9] = [
         Scenario::Smoke,
         Scenario::Lifecycle,
         Scenario::Capi,
@@ -151,6 +161,7 @@ impl Scenario {
         Scenario::Io,
         Scenario::Geometry,
         Scenario::Versions,
+        Scenario::ReportPolicy,
     ];
 
     pub fn name(self) -> &'static str {
@@ -163,6 +174,7 @@ impl Scenario {
             Scenario::Io => "io",
             Scenario::Geometry => "geometry",
             Scenario::Versions => "versions",
+            Scenario::ReportPolicy => "report-policy",
         }
     }
 
@@ -175,7 +187,7 @@ impl Scenario {
     /// Кандидаты, на которых идёт сценарий; пусто у сценария стенда.
     pub fn candidates(self) -> &'static [Candidate] {
         match self {
-            Scenario::Smoke | Scenario::Capi => &[],
+            Scenario::Smoke | Scenario::Capi | Scenario::ReportPolicy => &[],
             Scenario::Lifecycle
             | Scenario::Restore
             | Scenario::Queries
@@ -190,7 +202,9 @@ impl Scenario {
         match self {
             Scenario::Smoke => Duration::from_secs(10),
             Scenario::Lifecycle | Scenario::Capi => Duration::from_secs(300),
-            Scenario::Geometry | Scenario::Versions => Duration::from_secs(300),
+            Scenario::Geometry | Scenario::Versions | Scenario::ReportPolicy => {
+                Duration::from_secs(300)
+            }
             Scenario::Restore | Scenario::Queries | Scenario::Io => Duration::from_secs(900),
         }
     }
@@ -270,7 +284,19 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::Io => vt_only(target, environment, "io"),
         Scenario::Geometry => vt_only(target, environment, "geometry"),
         Scenario::Versions => vt_only(target, environment, "versions"),
+        Scenario::ReportPolicy => surface_run(target, environment),
     }
+}
+
+#[cfg(feature = "surface")]
+fn surface_run(target: &Target, environment: &Environment) -> Result<Report, String> {
+    crate::surface::scene::run(target, environment)
+}
+
+/// Сценарию нужна поверхность libghostty: без функции `surface` он не запускается.
+#[cfg(not(feature = "surface"))]
+fn surface_run(_target: &Target, _environment: &Environment) -> Result<Report, String> {
+    Err("сценарий report-policy требует функцию surface".to_owned())
 }
 
 #[cfg(feature = "vt")]
@@ -383,8 +409,14 @@ pub fn collect_environment(
             probe_version: env!("CARGO_PKG_VERSION").to_owned(),
             features: enabled_features(),
         },
-        versions: facts(&launch::SET_VERSIONS),
-        stamps: facts(&launch::SET_STAMPS),
+        versions: facts(&launch::SET_VERSIONS)
+            .into_iter()
+            .chain(facts(&launch::SURFACE_FACTS[..1]))
+            .collect(),
+        stamps: facts(&launch::SET_STAMPS)
+            .into_iter()
+            .chain(facts(&launch::SURFACE_FACTS[1..]))
+            .collect(),
         normalization_profile: Some(oracle::model::PROFILE_VERSION),
         process: ProcessInfo {
             pid: std::process::id(),

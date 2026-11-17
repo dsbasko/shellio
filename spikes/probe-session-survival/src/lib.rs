@@ -13,6 +13,8 @@ pub mod oracle;
 pub mod pty;
 pub mod results;
 pub mod stats;
+#[cfg(feature = "surface")]
+pub mod surface;
 pub mod sys;
 #[cfg(feature = "vt")]
 pub mod vt;
@@ -58,6 +60,7 @@ pub fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Mode::Aggregate { run_dir } => aggregate(&run_dir),
+        Mode::Scenes { out } => scenes(&out),
         Mode::Launch(launch) => match std::env::current_exe() {
             Ok(program) => launch::run(launch, &program),
             Err(err) => {
@@ -89,6 +92,27 @@ fn aggregate(run_dir: &Path) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
+}
+
+/// Байты сцен `report-policy`: кодировщику нужно состояние, снятое с `libghostty-vt`.
+#[cfg(feature = "vt")]
+fn scenes(out: &Path) -> ExitCode {
+    match matrix::report_policy::build_scenes(out) {
+        Ok(manifest) => {
+            let _ = writeln!(io::stdout().lock(), "сцены: {}", manifest.display());
+            ExitCode::SUCCESS
+        }
+        Err(reason) => {
+            say(&format!("{PROBE_NAME}: --scenes: {reason}"));
+            ExitCode::from(EXIT_EXECUTION)
+        }
+    }
+}
+
+#[cfg(not(feature = "vt"))]
+fn scenes(_out: &Path) -> ExitCode {
+    say(&format!("{PROBE_NAME}: --scenes требует функцию vt"));
+    ExitCode::from(EXIT_EXECUTION)
 }
 
 fn usage_error(message: &str) -> ExitCode {

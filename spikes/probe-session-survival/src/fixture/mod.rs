@@ -7,7 +7,10 @@
 //! - `shell` — построчный интерпретатор с управлением заданиями в каноническом режиме PTY;
 //! - `agent` — долгий процесс с фоновым потомком `nohup-child`;
 //! - `nohup-child` — процесс без PTY, игнорирующий `SIGHUP`, живёт до своего срока;
-//! - `emitter`, `query`, `flood`, `slow-reader` — raw-режим, вывод и чтение по командам стенда.
+//! - `emitter`, `query`, `flood`, `slow-reader` — raw-режим, вывод и чтение по командам стенда;
+//! - `replay` — фиктивный attach для поверхности: по команде отдаёт байты сцены из файла, затем
+//!   живой поток команд стенда, оба через [`ReportFilter`] при `--filter`, и квитирует каждую
+//!   запись тем, что ушло в PTY.
 //!
 //! Фикстура завершается по закрытию PTY, `SIGHUP`, `SIGTERM`, команде и своему сроку. Задания
 //! `shell` получают `SIGHUP` при выходе; потомок `agent` живёт до собственного срока.
@@ -32,6 +35,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
+use crate::bridge::ReportFilter;
 use crate::matrix::Scenario;
 use crate::pty as ptys;
 use crate::{EXIT_EXECUTION, EXIT_USAGE, sys};
@@ -75,10 +79,11 @@ pub enum Mode {
     Query,
     Flood,
     SlowReader,
+    Replay,
 }
 
 impl Mode {
-    pub const ALL: [Mode; 7] = [
+    pub const ALL: [Mode; 8] = [
         Mode::Shell,
         Mode::Agent,
         Mode::NohupChild,
@@ -86,6 +91,7 @@ impl Mode {
         Mode::Query,
         Mode::Flood,
         Mode::SlowReader,
+        Mode::Replay,
     ];
 
     pub fn name(self) -> &'static str {
@@ -97,6 +103,7 @@ impl Mode {
             Mode::Query => "query",
             Mode::Flood => "flood",
             Mode::SlowReader => "slow-reader",
+            Mode::Replay => "replay",
         }
     }
 
@@ -113,7 +120,7 @@ impl Mode {
     pub fn raw(self) -> bool {
         matches!(
             self,
-            Mode::Emitter | Mode::Query | Mode::Flood | Mode::SlowReader
+            Mode::Emitter | Mode::Query | Mode::Flood | Mode::SlowReader | Mode::Replay
         )
     }
 }
@@ -128,11 +135,17 @@ pub struct Args {
     pub lifetime: Duration,
     /// Начальный темп чтения `slow-reader`, байт в секунду.
     pub rate: Option<u64>,
+    /// Файл байтов сцены `replay`.
+    pub scene: Option<PathBuf>,
+    /// `replay` пропускает свой вывод через фильтр режимов отчётов.
+    pub filter: bool,
 }
 
 pub const USAGE: &str = "\
 probe-session-fixture --mode <режим> --channel <сокет> --nonce <строка> [--lifetime-ms <мс>] [--rate <байт/с>]
-режимы: shell, agent, nohup-child, emitter, query, flood, slow-reader";
+                      [--scene <файл> [--filter]]
+режимы: shell, agent, nohup-child, emitter, query, flood, slow-reader, replay; --scene обязателен у
+replay и только у него";
 
 pub fn parse_args(args: &[String]) -> Result<Args, String> {
     let mut mode = None;
@@ -140,6 +153,8 @@ pub fn parse_args(args: &[String]) -> Result<Args, String> {
     let mut nonce = None;
     let mut lifetime = None;
     let mut rate = None;
+    let mut scene = None;
+    let mut filter = false;
     let mut it = args.iter();
     while let Some(arg) = it.next() {
         let mut value = || {
@@ -168,6 +183,8 @@ pub fn parse_args(args: &[String]) -> Result<Args, String> {
                 lifetime = Some(lifetime_value);
             }
             "--rate" => rate = Some(value()?.parse().map_err(|err| format!("--rate: {err}"))?),
+            "--scene" => scene = Some(PathBuf::from(value()?)),
+            "--filter" => filter = true,
             other => return Err(format!("неизвестный аргумент {other}")),
         }
     }
@@ -175,12 +192,21 @@ pub fn parse_args(args: &[String]) -> Result<Args, String> {
     if nonce.is_empty() || nonce.chars().any(char::is_whitespace) {
         return Err("--nonce пустой или с пробелами".to_owned());
     }
+    let mode = mode.ok_or("нет --mode")?;
+    if (mode == Mode::Replay) != scene.is_some() {
+        return Err("--scene обязателен у replay и только у него".to_owned());
+    }
+    if filter && mode != Mode::Replay {
+        return Err("--filter только у replay".to_owned());
+    }
     Ok(Args {
-        mode: mode.ok_or("нет --mode")?,
+        mode,
         channel: channel.ok_or("нет --channel")?,
         nonce,
         lifetime: lifetime.unwrap_or_else(default_lifetime),
         rate,
+        scene,
+        filter,
     })
 }
 
@@ -440,6 +466,9 @@ struct Fixture {
     child: Option<i32>,
     raw: bool,
     saved_termios: Option<libc::termios>,
+    /// Байты сцены `replay`, прочитанные до готовности.
+    scene: Option<Vec<u8>>,
+    filter: Option<ReportFilter>,
 }
 
 /// Вход бинаря фикстуры.
@@ -493,6 +522,12 @@ fn serve(args: Args, channel: UnixStream, signals: libc::sigset_t) -> Result<Sto
     } else {
         (None, None)
     };
+    let scene = match &args.scene {
+        Some(path) => {
+            Some(std::fs::read(path).map_err(|err| format!("сцена {}: {err}", path.display()))?)
+        }
+        None => None,
+    };
     let gate: SharedGate = Arc::new((
         Mutex::new(Gate {
             rate: args.rate,
@@ -521,6 +556,8 @@ fn serve(args: Args, channel: UnixStream, signals: libc::sigset_t) -> Result<Sto
         child: None,
         raw: false,
         saved_termios: None,
+        scene,
+        filter: args.filter.then(ReportFilter::new),
     };
     if fixture.mode.raw() {
         fixture.set_raw()?;
@@ -657,9 +694,18 @@ impl Fixture {
     fn apply(&mut self, id: u64, command: Command) -> Result<Result<u64, String>, StopReason> {
         match command {
             Command::Write { hex } => match unhex(&hex) {
+                Some(bytes) if self.mode == Mode::Replay => self.emit(id, "live", &bytes),
                 Some(bytes) => self.write_counted(&bytes),
                 None => Ok(Err("hex не разобран".to_owned())),
             },
+            Command::Replay { prefix } => {
+                let (Some(prefix), Some(scene)) = (unhex(&prefix), self.scene.clone()) else {
+                    return Ok(Err("нет сцены или hex префикса не разобран".to_owned()));
+                };
+                let mut bytes = prefix;
+                bytes.extend_from_slice(&scene);
+                self.emit(id, "scene", &bytes)
+            }
             Command::Flood {
                 lines,
                 width,
@@ -676,8 +722,14 @@ impl Fixture {
             Command::Query { query, split } => {
                 let bytes = query.bytes();
                 let Some(split) = split else {
+                    if self.mode == Mode::Replay {
+                        return self.emit(id, "query", &bytes);
+                    }
                     return self.write_counted(&bytes);
                 };
+                if self.mode == Mode::Replay {
+                    return Ok(Err("replay не разрезает запросы".to_owned()));
+                }
                 let at = usize::try_from(split).unwrap_or(usize::MAX);
                 if at == 0 || at >= bytes.len() {
                     return Ok(Err(format!("разрез {split} вне (0, {})", bytes.len())));
@@ -792,6 +844,35 @@ impl Fixture {
                 writes: self.writes,
             },
         )
+    }
+
+    /// Вывод `replay`: через фильтр, если он включён, затем квитанция того, что ушло в PTY, и
+    /// сама запись.
+    fn emit(
+        &mut self,
+        id: u64,
+        source: &str,
+        bytes: &[u8],
+    ) -> Result<Result<u64, String>, StopReason> {
+        let (out, removed) = match self.filter.as_mut() {
+            Some(filter) => {
+                let before = filter.removed();
+                let out = filter.push(bytes);
+                (out, (filter.removed() - before) as u64)
+            }
+            None => (bytes.to_vec(), 0),
+        };
+        self.send(
+            sys::uptime_ns(),
+            Event::Emitted {
+                id,
+                source: source.to_owned(),
+                input: bytes.len() as u64,
+                hex: hex(&out),
+                removed,
+            },
+        )?;
+        self.write_counted(&out)
     }
 
     fn write_counted(&mut self, bytes: &[u8]) -> Result<Result<u64, String>, StopReason> {

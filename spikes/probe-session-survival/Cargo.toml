@@ -15,7 +15,13 @@ autobins = false
 # FFI над набором libghostty-vt пробы и раннер матрицы.
 vt = []
 # Поверхность libghostty в подписанном бандле пробы.
-surface = []
+surface = [
+    "dep:objc2",
+    "dep:objc2-app-kit",
+    "dep:objc2-core-foundation",
+    "dep:objc2-foundation",
+    "dep:shellio-sys-ghostty",
+]
 # Хост с замороженным протоколом v1 для G1 и G2, собирается отдельным вызовом.
 proto-v1 = []
 
@@ -31,10 +37,37 @@ required-features = ["vt"]
 name = "probe-session-fixture"
 path = "src/bin/fixture.rs"
 
+[[bin]]
+name = "probe-session-surface"
+path = "src/bin/surface.rs"
+required-features = ["surface"]
+
 [dependencies]
 libc = "0.2.191"
+objc2 = { version = "0.6.5", optional = true }
+objc2-app-kit = { version = "0.3.2", optional = true, default-features = false, features = [
+    "std",
+    "objc2-core-foundation",
+    "NSApplication",
+    "NSGraphics",
+    "NSResponder",
+    "NSRunningApplication",
+    "NSView",
+    "NSWindow",
+] }
+objc2-core-foundation = { version = "0.3.2", optional = true, default-features = false, features = [
+    "std",
+    "CFRunLoop",
+    "CFString",
+] }
+objc2-foundation = { version = "0.3.2", optional = true, default-features = false, features = [
+    "std",
+    "NSGeometry",
+    "NSString",
+] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+shellio-sys-ghostty = { path = "../../crates/shellio-sys-ghostty", optional = true }
 
 [lints]
 workspace = true

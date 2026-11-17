@@ -69,6 +69,10 @@ pub enum Command {
     Lifetime {
         ms: u64,
     },
+    /// `replay`: префикс `prefix` и байты сцены одной записью.
+    Replay {
+        prefix: String,
+    },
     Exit {
         code: u8,
     },
@@ -120,6 +124,15 @@ pub enum Event {
         bytes: u64,
         cancelled: bool,
         writes: WriteStats,
+    },
+    /// Запись `replay` в PTY по команде `id`: источник (`scene`, `live`, `query`), длина до фильтра,
+    /// записанные байты и сколько параметров режимов отчётов фильтр вырезал из этой записи.
+    Emitted {
+        id: u64,
+        source: String,
+        input: u64,
+        hex: String,
+        removed: u64,
     },
     /// Ответ терминала, разобранный во вводе: номер с единицы, вид и байты.
     Response {

@@ -64,6 +64,13 @@ pub const SET_STAMPS: [(&str, &str); 3] = [
     ("SHELLIO_PROBE_STAMP_VT", "vt"),
 ];
 
+/// Ревизия и SHA-256 штампа продуктового набора ghostty, из которого собрана поверхность:
+/// `run.sh surface` передаёт их только сценариям поверхности, headless-сценарии их не требуют.
+pub const SURFACE_FACTS: [(&str, &str); 2] = [
+    ("SHELLIO_PROBE_VERSION_SURFACE", "ghostty-surface"),
+    ("SHELLIO_PROBE_STAMP_SURFACE", "ghostty-surface"),
+];
+
 /// Каталог наборов пробы, который `run.sh` собрал или сверил: из него процесс сценария берёт
 /// бинари zmx. Сам каталог в `environment` не попадает, его содержимое описывают штампы.
 pub const SETS_DIR: &str = "SHELLIO_PROBE_SETS_DIR";
@@ -74,6 +81,7 @@ fn passed_vars() -> impl Iterator<Item = &'static str> {
         .into_iter()
         .chain(SET_VERSIONS.into_iter().map(|(name, _)| name))
         .chain(SET_STAMPS.into_iter().map(|(name, _)| name))
+        .chain(SURFACE_FACTS.into_iter().map(|(name, _)| name))
         .chain([SETS_DIR])
 }
 /// Префиксы, которых не бывает в окружении процесса сценария: терминал и ghostty, nvim и
