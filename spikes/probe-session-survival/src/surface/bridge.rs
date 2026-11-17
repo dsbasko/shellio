@@ -351,11 +351,11 @@ impl Driver {
     }
 
     fn cells(&mut self) -> Result<Vec<Cell>, String> {
-        let mut cells = vec![self.c1()?];
+        let mut cells = vec![self.c1()?, self.f2()?];
         cells.extend(
             bridge::pending("до задачи 15: клетка моста ещё не построена")
                 .into_iter()
-                .filter(|cell| cell.id != "C1"),
+                .filter(|cell| cell.id != "C1" && cell.id != "F2"),
         );
         Ok(cells)
     }
@@ -440,6 +440,80 @@ impl Driver {
                 oracle: "ghostty_surface_read_text, фикстура без перерисовки",
                 completion: "строки сцены и маркер в read_text GUI №2",
                 origin: DefectOrigin::Host,
+            },
+            &evidence,
+            vec![artifact.to_owned()],
+        ))
+    }
+
+    /// F2: строки, колонки и пиксели у нагрузки (`TIOCGWINSZ` по квитанции `SIGWINCH`) против
+    /// `ghostty_surface_size` поверхности другой сетки.
+    fn f2(&mut self) -> Result<Cell, String> {
+        const F2_COLS: u16 = 100;
+        const F2_ROWS: u16 = 30;
+        let mut session = self.ensure("f2", Mode::Emitter)?;
+        let mut evidence = Evidence::default();
+        let mut gui = self.gui(&session.id, Lead::IfFree, F2_COLS, F2_ROWS)?;
+        let grid = gui
+            .command(&GuiCommand::Size {
+                surface: 1,
+                cols: F2_COLS,
+                rows: F2_ROWS,
+            })?
+            .grid
+            .ok_or("F2: нет сетки поверхности")?;
+        if (grid.cols, grid.rows) != (F2_COLS, F2_ROWS) {
+            return Err(format!("предусловие F2: сетка поверхности {grid:?}"));
+        }
+        let size = session
+            .link
+            .wait_for(WAIT, |receipt| match &receipt.event {
+                Event::Winch { size: Some(size) }
+                    if (size.cols, size.rows) == (F2_COLS, F2_ROWS) =>
+                {
+                    Some(*size)
+                }
+                _ => None,
+            })
+            .ok();
+        evidence.check(
+            "cells",
+            size.is_some(),
+            format!("SIGWINCH нагрузки с {F2_COLS}×{F2_ROWS}: {size:?}"),
+        );
+        let pixels = size.map(|size| (u32::from(size.xpixel), u32::from(size.ypixel)));
+        evidence.check(
+            "pixels",
+            pixels == Some((grid.width_px, grid.height_px)),
+            format!(
+                "пиксели нагрузки {pixels:?}, поверхности {}×{} (клетка {}×{})",
+                grid.width_px, grid.height_px, grid.cell_width_px, grid.cell_height_px
+            ),
+        );
+        let _ = gui.command(&GuiCommand::Quit);
+        let _ = backend::wait_child(&mut gui.child, WAIT);
+        let artifact = "bridge-f2.json";
+        crate::results::write_json(
+            &self.out,
+            artifact,
+            &serde_json::json!({
+                "session": session.id.as_str(),
+                "grid": grid,
+                "winsize": size,
+                "receipts": session.link.log(),
+            }),
+        )?;
+        Ok(evidence::cell(
+            Spec {
+                id: "F2",
+                part: None,
+                stimulus: format!(
+                    "{}: поверхность {F2_COLS}×{F2_ROWS} через attach-клиента",
+                    self.candidate
+                ),
+                oracle: "TIOCGWINSZ нагрузки против ghostty_surface_size",
+                completion: "квитанция SIGWINCH с сеткой поверхности или срок",
+                origin: DefectOrigin::Attach,
             },
             &evidence,
             vec![artifact.to_owned()],
