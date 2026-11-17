@@ -12,7 +12,7 @@ use std::os::unix::fs::FileTypeExt;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::sync::{Mutex, mpsc};
+use std::sync::{Arc, Condvar, Mutex, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -25,7 +25,7 @@ use crate::host::{self, Launch, attach, registry, socket};
 use crate::launch;
 use crate::matrix::Candidate;
 use crate::observer::ProcessKey;
-use crate::proto::{self, Hello, Message, Purpose, Status};
+use crate::proto::{self, Hello, Message, Purpose, Status, Welcome};
 use crate::pty::Winsize;
 
 const ROLE_TITLE: &str = "pss-role;";
@@ -97,8 +97,8 @@ impl RustHost {
         env
     }
 
-    /// Управляющее соединение: hello, одно сообщение и ответ.
-    pub fn control(&self, id: &SessionId, message: &Message) -> Result<Message> {
+    /// Соединение назначения `purpose` после `Welcome`.
+    fn open(&self, id: &SessionId, purpose: Purpose) -> Result<(UnixStream, Welcome)> {
         let path = Backend::socket_path(self, id);
         let failed = |what: &str, err: io::Error| BackendError::Failed(format!("{what}: {err}"));
         let mut stream = UnixStream::connect(&path)
@@ -110,22 +110,39 @@ impl RustHost {
             &mut stream,
             &Message::Hello(Hello {
                 version: proto::VERSION,
-                purpose: Purpose::Control,
+                purpose,
                 lead: Lead::IfFree,
-                client: "probe-session control".to_owned(),
+                client: format!("probe-session {purpose:?}"),
                 size: Winsize::cells(0, 0),
             }),
         )
         .map_err(|err| failed("hello", err))?;
         match proto::read_message(&mut stream).map_err(|err| failed("welcome", err))? {
-            Some(Message::Welcome(_)) => {}
+            Some(Message::Welcome(welcome)) => Ok((stream, welcome)),
             Some(Message::Refused(reason)) => {
-                return Err(BackendError::Failed(format!("хост отказал: {reason}")));
+                Err(BackendError::Failed(format!("хост отказал: {reason}")))
             }
-            other => {
-                return Err(BackendError::Failed(format!("вместо welcome: {other:?}")));
-            }
+            other => Err(BackendError::Failed(format!("вместо welcome: {other:?}"))),
         }
+    }
+
+    /// Соединение роли GUI от имени лидера поколения `generation`. `auto` — данные, которыми GUI
+    /// сразу отвечает на чтение буфера обмена; `None` — запросы ждут [`Gui::answer`].
+    pub fn gui(&self, id: &SessionId, generation: u32, auto: Option<Vec<u8>>) -> Result<Gui> {
+        let (stream, _) = self.open(id, Purpose::Gui)?;
+        Gui::start(stream, generation, auto, self.config.timeout)
+    }
+
+    /// Наблюдатель разбора хоста: события `Parsed` после каждого куска PTY.
+    pub fn observe(&self, id: &SessionId) -> Result<Observer> {
+        let (stream, welcome) = self.open(id, Purpose::Observe)?;
+        Observer::start(stream, welcome.offset)
+    }
+
+    /// Управляющее соединение: hello, одно сообщение и ответ.
+    pub fn control(&self, id: &SessionId, message: &Message) -> Result<Message> {
+        let failed = |what: &str, err: io::Error| BackendError::Failed(format!("{what}: {err}"));
+        let (mut stream, _) = self.open(id, Purpose::Control)?;
         proto::write_message(&mut stream, message).map_err(|err| failed("запрос", err))?;
         proto::read_message(&mut stream)
             .map_err(|err| failed("ответ", err))?
@@ -285,10 +302,11 @@ impl Backend for RustHost {
         })
     }
 
-    fn snapshot(&self, _id: &SessionId) -> Result<Snapshot> {
-        Err(BackendError::Failed(
-            "снимок Rust-хоста появляется в задаче 12".to_owned(),
-        ))
+    fn snapshot(&self, id: &SessionId) -> Result<Snapshot> {
+        match self.control(id, &Message::SnapshotRequest)? {
+            Message::Snapshot(snapshot) => Ok(snapshot),
+            other => Err(BackendError::Failed(format!("вместо снимка: {other:?}"))),
+        }
     }
 
     fn input(&self, id: &SessionId, bytes: &[u8], path: InputPath) -> Result<InputOutcome> {
@@ -413,5 +431,272 @@ impl Backend for RustHost {
             .record(id)
             .ok_or_else(|| BackendError::Failed(format!("нет записи о сессии {id}")))?;
         kill_recorded_host(&record, timeout)
+    }
+}
+
+/// Строк восстановления для attach в журнале хоста: `attach <id>: граница …`.
+pub fn attach_events(log: &str) -> usize {
+    log.lines()
+        .filter(|line| line.contains(": attach ") && line.contains(": граница "))
+        .count()
+}
+
+// --- роль GUI и наблюдение ---
+
+/// Запрос хоста на чтение буфера обмена, полученный GUI.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct ClipboardAsk {
+    pub serial: u64,
+    pub generation: u32,
+}
+
+#[derive(Default)]
+struct GuiInbox {
+    asks: Vec<ClipboardAsk>,
+    replies: Vec<Message>,
+    closed: bool,
+}
+
+/// Соединение роли GUI: типизированный путь эффектов UI.
+pub struct Gui {
+    writer: Mutex<UnixStream>,
+    inbox: Arc<(Mutex<GuiInbox>, Condvar)>,
+    pub generation: u32,
+    timeout: Duration,
+}
+
+impl Gui {
+    fn start(
+        stream: UnixStream,
+        generation: u32,
+        auto: Option<Vec<u8>>,
+        timeout: Duration,
+    ) -> Result<Gui> {
+        let failed = |what: &str, err: io::Error| BackendError::Failed(format!("{what}: {err}"));
+        stream
+            .set_read_timeout(None)
+            .map_err(|err| failed("срок чтения GUI", err))?;
+        let mut reader = stream.try_clone().map_err(|err| failed("сокет GUI", err))?;
+        let mut answerer = stream.try_clone().map_err(|err| failed("сокет GUI", err))?;
+        let inbox = Arc::new((Mutex::new(GuiInbox::default()), Condvar::new()));
+        let shared = Arc::clone(&inbox);
+        thread::Builder::new()
+            .name("gui".to_owned())
+            .spawn(move || {
+                loop {
+                    let message = proto::read_message(&mut reader);
+                    let (lock, wake) = &*shared;
+                    let mut inbox = lock.lock().unwrap_or_else(|p| p.into_inner());
+                    match message {
+                        Ok(Some(Message::ClipboardRequest { serial, generation })) => {
+                            inbox.asks.push(ClipboardAsk { serial, generation });
+                            if let Some(data) = &auto {
+                                let _ = proto::write_message(
+                                    &mut answerer,
+                                    &Message::ClipboardReply {
+                                        serial,
+                                        generation,
+                                        data: Some(data.clone()),
+                                    },
+                                );
+                            }
+                        }
+                        Ok(Some(other)) => inbox.replies.push(other),
+                        Ok(None) | Err(_) => {
+                            inbox.closed = true;
+                            wake.notify_all();
+                            return;
+                        }
+                    }
+                    wake.notify_all();
+                }
+            })
+            .map_err(|err| failed("поток GUI", err))?;
+        let gui = Gui {
+            writer: Mutex::new(stream),
+            inbox,
+            generation,
+            timeout,
+        };
+        match gui.request(&Message::GuiBind { generation })? {
+            Message::Done => Ok(gui),
+            other => Err(BackendError::Failed(format!("привязка GUI: {other:?}"))),
+        }
+    }
+
+    fn write(&self, message: &Message) -> Result<()> {
+        let mut writer = self.writer.lock().unwrap_or_else(|p| p.into_inner());
+        proto::write_message(&mut *writer, message)
+            .map_err(|err| BackendError::Failed(format!("запись GUI: {err}")))
+    }
+
+    /// Сообщение и ответ хоста на него.
+    fn request(&self, message: &Message) -> Result<Message> {
+        let seen = self
+            .inbox
+            .0
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .replies
+            .len();
+        self.write(message)?;
+        let (lock, wake) = &*self.inbox;
+        let inbox = lock.lock().unwrap_or_else(|p| p.into_inner());
+        let (inbox, _) = wake
+            .wait_timeout_while(inbox, self.timeout, |inbox| {
+                inbox.replies.len() <= seen && !inbox.closed
+            })
+            .unwrap_or_else(|p| p.into_inner());
+        inbox
+            .replies
+            .get(seen)
+            .cloned()
+            .ok_or_else(|| BackendError::Failed(format!("хост не ответил GUI на {message:?}")))
+    }
+
+    /// Фокус окна; `Refused` хоста — `Ok(Some(причина))`.
+    pub fn focus(&self, gained: bool) -> Result<Option<String>> {
+        match self.request(&Message::Focus(gained))? {
+            Message::Done => Ok(None),
+            Message::Refused(reason) => Ok(Some(reason)),
+            other => Err(BackendError::Failed(format!("ответ на фокус: {other:?}"))),
+        }
+    }
+
+    pub fn visible(&self, visible: bool) -> Result<Option<String>> {
+        match self.request(&Message::Visible(visible))? {
+            Message::Done => Ok(None),
+            Message::Refused(reason) => Ok(Some(reason)),
+            other => Err(BackendError::Failed(format!(
+                "ответ на видимость: {other:?}"
+            ))),
+        }
+    }
+
+    /// Запросы чтения буфера обмена, пришедшие к GUI.
+    pub fn asks(&self) -> Vec<ClipboardAsk> {
+        self.inbox
+            .0
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .asks
+            .clone()
+    }
+
+    /// Ждёт `count`-го запроса чтения буфера обмена.
+    pub fn wait_ask(&self, count: usize, timeout: Duration) -> Result<ClipboardAsk> {
+        let (lock, wake) = &*self.inbox;
+        let inbox = lock.lock().unwrap_or_else(|p| p.into_inner());
+        let (inbox, _) = wake
+            .wait_timeout_while(inbox, timeout, |inbox| {
+                inbox.asks.len() < count && !inbox.closed
+            })
+            .unwrap_or_else(|p| p.into_inner());
+        inbox
+            .asks
+            .get(count - 1)
+            .copied()
+            .ok_or_else(|| BackendError::Failed(format!("GUI не получил запрос №{count}")))
+    }
+
+    /// Ответ на запрос чтения буфера обмена от имени поколения `generation`.
+    pub fn answer(&self, ask: ClipboardAsk, generation: u32, data: Option<Vec<u8>>) -> Result<()> {
+        self.write(&Message::ClipboardReply {
+            serial: ask.serial,
+            generation,
+            data,
+        })
+    }
+}
+
+/// Событие разбора хоста.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct Parsed {
+    pub read: u64,
+    pub offset: u64,
+    pub held: u32,
+    pub ground: bool,
+}
+
+#[derive(Default)]
+struct ObserverLog {
+    events: Vec<Parsed>,
+    closed: bool,
+}
+
+/// Наблюдатель разбора: соединение `Observe` и журнал событий `Parsed`.
+pub struct Observer {
+    log: Arc<(Mutex<ObserverLog>, Condvar)>,
+    /// Разобрано хостом к подключению наблюдателя.
+    pub start: u64,
+    _stream: UnixStream,
+}
+
+impl Observer {
+    fn start(stream: UnixStream, start: u64) -> Result<Observer> {
+        let failed = |what: &str, err: io::Error| BackendError::Failed(format!("{what}: {err}"));
+        stream
+            .set_read_timeout(None)
+            .map_err(|err| failed("срок чтения наблюдателя", err))?;
+        let mut reader = stream
+            .try_clone()
+            .map_err(|err| failed("сокет наблюдателя", err))?;
+        let log = Arc::new((Mutex::new(ObserverLog::default()), Condvar::new()));
+        let shared = Arc::clone(&log);
+        thread::Builder::new()
+            .name("observe".to_owned())
+            .spawn(move || {
+                loop {
+                    let message = proto::read_message(&mut reader);
+                    let (lock, wake) = &*shared;
+                    let mut log = lock.lock().unwrap_or_else(|p| p.into_inner());
+                    match message {
+                        Ok(Some(Message::Parsed {
+                            read,
+                            offset,
+                            held,
+                            ground,
+                        })) => log.events.push(Parsed {
+                            read,
+                            offset,
+                            held,
+                            ground,
+                        }),
+                        Ok(Some(_)) => {}
+                        Ok(None) | Err(_) => {
+                            log.closed = true;
+                            wake.notify_all();
+                            return;
+                        }
+                    }
+                    wake.notify_all();
+                }
+            })
+            .map_err(|err| failed("поток наблюдателя", err))?;
+        Ok(Observer {
+            log,
+            start,
+            _stream: stream,
+        })
+    }
+
+    pub fn events(&self) -> Vec<Parsed> {
+        self.log
+            .0
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .events
+            .clone()
+    }
+
+    /// Первое событие, на котором разобрано не меньше `offset`; `None` — срок вышел.
+    pub fn wait_offset(&self, offset: u64, timeout: Duration) -> Option<Parsed> {
+        let (lock, wake) = &*self.log;
+        let log = lock.lock().unwrap_or_else(|p| p.into_inner());
+        let reached = |log: &ObserverLog| log.events.iter().find(|e| e.offset >= offset).copied();
+        let (log, _) = wake
+            .wait_timeout_while(log, timeout, |log| reached(log).is_none() && !log.closed)
+            .unwrap_or_else(|p| p.into_inner());
+        reached(&log)
     }
 }

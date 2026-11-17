@@ -1,5 +1,5 @@
 //! Рубеж A — жизненный цикл сессии (план P0.4, «Рубежи и клетки»), клетки A1–A7 на zmx текущей
-//! комбинации (задача 7) и на Rust-хосте (задача 11: A7 и сравнение A2 после attach ждут снимка).
+//! комбинации (задача 7) и на Rust-хосте (задачи 11 и 12).
 //! Стенд и пути сокетов — `matrix::stand`.
 
 use std::thread;
@@ -8,13 +8,14 @@ use std::time::Instant;
 use serde_json::json;
 
 use crate::args::Target;
+use crate::backend::rust as rust_host;
 use crate::backend::zmx;
 use crate::backend::{self, BackendError, InputPath, Liveness, SessionId, Workload};
 use crate::fixture::channel::{Command, Event, JobChange, Link};
 use crate::fixture::{self, Mode, flood_line};
 use crate::launch;
 use crate::matrix::Candidate;
-use crate::matrix::evidence::{Evidence, Spec, cell, later};
+use crate::matrix::evidence::{Evidence, Spec, cell};
 use crate::matrix::stand::{
     COLS, DETACH_KEY, STOP_GRACE, Session, Stand, WAIT, barrier, compare_states, emit, identity,
     same_alive,
@@ -24,8 +25,6 @@ use crate::oracle::vt::Reference;
 use crate::results::{Cell, DefectOrigin, Environment, Report};
 
 const FLOOD_LINES: u64 = 4000;
-/// Причина `not_run` клеток Rust-хоста, которым нужен снимок.
-pub const SNAPSHOT_LATER: &str = "до задачи 12: attach-клиент Rust-хоста пока без снимка";
 /// Одновременных `ensure` одной сессии в A4.
 const RACERS: usize = 8;
 /// Причины выхода фикстуры при потере PTY.
@@ -51,10 +50,7 @@ fn cells(stand: &mut Stand) -> Result<Report, String> {
     report.cells.extend(a4(stand)?);
     report.cells.extend(a5(stand)?);
     report.cells.extend(a6(stand)?);
-    report.cells.push(match stand.candidate {
-        Candidate::Zmx => a7(stand)?,
-        Candidate::Rust => later("A7", None, SNAPSHOT_LATER),
-    });
+    report.cells.push(a7(stand)?);
     Ok(report)
 }
 
@@ -267,14 +263,7 @@ fn a2_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
     {
         return Ok(());
     }
-    match stand.candidate {
-        Candidate::Zmx => {
-            compare_states(evidence, "конец потока у c2", &reference, &second)?;
-        }
-        Candidate::Rust => {
-            evidence.not_proven = Some(format!("конец потока после attach: {SNAPSHOT_LATER}"))
-        }
-    }
+    compare_states(evidence, "конец потока у c2", &reference, &second)?;
     Ok(())
 }
 
@@ -1063,12 +1052,29 @@ fn a7_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
         .map_err(|err| format!("повторный ensure: {err}"))?;
     evidence.note("ensure_again", &again);
     let log = stand.daemon_log(&session.id);
-    let leaders = zmx::leadership_events(&log);
-    evidence.check(
-        "ensure без скрытого attach",
-        leaders == 0 && !again.created,
-        format!("назначений лидера до attach: {leaders}"),
-    );
+    match &stand.rust {
+        None => {
+            let leaders = zmx::leadership_events(&log);
+            evidence.check(
+                "ensure без скрытого attach",
+                leaders == 0 && !again.created,
+                format!("назначений лидера до attach: {leaders}"),
+            );
+        }
+        Some(rust) => {
+            let status = rust.status(&session.id).map_err(|err| err.to_string())?;
+            let attaches = rust_host::attach_events(&log);
+            evidence.note("status_before_attach", &status);
+            evidence.check(
+                "ensure без скрытого attach",
+                attaches == 0 && status.clients == 0 && !status.leader && !again.created,
+                format!(
+                    "восстановлений до attach: {attaches}, клиентов {}, лидер {}",
+                    status.clients, status.leader
+                ),
+            );
+        }
+    }
     let client = stand.client(&session.id, "c1")?;
     if evidence.require("c1 лидер", client.wait_leader()).is_none()
         || evidence
@@ -1081,10 +1087,13 @@ fn a7_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
     let log = stand.daemon_log(&session.id);
     evidence.note(
         "daemon_log",
-        json!({
-            "leaders": zmx::leadership_events(&log),
-            "snapshots": zmx::snapshot_events(&log),
-        }),
+        match stand.candidate {
+            Candidate::Zmx => json!({
+                "leaders": zmx::leadership_events(&log),
+                "snapshots": zmx::snapshot_events(&log),
+            }),
+            Candidate::Rust => json!({ "restores": rust_host::attach_events(&log) }),
+        },
     );
     Ok(())
 }
