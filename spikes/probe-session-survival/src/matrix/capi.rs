@@ -24,6 +24,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use crate::args::Target;
+use crate::bridge::{self, ReportFilter, ReportPolicy, extract};
 use crate::fixture::channel::{self, Command, Event, Link, Listener, Ready, WriteStats, hex};
 use crate::fixture::query::{Query, ResponseKind, ResponseParser};
 use crate::fixture::{self, Mode, flood_index, flood_line};
@@ -91,6 +92,7 @@ fn cells(stand: &mut Stand) -> Result<Report, String> {
     report.cells.extend(b8(stand)?);
     report.cells.extend(d1(stand)?);
     report.cells.extend(d2(stand)?);
+    report.cells.extend(bridge_boundary(stand)?);
     report.cells.extend(d3(stand)?);
     report.cells.extend(d4(stand)?);
     report.cells.extend(budget(stand)?);
@@ -477,7 +479,7 @@ impl Feed {
             .route()?
             .with(|source| source.capture(Capture::default()))
             .map_err(|err| format!("{}: состояние исходного терминала: {err}", self.label))?;
-        let comparison = compare(&expected, &actual);
+        let comparison = model::compare_source(&expected, &actual);
         if comparison.outcome() == Outcome::Equal {
             Ok(())
         } else {
@@ -527,16 +529,63 @@ enum Method {
     Formatter,
     /// Полный снимок `GHOSTSNP` с continuation внутри.
     Snapshot,
+    /// Байтовый мост (задача 10, часть A): извлечение состояния, байты кодировщика с политикой
+    /// отчётов, живой поток через фильтр режимов отчётов.
+    Bridge,
 }
 
 impl Method {
-    const ALL: [Method; 2] = [Method::Formatter, Method::Snapshot];
+    const ALL: [Method; 3] = [Method::Formatter, Method::Snapshot, Method::Bridge];
 
     fn name(self) -> &'static str {
         match self {
             Method::Formatter => "formatter",
             Method::Snapshot => "snapshot",
+            Method::Bridge => "bridge",
         }
+    }
+}
+
+/// Терминал клиента после восстановления: приёмник и, у моста, фильтр режимов отчётов хоста на
+/// живом потоке хост→клиент.
+struct Client {
+    receiver: Receiver,
+    filter: Option<ReportFilter>,
+}
+
+impl Client {
+    fn plain(receiver: Receiver) -> Client {
+        Client {
+            receiver,
+            filter: None,
+        }
+    }
+
+    fn journal(&self) -> &[crate::oracle::vt::JournalEntry] {
+        self.receiver.journal()
+    }
+
+    fn feed(&mut self, bytes: &[u8]) {
+        match &mut self.filter {
+            Some(filter) => {
+                let out = filter.push(bytes);
+                self.receiver.feed(&out);
+            }
+            None => {
+                self.receiver.feed(bytes);
+            }
+        }
+    }
+}
+
+impl Sink for Client {
+    fn output(&mut self, bytes: &[u8]) -> Result<(), String> {
+        self.feed(bytes);
+        Ok(())
+    }
+
+    fn resize(&mut self, cols: u16, rows: u16) -> Result<(), String> {
+        Sink::resize(&mut self.receiver, cols, rows)
     }
 }
 
@@ -551,10 +600,15 @@ struct Payload {
     boundary: u64,
     /// Ответы и эффекты, которые сама нагрузка восстановления вызвала у приёмника.
     restore_journal: Vec<Journaled>,
+    /// Извлечённое состояние источника (мост).
+    #[serde(skip)]
+    state: Option<bridge::State>,
+    /// Мост не отдал клиенту continuation — префикс обслуживаемого запроса.
+    withheld: bool,
 }
 
-/// Восстановленный приёмник и нагрузка восстановления или отказ C API.
-type Restored = Result<(Receiver, Payload), String>;
+/// Восстановленный клиент и нагрузка восстановления или отказ C API.
+type Restored = Result<(Client, Payload), String>;
 
 /// Приёмник из исходного терминала или отказ C API (`Ok(Err)`); `Err` — ошибка стенда.
 fn restore(
@@ -562,6 +616,20 @@ fn restore(
     source: &vt::Terminal,
     config: &Config,
     boundary: u64,
+) -> Result<Restored, String> {
+    restore_served(method, source, config, boundary, None)
+}
+
+/// `served` — байты запроса, который обслуживает хост и который начат до границы. Мост по правилу
+/// хоста не отдаёт клиенту continuation, которая является префиксом такого запроса, а остаток
+/// запроса хост из потока клиенту вырезает; разбор запросов в потоке хоста — задача 12, здесь
+/// стенд знает запрос сам.
+fn restore_served(
+    method: Method,
+    source: &vt::Terminal,
+    config: &Config,
+    boundary: u64,
+    served: Option<&[u8]>,
 ) -> Result<Restored, String> {
     let profile = ReceiverProfile::for_client(method.name());
     let mut payload = Payload {
@@ -584,7 +652,7 @@ fn restore(
             receiver.feed(&continuation);
             payload.body = body.len();
             payload.continuation = Some(continuation.len());
-            receiver
+            Client::plain(receiver)
         }
         Method::Snapshot => {
             let body = match source.snapshot() {
@@ -599,12 +667,44 @@ fn restore(
                 &body,
                 CONTINUATION_BUDGET,
             ) {
-                Ok(receiver) => receiver,
+                Ok(receiver) => Client::plain(receiver),
                 Err(err) => return Ok(Err(format!("декодирование снимка: {err}"))),
+            }
+        }
+        Method::Bridge => {
+            let mut state = match extract::extract(source, CONTINUATION_BUDGET) {
+                Ok(state) => state,
+                Err(err) => return Ok(Err(format!("извлечение состояния: {err}"))),
+            };
+            if let Some(served) = served
+                && !state.continuation.is_empty()
+                && served.starts_with(&state.continuation)
+            {
+                state.continuation.clear();
+                payload.withheld = true;
+            }
+            let body = bridge::encode(&state, ReportPolicy::Canonical);
+            // Отслеживание continuation нужно только повторному извлечению у приёмника, поведение
+            // терминала оно не меняет.
+            let tracked = Config {
+                continuation_max: CONTINUATION_BUDGET,
+                ..config.clone()
+            };
+            let mut receiver = Receiver::new(method.name(), &tracked, profile)
+                .map_err(|err| format!("приёмник bridge: {err}"))?;
+            receiver.feed(&body);
+            payload.body = body.len();
+            payload.continuation = Some(state.continuation.len());
+            let filter = ReportFilter::with_canonical(&state.modes);
+            payload.state = Some(state);
+            Client {
+                receiver,
+                filter: Some(filter),
             }
         }
     };
     payload.restore_journal = receiver
+        .receiver
         .journal()
         .iter()
         .map(|entry| entry.event.clone())
@@ -613,15 +713,19 @@ fn restore(
 }
 
 /// Приёмники обоими способами в текущей точке потока.
-fn restore_all(stand: &Stand, feed: &Feed) -> Result<Vec<(Method, Restored)>, String> {
+fn restore_all(
+    stand: &Stand,
+    feed: &Feed,
+    served: Option<&[u8]>,
+) -> Result<Vec<(Method, Restored)>, String> {
     let boundary = feed.sent;
     let config = stand.config.clone();
     Method::ALL
         .into_iter()
         .map(|method| {
-            let restored = feed
-                .route()?
-                .with(|source| restore(method, source.terminal(), &config, boundary))?;
+            let restored = feed.route()?.with(|source| {
+                restore_served(method, source.terminal(), &config, boundary, served)
+            })?;
             Ok((method, restored))
         })
         .collect()
@@ -655,6 +759,88 @@ fn compare_receiver(
         }
     }
     Ok(comparison)
+}
+
+/// Факты моста для причины провала части.
+struct BridgeFacts {
+    effects: bool,
+    states_equal: bool,
+    inexpressible: Vec<String>,
+}
+
+/// Проверки моста сверх оракула сразу после восстановления: воспроизведение без ответов и эффектов
+/// (смена заголовка — само восстанавливаемое состояние, а не эффект) и извлечённое у приёмника
+/// равно извлечённому у источника без режимов отчётов, которые ведёт хост.
+fn bridge_checks(
+    evidence: &mut Evidence,
+    payload: &Payload,
+    client: &Client,
+) -> Result<BridgeFacts, String> {
+    let effects: Vec<&Journaled> = payload
+        .restore_journal
+        .iter()
+        .filter(|event| !matches!(event, Journaled::TitleChanged { .. }))
+        .collect();
+    evidence.check(
+        "воспроизведение без ответов, отчётов и эффектов",
+        effects.is_empty(),
+        format!("{effects:?}"),
+    );
+    let source = payload
+        .state
+        .as_ref()
+        .ok_or("мост без извлечённого состояния")?;
+    let again = extract::extract(client.receiver.terminal(), CONTINUATION_BUDGET)
+        .map_err(|err| format!("извлечение у приёмника: {err}"))?;
+    let diffs = bridge::differences(
+        &bridge::without_report_modes(source),
+        &bridge::without_report_modes(&again),
+    );
+    evidence.note("bridge_state_differences", &diffs);
+    evidence.check(
+        "извлечённое у приёмника равно извлечённому у источника",
+        diffs.is_empty(),
+        if diffs.is_empty() {
+            "равно".to_owned()
+        } else {
+            diffs.join("; ")
+        },
+    );
+    let inexpressible = bridge::inexpressible(source);
+    evidence.note("inexpressible", &inexpressible);
+    Ok(BridgeFacts {
+        effects: !effects.is_empty(),
+        states_equal: diffs.is_empty(),
+        inexpressible,
+    })
+}
+
+/// Причина провала части моста: `capi-gap` — C API не отдаёт состояние и пробы его не снимают
+/// (отказ или расхождение с эталоном при равном извлечённом состоянии), `bytes` — состояние не
+/// выражается VT-байтами, `encoder` — ошибка кодировщика, `effect` — воспроизведение порождает
+/// ответ или эффект.
+fn bridge_cause(
+    refused: bool,
+    facts: Option<&BridgeFacts>,
+    oracle_ok: bool,
+) -> Option<&'static str> {
+    if refused {
+        return Some("capi-gap");
+    }
+    let facts = facts?;
+    if facts.effects {
+        Some("effect")
+    } else if !facts.states_equal {
+        Some(if facts.inexpressible.is_empty() {
+            "encoder"
+        } else {
+            "bytes"
+        })
+    } else if !oracle_ok {
+        Some("capi-gap")
+    } else {
+        None
+    }
 }
 
 /// Пути расхождений сравнения без индексов клеток: что именно не восстановилось.
@@ -708,7 +894,7 @@ fn classify(direct: &Comparison, after: Option<&Comparison>) -> (Kind, String) {
 /// Суффикс приёмникам без кандидата; эталону и исходному терминалу — через фикстуру.
 fn apply_suffix(
     feed: &mut Feed,
-    receivers: &mut [&mut Receiver],
+    receivers: &mut [&mut Client],
     steps: &[Step],
 ) -> Result<(), String> {
     for step in steps {
@@ -882,25 +1068,31 @@ fn restore_story(stand: &mut Stand, story: &Story) -> Result<Vec<Cell>, String> 
         feed.emit(step)?;
     }
     feed.sane()?;
-    let restored = restore_all(stand, &feed)?;
+    let restored = restore_all(stand, &feed, None)?;
     let id = format!("capi-{}", story.cell);
-    let mut parts: Vec<(Method, Evidence, Option<Receiver>, Option<Comparison>)> = Vec::new();
+    let mut parts: Vec<(Method, Evidence, Option<Client>, Option<Comparison>)> = Vec::new();
+    let mut facts: Vec<Option<BridgeFacts>> = Vec::new();
     for (method, restored) in restored {
         let mut evidence = Evidence::default();
         match restored {
-            Ok((receiver, payload)) => {
+            Ok((client, payload)) => {
                 evidence.note("payload", &payload);
                 evidence.check("C API отдал нагрузку восстановления", true, "ok");
                 let direct = compare_receiver(
                     &mut evidence,
                     "после восстановления",
                     &feed.reference,
-                    &receiver,
+                    &client.receiver,
                 )?;
-                parts.push((method, evidence, Some(receiver), Some(direct)));
+                facts.push(match method {
+                    Method::Bridge => Some(bridge_checks(&mut evidence, &payload, &client)?),
+                    Method::Formatter | Method::Snapshot => None,
+                });
+                parts.push((method, evidence, Some(client), Some(direct)));
             }
             Err(refusal) => {
                 evidence.check("C API отдал нагрузку восстановления", false, &refusal);
+                facts.push(None);
                 parts.push((method, evidence, None, None));
             }
         }
@@ -908,20 +1100,20 @@ fn restore_story(stand: &mut Stand, story: &Story) -> Result<Vec<Cell>, String> 
     let mut after: Vec<Option<Comparison>> = vec![None; parts.len()];
     for (name, steps) in &story.suffixes {
         {
-            let mut receivers: Vec<&mut Receiver> = parts
+            let mut receivers: Vec<&mut Client> = parts
                 .iter_mut()
-                .filter_map(|(_, _, receiver, _)| receiver.as_mut())
+                .filter_map(|(_, _, client, _)| client.as_mut())
                 .collect();
             apply_suffix(&mut feed, &mut receivers, steps)?;
         }
         feed.sane()?;
-        for (index, (_, evidence, receiver, _)) in parts.iter_mut().enumerate() {
-            if let Some(receiver) = receiver {
+        for (index, (_, evidence, client, _)) in parts.iter_mut().enumerate() {
+            if let Some(client) = client {
                 let comparison = compare_receiver(
                     evidence,
                     &format!("суффикс {name}"),
                     &feed.reference,
-                    receiver,
+                    &client.receiver,
                 )?;
                 if after[index]
                     .as_ref()
@@ -935,11 +1127,19 @@ fn restore_story(stand: &mut Stand, story: &Story) -> Result<Vec<Cell>, String> 
     let mut cells = Vec::new();
     let artifact_name = format!("{id}.json").to_lowercase();
     let mut artifact = serde_json::Map::new();
-    for (index, (method, evidence, _, direct)) in parts.iter().enumerate() {
-        let (kind, detail) = match direct {
+    for (index, (method, evidence, _, direct)) in parts.iter_mut().enumerate() {
+        let (kind, mut detail) = match direct {
             Some(direct) => classify(direct, after[index].as_ref()),
             None => (Kind::Refused, evidence.status().1),
         };
+        if *method == Method::Bridge {
+            let oracle_ok = kind == Kind::Restored && evidence.status().0 == results::Status::Pass;
+            let cause = bridge_cause(direct.is_none(), facts[index].as_ref(), oracle_ok);
+            evidence.note("cause", cause);
+            if let Some(cause) = cause {
+                detail = format!("причина {cause}: {detail}");
+            }
+        }
         stand.verdict(&id, method.name(), kind, detail);
         artifact.insert(method.name().to_owned(), json!(evidence));
     }
@@ -1011,10 +1211,10 @@ fn b7(stand: &mut Stand) -> Result<Vec<Cell>, String> {
         }
         feed.sane()?;
         let mut restored = Vec::new();
-        for (method, outcome) in restore_all(stand, &feed)? {
+        for (method, outcome) in restore_all(stand, &feed, None)? {
             let mut evidence = Evidence::default();
             match outcome {
-                Ok((receiver, payload)) => {
+                Ok((client, payload)) => {
                     evidence.note("payload", &payload);
                     evidence.check(
                         "continuation равна незавершённой части префикса",
@@ -1029,33 +1229,47 @@ fn b7(stand: &mut Stand) -> Result<Vec<Cell>, String> {
                         &mut evidence,
                         "после восстановления",
                         &feed.reference,
-                        &receiver,
+                        &client.receiver,
                     )?;
-                    restored.push((method, evidence, Some((receiver, direct))));
+                    let facts = match method {
+                        Method::Bridge => Some(bridge_checks(&mut evidence, &payload, &client)?),
+                        Method::Formatter | Method::Snapshot => None,
+                    };
+                    restored.push((method, evidence, Some((client, direct)), facts));
                 }
                 Err(refusal) => {
                     evidence.check("C API отдал нагрузку восстановления", false, &refusal);
-                    restored.push((method, evidence, None));
+                    restored.push((method, evidence, None, None));
                 }
             }
         }
         feed.emit(rest)?;
         feed.sane()?;
-        for (method, mut evidence, receiver) in restored {
+        for (method, mut evidence, client, facts) in restored {
             let part = format!("{}-{variant}", method.name());
-            let (kind, detail) = match receiver {
-                Some((mut receiver, direct)) => {
-                    receiver.feed(rest);
+            let refused = client.is_none();
+            let (kind, mut detail) = match client {
+                Some((mut client, direct)) => {
+                    client.feed(rest);
                     let after = compare_receiver(
                         &mut evidence,
                         "после остатка",
                         &feed.reference,
-                        &receiver,
+                        &client.receiver,
                     )?;
                     classify(&direct, Some(&after))
                 }
                 None => (Kind::Refused, evidence.status().1),
             };
+            if method == Method::Bridge {
+                let oracle_ok =
+                    kind == Kind::Restored && evidence.status().0 == results::Status::Pass;
+                let cause = bridge_cause(refused, facts.as_ref(), oracle_ok);
+                evidence.note("cause", cause);
+                if let Some(cause) = cause {
+                    detail = format!("причина {cause}: {detail}");
+                }
+            }
             stand.verdict("capi-B7", &part, kind, detail);
             artifact.insert(part.clone(), json!(evidence));
             parts.push((part, evidence));
@@ -1226,7 +1440,7 @@ fn b8(stand: &mut Stand) -> Result<Vec<Cell>, String> {
                 Reference::new(&stand.source).map_err(|err| format!("b8: источник: {err}"))?;
             source.feed(&stream[..cut]);
             let restored = restore(method, source.terminal(), &stand.config, cut as u64)?;
-            let (mut receiver, payload) = match restored {
+            let (mut client, payload) = match restored {
                 Ok(restored) => restored,
                 Err(refusal) => {
                     failures.push(json!({ "cut": cut, "refusal": refusal }));
@@ -1234,8 +1448,17 @@ fn b8(stand: &mut Stand) -> Result<Vec<Cell>, String> {
                 }
             };
             payload_sizes.push(payload.body + payload.continuation.unwrap_or(0));
-            receiver.feed(&stream[cut..]);
-            let state = receiver
+            let effects: Vec<&Journaled> = payload
+                .restore_journal
+                .iter()
+                .filter(|event| !matches!(event, Journaled::TitleChanged { .. }))
+                .collect();
+            if !effects.is_empty() {
+                failures.push(json!({ "cut": cut, "effects": format!("{effects:?}") }));
+            }
+            client.feed(&stream[cut..]);
+            let state = client
+                .receiver
                 .capture(Capture {
                     history: B8_HISTORY,
                     hidden: false,
@@ -1249,7 +1472,8 @@ fn b8(stand: &mut Stand) -> Result<Vec<Cell>, String> {
                 failures.push(json!({ "cut": cut, "problems": problems }));
             }
             if sampled {
-                let state = receiver
+                let state = client
+                    .receiver
                     .capture(Capture::default())
                     .map_err(|err| format!("b8: приёмник: {err}"))?;
                 let comparison = compare(&reference_full, &state);
@@ -1328,6 +1552,20 @@ fn b8(stand: &mut Stand) -> Result<Vec<Cell>, String> {
                 Kind::Lost,
                 format!("нарушений на {} срезах", failures.len()),
             )
+        };
+        let detail = if method == Method::Bridge && !failures.is_empty() {
+            let has = |key: &str| failures.iter().any(|entry| entry.get(key).is_some());
+            let cause = if has("refusal") {
+                "capi-gap"
+            } else if has("effects") {
+                "effect"
+            } else {
+                "encoder"
+            };
+            evidence.note("cause", cause);
+            format!("причина {cause}: {detail}")
+        } else {
+            detail
         };
         stand.verdict("capi-B8", method.name(), kind, detail);
         artifact.insert(method.name().to_owned(), json!(evidence));
@@ -1489,7 +1727,8 @@ fn d1(stand: &mut Stand) -> Result<Vec<Cell>, String> {
     let from = feed.responses.len();
     let id = feed.query(Query::Da1, Some(split))?;
     feed.sane()?;
-    let restored = restore_all(stand, &feed)?;
+    let served = Query::Da1.bytes();
+    let restored = restore_all(stand, &feed, Some(&served))?;
     feed.rest(id, Query::Da1, split)?;
     let got = feed.settle(from)?;
     for (method, outcome) in restored {
@@ -1503,7 +1742,9 @@ fn d1(stand: &mut Stand) -> Result<Vec<Cell>, String> {
             Ok((mut client, payload)) => {
                 evidence.note("payload", &payload);
                 let before = client.journal().len();
-                client.feed(&Query::Da1.bytes()[split as usize..]);
+                if !payload.withheld {
+                    client.feed(&served[split as usize..]);
+                }
                 let replies = receiver_replies(&client.journal()[before..]);
                 evidence.note("client_replies", &replies);
                 let client_answers = replies
@@ -1515,12 +1756,23 @@ fn d1(stand: &mut Stand) -> Result<Vec<Cell>, String> {
                     host_answers == 1,
                     format!("{host_answers}"),
                 );
+                let single = host_answers + client_answers == 1;
+                // У моста это ответ клиента на воспроизведённое: обслуженный запрос, начатый
+                // внутри continuation, хост вырезает сам (задача 12).
+                let cause = if method == Method::Bridge && !single {
+                    "причина effect: "
+                } else {
+                    ""
+                };
+                if !cause.is_empty() {
+                    evidence.note("cause", "effect");
+                }
                 evidence.check(
                     "ровно один ответ на запрос среди хоста и клиента",
-                    host_answers + client_answers == 1,
+                    single,
                     format!(
-                        "хост {host_answers}, клиент {client_answers}: continuation отдаёт клиенту \
-                         префикс запроса, остаток живым потоком завершает его у клиента"
+                        "{cause}хост {host_answers}, клиент {client_answers}: continuation отдаёт \
+                         клиенту префикс запроса, остаток живым потоком завершает его у клиента"
                     ),
                 );
             }
@@ -1618,6 +1870,132 @@ fn d2(stand: &mut Stand) -> Result<Vec<Cell>, String> {
     finish_parts(stand, "capi-D2", "capi-d2.json", parts)
 }
 
+/// Запросы, которые обслуживает хост, для разреза точкой восстановления моста.
+const BOUNDARY_QUERIES: [(&str, Query); 4] = [
+    ("da1", Query::Da1),
+    ("cpr", Query::CursorPosition),
+    ("decrqm-dec", Query::ModeDec { mode: 2004 }),
+    ("osc11", Query::BackgroundColor),
+];
+
+/// Обслуживаемый запрос, разрезанный точкой восстановления моста на каждой границе байта: префикс
+/// уходит хосту до восстановления и оказывается в continuation, остаток — после. Условие части —
+/// за время воспроизведения клиент не дал ни ответа, ни эффекта, хост ответил ровно один раз на
+/// разрез. Ответ клиента после остатка — наблюдение для задачи 12: запрос, начатый внутри
+/// continuation, хост вырезает из потока клиенту сам.
+fn bridge_boundary(stand: &mut Stand) -> Result<Vec<Cell>, String> {
+    let mut feed = stand.feed("d2-bridge", ReceiverProfile::for_client("host"))?;
+    feed.emit(b"bridge boundary\r\n")?;
+    let mut parts = Vec::new();
+    for (name, query) in BOUNDARY_QUERIES {
+        let mut evidence = Evidence::default();
+        let bytes = query.bytes();
+        let from = feed.responses.len();
+        let mut cuts = Vec::new();
+        let mut refusals = Vec::new();
+        for split in 1..bytes.len() {
+            let at = u32::try_from(split).map_err(|err| format!("d2-bridge: разрез: {err}"))?;
+            let id = feed.query(query, Some(at))?;
+            let boundary = feed.sent;
+            let config = stand.config.clone();
+            let restored = feed.route()?.with(|source| {
+                restore_served(
+                    Method::Bridge,
+                    source.terminal(),
+                    &config,
+                    boundary,
+                    Some(&bytes),
+                )
+            })?;
+            feed.rest(id, query, at)?;
+            match restored {
+                Ok((mut client, payload)) => {
+                    let replay: Vec<String> = payload
+                        .restore_journal
+                        .iter()
+                        .filter(|event| !matches!(event, Journaled::TitleChanged { .. }))
+                        .map(|event| format!("{event:?}"))
+                        .collect();
+                    let before = client.journal().len();
+                    if !payload.withheld {
+                        client.feed(&bytes[split..]);
+                    }
+                    let after = receiver_replies(&client.journal()[before..]);
+                    cuts.push(json!({
+                        "split": split,
+                        "withheld": payload.withheld,
+                        "continuation": payload.continuation,
+                        "replay": replay,
+                        "client_after_rest": after,
+                    }));
+                }
+                Err(refusal) => refusals.push(json!({ "split": split, "refusal": refusal })),
+            }
+        }
+        let got = feed.settle(from)?;
+        let splits = bytes.len() - 1;
+        evidence.note("cuts", &cuts);
+        evidence.note("host_responses", &got);
+        evidence.check(
+            "C API отдал нагрузку восстановления на каждом разрезе",
+            refusals.is_empty(),
+            format!("{refusals:?}"),
+        );
+        let replayed: usize = cuts
+            .iter()
+            .map(|cut| cut["replay"].as_array().map_or(0, Vec::len))
+            .sum();
+        evidence.check(
+            "за время воспроизведения клиент не дал ни ответа, ни эффекта",
+            replayed == 0,
+            format!("разрезов {}, записей журнала {replayed}", cuts.len()),
+        );
+        let matching = got
+            .iter()
+            .filter(|(kind, _)| *kind == query.response())
+            .count();
+        evidence.check(
+            "хост ответил ровно один раз на каждый разрез",
+            matching == splits && got.len() == splits,
+            format!(
+                "разрезов {splits}, ответов {}, нужного вида {matching}",
+                got.len()
+            ),
+        );
+        let late: usize = cuts
+            .iter()
+            .map(|cut| cut["client_after_rest"].as_array().map_or(0, Vec::len))
+            .sum();
+        let withheld = cuts
+            .iter()
+            .filter(|cut| cut["withheld"].as_bool() == Some(true))
+            .count();
+        if late > 0 {
+            evidence.note("cause", "effect");
+        }
+        evidence.check(
+            "после остатка клиент не ответил: префикс запроса в continuation не отдан",
+            late == 0,
+            format!(
+                "разрезов {}, continuation не отдана {withheld}, ответов клиента {late}",
+                cuts.len()
+            ),
+        );
+        parts.push((
+            format!("bridge-boundary-{name}"),
+            format!(
+                "{query:?} разрезан точкой восстановления моста на каждой границе байта: префикс \
+                 хосту до восстановления, остаток хосту; continuation — префикс запроса — \
+                 клиенту не отдаётся, остаток не пересылается"
+            ),
+            "журнал приёмника за время воспроизведения; квитанции ответов фикстуры",
+            evidence,
+        ));
+    }
+    feed.close();
+    finish_parts(stand, "capi-D2", "capi-d2-bridge.json", parts)
+}
+
 const OSC52_WRITE: &[u8] = b"\x1b]52;c;aGVsbG8=\x07";
 const OSC52_PREFIX: &[u8] = b"\x1b]52;c;d29y";
 const OSC52_REST: &[u8] = b"bGQ=\x07";
@@ -1638,10 +2016,10 @@ fn d3(stand: &mut Stand) -> Result<Vec<Cell>, String> {
     feed.emit(OSC52_WRITE)?;
     let host_first = clipboard_writes(&feed.journal()?);
     feed.sane()?;
-    let replay = restore_all(stand, &feed)?;
+    let replay = restore_all(stand, &feed, None)?;
     feed.emit(OSC52_PREFIX)?;
     feed.sane()?;
-    let cut = restore_all(stand, &feed)?;
+    let cut = restore_all(stand, &feed, None)?;
     feed.emit(OSC52_REST)?;
     let host_all = clipboard_writes(&feed.journal()?);
     let mut parts = Vec::new();
@@ -2481,7 +2859,7 @@ fn budget(stand: &mut Stand) -> Result<Vec<Cell>, String> {
             format!("{:?}", snapshot.err()),
         );
     }
-    let restored = restore_all(stand, &feed)?;
+    let restored = restore_all(stand, &feed, None)?;
     let rest = b"tail\x07X";
     feed.emit(rest)?;
     feed.sane()?;
@@ -2494,7 +2872,7 @@ fn budget(stand: &mut Stand) -> Result<Vec<Cell>, String> {
                     &mut evidence,
                     &format!("{} после остатка", method.name()),
                     &feed.reference,
-                    &receiver,
+                    &receiver.receiver,
                 )?;
             }
             Err(refusal) => {

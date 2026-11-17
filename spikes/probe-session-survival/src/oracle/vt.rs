@@ -363,7 +363,7 @@ impl Instance {
     }
 }
 
-fn rgb(color: vt::Rgb) -> model::Rgb {
+pub(crate) fn rgb(color: vt::Rgb) -> model::Rgb {
     model::Rgb {
         r: color.r,
         g: color.g,
@@ -371,7 +371,7 @@ fn rgb(color: vt::Rgb) -> model::Rgb {
     }
 }
 
-fn color(color: vt::Color) -> model::Color {
+pub(crate) fn color(color: vt::Color) -> model::Color {
     match color {
         vt::Color::None => model::Color::Default,
         vt::Color::Palette(index) => model::Color::Palette(index),
@@ -379,7 +379,7 @@ fn color(color: vt::Color) -> model::Color {
     }
 }
 
-fn style(style: &vt::Style) -> model::Style {
+pub(crate) fn style(style: &vt::Style) -> model::Style {
     model::Style {
         fg: color(style.fg),
         bg: color(style.bg),

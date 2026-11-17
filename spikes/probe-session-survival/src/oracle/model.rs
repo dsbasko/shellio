@@ -2,14 +2,16 @@
 //! нормализаций (раздел плана «Оракулы»). Чистый модуль без FFI: состояние снимает `oracle::vt`.
 //!
 //! Профиль версии 1 заморожен до первого прогона матрицы. Его правка — новая версия с перепрогоном
-//! и записью в отчёте; тест `profile_v1_is_frozen` держит описание профиля дословно.
+//! и записью в отчёте; тесты `profile_v1_is_frozen` и `profile_v2_is_frozen` держат описания
+//! дословно. Текущий профиль — версии 2 (задача 10, политика отчётов): режимы отчётов ведёт хост,
+//! у клиента они не сравниваются.
 
 use std::collections::BTreeMap;
 use std::fmt::{self, Debug};
 
 use serde::{Deserialize, Serialize};
 
-pub const PROFILE_VERSION: u32 = 1;
+pub const PROFILE_VERSION: u32 = 2;
 
 /// Сколько расхождений и нормализаций сравнение хранит поимённо; остальные только считает.
 pub const MAX_LISTED: usize = 100;
@@ -352,12 +354,16 @@ impl State {
 pub enum Rule {
     /// Цвет по индексу палитры равен RGB того же цвета в палитре терминала, который хранит индекс.
     PaletteAsRgb,
+    /// Режимы отчётов (`bridge::REPORT_MODES`) ведёт хост: у клиента их значение не сравнивается,
+    /// у источника сравнивается, единственность и правильность отчётов считает фикстура.
+    ReportModesAtHost,
 }
 
 impl Rule {
     pub fn name(self) -> &'static str {
         match self {
             Rule::PaletteAsRgb => "palette-as-rgb",
+            Rule::ReportModesAtHost => "report-modes-at-host",
         }
     }
 }
@@ -374,6 +380,8 @@ pub enum Coverage {
     Suffix,
     /// Объявлено вне профиля: не сравнивается.
     Excluded,
+    /// Ведёт хост: сравнивается у источника, у клиента — нет.
+    Host,
 }
 
 impl Coverage {
@@ -383,6 +391,7 @@ impl Coverage {
             Coverage::Replay => "replay",
             Coverage::Suffix => "suffix",
             Coverage::Excluded => "excluded",
+            Coverage::Host => "host",
         }
     }
 }
@@ -396,110 +405,130 @@ pub struct Profile {
 
 /// Профиль нормализаций версии 1. Пустая клетка и напечатанный пробел, отложенный перенос,
 /// признаки мягкого переноса и URI гиперссылки не нормализуются: их проверяют B1 и B6.
-pub const PROFILE: Profile = Profile {
-    version: PROFILE_VERSION,
+pub const PROFILE_V1: Profile = Profile {
+    version: 1,
     rules: &[Rule::PaletteAsRgb],
-    coverage: &[
-        (
-            "cells",
-            Coverage::Direct,
-            "текст, ширина, стиль, URI гиперссылки и защита каждой клетки",
-        ),
-        (
-            "rows",
-            Coverage::Direct,
-            "признаки мягкого переноса строки активной области и истории",
-        ),
-        (
-            "history",
-            Coverage::Direct,
-            "история активного экрана, выровненная от активной области, и её длина",
-        ),
-        (
-            "cursor",
-            Coverage::Direct,
-            "позиция, отложенный перенос, видимость и перо",
-        ),
-        ("screen", Coverage::Direct, "активный экран"),
-        ("modes", Coverage::Direct, "режимы TRACKED_MODES"),
-        ("kitty-flags", Coverage::Direct, "текущие флаги Kitty"),
-        (
-            "colors",
-            Coverage::Direct,
-            "текущие основной цвет, фон, цвет курсора и палитра",
-        ),
-        ("title", Coverage::Direct, "заголовок"),
-        ("pwd", Coverage::Direct, "рабочий каталог OSC 7"),
-        (
-            "input",
-            Coverage::Direct,
-            "кодирование INPUT_PROBES кодировщиками ghostty",
-        ),
-        (
-            "parser",
-            Coverage::Direct,
-            "разборщик на ground или внутри последовательности",
-        ),
-        (
-            "saved-cursor",
-            Coverage::Replay,
-            "DECRC на копии: позиция, перенос, перо, origin",
-        ),
-        (
-            "kitty-stack",
-            Coverage::Replay,
-            "снятие вершин стека Kitty на копии",
-        ),
-        (
-            "inactive-screen",
-            Coverage::Suffix,
-            "содержимое неактивного экрана: выход из alternate",
-        ),
-        ("tabstops", Coverage::Suffix, "табуляция после attach"),
-        (
-            "scroll-margins",
-            Coverage::Suffix,
-            "DECSTBM и DECSLRM: прокрутка в полях",
-        ),
-        (
-            "partial-sequence",
-            Coverage::Suffix,
-            "незавершённая последовательность: остаток после attach",
-        ),
-        (
-            "reflow",
-            Coverage::Suffix,
-            "перенос строк при ресайзе после attach",
-        ),
-        (
-            "hyperlink-id",
-            Coverage::Excluded,
-            "C API клетки отдаёт только URI",
-        ),
-        (
-            "cursor-shape",
-            Coverage::Excluded,
-            "форма курсора DECSCUSR не читается из терминала C API",
-        ),
-        ("mouse-shape", Coverage::Excluded, "форма указателя OSC 22"),
-        ("selection", Coverage::Excluded, "выделение — состояние GUI"),
-        (
-            "viewport",
-            Coverage::Excluded,
-            "положение прокрутки области просмотра — состояние клиента",
-        ),
-        (
-            "kitty-graphics",
-            Coverage::Excluded,
-            "изображения Kitty вне возможностей пробы",
-        ),
-        (
-            "charsets",
-            Coverage::Excluded,
-            "наборы символов G0–G3 не проверяются ни одной клеткой матрицы",
-        ),
-    ],
+    coverage: COVERAGE_V1,
 };
+
+/// Профиль версии 2 (задача 10): v1 и политика отчётов. Режимы отчётов сравниваются у источника
+/// (`compare_source`), у клиента (`compare`) их расхождение записывается нормализацией.
+pub const PROFILE_V2: Profile = Profile {
+    version: 2,
+    rules: &[Rule::PaletteAsRgb, Rule::ReportModesAtHost],
+    coverage: COVERAGE_V2,
+};
+
+/// Текущий профиль.
+pub const PROFILE: Profile = PROFILE_V2;
+
+const COVERAGE_V2: &[(&str, Coverage, &str)] = &[(
+    "report-modes",
+    Coverage::Host,
+    "режимы 1004, 2031, 2033 и 2048: у источника сравниваются, у клиента нет, отчёты считает \
+         фикстура",
+)];
+
+const COVERAGE_V1: &[(&str, Coverage, &str)] = &[
+    (
+        "cells",
+        Coverage::Direct,
+        "текст, ширина, стиль, URI гиперссылки и защита каждой клетки",
+    ),
+    (
+        "rows",
+        Coverage::Direct,
+        "признаки мягкого переноса строки активной области и истории",
+    ),
+    (
+        "history",
+        Coverage::Direct,
+        "история активного экрана, выровненная от активной области, и её длина",
+    ),
+    (
+        "cursor",
+        Coverage::Direct,
+        "позиция, отложенный перенос, видимость и перо",
+    ),
+    ("screen", Coverage::Direct, "активный экран"),
+    ("modes", Coverage::Direct, "режимы TRACKED_MODES"),
+    ("kitty-flags", Coverage::Direct, "текущие флаги Kitty"),
+    (
+        "colors",
+        Coverage::Direct,
+        "текущие основной цвет, фон, цвет курсора и палитра",
+    ),
+    ("title", Coverage::Direct, "заголовок"),
+    ("pwd", Coverage::Direct, "рабочий каталог OSC 7"),
+    (
+        "input",
+        Coverage::Direct,
+        "кодирование INPUT_PROBES кодировщиками ghostty",
+    ),
+    (
+        "parser",
+        Coverage::Direct,
+        "разборщик на ground или внутри последовательности",
+    ),
+    (
+        "saved-cursor",
+        Coverage::Replay,
+        "DECRC на копии: позиция, перенос, перо, origin",
+    ),
+    (
+        "kitty-stack",
+        Coverage::Replay,
+        "снятие вершин стека Kitty на копии",
+    ),
+    (
+        "inactive-screen",
+        Coverage::Suffix,
+        "содержимое неактивного экрана: выход из alternate",
+    ),
+    ("tabstops", Coverage::Suffix, "табуляция после attach"),
+    (
+        "scroll-margins",
+        Coverage::Suffix,
+        "DECSTBM и DECSLRM: прокрутка в полях",
+    ),
+    (
+        "partial-sequence",
+        Coverage::Suffix,
+        "незавершённая последовательность: остаток после attach",
+    ),
+    (
+        "reflow",
+        Coverage::Suffix,
+        "перенос строк при ресайзе после attach",
+    ),
+    (
+        "hyperlink-id",
+        Coverage::Excluded,
+        "C API клетки отдаёт только URI",
+    ),
+    (
+        "cursor-shape",
+        Coverage::Excluded,
+        "форма курсора DECSCUSR не читается из терминала C API",
+    ),
+    ("mouse-shape", Coverage::Excluded, "форма указателя OSC 22"),
+    ("selection", Coverage::Excluded, "выделение — состояние GUI"),
+    (
+        "viewport",
+        Coverage::Excluded,
+        "положение прокрутки области просмотра — состояние клиента",
+    ),
+    (
+        "kitty-graphics",
+        Coverage::Excluded,
+        "изображения Kitty вне возможностей пробы",
+    ),
+    (
+        "charsets",
+        Coverage::Excluded,
+        "наборы символов G0–G3 не проверяются ни одной клеткой матрицы",
+    ),
+];
 
 impl Profile {
     /// Описание профиля одной строкой на правило и часть состояния, без пояснений.
@@ -508,12 +537,20 @@ impl Profile {
         for rule in self.rules {
             out.push_str(&format!("rule {}\n", rule.name()));
         }
-        for (part, coverage, _) in self.coverage {
+        let inherited = if self.version >= 2 { COVERAGE_V1 } else { &[] };
+        for (part, coverage, _) in inherited.iter().chain(self.coverage) {
             out.push_str(&format!("{} {part}\n", coverage.name()));
         }
         let modes: Vec<String> = TRACKED_MODES.iter().map(|mode| mode.key()).collect();
         out.push_str(&format!("modes {}\n", modes.join(",")));
         out.push_str(&format!("input {}\n", INPUT_PROBES.join(",")));
+        if self.rules.contains(&Rule::ReportModesAtHost) {
+            let modes: Vec<String> = crate::bridge::REPORT_MODES
+                .iter()
+                .map(|mode| format!("?{mode}"))
+                .collect();
+            out.push_str(&format!("report-modes {}\n", modes.join(",")));
+        }
         out
     }
 }
@@ -627,8 +664,26 @@ impl fmt::Display for Comparison {
     }
 }
 
-/// Сравнение эталона с приёмником по профилю [`PROFILE`].
+/// Чьё состояние сравнивается с эталоном.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Side {
+    /// Терминал клиента: режимы отчётов по профилю не сравниваются.
+    Client,
+    /// Источник (терминал хоста): сравнивается всё.
+    Source,
+}
+
+/// Сравнение эталона с приёмником клиента по профилю [`PROFILE`].
 pub fn compare(reference: &State, receiver: &State) -> Comparison {
+    compare_as(Side::Client, reference, receiver)
+}
+
+/// Сравнение эталона с терминалом источника: режимы отчётов сравниваются.
+pub fn compare_source(reference: &State, source: &State) -> Comparison {
+    compare_as(Side::Source, reference, source)
+}
+
+fn compare_as(side: Side, reference: &State, receiver: &State) -> Comparison {
     let mut out = Comparison {
         profile: PROFILE.version,
         ..Comparison::default()
@@ -669,7 +724,32 @@ pub fn compare(reference: &State, receiver: &State) -> Comparison {
     out.field("cursor.visible", &a.visible, &b.visible);
     compare_style(&mut out, &palettes, "cursor.style", &a.style, &b.style);
 
-    compare_maps(&mut out, "modes", &reference.modes, &receiver.modes);
+    if side == Side::Client && PROFILE.rules.contains(&Rule::ReportModesAtHost) {
+        let host = |key: &String| {
+            key.strip_prefix('?')
+                .and_then(|value| value.parse().ok())
+                .is_some_and(crate::bridge::is_report_mode)
+        };
+        for (key, value) in &reference.modes {
+            if host(key) && receiver.modes.get(key) != Some(value) {
+                out.normalize(|| format!("modes.{key}"), Rule::ReportModesAtHost);
+            }
+        }
+        let keep = |map: &BTreeMap<String, bool>| -> BTreeMap<String, bool> {
+            map.iter()
+                .filter(|(key, _)| !host(key))
+                .map(|(key, value)| (key.clone(), *value))
+                .collect()
+        };
+        compare_maps(
+            &mut out,
+            "modes",
+            &keep(&reference.modes),
+            &keep(&receiver.modes),
+        );
+    } else {
+        compare_maps(&mut out, "modes", &reference.modes, &receiver.modes);
+    }
     out.field("kitty_flags", &reference.kitty_flags, &receiver.kitty_flags);
     let (a, b) = (&reference.colors, &receiver.colors);
     out.field("colors.foreground", &a.foreground, &b.foreground);
@@ -1109,9 +1189,9 @@ mod tests {
 
     #[test]
     fn profile_v1_is_frozen() {
-        assert_eq!(PROFILE.version, 1);
+        assert_eq!(PROFILE_V1.version, 1);
         assert_eq!(
-            PROFILE.describe(),
+            PROFILE_V1.describe(),
             "profile 1\n\
              rule palette-as-rgb\n\
              direct cells\n\
@@ -1146,5 +1226,72 @@ mod tests {
              input key:a,key:ctrl-a,key:enter,key:tab,key:backspace,key:escape,key:up,key:shift-up,\
              key:numpad-1,mouse:left-press,mouse:left-release,mouse:motion\n"
         );
+    }
+
+    #[test]
+    fn profile_v2_is_frozen() {
+        assert_eq!(PROFILE.version, PROFILE_VERSION);
+        assert_eq!(PROFILE_V2.version, 2);
+        assert_eq!(
+            PROFILE_V2.describe(),
+            "profile 2\n\
+             rule palette-as-rgb\n\
+             rule report-modes-at-host\n\
+             direct cells\n\
+             direct rows\n\
+             direct history\n\
+             direct cursor\n\
+             direct screen\n\
+             direct modes\n\
+             direct kitty-flags\n\
+             direct colors\n\
+             direct title\n\
+             direct pwd\n\
+             direct input\n\
+             direct parser\n\
+             replay saved-cursor\n\
+             replay kitty-stack\n\
+             suffix inactive-screen\n\
+             suffix tabstops\n\
+             suffix scroll-margins\n\
+             suffix partial-sequence\n\
+             suffix reflow\n\
+             excluded hyperlink-id\n\
+             excluded cursor-shape\n\
+             excluded mouse-shape\n\
+             excluded selection\n\
+             excluded viewport\n\
+             excluded kitty-graphics\n\
+             excluded charsets\n\
+             host report-modes\n\
+             modes 2,4,12,20,?1,?3,?4,?5,?6,?7,?8,?9,?12,?25,?40,?45,?47,?66,?67,?69,?1000,?1002,\
+             ?1003,?1004,?1005,?1006,?1007,?1015,?1016,?1035,?1036,?1039,?1045,?1047,?1048,?1049,\
+             ?2004,?2026,?2027,?2031,?2033,?2048,?5522\n\
+             input key:a,key:ctrl-a,key:enter,key:tab,key:backspace,key:escape,key:up,key:shift-up,\
+             key:numpad-1,mouse:left-press,mouse:left-release,mouse:motion\n\
+             report-modes ?1004,?2031,?2033,?2048\n"
+        );
+    }
+
+    #[test]
+    fn client_comparison_normalizes_report_modes_and_source_comparison_does_not() {
+        let reference = {
+            let mut state = State::blank(4, 2);
+            state.modes.insert("?2048".to_owned(), true);
+            state.modes.insert("?2004".to_owned(), true);
+            state
+        };
+        let mut client = reference.clone();
+        client.modes.insert("?2048".to_owned(), false);
+        let comparison = compare(&reference, &client);
+        assert_eq!(comparison.outcome(), Outcome::Equal);
+        assert_eq!(comparison.normalized_count, 1);
+        assert_eq!(comparison.normalized[0].rule, Rule::ReportModesAtHost);
+        assert_eq!(
+            compare_source(&reference, &client).outcome(),
+            Outcome::Differs
+        );
+        client.modes.insert("?2004".to_owned(), false);
+        assert_eq!(compare(&reference, &client).outcome(), Outcome::Differs);
     }
 }

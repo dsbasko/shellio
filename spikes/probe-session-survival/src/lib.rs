@@ -4,6 +4,7 @@
 
 pub mod args;
 pub mod backend;
+pub mod bridge;
 pub mod fixture;
 pub mod launch;
 pub mod matrix;

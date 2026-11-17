@@ -630,7 +630,13 @@ pub(crate) mod tests {
         environment.normalization_profile = None;
         let cell = &smoke_report(&environment).cells[0];
         assert_eq!(cell.status, Status::Fail);
-        assert_eq!(cell.reason, "в окружении нет: профиль нормализаций 1");
+        assert_eq!(
+            cell.reason,
+            format!(
+                "в окружении нет: профиль нормализаций {}",
+                oracle::model::PROFILE_VERSION
+            )
+        );
         environment.normalization_profile = Some(oracle::model::PROFILE_VERSION + 1);
         assert_eq!(smoke_report(&environment).cells[0].status, Status::Fail);
     }

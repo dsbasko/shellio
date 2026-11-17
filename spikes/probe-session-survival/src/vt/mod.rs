@@ -305,6 +305,8 @@ pub struct Cell {
     pub style: Style,
     pub hyperlink: Option<String>,
     pub protected: bool,
+    /// Фон клетки без текста, стёртой с цветом фона: он хранится в содержимом, а не в стиле.
+    pub bg_only: Option<Color>,
     /// Строка мягко перенесена на следующую.
     pub row_wrap: bool,
     /// Строка продолжает мягко перенесённую предыдущую.
@@ -1287,6 +1289,44 @@ impl Terminal {
         })
     }
 
+    /// Цвета по умолчанию: основной, фон, курсор (`None` — не заданы) и палитра без переопределений
+    /// OSC 4.
+    pub fn default_colors(&self) -> Result<Colors> {
+        let dynamic = |data, name| -> Result<Option<Rgb>> {
+            let mut value = sys::GhosttyColorRgb { r: 0, g: 0, b: 0 };
+            // SAFETY: выходной тип COLOR_*_DEFAULT — GhosttyColorRgb.
+            match unsafe { self.get(data, name, &mut value) } {
+                Ok(()) => Ok(Some(Rgb::from_sys(value))),
+                Err(err) if err.code == sys::GhosttyResult_GHOSTTY_NO_VALUE => Ok(None),
+                Err(err) => Err(err),
+            }
+        };
+        let mut palette = [sys::GhosttyColorRgb { r: 0, g: 0, b: 0 }; 256];
+        // SAFETY: выходной тип COLOR_PALETTE_DEFAULT — GhosttyColorRgb[256].
+        unsafe {
+            self.get(
+                sys::GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_COLOR_PALETTE_DEFAULT,
+                "get(COLOR_PALETTE_DEFAULT)",
+                &mut palette,
+            )
+        }?;
+        Ok(Colors {
+            foreground: dynamic(
+                sys::GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_COLOR_FOREGROUND_DEFAULT,
+                "get(COLOR_FOREGROUND_DEFAULT)",
+            )?,
+            background: dynamic(
+                sys::GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_COLOR_BACKGROUND_DEFAULT,
+                "get(COLOR_BACKGROUND_DEFAULT)",
+            )?,
+            cursor: dynamic(
+                sys::GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_COLOR_CURSOR_DEFAULT,
+                "get(COLOR_CURSOR_DEFAULT)",
+            )?,
+            palette: palette.into_iter().map(Rgb::from_sys).collect(),
+        })
+    }
+
     pub fn title(&self) -> Result<Vec<u8>> {
         self.get_string(
             sys::GhosttyTerminalData_GHOSTTY_TERMINAL_DATA_TITLE,
@@ -1395,6 +1435,42 @@ impl Terminal {
                     ptr::from_mut(&mut protected).cast(),
                 ),
             )?;
+            let mut tag: sys::GhosttyCellContentTag = 0;
+            check(
+                "ghostty_cell_get(CONTENT_TAG)",
+                sys::ghostty_cell_get(
+                    cell,
+                    sys::GhosttyCellData_GHOSTTY_CELL_DATA_CONTENT_TAG,
+                    ptr::from_mut(&mut tag).cast(),
+                ),
+            )?;
+            let bg_only = match tag {
+                sys::GhosttyCellContentTag_GHOSTTY_CELL_CONTENT_BG_COLOR_PALETTE => {
+                    let mut index: u8 = 0;
+                    check(
+                        "ghostty_cell_get(COLOR_PALETTE)",
+                        sys::ghostty_cell_get(
+                            cell,
+                            sys::GhosttyCellData_GHOSTTY_CELL_DATA_COLOR_PALETTE,
+                            ptr::from_mut(&mut index).cast(),
+                        ),
+                    )?;
+                    Some(Color::Palette(index))
+                }
+                sys::GhosttyCellContentTag_GHOSTTY_CELL_CONTENT_BG_COLOR_RGB => {
+                    let mut rgb = sys::GhosttyColorRgb { r: 0, g: 0, b: 0 };
+                    check(
+                        "ghostty_cell_get(COLOR_RGB)",
+                        sys::ghostty_cell_get(
+                            cell,
+                            sys::GhosttyCellData_GHOSTTY_CELL_DATA_COLOR_RGB,
+                            ptr::from_mut(&mut rgb).cast(),
+                        ),
+                    )?;
+                    Some(Color::Rgb(rgb.r, rgb.g, rgb.b))
+                }
+                _ => None,
+            };
             let mut has_link = false;
             check(
                 "ghostty_cell_get(HAS_HYPERLINK)",
@@ -1448,6 +1524,7 @@ impl Terminal {
                 style: Style::from_sys(&style),
                 hyperlink,
                 protected,
+                bg_only,
                 row_wrap,
                 row_wrap_continuation,
             })
@@ -1698,6 +1775,30 @@ impl MouseEncoder {
         // SAFETY: оба объекта живы.
         unsafe {
             sys::ghostty_mouse_encoder_setopt_from_terminal(self.raw.as_ptr(), terminal.raw())
+        };
+    }
+
+    /// Нажата ли какая-нибудь кнопка: от этого зависит, сообщает ли режим 1002 движение.
+    pub fn set_any_button_pressed(&mut self, pressed: bool) {
+        // SAFETY: значение ANY_BUTTON_PRESSED — указатель на bool, кодировщик его копирует.
+        unsafe {
+            sys::ghostty_mouse_encoder_setopt(
+                self.raw.as_ptr(),
+                sys::GhosttyMouseEncoderOption_GHOSTTY_MOUSE_ENCODER_OPT_ANY_BUTTON_PRESSED,
+                ptr::from_ref(&pressed).cast(),
+            )
+        };
+    }
+
+    /// Отбрасывать ли движение в пределах прежней клетки.
+    pub fn set_track_last_cell(&mut self, track: bool) {
+        // SAFETY: значение TRACK_LAST_CELL — указатель на bool, кодировщик его копирует.
+        unsafe {
+            sys::ghostty_mouse_encoder_setopt(
+                self.raw.as_ptr(),
+                sys::GhosttyMouseEncoderOption_GHOSTTY_MOUSE_ENCODER_OPT_TRACK_LAST_CELL,
+                ptr::from_ref(&track).cast(),
+            )
         };
     }
 
