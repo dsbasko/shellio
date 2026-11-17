@@ -576,6 +576,7 @@ pub struct CellPart {
     pub dir: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub part: Option<String>,
+    pub requirement: Requirement,
     pub status: Status,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub not_run_cause: Option<NotRunCause>,
@@ -591,6 +592,8 @@ pub struct CellRow {
     pub backend: Option<Candidate>,
     /// Обязательная, если обязательна хотя бы одна часть.
     pub requirement: Requirement,
+    /// Свод частей с той же обязательностью, что у клетки: части исследования итог обязательной
+    /// клетки не меняют и видны в сводке отдельно.
     pub status: Status,
     pub parts: Vec<CellPart>,
 }
@@ -744,16 +747,16 @@ pub fn aggregate(run_dir: &Path) -> Result<SummaryFile, String> {
                 id: cell.id.clone(),
                 backend: process.backend,
                 requirement: cell.requirement,
-                status: cell.status,
+                status: Status::Pass,
                 parts: Vec::new(),
             });
-            row.status = row.status.combine(cell.status);
             if cell.requirement == Requirement::Required {
                 row.requirement = Requirement::Required;
             }
             row.parts.push(CellPart {
                 dir: process.dir.clone(),
                 part: cell.part,
+                requirement: cell.requirement,
                 status: cell.status,
                 not_run_cause: cell.not_run_cause,
                 defect_origin: cell.defect_origin,
@@ -774,7 +777,14 @@ pub fn aggregate(run_dir: &Path) -> Result<SummaryFile, String> {
         }
         processes.push(process);
     }
-    let cells: Vec<CellRow> = rows.into_values().collect();
+    let mut cells: Vec<CellRow> = rows.into_values().collect();
+    for row in &mut cells {
+        row.status = row
+            .parts
+            .iter()
+            .filter(|part| part.requirement == row.requirement)
+            .fold(Status::Pass, |status, part| status.combine(part.status));
+    }
     for row in &cells {
         totals.cells.add(row.status);
         if row.requirement == Requirement::Required {
@@ -851,11 +861,7 @@ pub fn render_summary(summary: &SummaryFile) -> String {
             let _ = writeln!(text, "{}", line.trim_end());
         }
     }
-    for row in summary
-        .cells
-        .iter()
-        .filter(|row| row.status != Status::Pass)
-    {
+    for row in &summary.cells {
         for part in row.parts.iter().filter(|part| part.status != Status::Pass) {
             let cause = part
                 .not_run_cause
@@ -865,7 +871,7 @@ pub fn render_summary(summary: &SummaryFile) -> String {
                 text,
                 "  {:<11} {:<8} {} {}{}{cause} [{}]: {}",
                 part.status.name(),
-                row.requirement.name(),
+                part.requirement.name(),
                 row.id,
                 row.backend.map_or("стенд", Candidate::name),
                 part.part
@@ -1255,17 +1261,87 @@ mod tests {
         let summary = aggregate(run).unwrap();
         assert_eq!(summary.cells.len(), 1);
         let row = &summary.cells[0];
-        assert_eq!(row.status, Status::Unsupported);
+        assert_eq!(
+            row.status,
+            Status::NotRun,
+            "unsupported части исследования не перевешивает обязательную"
+        );
         assert_eq!(row.requirement, Requirement::Required);
         assert_eq!(row.parts.len(), 3);
-        assert_eq!(summary.totals.required.unsupported, 1);
+        assert_eq!(summary.totals.required.not_run, 1);
         let text = render_summary(&summary);
         assert!(
-            text.contains("  клетка   стенд\n  smoke    unsupported\n"),
+            text.contains("  клетка   стенд\n  smoke    not_run\n"),
             "{text}"
         );
         assert!(text.contains("not_run     required smoke стенд/second (stand) [a]"));
+        assert!(text.contains("unsupported research smoke стенд/third [b]"));
         assert!(!text.contains("стенд/first"));
+    }
+
+    #[test]
+    fn research_part_does_not_change_required_cell() {
+        let tmp = TempDir::new("research-part");
+        let run = &tmp.0;
+        let mut research = Cell {
+            part: Some("stress".to_owned()),
+            ..cell("smoke", Status::NotRun)
+        };
+        research.requirement = Requirement::Research;
+        let required = Cell {
+            part: Some("window".to_owned()),
+            ..cell("smoke", Status::Pass)
+        };
+        write_process(
+            run,
+            "a",
+            &smoke_result(Execution::Ok, vec![required, research]),
+        );
+
+        let summary = aggregate(run).unwrap();
+        let row = &summary.cells[0];
+        assert_eq!(row.requirement, Requirement::Required);
+        assert_eq!(row.status, Status::Pass);
+        assert_eq!(summary.totals.required.pass, 1);
+        assert_eq!(summary.totals.required.not_run, 0);
+        let text = render_summary(&summary);
+        assert!(text.contains("  smoke    pass\n"), "{text}");
+        assert!(
+            text.contains("not_run     research smoke стенд/stress (stand) [a]"),
+            "часть исследования видна среди выводов кроме pass: {text}"
+        );
+    }
+
+    #[test]
+    fn research_only_cell_combines_all_parts() {
+        let tmp = TempDir::new("research-only");
+        let run = &tmp.0;
+        let research = |status: Status, part: &str| {
+            let mut cell = Cell {
+                part: Some(part.to_owned()),
+                ..cell("smoke", status)
+            };
+            cell.requirement = Requirement::Research;
+            cell
+        };
+        write_process(
+            run,
+            "a",
+            &smoke_result(
+                Execution::Ok,
+                vec![
+                    research(Status::Pass, "first"),
+                    research(Status::NotRun, "second"),
+                ],
+            ),
+        );
+
+        let summary = aggregate(run).unwrap();
+        let row = &summary.cells[0];
+        assert_eq!(row.requirement, Requirement::Research);
+        assert_eq!(row.status, Status::NotRun);
+        assert_eq!(summary.totals.cells.not_run, 1);
+        assert_eq!(summary.totals.required.not_run, 0);
     }
 
     #[test]
