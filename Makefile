@@ -117,12 +117,15 @@ locked-probe-ghostty:
 locked-probe-ghostty-demo:
 	CARGO=$(CARGO) $(PROBE_GHOSTTY) demo $(ARGS)
 
-# Проба P0.4 probe-session headless: набор ghostty не читает и идёт без блокировки. clippy и тесты
-# с функцией vt идут здесь, а не в check (ADR-0034, «Уточнено в P0.4»; ADR-0035).
+# Проба P0.4 probe-session headless: набор ghostty не читает и vendor/ghostty.lock не берёт. Наборы
+# пробы zmx, zmx-prev и vt run.sh собирает или сверяет под их собственными блокировками <набор>.lock,
+# занятая сразу даёт отказ. clippy и тесты с функцией vt идут здесь, а не в check (ADR-0034,
+# «Уточнено в P0.4»; ADR-0035).
 probe-session:
 	CARGO=$(CARGO) $(PROBE_SESSION) scenarios $(SCENARIOS)
 
-# Проба P0.4 в поверхности libghostty: читает набор ghostty и держит блокировку весь рецепт;
-# clippy и тесты с функцией surface идут здесь (ADR-0034, ADR-0035).
+# Проба P0.4 в поверхности libghostty: читает набор ghostty и держит vendor/ghostty.lock весь рецепт,
+# наборы пробы собирает или сверяет под их блокировками, как probe-session; clippy и тесты с функцией
+# surface идут здесь (ADR-0034, ADR-0035).
 locked-probe-session-surface:
 	CARGO=$(CARGO) $(PROBE_SESSION) surface $(SCENARIOS)
