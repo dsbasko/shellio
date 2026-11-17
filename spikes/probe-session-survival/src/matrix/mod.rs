@@ -2,9 +2,11 @@
 //! добавляют задачи плана: сценарии стенда `smoke` и `capi` (ранняя проверка C API), рубеж A —
 //! `lifecycle`, headless-матрица задачи 9 — `restore` (B), `queries` (D), `io` (E), `geometry`
 //! (F1, F3) и `versions` (G1, G2). Сценарий поверхности задачи 10 — `report-policy` (политика
-//! отчётов, клетки стенда `surface-*`), он идёт в бинаре `probe-session-surface` с функцией
-//! `surface`. Общий стенд zmx — `stand`, чистые сценарные утилиты — `util`.
+//! отчётов, клетки стенда `surface-*`), задачи 15 — `bridge` (C1–C4, D1, D3–D5, F2 в поверхности на
+//! обоих кандидатах); оба идут в бинаре `probe-session-surface` с функцией `surface`. Общий стенд
+//! zmx — `stand`, чистые сценарные утилиты — `util`.
 
+pub mod bridge;
 #[cfg(feature = "vt")]
 pub mod capi;
 pub mod evidence;
@@ -152,10 +154,13 @@ pub enum Scenario {
     Versions,
     /// Политика отчётов в минимальной поверхности (задача 10, часть B): клетки `surface-*`.
     ReportPolicy,
+    /// Мост в настоящую поверхность через attach-клиент кандидата (задача 15): C1–C4, части
+    /// `surface` клеток D1, D3–D5 и F2.
+    Bridge,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 9] = [
+    pub const ALL: [Scenario; 10] = [
         Scenario::Smoke,
         Scenario::Lifecycle,
         Scenario::Capi,
@@ -165,6 +170,7 @@ impl Scenario {
         Scenario::Geometry,
         Scenario::Versions,
         Scenario::ReportPolicy,
+        Scenario::Bridge,
     ];
 
     pub fn name(self) -> &'static str {
@@ -178,6 +184,7 @@ impl Scenario {
             Scenario::Geometry => "geometry",
             Scenario::Versions => "versions",
             Scenario::ReportPolicy => "report-policy",
+            Scenario::Bridge => "bridge",
         }
     }
 
@@ -196,7 +203,8 @@ impl Scenario {
             | Scenario::Restore
             | Scenario::Queries
             | Scenario::Geometry
-            | Scenario::Versions => &Candidate::ALL,
+            | Scenario::Versions
+            | Scenario::Bridge => &Candidate::ALL,
         }
     }
 
@@ -208,7 +216,9 @@ impl Scenario {
             Scenario::Geometry | Scenario::Versions | Scenario::ReportPolicy => {
                 Duration::from_secs(300)
             }
-            Scenario::Restore | Scenario::Queries | Scenario::Io => Duration::from_secs(900),
+            Scenario::Restore | Scenario::Queries | Scenario::Io | Scenario::Bridge => {
+                Duration::from_secs(900)
+            }
         }
     }
 }
@@ -287,19 +297,26 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::Io => vt_only(target, environment, "io"),
         Scenario::Geometry => vt_only(target, environment, "geometry"),
         Scenario::Versions => vt_only(target, environment, "versions"),
-        Scenario::ReportPolicy => surface_run(target, environment),
+        Scenario::ReportPolicy | Scenario::Bridge => surface_run(target, environment),
     }
 }
 
 #[cfg(feature = "surface")]
 fn surface_run(target: &Target, environment: &Environment) -> Result<Report, String> {
-    crate::surface::scene::run(target, environment)
+    match target.scenario {
+        Scenario::ReportPolicy => crate::surface::scene::run(target, environment),
+        Scenario::Bridge => crate::surface::bridge::run(target, environment),
+        other => Err(format!("сценарий {other} не из сценариев поверхности")),
+    }
 }
 
 /// Сценарию нужна поверхность libghostty: без функции `surface` он не запускается.
 #[cfg(not(feature = "surface"))]
-fn surface_run(_target: &Target, _environment: &Environment) -> Result<Report, String> {
-    Err("сценарий report-policy требует функцию surface".to_owned())
+fn surface_run(target: &Target, _environment: &Environment) -> Result<Report, String> {
+    Err(format!(
+        "сценарий {} требует функцию surface",
+        target.scenario
+    ))
 }
 
 #[cfg(feature = "vt")]

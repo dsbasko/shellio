@@ -79,6 +79,10 @@ pub const SETS_DIR: &str = "SHELLIO_PROBE_SETS_DIR";
 /// собрал с функцией `proto-v1` в отдельный каталог cargo.
 pub const HOST_V1: &str = "SHELLIO_PROBE_HOST_V1";
 
+/// Каталог текущих `probe-session-host` и `probe-session-attach` для сценариев поверхности: бандл
+/// их не содержит, `run.sh` собирает хост с функцией `vt` отдельным вызовом cargo.
+pub const HOST_DIR: &str = "SHELLIO_PROBE_HOST_DIR";
+
 /// Переменные `run.sh`, которые запуск передаёт процессу сценария как есть, если они не пусты.
 fn passed_vars() -> impl Iterator<Item = &'static str> {
     BUILD_VARS
@@ -86,7 +90,7 @@ fn passed_vars() -> impl Iterator<Item = &'static str> {
         .chain(SET_VERSIONS.into_iter().map(|(name, _)| name))
         .chain(SET_STAMPS.into_iter().map(|(name, _)| name))
         .chain(SURFACE_FACTS.into_iter().map(|(name, _)| name))
-        .chain([SETS_DIR, HOST_V1])
+        .chain([SETS_DIR, HOST_V1, HOST_DIR])
 }
 /// Префиксы, которых не бывает в окружении процесса сценария: терминал и ghostty, nvim и
 /// настоящие сессии пользователя.
@@ -881,6 +885,19 @@ mod tests {
             HOST_V1.to_owned(),
             "/r/target/proto-v1/release/probe-session-host".to_owned()
         )));
+        assert_eq!(check_env(&env, Some("n1")), Check::default());
+    }
+
+    #[test]
+    fn host_dir_passes_through_launch() {
+        let parent = |name: &str| match name {
+            "HOME" => Some("/Users/t".to_owned()),
+            "PATH" => Some("/usr/bin".to_owned()),
+            HOST_DIR => Some("/r/target/release".to_owned()),
+            _ => None,
+        };
+        let env = build_env(parent, "/tmp/shellio-probe-state.n1").unwrap();
+        assert!(env.contains(&(HOST_DIR.to_owned(), "/r/target/release".to_owned())));
         assert_eq!(check_env(&env, Some("n1")), Check::default());
     }
 

@@ -37,7 +37,7 @@ ZMX_SH="$ROOT/spikes/probe-session-survival/scripts/zmx.sh"
 VT_SH="$ROOT/spikes/probe-session-survival/scripts/vt.sh"
 VT_BINDINGS="$ROOT/spikes/probe-session-survival/scripts/vt-bindings.sh"
 ALL_SCENARIOS="smoke lifecycle capi restore queries io geometry versions"
-SURFACE_SCENARIOS="report-policy"
+SURFACE_SCENARIOS="report-policy bridge"
 SURFACE_BIN="$ROOT/target/release/probe-session-surface"
 FIXTURE_BIN="$ROOT/target/release/probe-session-fixture"
 APP_NAME="probe-session-surface.app"
@@ -253,6 +253,15 @@ surface_facts() {
     export SHELLIO_PROBE_VERSION_SURFACE="$rev" SHELLIO_PROBE_STAMP_SURFACE="${sum%% *}"
 }
 
+# Кандидаты сценария поверхности: «-» — сценарий стенда без кандидата.
+surface_backends_of() {
+    case "$1" in
+        report-policy) echo - ;;
+        bridge) echo zmx rust ;;
+        *) die "у сценария поверхности $1 не заданы кандидаты" ;;
+    esac
+}
+
 known_surface_scenario() {
     case " $SURFACE_SCENARIOS " in
         *" $1 "*) return 0 ;;
@@ -264,44 +273,62 @@ known_surface_scenario() {
 # сцены, бинарь с surface их прогоняет. Ненулевой код только при ошибке исполнения.
 cmd_surface() {
     local scenarios="${*:-$SURFACE_SCENARIOS}"
-    local run_dir scenario out code total=0 failed=0 aggregate=0
+    local run_dir scenario backend name out code total=0 failed=0 aggregate=0
+    local backend_args=()
     for scenario in $scenarios; do
         known_surface_scenario "$scenario" ||
             die "неизвестный сценарий поверхности «${scenario}», известны: $SURFACE_SCENARIOS"
     done
+    prepare_zmx_sets
     prepare_vt_set
     "$VT_BINDINGS" --check
-    cargo_with vt build --release --bin probe-session
+    # Хост нужен сценариям с кандидатом; бандл его не содержит, путь — launch::HOST_DIR.
+    cargo_with vt build --release --bin probe-session --bin probe-session-host
     "$ROOT/scripts/ghostty/vendor.sh" --verify
     check_features surface
     cargo_with surface build --release
     build_info
     surface_facts
     bundle
+    SHELLIO_PROBE_HOST_DIR="$(dirname "$SURFACE_BIN")"
+    [ -x "$SHELLIO_PROBE_HOST_DIR/probe-session-host" ] &&
+        [ -x "$SHELLIO_PROBE_HOST_DIR/probe-session-attach" ] ||
+        die "нет хоста или attach-клиента в $SHELLIO_PROBE_HOST_DIR"
+    export SHELLIO_PROBE_HOST_DIR
     mkdir -p "$OUT_BASE"
     run_dir="$OUT_BASE/$(date +%Y%m%d-%H%M%S)-$$"
     mkdir "$run_dir"
     for scenario in $scenarios; do
-        out="$run_dir/$scenario-base"
-        mkdir "$out"
-        total=$((total + 1))
-        code=0
-        if "$BIN" --scenes "$out" >"$out/scenes.txt" 2>&1; then
-            write_config "$out"
-            caffeinate -dimsu "$APP_BIN" --launch -- --scenario "$scenario" --variant base \
-                --out "$out" >"$out/stdout.txt" 2>"$out/stderr.txt" || code=$?
-        else
-            code=$?
-            cp "$out/scenes.txt" "$out/stderr.txt"
-            : >"$out/stdout.txt"
-        fi
-        if [ "$code" -eq 0 ]; then
-            echo "ok      $scenario"
-        else
-            failed=$((failed + 1))
-            echo "ошибка  $scenario (код $code)"
-            sed 's/^/    /' "$out/stdout.txt" "$out/stderr.txt"
-        fi
+        for backend in $(surface_backends_of "$scenario"); do
+            if [ "$backend" = - ]; then
+                name="$scenario-base"
+                backend_args=()
+            else
+                name="$scenario-$backend-base"
+                backend_args=(--backend "$backend")
+            fi
+            out="$run_dir/$name"
+            mkdir "$out"
+            total=$((total + 1))
+            code=0
+            if "$BIN" --scenes "$out" >"$out/scenes.txt" 2>&1; then
+                write_config "$out"
+                caffeinate -dimsu "$APP_BIN" --launch -- --scenario "$scenario" \
+                    ${backend_args[@]+"${backend_args[@]}"} --variant base --out "$out" \
+                    >"$out/stdout.txt" 2>"$out/stderr.txt" || code=$?
+            else
+                code=$?
+                cp "$out/scenes.txt" "$out/stderr.txt"
+                : >"$out/stdout.txt"
+            fi
+            if [ "$code" -eq 0 ]; then
+                echo "ok      $name"
+            else
+                failed=$((failed + 1))
+                echo "ошибка  $name (код $code)"
+                sed 's/^/    /' "$out/stdout.txt" "$out/stderr.txt"
+            fi
+        done
     done
     echo "прогон: $run_dir"
     echo
