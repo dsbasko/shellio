@@ -36,7 +36,7 @@ use crate::matrix::stand::{
     COMMAND_TIMEOUT, Client, STOP_GRACE, Session, Stand, WAIT, barrier, compare_states,
 };
 use crate::matrix::util::Growth;
-use crate::oracle::vt::{Reference, WaitError};
+use crate::oracle::vt::{BARRIER_REPLY, Reference, WaitError};
 use crate::pty;
 use crate::results::{Cell, DefectOrigin, Environment, Report, Requirement};
 use crate::sys;
@@ -122,6 +122,15 @@ fn next_read(link: &mut Link, timeout: Duration) -> Result<Option<Vec<u8>>, Stri
         Err(LinkError::Timeout) => Ok(None),
         Err(err) => Err(format!("квитанции фикстуры: {err}")),
     }
+}
+
+/// Чтения фикстуры, квитанции которых уже пришли, но ожиданиями не взяты.
+fn pending_reads(link: &mut Link) -> Result<Vec<u8>, String> {
+    let mut bytes = Vec::new();
+    while let Some(read) = next_read(link, Duration::ZERO)? {
+        bytes.extend_from_slice(&read);
+    }
+    Ok(bytes)
 }
 
 /// Начало первого полного маркера `#END<цифра>#`: байты данных `#` не содержат.
@@ -591,6 +600,17 @@ fn e2_attach(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> R
     if !leader(evidence, session, &client, "c1") {
         return Ok(());
     }
+    // Ответ c1 на барьер фикстура читает как ввод, а барьер ждёт только квитанцию ответа: квитанция
+    // чтения остаётся в очереди и без этого открыла бы принятые байты.
+    let before = pending_reads(&mut session.link)?;
+    evidence.note("reads_before_input", hex(&before));
+    if before != BARRIER_REPLY {
+        evidence.not_proven = Some(format!(
+            "до ввода фикстура прочитала {} вместо ответа барьера {}",
+            hex(&before),
+            hex(BARRIER_REPLY)
+        ));
+    }
     let data = pattern(E2_BYTES);
     let written_before = client.route()?.stats().written;
     // Чтение возобновляется, когда весь ввод записан в терминал клиента или клиент закончился:
@@ -631,6 +651,13 @@ fn e2_attach(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> R
     };
     evidence.note("sent", data.len());
     evidence.note("received", received.len());
+    evidence.note(
+        "first_difference",
+        received
+            .iter()
+            .zip(&data)
+            .position(|(got, want)| got != want),
+    );
     let log = stand.daemon_log(&id);
     let reasons: Vec<&str> = log
         .lines()
