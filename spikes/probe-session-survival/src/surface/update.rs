@@ -524,7 +524,7 @@ fn gui_generation(
         ));
     }
     let running = codesign(
-        &["-d", "--verbose=2"],
+        &["-d", "--verbose=4"],
         Path::new(&window.hello.pid.to_string()),
     )
     .ok()
@@ -617,7 +617,7 @@ fn verify(target: &Path, requirement: &str, bundle: bool) -> Result<(), String> 
 }
 
 fn cdhash_of(target: &Path) -> Result<String, String> {
-    let details = codesign(&["-d", "--verbose=2"], target)?.1;
+    let details = codesign(&["-d", "--verbose=4"], target)?.1;
     update::parse_cdhash(&details)
         .ok_or_else(|| format!("предусловие: нет CDHash у {}", target.display()))
 }

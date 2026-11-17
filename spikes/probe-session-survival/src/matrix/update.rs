@@ -158,7 +158,7 @@ pub fn parse_generation(raw: &str) -> Option<u32> {
         .filter(|generation| *generation > 0)
 }
 
-/// CDHash из `codesign -d --verbose=2`.
+/// CDHash из `codesign -d --verbose=4`.
 pub fn parse_cdhash(details: &str) -> Option<String> {
     details
         .lines()
