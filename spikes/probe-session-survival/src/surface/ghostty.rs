@@ -509,18 +509,27 @@ impl Surface {
         unsafe { sys::ghostty_surface_text(self.raw, text.as_ptr().cast(), text.len()) }
     }
 
-    /// Нажатие и отпускание клавиши без модификаторов и текста.
-    pub fn tap(&self, keycode: u32) -> (bool, bool) {
+    /// Нажатие и отпускание клавиши без модификаторов; `text` — текст клавиши, его первая кодовая
+    /// точка идёт как кодовая точка без Shift, как у вида на macOS.
+    pub fn tap(&self, keycode: u32, text: Option<&str>) -> Result<(bool, bool), String> {
+        let text = text
+            .map(|text| c_string("текст клавиши", text))
+            .transpose()?;
+        let unshifted = text
+            .as_ref()
+            .and_then(|text| text.to_str().ok())
+            .and_then(|text| text.chars().next())
+            .map_or(0, u32::from);
         let key = |action| sys::ghostty_input_key_s {
             action,
             mods: sys::ghostty_input_mods_e_GHOSTTY_MODS_NONE,
             consumed_mods: sys::ghostty_input_mods_e_GHOSTTY_MODS_NONE,
             keycode,
-            text: std::ptr::null(),
-            unshifted_codepoint: 0,
+            text: text.as_ref().map_or(std::ptr::null(), |text| text.as_ptr()),
+            unshifted_codepoint: unshifted,
             composing: false,
         };
-        // SAFETY: поверхность жива, структура клавиши без указателей на данные.
+        // SAFETY: поверхность жива; текст — строка с нулём, живая до конца функции.
         let press = unsafe {
             sys::ghostty_surface_key(
                 self.raw,
@@ -534,7 +543,7 @@ impl Surface {
                 key(sys::ghostty_input_action_e_GHOSTTY_ACTION_RELEASE),
             )
         };
-        (press, release)
+        Ok((press, release))
     }
 
     pub fn size(&self) -> GridSize {

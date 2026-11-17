@@ -119,12 +119,18 @@ fn aggregate(run_dir: &Path) -> ExitCode {
     }
 }
 
-/// Байты сцен `report-policy`: кодировщику нужно состояние, снятое с `libghostty-vt`.
+/// Байты сцен `report-policy` и ожидаемые виды сцен `bridge`: кодировщику и эталону нужно
+/// состояние, снятое с `libghostty-vt`.
 #[cfg(feature = "vt")]
 fn scenes(out: &Path) -> ExitCode {
-    match matrix::report_policy::build_scenes(out) {
-        Ok(manifest) => {
-            let _ = writeln!(io::stdout().lock(), "сцены: {}", manifest.display());
+    let built = matrix::report_policy::build_scenes(out)
+        .and_then(|policy| matrix::bridge::build_scenes(out).map(|bridge| [policy, bridge]));
+    match built {
+        Ok(files) => {
+            let mut stdout = io::stdout().lock();
+            for file in files {
+                let _ = writeln!(stdout, "сцены: {}", file.display());
+            }
             ExitCode::SUCCESS
         }
         Err(reason) => {

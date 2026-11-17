@@ -15,7 +15,7 @@ use objc2_app_kit::NSView;
 
 use super::ghostty::{self, App, Config, Journal, Spec, Surface};
 use super::view::{self, Shell};
-use crate::matrix::bridge::{EFFECTS_FILE, Grid, GuiCommand, Hello, Reply};
+use crate::matrix::bridge::{EFFECTS_FILE, Grid, GuiCommand, Hello, Reply, Scale};
 
 /// Конфигурация libghostty, которую водитель кладёт в каталог GUI.
 pub const CONFIG_FILE: &str = "ghostty.conf";
@@ -25,6 +25,8 @@ struct Open {
     id: u32,
     surface: Surface,
     _view: Retained<NSView>,
+    /// Масштаб содержимого поверхности, заданный последним.
+    content: f64,
 }
 
 pub fn run(control: &Path, out: &Path, nonce: &str) -> Result<(), String> {
@@ -122,9 +124,20 @@ fn execute(
             text: open.surface.viewport_text(),
             ..Reply::default()
         }),
-        GuiCommand::Key { surface, keycode } => current(open, surface).map(|open| Reply {
-            handled: Some(open.surface.tap(keycode)),
+        GuiCommand::Grid { surface } => current(open, surface).map(|open| Reply {
+            grid: Some(grid(&open.surface)),
+            scale: Some(scale(shell, open.content)),
             ..Reply::default()
+        }),
+        GuiCommand::Key {
+            surface,
+            keycode,
+            text,
+        } => current(open, surface).and_then(|open| {
+            Ok(Reply {
+                handled: Some(open.surface.tap(keycode, text.as_deref())?),
+                ..Reply::default()
+            })
         }),
         GuiCommand::Paste { surface, text } => current(open, surface).map(|open| {
             open.surface.paste(&text);
@@ -146,7 +159,21 @@ fn execute(
             surface,
             cols,
             rows,
-        } => current(open, surface).and_then(|open| resize(&open.surface, cols, rows)),
+        } => current(open, surface)
+            .and_then(|open| resize(&open.surface, cols, rows, scale(shell, open.content))),
+        GuiCommand::Scale { surface, percent } => match open.as_mut() {
+            Some(open) if open.id == surface => {
+                let content = f64::from(percent) / 100.0;
+                open.surface.set_content_scale(content);
+                open.content = content;
+                Ok(Reply {
+                    grid: Some(grid(&open.surface)),
+                    scale: Some(scale(shell, content)),
+                    ..Reply::default()
+                })
+            }
+            _ => Err(format!("поверхность {surface} не открыта")),
+        },
         GuiCommand::ClipboardReply { request, text } => match open.as_ref() {
             Some(open) if open.surface.complete_clipboard(request, &text) => Ok(Reply::default()),
             _ => Err(format!("нет ожидающего чтения буфера обмена {request}")),
@@ -193,17 +220,37 @@ fn open_surface(
     surface.set_focus(true);
     surface.set_visible(true);
     surface.set_dark(false);
-    let reply = resize(&surface, cols, rows)?;
+    let reply = resize(&surface, cols, rows, scale(shell, spec.scale))?;
     *open = Some(Open {
         id,
         surface,
         _view: view,
+        content: spec.scale,
     });
     Ok(reply)
 }
 
+fn scale(shell: &Shell, content: f64) -> Scale {
+    Scale {
+        window: shell.scale(),
+        content,
+    }
+}
+
+fn grid(surface: &Surface) -> Grid {
+    let size = surface.size();
+    Grid {
+        cols: size.columns,
+        rows: size.rows,
+        width_px: size.width_px,
+        height_px: size.height_px,
+        cell_width_px: size.cell_width_px,
+        cell_height_px: size.cell_height_px,
+    }
+}
+
 /// Точная сетка в пикселях по размеру клетки поверхности.
-fn resize(surface: &Surface, cols: u16, rows: u16) -> Result<Reply, String> {
+fn resize(surface: &Surface, cols: u16, rows: u16, scale: Scale) -> Result<Reply, String> {
     let cell = surface.size();
     if cell.cell_width_px == 0 || cell.cell_height_px == 0 {
         return Err(format!("нулевая клетка поверхности: {cell:?}"));
@@ -212,16 +259,9 @@ fn resize(surface: &Surface, cols: u16, rows: u16) -> Result<Reply, String> {
         u32::from(cols) * cell.cell_width_px,
         u32::from(rows) * cell.cell_height_px,
     );
-    let size = surface.size();
     Ok(Reply {
-        grid: Some(Grid {
-            cols: size.columns,
-            rows: size.rows,
-            width_px: size.width_px,
-            height_px: size.height_px,
-            cell_width_px: size.cell_width_px,
-            cell_height_px: size.cell_height_px,
-        }),
+        grid: Some(grid(surface)),
+        scale: Some(scale),
         ..Reply::default()
     })
 }

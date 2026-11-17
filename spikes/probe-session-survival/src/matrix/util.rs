@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
-use crate::fixture::query::ResponseKind;
+use crate::fixture::query::{Query, ResponseKind};
 
 /// Разрез последовательности: префикс до границы и остаток. Границы — каждая внутренняя граница
 /// байта, `1..len`: пустой префикс или пустой остаток разрезом не является.
@@ -170,6 +170,53 @@ impl Growth {
     pub fn within(&self, limit: u64) -> bool {
         self.doubling() <= limit as i64
     }
+}
+
+/// Запросы D1: ответы, которые хост даёт сам.
+pub const D1_QUERIES: [(&str, Query); 9] = [
+    ("da1", Query::Da1),
+    ("da2", Query::Da2),
+    ("cpr", Query::CursorPosition),
+    ("decrqm-dec", Query::ModeDec { mode: 2004 }),
+    ("decrqm-ansi", Query::ModeAnsi { mode: 4 }),
+    ("osc10", Query::ForegroundColor),
+    ("osc11", Query::BackgroundColor),
+    ("osc4", Query::Palette { index: 1 }),
+    ("xtversion", Query::XtVersion),
+];
+
+pub fn base64(data: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::new();
+    for chunk in data.chunks(3) {
+        let b = [
+            chunk[0],
+            *chunk.get(1).unwrap_or(&0),
+            *chunk.get(2).unwrap_or(&0),
+        ];
+        let n = (u32::from(b[0]) << 16) | (u32::from(b[1]) << 8) | u32::from(b[2]);
+        for (index, shift) in [18, 12, 6, 0].into_iter().enumerate() {
+            if index <= chunk.len() {
+                out.push(char::from(TABLE[((n >> shift) & 63) as usize]));
+            } else {
+                out.push('=');
+            }
+        }
+    }
+    out
+}
+
+/// Полезная нагрузка ответа OSC 52: данные между `c;` и терминатором.
+pub fn osc52_payload(response_hex: &str) -> Option<String> {
+    let bytes = crate::fixture::channel::unhex(response_hex)?;
+    let text = String::from_utf8_lossy(&bytes).into_owned();
+    let body = text.strip_prefix("\x1b]52;")?;
+    let (_, data) = body.split_once(';')?;
+    Some(
+        data.trim_end_matches('\x07')
+            .trim_end_matches("\x1b\\")
+            .to_owned(),
+    )
 }
 
 #[cfg(test)]

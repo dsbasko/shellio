@@ -485,7 +485,7 @@ impl Stand<'_> {
         record.replay_rows = policy::text_rows(&surface.viewport_text().unwrap_or_default());
 
         // Режим вне группы по кодированию клавиши.
-        record.key_handled = surface.tap(KEY_UP);
+        record.key_handled = surface.tap(KEY_UP, None)?;
         let fence = close(
             &mut record,
             &mut link,
