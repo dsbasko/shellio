@@ -118,6 +118,8 @@ struct State {
     pending: Option<Pending>,
     attempts: u32,
     captures: Vec<(&'static str, Capture, u32)>,
+    /// Первая попытка каждого снимка целиком: повтор до `accept` не должен её подменять.
+    firsts: Vec<(&'static str, Capture)>,
     before: Vec<Identity>,
     after_dark: Vec<Identity>,
     after_light: Vec<Identity>,
@@ -732,6 +734,11 @@ fn capture(
                         snapshot::allowed()
                     ));
                 }
+                // Первая попытка сохраняется с окончательной достоверностью: снимок щита или обоев
+                // не судит первый кадр.
+                if state.attempts == 1 {
+                    state.firsts.push((name, capture.clone()));
+                }
                 let done = !capture.ok()
                     || accept(&capture.samples)
                     || state.attempts >= CAPTURE_ATTEMPTS;
@@ -753,12 +760,18 @@ fn capture(
                 }
                 state.attempts += 1;
                 let area = stand.window.frame();
+                // Файл каждой попытки свой: первая не перезаписывается повтором.
+                let file = if state.attempts == 1 {
+                    name.to_owned()
+                } else {
+                    format!("{name}-{:02}", state.attempts)
+                };
                 state.pending = Some(snapshot::capture(
                     stand.view.mtm(),
                     area,
                     points,
                     &stand.prelude.out,
-                    name,
+                    &file,
                 ));
             }
             Poll::Pending(format!("снимок {name}, попытка {}", state.attempts))
@@ -792,6 +805,12 @@ fn find<'a>(state: &'a State, name: &str) -> Option<&'a (&'static str, Capture, 
 
 fn near(sample: Option<Rgb>, color: Rgb, limit: u8) -> bool {
     sample.is_some_and(|sample| snapshot::distance(sample, color) <= limit)
+}
+
+/// Маркер стенда (sRGB) в снимке: снимок `screencapture` кодирует пиксели в пространстве
+/// дисплея, поэтому маркер сравнивается и с кодированием Display P3, как в `visibility`.
+fn near_marker(sample: Option<Rgb>, color: Rgb) -> bool {
+    sample.is_some_and(|sample| super::visibility::near(sample, color))
 }
 
 /// Итог пиксельной проверки: без разрешения — `pending-manual`.
@@ -932,7 +951,7 @@ fn composition(plan: &mut Plan, state: &Shared) {
                 .map(|point| vec![point])
                 .ok_or("нет точки маркера".to_owned())
         },
-        |samples| near(samples.first().copied().flatten(), GREEN, NEAR),
+        |samples| near_marker(samples.first().copied().flatten(), GREEN),
     );
     plan.act(
         "сверка после закрытия",
@@ -1054,7 +1073,7 @@ fn rounding(plan: &mut Plan, state: &Shared) {
         state,
         "corners-masked",
         |_, input, _| corner_points(input),
-        |samples| near(samples[1], MAGENTA, NEAR) && near(samples[3], MAGENTA, NEAR),
+        |samples| near_marker(samples[1], MAGENTA) && near_marker(samples[3], MAGENTA),
     );
     plan.act(
         "отрицательный контроль: без маски",
@@ -1065,7 +1084,7 @@ fn rounding(plan: &mut Plan, state: &Shared) {
         state,
         "corners-unmasked",
         |_, input, _| corner_points(input),
-        |samples| near(samples[0], MAGENTA, NEAR) && near(samples[2], MAGENTA, NEAR),
+        |samples| near_marker(samples[0], MAGENTA) && near_marker(samples[2], MAGENTA),
     );
     let judged = Rc::clone(state);
     plan.act("маска плитки возвращена", move |_, input| {
@@ -1076,9 +1095,9 @@ fn rounding(plan: &mut Plan, state: &Shared) {
         };
         let m = &masked.1.samples;
         let u = &unmasked.1.samples;
-        let content = near(m[1], MAGENTA, NEAR) && near(m[3], MAGENTA, NEAR);
-        let clipped = !near(m[0], MAGENTA, NEAR) && !near(m[2], MAGENTA, NEAR);
-        let control = near(u[0], MAGENTA, NEAR) && near(u[2], MAGENTA, NEAR);
+        let content = near_marker(m[1], MAGENTA) && near_marker(m[3], MAGENTA);
+        let clipped = !near_marker(m[0], MAGENTA) && !near_marker(m[2], MAGENTA);
+        let control = near_marker(u[0], MAGENTA) && near_marker(u[2], MAGENTA);
         let verdict = pixel_verdict(&[&masked.1, &unmasked.1], content && clipped && control);
         input.findings.push((
             "h6-rounding-pixels".to_owned(),
@@ -1394,22 +1413,78 @@ fn conclude(plan: &mut Plan, state: &Shared) {
         let Some(back) = find(&state, "return-frame") else {
             return Err("нет снимка возврата".to_owned());
         };
-        let seen = near(back.1.samples.first().copied().flatten(), GREEN, NEAR);
+        // Правило до прогона без щита (приёмочный проход P0.3): судит первая попытка — первый
+        // снимок после возврата первого прохода отображения. Достоверная (окно на снимке) и
+        // свежая — `pass` первого наблюдённого кадра; достоверная со старым или чёрным кадром —
+        // `fail`, даже если повтор свежий; недостоверная — `not_run`. Позднее восстановление —
+        // отдельный вывод `h6-return-frame-eventual`. screencapture не доказывает самый первый
+        // предъявленный кадр.
+        let first = state
+            .firsts
+            .iter()
+            .rev()
+            .find(|(captured, _)| *captured == "return-frame")
+            .map(|(_, capture)| capture);
+        let first_sample = first.and_then(|capture| capture.samples.first().copied().flatten());
+        let (verdict, judged) = match first {
+            Some(capture) if capture.ok() => {
+                if near_marker(first_sample, GREEN) {
+                    (Verdict::Pass, "первый наблюдённый кадр свежий")
+                } else {
+                    (Verdict::Fail, "первый наблюдённый кадр старый или чёрный")
+                }
+            }
+            Some(_) => (Verdict::NotRun, "первая попытка недостоверна: снимок не показывает окно"),
+            None => (Verdict::NotRun, "первой попытки нет"),
+        };
         input.findings.push((
             "h6-return-frame".to_owned(),
             Requirement::Required,
-            pixel_verdict(&[&back.1], seen),
+            verdict,
             format!(
-                "маркер, нарисованный под открытой палитрой, после закрытия {:?} (ожидался зелёный), попыток {}; первая попытка — первый снимок после возврата первого прохода отображения",
+                "{judged}: маркер, нарисованный под открытой палитрой, после закрытия на первой попытке {first_sample:?} (ожидался зелёный), снимок {:?}; первая попытка — первый снимок после возврата первого прохода отображения, screencapture не наблюдает каждый кадр",
+                first.map(|capture| capture.snapshot.file.clone())
+            ),
+        ));
+        let eventually = near_marker(back.1.samples.first().copied().flatten(), GREEN);
+        input.findings.push((
+            "h6-return-frame-eventual".to_owned(),
+            Requirement::Research,
+            Verdict::Observed,
+            format!(
+                "последняя попытка {:?}, свежая {eventually}, попыток {}",
                 back.1.samples.first(),
                 back.2
             ),
         ));
         input.snapshots = state
-            .captures
+            .firsts
             .iter()
-            .map(|(_, capture, _)| capture.snapshot.clone())
+            .filter(|(name, _)| {
+                state
+                    .captures
+                    .iter()
+                    .any(|(captured, _, attempts)| captured == name && *attempts > 1)
+            })
+            .map(|(_, capture)| capture.snapshot.clone())
+            .chain(state.captures.iter().map(|(_, capture, _)| capture.snapshot.clone()))
             .collect();
         Ok(())
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn markers_match_their_display_p3_encoding() {
+        // Пиксели маркеров из снимка приёмочного прохода P0.3 на встроенном дисплее.
+        assert!(near_marker(Some(Rgb(105, 204, 74)), GREEN));
+        assert!(near_marker(Some(Rgb(241, 89, 249)), MAGENTA));
+        assert!(!near_marker(Some(Rgb(255, 255, 255)), GREEN));
+        assert!(!near_marker(Some(Rgb(242, 241, 237)), MAGENTA));
+        assert!(!near_marker(Some(Rgb(10, 8, 6)), GREEN));
+        assert!(!near_marker(None, GREEN));
+    }
 }

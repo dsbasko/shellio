@@ -54,8 +54,11 @@ use crate::view::{Sent, SurfaceView};
 
 pub const BUILTIN: &str = "builtin";
 pub const EXTERNAL: &str = "external";
+/// Встроенный дисплей в режиме 60 Гц на время процесса: замена внешнего дисплея 60 Гц
+/// приёмочного прохода исполнителя.
+pub const BUILTIN60: &str = "builtin60";
 /// Варианты сценария, они же дисплеи окна (`run.sh`, `LATENCY_DISPLAYS`).
-pub const DISPLAYS: [&str; 2] = [BUILTIN, EXTERNAL];
+pub const DISPLAYS: [&str; 3] = [BUILTIN, EXTERNAL, BUILTIN60];
 
 const CONTROL: usize = NSEventModifierFlags::Control.0;
 const KEY_Z: Key = key("z", 6, "z", "z", 0);
@@ -591,7 +594,7 @@ fn display(plan: &mut Plan, lat: &Shared) {
             if !DISPLAYS.contains(&want) {
                 return Err(format!("вариант {want}: ожидается один из {DISPLAYS:?}"));
             }
-            let expected = want == BUILTIN;
+            let expected = want != EXTERNAL;
             if builtin != expected {
                 return Err(format!(
                     "предусловие: окно варианта {want} на {} дисплее",
@@ -1698,6 +1701,6 @@ mod tests {
     fn displays_match_run_script() {
         let script = include_str!("../../run.sh");
         assert!(script.contains("latency) echo \"${LATENCY_DISPLAYS:-builtin}\" ;;"));
-        assert_eq!(DISPLAYS, ["builtin", "external"]);
+        assert_eq!(DISPLAYS, ["builtin", "external", "builtin60"]);
     }
 }

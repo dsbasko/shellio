@@ -148,6 +148,10 @@ pub enum Verdict {
     Fail,
     Observed,
     PendingManual,
+    /// Приёмочный проход исполнителя не может наблюдать проверку: итог с причиной, не `pass`
+    /// (ADR-0036).
+    #[serde(rename = "not_run")]
+    NotRun,
 }
 
 impl Verdict {
@@ -157,6 +161,7 @@ impl Verdict {
             Verdict::Fail => "fail",
             Verdict::Observed => "observed",
             Verdict::PendingManual => "pending-manual",
+            Verdict::NotRun => "not_run",
         }
     }
 }
@@ -644,6 +649,8 @@ pub struct Totals {
     /// Обязательные проверки без результата: план с ними незавершён.
     pub required_pending_manual: usize,
     pub snapshots_pending_manual: usize,
+    #[serde(default)]
+    pub not_run: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1226,7 +1233,20 @@ fn display_rate_finding(summary: &LatencySummary, builtin: bool) -> Option<RunFi
         })
         .collect::<Vec<_>>();
     let reason = match (builtin, seen.is_empty()) {
-        (false, true) => "нет прогона на внешнем дисплее 60 Гц: владелец подключает дисплей, прогон с LATENCY_DISPLAYS=\"builtin external\" (задача 19)".to_owned(),
+        (false, true) => {
+            let substitute = summary.displays.iter().any(|display| {
+                display.execution_ok
+                    && display.builtin
+                    && display
+                        .measured_hz
+                        .is_some_and(|hz| (hz - target).abs() <= DISPLAY_HZ_TOLERANCE)
+            });
+            if substitute {
+                "нет внешнего дисплея: 60 Гц измерены заменой — встроенный дисплей в режиме 60 Гц (вариант builtin60); путь внешнего дисплея не проверен".to_owned()
+            } else {
+                "нет прогона на внешнем дисплее 60 Гц: прогон с LATENCY_DISPLAYS=\"builtin external\" или замена builtin60".to_owned()
+            }
+        }
         (false, false) => format!(
             "внешний прогон не на 60 Гц по displayLink ({}): нужен дисплей 60 Гц, прогон с LATENCY_DISPLAYS=\"builtin external\" (задача 19)",
             seen.join("; ")
@@ -1242,7 +1262,13 @@ fn display_rate_finding(summary: &LatencySummary, builtin: bool) -> Option<RunFi
         variant: variant.to_owned(),
         name: format!("latency-{variant}-{target:.0}hz"),
         requirement: Requirement::Required,
-        verdict: Verdict::PendingManual,
+        // Внешнего дисплея нет: по правилу приёмочного прохода (ADR-0036) это `not_run` с
+        // передачей, а не открытый ручной пункт.
+        verdict: if !builtin && seen.is_empty() {
+            Verdict::NotRun
+        } else {
+            Verdict::PendingManual
+        },
         reason,
     })
 }
@@ -1411,6 +1437,7 @@ pub fn aggregate(run_dir: &Path) -> Result<SummaryFile, String> {
             Verdict::Pass => totals.pass += 1,
             Verdict::Fail => totals.fail += 1,
             Verdict::Observed => totals.observed += 1,
+            Verdict::NotRun => totals.not_run += 1,
             Verdict::PendingManual => {
                 totals.pending_manual += 1;
                 if finding.requirement == Requirement::Required {
@@ -1498,10 +1525,11 @@ pub fn render_summary(summary: &SummaryFile) -> String {
     }
     let _ = writeln!(
         text,
-        "выводы: pass {}, fail {}, observed {}, pending-manual {} (обязательных {}); снимков pending-manual {}",
+        "выводы: pass {}, fail {}, observed {}, not_run {}, pending-manual {} (обязательных {}); снимков pending-manual {}",
         totals.pass,
         totals.fail,
         totals.observed,
+        totals.not_run,
         totals.pending_manual,
         totals.required_pending_manual,
         totals.snapshots_pending_manual
@@ -1852,6 +1880,7 @@ mod tests {
                 pending_manual: 2,
                 required_pending_manual: 1,
                 snapshots_pending_manual: 1,
+                not_run: 0,
             }
         );
         let execution = |dir: &str| {
@@ -2345,7 +2374,8 @@ mod tests {
             .iter()
             .find(|finding| finding.name == "latency-external-60hz")
             .unwrap();
-        assert_eq!(external.verdict, Verdict::PendingManual);
+        // Внешнего прогона нет: `not_run` с передачей по правилу приёмочного прохода.
+        assert_eq!(external.verdict, Verdict::NotRun);
         assert_eq!(external.requirement, Requirement::Required);
         assert!(latency_summary(&[]).is_none());
     }

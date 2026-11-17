@@ -6,6 +6,7 @@ mod a11y;
 mod args;
 mod clock;
 mod demo;
+mod display;
 mod env;
 mod fixture;
 mod ghostty;
@@ -18,6 +19,7 @@ mod router;
 mod sampler;
 mod scenario;
 mod scene;
+mod sources;
 mod stats;
 mod utf16;
 mod view;
@@ -393,6 +395,19 @@ fn choose_display(mtm: MainThreadMarker, external: bool) -> Option<DisplayChoice
     }
 }
 
+/// Режим встроенного дисплея окна, выбранный по текущему, на время процесса.
+fn set_mode(
+    display: &DisplayChoice,
+    want: impl Fn(&display::Mode, &display::Mode) -> bool,
+) -> Result<display::Mode, String> {
+    if !display.builtin {
+        return Err("окно не на встроенном дисплее".to_owned());
+    }
+    let id = display.screen.CGDirectDisplayID();
+    let now = display::current(id).ok_or("текущий режим не прочитан")?;
+    display::set(id, |mode| want(mode, &now))
+}
+
 /// Прямоугольник окна размера `size` по центру видимой области дисплея, от начала этого экрана.
 /// Дробное начало AppKit округляет, и содержимое вырастает на точку, поэтому оно целое.
 fn window_frame(display: &DisplayChoice, size: NSSize) -> NSRect {
@@ -541,6 +556,52 @@ impl AppDelegate {
                 .finish(&app, Outcome::error(reason, Report::default()));
             return;
         };
+        let variant_of = |scenario: Scenario| {
+            ivars.scenario.as_ref().and_then(|run| {
+                (run.scenario == scenario)
+                    .then(|| run.prelude.borrow().as_ref().map(|p| p.variant.clone()))
+                    .flatten()
+            })
+        };
+        // Замены второго дисплея приёмочного прохода: режим встроенного на время процесса.
+        let mode = if variant_of(Scenario::Latency).as_deref() == Some(scenario::latency::BUILTIN60)
+        {
+            Some((
+                "60 Гц",
+                set_mode(&display, |mode, now| {
+                    mode.width == now.width
+                        && mode.height == now.height
+                        && mode.pixel_width == now.pixel_width
+                        && (mode.refresh_hz - 60.0).abs() < 0.5
+                }),
+            ))
+        } else if variant_of(Scenario::Accept).as_deref() == Some(scenario::accept::X1) {
+            Some((
+                "1x",
+                set_mode(&display, |mode, now| {
+                    mode.scale() == 1.0
+                        && mode.pixel_width == now.pixel_width
+                        && mode.pixel_height == now.pixel_height
+                        && (mode.refresh_hz - now.refresh_hz).abs() < 0.5
+                }),
+            ))
+        } else {
+            None
+        };
+        // Без режима 1x `accept x1` идёт на прежнем масштабе и сам записывает `not_run`
+        // (`acc-display-scale`); без 60 Гц замер задержки варианта смысла не имеет.
+        if let Some(("1x", Err(reason))) = &mode {
+            println!("режим 1x встроенного дисплея не установлен: {reason}");
+        } else if let Some((label, Err(reason))) = mode {
+            ivars.finisher.finish(
+                &app,
+                Outcome::error(
+                    format!("предусловие: режим {label} встроенного дисплея: {reason}"),
+                    Report::default(),
+                ),
+            );
+            return;
+        }
         let (window, view) = main_window(mtm, &display);
         window.makeKeyAndOrderFront(None);
         // Кооперативный `activate()` (macOS 14) отклоняется, пока активен терминал, из которого

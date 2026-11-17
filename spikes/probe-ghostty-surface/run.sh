@@ -20,7 +20,7 @@ VENDOR="${SHELLIO_GHOSTTY_VENDOR:-$ROOT/vendor/ghostty}"
 REQUIREMENT="$ROOT/scripts/signing/requirement.txt"
 KEYCHAIN="${SHELLIO_SIGNING_KEYCHAIN:-}"
 BUNDLE_ID="io.github.dsbasko.shellio.probe.ghostty-surface"
-ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette gpu-calibration visibility teardown latency memory idle nvim a11y"
+ALL_SCENARIOS="startup startup-ls window surface-env zones input ime chord palette gpu-calibration visibility teardown latency memory idle nvim a11y accept"
 # Запусков сценариев старта на вариант: первый в агрегаты прогретых не входит
 # (results::STARTUP_SCENARIOS).
 STARTUP_RUNS=21
@@ -160,12 +160,15 @@ variants_of() {
         # Обычный прогон и с MallocScribble=1 (teardown.rs, SCRIBBLE).
         teardown) echo "base $SCRIBBLE_VARIANT" ;;
         # Дисплей окна (latency.rs, DISPLAYS): по умолчанию встроенный; внешний 60 Гц —
-        # LATENCY_DISPLAYS="builtin external", когда дисплей подключён.
+        # LATENCY_DISPLAYS="builtin external", когда дисплей подключён; без него замена —
+        # встроенный в режиме 60 Гц, LATENCY_DISPLAYS="builtin builtin60".
         latency) echo "${LATENCY_DISPLAYS:-builtin}" ;;
         # Пустое окно без libghostty, циклы поверхностей и scrollback в свежем процессе (memory.rs, VARIANTS).
         memory) echo "bare base scrollback" ;;
         # Обычная конфигурация с миганием курсора и без него (idle.rs, VARIANTS).
         idle) echo "blink $NOBLINK_VARIANT" ;;
+        # Приёмочный проход: масштаб дисплея как есть и встроенный в режиме 1x (accept.rs).
+        accept) echo "base x1" ;;
         *) echo "base" ;;
     esac
 }

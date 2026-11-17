@@ -67,7 +67,9 @@ objc2-core-graphics = { version = "0.3.2", default-features = false, features = 
     "CGDirectDisplay",
     "CGDisplayConfiguration",
     "CGEvent",
+    "CGEventSource",
     "CGEventTypes",
+    "CGRemoteOperation",
     "CGSession",
     "CGWindow",
 ] }

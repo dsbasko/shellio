@@ -264,6 +264,8 @@ struct ScaleRecord {
 }
 
 struct Zones {
+    /// Масштаб менялся режимом встроенного дисплея, а не переносом на второй экран.
+    scale_substitute: bool,
     env: State,
     scene: Scene,
     baseline: Option<Identity>,
@@ -326,6 +328,7 @@ pub fn run(stand: Rc<Stand>) {
         stream_stop: None,
         drag: Drag::default(),
         scale: None,
+        scale_substitute: false,
         home_frame: None,
         expected_frame: None,
         quiet: None,
@@ -353,6 +356,29 @@ pub fn run(stand: Rc<Stand>) {
         drop(zones);
         surface_env::finish(&stand, report, verdict, Some(view));
     });
+}
+
+/// Контрольная точка смены масштаба: перенос на другой экран или режим 1x встроенного дисплея.
+const SCALE_LABEL: &str = "смена масштаба подложки окна";
+
+/// Замена второго экрана: встроенный дисплей окна с масштабом 2 и режим 1x с теми же пикселями.
+fn one_x_substitute(stand: &Stand) -> Option<(u32, crate::display::Mode)> {
+    let screen = stand.window.screen()?;
+    let id = screen.CGDirectDisplayID();
+    if !objc2_core_graphics::CGDisplayIsBuiltin(id) {
+        return None;
+    }
+    let home = crate::display::current(id)?;
+    let available = crate::display::has(id, |mode| one_x_of(mode, &home));
+    (home.scale() == 2.0 && available).then_some((id, home))
+}
+
+/// Режим 1x с пикселями и частотой режима `home`.
+fn one_x_of(mode: &crate::display::Mode, home: &crate::display::Mode) -> bool {
+    mode.scale() == 1.0
+        && mode.pixel_width == home.pixel_width
+        && mode.pixel_height == home.pixel_height
+        && (mode.refresh_hz - home.refresh_hz).abs() < 0.5
 }
 
 /// Экран с другим масштабом подложки, чем у экрана окна.
@@ -689,7 +715,7 @@ fn steps(stand: &Rc<Stand>, zones: &Shared, other: Option<&Retained<NSScreen>>) 
                 &mut steps,
                 stand,
                 zones,
-                "перенос окна на экран с другим масштабом",
+                SCALE_LABEL,
                 true,
                 move |stand, zones| {
                     zones.scale = Some(scale_record(stand, Some(target.backingScaleFactor())));
@@ -711,19 +737,45 @@ fn steps(stand: &Rc<Stand>, zones: &Shared, other: Option<&Retained<NSScreen>>) 
                 },
             );
         }
-        None => {
-            let recording = Rc::clone(zones);
-            let recording_stand = Rc::clone(stand);
-            steps.push(Step::new(
-                "другого экрана нет",
-                SIZE_TIMEOUT,
-                || Poll::Ready(()),
-                move || {
-                    recording.borrow_mut().scale = Some(scale_record(&recording_stand, None));
-                    Ok(())
-                },
-            ));
-        }
+        None => match one_x_substitute(stand) {
+            Some((id, home)) => {
+                // Второго экрана нет: тот же встроенный дисплей в режиме 1x с теми же пикселями
+                // на время процесса (`display.rs`), затем возврат прежнего режима.
+                change(
+                    &mut steps,
+                    stand,
+                    zones,
+                    SCALE_LABEL,
+                    true,
+                    move |stand, zones| {
+                        zones.scale = Some(scale_record(stand, Some(1.0)));
+                        zones.scale_substitute = true;
+                        crate::display::set(id, |mode| one_x_of(mode, &home)).map(|_| ())
+                    },
+                );
+                change(
+                    &mut steps,
+                    stand,
+                    zones,
+                    "возврат прежнего режима дисплея",
+                    true,
+                    move |_, _| crate::display::set(id, |mode| *mode == home).map(|_| ()),
+                );
+            }
+            None => {
+                let recording = Rc::clone(zones);
+                let recording_stand = Rc::clone(stand);
+                steps.push(Step::new(
+                    "другого экрана нет",
+                    SIZE_TIMEOUT,
+                    || Poll::Ready(()),
+                    move || {
+                        recording.borrow_mut().scale = Some(scale_record(&recording_stand, None));
+                        Ok(())
+                    },
+                ));
+            }
+        },
     }
 
     // Живой ресайз окна перетаскиванием угла: режим отслеживания.
@@ -1485,7 +1537,7 @@ fn judge(zones: &Zones, report: &mut Report) {
         }) => {
             let scaled = points
                 .iter()
-                .find(|point| point.label == "перенос окна на экран с другим масштабом");
+                .find(|point| point.label == SCALE_LABEL);
             let ok = scaled.is_some_and(|point| {
                 point.geometry_changed
                     && point.winsize_matches
@@ -1495,7 +1547,14 @@ fn judge(zones: &Zones, report: &mut Report) {
                 "h5-scale-change",
                 Requirement::Required,
                 verdict(ok),
-                format!("перенос окна на экран с масштабом {to}: {scaled:?}"),
+                format!(
+                    "смена масштаба окна на {to} ({}): {scaled:?}",
+                    if zones.scale_substitute {
+                        "замена второго экрана: режим 1x встроенного дисплея на время процесса"
+                    } else {
+                        "перенос окна на экран с другим масштабом"
+                    }
+                ),
             );
         }
         Some(record) => report.finding(
