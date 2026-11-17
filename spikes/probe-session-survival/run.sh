@@ -226,7 +226,8 @@ bundle() {
 
 # Конфигурация libghostty процесса сценария в его --out (surface::scene::CONFIG_FILE).
 # Пользовательский ghostty.conf проба не читает. Поля окна нулевые: сетка 80×24 задаётся точным
-# размером в пикселях. Интеграция shell выключена, курсор не мигает.
+# размером в пикселях. Интеграция shell выключена, курсор не мигает. OSC 52 чтения и записи идут в
+# колбэки без подтверждения: настоящий буфер обмена колбэки GUI моста не трогают (D3, D4).
 write_config() {
     cat >"$1/ghostty.conf" <<EOF_CONFIG
 font-family = Menlo
@@ -240,6 +241,8 @@ cursor-style-blink = false
 shell-integration = none
 confirm-close-surface = false
 clipboard-paste-protection = false
+clipboard-read = allow
+clipboard-write = allow
 EOF_CONFIG
 }
 

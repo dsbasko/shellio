@@ -10,8 +10,11 @@
 //! сценарию нужны только байты, которые поверхность пишет в PTY.
 
 use std::ffi::{CStr, CString, c_char, c_void};
+use std::fs::File;
+use std::io::Write;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use objc2_app_kit::NSView;
 use objc2_core_foundation::CFRunLoop;
@@ -193,15 +196,77 @@ unsafe extern "C" fn action_cb(
     false
 }
 
+/// Журнал эффектов GUI-процесса моста: строка JSON на колбэк дозаписью сразу в файл, без
+/// буфера процесса, и ожидающие чтения буфера обмена. Только главный поток.
+pub struct Journal {
+    file: Mutex<File>,
+    pending: Mutex<Vec<(u64, usize)>>,
+    next: AtomicU64,
+}
+
+impl Journal {
+    pub fn new(file: File) -> Arc<Journal> {
+        Arc::new(Journal {
+            file: Mutex::new(file),
+            pending: Mutex::new(Vec::new()),
+            next: AtomicU64::new(1),
+        })
+    }
+
+    fn append(&self, effect: &crate::matrix::bridge::Effect) {
+        if let Ok(mut line) = serde_json::to_string(effect) {
+            line.push('\n');
+            let mut file = self.file.lock().unwrap_or_else(PoisonError::into_inner);
+            // Ошибку записи видит водитель: в журнале не окажется ожидаемой строки.
+            let _ = file.write_all(line.as_bytes());
+        }
+    }
+
+    /// Состояние библиотеки для запроса `request`; запрос снимается с ожидания.
+    fn take(&self, request: u64) -> Option<usize> {
+        let mut pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
+        let index = pending.iter().position(|(id, _)| *id == request)?;
+        Some(pending.remove(index).1)
+    }
+}
+
+/// `userdata` поверхности моста: её номер у водителя и журнал.
+struct Tag {
+    surface: u32,
+    journal: Arc<Journal>,
+}
+
+/// # Safety
+/// `userdata` — `Tag` живой поверхности моста или NULL у поверхности без метки.
+unsafe fn tag<'a>(userdata: *mut c_void) -> Option<&'a Tag> {
+    // SAFETY: по контракту функции.
+    unsafe { userdata.cast::<Tag>().cast_const().as_ref() }
+}
+
 unsafe extern "C" fn read_clipboard_cb(
-    _userdata: *mut c_void,
+    userdata: *mut c_void,
     _location: sys::ghostty_clipboard_e,
-    _state: *mut c_void,
+    state: *mut c_void,
     _mimes: *const *const c_char,
     _mimes_len: usize,
     _list: bool,
 ) -> sys::ghostty_clipboard_read_result_e {
-    sys::ghostty_clipboard_read_result_e_GHOSTTY_CLIPBOARD_READ_UNAVAILABLE
+    // SAFETY: `userdata` поверхности — её `Tag`, живой до `ghostty_surface_free`.
+    let Some(tag) = (unsafe { tag(userdata) }) else {
+        return sys::ghostty_clipboard_read_result_e_GHOSTTY_CLIPBOARD_READ_UNAVAILABLE;
+    };
+    let request = tag.journal.next.fetch_add(1, Ordering::Relaxed);
+    tag.journal
+        .pending
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .push((request, state as usize));
+    tag.journal
+        .append(&crate::matrix::bridge::Effect::ClipboardRead {
+            surface: tag.surface,
+            request,
+        });
+    sys::ghostty_clipboard_read_result_e_GHOSTTY_CLIPBOARD_READ_STARTED
 }
 
 unsafe extern "C" fn confirm_read_clipboard_cb(
@@ -213,12 +278,37 @@ unsafe extern "C" fn confirm_read_clipboard_cb(
 }
 
 unsafe extern "C" fn write_clipboard_cb(
-    _userdata: *mut c_void,
+    userdata: *mut c_void,
     _location: sys::ghostty_clipboard_e,
-    _contents: *const sys::ghostty_clipboard_content_s,
-    _contents_len: usize,
+    contents: *const sys::ghostty_clipboard_content_s,
+    contents_len: usize,
     _confirm: bool,
 ) {
+    // SAFETY: `userdata` поверхности — её `Tag`, живой до `ghostty_surface_free`.
+    let Some(tag) = (unsafe { tag(userdata) }) else {
+        return;
+    };
+    let items = if contents.is_null() {
+        &[][..]
+    } else {
+        // SAFETY: библиотека передаёт массив длины `contents_len`, живой на время колбэка.
+        unsafe { std::slice::from_raw_parts(contents, contents_len) }
+    };
+    let text = items
+        .iter()
+        .filter(|item| !item.data.is_null())
+        .map(|item| {
+            // SAFETY: данные элемента живы на время колбэка, длина явная.
+            let bytes = unsafe { std::slice::from_raw_parts(item.data.cast::<u8>(), item.len) };
+            String::from_utf8_lossy(bytes).into_owned()
+        })
+        .next()
+        .unwrap_or_default();
+    tag.journal
+        .append(&crate::matrix::bridge::Effect::ClipboardWrite {
+            surface: tag.surface,
+            text,
+        });
 }
 
 unsafe extern "C" fn close_surface_cb(_userdata: *mut c_void, _process_alive: bool) {}
@@ -253,11 +343,34 @@ struct Buffers {
 pub struct Surface {
     raw: sys::ghostty_surface_t,
     _buffers: Buffers,
+    /// Метка колбэков; освобождается после поверхности.
+    tag: Option<Box<Tag>>,
 }
 
 impl Surface {
     /// `view` должен жить дольше поверхности: libghostty ставит ему свой слой.
     pub fn new(app: &App, view: &NSView, spec: &Spec) -> Result<Surface, String> {
+        Surface::create(app, view, spec, None)
+    }
+
+    /// Поверхность моста: колбэки буфера обмена пишут в `journal` с номером `surface`, чтение
+    /// ждёт [`Surface::complete_clipboard`].
+    pub fn tagged(
+        app: &App,
+        view: &NSView,
+        spec: &Spec,
+        surface: u32,
+        journal: Arc<Journal>,
+    ) -> Result<Surface, String> {
+        Surface::create(app, view, spec, Some(Box::new(Tag { surface, journal })))
+    }
+
+    fn create(
+        app: &App,
+        view: &NSView,
+        spec: &Spec,
+        tag: Option<Box<Tag>>,
+    ) -> Result<Surface, String> {
         let buffers = Buffers {
             command: c_string("команда поверхности", &spec.command)?,
             working_directory: c_string("рабочий каталог", &spec.working_directory)?,
@@ -270,7 +383,9 @@ impl Surface {
                 nsview: std::ptr::from_ref::<NSView>(view).cast_mut().cast(),
             },
         };
-        config.userdata = std::ptr::null_mut();
+        config.userdata = tag.as_deref().map_or(std::ptr::null_mut(), |tag| {
+            std::ptr::from_ref::<Tag>(tag).cast_mut().cast()
+        });
         config.scale_factor = spec.scale;
         config.font_size = 0.0;
         config.working_directory = buffers.working_directory.as_ptr();
@@ -289,7 +404,71 @@ impl Surface {
         Ok(Surface {
             raw,
             _buffers: buffers,
+            tag,
         })
+    }
+
+    /// Завершает чтение буфера обмена `request` текстом `text`. `false` — запроса нет.
+    pub fn complete_clipboard(&self, request: u64, text: &str) -> bool {
+        let Some(state) = self.tag.as_ref().and_then(|tag| tag.journal.take(request)) else {
+            return false;
+        };
+        let content = sys::ghostty_clipboard_content_s {
+            mime: c"text/plain".as_ptr(),
+            data: text.as_ptr().cast(),
+            len: text.len(),
+        };
+        let available = [c"text/plain".as_ptr()];
+        let complete = sys::ghostty_clipboard_complete_s {
+            contents: &content,
+            contents_len: 1,
+            available: available.as_ptr(),
+            available_len: 1,
+            confirmed: false,
+            remember: false,
+        };
+        // SAFETY: поверхность жива, `state` получен её колбэком чтения, вернувшим `STARTED`, и
+        // снят с ожидания; данные живут на время вызова, библиотека их не сохраняет.
+        unsafe {
+            sys::ghostty_surface_complete_clipboard_request(
+                self.raw,
+                &complete,
+                state as *mut c_void,
+            )
+        };
+        true
+    }
+
+    /// Нажатие и отпускание левой кнопки в центре клетки (`col`, `row`) с нуля; координаты вида
+    /// в точках.
+    pub fn click(&self, col: u16, row: u16, scale: f64) -> (bool, bool) {
+        let size = self.size();
+        let scale = if scale > 0.0 { scale } else { 1.0 };
+        let x = (f64::from(col) + 0.5) * f64::from(size.cell_width_px) / scale;
+        let y = (f64::from(row) + 0.5) * f64::from(size.cell_height_px) / scale;
+        let none = sys::ghostty_input_mods_e_GHOSTTY_MODS_NONE;
+        let left = sys::ghostty_input_mouse_button_e_GHOSTTY_MOUSE_LEFT;
+        // SAFETY: поверхность жива, аргументы — значения.
+        unsafe { sys::ghostty_surface_mouse_pos(self.raw, x, y, none) };
+        // SAFETY: см. выше.
+        let press = unsafe {
+            sys::ghostty_surface_mouse_button(
+                self.raw,
+                sys::ghostty_input_mouse_state_e_GHOSTTY_MOUSE_PRESS,
+                left,
+                none,
+            )
+        };
+        // SAFETY: см. выше.
+        let release = unsafe {
+            sys::ghostty_surface_mouse_button(
+                self.raw,
+                sys::ghostty_input_mouse_state_e_GHOSTTY_MOUSE_RELEASE,
+                left,
+                none,
+            )
+        };
+        (press, release)
     }
 
     pub fn set_size(&self, width: u32, height: u32) {
