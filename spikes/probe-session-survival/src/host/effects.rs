@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::mpsc::SyncSender;
-use std::sync::{Condvar, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use crate::proto::{self, ClipStats, Message};
@@ -52,12 +52,35 @@ struct Pending {
     cancelled: bool,
 }
 
+/// Очередь кадров соединения GUI: запрос либо поставлен, либо отвергнут сразу.
+pub trait FrameSink: Send + Sync {
+    fn offer(&self, frame: Vec<u8>) -> bool;
+}
+
+impl FrameSink for SyncSender<Vec<u8>> {
+    fn offer(&self, frame: Vec<u8>) -> bool {
+        self.try_send(frame).is_ok()
+    }
+}
+
+impl FrameSink for crate::host::io::ByteQueue {
+    fn offer(&self, frame: Vec<u8>) -> bool {
+        self.push(frame, crate::host::io::Room::Always).is_ok()
+    }
+}
+
+impl<T: FrameSink + ?Sized> FrameSink for Arc<T> {
+    fn offer(&self, frame: Vec<u8>) -> bool {
+        (**self).offer(frame)
+    }
+}
+
 #[derive(Default)]
 struct State {
     /// Поколение текущего лидера; `None` — лидера нет.
     leader: Option<u32>,
     /// Соединения GUI: поколение, от имени которого они говорят, и очередь кадров.
-    guis: BTreeMap<u64, (u32, SyncSender<Vec<u8>>)>,
+    guis: BTreeMap<u64, (u32, Arc<dyn FrameSink>)>,
     serial: u64,
     pending: Option<Pending>,
     stats: ClipStats,
@@ -88,8 +111,10 @@ impl Clipboard {
         self.lock().stats
     }
 
-    pub fn bind(&self, conn: u64, generation: u32, frames: SyncSender<Vec<u8>>) {
-        self.lock().guis.insert(conn, (generation, frames));
+    pub fn bind(&self, conn: u64, generation: u32, frames: impl FrameSink + 'static) {
+        self.lock()
+            .guis
+            .insert(conn, (generation, Arc::new(frames) as Arc<dyn FrameSink>));
     }
 
     pub fn unbind(&self, conn: u64) {
@@ -127,7 +152,7 @@ impl Clipboard {
             .guis
             .values()
             .find(|(generation, _)| *generation == leader)
-            .map(|(_, frames)| frames.clone())
+            .map(|(_, frames)| Arc::clone(frames))
         else {
             state.stats.no_gui += 1;
             return Read::NoGui;
@@ -138,7 +163,7 @@ impl Clipboard {
             serial,
             generation: leader,
         });
-        if frames.try_send(frame).is_err() {
+        if !frames.offer(frame) {
             state.stats.no_gui += 1;
             return Read::NoGui;
         }

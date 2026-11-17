@@ -3,7 +3,9 @@
 //!
 //! Соединение начинается с `Hello` клиента и `Welcome` или `Refused` хоста. Attach-клиент после
 //! этого получает состояние VT-байтами (`Restore`, кадрами), затем живой поток `Output` с номером
-//! первого байта PTY, шлёт ввод, ресайз и `Detach`. Управляющее соединение (`list`, `stop`, ввод,
+//! первого байта PTY, шлёт ввод, ресайз и `Detach`. Ввод несёт источник и номер, хост отвечает
+//! `InputAck`: принят, повтор уже принятого номера или отказ с причиной. Клиент, чья очередь
+//! вывода переполнилась, получает `Evicted` с причиной и разрыв. Управляющее соединение (`list`, `stop`, ввод,
 //! ресайз и снимок без клиента) клиентом сессии не считается. Соединение роли GUI (`Gui`)
 //! привязывается к поколению лидера и несёт типизированные эффекты: чтение буфера обмена, фокус и
 //! видимость. Соединение наблюдения (`Observe`, только проба) получает событие разбора `Parsed`
@@ -102,13 +104,34 @@ pub struct Status {
     pub dropped_replies: u64,
     pub clipboard: ClipStats,
     pub size: Winsize,
+    /// Номер назначения текущего лидера; растёт с каждой сменой.
+    pub generation: u32,
+    /// Клиенты, разорванные переполнением очереди вывода.
+    pub evictions: u32,
+    /// Байты ввода в очереди записи в PTY.
+    pub input_queued: u64,
+}
+
+/// Ответ хоста на ввод.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "ack", content = "detail", rename_all = "kebab-case")]
+pub enum Ack {
+    Accepted,
+    /// Номер уже принят от этого источника: ввод в PTY повторно не пишется.
+    Duplicate,
+    Rejected(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Message {
     // --- клиент → хост ---
     Hello(Hello),
-    Input(Vec<u8>),
+    /// Ввод источника `source` с номером `seq`.
+    Input {
+        source: u64,
+        seq: u64,
+        bytes: Vec<u8>,
+    },
     Resize(Winsize),
     StatusRequest,
     Stop,
@@ -157,8 +180,15 @@ pub enum Message {
         signal: Option<i32>,
     },
     Refused(String),
-    /// Подтверждение `Input`, `Resize`, `Stop` и `Detach`.
+    /// Подтверждение `Resize`, `Stop` и `Detach`.
     Done,
+    InputAck {
+        source: u64,
+        seq: u64,
+        ack: Ack,
+    },
+    /// Очередь вывода клиента переполнилась: причина, затем разрыв.
+    Evicted(String),
 }
 
 const TAG_HELLO: u8 = 1;
@@ -183,6 +213,8 @@ const TAG_RESTORE: u8 = 23;
 const TAG_SNAPSHOT: u8 = 24;
 const TAG_CLIPBOARD_REQUEST: u8 = 25;
 const TAG_PARSED: u8 = 26;
+const TAG_INPUT_ACK: u8 = 27;
+const TAG_EVICTED: u8 = 28;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ProtoError {
@@ -311,7 +343,9 @@ pub fn encode(message: &Message) -> Vec<u8> {
             body.size(hello.size);
             TAG_HELLO
         }
-        Message::Input(bytes) => {
+        Message::Input { source, seq, bytes } => {
+            body.u64(*source);
+            body.u64(*seq);
             body.bytes(bytes);
             TAG_INPUT
         }
@@ -405,6 +439,9 @@ pub fn encode(message: &Message) -> Vec<u8> {
             body.u64(status.dropped_replies);
             body.clip(status.clipboard);
             body.size(status.size);
+            body.u32(status.generation);
+            body.u32(status.evictions);
+            body.u64(status.input_queued);
             TAG_STATUS
         }
         Message::Role { role, generation } => {
@@ -422,6 +459,23 @@ pub fn encode(message: &Message) -> Vec<u8> {
             TAG_REFUSED
         }
         Message::Done => TAG_DONE,
+        Message::InputAck { source, seq, ack } => {
+            body.u64(*source);
+            body.u64(*seq);
+            match ack {
+                Ack::Accepted => body.u8(0),
+                Ack::Duplicate => body.u8(1),
+                Ack::Rejected(reason) => {
+                    body.u8(2);
+                    body.str(reason);
+                }
+            }
+            TAG_INPUT_ACK
+        }
+        Message::Evicted(reason) => {
+            body.str(reason);
+            TAG_EVICTED
+        }
     };
     let mut frame = Vec::with_capacity(HEADER + body.0.len());
     frame.push(tag);
@@ -554,7 +608,11 @@ pub fn decode_body(tag: u8, body: &[u8]) -> Result<Message, ProtoError> {
             client: fields.string("hello.client")?,
             size: fields.size("hello.size")?,
         }),
-        TAG_INPUT => Message::Input(fields.bytes("input")?),
+        TAG_INPUT => Message::Input {
+            source: fields.u64("input.source")?,
+            seq: fields.u64("input.seq")?,
+            bytes: fields.bytes("input.bytes")?,
+        },
         TAG_RESIZE => Message::Resize(fields.size("resize")?),
         TAG_STATUS_REQUEST => Message::StatusRequest,
         TAG_STOP => Message::Stop,
@@ -621,6 +679,9 @@ pub fn decode_body(tag: u8, body: &[u8]) -> Result<Message, ProtoError> {
             dropped_replies: fields.u64("status.dropped_replies")?,
             clipboard: fields.clip()?,
             size: fields.size("status.size")?,
+            generation: fields.u32("status.generation")?,
+            evictions: fields.u32("status.evictions")?,
+            input_queued: fields.u64("status.input_queued")?,
         }),
         TAG_ROLE => Message::Role {
             role: fields.role()?,
@@ -632,6 +693,17 @@ pub fn decode_body(tag: u8, body: &[u8]) -> Result<Message, ProtoError> {
         },
         TAG_REFUSED => Message::Refused(fields.string("refused")?),
         TAG_DONE => Message::Done,
+        TAG_INPUT_ACK => Message::InputAck {
+            source: fields.u64("input_ack.source")?,
+            seq: fields.u64("input_ack.seq")?,
+            ack: match fields.u8("input_ack.ack")? {
+                0 => Ack::Accepted,
+                1 => Ack::Duplicate,
+                2 => Ack::Rejected(fields.string("input_ack.reason")?),
+                _ => return Err(ProtoError::Malformed("input_ack.ack")),
+            },
+        },
+        TAG_EVICTED => Message::Evicted(fields.string("evicted")?),
         other => return Err(ProtoError::UnknownTag(other)),
     };
     if !fields.rest.is_empty() {
@@ -734,7 +806,11 @@ mod tests {
                 client: "attach 0.1.0".to_owned(),
                 size,
             }),
-            Message::Input(b"\x03ls\r".to_vec()),
+            Message::Input {
+                source: 0x5eed,
+                seq: 2,
+                bytes: b"\x03ls\r".to_vec(),
+            },
             Message::Resize(size),
             Message::StatusRequest,
             Message::Stop,
@@ -773,6 +849,9 @@ mod tests {
                     dropped: 2,
                 },
                 size,
+                generation: 3,
+                evictions: 1,
+                input_queued: 1 << 18,
             }),
             Message::SnapshotRequest,
             Message::GuiBind { generation: 2 },
@@ -822,6 +901,22 @@ mod tests {
             },
             Message::Refused("нет сессии".to_owned()),
             Message::Done,
+            Message::InputAck {
+                source: 0x5eed,
+                seq: 2,
+                ack: Ack::Accepted,
+            },
+            Message::InputAck {
+                source: 0x5eed,
+                seq: 2,
+                ack: Ack::Duplicate,
+            },
+            Message::InputAck {
+                source: 1,
+                seq: 9,
+                ack: Ack::Rejected("очередь заполнена".to_owned()),
+            },
+            Message::Evicted("очередь клиента переполнена".to_owned()),
         ]
     }
 
@@ -895,7 +990,19 @@ mod tests {
             decode_body(TAG_ROLE, &[7, 0, 0, 0, 1]),
             Err(ProtoError::Malformed(_))
         ));
-        let mut cut = &encode(&Message::Input(b"abc".to_vec()))[..7];
+        assert!(matches!(
+            decode_body(
+                TAG_INPUT_ACK,
+                &[0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 3]
+            ),
+            Err(ProtoError::Malformed(_))
+        ));
+        let input = Message::Input {
+            source: 1,
+            seq: 1,
+            bytes: b"abc".to_vec(),
+        };
+        let mut cut = &encode(&input)[..7];
         assert_eq!(
             read_message(&mut cut).unwrap_err().kind(),
             io::ErrorKind::UnexpectedEof

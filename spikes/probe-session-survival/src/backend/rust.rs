@@ -21,11 +21,12 @@ use super::{
     Lead, Listed, Liveness, Result, SessionId, Snapshot, SocketEntries, StopOutcome, Workload,
     alive, judge_liveness, kill_recorded_host, session_processes,
 };
+use crate::host::io::InputId;
 use crate::host::{self, Launch, attach, registry, socket};
 use crate::launch;
 use crate::matrix::Candidate;
 use crate::observer::ProcessKey;
-use crate::proto::{self, Hello, Message, Purpose, Status, Welcome};
+use crate::proto::{self, Ack, Hello, Message, Purpose, Status, Welcome};
 use crate::pty::Winsize;
 
 const ROLE_TITLE: &str = "pss-role;";
@@ -147,6 +148,46 @@ impl RustHost {
         proto::read_message(&mut stream)
             .map_err(|err| failed("ответ", err))?
             .ok_or_else(|| BackendError::Failed("хост закрыл соединение без ответа".to_owned()))
+    }
+
+    /// Ввод с номером `input` управляющим соединением. `read_ack = false` — подтверждение не
+    /// читается, соединение закрывается сразу: так стенд теряет подтверждение, и итог —
+    /// [`InputOutcome::Unknown`].
+    pub fn input_numbered(
+        &self,
+        id: &SessionId,
+        input: InputId,
+        bytes: &[u8],
+        read_ack: bool,
+    ) -> Result<InputOutcome> {
+        let failed = |what: &str, err: io::Error| BackendError::Failed(format!("{what}: {err}"));
+        let (mut stream, _) = self.open(id, Purpose::Control)?;
+        let message = Message::Input {
+            source: input.source,
+            seq: input.seq,
+            bytes: bytes.to_vec(),
+        };
+        proto::write_message(&mut stream, &message).map_err(|err| failed("ввод", err))?;
+        if !read_ack {
+            return Ok(InputOutcome::Unknown);
+        }
+        match proto::read_message(&mut stream).map_err(|err| failed("подтверждение ввода", err))?
+        {
+            Some(Message::InputAck { source, seq, ack })
+                if source == input.source && seq == input.seq =>
+            {
+                Ok(match ack {
+                    Ack::Accepted => InputOutcome::Accepted,
+                    Ack::Duplicate => InputOutcome::Duplicate,
+                    Ack::Rejected(reason) => InputOutcome::Rejected(reason),
+                })
+            }
+            Some(Message::Refused(reason)) => Ok(InputOutcome::Rejected(reason)),
+            other => Err(BackendError::Failed(format!(
+                "вместо подтверждения ввода {}:{}: {other:?}",
+                input.source, input.seq
+            ))),
+        }
     }
 
     pub fn status(&self, id: &SessionId) -> Result<Status> {
@@ -313,11 +354,14 @@ impl Backend for RustHost {
         if bytes.is_empty() {
             return Err(BackendError::Failed("пустой ввод".to_owned()));
         }
-        match (self.control(id, &Message::Input(bytes.to_vec()))?, path) {
-            (Message::Done, InputPath::Raw) => Ok(InputOutcome::Sent),
-            (Message::Done, InputPath::Typed) => Ok(InputOutcome::Accepted),
-            (Message::Refused(reason), _) => Ok(InputOutcome::Rejected(reason)),
-            (other, _) => Err(BackendError::Failed(format!("ответ на ввод: {other:?}"))),
+        // Каждый вызов — новый ввод: свой источник, первый номер.
+        let input = InputId {
+            source: attach::input_source(),
+            seq: 1,
+        };
+        match (self.input_numbered(id, input, bytes, true)?, path) {
+            (InputOutcome::Accepted, InputPath::Raw) => Ok(InputOutcome::Sent),
+            (outcome, _) => Ok(outcome),
         }
     }
 

@@ -4,6 +4,11 @@
 //! клиента переводится в raw-режим; `Ctrl-\` отключает клиента, конец терминала (hangup) завершает
 //! его. Роль клиент сообщает своему терминалу заголовком `<префикс><роль>:<поколение>`, как
 //! управляемый клиент zmx.
+//!
+//! Ввод идёт с номером источника клиента; подтверждения хоста клиент не ждёт. Причину конца
+//! клиент сообщает кодом выхода, а не текстом: его stderr — тот же терминал. Выход нагрузки — 0,
+//! разрыв переполнением очереди ([`EXIT_EVICTED`]), конец соединения без кадра выхода
+//! ([`EXIT_LOST`]).
 
 use std::io::{self, Read, Write};
 use std::os::fd::AsFd;
@@ -18,6 +23,10 @@ use crate::pty::{self, Winsize};
 pub const ATTACH_NAME: &str = "probe-session-attach";
 /// `Ctrl-\`.
 pub const DETACH_KEY: u8 = 0x1c;
+/// Хост разорвал клиента: его очередь вывода переполнилась.
+pub const EXIT_EVICTED: i32 = 3;
+/// Соединение кончилось без кадра выхода нагрузки.
+pub const EXIT_LOST: i32 = 4;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Options {
@@ -167,17 +176,31 @@ fn from_host(reader: &mut UnixStream, prefix: Option<&str>) {
                     let _ = out.flush();
                 }
             }
-            Ok(Some(Message::Exited { .. })) | Ok(None) => std::process::exit(0),
+            Ok(Some(Message::Exited { .. })) => std::process::exit(0),
+            Ok(Some(Message::Evicted(_))) => std::process::exit(EXIT_EVICTED),
+            Ok(None) => std::process::exit(EXIT_LOST),
             Ok(Some(_)) => {}
             Err(_) => std::process::exit(1),
         }
     }
 }
 
+/// Источник ввода клиента: процесс и время запуска.
+pub fn input_source() -> u64 {
+    let pid = u64::from(std::process::id());
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_nanos() as u64)
+        .unwrap_or(0);
+    (pid << 40) ^ now
+}
+
 /// Ввод терминала в хост до `Ctrl-\` или конца терминала.
 fn to_host(stream: &mut UnixStream) -> Result<(), String> {
     let mut stdin = io::stdin().lock();
     let mut buf = [0u8; 4096];
+    let source = input_source();
+    let mut seq = 0u64;
     loop {
         let read = match stdin.read(&mut buf) {
             Ok(0) => return Ok(()),
@@ -188,8 +211,13 @@ fn to_host(stream: &mut UnixStream) -> Result<(), String> {
         };
         let (bytes, detach) = split_detach(&buf[..read]);
         if !bytes.is_empty() {
-            proto::write_message(stream, &Message::Input(bytes.to_vec()))
-                .map_err(|err| format!("ввод: {err}"))?;
+            seq += 1;
+            let input = Message::Input {
+                source,
+                seq,
+                bytes: bytes.to_vec(),
+            };
+            proto::write_message(stream, &input).map_err(|err| format!("ввод: {err}"))?;
         }
         if detach {
             let _ = proto::write_message(stream, &Message::Detach);

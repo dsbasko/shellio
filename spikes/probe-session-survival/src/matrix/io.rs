@@ -1,12 +1,14 @@
-//! Рубеж E — ввод-вывод, очереди и публикация сокета на zmx (план P0.4, «Рубежи и клетки»),
-//! клетки E1–E5.
+//! Рубеж E — ввод-вывод, очереди и публикация сокета (план P0.4, «Рубежи и клетки»), клетки
+//! E1–E5 на обоих кандидатах.
 //!
 //! E1 — остановленный (`SIGSTOP`) клиент под потоком двух объёмов, прирост `phys_footprint` хоста
-//! сравнивается с объявленным пределом [`E1_LIMIT`]. E2–E4 — ввод в `slow-reader`: сколько байтов
+//! сравнивается с объявленным пределом [`E1_LIMIT`]; у Rust-хоста ещё причина разрыва у клиента и
+//! в журнале хоста и повторный снимок нового клиента. E2–E4 — ввод в `slow-reader`: сколько байтов
 //! дошло, считается по квитанциям чтения до маркера конца, который идёт сырым вводом после
-//! основного (порядок PTY сохраняет FIFO). E5 — запасной путь публикации сокета патча `0003` и
-//! конкурентный стресс `ensure` и `list` (исследование: точку остановки в zmx без патча не
-//! поставить, попадание в окно не доказывается).
+//! основного (порядок PTY сохраняет FIFO). E3 у Rust-хоста — номер ввода и потерянное
+//! подтверждение. E4 у Rust-хоста ещё и хвост вывода с кадром выхода после выхода нагрузки. E5 —
+//! публикация сокета: у zmx запасной путь патча `0003`, у Rust-хоста точки остановки окна
+//! (`publish`), у обоих конкурентный стресс `ensure` и `list` (исследование).
 
 use std::fs;
 use std::os::fd::OwnedFd;
@@ -22,15 +24,17 @@ use crate::backend::zmx::{self, EnvKind, MAX_SOCKET_PATH, STAGING_DIR, ZmxSet};
 use crate::backend::{Backend, InputOutcome, InputPath, Liveness, SessionId, signal, wait_child};
 use crate::fixture::channel::{Command, Event, Link, LinkError, hex, unhex};
 use crate::fixture::{Mode, flood_line};
+use crate::host::attach::{EXIT_EVICTED, input_source};
+use crate::host::io::InputId;
 use crate::launch;
 use crate::matrix::Candidate;
-use crate::matrix::evidence::{Evidence, Spec, cell, later};
+use crate::matrix::evidence::{Evidence, Spec, cell};
 use crate::matrix::publish;
 use crate::matrix::stand::{
     COMMAND_TIMEOUT, Client, STOP_GRACE, Session, Stand, WAIT, barrier, compare_states,
 };
 use crate::matrix::util::Growth;
-use crate::oracle::vt::Reference;
+use crate::oracle::vt::{Reference, WaitError};
 use crate::pty;
 use crate::results::{Cell, DefectOrigin, Environment, Report, Requirement};
 use crate::sys;
@@ -47,7 +51,7 @@ const E1_LINE: u64 = E1_WIDTH as u64 + 2;
 const E1_WAIT: Duration = Duration::from_secs(180);
 /// Предел очереди ввода zmx в PTY (`PTY_WRITE_BUF_MAX`).
 pub const ZMX_PTY_WRITE_MAX: usize = 256 << 10;
-/// Ввод E2: вдвое больше предела zmx.
+/// Ввод E2: вдвое больше предела zmx и предела Rust-хоста (`host::io::INPUT_QUEUE_BYTES`).
 const E2_BYTES: usize = 2 * ZMX_PTY_WRITE_MAX;
 /// Ввод E4 в остановленное чтение: меньше предела, пишется в PTY частями.
 const E4_PTY_BYTES: usize = 128 << 10;
@@ -58,6 +62,10 @@ const E3_INPUT: &[u8] = b"e3retry";
 const MARKER_ATTEMPTS: u32 = 4;
 /// Тишина чтения, после которой маркер повторяется.
 const MARKER_WAIT: Duration = Duration::from_secs(5);
+/// Тишина чтения после маркера, за которой опоздавших байтов ввода уже не ждут.
+const LATE_WAIT: Duration = Duration::from_secs(1);
+/// Код выхода нагрузки в части `exit-tail`.
+const TAIL_EXIT: u8 = 7;
 /// Одновременных `ensure` и `list` в стрессе E5.
 const E5_RACERS: usize = 8;
 const E5_LISTS: usize = 16;
@@ -79,25 +87,19 @@ pub fn run(target: &Target, environment: &Environment) -> Result<Report, String>
     Ok(report)
 }
 
-/// Причина `not_run` клеток E1–E4 Rust-хоста.
-pub const QUEUES_LATER: &str =
-    "до задачи 13: очереди, обратное давление и подтверждение ввода Rust-хоста";
-
 fn cells(stand: &mut Stand) -> Result<Report, String> {
     let mut report = Report::default();
-    if stand.candidate == Candidate::Rust {
-        for id in ["E1", "E2", "E3", "E4"] {
-            report.cells.push(later(id, None, QUEUES_LATER));
-        }
-        report.cells.extend(publish::cells(stand)?);
-        report.cells.push(e5_stress_cell(stand)?);
-        return Ok(report);
-    }
     report.cells.push(e1(stand)?);
     report.cells.extend(e2(stand)?);
     report.cells.push(e3(stand)?);
     report.cells.extend(e4(stand)?);
-    report.cells.extend(e5(stand)?);
+    match stand.candidate {
+        Candidate::Zmx => report.cells.extend(e5(stand)?),
+        Candidate::Rust => {
+            report.cells.extend(publish::cells(stand)?);
+            report.cells.push(e5_stress_cell(stand)?);
+        }
+    }
     Ok(report)
 }
 
@@ -125,9 +127,9 @@ fn marker_at(received: &[u8]) -> Option<usize> {
         .then_some(start)
 }
 
-/// Байты, которые фикстура прочитала до маркера конца ввода. Маркер идёт сырым вводом после
-/// основного и повторяется, если его отбросил переполненный буфер кандидата; `None` — маркер не
-/// дошёл ни разу, это записано проверкой.
+/// Байты, которые фикстура прочитала до маркера конца ввода, и после него до тишины
+/// [`LATE_WAIT`]. Маркер идёт сырым вводом после основного и повторяется, если его отбросил
+/// переполненный буфер кандидата; `None` — маркер не дошёл ни разу, это записано проверкой.
 fn drain_until_marker(
     stand: &Stand,
     session: &mut Session,
@@ -136,7 +138,7 @@ fn drain_until_marker(
     let mut received = Vec::new();
     for attempt in 1..=MARKER_ATTEMPTS {
         let marker = format!("#END{attempt}#").into_bytes();
-        if let Err(err) = stand.zmx.input(&session.id, &marker, InputPath::Raw) {
+        if let Err(err) = stand.main().input(&session.id, &marker, InputPath::Raw) {
             evidence.check("маркер конца ввода отправлен", false, err);
             return Ok(None);
         }
@@ -144,7 +146,12 @@ fn drain_until_marker(
             received.extend_from_slice(&bytes);
             if let Some(at) = marker_at(&received) {
                 evidence.note("marker_attempts", attempt);
-                received.truncate(at);
+                // Ввод, дошедший после маркера, — перестановка, а не потеря: это видно здесь.
+                let mut late = received.split_off(at);
+                while let Some(bytes) = next_read(&mut session.link, LATE_WAIT)? {
+                    late.extend_from_slice(&bytes);
+                }
+                evidence.note("after_marker_bytes", strip_markers(&late).len());
                 return Ok(Some(received));
             }
         }
@@ -160,6 +167,21 @@ fn drain_until_marker(
     Ok(None)
 }
 
+/// Байты без маркеров конца ввода.
+fn strip_markers(bytes: &[u8]) -> Vec<u8> {
+    let mut rest = Vec::new();
+    let mut at = 0;
+    while at < bytes.len() {
+        if marker_at(&bytes[at..]) == Some(0) {
+            at += 6;
+        } else {
+            rest.push(bytes[at]);
+            at += 1;
+        }
+    }
+    rest
+}
+
 /// Данные ввода без `#`: цифры и строчные буквы по кругу.
 fn pattern(len: usize) -> Vec<u8> {
     const ALPHABET: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
@@ -172,6 +194,32 @@ fn read_rate(link: &mut Link, bytes_per_sec: Option<u64>) -> Result<(), String> 
     link.request(Command::ReadRate { bytes_per_sec }, WAIT)
         .map(|_| ())
         .map_err(|err| format!("темп чтения фикстуры: {err}"))
+}
+
+/// Остановка чтения фикстуры на время шага `step` и её проверка: подтверждение остановки
+/// приходит до шага, а квитанций чтения между подтверждениями остановки и возобновления нет.
+/// Квитанции идут в порядке исполнения фикстуры, поэтому окно между подтверждениями точное.
+fn with_reading_paused<T>(
+    session: &mut Session,
+    evidence: &mut Evidence,
+    step: impl FnOnce(&mut Session) -> T,
+) -> Result<T, String> {
+    read_rate(&mut session.link, Some(0))?;
+    let paused = session.link.log().len();
+    let value = step(session);
+    read_rate(&mut session.link, None)?;
+    let resumed = session.link.log().len();
+    let reads = session.link.log()[paused..resumed]
+        .iter()
+        .filter(|receipt| matches!(receipt.event, Event::Read { .. }))
+        .count();
+    evidence.note("reads_while_paused", reads);
+    if reads != 0 {
+        evidence.not_proven = Some(format!(
+            "фикстура читала {reads} раз во время остановки чтения: порядок стенда не доказан"
+        ));
+    }
+    Ok(value)
 }
 
 /// Запись фикстуры с подтверждением и та же запись в эталон. Отказ записи — вывод: кандидат не
@@ -251,19 +299,33 @@ fn e1(stand: &mut Stand) -> Result<Cell, String> {
     }
     evidence.note("volumes", &volumes);
     artifacts.insert(0, stand.artifact("e1.json", &evidence)?);
+    let (stimulus_tail, oracle) = match stand.candidate {
+        Candidate::Zmx => (
+            "",
+            "квитанции фикстуры (поток закончен, задержки записи); снимок хоста с последней \
+             строкой; клиенты по списку во время остановки; ri_phys_footprint хоста до и после \
+             каждого объёма; предел удвоения E1_LIMIT 8 МиБ",
+        ),
+        Candidate::Rust => (
+            "; после потока c1 продолжен, затем подключается c2",
+            "квитанции фикстуры (поток закончен, задержки записи); снимок хоста с последней \
+             строкой; клиенты по списку во время остановки; разрыв с причиной в журнале и \
+             состоянии хоста и код выхода c1 после продолжения; последняя строка у приёмника \
+             c2; ri_phys_footprint хоста до и после каждого объёма; предел удвоения E1_LIMIT \
+             8 МиБ",
+        ),
+    };
     Ok(cell(
         Spec {
             id: "E1",
             part: None,
             stimulus: format!(
                 "клиент c1 подключён и остановлен SIGSTOP; фикстура пишет {} и {} МиБ строками по \
-                 {E1_LINE} байт без паузы в двух сессиях",
+                 {E1_LINE} байт без паузы в двух сессиях{stimulus_tail}",
                 E1_VOLUME >> 20,
                 (2 * E1_VOLUME) >> 20
             ),
-            oracle: "квитанции фикстуры (поток закончен, задержки записи); снимок хоста с \
-                     последней строкой; клиенты по списку во время остановки; ri_phys_footprint \
-                     хоста до и после каждого объёма; предел удвоения E1_LIMIT 8 МиБ",
+            oracle,
             completion: "квитанция конца потока или срок 180 с; снимок хоста после неё",
             origin: DefectOrigin::Host,
         },
@@ -279,12 +341,12 @@ fn e1_volume(
     label: &str,
     lines: u64,
 ) -> Result<Option<Volume>, String> {
-    let client = stand.client(&session.id, "c1")?;
+    let mut client = stand.client(&session.id, "c1")?;
     if !leader(evidence, session, &client, &format!("{label}: c1")) {
         return Ok(None);
     }
     let host = session.record.host.pid;
-    if let Err(err) = stand.zmx.stall_client(&client.process, true) {
+    if let Err(err) = stand.main().stall_client(&client.process, true) {
         return Err(format!("SIGSTOP клиенту: {err}"));
     }
     let Some(base) = sys::phys_footprint(host) else {
@@ -320,13 +382,13 @@ fn e1_volume(
         &format!("{label}.elapsed_ms"),
         started.elapsed().as_millis() as u64,
     );
-    let liveness = stand.zmx.liveness(&session.id);
+    let liveness = stand.main().liveness(&session.id);
     evidence.note(&format!("{label}.liveness"), format!("{liveness:?}"));
     let Some((written, bytes, cancelled, writes)) = evidence.require(
         &format!("{label}: хост читает PTY при остановленном клиенте"),
         done,
     ) else {
-        let _ = stand.zmx.stall_client(&client.process, false);
+        let _ = stand.main().stall_client(&client.process, false);
         return Ok(None);
     };
     evidence.note(&format!("{label}.writes"), writes);
@@ -341,7 +403,7 @@ fn e1_volume(
     );
     let last = flood_line(&session.fixture_nonce, lines, E1_WIDTH);
     let last = String::from_utf8_lossy(&last[..last.len().min(32)]).into_owned();
-    match stand.zmx.snapshot(&session.id) {
+    match stand.main().snapshot(&session.id) {
         Ok(snapshot) => {
             evidence.check(
                 &format!("{label}: хост обработал последнюю строку"),
@@ -367,9 +429,12 @@ fn e1_volume(
     );
     let after = sys::phys_footprint(host);
     stand
-        .zmx
+        .main()
         .stall_client(&client.process, false)
         .map_err(|err| format!("SIGCONT клиенту: {err}"))?;
+    if stand.candidate == Candidate::Rust && disconnected {
+        e1_rust_resync(stand, session, evidence, label, &mut client, &last)?;
+    }
     let Some(after) = after else {
         evidence.not_proven = Some(format!("{label}: память хоста PID {host} не читается"));
         return Ok(None);
@@ -380,6 +445,57 @@ fn e1_volume(
         base,
         after,
     }))
+}
+
+/// Rust-хост после разрыва: причина в состоянии и журнале хоста и у самого клиента (код выхода
+/// после продолжения), новый клиент получает повторный снимок с последней строкой потока.
+fn e1_rust_resync(
+    stand: &Stand,
+    session: &mut Session,
+    evidence: &mut Evidence,
+    label: &str,
+    client: &mut Client,
+    last: &str,
+) -> Result<(), String> {
+    let status = stand
+        .rust()?
+        .status(&session.id)
+        .map_err(|err| format!("{label}: состояние хоста: {err}"))?;
+    let log = stand.daemon_log(&session.id);
+    let reasons: Vec<&str> = log
+        .lines()
+        .filter(|line| line.contains("разорван: очередь вывода клиента переполнена"))
+        .collect();
+    evidence.note(&format!("{label}.evictions"), status.evictions);
+    evidence.note(&format!("{label}.eviction_log"), &reasons);
+    evidence.check(
+        &format!("{label}: разрыв с причиной в журнале и состоянии хоста"),
+        status.evictions == 1 && reasons.len() == 1,
+        format!(
+            "разрывов в состоянии {}, строк причины в журнале {}",
+            status.evictions,
+            reasons.len()
+        ),
+    );
+    let exit = client.wait_exit();
+    evidence.note(&format!("{label}.c1_exit"), format!("{exit:?}"));
+    evidence.check(
+        &format!("{label}: c1 после продолжения получил причину разрыва"),
+        exit.as_ref()
+            .is_ok_and(|status| status.code() == Some(EXIT_EVICTED)),
+        format!("выход c1 {exit:?}, ожидался код {EXIT_EVICTED}"),
+    );
+    let fresh = stand.client(&session.id, "c2")?;
+    if !leader(evidence, session, &fresh, &format!("{label}: c2")) {
+        return Ok(());
+    }
+    let rows = fresh.capture()?.text();
+    evidence.check(
+        &format!("{label}: повторный снимок у c2 с последней строкой потока"),
+        rows.iter().any(|row| row.contains(last)),
+        format!("последняя строка «{last}» у приёмника c2 не найдена"),
+    );
+    Ok(())
 }
 
 // --- E2 ---
@@ -395,13 +511,17 @@ fn e2(stand: &mut Stand) -> Result<Vec<Cell>, String> {
         stand.discard(&id);
         outcome?;
         let artifact = stand.artifact(&format!("e2-{part}.json"), &evidence)?;
+        let way = match stand.candidate {
+            Candidate::Zmx => format!("путём zmx {part}"),
+            Candidate::Rust => format!("управляющим вводом с номером (путь {part})"),
+        };
         cells.push(cell(
             Spec {
                 id: "E2",
                 part: Some(part),
                 stimulus: format!(
-                    "чтение фикстуры остановлено; {} КиБ ввода путём zmx {part} без клиента; \
-                     затем чтение возобновлено и отправлен маркер конца",
+                    "чтение фикстуры остановлено; {} КиБ ввода {way} без клиента; затем чтение \
+                     возобновлено и отправлен маркер конца",
                     E2_BYTES >> 10
                 ),
                 oracle: "квитанции прочитанных байтов до маркера против отправленного; ответ \
@@ -422,11 +542,11 @@ fn e2_body(
     evidence: &mut Evidence,
     path: InputPath,
 ) -> Result<(), String> {
-    read_rate(&mut session.link, Some(0))?;
     let data = pattern(E2_BYTES);
-    let outcome = stand.zmx.input(&session.id, &data, path);
+    let outcome = with_reading_paused(session, evidence, |session| {
+        stand.main().input(&session.id, &data, path)
+    })?;
     evidence.note("outcome", format!("{outcome:?}"));
-    read_rate(&mut session.link, None)?;
     let Some(received) = drain_until_marker(stand, session, evidence)? else {
         return Ok(());
     };
@@ -452,6 +572,13 @@ fn e2_body(
                 format!("отказ «{reason}», дошло {} байт", received.len()),
             );
         }
+        Ok(other @ (InputOutcome::Duplicate | InputOutcome::Unknown)) => {
+            evidence.check(
+                "операция ввода дала определённый ответ",
+                false,
+                format!("{other:?}; дошло {} из {} байт", received.len(), data.len()),
+            );
+        }
         Err(err) => {
             evidence.check(
                 "операция ввода дала ответ",
@@ -464,7 +591,9 @@ fn e2_body(
     evidence.note(
         "daemon_log_drops",
         log.lines()
-            .filter(|line| line.contains("drop") || line.contains("discard"))
+            .filter(|line| {
+                line.contains("drop") || line.contains("discard") || line.contains("отвергнут")
+            })
             .take(8)
             .collect::<Vec<_>>(),
     );
@@ -478,18 +607,32 @@ fn e3(stand: &mut Stand) -> Result<Cell, String> {
     let mut session = stand.ensure(&id, Mode::SlowReader)?;
     let mut evidence = Evidence::default();
     evidence.note("record", &session.record);
-    let outcome = e3_body(stand, &mut session, &mut evidence);
+    let outcome = match stand.candidate {
+        Candidate::Zmx => e3_body(stand, &mut session, &mut evidence),
+        Candidate::Rust => e3_rust(stand, &mut session, &mut evidence),
+    };
     stand.discard(&id);
     outcome?;
     let artifact = stand.artifact("e3.json", &evidence)?;
+    let (stimulus, oracle) = match stand.candidate {
+        Candidate::Zmx => (
+            "zmx type «e3retry» с подтверждением, затем тот же запрос повторён, как после \
+             потерянного подтверждения; затем маркер конца",
+            "квитанции прочитанных байтов: сколько раз ввод дошёл; ответы операций",
+        ),
+        Candidate::Rust => (
+            "ввод «e3retry» с номером, соединение закрыто без чтения подтверждения; тот же номер \
+             повторён с подтверждением и ещё раз; затем маркер конца",
+            "квитанции прочитанных байтов: сколько раз ввод дошёл; ответы операций: «неизвестно» \
+             у потерянного подтверждения, «повтор» у повтора принятого номера",
+        ),
+    };
     Ok(cell(
         Spec {
             id: "E3",
             part: None,
-            stimulus: "zmx type «e3retry» с подтверждением, затем тот же запрос повторён, как \
-                       после потерянного подтверждения; затем маркер конца"
-                .to_owned(),
-            oracle: "квитанции прочитанных байтов: сколько раз ввод дошёл; ответы операций",
+            stimulus: stimulus.to_owned(),
+            oracle,
             completion: "маркер конца ввода прочитан фикстурой",
             origin: DefectOrigin::Host,
         },
@@ -509,10 +652,7 @@ fn e3_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
     let Some(received) = drain_until_marker(stand, session, evidence)? else {
         return Ok(());
     };
-    let copies = received
-        .windows(E3_INPUT.len())
-        .filter(|window| *window == E3_INPUT)
-        .count();
+    let copies = copies(&received);
     evidence.note("received", String::from_utf8_lossy(&received));
     evidence.check(
         "повтор не дублирует ввод",
@@ -526,6 +666,57 @@ fn e3_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
         "unknown_outcome",
         "zmx type различает «принято», «отказ» и прочую ошибку; ответа «неизвестно» с номером \
          для повтора нет",
+    );
+    Ok(())
+}
+
+fn copies(received: &[u8]) -> usize {
+    received
+        .windows(E3_INPUT.len())
+        .filter(|window| *window == E3_INPUT)
+        .count()
+}
+
+/// Потерянное подтверждение у Rust-хоста: первая попытка не читает ответ («неизвестно»), повтор
+/// того же номера принимается не больше одного раза. Какая из двух попыток дошла до хоста
+/// первой, зависит от потоков соединений; вывод от этого не зависит.
+fn e3_rust(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Result<(), String> {
+    let rust = stand.rust()?;
+    let input = InputId {
+        source: input_source(),
+        seq: 1,
+    };
+    evidence.note("input", format!("{:x}:{}", input.source, input.seq));
+    let first = rust.input_numbered(&session.id, input, E3_INPUT, false);
+    let retry = rust.input_numbered(&session.id, input, E3_INPUT, true);
+    let again = rust.input_numbered(&session.id, input, E3_INPUT, true);
+    evidence.note("first", format!("{first:?}"));
+    evidence.note("retry", format!("{retry:?}"));
+    evidence.note("again", format!("{again:?}"));
+    evidence.check(
+        "потерянное подтверждение даёт итог «неизвестно»",
+        matches!(first, Ok(InputOutcome::Unknown)),
+        format!("{first:?}"),
+    );
+    evidence.check(
+        "повтор после потерянного подтверждения принят или узнан как повтор",
+        matches!(retry, Ok(InputOutcome::Accepted | InputOutcome::Duplicate)),
+        format!("{retry:?}"),
+    );
+    evidence.check(
+        "повтор принятого номера подтверждён как повтор",
+        matches!(again, Ok(InputOutcome::Duplicate)),
+        format!("{again:?}"),
+    );
+    let Some(received) = drain_until_marker(stand, session, evidence)? else {
+        return Ok(());
+    };
+    let copies = copies(&received);
+    evidence.note("received", String::from_utf8_lossy(&received));
+    evidence.check(
+        "повтор не дублирует ввод",
+        copies == 1,
+        format!("ввод дошёл {copies} раз"),
     );
     Ok(())
 }
@@ -573,17 +764,46 @@ fn e4(stand: &mut Stand) -> Result<Vec<Cell>, String> {
             id: "E4",
             part: Some("pty"),
             stimulus: format!(
-                "чтение фикстуры остановлено; {} КиБ ввода zmx send (меньше предела 256 КиБ) — \
-                 запись в PTY частями; затем чтение возобновлено и отправлен маркер конца",
+                "чтение фикстуры остановлено; {} КиБ сырого ввода без клиента (меньше предела \
+                 256 КиБ) — запись в PTY частями; затем чтение возобновлено и отправлен маркер \
+                 конца",
                 E4_PTY_BYTES >> 10
             ),
-            oracle: "квитанции прочитанных байтов: ввод целиком и по порядку",
-            completion: "маркер конца ввода прочитан фикстурой",
+            oracle: "квитанции прочитанных байтов: ввод целиком и по порядку; квитанций чтения \
+                     между подтверждениями остановки и возобновления нет",
+            completion: "маркер конца ввода прочитан фикстурой, после него — тишина 1 с",
             origin: DefectOrigin::Host,
         },
         &evidence,
         vec![artifact, stand.log_name(&id)],
     ));
+
+    if stand.candidate == Candidate::Rust {
+        let id = stand.session("e4-tail")?;
+        let mut session = stand.ensure(&id, Mode::Emitter)?;
+        let mut evidence = Evidence::default();
+        evidence.note("record", &session.record);
+        let outcome = e4_exit_tail(stand, &mut session, &mut evidence);
+        stand.discard(&id);
+        outcome?;
+        let artifact = stand.artifact("e4-exit-tail.json", &evidence)?;
+        cells.push(cell(
+            Spec {
+                id: "E4",
+                part: Some("exit-tail"),
+                stimulus: format!(
+                    "лидер c1 подключён; фикстура пишет {E4_PAINTS} перерисовок экрана и \
+                     последнюю строку и сразу выходит с кодом {TAIL_EXIT}"
+                ),
+                oracle: "эталон и приёмник c1 после выхода клиента; код выхода c1 (0 — кадр \
+                         выхода нагрузки); выход хоста",
+                completion: "маршрут c1 закрыт выходом клиента, хост вышел",
+                origin: DefectOrigin::Host,
+            },
+            &evidence,
+            vec![artifact, stand.log_name(&id)],
+        ));
+    }
     Ok(cells)
 }
 
@@ -614,7 +834,7 @@ fn e4_socket(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> R
         return Ok(());
     }
     stand
-        .zmx
+        .main()
         .stall_client(&first.process, true)
         .map_err(|err| format!("SIGSTOP клиенту: {err}"))?;
     let block: Vec<u8> = (0..E4_PAINTS).flat_map(paint).collect();
@@ -628,9 +848,9 @@ fn e4_socket(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> R
             b"\x1b[5;5H\x1b[38;2;10;20",
         );
     // Ревизия после записи доказывает, что хост прочитал начало последовательности до обрыва.
-    let revision = stand.zmx.read_boundary(&session.id);
+    let revision = stand.main().read_boundary(&session.id);
     evidence.note("revision_before_kill", format!("{revision:?}"));
-    let killed = first.kill(&stand.zmx);
+    let killed = first.kill(stand.main());
     evidence.note("c1.exit", format!("{killed:?}"));
     if !wrote
         || evidence
@@ -657,11 +877,11 @@ fn e4_socket(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> R
 }
 
 fn e4_pty(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Result<(), String> {
-    read_rate(&mut session.link, Some(0))?;
     let data = pattern(E4_PTY_BYTES);
-    let outcome = stand.zmx.input(&session.id, &data, InputPath::Raw);
+    let outcome = with_reading_paused(session, evidence, |session| {
+        stand.main().input(&session.id, &data, InputPath::Raw)
+    })?;
     evidence.note("outcome", format!("{outcome:?}"));
-    read_rate(&mut session.link, None)?;
     if evidence.require("ввод отправлен", outcome).is_none() {
         return Ok(());
     }
@@ -676,10 +896,74 @@ fn e4_pty(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Resu
         "ввод дошёл целиком и по порядку",
         received == data,
         format!(
-            "дошло {} из {} байт, первое расхождение {first_difference:?}",
+            "дошло {} из {} байт до маркера, первое расхождение {first_difference:?}",
             received.len(),
             data.len()
         ),
+    );
+    Ok(())
+}
+
+/// Хвост вывода и кадр выхода у Rust-хоста: нагрузка пишет хвост и сразу выходит, хост дочитывает
+/// PTY, шлёт кадр выхода и дописывает очередь клиента до своего выхода.
+fn e4_exit_tail(
+    stand: &Stand,
+    session: &mut Session,
+    evidence: &mut Evidence,
+) -> Result<(), String> {
+    let mut reference = Reference::new(&stand.config).map_err(|err| format!("эталон: {err}"))?;
+    let mut client = stand.client(&session.id, "c1")?;
+    if !leader(evidence, session, &client, "c1") {
+        return Ok(());
+    }
+    let mut tail: Vec<u8> = (0..E4_PAINTS).flat_map(paint).collect();
+    tail.extend_from_slice(b"\x1b[24;1H\x1b[2Ktail end");
+    evidence.note("tail_bytes", tail.len());
+    if !emit_checked(session, &mut reference, evidence, "хвост вывода", &tail) {
+        return Ok(());
+    }
+    session
+        .link
+        .request(Command::Exit { code: TAIL_EXIT }, WAIT)
+        .map_err(|err| format!("команда выхода фикстуры: {err}"))?;
+    let exit = client.wait_exit();
+    evidence.note("c1_exit", format!("{exit:?}"));
+    if evidence
+        .require("c1 вышел после выхода нагрузки", exit.as_ref())
+        .is_none()
+    {
+        return Ok(());
+    }
+    evidence.check(
+        "c1 получил кадр выхода нагрузки",
+        exit.as_ref().is_ok_and(|status| status.code() == Some(0)),
+        format!("выход c1 {exit:?}: код 0 — кадр выхода, другие — разрыв без него"),
+    );
+    let route = client.route()?;
+    match route.wait_until(WAIT, |_, _| false) {
+        Err(WaitError::Ended(end)) => evidence.note("route_end", format!("{end:?}")),
+        other => {
+            return Err(format!(
+                "маршрут c1 не закрылся после выхода клиента: {other:?}"
+            ));
+        }
+    }
+    let route_stats = route.stats();
+    evidence.note("route", route_stats);
+    compare_states(evidence, "хвост у c1 после выхода", &reference, &client)?;
+    let host = session.record.host;
+    let gone = launch::wait_exit(&[host.pid], WAIT).is_empty();
+    evidence.check(
+        "хост вышел после выхода нагрузки",
+        gone,
+        format!("хост PID {} жив через {} с", host.pid, WAIT.as_secs()),
+    );
+    let log = stand.daemon_log(&session.id);
+    evidence.note(
+        "host_log_exit",
+        log.lines()
+            .filter(|line| line.contains("PTY") || line.contains("дочитал"))
+            .collect::<Vec<_>>(),
     );
     Ok(())
 }

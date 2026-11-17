@@ -11,10 +11,12 @@
 //! лидерство и очереди клиентов и никогда не ждёт GUI: чтение буфера обмена ждёт поток разбора.
 //! Восстановление для attach и управляющий снимок делает поток разбора по команде, поэтому
 //! граница «восстановление → живой поток» — номер байта PTY. Клиенту кадры идут через его
-//! ограниченную очередь, переполнение разрывает клиента с причиной в журнале.
+//! очередь с пределом в байтах, переполнение разрывает клиента с причиной; пределы очередей, номера
+//! ввода и правило размера — в [`io`].
 
 pub mod attach;
 pub mod effects;
+pub mod io;
 pub mod pty;
 pub mod registry;
 pub mod responder;
@@ -36,7 +38,7 @@ use crate::pty::Winsize;
 #[cfg(feature = "vt")]
 use std::collections::BTreeMap;
 #[cfg(feature = "vt")]
-use std::io::{self, Write};
+use std::io::Write;
 #[cfg(feature = "vt")]
 use std::os::unix::net::UnixStream;
 #[cfg(feature = "vt")]
@@ -44,20 +46,22 @@ use std::process::ExitStatus;
 #[cfg(feature = "vt")]
 use std::sync::Arc;
 #[cfg(feature = "vt")]
-use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
+use std::sync::mpsc::{self, Receiver, SyncSender};
 #[cfg(feature = "vt")]
 use std::thread;
 
 #[cfg(feature = "vt")]
-use crate::backend::{Lead, Role};
+use crate::backend::Role;
 #[cfg(feature = "vt")]
 use crate::bridge::ReportFilter;
 #[cfg(feature = "vt")]
 use crate::observer;
 #[cfg(feature = "vt")]
-use crate::proto::{self, Hello, Message, Purpose, Status, Welcome};
+use crate::proto::{self, Ack, Hello, Message, Purpose, Status, Welcome};
 #[cfg(feature = "vt")]
 use effects::Clipboard;
+#[cfg(feature = "vt")]
+use io::{ByteQueue, InputId, InputLedger, Leadership, Origin, Room};
 #[cfg(feature = "vt")]
 use responder::Responder;
 #[cfg(feature = "vt")]
@@ -66,12 +70,11 @@ use socket::Point;
 pub const HOST_NAME: &str = "probe-session-host";
 /// Сокет точек остановки окна публикации: только проба.
 pub const BREAK_ENV: &str = "PSS_HOST_BREAK";
-/// Событий в очереди главного потока.
+/// Событий в очереди главного потока; кусок вывода в событии — не больше `pty::READ_CHUNK`.
 pub const EVENT_QUEUE: usize = 256;
-/// Кадров в очереди одного клиента.
-pub const CLIENT_QUEUE: usize = 1024;
-/// Срок записи кадра клиенту: остановленный клиент разрывается.
-pub const CLIENT_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
+/// Срок записи одного кадра клиенту. Остановленный клиент разрывается раньше переполнением
+/// очереди; срок освобождает писателя клиента, который так и не продолжил чтение.
+pub const CLIENT_WRITE_TIMEOUT: Duration = Duration::from_secs(60);
 /// Срок от `SIGHUP` нагрузке до `SIGKILL` оставшимся процессам сессии при `Stop`.
 pub const STOP_GRACE: Duration = Duration::from_secs(1);
 
@@ -185,7 +188,7 @@ pub fn main(args: &[String]) -> i32 {
     unsafe {
         match libc::fork() {
             -1 => {
-                eprintln!("{HOST_NAME}: fork: {}", io::Error::last_os_error());
+                eprintln!("{HOST_NAME}: fork: {}", std::io::Error::last_os_error());
                 return 1;
             }
             0 => {}
@@ -194,7 +197,7 @@ pub fn main(args: &[String]) -> i32 {
         if libc::setsid() < 0 {
             report(&Launch::Failed(format!(
                 "setsid: {}",
-                io::Error::last_os_error()
+                std::io::Error::last_os_error()
             )));
             libc::_exit(1);
         }
@@ -202,7 +205,7 @@ pub fn main(args: &[String]) -> i32 {
             -1 => {
                 report(&Launch::Failed(format!(
                     "второй fork: {}",
-                    io::Error::last_os_error()
+                    std::io::Error::last_os_error()
                 )));
                 libc::_exit(1);
             }
@@ -216,7 +219,7 @@ pub fn main(args: &[String]) -> i32 {
 #[cfg(feature = "vt")]
 fn report(launch: &Launch) {
     let line = serde_json::to_string(launch).unwrap_or_else(|_| "{}".to_owned());
-    let mut stdout = io::stdout().lock();
+    let mut stdout = std::io::stdout().lock();
     let _ = writeln!(stdout, "{line}");
     let _ = stdout.flush();
 }
@@ -249,7 +252,7 @@ fn pause_at(point: Point) {
     };
     let _ = writeln!(stream, "{}", point.name());
     let mut go = [0u8; 1];
-    let _ = io::Read::read(&mut stream, &mut go);
+    let _ = std::io::Read::read(&mut stream, &mut go);
 }
 
 #[cfg(feature = "vt")]
@@ -463,6 +466,8 @@ enum Event {
     Conn(ConnId, UnixStream, Hello),
     Msg(ConnId, Message),
     Closed(ConnId),
+    /// Запись клиенту не удалась: срок или разрыв соединения.
+    WriteFailed(ConnId, String),
     StopDeadline,
     DrainDeadline,
 }
@@ -471,9 +476,8 @@ enum Event {
 struct Conn {
     purpose: Purpose,
     role: Role,
-    frames: SyncSender<Vec<u8>>,
+    out: Arc<ByteQueue>,
     stream: UnixStream,
-    writer: Option<thread::JoinHandle<()>>,
     /// Номер байта PTY, с которого attach-клиент получает живой поток; `None` — ещё не
     /// восстановлен.
     live_from: Option<u64>,
@@ -491,8 +495,9 @@ struct Hub<'a> {
     events: Receiver<Event>,
     sender: SyncSender<Event>,
     conns: BTreeMap<ConnId, Conn>,
-    leader: Option<ConnId>,
-    generation: u32,
+    lead: Leadership<ConnId>,
+    ledger: InputLedger,
+    evictions: u32,
     size: Winsize,
     stopping: bool,
     exit: Option<ExitStatus>,
@@ -516,7 +521,7 @@ impl Parser {
             return;
         }
         Counters::add(&self.counters.replies, bytes.len());
-        if let Err(reason) = self.input.push(bytes) {
+        if let Err(reason) = self.input.reply(bytes) {
             eprintln!("{HOST_NAME}: ответ хоста не записан: {reason}");
         }
     }
@@ -662,8 +667,9 @@ impl<'a> Hub<'a> {
             events,
             sender,
             conns: BTreeMap::new(),
-            leader: None,
-            generation: 0,
+            lead: Leadership::default(),
+            ledger: InputLedger::default(),
+            evictions: 0,
             size,
             stopping: false,
             exit: None,
@@ -719,6 +725,9 @@ impl<'a> Hub<'a> {
                 Event::Conn(id, stream, hello) => self.connect(id, stream, hello),
                 Event::Msg(id, message) => self.message(id, message),
                 Event::Closed(id) => self.drop_conn(id, None),
+                Event::WriteFailed(id, reason) => {
+                    self.drop_conn(id, Some(format!("запись клиенту: {reason}")));
+                }
                 Event::StopDeadline => self.kill_session(),
             }
         }
@@ -736,33 +745,64 @@ impl<'a> Hub<'a> {
             });
     }
 
+    /// Живой поток и события разбора идут в пределе очереди клиента, остальное — вне его: их
+    /// объём ограничен состоянием VT и числом запросов.
     fn send(&mut self, id: ConnId, message: &Message) {
         let Some(conn) = self.conns.get(&id) else {
             return;
         };
-        match conn.frames.try_send(proto::encode(message)) {
+        let room = match message {
+            Message::Output { .. } | Message::Parsed { .. } => Room::Limit,
+            _ => Room::Always,
+        };
+        match conn.out.push(proto::encode(message), room) {
             Ok(()) => {}
-            Err(TrySendError::Full(_)) => self.drop_conn(
+            Err(io::Refusal::Full {
+                len,
+                counted,
+                limit,
+            }) => self.evict(
                 id,
-                Some(format!("очередь клиента заполнена ({CLIENT_QUEUE} кадров)")),
+                format!(
+                    "очередь вывода клиента переполнена: кадр {len} байт, занято {counted} из \
+                     {limit}"
+                ),
             ),
-            Err(TrySendError::Disconnected(_)) => self.drop_conn(id, None),
+            Err(io::Refusal::Closed) => self.drop_conn(id, None),
         }
+    }
+
+    /// Разрыв медленного клиента: его очередь очищается, последним кадром идёт причина. Сокет
+    /// закрывает писатель клиента, дописав её; переподключение получает новое восстановление.
+    fn evict(&mut self, id: ConnId, reason: String) {
+        let Some(conn) = self.conns.remove(&id) else {
+            return;
+        };
+        let dropped = conn
+            .out
+            .evict(proto::encode(&Message::Evicted(reason.clone())));
+        self.evictions += 1;
+        eprintln!("{HOST_NAME}: клиент {id} разорван: {reason}; отброшено {dropped} байт очереди");
+        self.forget(id, conn.purpose);
     }
 
     fn drop_conn(&mut self, id: ConnId, reason: Option<String>) {
         let Some(conn) = self.conns.remove(&id) else {
             return;
         };
-        let _ = conn.stream.shutdown(std::net::Shutdown::Both);
+        conn.out.close();
+        let _ = conn.stream.shutdown(std::net::Shutdown::Read);
         if let Some(reason) = reason {
             eprintln!("{HOST_NAME}: клиент {id} разорван: {reason}");
         }
-        if conn.purpose == Purpose::Gui {
+        self.forget(id, conn.purpose);
+    }
+
+    fn forget(&mut self, id: ConnId, purpose: Purpose) {
+        if purpose == Purpose::Gui {
             self.clipboard.unbind(id);
         }
-        if self.leader == Some(id) {
-            self.leader = None;
+        if self.lead.detach(id) {
             self.clipboard.set_leader(None);
         }
     }
@@ -809,7 +849,7 @@ impl<'a> Hub<'a> {
             vt: self.vt_version.clone(),
             session: self.options.session.to_string(),
             role,
-            generation: self.generation,
+            generation: self.lead.generation(),
             offset,
         })
     }
@@ -872,30 +912,32 @@ impl<'a> Hub<'a> {
             }
         };
         let _ = writer.set_write_timeout(Some(CLIENT_WRITE_TIMEOUT));
-        let (frames, queue) = mpsc::sync_channel::<Vec<u8>>(CLIENT_QUEUE);
-        let closed = self.sender.clone();
+        let out = Arc::new(ByteQueue::new(io::CLIENT_QUEUE_BYTES));
+        let queue = Arc::clone(&out);
+        let failed = self.sender.clone();
         let spawned = thread::Builder::new()
             .name(format!("client-{id}"))
             .spawn(move || {
                 let mut writer = writer;
-                for frame in queue {
-                    if writer.write_all(&frame).is_err() {
-                        let _ = closed.send(Event::Closed(id));
-                        return;
+                match io::drain(&queue, &mut writer) {
+                    Ok(()) => {
+                        let _ = writer.shutdown(std::net::Shutdown::Write);
+                    }
+                    Err(err) => {
+                        let _ = failed.send(Event::WriteFailed(id, err.to_string()));
                     }
                 }
             });
-        let Ok(handle) = spawned else {
+        if spawned.is_err() {
             return;
-        };
+        }
         self.conns.insert(
             id,
             Conn {
                 purpose: hello.purpose,
                 role: Role::Unowned,
-                frames,
+                out,
                 stream,
-                writer: Some(handle),
                 live_from: None,
             },
         );
@@ -916,43 +958,68 @@ impl<'a> Hub<'a> {
             self.send(id, &welcome);
             return;
         }
-        let previous = self.leader;
-        let leads = match hello.lead {
-            Lead::Claim => true,
-            Lead::IfFree => previous.is_none(),
-        };
-        let role = if leads {
-            self.leader = Some(id);
-            self.generation += 1;
-            self.clipboard.set_leader(Some(self.generation));
-            if let Some(previous) = previous {
-                let generation = self.generation;
-                if let Some(conn) = self.conns.get_mut(&previous) {
-                    conn.role = Role::Follower;
-                }
-                if self
-                    .conns
-                    .get(&previous)
-                    .is_some_and(|conn| conn.live_from.is_some())
-                {
-                    self.send(
-                        previous,
-                        &Message::Role {
-                            role: Role::Follower,
-                            generation,
-                        },
-                    );
-                }
+        let attached = self.lead.attach(id, hello.lead, hello.size);
+        if attached.role == Role::Leader {
+            self.clipboard.set_leader(Some(attached.generation));
+        }
+        if let Some(previous) = attached.demoted {
+            if let Some(conn) = self.conns.get_mut(&previous) {
+                conn.role = Role::Follower;
             }
-            self.resize(hello.size);
-            Role::Leader
-        } else {
-            Role::Follower
-        };
+            if self
+                .conns
+                .get(&previous)
+                .is_some_and(|conn| conn.live_from.is_some())
+            {
+                self.send(
+                    previous,
+                    &Message::Role {
+                        role: Role::Follower,
+                        generation: attached.generation,
+                    },
+                );
+            }
+        }
+        if let Some(size) = attached.resize {
+            self.resize(size);
+        }
         if let Some(conn) = self.conns.get_mut(&id) {
-            conn.role = role;
+            conn.role = attached.role;
         }
         self.queue.push(ParseIn::Restore(id));
+    }
+
+    /// Ввод с номером: от управляющего соединения и от лидера; повтор принятого номера в PTY не
+    /// пишется, переполнение очереди — явный отказ целиком.
+    fn input(&mut self, id: ConnId, origin: Origin<ConnId>, input: InputId, bytes: Vec<u8>) {
+        let len = bytes.len();
+        let ack = if !self.lead.accepts_input(origin) {
+            Ack::Rejected("ввод без лидерства".to_owned())
+        } else if self.ledger.is_duplicate(input) {
+            Ack::Duplicate
+        } else {
+            match self.input.push(bytes) {
+                Ok(()) => {
+                    self.ledger.record(input);
+                    Ack::Accepted
+                }
+                Err(reason) => Ack::Rejected(reason),
+            }
+        };
+        if ack != Ack::Accepted {
+            eprintln!(
+                "{HOST_NAME}: ввод {len} байт соединения {id} (источник {:x}, номер {}): {ack:?}",
+                input.source, input.seq
+            );
+        }
+        self.send(
+            id,
+            &Message::InputAck {
+                source: input.source,
+                seq: input.seq,
+                ack,
+            },
+        );
     }
 
     fn message(&mut self, id: ConnId, message: Message) {
@@ -961,27 +1028,19 @@ impl<'a> Hub<'a> {
             None => return,
         };
         let control = purpose == Purpose::Control;
+        let origin = if control {
+            Some(Origin::Control)
+        } else {
+            (purpose == Purpose::Attach).then_some(Origin::Client(id))
+        };
         match message {
-            Message::Input(bytes) => {
-                if control {
-                    let reply = match self.input.push(bytes) {
-                        Ok(()) => Message::Done,
-                        Err(reason) => Message::Refused(reason),
-                    };
-                    self.send(id, &reply);
-                } else if purpose == Purpose::Attach && self.leader == Some(id) {
-                    if let Err(reason) = self.input.push(bytes) {
-                        eprintln!("{HOST_NAME}: ввод клиента {id} отвергнут: {reason}");
-                    }
-                } else {
-                    eprintln!(
-                        "{HOST_NAME}: ввод клиента {id} без лидерства отброшен ({} байт)",
-                        bytes.len()
-                    );
+            Message::Input { source, seq, bytes } if origin.is_some() => {
+                if let Some(origin) = origin {
+                    self.input(id, origin, InputId { source, seq }, bytes);
                 }
             }
             Message::Resize(size) => {
-                if control || self.leader == Some(id) {
+                if origin.is_some_and(|origin| self.lead.accepts_resize(origin)) {
                     self.resize(size);
                 }
                 if control {
@@ -990,7 +1049,7 @@ impl<'a> Hub<'a> {
             }
             Message::GuiBind { generation } if purpose == Purpose::Gui => {
                 if let Some(conn) = self.conns.get(&id) {
-                    self.clipboard.bind(id, generation, conn.frames.clone());
+                    self.clipboard.bind(id, generation, Arc::clone(&conn.out));
                 }
                 self.send(id, &Message::Done);
             }
@@ -1017,7 +1076,7 @@ impl<'a> Hub<'a> {
                     workload_pgid: self.record.workload_pgid,
                     workload_sid: self.record.workload_sid,
                     clients: self.ids(Purpose::Attach).len() as u32,
-                    leader: self.leader.is_some(),
+                    leader: self.lead.leader().is_some(),
                     reads: Counters::get(&self.counters.reads),
                     read_bytes: Counters::get(&self.counters.read_bytes),
                     parsed_bytes: Counters::get(&self.counters.parsed),
@@ -1025,6 +1084,9 @@ impl<'a> Hub<'a> {
                     dropped_replies: Counters::get(&self.counters.dropped),
                     clipboard: self.clipboard.stats(),
                     size: self.size,
+                    generation: self.lead.generation(),
+                    evictions: self.evictions,
+                    input_queued: self.input.queued() as u64,
                 });
                 self.send(id, &status);
             }
@@ -1067,7 +1129,7 @@ impl<'a> Hub<'a> {
     }
 
     /// Нагрузка вышла и PTY дочитан (или вышел срок): клиенты получают выход, их очереди
-    /// дописываются до конца, затем хост выходит.
+    /// дописываются до конца не дольше [`io::EXIT_FLUSH`], затем хост выходит.
     fn exited(&mut self, status: ExitStatus) {
         use std::os::unix::process::ExitStatusExt;
         if self.stopping {
@@ -1084,10 +1146,17 @@ impl<'a> Hub<'a> {
         if queued > 0 {
             eprintln!("{HOST_NAME}: при выходе в очереди разбора {queued} байт");
         }
-        for (_, mut conn) in std::mem::take(&mut self.conns) {
-            drop(conn.frames);
-            if let Some(writer) = conn.writer.take() {
-                let _ = writer.join();
+        let conns = std::mem::take(&mut self.conns);
+        for conn in conns.values() {
+            conn.out.close();
+        }
+        let deadline = std::time::Instant::now() + io::EXIT_FLUSH;
+        for (id, conn) in &conns {
+            if !conn.out.wait_finished(deadline) {
+                eprintln!(
+                    "{HOST_NAME}: клиент {id} не дочитал вывод за {} мс до выхода хоста",
+                    io::EXIT_FLUSH.as_millis()
+                );
             }
             let _ = conn.stream.shutdown(std::net::Shutdown::Both);
         }

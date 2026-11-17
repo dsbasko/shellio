@@ -1,30 +1,32 @@
-//! Рубеж F без поверхности на zmx текущей комбинации: источник размера при двух клиентах разного
-//! размера и устаревший ресайз прежнего лидера (F1), ввод из CLI без захвата лидерства и размера
-//! (F3). F2 и F4 требуют поверхности и ручной приёмки — задачи 15 и 19.
+//! Рубеж F без поверхности на обоих кандидатах (zmx — текущая комбинация): источник размера при
+//! двух клиентах разного размера и устаревший ресайз прежнего лидера (F1), ввод из CLI без захвата
+//! лидерства и размера (F3). F2 и F4 требуют поверхности и ручной приёмки — задачи 15 и 19.
 //!
 //! Оракул — квитанции `SIGWINCH` фикстуры с `TIOCGWINSZ`. Отсутствие ресайза доказывается
 //! следующим упорядоченным событием: после проверяемого шага ресайз делает тот, чей размер должен
-//! пройти, и между отметкой и его квитанцией других квитанций размера быть не должно.
+//! пройти, и между отметкой и его квитанцией других квитанций размера быть не должно. У Rust-хоста
+//! F1 ещё проверяет политику отчётов: при включённом 2048 ресайз лидера даёт нагрузке ровно один
+//! отчёт размера, и его шлёт хост.
 
 use serde_json::json;
 
 use crate::args::Target;
-use crate::backend::zmx::{self, Role, ZmxSet};
-use crate::backend::{Backend, InputPath, Lead, Liveness};
+use crate::backend::zmx;
+use crate::backend::{InputPath, Lead, Liveness, Role, SessionId, parse_role};
 use crate::fixture::Mode;
-use crate::fixture::channel::{Event, Link};
+use crate::fixture::channel::{Command, Event, Link, hex};
+use crate::fixture::query::ResponseKind;
 use crate::matrix::Candidate;
 use crate::matrix::evidence::{Evidence, Spec, cell};
-use crate::matrix::stand::{Client, Session, Stand, WAIT};
+use crate::matrix::stand::{Client, Session, Stand, WAIT, barrier};
 use crate::pty::Winsize;
 use crate::results::{Cell, DefectOrigin, Environment, Report};
 
 pub fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
-    match target.backend {
-        Some(Candidate::Zmx) => {}
-        other => return Err(format!("geometry идёт на zmx, а не на {other:?}")),
-    }
-    let mut stand = Stand::new(&target.out, environment)?;
+    let Some(candidate) = target.backend else {
+        return Err("geometry идёт на кандидате".to_owned());
+    };
+    let mut stand = Stand::for_candidate(&target.out, environment, candidate)?;
     let outcome = cells(&mut stand);
     let cleanup = stand.teardown();
     let mut report = outcome?;
@@ -45,7 +47,7 @@ fn wait_role(client: &Client, role: Role) -> Result<String, String> {
     route
         .wait_until(WAIT, |rx, _| {
             rx.last_role()
-                .and_then(zmx::parse_role)
+                .and_then(parse_role)
                 .is_some_and(|report| report.role == role)
         })
         .map_err(|err| format!("клиент {} не получил роль {role:?}: {err}", client.label))?;
@@ -151,11 +153,31 @@ fn f1(stand: &mut Stand) -> Result<Cell, String> {
             part: None,
             stimulus: format!(
                 "c1 {}×{} ведёт; c2 {}×{} подключается без захвата и меняет размер; c3 {}×{} \
-                 забирает лидерство; прежний лидер c1 меняет размер (устаревший ресайз)",
-                F1_C1.0, F1_C1.1, F1_C2.0, F1_C2.1, F1_C3.0, F1_C3.1
+                 забирает лидерство; прежний лидер c1 меняет размер (устаревший ресайз){}",
+                F1_C1.0,
+                F1_C1.1,
+                F1_C2.0,
+                F1_C2.1,
+                F1_C3.0,
+                F1_C3.1,
+                match stand.candidate {
+                    Candidate::Zmx => "",
+                    Candidate::Rust => {
+                        "; фикстура включает 2048, лидер c3 меняет размер окна"
+                    }
+                }
             ),
-            oracle: "квитанции SIGWINCH фикстуры с TIOCGWINSZ; сообщения о роли клиентов; \
-                     отсутствие размера — до квитанции следующего ресайза лидера",
+            oracle: match stand.candidate {
+                Candidate::Zmx => {
+                    "квитанции SIGWINCH фикстуры с TIOCGWINSZ; сообщения о роли клиентов; \
+                     отсутствие размера — до квитанции следующего ресайза лидера"
+                }
+                Candidate::Rust => {
+                    "квитанции SIGWINCH фикстуры с TIOCGWINSZ; сообщения о роли клиентов; \
+                     отсутствие размера — до квитанции следующего ресайза лидера; отчёты \
+                     размера фикстуры до барьера DSR через лидера"
+                }
+            },
             completion: "квитанция размера каждого шага лидера получена, роли сняты",
             origin: DefectOrigin::Host,
         },
@@ -166,13 +188,8 @@ fn f1(stand: &mut Stand) -> Result<Cell, String> {
 
 fn f1_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Result<(), String> {
     let size = |(cols, rows): (u16, u16)| stand.config.winsize(cols, rows);
-    let c1 = stand.client_with(
-        ZmxSet::Current,
-        &session.id,
-        "c1",
-        Lead::IfFree,
-        size(F1_C1),
-    )?;
+    let main = stand.main();
+    let c1 = stand.client_on(main, &session.id, "c1", Lead::IfFree, size(F1_C1))?;
     if evidence
         .require("c1 лидер", wait_role(&c1, Role::Leader))
         .is_none()
@@ -180,13 +197,7 @@ fn f1_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
         return Ok(());
     }
     let mark = session.link.log().len();
-    let c2 = stand.client_with(
-        ZmxSet::Current,
-        &session.id,
-        "c2",
-        Lead::IfFree,
-        size(F1_C2),
-    )?;
+    let c2 = stand.client_on(main, &session.id, "c2", Lead::IfFree, size(F1_C2))?;
     if evidence
         .require("c2 ведомый", wait_role(&c2, Role::Follower))
         .is_none()
@@ -223,7 +234,7 @@ fn f1_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
             witness_size: (witness.0 + 1, witness.1),
         },
     )?;
-    let c3 = stand.client_with(ZmxSet::Current, &session.id, "c3", Lead::Claim, size(F1_C3))?;
+    let c3 = stand.client_on(main, &session.id, "c3", Lead::Claim, size(F1_C3))?;
     if evidence
         .require("c3 забрал лидерство", wait_role(&c3, Role::Leader))
         .is_none()
@@ -250,15 +261,94 @@ fn f1_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
             witness_size: (F1_C3.0 + 1, F1_C3.1),
         },
     )?;
-    let liveness = stand
-        .zmx
-        .liveness(&session.id)
-        .map_err(|err| err.to_string())?;
+    let liveness = main.liveness(&session.id).map_err(|err| err.to_string())?;
     evidence.note("liveness", &liveness);
     evidence.check(
         "три клиента подключены",
         matches!(liveness, Liveness::Live { clients: 3, .. }),
         format!("{liveness:?}"),
+    );
+    if stand.candidate == Candidate::Rust {
+        size_report(session, evidence, &c3, (F1_C3.0 + 2, F1_C3.1 + 1))?;
+    }
+    Ok(())
+}
+
+/// Отчёты размера (2048) фикстуры после отметки.
+fn size_reports(link: &Link, from: usize) -> Vec<String> {
+    link.log()[from.min(link.log().len())..]
+        .iter()
+        .filter_map(|receipt| match &receipt.event {
+            Event::Response {
+                response: ResponseKind::SizeReport,
+                hex,
+                ..
+            } => Some(hex.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Политика отчётов Rust-хоста при ресайзе: включение 2048 даёт один отчёт, ресайз окна лидера —
+/// ровно один отчёт с новым размером. Клиенты 2048 не получают, поэтому отчёт мог прислать только
+/// хост; барьер DSR через лидера отделяет отчёт шага от следующих.
+fn size_report(
+    session: &mut Session,
+    evidence: &mut Evidence,
+    leader: &Client,
+    size: (u16, u16),
+) -> Result<(), String> {
+    let mark = session.link.log().len();
+    session
+        .link
+        .request(
+            Command::Write {
+                hex: hex(b"\x1b[?2048h"),
+            },
+            WAIT,
+        )
+        .map_err(|err| format!("включение 2048: {err}"))?;
+    if evidence
+        .require(
+            "включение 2048: барьер через лидера c3",
+            barrier(&mut session.link, leader),
+        )
+        .is_none()
+    {
+        return Ok(());
+    }
+    let enabled = size_reports(&session.link, mark);
+    evidence.note("report2048.enable", &enabled);
+    evidence.check(
+        "включение 2048: один отчёт размера",
+        enabled.len() == 1,
+        format!("отчёты: {enabled:?}"),
+    );
+    let mark = session.link.log().len();
+    leader.route()?.resize(size.0, size.1)?;
+    let arrived = wait_winch(&mut session.link, size.0, size.1);
+    if evidence
+        .require("ресайз лидера c3 при 2048 дошёл", arrived)
+        .is_none()
+    {
+        return Ok(());
+    }
+    if evidence
+        .require(
+            "ресайз при 2048: барьер через лидера c3",
+            barrier(&mut session.link, leader),
+        )
+        .is_none()
+    {
+        return Ok(());
+    }
+    let reports = size_reports(&session.link, mark);
+    evidence.note("report2048.resize", &reports);
+    let expected = hex(format!("48;{};{};", size.1, size.0).as_bytes());
+    evidence.check(
+        "ресайз лидера при 2048: ровно один отчёт с новым размером",
+        reports.len() == 1 && reports[0].contains(&expected),
+        format!("отчёты: {reports:?}, ожидался размер {}×{}", size.0, size.1),
     );
     Ok(())
 }
@@ -279,11 +369,27 @@ fn f3(stand: &mut Stand) -> Result<Cell, String> {
         Spec {
             id: "F3",
             part: None,
-            stimulus: "лидер c1 80×24; ввод из CLI обоими путями: zmx send и zmx type; затем \
-                       ресайз лидера"
-                .to_owned(),
-            oracle: "квитанции прочитанных байтов фикстуры; квитанции SIGWINCH; роль c1 и \
-                     назначения лидера в журнале демона; число клиентов",
+            stimulus: match stand.candidate {
+                Candidate::Zmx => {
+                    "лидер c1 80×24; ввод из CLI обоими путями: zmx send и zmx type; затем \
+                     ресайз лидера"
+                }
+                Candidate::Rust => {
+                    "лидер c1 80×24; ввод из CLI управляющим соединением обоими путями \
+                     (send и type); затем ресайз лидера"
+                }
+            }
+            .to_owned(),
+            oracle: match stand.candidate {
+                Candidate::Zmx => {
+                    "квитанции прочитанных байтов фикстуры; квитанции SIGWINCH; роль c1 и \
+                     назначения лидера в журнале демона; число клиентов"
+                }
+                Candidate::Rust => {
+                    "квитанции прочитанных байтов фикстуры; квитанции SIGWINCH; роль c1 и \
+                     поколение лидера в состоянии хоста; число клиентов"
+                }
+            },
             completion: "фикстура прочитала ввод каждого пути, квитанция ресайза лидера получена",
             origin: DefectOrigin::Host,
         },
@@ -323,23 +429,23 @@ fn f3_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
     let Some(role) = evidence.require("c1 лидер", c1.wait_leader()) else {
         return Ok(());
     };
-    let leaders_before = zmx::leadership_events(&stand.daemon_log(&session.id));
+    let leaders_before = leadership(stand, &session.id)?;
     let mark = session.link.log().len();
     for (name, path, text) in [
         ("send", InputPath::Raw, F3_TEXT.to_vec()),
         ("type", InputPath::Typed, b"typed-input\r".to_vec()),
     ] {
         let from = session.link.log().len();
-        let outcome = stand.zmx.input(&session.id, &text, path);
+        let outcome = stand.main().input(&session.id, &text, path);
         evidence.note(&format!("{name}.outcome"), format!("{outcome:?}"));
         if evidence
-            .require(&format!("zmx {name} принят"), outcome)
+            .require(&format!("ввод {name} принят"), outcome)
             .is_none()
         {
             continue;
         }
         let read = wait_read(&mut session.link, from, &text);
-        evidence.require(&format!("фикстура прочитала ввод zmx {name}"), read);
+        evidence.require(&format!("фикстура прочитала ввод {name}"), read);
     }
     let witness = (81, 24);
     c1.route()?.resize(witness.0, witness.1)?;
@@ -361,7 +467,7 @@ fn f3_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
         .route()?
         .with(|rx| rx.last_role().map(str::to_owned))
         .unwrap_or_default();
-    let leaders_after = zmx::leadership_events(&stand.daemon_log(&session.id));
+    let leaders_after = leadership(stand, &session.id)?;
     evidence.note(
         "leadership",
         json!({
@@ -379,7 +485,7 @@ fn f3_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
         ),
     );
     let liveness = stand
-        .zmx
+        .main()
         .liveness(&session.id)
         .map_err(|err| err.to_string())?;
     evidence.note("liveness", &liveness);
@@ -389,4 +495,16 @@ fn f3_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
         format!("{liveness:?}"),
     );
     Ok(())
+}
+
+/// Назначения лидера: у zmx — строки журнала демона, у Rust-хоста — поколение в его состоянии.
+fn leadership(stand: &Stand, id: &SessionId) -> Result<u64, String> {
+    match stand.candidate {
+        Candidate::Zmx => Ok(zmx::leadership_events(&stand.daemon_log(id)) as u64),
+        Candidate::Rust => stand
+            .rust()?
+            .status(id)
+            .map(|status| u64::from(status.generation))
+            .map_err(|err| format!("состояние хоста: {err}")),
+    }
 }

@@ -1,20 +1,20 @@
 //! PTY нагрузки Rust-хоста: запуск во втором PTY, постоянное чтение в ограниченную очередь
-//! событий хоста и запись ввода отдельным потоком с ограниченной очередью.
+//! событий хоста и запись ввода отдельным потоком с очередью, ограниченной в байтах
+//! ([`io::INPUT_QUEUE_BYTES`]).
 
 use std::fs::File;
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 use std::os::fd::{AsFd, OwnedFd};
 use std::path::Path;
 use std::process::Child;
-use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
+use std::sync::Arc;
 use std::thread;
 
+use crate::host::io::{self as host_io, ByteQueue, Room};
 use crate::pty::{self, Spawn, Winsize};
 
 /// Кусок одного чтения PTY.
 pub const READ_CHUNK: usize = 64 << 10;
-/// Кусков ввода в очереди записи в PTY.
-pub const INPUT_QUEUE: usize = 256;
 
 pub struct Workload {
     pub child: Child,
@@ -94,37 +94,44 @@ impl Terminal {
             })
     }
 
-    /// Поток записи ввода в PTY с очередью [`INPUT_QUEUE`].
+    /// Поток записи ввода в PTY: частичная запись продолжается, байты считаются до её конца.
     pub fn start_writer(&self) -> io::Result<InputQueue> {
         let mut file = File::from(self.master.try_clone()?);
-        let (tx, rx): (SyncSender<Vec<u8>>, Receiver<Vec<u8>>) = mpsc::sync_channel(INPUT_QUEUE);
+        let queue = Arc::new(ByteQueue::new(host_io::INPUT_QUEUE_BYTES));
+        let writer = Arc::clone(&queue);
         thread::Builder::new()
             .name("pty-write".to_owned())
             .spawn(move || {
-                for bytes in rx {
-                    if file.write_all(&bytes).is_err() {
-                        return;
-                    }
-                }
+                let _ = host_io::drain(&writer, &mut file);
             })?;
-        Ok(InputQueue { tx })
+        Ok(InputQueue { queue })
     }
 }
 
 #[derive(Clone)]
 pub struct InputQueue {
-    tx: SyncSender<Vec<u8>>,
+    queue: Arc<ByteQueue>,
 }
 
 impl InputQueue {
-    /// Ставит ввод в очередь; переполнение — явный отказ, а не потеря.
+    /// Ставит ввод целиком; переполнение — явный отказ, а не потеря части.
     pub fn push(&self, bytes: Vec<u8>) -> Result<(), String> {
-        match self.tx.try_send(bytes) {
-            Ok(()) => Ok(()),
-            Err(TrySendError::Full(_)) => Err(format!(
-                "очередь ввода в PTY заполнена ({INPUT_QUEUE} кусков)"
-            )),
-            Err(TrySendError::Disconnected(_)) => Err("запись в PTY закрыта".to_owned()),
-        }
+        let len = bytes.len();
+        self.queue
+            .push(bytes, Room::Limit)
+            .map_err(|refusal| format!("ввод {len} байт отвергнут: {refusal}"))
+    }
+
+    /// Ответ хоста на запрос нагрузки: сверх предела ввода есть запас.
+    pub fn reply(&self, bytes: Vec<u8>) -> Result<(), String> {
+        let len = bytes.len();
+        self.queue
+            .push(bytes, Room::Reserve(host_io::REPLY_RESERVE))
+            .map_err(|refusal| format!("ответ {len} байт отвергнут: {refusal}"))
+    }
+
+    /// Байты в очереди и в записи.
+    pub fn queued(&self) -> usize {
+        self.queue.counted()
     }
 }
