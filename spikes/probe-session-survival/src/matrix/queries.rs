@@ -48,6 +48,8 @@ const FOCUS_SIZE_ON: &[u8] = b"\x1b[?1004h\x1b[?2048h";
 /// Включение отчётов видимости (2033) и отчёт хоста о скрытом окне `CSI ? 999 ; 2 n`.
 const VISIBILITY_ON: &[u8] = b"\x1b[?2033h";
 const HIDDEN_REPORT: &str = "1b5b3f3939393b326e";
+/// Ответ DECRQM `CSI ? 1004 ; 1 $ y`: режим фокуса установлен.
+const FOCUS_MODE_SET: &str = "1b5b3f313030343b312479";
 
 pub fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
     let candidate = target
@@ -1266,7 +1268,8 @@ fn d5(stand: &mut Stand) -> Result<Cell, String> {
                 }
                 Candidate::Rust => {
                     "при лидере c1 фикстура включает 1004 и 2048, окно c1 получает фокус \
-                     (приёмник c1 и сообщение GUI поколения c1); фикстура включает 2033, GUI c1 \
+                     (приёмник c1 и сообщение GUI поколения c1); фикстура спрашивает DECRQM 1004; \
+                     фикстура включает 2033, GUI c1 \
                      сообщает скрытие окна; c1 отключается клавишей; подключается c2 того же \
                      размера и получает фокус тем же путём; GUI прежнего поколения сообщает \
                      потерю фокуса"
@@ -1327,7 +1330,7 @@ fn d5_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
         format!("{:?}", got),
     );
     if let Some(gui) = &gui1
-        && !d5_visibility(session, gui, evidence)?
+        && !(d5_mode_query(session, evidence)? && d5_visibility(session, gui, evidence)?)
     {
         return Ok(());
     }
@@ -1411,6 +1414,26 @@ fn gui_accepted(
         Ok(Some(reason)) => evidence.check(name, false, format!("хост отказал: {reason}")),
         Err(err) => evidence.check(name, false, err.to_string()),
     }
+}
+
+/// DECRQM режима отчётов на Rust-хосте: режим ведёт хост, отвечает он один и по своему
+/// состоянию, хотя клиенту режим не передавался.
+fn d5_mode_query(session: &mut Session, evidence: &mut Evidence) -> Result<bool, String> {
+    let mark = session.link.log().len();
+    send_query(&mut session.link, Query::ModeDec { mode: 1004 }, None)?;
+    let settled = barrier_n(&mut session.link, 1)?;
+    let got = responses(&session.link, mark);
+    evidence.note("decrqm.responses", &got);
+    if let Some(reason) = settled {
+        evidence.not_proven = Some(reason);
+        return Ok(false);
+    }
+    evidence.check(
+        "DECRQM 1004: один ответ хоста «установлен»",
+        got.len() == 1 && got[0].1 == FOCUS_MODE_SET,
+        format!("{got:?}"),
+    );
+    Ok(true)
 }
 
 /// Видимость окна на Rust-хосте: фикстура включает 2033, GUI лидера сообщает скрытие, нагрузка
