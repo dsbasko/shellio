@@ -916,7 +916,7 @@ fn d4(stand: &mut Stand) -> Result<Vec<Cell>, String> {
         if label != "d4l" {
             continue;
         }
-        let (stimulus, oracle, artifacts) = match generation_artifact {
+        let (stimulus, oracle, completion, artifacts) = match generation_artifact {
             None => {
                 if late_failed == Some(true) {
                     generation.unsupported = Some(
@@ -934,6 +934,7 @@ fn d4(stand: &mut Stand) -> Result<Vec<Cell>, String> {
                 (
                     "по части поздний-ответ",
                     "счётчик ответов фикстуры вида clipboard",
+                    "часть поздний-ответ закончена",
                     vec![artifact],
                 )
             }
@@ -942,6 +943,7 @@ fn d4(stand: &mut Stand) -> Result<Vec<Cell>, String> {
                  срока хоста и отвечает после него",
                 "ответы фикстуры вида clipboard и их данные, счётчики чтения буфера обмена в \
                  состоянии хоста",
+                "часть поздний-ответ закончена, барьер DSR через c2 после ответа по сроку",
                 vec![file, artifact, stand.log_name(&id)],
             ),
         };
@@ -951,8 +953,7 @@ fn d4(stand: &mut Stand) -> Result<Vec<Cell>, String> {
                 part: Some("поколение-и-тайм-аут"),
                 stimulus: stimulus.to_owned(),
                 oracle,
-                completion: "часть поздний-ответ закончена, барьер DSR через c2 после ответа по \
-                             сроку",
+                completion,
                 origin: DefectOrigin::Host,
             },
             &generation,
@@ -1276,8 +1277,15 @@ fn d5(stand: &mut Stand) -> Result<Cell, String> {
                 }
             }
             .to_owned(),
-            oracle: "счётчик отчётов фокуса, размера и видимости фикстуры по событиям; квитанции \
-                     SIGWINCH; отказ хоста GUI прежнего поколения",
+            oracle: match stand.candidate {
+                Candidate::Zmx => {
+                    "счётчик отчётов фокуса и размера фикстуры по событиям; квитанции SIGWINCH"
+                }
+                Candidate::Rust => {
+                    "счётчик отчётов фокуса, размера, видимости и ответов DECRQM фикстуры по \
+                     событиям; квитанции SIGWINCH; отказ хоста GUI прежнего поколения"
+                }
+            },
             completion: "барьер DSR через живого клиента после каждого события",
             origin: DefectOrigin::Host,
         },
