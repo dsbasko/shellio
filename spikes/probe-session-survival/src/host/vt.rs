@@ -15,7 +15,8 @@ use crate::host::responder::{Answer, client_continuation};
 use crate::pty::Winsize;
 use crate::vt::{self, Terminal};
 
-/// Строк истории VT хоста (раздел «Замеры»), как у оракулов.
+/// Строк истории VT хоста (раздел «Замеры»), как у zmx (`max_scrollback_lines`). Байтовый
+/// предел снят, как у zmx: иначе предел по умолчанию оставляет около одной страницы.
 pub const SCROLLBACK: usize = 10_000;
 /// Бюджет continuation VT хоста: начатая последовательность длиннее не восстанавливается, и
 /// attach во время неё получает явный отказ.
@@ -91,6 +92,7 @@ impl HostVt {
     pub fn new(size: Winsize, clipboard: Arc<Clipboard>) -> vt::Result<HostVt> {
         let mut term = Terminal::new(size.cols, size.rows)?;
         term.set_scrollback_max_lines(SCROLLBACK)?;
+        term.unset_scrollback_max_bytes()?;
         term.set_continuation_max_bytes(CONTINUATION_MAX)?;
         term.set_default_colors(Some(FOREGROUND), Some(BACKGROUND), Some(CURSOR))?;
         let (cell_w, cell_h) = cell_size(size);

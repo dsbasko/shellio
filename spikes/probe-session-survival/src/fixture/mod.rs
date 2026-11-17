@@ -8,6 +8,7 @@
 //! - `agent` — долгий процесс с фоновым потомком `nohup-child`;
 //! - `nohup-child` — процесс без PTY, игнорирующий `SIGHUP`, живёт до своего срока;
 //! - `emitter`, `query`, `flood`, `slow-reader` — raw-режим, вывод и чтение по командам стенда;
+//!   по команде `echo` прочитанное отражается обратно в PTY (задержка эха в замерах);
 //! - `replay` — фиктивный attach для поверхности: по команде отдаёт байты сцены из файла, затем
 //!   живой поток команд стенда, оба через [`ReportFilter`] при `--filter`, и квитирует каждую
 //!   запись тем, что ушло в PTY.
@@ -469,6 +470,7 @@ struct Fixture {
     /// Байты сцены `replay`, прочитанные до готовности.
     scene: Option<Vec<u8>>,
     filter: Option<ReportFilter>,
+    echo: bool,
 }
 
 /// Вход бинаря фикстуры.
@@ -558,6 +560,7 @@ fn serve(args: Args, channel: UnixStream, signals: libc::sigset_t) -> Result<Sto
         saved_termios: None,
         scene,
         filter: args.filter.then(ReportFilter::new),
+        echo: false,
     };
     if fixture.mode.raw() {
         fixture.set_raw()?;
@@ -643,6 +646,9 @@ impl Fixture {
 
     fn on_read(&mut self, t_ns: u64, bytes: &[u8]) -> Result<(), StopReason> {
         self.reads += 1;
+        if self.echo {
+            self.write_all(bytes)?;
+        }
         self.send(
             t_ns,
             Event::Read {
@@ -761,6 +767,13 @@ impl Fixture {
                     return Ok(Err(format!("срок больше {} мс", MAX_LIFETIME.as_millis())));
                 }
                 self.deadline = Instant::now() + lifetime;
+                Ok(Ok(0))
+            }
+            Command::Echo { on } => {
+                if !self.raw {
+                    return Ok(Err("эхо только в raw-режиме".to_owned()));
+                }
+                self.echo = on;
                 Ok(Ok(0))
             }
             Command::Exit { .. } => Ok(Ok(0)),

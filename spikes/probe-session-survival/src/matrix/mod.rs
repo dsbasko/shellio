@@ -4,8 +4,9 @@
 //! (F1, F3) и `versions` (G1, G2). Сценарий поверхности задачи 10 — `report-policy` (политика
 //! отчётов, клетки стенда `surface-*`), задачи 15 — `bridge` (C1–C4, D1, D3–D5, F2 в поверхности на
 //! обоих кандидатах), задачи 16 — `update` (G3: замена подписанного бандла при живом хосте); все
-//! три идут в бинаре `probe-session-surface` с функцией `surface`. Общий стенд zmx — `stand`,
-//! чистые сценарные утилиты — `util`.
+//! три идут в бинаре `probe-session-surface` с функцией `surface`. Сценарий задачи 17 — `measure`
+//! (сравнительные замеры без клеток, `crate::measure`). Общий стенд zmx — `stand`, чистые
+//! сценарные утилиты — `util`.
 
 pub mod bridge;
 #[cfg(feature = "vt")]
@@ -161,10 +162,12 @@ pub enum Scenario {
     Bridge,
     /// Замена подписанного бандла пробы при живом хосте (задача 16): клетка G3.
     Update,
+    /// Сравнительные замеры (задача 17): только замеры, без клеток.
+    Measure,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 11] = [
+    pub const ALL: [Scenario; 12] = [
         Scenario::Smoke,
         Scenario::Lifecycle,
         Scenario::Capi,
@@ -176,6 +179,7 @@ impl Scenario {
         Scenario::ReportPolicy,
         Scenario::Bridge,
         Scenario::Update,
+        Scenario::Measure,
     ];
 
     pub fn name(self) -> &'static str {
@@ -191,6 +195,7 @@ impl Scenario {
             Scenario::ReportPolicy => "report-policy",
             Scenario::Bridge => "bridge",
             Scenario::Update => "update",
+            Scenario::Measure => "measure",
         }
     }
 
@@ -211,7 +216,8 @@ impl Scenario {
             | Scenario::Geometry
             | Scenario::Versions
             | Scenario::Bridge
-            | Scenario::Update => &Candidate::ALL,
+            | Scenario::Update
+            | Scenario::Measure => &Candidate::ALL,
         }
     }
 
@@ -223,9 +229,11 @@ impl Scenario {
             Scenario::Geometry | Scenario::Versions | Scenario::ReportPolicy | Scenario::Update => {
                 Duration::from_secs(300)
             }
-            Scenario::Restore | Scenario::Queries | Scenario::Io | Scenario::Bridge => {
-                Duration::from_secs(900)
-            }
+            Scenario::Restore
+            | Scenario::Queries
+            | Scenario::Io
+            | Scenario::Bridge
+            | Scenario::Measure => Duration::from_secs(900),
         }
     }
 }
@@ -304,6 +312,7 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::Io => vt_only(target, environment, "io"),
         Scenario::Geometry => vt_only(target, environment, "geometry"),
         Scenario::Versions => vt_only(target, environment, "versions"),
+        Scenario::Measure => vt_only(target, environment, "measure"),
         Scenario::ReportPolicy | Scenario::Bridge | Scenario::Update => {
             surface_run(target, environment)
         }
@@ -337,6 +346,7 @@ fn vt_only(target: &Target, environment: &Environment, _name: &str) -> Result<Re
         Scenario::Io => io::run(target, environment),
         Scenario::Geometry => geometry::run(target, environment),
         Scenario::Versions => versions::run(target, environment),
+        Scenario::Measure => crate::measure::scenario::run(target, environment),
         other => Err(format!("сценарий {other} не из headless-матрицы")),
     }
 }
@@ -618,6 +628,7 @@ pub(crate) mod tests {
         assert_eq!(Scenario::Queries.candidates(), Candidate::ALL);
         assert_eq!(Scenario::Geometry.candidates(), Candidate::ALL);
         assert_eq!(Scenario::Versions.candidates(), Candidate::ALL);
+        assert_eq!(Scenario::Measure.candidates(), Candidate::ALL);
     }
 
     #[test]

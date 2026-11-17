@@ -871,6 +871,20 @@ impl Terminal {
         )
     }
 
+    /// Снимает предел истории в байтах. У терминала C API он по умолчанию 10 000 байт
+    /// (`Terminal.Options.max_scrollback_bytes`), то есть одна страница, около 400 строк в 120
+    /// колонок: без снятия предел строк до своего значения не доходит.
+    pub fn unset_scrollback_max_bytes(&mut self) -> Result<()> {
+        // SAFETY: для этой опции NULL снимает предел (`terminal.h`), указатель не читается.
+        check("ghostty_terminal_set(SCROLLBACK_MAX_BYTES, NULL)", unsafe {
+            sys::ghostty_terminal_set(
+                self.raw(),
+                sys::GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_SCROLLBACK_MAX_BYTES,
+                ptr::null(),
+            )
+        })
+    }
+
     /// Регистрирует колбэки эффектов: ответы в PTY, звонок, заголовок, XTVERSION, размер, цветовая
     /// схема, DA и буфер обмена.
     ///

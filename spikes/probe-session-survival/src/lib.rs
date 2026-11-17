@@ -9,6 +9,7 @@ pub mod fixture;
 pub mod host;
 pub mod launch;
 pub mod matrix;
+pub mod measure;
 pub mod observer;
 pub mod oracle;
 pub mod proto;

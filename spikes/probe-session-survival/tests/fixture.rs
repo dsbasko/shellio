@@ -346,6 +346,44 @@ mod pty_fixtures {
         assert!(child.child.wait().unwrap().success());
     }
 
+    #[test]
+    fn echo_reflects_reads_only_while_enabled() {
+        let stand = Stand::new("echo");
+        let (mut child, mut link, _) = stand.spawn(Mode::SlowReader, "ec1");
+        let mut out = master(&child);
+        acked(&mut link, Command::Echo { on: true });
+        out.write_all(b"q").unwrap();
+        assert_eq!(read_bytes(&mut link), b"q");
+        assert_eq!(read_exact(&mut out, 1), b"q");
+        acked(&mut link, Command::Echo { on: false });
+        out.write_all(b"z").unwrap();
+        assert_eq!(read_bytes(&mut link), b"z");
+        acked(
+            &mut link,
+            Command::Write {
+                hex: probe_session_survival::fixture::channel::hex(b"!"),
+            },
+        );
+        assert_eq!(
+            read_exact(&mut out, 1),
+            b"!",
+            "после выключения эха «z» не отражён"
+        );
+        link.request(Command::Exit { code: 0 }, WAIT).unwrap();
+        assert!(child.child.wait().unwrap().success());
+    }
+
+    #[test]
+    fn echo_is_refused_in_canonical_mode() {
+        let stand = Stand::new("echo-shell");
+        let (mut child, mut link, _) = stand.spawn(Mode::Shell, "ec2");
+        let error = link.request(Command::Echo { on: true }, WAIT).unwrap_err();
+        assert!(error.to_string().contains("raw"), "{error}");
+        let _drain = drain(&child);
+        link.request(Command::Exit { code: 0 }, WAIT).unwrap();
+        assert!(child.child.wait().unwrap().success());
+    }
+
     fn job_change(link: &mut Link) -> (i32, JobChange, Option<i32>) {
         link.wait_for(WAIT, |receipt| match &receipt.event {
             Event::Job {

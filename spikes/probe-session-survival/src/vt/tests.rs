@@ -590,3 +590,32 @@ fn xtversion_without_callback_answers_libghostty() {
     term.write(b"\x1b[>0q");
     assert_eq!(term.take_pty_output(), b"\x1bP>|libghostty\x1b\\");
 }
+
+/// Предел истории в строках действует, только если снят байтовый предел по умолчанию.
+#[test]
+fn scrollback_lines_limit_needs_byte_limit_removed() {
+    let fill = |term: &mut Terminal| {
+        let line = format!("{}\r\n", "x".repeat(118));
+        for _ in 0..10_100 {
+            term.write(line.as_bytes());
+        }
+        term.scrollback_rows().expect("история")
+    };
+    let mut capped = Terminal::new(120, 40).expect("терминал");
+    capped.set_scrollback_max_lines(10_000).expect("история");
+    let capped_rows = fill(&mut capped);
+    assert!(
+        capped_rows < 1_000,
+        "{capped_rows} строк при пределе по умолчанию"
+    );
+
+    let mut full = Terminal::new(120, 40).expect("терминал");
+    full.set_scrollback_max_lines(10_000).expect("история");
+    full.unset_scrollback_max_bytes().expect("байтовый предел");
+    let full_rows = fill(&mut full);
+    // Предел строк срезает историю целыми страницами: остаток ниже предела не больше страницы.
+    assert!(
+        (9_000..=10_100).contains(&full_rows),
+        "{full_rows} строк без байтового предела"
+    );
+}

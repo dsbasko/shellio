@@ -1,5 +1,6 @@
 //! Системные сведения через `sysctlbyname`, монотонные отметки `CLOCK_UPTIME_RAW`, путь
-//! исполняемого файла процесса и атомарный обмен двух путей. Только системные C API (ADR-0034).
+//! исполняемого файла процесса, атомарный обмен двух путей и показания CPU и памяти процессов и
+//! потоков для замеров. Только системные C API (ADR-0034).
 
 use std::ffi::CString;
 use std::io;
@@ -85,6 +86,132 @@ pub fn phys_footprint(pid: i32) -> Option<u64> {
     Some(unsafe { info.assume_init() }.ri_phys_footprint)
 }
 
+/// Показание процесса по `proc_pid_rusage`. CPU — в тиках `mach_absolute_time`: на Apple Silicon
+/// тик не равен наносекунде, перевод — [`timebase`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ProcUsage {
+    /// `ri_user_time + ri_system_time`, тики.
+    pub cpu_ticks: u64,
+    /// `ri_phys_footprint`, байты.
+    pub footprint: u64,
+    /// `ri_pkg_idle_wkups + ri_interrupt_wkups`.
+    pub wakeups: u64,
+}
+
+/// Показание процесса своего пользователя; `None` — процесса нет или доступа нет.
+pub fn usage(pid: i32) -> Option<ProcUsage> {
+    let mut info = std::mem::MaybeUninit::<libc::rusage_info_v2>::zeroed();
+    // SAFETY: буфер — структура версии, указанной во втором аргументе, и живёт на время вызова.
+    let status = unsafe {
+        libc::proc_pid_rusage(
+            pid,
+            libc::RUSAGE_INFO_V2,
+            info.as_mut_ptr().cast::<libc::rusage_info_t>(),
+        )
+    };
+    if status != 0 {
+        return None;
+    }
+    // SAFETY: ядро заполнило структуру при нулевом коде возврата; до этого она обнулена.
+    let info = unsafe { info.assume_init() };
+    Some(ProcUsage {
+        cpu_ticks: info.ri_user_time.saturating_add(info.ri_system_time),
+        footprint: info.ri_phys_footprint,
+        wakeups: info
+            .ri_pkg_idle_wkups
+            .saturating_add(info.ri_interrupt_wkups),
+    })
+}
+
+/// Числитель и знаменатель `mach_timebase_info`: наносекунды = тики × числитель / знаменатель.
+/// libc помечает привязки Mach устаревшими в пользу отдельного crate, сама функция не устарела.
+#[allow(deprecated)]
+pub fn timebase() -> Option<(u32, u32)> {
+    let mut info = libc::mach_timebase_info { numer: 0, denom: 0 };
+    // SAFETY: `mach_timebase_info` пишет числитель и знаменатель по указателю.
+    let status = unsafe { libc::mach_timebase_info(&mut info) };
+    (status == 0 && info.numer != 0 && info.denom != 0).then_some((info.numer, info.denom))
+}
+
+/// CPU своего процесса по `getrusage(RUSAGE_SELF)`, нс: сверка перевода тиков `proc_pid_rusage`.
+pub fn rusage_self_ns() -> Option<u64> {
+    let mut usage = std::mem::MaybeUninit::<libc::rusage>::zeroed();
+    // SAFETY: `getrusage` пишет `rusage` по указателю, буфер живёт на время вызова.
+    if unsafe { libc::getrusage(libc::RUSAGE_SELF, usage.as_mut_ptr()) } != 0 {
+        return None;
+    }
+    // SAFETY: при нулевом коде структура заполнена.
+    let usage = unsafe { usage.assume_init() };
+    let ns = |time: libc::timeval| {
+        u64::try_from(time.tv_sec)
+            .unwrap_or_default()
+            .saturating_mul(1_000_000_000)
+            .saturating_add(u64::try_from(time.tv_usec).unwrap_or_default() * 1000)
+    };
+    Some(ns(usage.ru_utime).saturating_add(ns(usage.ru_stime)))
+}
+
+/// `PROC_PIDLISTTHREADS` из `sys/proc_info.h`: в libc его нет.
+const PROC_PIDLISTTHREADS: libc::c_int = 6;
+const MAX_THREADS: usize = 4096;
+
+/// CPU потоков своего процесса с именем `name` (`pthread_setname_np`), нс, и их число. Время потока
+/// ядро отдаёт в наносекундах с точностью до микросекунды (`proc_threadinfo`). `None` — список
+/// потоков не читается.
+pub fn threads_cpu_ns(name: &str) -> Option<(u64, usize)> {
+    let pid = std::process::id() as libc::c_int;
+    let mut handles = vec![0u64; 256];
+    let filled = loop {
+        let size = (handles.len() * std::mem::size_of::<u64>()) as libc::c_int;
+        // SAFETY: буфер из `handles.len()` значений u64 живёт на время вызова, его размер передан.
+        let filled = unsafe {
+            libc::proc_pidinfo(
+                pid,
+                PROC_PIDLISTTHREADS,
+                0,
+                handles.as_mut_ptr().cast::<libc::c_void>(),
+                size,
+            )
+        };
+        let filled = usize::try_from(filled).ok().filter(|filled| *filled > 0)?;
+        if filled < size as usize || handles.len() >= MAX_THREADS {
+            break filled / std::mem::size_of::<u64>();
+        }
+        handles.resize(handles.len() * 2, 0);
+    };
+    let mut total = 0u64;
+    let mut count = 0usize;
+    for handle in &handles[..filled] {
+        let mut info = std::mem::MaybeUninit::<libc::proc_threadinfo>::zeroed();
+        let size = std::mem::size_of::<libc::proc_threadinfo>() as libc::c_int;
+        // SAFETY: буфер — `proc_threadinfo` своего размера и живёт на время вызова.
+        let got = unsafe {
+            libc::proc_pidinfo(
+                pid,
+                libc::PROC_PIDTHREADINFO,
+                *handle,
+                info.as_mut_ptr().cast::<libc::c_void>(),
+                size,
+            )
+        };
+        if got != size {
+            // Поток вышел между списком и показанием.
+            continue;
+        }
+        // SAFETY: ядро заполнило структуру целиком; до этого она обнулена.
+        let info = unsafe { info.assume_init() };
+        // SAFETY: `pth_name` — массив, обнулённый до вызова; ядро пишет имя с завершающим нулём.
+        let thread = unsafe { std::ffi::CStr::from_ptr(info.pth_name.as_ptr()) };
+        if thread.to_bytes() == name.as_bytes() {
+            total = total
+                .saturating_add(info.pth_user_time)
+                .saturating_add(info.pth_system_time);
+            count += 1;
+        }
+    }
+    Some((total, count))
+}
+
 /// Путь исполняемого файла процесса по ядру (`proc_pidpath`); `None` — процесса нет.
 pub fn executable_path(pid: i32) -> Option<PathBuf> {
     let mut buffer = vec![0u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
@@ -166,6 +293,71 @@ mod tests {
         let second = uptime_ns();
         assert!(first > 0);
         assert!(second >= first);
+    }
+
+    /// Работа потока до тех пор, пока не скажут остановиться: CPU для показаний без `sleep`.
+    fn burn(stop: &std::sync::atomic::AtomicBool) -> u64 {
+        let mut value = 1u64;
+        while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+            value = std::hint::black_box(value.wrapping_mul(6364136223846793005).wrapping_add(1));
+        }
+        value
+    }
+
+    #[test]
+    fn named_threads_cpu_is_read() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let stop = Arc::new(AtomicBool::new(false));
+        let worker = {
+            let stop = Arc::clone(&stop);
+            std::thread::Builder::new()
+                .name("pss-burn-test".to_owned())
+                .spawn(move || burn(&stop))
+                .expect("поток")
+        };
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let mut seen = (0, 0);
+        while std::time::Instant::now() < deadline {
+            seen = threads_cpu_ns("pss-burn-test").expect("список потоков");
+            if seen.0 >= 20_000_000 {
+                break;
+            }
+        }
+        stop.store(true, Ordering::Relaxed);
+        worker.join().expect("поток вышел");
+        assert_eq!(seen.1, 1, "{seen:?}");
+        assert!(seen.0 >= 20_000_000, "{seen:?}");
+        assert_eq!(threads_cpu_ns("pss-no-such-thread"), Some((0, 0)));
+    }
+
+    #[test]
+    fn usage_ticks_convert_to_rusage_time() {
+        use std::sync::atomic::AtomicBool;
+        let (numer, denom) = timebase().expect("mach_timebase_info");
+        let pid = std::process::id() as i32;
+        let before = (
+            usage(pid).expect("показание"),
+            rusage_self_ns().expect("getrusage"),
+        );
+        let stop = AtomicBool::new(false);
+        let start = std::time::Instant::now();
+        std::thread::scope(|scope| {
+            scope.spawn(|| burn(&stop));
+            while start.elapsed() < std::time::Duration::from_millis(200) {}
+            stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        });
+        let after = (
+            usage(pid).expect("показание"),
+            rusage_self_ns().expect("getrusage"),
+        );
+        let ticks = after.0.cpu_ticks - before.0.cpu_ticks;
+        let proc_ns = u128::from(ticks) * u128::from(numer) / u128::from(denom);
+        let rusage_ns = after.1 - before.1;
+        let ratio = proc_ns as f64 / rusage_ns as f64;
+        assert!((0.9..=1.1).contains(&ratio), "{proc_ns} против {rusage_ns}");
+        assert!(after.0.footprint > 0);
+        assert_eq!(usage(-1), None);
     }
 
     #[test]
