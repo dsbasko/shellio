@@ -32,8 +32,6 @@ const AGENT_WAIT: Duration = Duration::from_secs(120);
 const AGENT_STEP: Duration = Duration::from_secs(2);
 /// Сколько строк ответа должно прийти до `SIGKILL` клиента «посреди ответа».
 const AGENT_MID: usize = 20;
-/// Наибольшее число нажатий Enter на экранах-заставках агента (доверие к каталогу, обновление).
-const AGENT_ENTERS: usize = 3;
 /// Строк в файле nvim: несколько экранов при 24 строках.
 const NVIM_LINES: usize = 120;
 /// `TERM` нагрузки у обоих кандидатов; контроль без хоста получает тот же.
@@ -550,7 +548,8 @@ fn numbers_of(client: &Client) -> Result<Vec<u64>, String> {
         .with(|rx| apps::answer_numbers(&all_lines(rx))))
 }
 
-/// Экран-заставка агента, на котором стенд нажимает Enter: доверие к каталогу, обновление.
+/// Экран-заставка агента: доверие к каталогу, обновление. Стенд на неё не отвечает: выбор
+/// по умолчанию меняет настройки агента пользователя или ставит обновление.
 fn interstitial(lines: &[String]) -> bool {
     lines.iter().any(|line| {
         let line = line.to_lowercase();
@@ -558,20 +557,27 @@ fn interstitial(lines: &[String]) -> bool {
     })
 }
 
-/// Ждёт `done` над номерами ответа до `deadline`, нажимая Enter на заставках; итог — достигнуто
-/// ли условие и сколько раз нажат Enter.
+/// Итог ожидания ответа агента.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Waited {
+    Reached,
+    /// Агент ждёт ответа на экран-заставку.
+    Interstitial,
+    /// Срок вышел или клиент закончился.
+    Missed,
+}
+
+/// Ждёт `done` над номерами ответа до `deadline`; экран-заставка заканчивает ожидание.
 fn wait_answer(
     client: &Client,
     deadline: Instant,
-    enters: &mut usize,
     done: impl Fn(&[u64]) -> bool,
-) -> Result<bool, String> {
+) -> Result<Waited, String> {
     let route = client.route()?;
-    let mut handled: Option<Vec<String>> = None;
     loop {
         let left = deadline.saturating_duration_since(Instant::now());
         if left.is_zero() {
-            return Ok(false);
+            return Ok(Waited::Missed);
         }
         let step = left.min(AGENT_STEP);
         let reached = route.wait_until(step, |rx, _| {
@@ -579,23 +585,21 @@ fn wait_answer(
             done(&apps::answer_numbers(&lines))
         });
         if reached.is_ok() {
-            return Ok(true);
+            return Ok(Waited::Reached);
         }
         if route.end().is_some() {
-            return Ok(false);
+            return Ok(Waited::Missed);
         }
         let screen = route.with(|rx| screen_of(rx)).map(|s| s.lines);
-        if let Some(lines) = screen
-            && interstitial(&lines)
-            && handled.as_ref() != Some(&lines)
-            && *enters < AGENT_ENTERS
-        {
-            client.input(b"\r")?;
-            *enters += 1;
-            handled = Some(lines);
+        if screen.is_some_and(|lines| interstitial(&lines)) {
+            return Ok(Waited::Interstitial);
         }
     }
 }
+
+/// Ответ на экран-заставку не даётся: часть не доказана стендом.
+const INTERSTITIAL: &str = "агент показал экран-заставку (доверие к каталогу или обновление): \
+                            стенд на неё не отвечает, чтобы не менять настройки агента";
 
 fn agent(stand: &mut Stand, name: &str, path: &str) -> Result<Outcome, String> {
     let Some(program) = apps::which(name, path) else {
@@ -645,17 +649,19 @@ fn agent_steps(
     if evidence.require("c1 лидер", c1.wait_leader()).is_none() {
         return Ok(());
     }
-    let mut enters = 0;
     let started = Instant::now();
-    let mid = wait_answer(&c1, started + AGENT_WAIT, &mut enters, |numbers| {
+    let mid = wait_answer(&c1, started + AGENT_WAIT, |numbers| {
         numbers.len() >= AGENT_MID
     })?;
-    facts.insert("enters".to_owned(), json!(enters));
     facts.insert(
         "start_ms".to_owned(),
         json!(started.elapsed().as_millis() as u64),
     );
-    if !mid {
+    if mid == Waited::Interstitial {
+        outcome.mark_not_run(NotRunCause::Stand, INTERSTITIAL);
+        return Ok(());
+    }
+    if mid == Waited::Missed {
         outcome.mark_not_run(
             NotRunCause::Stand,
             format!(
@@ -695,9 +701,14 @@ fn agent_steps(
         return Ok(());
     }
     let finished = Instant::now();
-    let complete = wait_answer(&c2, finished + AGENT_WAIT, &mut enters, |numbers| {
+    let waited = wait_answer(&c2, finished + AGENT_WAIT, |numbers| {
         Numbers::of(numbers, AGENT_COUNT).missing == 0
     })?;
+    if waited == Waited::Interstitial {
+        outcome.mark_not_run(NotRunCause::Stand, INTERSTITIAL);
+        return Ok(());
+    }
+    let complete = waited == Waited::Reached;
     let after = numbers_of(&c2)?;
     let summary_after = Numbers::of(&after, AGENT_COUNT);
     facts.insert("after".to_owned(), json!(summary_after));

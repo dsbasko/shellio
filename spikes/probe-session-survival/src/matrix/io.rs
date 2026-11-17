@@ -5,7 +5,9 @@
 //! сравнивается с объявленным пределом [`E1_LIMIT`]; у Rust-хоста ещё причина разрыва у клиента и
 //! в журнале хоста и повторный снимок нового клиента. E2–E4 — ввод в `slow-reader`: сколько байтов
 //! дошло, считается по квитанциям чтения до маркера конца, который идёт сырым вводом после
-//! основного (порядок PTY сохраняет FIFO). E3 у Rust-хоста — номер ввода и потерянное
+//! основного (порядок PTY сохраняет FIFO). Часть `attach` клетки E2 вводит через терминал
+//! attach-клиента, маркер идёт тем же путём, а после разрыва клиента — сырым вводом. E3 у
+//! Rust-хоста — номер ввода и потерянное
 //! подтверждение. E4 у Rust-хоста ещё и хвост вывода с кадром выхода после выхода нагрузки. E5 —
 //! публикация сокета: у zmx запасной путь патча `0003`, у Rust-хоста точки остановки окна
 //! (`publish`), у обоих конкурентный стресс `ensure` и `list` (исследование).
@@ -53,6 +55,9 @@ const E1_WAIT: Duration = Duration::from_secs(180);
 pub const ZMX_PTY_WRITE_MAX: usize = 256 << 10;
 /// Ввод E2: вдвое больше предела zmx и предела Rust-хоста (`host::io::INPUT_QUEUE_BYTES`).
 const E2_BYTES: usize = 2 * ZMX_PTY_WRITE_MAX;
+/// Срок записи ввода E2 в терминал attach-клиента: дольше записи стенд не держит чтение
+/// остановленным.
+const E2_ATTACH_WAIT: Duration = Duration::from_secs(30);
 /// Ввод E4 в остановленное чтение: меньше предела, пишется в PTY частями.
 const E4_PTY_BYTES: usize = 128 << 10;
 /// Перерисовок экрана в E4: больше 256 КиБ вывода остановленному клиенту.
@@ -135,10 +140,27 @@ fn drain_until_marker(
     session: &mut Session,
     evidence: &mut Evidence,
 ) -> Result<Option<Vec<u8>>, String> {
+    let id = session.id.clone();
+    drain_until_marker_via(session, evidence, |marker| {
+        stand
+            .main()
+            .input(&id, marker, InputPath::Raw)
+            .map(|_| ())
+            .map_err(|err| err.to_string())
+    })
+}
+
+/// [`drain_until_marker`] с маркером, который отправляет `send`: тем же путём, что и основной
+/// ввод, чтобы порядок между ними держал сам путь.
+fn drain_until_marker_via(
+    session: &mut Session,
+    evidence: &mut Evidence,
+    send: impl Fn(&[u8]) -> Result<(), String>,
+) -> Result<Option<Vec<u8>>, String> {
     let mut received = Vec::new();
     for attempt in 1..=MARKER_ATTEMPTS {
         let marker = format!("#END{attempt}#").into_bytes();
-        if let Err(err) = stand.main().input(&session.id, &marker, InputPath::Raw) {
+        if let Err(err) = send(&marker) {
             evidence.check("маркер конца ввода отправлен", false, err);
             return Ok(None);
         }
@@ -533,7 +555,125 @@ fn e2(stand: &mut Stand) -> Result<Vec<Cell>, String> {
             vec![artifact, stand.log_name(&id)],
         ));
     }
+    let id = stand.session("e2-attach")?;
+    let mut session = stand.ensure(&id, Mode::SlowReader)?;
+    let mut evidence = Evidence::default();
+    evidence.note("record", &session.record);
+    let outcome = e2_attach(stand, &mut session, &mut evidence);
+    stand.discard(&id);
+    outcome?;
+    let artifact = stand.artifact("e2-attach.json", &evidence)?;
+    cells.push(cell(
+        Spec {
+            id: "E2",
+            part: Some("attach"),
+            stimulus: format!(
+                "клиент c1 ведёт сессию; чтение фикстуры остановлено; {} КиБ ввода в терминал \
+                 c1, как вставка в окне GUI; затем чтение возобновлено и маркер конца отправлен \
+                 через c1, а если c1 закончился, — сырым вводом без клиента",
+                E2_BYTES >> 10
+            ),
+            oracle: "квитанции прочитанных байтов до маркера против отправленного: клиент жив — \
+                     ввод целиком; клиент разорван с причиной (код выхода и журнал хоста) — \
+                     дошло начало ввода без дыр; иначе потеря молчаливая",
+            completion: "маркер конца ввода прочитан фикстурой",
+            origin: DefectOrigin::Host,
+        },
+        &evidence,
+        vec![artifact, stand.log_name(&id)],
+    ));
     Ok(cells)
+}
+
+/// Ввод сверх предела обычным путём GUI: через attach-клиента, который подтверждений не читает.
+fn e2_attach(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Result<(), String> {
+    let mut client = stand.client(&session.id, "c1")?;
+    if !leader(evidence, session, &client, "c1") {
+        return Ok(());
+    }
+    let data = pattern(E2_BYTES);
+    let written_before = client.route()?.stats().written;
+    // Чтение возобновляется, когда весь ввод записан в терминал клиента или клиент закончился:
+    // до этого переполнение кандидата ещё не застигнуто.
+    let passed = with_reading_paused(session, evidence, |_| -> Result<_, String> {
+        client.input(&data)?;
+        Ok(client.route()?.wait_until(E2_ATTACH_WAIT, |_, stats| {
+            stats.written - written_before >= data.len() as u64
+        }))
+    })??;
+    evidence.note("client_input", format!("{passed:?}"));
+    let ended = matches!(passed, Err(WaitError::Ended(_)));
+    let exit = if ended {
+        Some(client.wait_exit())
+    } else {
+        None
+    };
+    evidence.note("c1_exit", format!("{exit:?}"));
+    let id = session.id.clone();
+    let received = if ended {
+        drain_until_marker_via(session, evidence, |marker| {
+            stand
+                .main()
+                .input(&id, marker, InputPath::Raw)
+                .map(|_| ())
+                .map_err(|err| err.to_string())
+        })?
+    } else {
+        drain_until_marker_via(session, evidence, |marker| client.input(marker))?
+    };
+    let Some(received) = received else {
+        return Ok(());
+    };
+    evidence.note("sent", data.len());
+    evidence.note("received", received.len());
+    let log = stand.daemon_log(&id);
+    let reasons: Vec<&str> = log
+        .lines()
+        .filter(|line| line.contains("разорван: ввод клиента не принят"))
+        .collect();
+    evidence.note("eviction_log", &reasons);
+    match exit {
+        None => {
+            evidence.check(
+                "ввод через клиента доставлен целиком или отвергнут явно",
+                received == data,
+                format!(
+                    "клиент жив, а дошло {} из {} байт: потеря молчаливая",
+                    received.len(),
+                    data.len()
+                ),
+            );
+        }
+        Some(Ok(status)) if status.code() == Some(EXIT_EVICTED) => {
+            evidence.check(
+                "явный отказ: дошло начало ввода без дыр",
+                received.len() < data.len() && data.starts_with(&received),
+                format!(
+                    "дошло {} из {} байт, совпадает с началом ввода: {}",
+                    received.len(),
+                    data.len(),
+                    data.starts_with(&received)
+                ),
+            );
+            evidence.check(
+                "причина разрыва в журнале хоста",
+                reasons.len() == 1,
+                format!("строк причины в журнале {}", reasons.len()),
+            );
+        }
+        Some(other) => {
+            evidence.check(
+                "клиент закончился разрывом с причиной",
+                false,
+                format!(
+                    "выход c1 {other:?}, ожидался код {EXIT_EVICTED}; дошло {} из {} байт",
+                    received.len(),
+                    data.len()
+                ),
+            );
+        }
+    }
+    Ok(())
 }
 
 fn e2_body(

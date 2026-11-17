@@ -8,14 +8,16 @@
 //! Рукопожатие предлагает наибольшую версию протокола клиента, дальше клиент говорит версией,
 //! которую выбрал хост. Ввод идёт с номером источника клиента; подтверждения хоста клиент не
 //! читает и с версии 2 их не просит. Причину конца клиент сообщает кодом выхода, а не текстом: его
-//! stderr — тот же терминал. Выход нагрузки — 0, разрыв переполнением очереди ([`EXIT_EVICTED`]),
-//! конец соединения без кадра выхода ([`EXIT_LOST`]), хост другого поколения без общей версии
-//! ([`EXIT_INCOMPATIBLE`]).
+//! stderr — тот же терминал. Выход нагрузки и отключение — 0, разрыв переполнением очереди вывода
+//! клиента или очереди ввода сессии ([`EXIT_EVICTED`]), конец соединения без кадра выхода
+//! ([`EXIT_LOST`]), хост другого поколения без общей версии ([`EXIT_INCOMPATIBLE`]).
 
 use std::io::{self, Read, Write};
 use std::os::fd::AsFd;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use crate::backend::{Lead, Role};
@@ -25,7 +27,7 @@ use crate::pty::{self, Winsize};
 pub const ATTACH_NAME: &str = "probe-session-attach";
 /// `Ctrl-\`.
 pub const DETACH_KEY: u8 = 0x1c;
-/// Хост разорвал клиента: его очередь вывода переполнилась.
+/// Хост разорвал клиента: переполнилась его очередь вывода или очередь ввода сессии.
 pub const EXIT_EVICTED: i32 = 3;
 /// Соединение кончилось без кадра выхода нагрузки.
 pub const EXIT_LOST: i32 = 4;
@@ -176,57 +178,104 @@ fn run(options: &Options) -> Result<(), End> {
         HandshakeError::Incompatible(reason) => End::Incompatible(reason),
         other => End::Failed(other.to_string()),
     })?;
-    let saved = pty::get_termios(stdin.as_fd()).ok();
-    if let Some(termios) = &saved {
-        let _ = pty::set_termios(stdin.as_fd(), &pty::raw_mode(termios));
-    }
     pty::block_for_sigwait(libc::SIGWINCH).map_err(|err| format!("маска SIGWINCH: {err}"))?;
+    let mut reader = stream.try_clone().map_err(|err| format!("сокет: {err}"))?;
+    let resizer = stream.try_clone().map_err(|err| format!("сокет: {err}"))?;
+    let ending = Arc::new(Ending::new(pty::get_termios(stdin.as_fd()).ok()));
+    ending.raw();
     let mut out = io::stdout().lock();
     if let Some(prefix) = &options.role_prefix {
         let _ = out.write_all(&role_title(prefix, welcome.role, welcome.generation));
         let _ = out.flush();
     }
     drop(out);
-    let mut reader = stream.try_clone().map_err(|err| format!("сокет: {err}"))?;
     let prefix = options.role_prefix.clone();
-    thread::Builder::new()
+    let output_ending = Arc::clone(&ending);
+    let output = thread::Builder::new()
         .name("from-host".to_owned())
-        .spawn(move || from_host(&mut reader, codec, prefix.as_deref(), saved))
-        .map_err(|err| format!("поток вывода: {err}"))?;
-    let resizer = stream.try_clone().map_err(|err| format!("сокет: {err}"))?;
-    thread::Builder::new()
+        .spawn(move || from_host(&mut reader, codec, prefix.as_deref(), &output_ending));
+    let output = match output {
+        Ok(output) => output,
+        Err(err) => {
+            ending.restore();
+            return Err(End::Failed(format!("поток вывода: {err}")));
+        }
+    };
+    if let Err(err) = thread::Builder::new()
         .name("winch".to_owned())
         .spawn(move || winch_loop(resizer, codec))
-        .map_err(|err| format!("поток SIGWINCH: {err}"))?;
-    let result = to_host(&mut stream, codec);
-    restore_terminal(saved.as_ref());
-    Ok(result?)
+    {
+        ending.restore();
+        return Err(End::Failed(format!("поток SIGWINCH: {err}")));
+    }
+    match to_host(&mut stream, codec, &ending) {
+        Ok(()) => ending.exit(0),
+        Err(err) => {
+            // Запись в хост не прошла: соединение кончилось, и причину конца (разрыв, выход
+            // нагрузки, потеря) читает поток вывода из того же сокета.
+            let _ = output.join();
+            ending.restore();
+            Err(End::Failed(err))
+        }
+    }
 }
 
-fn restore_terminal(saved: Option<&libc::termios>) {
-    if let Some(termios) = saved {
-        let _ = pty::set_termios(io::stdin().as_fd(), termios);
+/// Конец клиента. Код выхода выбирает один поток: первый, кто заканчивает клиента, возвращает
+/// терминалу прежний режим и выходит, остальные ждут его выхода.
+struct Ending {
+    saved: Option<libc::termios>,
+    claimed: AtomicBool,
+    /// Клиент сам отключился `Ctrl-\`: конец соединения после этого — обычный выход.
+    detached: AtomicBool,
+}
+
+impl Ending {
+    fn new(saved: Option<libc::termios>) -> Ending {
+        Ending {
+            saved,
+            claimed: AtomicBool::new(false),
+            detached: AtomicBool::new(false),
+        }
+    }
+
+    fn raw(&self) {
+        if let Some(termios) = &self.saved {
+            let _ = pty::set_termios(io::stdin().as_fd(), &pty::raw_mode(termios));
+        }
+    }
+
+    fn restore(&self) {
+        if let Some(termios) = &self.saved {
+            let _ = pty::set_termios(io::stdin().as_fd(), termios);
+        }
+    }
+
+    fn exit(&self, code: i32) -> ! {
+        if self.claimed.swap(true, Ordering::SeqCst) {
+            loop {
+                thread::park();
+            }
+        }
+        self.restore();
+        std::process::exit(code)
     }
 }
 
 /// Вывод хоста в терминал; выход нагрузки или конец соединения завершают клиента, вернув
 /// терминалу прежний режим.
-fn from_host(
-    reader: &mut UnixStream,
-    codec: Codec,
-    prefix: Option<&str>,
-    saved: Option<libc::termios>,
-) {
-    let exit = |code: i32| -> ! {
-        restore_terminal(saved.as_ref());
-        std::process::exit(code)
+fn from_host(reader: &mut UnixStream, codec: Codec, prefix: Option<&str>, ending: &Ending) {
+    let lost = |code: i32| -> ! {
+        if ending.detached.load(Ordering::SeqCst) {
+            ending.exit(0)
+        }
+        ending.exit(code)
     };
     let mut out = io::stdout();
     loop {
         match proto::read_message(reader, codec) {
             Ok(Some(Message::Output { bytes, .. } | Message::Restore(bytes))) => {
                 if out.write_all(&bytes).and_then(|()| out.flush()).is_err() {
-                    exit(1);
+                    ending.exit(1);
                 }
             }
             Ok(Some(Message::Role { role, generation })) => {
@@ -235,11 +284,11 @@ fn from_host(
                     let _ = out.flush();
                 }
             }
-            Ok(Some(Message::Exited { .. })) => exit(0),
-            Ok(Some(Message::Evicted(_))) => exit(EXIT_EVICTED),
-            Ok(None) => exit(EXIT_LOST),
+            Ok(Some(Message::Exited { .. })) => ending.exit(0),
+            Ok(Some(Message::Evicted(_))) => ending.exit(EXIT_EVICTED),
+            Ok(None) => lost(EXIT_LOST),
             Ok(Some(_)) => {}
-            Err(_) => exit(1),
+            Err(_) => lost(1),
         }
     }
 }
@@ -255,7 +304,7 @@ pub fn input_source() -> u64 {
 }
 
 /// Ввод терминала в хост до `Ctrl-\` или конца терминала.
-fn to_host(stream: &mut UnixStream, codec: Codec) -> Result<(), String> {
+fn to_host(stream: &mut UnixStream, codec: Codec, ending: &Ending) -> Result<(), String> {
     let mut stdin = io::stdin().lock();
     let mut buf = [0u8; 4096];
     let source = input_source();
@@ -280,6 +329,7 @@ fn to_host(stream: &mut UnixStream, codec: Codec) -> Result<(), String> {
             proto::write_message(stream, codec, &input).map_err(|err| format!("ввод: {err}"))?;
         }
         if detach {
+            ending.detached.store(true, Ordering::SeqCst);
             let _ = proto::write_message(stream, codec, &Message::Detach);
             let _ = stream.shutdown(std::net::Shutdown::Write);
             return Ok(());

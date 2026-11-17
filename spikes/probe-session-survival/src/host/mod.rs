@@ -1032,7 +1032,9 @@ impl<'a> Hub<'a> {
 
     /// Ввод с номером: от управляющего соединения и от лидера; повтор принятого номера в PTY не
     /// пишется, переполнение очереди — явный отказ целиком. Без `ack_wanted` подтверждение не
-    /// шлётся, отказ остаётся в журнале.
+    /// шлётся, отказ остаётся в журнале. Attach-клиент подтверждений не читает, поэтому отказ
+    /// очереди его вводу — разрыв с причиной: иначе следующие кадры прошли бы после отвергнутого,
+    /// и в потоке ввода осталась бы молчаливая дыра.
     fn input(
         &mut self,
         id: ConnId,
@@ -1042,7 +1044,8 @@ impl<'a> Hub<'a> {
         ack_wanted: bool,
     ) {
         let len = bytes.len();
-        let ack = if self.lead.accepts_input(origin) {
+        let led = self.lead.accepts_input(origin);
+        let ack = if led {
             let queue = &self.input;
             self.ledger.admit(input, || queue.push(bytes))
         } else {
@@ -1053,6 +1056,10 @@ impl<'a> Hub<'a> {
                 "{HOST_NAME}: ввод {len} байт соединения {id} (источник {:x}, номер {}): {ack:?}",
                 input.source, input.seq
             );
+        }
+        if let (true, Origin::Client(_), Ack::Rejected(reason)) = (led, origin, &ack) {
+            self.evict(id, format!("ввод клиента не принят: {reason}"));
+            return;
         }
         if ack_wanted {
             self.send(
