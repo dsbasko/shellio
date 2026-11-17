@@ -1,25 +1,31 @@
-//! Рубеж D — запросы терминала и эффекты на zmx, клетки D1–D6.
+//! Рубеж D — запросы терминала и эффекты на zmx (задача 9) и на Rust-хосте (задача 12), клетки
+//! D1–D6.
 //!
 //! Ответы считает фикстура `query` по своему входу (`Event::Response`), стенд читает их из журнала
 //! квитанций с отметки части. Отсутствие ответа доказывает более позднее упорядоченное событие:
 //! барьер DSR через каждого живого клиента или, без клиента, контрольный DA, на который отвечает
-//! сам zmx. Нет такого события — часть `not_run`, а не `pass` и не `fail`. Каждая часть идёт на
+//! сам хост. Нет такого события — часть `not_run`, а не `pass` и не `fail`. Каждая часть идёт на
 //! своей сессии: поздние ответы одной части не попадают в другую.
+//!
+//! У Rust-хоста эффекты UI идут типизированным путём: стенд играет GUI лидера соединением роли
+//! GUI с его поколением. Чтение буфера обмена (D4), фокус и видимость окна (D5) идут через это
+//! соединение, а фокус приёмника клиента — отрицательный контроль: режимы отчётов хост вырезает
+//! из потока клиенту. Граница разреза D2 у zmx — ревизия `zmx screen`, у Rust-хоста — событие
+//! разбора наблюдателя.
 
 use std::time::{Duration, Instant};
 
 use serde_json::{Map, Value, json};
 
 use crate::args::Target;
-use crate::backend::zmx::{self, Role, ZmxSet};
-use crate::backend::{Backend, InputPath, Lead, SessionId};
+use crate::backend::{Backend, InputPath, Lead, Role, SessionId, parse_role};
 use crate::fixture::Mode;
 use crate::fixture::channel::{Command, Event, Link, hex};
 use crate::fixture::query::{Query, ResponseKind};
 use crate::matrix::Candidate;
-use crate::matrix::capi::D1_QUERIES;
+use crate::matrix::capi::{D1_QUERIES, GUI_CLIPBOARD, LATE_CLIPBOARD, base64, osc52_payload};
 use crate::matrix::evidence::{Evidence, Spec, cell};
-use crate::matrix::stand::{Client, DETACH_KEY, Session, Stand, WAIT};
+use crate::matrix::stand::{Client, DETACH_KEY, ParsedCut, Session, Stand, WAIT, generation};
 use crate::matrix::util::{Tally, cuts, revision_boundary};
 use crate::oracle::vt::{BARRIER, Journaled};
 use crate::results::{Cell, DefectOrigin, Environment, Report};
@@ -39,13 +45,15 @@ const D2_QUERIES: [(&str, Query); 4] = [
 ];
 const OSC52_WRITE: &[u8] = b"\x1b]52;c;aGVsbG8=\x07";
 const FOCUS_SIZE_ON: &[u8] = b"\x1b[?1004h\x1b[?2048h";
+/// Включение отчётов видимости (2033) и отчёт хоста о скрытом окне `CSI ? 999 ; 2 n`.
+const VISIBILITY_ON: &[u8] = b"\x1b[?2033h";
+const HIDDEN_REPORT: &str = "1b5b3f3939393b326e";
 
 pub fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
-    match target.backend {
-        Some(Candidate::Zmx) => {}
-        other => return Err(format!("queries идёт на zmx, а не на {other:?}")),
-    }
-    let mut stand = Stand::new(&target.out, environment)?;
+    let candidate = target
+        .backend
+        .ok_or("queries идёт на кандидате, а не на стенде")?;
+    let mut stand = Stand::for_candidate(&target.out, environment, candidate)?;
     let outcome = cells(&mut stand);
     let cleanup = stand.teardown();
     let mut report = outcome?;
@@ -279,7 +287,7 @@ fn wait_role(client: &Client, role: Role) -> Result<(), String> {
         .route()?
         .wait_until(WAIT, |rx, _| {
             rx.last_role()
-                .and_then(zmx::parse_role)
+                .and_then(parse_role)
                 .is_some_and(|report| report.role == role)
         })
         .map_err(|err| format!("клиент {} не получил роль {role:?}: {err}", client.label))
@@ -329,13 +337,7 @@ fn follower(
     evidence: &mut Evidence,
     label: &str,
 ) -> Result<Option<Client>, String> {
-    let client = stand.client_with(
-        ZmxSet::Current,
-        &session.id,
-        label,
-        Lead::IfFree,
-        stand.size,
-    )?;
+    let client = stand.client_on(stand.main(), &session.id, label, Lead::IfFree, stand.size)?;
     if evidence
         .require(
             &format!("{label} ведомый"),
@@ -510,12 +512,12 @@ fn d1_body(
                 return Ok(());
             };
             stand
-                .zmx
+                .main()
                 .stall_client(&c1.process, true)
                 .map_err(|err| err.to_string())?;
             let mark = session.link.log().len();
             send_d1(&mut session.link)?;
-            let exit = c1.kill(&stand.zmx)?;
+            let exit = c1.kill(stand.main())?;
             evidence.note("c1.exit", format!("{exit:?}"));
             drop(c1);
             let Some(_c2) = leader(stand, session, evidence, "c2")? else {
@@ -537,12 +539,12 @@ fn d1_body(
                 return Ok(());
             }
             stand
-                .zmx
+                .main()
                 .stall_client(&c1.process, true)
                 .map_err(|err| err.to_string())?;
             let mark = session.link.log().len();
             send_d1(&mut session.link)?;
-            let exit = c1.kill(&stand.zmx)?;
+            let exit = c1.kill(stand.main())?;
             evidence.note("c1.exit", format!("{exit:?}"));
             drop(c1);
             // Ведомый управляемый клиент лидером сам не становится, а его ввод демон отбрасывает:
@@ -613,15 +615,27 @@ fn d2(stand: &mut Stand) -> Result<Vec<Cell>, String> {
                     id: "D2",
                     part: Some(&part),
                     stimulus: format!(
-                        "{}; префикс, рост ревизии обработки ровно на единицу, остаток",
+                        "{}; префикс, {}, остаток",
                         if what.is_empty() {
                             mode.to_owned()
                         } else {
                             what
+                        },
+                        match stand.candidate {
+                            Candidate::Zmx => "рост ревизии обработки ровно на единицу",
+                            Candidate::Rust => "разбор ровно префикса одним куском",
                         }
                     ),
-                    oracle: "счётчик ответов фикстуры; граница — по протоколу разреза через \
-                             ревизию zmx screen",
+                    oracle: match stand.candidate {
+                        Candidate::Zmx => {
+                            "счётчик ответов фикстуры; граница — по протоколу разреза через \
+                             ревизию zmx screen"
+                        }
+                        Candidate::Rust => {
+                            "счётчик ответов фикстуры; граница — по протоколу разреза через \
+                             событие разбора наблюдателя Rust-хоста"
+                        }
+                    },
                     completion: "барьер DSR через клиента или контрольный DA без клиента",
                     origin: DefectOrigin::Host,
                 },
@@ -653,6 +667,12 @@ fn next_revision(stand: &Stand, id: &SessionId, before: u64) -> Result<u64, Stri
     }
 }
 
+/// Начало разреза: ревизия обработки zmx или точка покоя разбора Rust-хоста.
+enum CutStart {
+    Revision(u64),
+    Parsed(ParsedCut),
+}
+
 fn d2_cut(
     stand: &Stand,
     session: &mut Session,
@@ -663,17 +683,32 @@ fn d2_cut(
 ) -> Result<(), String> {
     let expected = [query.response()];
     let mark = session.link.log().len();
-    let Some(before) = evidence.require(
-        "ревизия до префикса",
-        stand
-            .zmx
-            .read_boundary(&session.id)
-            .map_err(|err| err.to_string()),
-    ) else {
-        return Ok(());
+    let start = match stand.candidate {
+        Candidate::Zmx => {
+            let Some(before) = evidence.require(
+                "ревизия до префикса",
+                stand
+                    .zmx
+                    .read_boundary(&session.id)
+                    .map_err(|err| err.to_string()),
+            ) else {
+                return Ok(());
+            };
+            CutStart::Revision(before)
+        }
+        Candidate::Rust => CutStart::Parsed(stand.parsed_cut(&session.id)?),
     };
     let request = send_query(&mut session.link, query, Some(at as u32))?;
-    let after = next_revision(stand, &session.id, before);
+    let reached = match &start {
+        CutStart::Revision(before) => next_revision(stand, &session.id, *before).inspect(|after| {
+            evidence.note("revision", json!({ "before": before, "after": after }));
+        }),
+        CutStart::Parsed(cut) => {
+            let (note, verdict) = cut.end(at, &[]);
+            evidence.note("parsed", note);
+            verdict.map(|()| 0)
+        }
+    };
     let rest = session
         .link
         .request(Command::Rest { query: request }, WAIT)
@@ -691,9 +726,13 @@ fn d2_cut(
             _ => None,
         })
         .collect();
-    let boundary = after.and_then(|after| {
-        evidence.note("revision", json!({ "before": before, "after": after }));
-        revision_boundary(before, after, &violations)
+    let boundary = reached.and_then(|after| match &start {
+        CutStart::Revision(before) => revision_boundary(*before, after, &violations),
+        CutStart::Parsed(_) if violations.is_empty() => Ok(()),
+        CutStart::Parsed(_) => Err(format!(
+            "предусловие разреза нарушено: {}",
+            violations.join("; ")
+        )),
     });
     let settled = if with_client {
         barrier_n(&mut session.link, 1)?
@@ -801,47 +840,70 @@ fn d3_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
 
 // --- D4 ---
 
+/// Части D4: метка сессии, имя части и стимул у zmx и у Rust-хоста.
+const D4_PARTS: [(&str, &str, &str, &str); 3] = [
+    (
+        "d4c",
+        "клиент",
+        "лидер c1 отвечает на чтение OSC 52 из профиля приёмника; затем c1 отключается и \
+         подключается c2",
+        "лидер c1 и GUI его поколения, GUI сразу отвечает на чтение OSC 52; затем c1 \
+         отключается и подключается c2",
+    ),
+    (
+        "d4h",
+        "без-gui",
+        "сессия без клиента: чтение OSC 52 без GUI",
+        "сессия без клиента и без GUI: чтение OSC 52",
+    ),
+    (
+        "d4l",
+        "поздний-ответ",
+        "лидер c1 остановлен SIGSTOP, фикстура читает OSC 52, c2 забирает лидерство, c1 \
+         продолжает и отвечает поздно",
+        "лидер c1 и GUI его поколения, который молчит; фикстура читает OSC 52, c2 забирает \
+         лидерство, GUI c1 отвечает поздно от имени прежнего поколения",
+    ),
+];
+
 fn d4(stand: &mut Stand) -> Result<Vec<Cell>, String> {
     let mut cells = Vec::new();
     let mut late_failed = None;
-    for (label, part, stimulus) in [
-        (
-            "d4c",
-            "клиент",
-            "лидер c1 отвечает на чтение OSC 52 из профиля приёмника; затем c1 отключается и \
-             подключается c2",
-        ),
-        (
-            "d4h",
-            "без-gui",
-            "сессия без клиента: чтение OSC 52 без GUI",
-        ),
-        (
-            "d4l",
-            "поздний-ответ",
-            "лидер c1 остановлен SIGSTOP, фикстура читает OSC 52, c2 забирает лидерство, c1 \
-             продолжает и отвечает поздно",
-        ),
-    ] {
+    for (label, part, zmx_stimulus, rust_stimulus) in D4_PARTS {
         let id = stand.session(label)?;
         let mut session = stand.ensure(&id, Mode::Query)?;
         let mut evidence = Evidence::default();
+        let mut generation = Evidence::default();
         evidence.note("record", &session.record);
         match label {
             "d4c" => d4_client(stand, &mut session, &mut evidence)?,
-            "d4h" => d4_headless(&mut session, &mut evidence)?,
-            _ => d4_late(stand, &mut session, &mut evidence)?,
+            "d4h" => d4_headless(stand, &mut session, &mut evidence)?,
+            _ => match stand.candidate {
+                Candidate::Zmx => d4_late(stand, &mut session, &mut evidence)?,
+                Candidate::Rust => {
+                    d4_late_rust(stand, &mut session, &mut evidence, &mut generation)?
+                }
+            },
         }
         if label == "d4l" {
             late_failed = Some(evidence.status().0 == crate::results::Status::Fail);
         }
         let artifact = stand.artifact(&format!("{label}.json"), &evidence)?;
+        let generation_artifact = if label == "d4l" && stand.candidate == Candidate::Rust {
+            Some(stand.artifact("d4g.json", &generation)?)
+        } else {
+            None
+        };
         stand.discard(&id);
         cells.push(cell(
             Spec {
                 id: "D4",
                 part: Some(part),
-                stimulus: stimulus.to_owned(),
+                stimulus: match stand.candidate {
+                    Candidate::Zmx => zmx_stimulus,
+                    Candidate::Rust => rust_stimulus,
+                }
+                .to_owned(),
                 oracle: "счётчик ответов фикстуры вида clipboard",
                 completion: "барьер DSR через живых клиентов или контрольный DA без клиента",
                 origin: DefectOrigin::Host,
@@ -849,42 +911,91 @@ fn d4(stand: &mut Stand) -> Result<Vec<Cell>, String> {
             &evidence,
             vec![artifact.clone(), stand.log_name(&id)],
         ));
-        if label == "d4l" {
-            let mut generation = Evidence::default();
-            if late_failed == Some(true) {
-                generation.unsupported = Some(
-                    "ответ GUI на чтение буфера обмена идёт в zmx обычным вводом клиента: у него \
-                     нет поколения и тайм-аута, поздний ответ прежнего лидера доходит до нагрузки \
-                     (часть поздний-ответ)"
-                        .to_owned(),
-                );
-            } else {
-                generation.not_proven = Some(
-                    "поздний ответ не дошёл до нагрузки: отсутствие поколения не доказано"
-                        .to_owned(),
-                );
-            }
-            cells.push(cell(
-                Spec {
-                    id: "D4",
-                    part: Some("поколение-и-тайм-аут"),
-                    stimulus: "по части поздний-ответ".to_owned(),
-                    oracle: "счётчик ответов фикстуры вида clipboard",
-                    completion: "часть поздний-ответ закончена",
-                    origin: DefectOrigin::Host,
-                },
-                &generation,
-                vec![artifact],
-            ));
+        if label != "d4l" {
+            continue;
         }
+        let (stimulus, oracle, artifacts) = match generation_artifact {
+            None => {
+                if late_failed == Some(true) {
+                    generation.unsupported = Some(
+                        "ответ GUI на чтение буфера обмена идёт в zmx обычным вводом клиента: у \
+                         него нет поколения и тайм-аута, поздний ответ прежнего лидера доходит \
+                         до нагрузки (часть поздний-ответ)"
+                            .to_owned(),
+                    );
+                } else {
+                    generation.not_proven = Some(
+                        "поздний ответ не дошёл до нагрузки: отсутствие поколения не доказано"
+                            .to_owned(),
+                    );
+                }
+                (
+                    "по части поздний-ответ",
+                    "счётчик ответов фикстуры вида clipboard",
+                    vec![artifact],
+                )
+            }
+            Some(file) => (
+                "по части поздний-ответ; затем GUI нового лидера c2 молчит на чтение OSC 52 до \
+                 срока хоста и отвечает после него",
+                "ответы фикстуры вида clipboard и их данные, счётчики чтения буфера обмена в \
+                 состоянии хоста",
+                vec![file, artifact, stand.log_name(&id)],
+            ),
+        };
+        cells.push(cell(
+            Spec {
+                id: "D4",
+                part: Some("поколение-и-тайм-аут"),
+                stimulus: stimulus.to_owned(),
+                oracle,
+                completion: "часть поздний-ответ закончена, барьер DSR через c2 после ответа по \
+                             сроку",
+                origin: DefectOrigin::Host,
+            },
+            &generation,
+            artifacts,
+        ));
     }
     Ok(cells)
+}
+
+/// Данные ответов OSC 52 фикстуре.
+fn clipboard_payloads(got: &[(ResponseKind, String)]) -> Vec<Option<String>> {
+    got.iter()
+        .filter(|(kind, _)| *kind == ResponseKind::Clipboard)
+        .map(|(_, raw)| osc52_payload(raw))
+        .collect()
+}
+
+/// GUI лидера `client` на Rust-хосте; `auto` — данные мгновенного ответа. `None` у zmx или при
+/// отказе, записанном проверкой.
+fn bind_gui(
+    stand: &Stand,
+    session: &Session,
+    client: &Client,
+    auto: Option<&[u8]>,
+    evidence: &mut Evidence,
+) -> Result<Option<crate::backend::rust::Gui>, String> {
+    let Some(rust) = &stand.rust else {
+        return Ok(None);
+    };
+    let generation = generation(client)?;
+    Ok(evidence.require(
+        &format!("GUI поколения {generation} лидера {}", client.label),
+        rust.gui(&session.id, generation, auto.map(<[u8]>::to_vec))
+            .map_err(|err| err.to_string()),
+    ))
 }
 
 fn d4_client(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Result<(), String> {
     let Some(mut c1) = leader(stand, session, evidence, "c1")? else {
         return Ok(());
     };
+    let gui = bind_gui(stand, session, &c1, Some(GUI_CLIPBOARD), evidence)?;
+    if stand.rust.is_some() && gui.is_none() {
+        return Ok(());
+    }
     let mark = session.link.log().len();
     send_query(&mut session.link, Query::ClipboardRead, None)?;
     let settled = barrier_n(&mut session.link, 1)?;
@@ -896,6 +1007,15 @@ fn d4_client(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> R
         &[ResponseKind::Clipboard],
         &got,
     );
+    if let Some(gui) = &gui {
+        let payloads = clipboard_payloads(&got);
+        evidence.note("gui.asks", gui.asks());
+        evidence.check(
+            "данные GUI лидера дошли до нагрузки",
+            payloads == [Some(base64(GUI_CLIPBOARD))],
+            format!("данные ответов: {payloads:?}"),
+        );
+    }
     c1.input(DETACH_KEY)?;
     if evidence
         .require("c1 отключился клавишей", c1.wait_exit())
@@ -916,13 +1036,24 @@ fn d4_client(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> R
     Ok(())
 }
 
-fn d4_headless(session: &mut Session, evidence: &mut Evidence) -> Result<(), String> {
+fn d4_headless(
+    stand: &Stand,
+    session: &mut Session,
+    evidence: &mut Evidence,
+) -> Result<(), String> {
     let mark = session.link.log().len();
     send_query(&mut session.link, Query::ClipboardRead, None)?;
     let expected = [ResponseKind::Clipboard];
     let settled = settle_headless(&mut session.link, mark, &expected)?;
     let got = without_last(responses(&session.link, mark), settle_kind(&expected));
     settled_tally(evidence, "явный ответ без GUI", settled, &expected, &got);
+    if let Some(rust) = &stand.rust {
+        let status = rust
+            .status(&session.id)
+            .map_err(|err| format!("состояние хоста: {err}"))?;
+        evidence.note("clipboard", status.clipboard);
+        evidence.note("payloads", clipboard_payloads(&got));
+    }
     Ok(())
 }
 
@@ -936,7 +1067,7 @@ fn d4_late(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
         .map_err(|err| err.to_string())?;
     let mark = session.link.log().len();
     send_query(&mut session.link, Query::ClipboardRead, None)?;
-    let c2 = stand.client_with(ZmxSet::Current, &session.id, "c2", Lead::Claim, stand.size)?;
+    let c2 = stand.client_on(stand.main(), &session.id, "c2", Lead::Claim, stand.size)?;
     if evidence
         .require("c2 забрал лидерство", c2.wait_leader())
         .is_none()
@@ -973,6 +1104,143 @@ fn d4_late(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
     Ok(())
 }
 
+/// Поздний ответ на Rust-хосте: ожидание отменяет смена лидера, хост отвечает нагрузке пусто, а
+/// ответ GUI прежнего поколения отбрасывается. Затем часть «поколение-и-тайм-аут»: GUI нового
+/// лидера молчит до срока хоста.
+fn d4_late_rust(
+    stand: &Stand,
+    session: &mut Session,
+    evidence: &mut Evidence,
+    generation_evidence: &mut Evidence,
+) -> Result<(), String> {
+    let rust = stand.rust()?;
+    let Some(c1) = leader(stand, session, evidence, "c1")? else {
+        return Ok(());
+    };
+    let Some(gui1) = bind_gui(stand, session, &c1, None, evidence)? else {
+        return Ok(());
+    };
+    let late = Some(base64(LATE_CLIPBOARD));
+    let mark = session.link.log().len();
+    send_query(&mut session.link, Query::ClipboardRead, None)?;
+    let Some(ask) = evidence.require(
+        "чтение дошло до GUI c1",
+        gui1.wait_ask(1, WAIT).map_err(|err| err.to_string()),
+    ) else {
+        return Ok(());
+    };
+    evidence.note("c1.ask", ask);
+    let c2 = stand.client_on(stand.main(), &session.id, "c2", Lead::Claim, stand.size)?;
+    if evidence
+        .require("c2 забрал лидерство", c2.wait_leader())
+        .is_none()
+    {
+        return Ok(());
+    }
+    gui1.answer(ask, ask.generation, Some(LATE_CLIPBOARD.to_vec()))
+        .map_err(|err| err.to_string())?;
+    let settled = barrier_led(&mut session.link, &c2, &[&c1])?;
+    let got = responses(&session.link, mark);
+    let status = rust
+        .status(&session.id)
+        .map_err(|err| format!("состояние хоста: {err}"))?;
+    let payloads = clipboard_payloads(&got);
+    evidence.note("responses", &got);
+    evidence.note("clipboard", status.clipboard);
+    evidence.note("c1.journal", journal(&c1)?);
+    evidence.note("c2.journal", journal(&c2)?);
+    if let Some(reason) = settled {
+        evidence.not_proven = Some(reason);
+        return Ok(());
+    }
+    let dropped = !payloads.contains(&late) && status.clipboard.dropped >= 1;
+    evidence.check(
+        "поздний ответ прежнего лидера отброшен",
+        dropped,
+        format!(
+            "данные ответов {payloads:?}, отброшено хостом {}",
+            status.clipboard.dropped
+        ),
+    );
+    evidence.check(
+        "ожидание закончилось одним пустым ответом",
+        payloads == [Some(String::new())],
+        format!(
+            "данные ответов {payloads:?}; отменено {}, по сроку {}",
+            status.clipboard.cancelled, status.clipboard.timeouts
+        ),
+    );
+    generation_evidence.check(
+        "ответ прежнего поколения отброшен (часть поздний-ответ)",
+        dropped,
+        format!("отброшено хостом {}", status.clipboard.dropped),
+    );
+    d4_timeout(stand, session, &c2, generation_evidence)
+}
+
+fn d4_timeout(
+    stand: &Stand,
+    session: &mut Session,
+    c2: &Client,
+    evidence: &mut Evidence,
+) -> Result<(), String> {
+    let rust = stand.rust()?;
+    let Some(gui2) = bind_gui(stand, session, c2, None, evidence)? else {
+        return Ok(());
+    };
+    let id = session.id.clone();
+    let status = || {
+        rust.status(&id)
+            .map(|status| status.clipboard)
+            .map_err(|err| format!("состояние хоста: {err}"))
+    };
+    let before = status()?;
+    let mark = session.link.log().len();
+    let started = Instant::now();
+    send_query(&mut session.link, Query::ClipboardRead, None)?;
+    let Some(ask) = evidence.require(
+        "чтение дошло до GUI c2",
+        gui2.wait_ask(1, WAIT).map_err(|err| err.to_string()),
+    ) else {
+        return Ok(());
+    };
+    let answered = pull_until(&mut session.link, WAIT, |link| {
+        count(&responses(link, mark), ResponseKind::Clipboard) >= 1
+    })?;
+    let waited = started.elapsed();
+    gui2.answer(ask, ask.generation, Some(LATE_CLIPBOARD.to_vec()))
+        .map_err(|err| err.to_string())?;
+    let settled = barrier_n(&mut session.link, 1)?;
+    let got = responses(&session.link, mark);
+    let after = status()?;
+    let payloads = clipboard_payloads(&got);
+    evidence.note("timeout.ask", ask);
+    evidence.note("timeout.waited_ms", waited.as_millis() as u64);
+    evidence.note("timeout.responses", &got);
+    evidence.note("timeout.clipboard_before", before);
+    evidence.note("timeout.clipboard_after", after);
+    if let Some(reason) = settled {
+        evidence.not_proven = Some(reason);
+        return Ok(());
+    }
+    evidence.check(
+        "без ответа GUI хост отвечает пусто по сроку",
+        answered && payloads == [Some(String::new())] && after.timeouts == before.timeouts + 1,
+        format!(
+            "данные ответов {payloads:?} через {} мс, по сроку {} → {}",
+            waited.as_millis(),
+            before.timeouts,
+            after.timeouts
+        ),
+    );
+    evidence.check(
+        "ответ GUI после срока отброшен",
+        after.dropped == before.dropped + 1 && !payloads.contains(&Some(base64(LATE_CLIPBOARD))),
+        format!("отброшено {} → {}", before.dropped, after.dropped),
+    );
+    Ok(())
+}
+
 // --- D5 ---
 
 fn count(got: &[(ResponseKind, String)], kind: ResponseKind) -> usize {
@@ -991,10 +1259,22 @@ fn d5(stand: &mut Stand) -> Result<Cell, String> {
         Spec {
             id: "D5",
             part: None,
-            stimulus: "при лидере c1 фикстура включает 1004 и 2048, окно c1 получает фокус; c1 \
-                       отключается клавишей; подключается c2 того же размера и получает фокус"
-                .to_owned(),
-            oracle: "счётчик отчётов фокуса и размера фикстуры по событиям; квитанции SIGWINCH",
+            stimulus: match stand.candidate {
+                Candidate::Zmx => {
+                    "при лидере c1 фикстура включает 1004 и 2048, окно c1 получает фокус; c1 \
+                     отключается клавишей; подключается c2 того же размера и получает фокус"
+                }
+                Candidate::Rust => {
+                    "при лидере c1 фикстура включает 1004 и 2048, окно c1 получает фокус \
+                     (приёмник c1 и сообщение GUI поколения c1); фикстура включает 2033, GUI c1 \
+                     сообщает скрытие окна; c1 отключается клавишей; подключается c2 того же \
+                     размера и получает фокус тем же путём; GUI прежнего поколения сообщает \
+                     потерю фокуса"
+                }
+            }
+            .to_owned(),
+            oracle: "счётчик отчётов фокуса, размера и видимости фикстуры по событиям; квитанции \
+                     SIGWINCH; отказ хоста GUI прежнего поколения",
             completion: "барьер DSR через живого клиента после каждого события",
             origin: DefectOrigin::Host,
         },
@@ -1009,6 +1289,10 @@ fn d5_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
     let Some(mut c1) = leader(stand, session, evidence, "c1")? else {
         return Ok(());
     };
+    let gui1 = bind_gui(stand, session, &c1, None, evidence)?;
+    if stand.rust.is_some() && gui1.is_none() {
+        return Ok(());
+    }
     let mark = session.link.log().len();
     write(&mut session.link, FOCUS_SIZE_ON)?;
     let settled = barrier_n(&mut session.link, 1)?;
@@ -1025,6 +1309,11 @@ fn d5_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
     );
     let mark = session.link.log().len();
     c1.route()?.focus(true)?;
+    if let Some(gui) = &gui1
+        && !gui_accepted(evidence, "фокус через GUI c1", gui.focus(true))
+    {
+        return Ok(());
+    }
     let settled = barrier_n(&mut session.link, 1)?;
     let got = responses(&session.link, mark);
     evidence.note("focus.responses", &got);
@@ -1037,6 +1326,11 @@ fn d5_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
         count(&got, ResponseKind::FocusIn) == 1 && got.len() == 1,
         format!("{:?}", got),
     );
+    if let Some(gui) = &gui1
+        && !d5_visibility(session, gui, evidence)?
+    {
+        return Ok(());
+    }
     let mark = session.link.log().len();
     c1.input(DETACH_KEY)?;
     if evidence
@@ -1049,7 +1343,21 @@ fn d5_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
     if evidence.require("c2 лидер", c2.wait_leader()).is_none() {
         return Ok(());
     }
+    let gui2 = bind_gui(stand, session, &c2, None, evidence)?;
     c2.route()?.focus(true)?;
+    if let (Some(gui1), Some(gui2)) = (&gui1, &gui2) {
+        if !gui_accepted(evidence, "фокус через GUI c2", gui2.focus(true)) {
+            return Ok(());
+        }
+        let stale = gui1.focus(false).map_err(|err| err.to_string())?;
+        evidence.check(
+            "GUI прежнего поколения отвергнут",
+            stale.is_some(),
+            format!("ответ хоста на потерю фокуса от GUI c1: {stale:?}"),
+        );
+    } else if stand.rust.is_some() {
+        return Ok(());
+    }
     let settled = barrier_n(&mut session.link, 1)?;
     let got = responses(&session.link, mark);
     let winches = session
@@ -1092,6 +1400,56 @@ fn d5_body(stand: &Stand, session: &mut Session, evidence: &mut Evidence) -> Res
     Ok(())
 }
 
+/// Сообщение GUI принято хостом; отказ или ошибка записаны проверкой.
+fn gui_accepted(
+    evidence: &mut Evidence,
+    name: &str,
+    reply: crate::backend::Result<Option<String>>,
+) -> bool {
+    match reply {
+        Ok(None) => evidence.check(name, true, "принято"),
+        Ok(Some(reason)) => evidence.check(name, false, format!("хост отказал: {reason}")),
+        Err(err) => evidence.check(name, false, err.to_string()),
+    }
+}
+
+/// Видимость окна на Rust-хосте: фикстура включает 2033, GUI лидера сообщает скрытие, нагрузка
+/// получает ровно один отчёт хоста. `false` — дальше идти нельзя, причина записана.
+fn d5_visibility(
+    session: &mut Session,
+    gui: &crate::backend::rust::Gui,
+    evidence: &mut Evidence,
+) -> Result<bool, String> {
+    let mark = session.link.log().len();
+    write(&mut session.link, VISIBILITY_ON)?;
+    let settled = barrier_n(&mut session.link, 1)?;
+    evidence.note(
+        "visibility.enable.responses",
+        responses(&session.link, mark),
+    );
+    if let Some(reason) = settled {
+        evidence.not_proven = Some(reason);
+        return Ok(false);
+    }
+    let mark = session.link.log().len();
+    if !gui_accepted(evidence, "скрытие окна через GUI c1", gui.visible(false)) {
+        return Ok(false);
+    }
+    let settled = barrier_n(&mut session.link, 1)?;
+    let got = responses(&session.link, mark);
+    evidence.note("visibility.responses", &got);
+    if let Some(reason) = settled {
+        evidence.not_proven = Some(reason);
+        return Ok(false);
+    }
+    evidence.check(
+        "скрытие окна c1: один отчёт видимости",
+        got.len() == 1 && got[0].1 == HIDDEN_REPORT,
+        format!("{got:?}"),
+    );
+    Ok(true)
+}
+
 // --- D6 ---
 
 fn d6(stand: &mut Stand) -> Result<Vec<Cell>, String> {
@@ -1116,12 +1474,18 @@ fn d6(stand: &mut Stand) -> Result<Vec<Cell>, String> {
             Spec {
                 id: "D6",
                 part: Some(part),
-                stimulus: format!(
-                    "{stimulus}; snapshot (zmx screen), list, input raw (zmx send) и input \
-                     typed (zmx type)"
-                ),
+                stimulus: match stand.candidate {
+                    Candidate::Zmx => format!(
+                        "{stimulus}; snapshot (zmx screen), list, input raw (zmx send) и input \
+                         typed (zmx type)"
+                    ),
+                    Candidate::Rust => format!(
+                        "{stimulus}; snapshot, list, input raw и input typed управляющими \
+                         соединениями хоста"
+                    ),
+                },
                 oracle: "время каждой операции против предела, квитанции прочитанного ввода",
-                completion: "каждая операция вернулась или вышел срок команды zmx",
+                completion: "каждая операция вернулась или вышел срок команды кандидата",
                 origin: DefectOrigin::Host,
             },
             &evidence,
@@ -1176,7 +1540,7 @@ fn d6_body(
             return Ok(());
         };
         stand
-            .zmx
+            .main()
             .stall_client(&client.process, true)
             .map_err(|err| err.to_string())?;
         Some(client)
@@ -1185,7 +1549,7 @@ fn d6_body(
     };
     let id = session.id.clone();
     let mark = session.link.log().len();
-    let backend = &stand.zmx;
+    let backend = stand.main();
     if let Some(snapshot) = timed(evidence, "snapshot", || backend.snapshot(&id)) {
         evidence.note("snapshot.revision", snapshot.revision);
     }
@@ -1213,7 +1577,7 @@ fn d6_body(
         format!("прочитано: {}", hex(&bytes)),
     );
     if let Some(client) = client {
-        let _ = stand.zmx.stall_client(&client.process, false);
+        let _ = stand.main().stall_client(&client.process, false);
     }
     Ok(())
 }

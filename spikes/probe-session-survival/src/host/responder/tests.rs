@@ -1,6 +1,8 @@
 use super::*;
 
 /// VT-заглушка: отвечает меткой на каждый известный запрос, который закончился в поданном шаге.
+/// OSC с терминатором ST VT исполняет уже на ESC, как разборщик ghostty, поэтому ключ OSC 11 —
+/// без `\`.
 struct Fake {
     seen: Vec<u8>,
 }
@@ -12,7 +14,7 @@ const KNOWN: [(&[u8], &[u8]); 9] = [
     (b"\x1b[5n", b"<dsr>"),
     (b"\x1b[?2004$p", b"<decrqm>"),
     (b"\x1b[>0q", b"<xtversion>"),
-    (b"\x1b]11;?\x1b\\", b"<osc11>"),
+    (b"\x1b]11;?\x1b", b"<osc11>"),
     (b"\x1b]52;c;?\x07", b"<clip>"),
     (b"\x1b[?2048h", b"<size>"),
 ];
@@ -223,4 +225,18 @@ fn continuation_mismatch_is_reported() {
     assert_eq!(client_continuation(b"\x1b[1", b"\x1b[1").unwrap(), b"");
     assert!(client_continuation(b"\x1b]2;x", b"\x1b[").is_err());
     assert_eq!(client_continuation(b"\xd0", b"").unwrap(), b"\xd0");
+}
+
+#[test]
+fn served_osc_closed_by_escape_starts_the_next_sequence() {
+    // ESC закрыл запрос OSC 11 без `\`: VT ответил на ESC, а ESC начал CSI клиенту.
+    let (fed, _, responder) = run(&[b"\x1b]11;?\x1b", b"[1mX"]);
+    assert_eq!(fed.replies, b"<osc11>");
+    assert_eq!(fed.served, [Served::Color]);
+    assert_eq!(fed.client, b"\x1b[1mX");
+    assert!(responder.held().is_empty());
+    // До следующего байта ESC удержан: continuation клиента его не содержит.
+    let (_, _, waiting) = run(&[b"\x1b]11;?\x1b"]);
+    assert_eq!(waiting.held(), b"\x1b");
+    assert_eq!(client_continuation(b"\x1b", waiting.held()), Ok(Vec::new()));
 }

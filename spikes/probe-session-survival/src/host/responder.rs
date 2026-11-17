@@ -68,8 +68,11 @@ enum Parse {
     Csi,
     /// OSC, номер которой ещё читается или которая может оказаться запросом: удерживается.
     OscHeld,
-    /// ESC внутри удерживаемой OSC.
+    /// ESC внутри удерживаемой OSC, которая не обслуживается.
     OscHeldEscape,
+    /// ESC закрыл обслуженную OSC: VT исполнил её на ESC. `\` терминатора ST клиенту не идёт;
+    /// ESC удержан, другой байт начинает с ним новую последовательность.
+    ServedEscape,
     /// Строка (OSC, DCS, SOS, PM, APC), которая идёт клиенту насквозь до ST, BEL или CAN/SUB.
     Text {
         dcs: bool,
@@ -223,7 +226,18 @@ impl Scanner {
                 }
                 ESC => {
                     self.held.push(byte);
-                    self.parse = Parse::OscHeldEscape;
+                    // VT исполняет OSC уже на ESC терминатора ST: ответ на обслуженный запрос
+                    // принадлежит шагу, который кончается этим ESC.
+                    let mut whole = self.held.clone();
+                    whole.push(b'\\');
+                    match osc_served(&whole) {
+                        Some(served) => {
+                            self.held = vec![ESC];
+                            self.parse = Parse::ServedEscape;
+                            self.cut(Some(served));
+                        }
+                        None => self.parse = Parse::OscHeldEscape,
+                    }
                 }
                 _ => {
                     self.held.push(byte);
@@ -243,6 +257,15 @@ impl Scanner {
                     self.held.pop();
                     self.flush();
                     self.held.push(ESC);
+                    self.parse = Parse::Escape;
+                    self.byte(byte);
+                }
+            }
+            Parse::ServedEscape => {
+                if byte == b'\\' {
+                    self.held.clear();
+                    self.parse = Parse::Ground;
+                } else {
                     self.parse = Parse::Escape;
                     self.byte(byte);
                 }
