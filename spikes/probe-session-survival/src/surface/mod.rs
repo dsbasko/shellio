@@ -5,5 +5,6 @@
 
 pub mod bridge;
 pub mod ghostty;
+pub mod gui;
 pub mod scene;
 pub mod view;

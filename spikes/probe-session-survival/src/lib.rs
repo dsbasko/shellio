@@ -71,7 +71,30 @@ pub fn main() -> ExitCode {
             }
         },
         Mode::Scenario { target, nonce } => matrix::process_main(&target, nonce, &entry_env),
+        Mode::Gui {
+            control,
+            out,
+            nonce,
+        } => gui(&control, &out, &nonce),
     }
+}
+
+/// GUI-процесс сценария `bridge`: ненулевой код — ошибка исполнения, водитель видит её сам.
+#[cfg(feature = "surface")]
+fn gui(control: &Path, out: &Path, nonce: &str) -> ExitCode {
+    match surface::gui::run(control, out, nonce) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(reason) => {
+            say(&format!("{PROBE_NAME}: --gui: {reason}"));
+            ExitCode::from(EXIT_EXECUTION)
+        }
+    }
+}
+
+#[cfg(not(feature = "surface"))]
+fn gui(_control: &Path, _out: &Path, _nonce: &str) -> ExitCode {
+    say(&format!("{PROBE_NAME}: --gui требует функцию surface"));
+    ExitCode::from(EXIT_EXECUTION)
 }
 
 /// `summary.json` прогона и сводка в stdout. Ненулевой код — только при ошибке исполнения хотя

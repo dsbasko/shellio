@@ -17,6 +17,8 @@ pub const USAGE: &str = "\
   probe-session --launch -- <аргументы сценария>
       процесс сценария с окружением, собранным с нуля, временным SHELLIO_STATE_DIR и внешним
       сторожем
+  probe-session-surface --gui <сокет водителя> --out <каталог GUI> --nonce <метка>
+      GUI-процесс сценария bridge: поверхности по командам водителя (функция surface)
 
 --nonce процессу сценария выставляет --launch; --variant по умолчанию base, имя варианта —
 строчные латинские буквы и цифры";
@@ -54,6 +56,13 @@ pub enum Mode {
         out: PathBuf,
     },
     Launch(Launch),
+    /// GUI-процесс сценария `bridge`: окно с поверхностями по командам водителя через сокет
+    /// `control`, журнал эффектов и конфигурация ghostty — в `out`.
+    Gui {
+        control: PathBuf,
+        out: PathBuf,
+        nonce: String,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -165,10 +174,11 @@ enum Flag {
     Aggregate,
     Scenes,
     Launch,
+    Gui,
 }
 
 impl Flag {
-    const ALL: [Flag; 8] = [
+    const ALL: [Flag; 9] = [
         Flag::Scenario,
         Flag::Backend,
         Flag::Variant,
@@ -177,6 +187,7 @@ impl Flag {
         Flag::Aggregate,
         Flag::Scenes,
         Flag::Launch,
+        Flag::Gui,
     ];
 
     fn name(self) -> &'static str {
@@ -189,6 +200,7 @@ impl Flag {
             Flag::Aggregate => "--aggregate",
             Flag::Scenes => "--scenes",
             Flag::Launch => "--launch",
+            Flag::Gui => "--gui",
         }
     }
 
@@ -211,6 +223,7 @@ struct Raw {
     nonce: Option<String>,
     aggregate: Option<PathBuf>,
     scenes: Option<PathBuf>,
+    gui: Option<PathBuf>,
     launch: bool,
 }
 
@@ -244,6 +257,20 @@ pub fn parse(args: &[String]) -> Result<Mode, ArgsError> {
         return match raw.extra(&[Flag::Aggregate]) {
             Some(flag) => Err(not_with(Flag::Aggregate, flag)),
             None => Ok(Mode::Aggregate { run_dir }),
+        };
+    }
+    if let Some(control) = raw.gui.clone() {
+        if let Some(flag) = raw.extra(&[Flag::Gui, Flag::Out, Flag::Nonce]) {
+            return Err(not_with(Flag::Gui, flag));
+        }
+        return match (raw.out, raw.nonce) {
+            (Some(out), Some(nonce)) => Ok(Mode::Gui {
+                control,
+                out,
+                nonce,
+            }),
+            (None, _) => Err(requires(Flag::Gui, Flag::Out)),
+            (_, None) => Err(requires(Flag::Gui, Flag::Nonce)),
         };
     }
     if let Some(out) = raw.scenes.clone() {
@@ -337,6 +364,7 @@ fn parse_flags(args: &[String]) -> Result<Raw, ArgsError> {
             Flag::Out => raw.out = Some(path(flag, value)?),
             Flag::Aggregate => raw.aggregate = Some(path(flag, value)?),
             Flag::Scenes => raw.scenes = Some(path(flag, value)?),
+            Flag::Gui => raw.gui = Some(path(flag, value)?),
             Flag::Launch => {}
         }
     }
@@ -355,9 +383,11 @@ fn launch(raw: Raw, tail: &[String]) -> Result<Mode, ArgsError> {
             target,
             args: tail.to_vec(),
         })),
-        Mode::Help | Mode::Aggregate { .. } | Mode::Scenes { .. } | Mode::Launch(_) => {
-            Err(ArgsError::LaunchTarget)
-        }
+        Mode::Help
+        | Mode::Aggregate { .. }
+        | Mode::Scenes { .. }
+        | Mode::Launch(_)
+        | Mode::Gui { .. } => Err(ArgsError::LaunchTarget),
     }
 }
 
@@ -400,6 +430,39 @@ mod tests {
 
     fn parse_str(args: &[&str]) -> Result<Mode, ArgsError> {
         parse(&strings(args))
+    }
+
+    #[test]
+    fn gui_mode_needs_out_and_nonce() {
+        assert_eq!(
+            parse_str(&["--gui", "/tmp/c.sock", "--out", "g1", "--nonce", "n1-gui1"]),
+            Ok(Mode::Gui {
+                control: PathBuf::from("/tmp/c.sock"),
+                out: PathBuf::from("g1"),
+                nonce: "n1-gui1".to_owned(),
+            })
+        );
+        assert!(parse_str(&["--gui", "/tmp/c.sock", "--nonce", "n1"]).is_err());
+        assert!(parse_str(&["--gui", "/tmp/c.sock", "--out", "g1"]).is_err());
+        assert!(
+            parse_str(&[
+                "--gui",
+                "/tmp/c.sock",
+                "--out",
+                "g1",
+                "--nonce",
+                "n1",
+                "--scenario",
+                "bridge"
+            ])
+            .is_err()
+        );
+        assert_eq!(
+            parse_str(&[
+                "--launch", "--", "--gui", "/c", "--out", "g", "--nonce", "n"
+            ]),
+            Err(ArgsError::LaunchOwns("--nonce"))
+        );
     }
 
     fn smoke(out: &str) -> Target {
