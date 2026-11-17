@@ -377,6 +377,8 @@ mod tests {
         let mut hub = Hub::bind(&dir).unwrap();
         hub.start().unwrap();
         let mut client = UnixStream::connect(hub.path()).unwrap();
+        // Срок ставится до закрытия: после него macOS отвечает на `setsockopt` EINVAL.
+        client.set_read_timeout(Some(WAIT)).unwrap();
         let receipt = Receipt {
             seq: 1,
             t_ns: 5,
@@ -452,7 +454,6 @@ mod tests {
         assert_eq!(hub.conns[0].receipts.len(), 3);
         let error = hub.send("run-s1", Command::StopStream).unwrap_err();
         assert!(error.contains("нет потока записи"), "{error}");
-        client.set_read_timeout(Some(WAIT)).unwrap();
         let tail = client.read(&mut buf);
         assert!(
             matches!(tail, Ok(0)),
