@@ -5,6 +5,7 @@ members = [
     "crates/shellio-ghostty",
     "crates/shellio-sys-ghostty",
     "spikes/probe-appkit-shell",
+    "spikes/probe-diff-view",
     "spikes/probe-ghostty-surface",
     "spikes/probe-session-survival",
     "spikes/probe-update-lifecycle",
