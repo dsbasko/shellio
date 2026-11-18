@@ -579,3 +579,52 @@ mod tests {
         assert_eq!(segment.vsync_display, "Built-In Display 1");
     }
 }
+
+#[cfg(test)]
+mod recorded {
+    use super::*;
+
+    /// Отрезок `holds` первого прогона `calibrate` (`20261119-024534-65013`): выгрузки и вход разбора.
+    #[test]
+    fn first_calibrate_holds_segment() {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/calibrate-holds/");
+        let read = |name: &str| {
+            let xml = std::fs::read_to_string(format!("{dir}{name}.xml")).unwrap();
+            frames::parse_table(&xml).unwrap()
+        };
+        let exported = Exported {
+            clock: Clock::from_table(&read("time-info")).unwrap(),
+            vsyncs: frames::vsyncs(&read("display-vsyncs-interval")).unwrap(),
+            updates: frames::updates(&read("hitches-updates")).unwrap(),
+            lifetimes: frames::lifetimes(&read("hitches-frame-lifetimes")).unwrap(),
+        };
+        #[derive(Deserialize)]
+        struct Input {
+            pid: u32,
+            window: Window,
+            held_targets_ns: Vec<u64>,
+        }
+        let input: Input = serde_json::from_str(
+            &std::fs::read_to_string(format!("{dir}segment-input.json")).unwrap(),
+        )
+        .unwrap();
+        let segment = analyze(&exported, input.pid, input.window, &input.held_targets_ns).unwrap();
+        assert_eq!(segment.vsync_display, "Built-In Display 1");
+        assert!(segment.rate.confirmed);
+        assert_eq!(segment.ticks, 480);
+        assert_eq!(segment.probe_frames.len(), 467);
+        let forward = &segment.forward;
+        assert_eq!(forward.shift, 2);
+        let expected: Vec<usize> = (122..125).chain(302..312).collect();
+        assert_eq!(forward.missed, expected);
+        assert!(forward.passed(), "{forward:?}");
+        assert!(
+            analyze(&exported, input.pid, input.window, &[])
+                .unwrap()
+                .forward
+                .unexpected
+                .len()
+                == 13
+        );
+    }
+}
