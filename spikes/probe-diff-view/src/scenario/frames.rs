@@ -404,6 +404,118 @@ pub fn surfaces(table: &Table) -> Result<Vec<Surface>, String> {
         .collect()
 }
 
+/// Процесс из подписи `<имя> (<pid>)` ячейки `process`.
+fn process(cell: Option<&Option<Cell>>) -> Option<(String, u32)> {
+    let fmt = &cell.and_then(Option::as_ref)?.fmt;
+    let (name, pid) = fmt.strip_suffix(')')?.rsplit_once(" (")?;
+    Some((name.to_string(), pid.parse().ok()?))
+}
+
+/// Обновление процесса в кадре дисплея `swap_id` (`hitches-updates`): у каждой строки есть
+/// процесс-источник, ряд сплошной (пробная запись 02:01).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Update {
+    pub start_ns: u64,
+    pub duration_ns: u64,
+    pub process: String,
+    pub pid: u32,
+    pub swap_id: u64,
+    pub surface_id: u64,
+}
+
+pub fn updates(table: &Table) -> Result<Vec<Update>, String> {
+    let start = table.column("start")?;
+    let duration = table.column("duration")?;
+    let source = table.column("process")?;
+    let swap = table.column("swap-id")?;
+    let surface = table.column("surface-id")?;
+    table
+        .rows
+        .iter()
+        .map(|row| {
+            let (process, pid) = process(row.get(source))
+                .ok_or_else(|| format!("обновление без процесса: {:?}", row.get(source)))?;
+            Ok(Update {
+                start_ns: number(row.get(start), "start")?,
+                duration_ns: number(row.get(duration), "duration")?,
+                process,
+                pid,
+                swap_id: number(row.get(swap), "swap-id")?,
+                surface_id: number(row.get(surface), "surface-id")?,
+            })
+        })
+        .collect()
+}
+
+/// Жизнь кадра дисплея `swap_id` (`hitches-frame-lifetimes`): конец — показ, он совпадает со
+/// временем `display-surface-swap` того же кадра.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Lifetime {
+    pub start_ns: u64,
+    pub duration_ns: u64,
+    pub display: String,
+    pub swap_id: u64,
+    pub surface_id: u64,
+}
+
+impl Lifetime {
+    pub fn shown_ns(&self) -> u64 {
+        self.start_ns + self.duration_ns
+    }
+}
+
+pub fn lifetimes(table: &Table) -> Result<Vec<Lifetime>, String> {
+    let start = table.column("start")?;
+    let duration = table.column("duration")?;
+    let display = table.column("display")?;
+    let swap = table.column("swap-id")?;
+    let surface = table.column("surface-id")?;
+    table
+        .rows
+        .iter()
+        .map(|row| {
+            Ok(Lifetime {
+                start_ns: number(row.get(start), "start")?,
+                duration_ns: number(row.get(duration), "duration")?,
+                display: text(row.get(display)),
+                swap_id: number(row.get(swap), "swap-id")?,
+                surface_id: number(row.get(surface), "surface-id")?,
+            })
+        })
+        .collect()
+}
+
+/// Время показа кадров дисплея, в которых есть обновление процесса `pid`, по возрастанию. Кадр
+/// с обновлением без жизни в выгрузке — ошибка: показ такого кадра неизвестен.
+pub fn shown_frames(
+    updates: &[Update],
+    lifetimes: &[Lifetime],
+    pid: u32,
+) -> Result<Vec<u64>, String> {
+    let shown: HashMap<u64, u64> = lifetimes
+        .iter()
+        .map(|lifetime| (lifetime.swap_id, lifetime.shown_ns()))
+        .collect();
+    let mut swaps: Vec<u64> = updates
+        .iter()
+        .filter(|update| update.pid == pid)
+        .map(|update| update.swap_id)
+        .collect();
+    swaps.sort_unstable();
+    swaps.dedup();
+    let mut frames = swaps
+        .into_iter()
+        .map(|swap| {
+            shown
+                .get(&swap)
+                .copied()
+                .ok_or_else(|| format!("кадр дисплея {swap} без hitches-frame-lifetimes"))
+        })
+        .collect::<Result<Vec<u64>, String>>()?;
+    frames.sort_unstable();
+    Ok(frames)
+}
+
 /// Подтверждение частоты по периоду vsync одного дисплея.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Rate {
@@ -442,9 +554,11 @@ pub fn confirm_rate(vsyncs: &[Vsync], display: &str, expected_period_ns: u64) ->
 pub const RECORDING_STARTED: &str = "Ctrl-C to stop the recording";
 
 /// Таблицы выгрузки, нужные калибровке и кадрам.
-pub const TABLES: [&str; 3] = [
+pub const TABLES: [&str; 5] = [
     "display-vsyncs-interval",
     "displayed-surfaces-interval",
+    "hitches-updates",
+    "hitches-frame-lifetimes",
     "time-info",
 ];
 
@@ -592,6 +706,49 @@ mod tests {
         assert!(rate.confirmed);
         assert!(!confirm_rate(&vsyncs, "Built-In Display 1", 16_666_667).confirmed);
         assert!(!confirm_rate(&vsyncs, "Ext & 1", 16_666_667).confirmed);
+    }
+
+    const UPDATES: &str = r#"<schema name="hitches-updates"><col><mnemonic>start</mnemonic></col><col><mnemonic>duration</mnemonic></col><col><mnemonic>process</mnemonic></col><col><mnemonic>display</mnemonic></col><col><mnemonic>swap-id</mnemonic></col><col><mnemonic>surface-id</mnemonic></col><col><mnemonic>label</mnemonic></col></schema>
+<row><start-time id="1" fmt="x">453018208</start-time><duration id="2" fmt="x">579541</duration><process id="3" fmt="probe (diff) (77099)"><pid id="4" fmt="77099">77099</pid><device-session id="5" fmt="TODO">TODO</device-session></process><display-name id="6" fmt="Display 1">Display 1</display-name><uint32 id="7" fmt="18121491">18121491</uint32><uint32 id="8" fmt="119">119</uint32><string id="11" fmt="0x1148313">0x1148313</string></row>
+<row><start-time id="12" fmt="x">461348291</start-time><duration id="13" fmt="x">458833</duration><process ref="3"/><display-name ref="6"/><uint32 id="14" fmt="18121492">18121492</uint32><uint32 id="15" fmt="21">21</uint32><string id="17" fmt="0x1148314">0x1148314</string></row>
+<row><start-time id="18" fmt="x">469000000</start-time><duration ref="13"/><process id="19" fmt="app1 (500)"><pid id="20" fmt="500">500</pid></process><display-name ref="6"/><uint32 ref="14"/><uint32 ref="15"/><string ref="17"/></row>"#;
+
+    const LIFETIMES: &str = r#"<schema name="hitches-frame-lifetimes"><col><mnemonic>start</mnemonic></col><col><mnemonic>duration</mnemonic></col><col><mnemonic>display</mnemonic></col><col><mnemonic>swap-id</mnemonic></col><col><mnemonic>surface-id</mnemonic></col><col><mnemonic>label</mnemonic></col></schema>
+<row><start-time id="1" fmt="x">436698958</start-time><duration id="2" fmt="33.33 ms">33332750</duration><display-name id="3" fmt="Display 1">Display 1</display-name><uint32 id="15" fmt="18121491">18121491</uint32><uint32 id="16" fmt="119">119</uint32><string id="18" fmt="0x1148313">0x1148313</string></row>
+<row><start-time id="4" fmt="x">445032291</start-time><duration ref="2"/><display-name ref="3"/><uint32 id="5" fmt="18121492">18121492</uint32><uint32 id="6" fmt="21">21</uint32><string id="7" fmt="0x1148314">0x1148314</string></row>"#;
+
+    #[test]
+    fn updates_name_the_process_and_lifetimes_the_display_time() {
+        let updates = updates(&parse_table(UPDATES).unwrap()).unwrap();
+        assert_eq!(updates.len(), 3);
+        assert_eq!(
+            updates[1],
+            Update {
+                start_ns: 461_348_291,
+                duration_ns: 458_833,
+                process: "probe (diff)".into(),
+                pid: 77_099,
+                swap_id: 18_121_492,
+                surface_id: 21,
+            }
+        );
+        assert_eq!((updates[2].process.as_str(), updates[2].pid), ("app1", 500));
+        let lifetimes = lifetimes(&parse_table(LIFETIMES).unwrap()).unwrap();
+        assert_eq!(lifetimes[1].swap_id, 18_121_492);
+        assert_eq!(lifetimes[1].display, "Display 1");
+        assert_eq!(lifetimes[0].shown_ns(), 470_031_708);
+        assert_eq!(
+            shown_frames(&updates, &lifetimes, 77_099).unwrap(),
+            vec![470_031_708, 478_365_041]
+        );
+        assert_eq!(
+            shown_frames(&updates, &lifetimes, 500).unwrap(),
+            vec![478_365_041]
+        );
+        assert!(shown_frames(&updates, &lifetimes[..1], 77_099).is_err());
+        assert!(shown_frames(&updates, &lifetimes, 1).unwrap().is_empty());
+        let orphan = UPDATES.replace(r#"<process ref="3"/>"#, "<sentinel/>");
+        assert!(super::updates(&parse_table(&orphan).unwrap()).is_err());
     }
 
     #[test]
