@@ -1,0 +1,3 @@
+/dev/disk6          	                               	
+/dev/disk7          	EF57347C-0000-11AA-AA11-0030654	
+/dev/disk7s1        	41504653-0000-11AA-AA11-0030654	/private/tmp/psu.x/v4

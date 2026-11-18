@@ -1,0 +1,64 @@
+framework       : 704
+driver          : 704
+images          : 3
+================================================
+image-path      : /System/Library/AssetsV2/com_apple_MobileAsset_MetalToolchain/389a215aea89fda945178f9fb8bcdc6aa0e20570.asset/AssetData/Restore/022-20184-410.dmg
+image-alias     : /System/Library/AssetsV2/com_apple_MobileAsset_MetalToolchain/389a215aea89fda945178f9fb8bcdc6aa0e20570.asset/AssetData/Restore/022-20184-410.dmg
+shadow-path     : <none>
+icon-path       : <none>
+image-type      : <unknown>
+system-image    : false
+blockcount      : 6438979
+blocksize       : 512
+writeable       : false
+autodiskmount   : false
+removable       : TRUE
+image-encrypted : <false>
+mounting user   : root
+mounting mode   : <unknown>
+process ID      : <in-kernel>
+framework name  : DiskImages
+/dev/disk4	GUID_partition_scheme	
+/dev/disk4s1	7C3457EF-0000-11AA-AA11-00306543ECAC	
+/dev/disk5	EF57347C-0000-11AA-AA11-00306543ECAC	
+/dev/disk5s1	41504653-0000-11AA-AA11-00306543ECAC	/private/var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v27.1.266.1.hOcd0u
+================================================
+image-path      : /tmp/psu.x/f4/probe-update-b3-exdev-swap.dmg
+image-alias     : /private/tmp/psu.x/f4/probe-update-b3-exdev-swap.dmg
+shadow-path     : <none>
+icon-path       : /System/Library/PrivateFrameworks/DiskImages.framework/Resources/CDiskImage.icns
+image-type      : чтение/запись
+system-image    : false
+blockcount      : 131072
+blocksize       : 512
+writeable       : TRUE
+autodiskmount   : TRUE
+removable       : TRUE
+image-encrypted : false
+mounting user   : user
+mounting mode   : <unknown>
+process ID      : 11743
+framework name  : DiskImages
+/dev/disk6		
+/dev/disk7	EF57347C-0000-11AA-AA11-00306543ECAC	
+/dev/disk7s1	41504653-0000-11AA-AA11-00306543ECAC	/private/tmp/psu.x/v4
+================================================
+image-path      : /tmp/psu.x/f4/probe-update-b3-exdev-swap-side.dmg
+image-alias     : /private/tmp/psu.x/f4/probe-update-b3-exdev-swap-side.dmg
+shadow-path     : <none>
+icon-path       : /System/Library/PrivateFrameworks/DiskImages.framework/Resources/CDiskImage.icns
+image-type      : чтение/запись
+system-image    : false
+blockcount      : 65536
+blocksize       : 512
+writeable       : false
+autodiskmount   : TRUE
+removable       : TRUE
+image-encrypted : false
+mounting user   : user
+mounting mode   : <unknown>
+process ID      : 11755
+framework name  : DiskImages
+/dev/disk8		
+/dev/disk9	EF57347C-0000-11AA-AA11-00306543ECAC	
+/dev/disk9s1	41504653-0000-11AA-AA11-00306543ECAC	/private/tmp/psu.x/v4/s/install/.shellio-update-ab12

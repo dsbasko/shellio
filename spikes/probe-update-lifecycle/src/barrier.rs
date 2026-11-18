@@ -17,6 +17,11 @@
 //! Отметки (задача 10): процесс с ролью пишет [`note`] — файл в `<state>/barriers/notes/` о шаге,
 //! который стенд иначе не увидит (ответ владельца второму запуску, запрос, дождавшийся готовности
 //! владельца). Без каталога отметок они ничего не делают и ничего не ждут.
+//!
+//! Инъекции (задача 13, B3): файл `<роль>.<точка>.fault` с номером errno заставляет процесс с
+//! ролью на точке [`fault_site`] получить этот errno вместо системного вызова ([`fault`]). Так
+//! стенд достаёт отказы, которых настоящая среда на этой границе не даёт; результат помечается
+//! `injected`.
 
 use std::fs;
 use std::io;
@@ -291,6 +296,100 @@ pub fn wait_reached(state: &Path, barrier: Barrier, deadline: Instant) -> Result
         if queue.wait(deadline)? == kq::Event::TimedOut {
             return Err(format!("барьер {} не достигнут к сроку", barrier.key()));
         }
+    }
+}
+
+// --- инъекции ---
+
+/// Суффикс файла инъекции: `<роль>.<точка>.fault` с номером errno.
+pub const FAULT_SUFFIX: &str = ".fault";
+/// Суффикс отметки сработавшей инъекции.
+pub const INJECTED_SUFFIX: &str = ".injected";
+
+/// Точки, на которых код проверяет инъекцию (задача 13, B3): `rename` временного файла журнала
+/// (`Point::Journal` до `rename`) и обратный `RENAME_SWAP` восстановления (`Point::Step` обмена до
+/// мутации). Настоящий отказ туда не достаётся: `rename` журнала и обмен, однажды прошедший, места
+/// на томе не требуют.
+pub fn fault_site(point: Point) -> bool {
+    matches!(
+        point,
+        Point::Journal { renamed: false, .. }
+            | Point::Step {
+                mutation: Mutation::Swap,
+                done: false,
+            }
+    )
+}
+
+impl Barrier {
+    pub fn fault_path(self, state: &Path) -> PathBuf {
+        dir(state).join(format!("{}{FAULT_SUFFIX}", self.key()))
+    }
+
+    pub fn injected_path(self, state: &Path) -> PathBuf {
+        dir(state).join(format!("{}{INJECTED_SUFFIX}", self.key()))
+    }
+}
+
+/// Отметка сработавшей инъекции: кто получил отказ вместо системного вызова.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Injected {
+    pub key: String,
+    pub process: ProcessKey,
+    pub errno: i32,
+    pub uptime_ns: u64,
+}
+
+/// Граница `point` в процессе с ролью: если стенд поставил инъекцию, вернуть её errno вместо
+/// системного вызова. Инъекция одноразовая: файл заменяется отметкой `.injected`. Без роли, без
+/// каталога барьеров или вне [`fault_site`] — ничего.
+pub fn fault(state: &Path, point: Point) -> Option<io::Error> {
+    let role = ROLE.get().copied()?;
+    if !fault_site(point) {
+        return None;
+    }
+    let barrier = Barrier::new(role, point);
+    let armed = barrier.fault_path(state);
+    let errno: i32 = fs::read_to_string(&armed).ok()?.trim().parse().ok()?;
+    let process = observer::current().ok()?.key;
+    let injected = Injected {
+        key: barrier.key(),
+        process,
+        errno,
+        uptime_ns: sys::uptime_ns(),
+    };
+    if let Ok(text) = serde_json::to_vec(&injected) {
+        let _ = fs::write(barrier.injected_path(state), text);
+    }
+    let _ = fs::remove_file(&armed);
+    say(&format!(
+        "инъекция {}: процесс {} получает errno {errno}",
+        barrier.key(),
+        process.pid
+    ));
+    Some(io::Error::from_raw_os_error(errno))
+}
+
+/// Поставить инъекцию errno `errno` на границе `barrier`.
+pub fn arm_fault(state: &Path, barrier: Barrier, errno: i32) -> Result<(), String> {
+    if !fault_site(barrier.point) {
+        return Err(format!("{}: не точка инъекции", barrier.key()));
+    }
+    let dir = dir(state);
+    fs::create_dir_all(&dir).map_err(|err| format!("{}: {err}", dir.display()))?;
+    let path = barrier.fault_path(state);
+    fs::write(&path, errno.to_string()).map_err(|err| format!("{}: {err}", path.display()))
+}
+
+/// Отметка инъекции; `None` — инъекция не сработала.
+pub fn read_injected(state: &Path, barrier: Barrier) -> Result<Option<Injected>, String> {
+    let path = barrier.injected_path(state);
+    match fs::read(&path) {
+        Ok(bytes) => serde_json::from_slice(&bytes)
+            .map(Some)
+            .map_err(|err| format!("{}: {err}", path.display())),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(err) => Err(format!("{}: {err}", path.display())),
     }
 }
 

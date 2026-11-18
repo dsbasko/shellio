@@ -416,9 +416,24 @@ fn mutate(
 ) -> Result<(), RecoverError> {
     let point = |done| Point::Step { mutation, done };
     barrier::reach(state, point(false));
+    if let Some(err) = barrier::fault(state, point(false)) {
+        return Err(RecoverError::Io(format!(
+            "{} (injected): {err}",
+            label(mutation)
+        )));
+    }
     work()?;
     barrier::reach(state, point(true));
     Ok(())
+}
+
+/// Метка мутации в тексте ошибки: по ней отчёт называет системный вызов.
+fn label(mutation: Mutation) -> &'static str {
+    match mutation {
+        Mutation::Remove => "удаление кандидата",
+        Mutation::Swap => "обратный обмен",
+        Mutation::Retire => "переименование отказавшего N+1",
+    }
 }
 
 /// Удаление бандла в два шага: сначала исполняемые файлы, затем остальное. Между шагами — барьер

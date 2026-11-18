@@ -3,8 +3,9 @@
 //! задача 4 — `identity` (A1) и `reject-verify` (A2), задача 6 — `owner-basic`, задача 7 —
 //! `incompatible` (D2 до активации), задача 8 — `swap` (B1), `identity-live` (A1), `reject` (A2)
 //! и `incompatible-activate` (D2, активация), задача 9 — `window-update` (H), задача 10 — `owner`
-//! (C1), задача 11 — `kill` (B2), задача 12 — `runtimes` (D1).
+//! (C1), задача 11 — `kill` (B2), задача 12 — `runtimes` (D1), задача 13 — `env-faults` (B3).
 
+pub mod env_faults;
 pub mod host;
 pub mod identity;
 pub mod identity_live;
@@ -65,10 +66,12 @@ pub enum Scenario {
     Kill,
     /// D1: рантаймы поколений.
     Runtimes,
+    /// B3: ошибки среды.
+    EnvFaults,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 14] = [
+    pub const ALL: [Scenario; 15] = [
         Scenario::Smoke,
         Scenario::Host,
         Scenario::Identity,
@@ -83,6 +86,7 @@ impl Scenario {
         Scenario::Owner,
         Scenario::Kill,
         Scenario::Runtimes,
+        Scenario::EnvFaults,
     ];
 
     pub fn name(self) -> &'static str {
@@ -101,6 +105,7 @@ impl Scenario {
             Scenario::Owner => "owner",
             Scenario::Kill => "kill",
             Scenario::Runtimes => "runtimes",
+            Scenario::EnvFaults => "env-faults",
         }
     }
 
@@ -127,6 +132,7 @@ impl Scenario {
             Scenario::Owner => owner::DEADLINE,
             Scenario::Kill => kill::DEADLINE,
             Scenario::Runtimes => runtimes::DEADLINE,
+            Scenario::EnvFaults => env_faults::DEADLINE,
         }
     }
 }
@@ -210,6 +216,7 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::Owner => owner::run(&target.out, environment),
         Scenario::Kill => kill::run(&target.out, environment),
         Scenario::Runtimes => runtimes::run(&target.out, environment),
+        Scenario::EnvFaults => env_faults::run(&target.out, environment),
     }
 }
 
@@ -426,7 +433,7 @@ mod tests {
             assert_eq!(Scenario::from_name(scenario.name()), Some(scenario));
             assert!(!scenario.deadline().is_zero());
         }
-        assert_eq!(Scenario::from_name("env-faults"), None);
+        assert_eq!(Scenario::from_name("keychain"), None);
     }
 
     #[test]

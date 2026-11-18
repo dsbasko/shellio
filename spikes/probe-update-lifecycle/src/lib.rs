@@ -27,6 +27,7 @@ pub mod scenario;
 pub mod spawn;
 pub mod sys;
 pub mod update;
+pub mod volume;
 pub mod watchdog;
 pub mod window;
 

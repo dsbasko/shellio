@@ -328,7 +328,15 @@ fn execute(launch: &Launch, program: &Path) -> Result<ExitCode, String> {
     )
     .map_err(|err| err.to_string())
     .and_then(|env| supervise(&plan, &env, Some(deadline), &nonce, GRACE).map(|done| (env, done)));
-    let state_dir_leftovers = list_dir(&state_dir);
+    // Тома B3 подключены под каталогом состояния: процесс сценария отключает их сам, а после его
+    // `SIGKILL` это делает запуск. Оставшийся том — ошибка исполнения, как оставшийся файл.
+    let swept = if target.scenario == crate::scenario::Scenario::EnvFaults {
+        crate::volume::sweep(&state_dir)
+    } else {
+        Vec::new()
+    };
+    let mut state_dir_leftovers = list_dir(&state_dir);
+    state_dir_leftovers.extend(swept.into_iter().map(|image| format!("том {image}")));
     let _ = fs::remove_dir_all(&state_dir);
     let mut record = LaunchRecord {
         schema: results::SCHEMA,

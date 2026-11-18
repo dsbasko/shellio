@@ -91,6 +91,20 @@ pub fn sync_dir(dir: &Path) -> io::Result<()> {
     File::open(dir)?.sync_all()
 }
 
+/// Место тома пути по `statfs` (задача 13): доступно непривилегированному процессу и всего, байт.
+pub fn volume_space(path: &Path) -> io::Result<(u64, u64)> {
+    let path = c_path(path)?;
+    let mut stat = MaybeUninit::<libc::statfs>::uninit();
+    // SAFETY: строка оканчивается нулём, буфер — `struct statfs` подходящего размера.
+    if unsafe { libc::statfs(path.as_ptr(), stat.as_mut_ptr()) } != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    // SAFETY: `statfs` вернул 0 и заполнил структуру.
+    let stat = unsafe { stat.assume_init() };
+    let block = u64::from(stat.f_bsize);
+    Ok((stat.f_bavail * block, stat.f_blocks * block))
+}
+
 /// Случайный номер попытки: 16 байт из `arc4random_buf` в шестнадцатеричном виде.
 pub fn random_id() -> String {
     let mut bytes = [0u8; 16];

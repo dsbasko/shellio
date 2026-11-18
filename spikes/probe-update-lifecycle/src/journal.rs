@@ -451,13 +451,14 @@ impl Store {
                 .map_err(|err| io("запись временного файла", err))?;
             file.sync_all()
                 .map_err(|err| io("fsync временного файла", err))?;
-            barrier::reach(
-                self.state(),
-                Point::Journal {
-                    state: journal.state,
-                    renamed: false,
-                },
-            );
+            let before_rename = Point::Journal {
+                state: journal.state,
+                renamed: false,
+            };
+            barrier::reach(self.state(), before_rename);
+            if let Some(err) = barrier::fault(self.state(), before_rename) {
+                return Err(io("rename журнала (injected)", err));
+            }
             fs::rename(&tmp, self.path()).map_err(|err| io("rename журнала", err))
         })();
         if let Err(err) = written {
