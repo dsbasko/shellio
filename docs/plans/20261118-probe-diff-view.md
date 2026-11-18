@@ -64,7 +64,8 @@
   - новые транзитивные: `regex`, `regex-automata`, `regex-syntax`, `streaming-iterator`, `cc`, `find-msvc-tools`, `shlex`, `indexmap`, `equivalent`, `hashbrown` — MIT OR Apache-2.0, `foldhash` — Zlib, `aho-corasick` — Unlicense OR MIT;
   - `tree-sitter-highlight` не нужен: деревья держит worker пробы, видимый диапазон запрашивается через `QueryCursor::set_byte_range`;
   - ⚠️ решение исполнителя: у `aho-corasick` и `memchr` (`Unlicense OR MIT`) используется ветка MIT;
-  - ⚠️ решение исполнителя: заголовки ICU в `tree-sitter/src/unicode/` идут под уведомлением Unicode-DFS-2016 с лицензией ICU 1.8.1–57.1. Обе разрешительные, требуют только уведомления, Unicode-DFS-2016 — предшественница Unicode-3.0. Это часть исходников `tree-sitter`, а не отдельная зависимость, поэтому `tree-sitter` принят.
+  - ⚠️ решение исполнителя: заголовки ICU в `tree-sitter/src/unicode/` (`utf8.h`, `utf16.h`, `umachine.h`, остальные пусты) идут под уведомлением Unicode-DFS-2016 и лицензией ICU 1.8.1–57.1, разделы 2–6 их `LICENSE` к ним не относятся. Обе разрешительные, требуют только уведомления, Unicode-DFS-2016 — предшественница Unicode-3.0. План называет tree-sitter во всех разделах о подсветке, поэтому правило замены кандидата не даёт, и `tree-sitter` принят;
+  - ⚠️ решение исполнителя: `tree-sitter/src/portable/endian.h` — общественное достояние с запасным BSD, MIT или Apache, используется ветка MIT.
 
 ## Предусловия
 
