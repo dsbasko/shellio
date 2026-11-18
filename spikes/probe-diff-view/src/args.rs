@@ -20,6 +20,8 @@ pub const USAGE: &str = "\
       сводка результатов прогона без окна
   probe-diff-view --reference <каталог фикстур>
       эталоны подсветки фикстур в <каталог фикстур>/<имя>/reference.json
+  probe-diff-view --neighbor
+      служебный сосед калибровки: движущееся окно до закрытия stdin
 
 у демонстрации по умолчанию --variant a --mode unified; сценарий стенда идёт без --variant и
 --mode, сценарий вида требует обоих; --fixtures нужен ровно сценариям с эталоном подсветки";
@@ -153,6 +155,8 @@ pub enum Command {
     Reference {
         dir: PathBuf,
     },
+    /// Служебный сосед обратного контроля `calibrate`.
+    Neighbor,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -296,10 +300,21 @@ impl Raw {
     }
 }
 
+/// Флаг служебного соседа, без значения.
+const NEIGHBOR: &str = "--neighbor";
+
 /// Разбирает аргументы без имени программы.
 pub fn parse(args: &[String]) -> Result<Command, ArgsError> {
     if args.iter().any(|arg| arg == "-h" || arg == "--help") {
         return Ok(Command::Help);
+    }
+
+    if args.iter().any(|arg| arg == NEIGHBOR) {
+        return if args.len() == 1 {
+            Ok(Command::Neighbor)
+        } else {
+            Err(ArgsError::Exclusive(NEIGHBOR))
+        };
     }
 
     let mut raw = Raw::default();
@@ -505,6 +520,19 @@ mod tests {
                 scenario: "highlight",
                 flag: "--mode"
             })
+        );
+    }
+
+    #[test]
+    fn neighbor_alone() {
+        assert_eq!(parse_str(&["--neighbor"]), Ok(Command::Neighbor));
+        assert_eq!(
+            parse_str(&["--neighbor", "--scenario", "calibrate"]),
+            Err(ArgsError::Exclusive("--neighbor"))
+        );
+        assert_eq!(
+            parse_str(&["--out", "o", "--neighbor"]),
+            Err(ArgsError::Exclusive("--neighbor"))
         );
     }
 

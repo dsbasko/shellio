@@ -12,6 +12,7 @@ use objc2_foundation::{NSRunLoop, NSRunLoopCommonModes};
 use objc2_quartz_core::CADisplayLink;
 use serde::Serialize;
 
+use super::calibrate;
 use super::drawmark::{self, Mark};
 use super::sampler;
 use super::stand::{FrameDriver, MotionView, s1_offset};
@@ -25,9 +26,12 @@ pub const MOTION_S: f64 = 40.0;
 /// Ошибка исполнения калибровки с тем, что успело попасть в итог.
 pub type Failed = Box<(String, Report)>;
 
-/// Вызов `displayLink`: метки CA в секундах (часы `CLOCK_UPTIME_RAW`), вход — наносекунды.
+/// Вызов `displayLink`: метки CA в секундах (часы `CLOCK_UPTIME_RAW`), вход — наносекунды. `index`
+/// — номер такта движения по времени, `held` — вид удержал поколение.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 pub struct Tick {
+    pub index: u64,
+    pub held: bool,
     pub timestamp_s: f64,
     pub target_s: f64,
     pub entry_ns: u64,
@@ -95,8 +99,17 @@ impl Calibration {
                 let target = link.targetTimestamp();
                 let start = handler_state.start_s.get().unwrap_or(target);
                 handler_state.start_s.set(Some(start));
-                let generation = handler_view.move_to(s1_offset(start, target, SPEED));
+                let index = calibrate::tick_index(start, target);
+                let held = calibrate::held(index);
+                // Удержание повторяет положение: поколение не меняется, кадра нет.
+                let generation = if held {
+                    handler_view.generation()
+                } else {
+                    handler_view.move_to(s1_offset(start, target, SPEED))
+                };
                 handler_state.ticks.borrow_mut().push(Tick {
+                    index,
+                    held,
                     timestamp_s: link.timestamp(),
                     target_s: target,
                     entry_ns,
@@ -138,6 +151,8 @@ impl Calibration {
 
 fn record(report: &mut Report, ticks: &[Tick], marks: &[Mark], generation: u64) {
     report.push("ticks", ticks.len());
+    report.push("held_ticks", ticks.iter().filter(|tick| tick.held).count());
+    report.push("tick_log", serde_json::to_string(ticks).unwrap_or_default());
     report.push("marks", marks.len());
     report.push("generations", generation);
     if let (Some(first), Some(last)) = (ticks.first(), ticks.last()) {

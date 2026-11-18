@@ -47,6 +47,9 @@ const EXIT_EXECUTION: u8 = 3;
 const WINDOW_SIZE: NSSize = NSSize::new(1180.0, 720.0);
 /// Срок `smoke` от `applicationDidFinishLaunching` до готового окна.
 const SMOKE_TIMEOUT: Duration = Duration::from_secs(10);
+/// Срок сторожа `calibrate` из отчёта, раздел «Сроки и размеры»: четыре записи по 5 с, у каждой
+/// сохранение до 3 мин.
+const CALIBRATE_DEADLINE: Duration = Duration::from_secs(20 * 60);
 /// Период проверки готовности окна. Поток не засыпает: между проверками цикл обрабатывает события.
 const POLL_INTERVAL_S: f64 = 0.005;
 
@@ -70,6 +73,7 @@ fn main() -> ExitCode {
         }
         Command::Aggregate { run_dir } => aggregate(&run_dir),
         Command::Reference { dir } => reference(&dir),
+        Command::Neighbor => neighbor(),
         Command::Demo(view) => match run_app(None, view) {
             None => ExitCode::SUCCESS,
             Some(outcome) => print_outcome(&outcome),
@@ -136,6 +140,26 @@ fn reference(dir: &Path) -> ExitCode {
             ExitCode::from(EXIT_EXECUTION)
         }
     }
+}
+
+/// Служебный сосед калибровки. Выходит сам при закрытии stdin, сюда возвращается только отказ.
+fn neighbor() -> ExitCode {
+    let Some(mtm) = MainThreadMarker::new() else {
+        let _ = writeln!(
+            io::stderr().lock(),
+            "{PROBE_NAME}: --neighbor не на главном потоке"
+        );
+        return ExitCode::from(EXIT_EXECUTION);
+    };
+    let Some(screen) = choose_display(mtm) else {
+        let _ = writeln!(io::stderr().lock(), "{PROBE_NAME}: --neighbor: нет дисплея");
+        return ExitCode::from(EXIT_EXECUTION);
+    };
+    let reason = scenario::neighbor::run(mtm, &screen)
+        .err()
+        .unwrap_or_else(|| "основной цикл соседа завершился".to_owned());
+    let _ = writeln!(io::stderr().lock(), "{PROBE_NAME}: --neighbor: {reason}");
+    ExitCode::from(EXIT_EXECUTION)
 }
 
 /// Итог процесса сценария.
@@ -213,6 +237,25 @@ fn run_scenario(
     let environment = static_environment();
     // Грамматика проверяется до окна: разбор строки из одного выражения, без AppKit.
     let grammar = check_grammar();
+    // Вставший `displayLink` или запись `xctrace` иначе повесили бы процесс без итога.
+    let _watchdog = match scenario {
+        Scenario::Calibrate => match scenario::watchdog::arm(
+            "calibrate",
+            CALIBRATE_DEADLINE,
+            out.clone(),
+            scenario::watchdog::SharedTrace::default(),
+        ) {
+            Ok(watchdog) => Some(watchdog),
+            Err(err) => {
+                let _ = writeln!(
+                    io::stdout().lock(),
+                    "execution=error\nreason=сторож не взведён: {err}"
+                );
+                return ExitCode::from(EXIT_EXECUTION);
+            }
+        },
+        Scenario::Smoke | Scenario::Highlight => None,
+    };
     let mut outcome = match scenario {
         Scenario::Smoke | Scenario::Calibrate => {
             run_app(Some(scenario), view).unwrap_or_else(|| {

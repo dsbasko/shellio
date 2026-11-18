@@ -10,6 +10,28 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
+/// Частота, на которую рассчитаны номера тактов движения, Гц.
+pub const RATE_HZ: f64 = 120.0;
+/// Период повторения удержаний, такты: отрезок калибровки в 5 с — ровно один период, а в долгом
+/// движении удержания повторяются и попадают в запись с любым сдвигом начала.
+pub const HOLD_PERIOD: u64 = 600;
+/// Группы удержания периода: первый такт и длина. Записаны до первого прогона.
+pub const HOLDS: [(u64, u64); 2] = [(120, 3), (300, 10)];
+
+/// Номер такта движения по времени `targetTimestamp`, а не по числу вызовов: пропущенный вызов
+/// номер следующего не сдвигает.
+pub fn tick_index(start_s: f64, target_s: f64) -> u64 {
+    ((target_s - start_s) * RATE_HZ).round().max(0.0) as u64
+}
+
+/// Вид удерживает поколение на такте: положение повторяется, нового кадра нет.
+pub fn held(index: u64) -> bool {
+    let phase = index % HOLD_PERIOD;
+    HOLDS
+        .iter()
+        .any(|&(from, len)| (from..from + len).contains(&phase))
+}
+
 /// Окно замера, время `CLOCK_UPTIME_RAW`, наносекунды, `[start; end)`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Window {
@@ -250,6 +272,29 @@ mod tests {
         );
         assert_eq!(tick_of(&vsyncs, window, vsyncs[25] - PERIOD / 3), Some(5));
         assert_eq!(tick_of(&vsyncs, window, vsyncs[40]), None);
+    }
+
+    #[test]
+    fn holds_repeat_every_period() {
+        let held_in = |from: u64| {
+            (from..from + HOLD_PERIOD)
+                .filter(|&i| held(i))
+                .collect::<Vec<_>>()
+        };
+        let first: Vec<u64> = (120..123).chain(300..310).collect();
+        assert_eq!(held_in(0), first);
+        let second: Vec<u64> = first.iter().map(|i| i + HOLD_PERIOD).collect();
+        assert_eq!(held_in(HOLD_PERIOD), second);
+        assert!(!held(119) && held(120) && held(122) && !held(123));
+        assert!(!held(299) && held(309) && !held(310));
+    }
+
+    #[test]
+    fn tick_index_follows_time() {
+        assert_eq!(tick_index(10.0, 10.0), 0);
+        assert_eq!(tick_index(10.0, 10.0 + 120.4 / RATE_HZ), 120);
+        assert_eq!(tick_index(10.0, 10.0 + 120.6 / RATE_HZ), 121);
+        assert_eq!(tick_index(10.0, 9.0), 0);
     }
 
     #[test]

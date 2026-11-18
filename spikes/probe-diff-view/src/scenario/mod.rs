@@ -13,9 +13,9 @@ pub mod drawmark;
 #[allow(dead_code)]
 pub mod frames;
 pub mod highlight;
+pub mod neighbor;
 #[allow(dead_code)]
 pub mod sampler;
-#[allow(dead_code)]
 pub mod stand;
 #[allow(dead_code)]
 pub mod watchdog;
