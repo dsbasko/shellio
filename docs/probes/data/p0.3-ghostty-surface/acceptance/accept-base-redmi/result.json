@@ -1,0 +1,5411 @@
+{
+  "schema": 1,
+  "scenario": "accept",
+  "variant": "base",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "92234835a970-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.3.2, objc2-quartz-core 0.3.2",
+      "ghostty_version": "1.4.0",
+      "ghostty_rev": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "process": {
+      "pid": 39349,
+      "route": "direct",
+      "nonce": "33bbf745be94a20f",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_STATE_DIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.33bbf745be94a20f",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    },
+    "bundle": {
+      "path": "/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app",
+      "identifier": "io.github.dsbasko.shellio.probe.ghostty-surface",
+      "executable": "/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface",
+      "signature": "valid: identifier \"io.github.dsbasko.shellio.probe.ghostty-surface\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    },
+    "display": {
+      "id": 3,
+      "name": "Redmi 27 NU",
+      "builtin": false,
+      "chosen": "main",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 2560.0,
+        "height": 1440.0
+      },
+      "scale": 2.0,
+      "max_fps": 60
+    },
+    "window": {
+      "frame": {
+        "x": 690.0,
+        "y": 345.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC"
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "активность, key window и фокус A",
+      "status": "ready",
+      "waited_ms": 55.088708,
+      "at_ms": 68.430333,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 1,
+      "name": "создание A и B",
+      "status": "ready",
+      "waited_ms": 5.676041,
+      "at_ms": 74.126916,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 2,
+      "name": "готовность обеих фикстур",
+      "status": "ready",
+      "waited_ms": 40.453541,
+      "at_ms": 123.834708,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 3,
+      "name": "raw-режим A",
+      "status": "ready",
+      "waited_ms": 5.652500000000001,
+      "at_ms": 129.502666,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 4,
+      "name": "квитанция ack",
+      "status": "ready",
+      "waited_ms": 5.661958,
+      "at_ms": 135.19175,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 5,
+      "name": "маркер в видимом тексте",
+      "status": "ready",
+      "waited_ms": 5.67425,
+      "at_ms": 140.885166,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 6,
+      "name": "raw-режим B",
+      "status": "ready",
+      "waited_ms": 5.649917,
+      "at_ms": 146.545541,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 7,
+      "name": "квитанция ack",
+      "status": "ready",
+      "waited_ms": 5.151833,
+      "at_ms": 151.70825,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 8,
+      "name": "маркер в видимом тексте",
+      "status": "ready",
+      "waited_ms": 5.68575,
+      "at_ms": 157.418083,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 9,
+      "name": "фокус A после создания",
+      "status": "ready",
+      "waited_ms": 5.692166,
+      "at_ms": 163.150875,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 10,
+      "name": "палитра и маршрутизатор",
+      "status": "ready",
+      "waited_ms": 5.3750409999999995,
+      "at_ms": 168.534291,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 11,
+      "name": "источник ввода",
+      "status": "ready",
+      "waited_ms": 8.612167000000001,
+      "at_ms": 178.806416,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 12,
+      "name": "layout-ru",
+      "status": "ready",
+      "waited_ms": 5.22525,
+      "at_ms": 194.582666,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 13,
+      "name": "привет по кодам клавиш",
+      "status": "ready",
+      "waited_ms": 5.175959,
+      "at_ms": 199.800333,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 14,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 52.088457999999996,
+      "at_ms": 252.575833,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 15,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.5166249999999994,
+      "at_ms": 258.110208,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 16,
+      "name": "источник ввода",
+      "status": "ready",
+      "waited_ms": 5.646791,
+      "at_ms": 263.773041,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 17,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.653541,
+      "at_ms": 270.372833,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 18,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 165.58125,
+      "at_ms": 436.024625,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 19,
+      "name": "источник ввода",
+      "status": "ready",
+      "waited_ms": 5.381792,
+      "at_ms": 441.41875,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 20,
+      "name": "dead-key",
+      "status": "ready",
+      "waited_ms": 5.682958999999999,
+      "at_ms": 447.2765,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 21,
+      "name": "Option-e e",
+      "status": "ready",
+      "waited_ms": 5.652042000000001,
+      "at_ms": 452.940291,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 22,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 5.307290999999999,
+      "at_ms": 458.616708,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 23,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.701916,
+      "at_ms": 464.347041,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 24,
+      "name": "источник ввода",
+      "status": "ready",
+      "waited_ms": 5.676666,
+      "at_ms": 470.046125,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 25,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.093875000000001,
+      "at_ms": 475.296083,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 26,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 155.618167,
+      "at_ms": 631.003083,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 27,
+      "name": "контроль NSTextView",
+      "status": "ready",
+      "waited_ms": 5.679834,
+      "at_ms": 636.710458,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 28,
+      "name": "контроль, ABC: k a",
+      "status": "ready",
+      "waited_ms": 6.071542,
+      "at_ms": 655.229083,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 29,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 40.175625,
+      "at_ms": 695.874041,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 30,
+      "name": "контроль, ABC: текст",
+      "status": "ready",
+      "waited_ms": 5.690708,
+      "at_ms": 701.577375,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 31,
+      "name": "контроль: сброс",
+      "status": "ready",
+      "waited_ms": 5.184916,
+      "at_ms": 706.77625,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 32,
+      "name": "контроль: японский источник",
+      "status": "ready",
+      "waited_ms": 5.6795409999999995,
+      "at_ms": 712.775958,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 33,
+      "name": "контроль: k a",
+      "status": "ready",
+      "waited_ms": 23.533625,
+      "at_ms": 755.145583,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 34,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 129.01416700000001,
+      "at_ms": 884.584041,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 35,
+      "name": "контроль: composition",
+      "status": "ready",
+      "waited_ms": 5.692042,
+      "at_ms": 890.30525,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 36,
+      "name": "контроль: Return",
+      "status": "ready",
+      "waited_ms": 5.507416999999999,
+      "at_ms": 895.826875,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 37,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 5.646458,
+      "at_ms": 902.444083,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 38,
+      "name": "контроль: коммит",
+      "status": "ready",
+      "waited_ms": 5.658916,
+      "at_ms": 908.126166,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 39,
+      "name": "контроль: сброс",
+      "status": "ready",
+      "waited_ms": 5.467042,
+      "at_ms": 913.618625,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 40,
+      "name": "контроль: k a перед Esc",
+      "status": "ready",
+      "waited_ms": 5.3934999999999995,
+      "at_ms": 919.333875,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 41,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 32.330917,
+      "at_ms": 952.081375,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 42,
+      "name": "контроль: composition перед Esc",
+      "status": "ready",
+      "waited_ms": 5.650375,
+      "at_ms": 957.741666,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 43,
+      "name": "контроль: marked перед Esc",
+      "status": "ready",
+      "waited_ms": 5.662209,
+      "at_ms": 963.414625,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 44,
+      "name": "контроль: Esc",
+      "status": "ready",
+      "waited_ms": 5.65225,
+      "at_ms": 969.078208,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 45,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 5.472,
+      "at_ms": 974.764833,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 46,
+      "name": "контроль: снятие Esc",
+      "status": "ready",
+      "waited_ms": 3010.668584,
+      "at_ms": 3985.49725,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 47,
+      "name": "контроль: второй Esc",
+      "status": "ready",
+      "waited_ms": 5.686541,
+      "at_ms": 3991.285875,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 48,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 14.968583,
+      "at_ms": 4006.71925,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 49,
+      "name": "вторая клавиша послана",
+      "status": "ready",
+      "waited_ms": 5.670083,
+      "at_ms": 4012.437083,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 50,
+      "name": "контроль: второй Esc",
+      "status": "ready",
+      "waited_ms": 5.689875,
+      "at_ms": 4018.161166,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 51,
+      "name": "контроль: сброс",
+      "status": "ready",
+      "waited_ms": 5.67975,
+      "at_ms": 4023.872125,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 52,
+      "name": "контроль: k a n a",
+      "status": "ready",
+      "waited_ms": 5.431542,
+      "at_ms": 4030.096791,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 53,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 139.61475000000002,
+      "at_ms": 4171.620166,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 54,
+      "name": "контроль: composition かな",
+      "status": "ready",
+      "waited_ms": 5.7159580000000005,
+      "at_ms": 4177.377458,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 55,
+      "name": "контроль: Space Space",
+      "status": "ready",
+      "waited_ms": 5.689541999999999,
+      "at_ms": 4183.12175,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 56,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 127.663625,
+      "at_ms": 4312.129958,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 57,
+      "name": "контроль: преобразование",
+      "status": "ready",
+      "waited_ms": 5.544875,
+      "at_ms": 4317.69675,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 58,
+      "name": "контроль: Return преобразования",
+      "status": "ready",
+      "waited_ms": 5.685499999999999,
+      "at_ms": 4323.41075,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 59,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 10.860209,
+      "at_ms": 4334.675458,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 60,
+      "name": "контроль: коммит преобразования",
+      "status": "ready",
+      "waited_ms": 3005.605666,
+      "at_ms": 7340.363,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 61,
+      "name": "контроль: второй Return",
+      "status": "ready",
+      "waited_ms": 5.702,
+      "at_ms": 7346.139791,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 62,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 36.536958,
+      "at_ms": 7384.886833,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 63,
+      "name": "вторая клавиша послана",
+      "status": "ready",
+      "waited_ms": 5.683167,
+      "at_ms": 7390.599833,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 64,
+      "name": "контроль: второй Return",
+      "status": "ready",
+      "waited_ms": 5.683917,
+      "at_ms": 7396.310583,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 65,
+      "name": "контроль: итог",
+      "status": "ready",
+      "waited_ms": 5.125042,
+      "at_ms": 7401.485,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5"
+    },
+    {
+      "index": 66,
+      "name": "источник ввода",
+      "status": "ready",
+      "waited_ms": 5.3022920000000004,
+      "at_ms": 7431.459875,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 67,
+      "name": "фокус A после контроля",
+      "status": "ready",
+      "waited_ms": 5.585583,
+      "at_ms": 7439.5255,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 68,
+      "name": "источник ввода",
+      "status": "ready",
+      "waited_ms": 5.045,
+      "at_ms": 7444.581708,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 69,
+      "name": "ja-commit",
+      "status": "ready",
+      "waited_ms": 5.244833,
+      "at_ms": 7458.641166,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 70,
+      "name": "k a",
+      "status": "ready",
+      "waited_ms": 5.657375,
+      "at_ms": 7464.32225,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 71,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 52.565042,
+      "at_ms": 7517.262625,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 72,
+      "name": "composition метода ввода",
+      "status": "ready",
+      "waited_ms": 5.6631659999999995,
+      "at_ms": 7522.937208,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 73,
+      "name": "Return",
+      "status": "ready",
+      "waited_ms": 5.257083,
+      "at_ms": 7528.2205,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 74,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 20.383458,
+      "at_ms": 7548.781416,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 75,
+      "name": "коммит по Return",
+      "status": "ready",
+      "waited_ms": 5.658625,
+      "at_ms": 7554.44775,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 76,
+      "name": "снятие composition",
+      "status": "ready",
+      "waited_ms": 5.6442499999999995,
+      "at_ms": 7560.0975,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 77,
+      "name": "фокус A после снятия",
+      "status": "ready",
+      "waited_ms": 5.656541,
+      "at_ms": 7565.778708,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 78,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.48025,
+      "at_ms": 7571.278666,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 79,
+      "name": "источник ввода",
+      "status": "ready",
+      "waited_ms": 5.67475,
+      "at_ms": 7576.979416,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 80,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.306540999999999,
+      "at_ms": 7587.841875,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 81,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.470792,
+      "at_ms": 7748.412833,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 82,
+      "name": "источник ввода",
+      "status": "ready",
+      "waited_ms": 5.708666,
+      "at_ms": 7754.18425,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 83,
+      "name": "ja-esc",
+      "status": "ready",
+      "waited_ms": 5.353917,
+      "at_ms": 7777.622625,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 84,
+      "name": "k a",
+      "status": "ready",
+      "waited_ms": 5.507542,
+      "at_ms": 7783.1665,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 85,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 35.190417000000004,
+      "at_ms": 7818.742958,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 86,
+      "name": "composition метода ввода",
+      "status": "ready",
+      "waited_ms": 5.496583,
+      "at_ms": 7824.250583,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 87,
+      "name": "Esc",
+      "status": "ready",
+      "waited_ms": 5.6115829999999995,
+      "at_ms": 7829.88125,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 88,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 17.568958,
+      "at_ms": 7848.839291,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 89,
+      "name": "composition снята Esc",
+      "status": "ready",
+      "waited_ms": 3010.632375,
+      "at_ms": 10859.499333,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 90,
+      "name": "вторая клавиша",
+      "status": "ready",
+      "waited_ms": 5.370749999999999,
+      "at_ms": 10864.89075,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 91,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 9.985833,
+      "at_ms": 10875.193416,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 92,
+      "name": "вторая клавиша послана",
+      "status": "ready",
+      "waited_ms": 5.641958,
+      "at_ms": 10880.8465,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 93,
+      "name": "composition после второй клавиши",
+      "status": "ready",
+      "waited_ms": 5.651792,
+      "at_ms": 10886.512583,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 94,
+      "name": "снятие composition",
+      "status": "ready",
+      "waited_ms": 5.451499999999999,
+      "at_ms": 10891.978166,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 95,
+      "name": "фокус A после снятия",
+      "status": "ready",
+      "waited_ms": 5.658542,
+      "at_ms": 10897.656083,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 96,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.645708,
+      "at_ms": 10903.319416,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 97,
+      "name": "источник ввода",
+      "status": "ready",
+      "waited_ms": 5.33675,
+      "at_ms": 10908.663833,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 98,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.655167,
+      "at_ms": 10919.61625,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 99,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.63354199999998,
+      "at_ms": 11080.303291,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 100,
+      "name": "источник ввода",
+      "status": "ready",
+      "waited_ms": 5.663708,
+      "at_ms": 11085.981916,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 101,
+      "name": "окна до ввода",
+      "status": "ready",
+      "waited_ms": 5.055750000000001,
+      "at_ms": 11105.342458,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 102,
+      "name": "ja-candidate",
+      "status": "ready",
+      "waited_ms": 5.645,
+      "at_ms": 11121.488708,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 103,
+      "name": "k a n a",
+      "status": "ready",
+      "waited_ms": 5.025625,
+      "at_ms": 11126.529958,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 104,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 73.727875,
+      "at_ms": 11202.537625,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 105,
+      "name": "composition метода ввода",
+      "status": "ready",
+      "waited_ms": 5.592125,
+      "at_ms": 11208.146791,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 106,
+      "name": "Space Space",
+      "status": "ready",
+      "waited_ms": 5.653125,
+      "at_ms": 11213.821291,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 107,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 52.736084000000005,
+      "at_ms": 11266.92525,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 108,
+      "name": "окно кандидатов",
+      "status": "ready",
+      "waited_ms": 3014.208417,
+      "at_ms": 14281.211375,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 109,
+      "name": "Return",
+      "status": "ready",
+      "waited_ms": 5.71,
+      "at_ms": 14288.674208,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 110,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 13.961417,
+      "at_ms": 14303.177333,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 111,
+      "name": "коммит кандидата",
+      "status": "ready",
+      "waited_ms": 3005.5228340000003,
+      "at_ms": 17308.779708,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 112,
+      "name": "вторая клавиша",
+      "status": "ready",
+      "waited_ms": 5.697791,
+      "at_ms": 17314.5625,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 113,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 42.771125,
+      "at_ms": 17357.956666,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 114,
+      "name": "вторая клавиша послана",
+      "status": "ready",
+      "waited_ms": 5.675167,
+      "at_ms": 17363.678291,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 115,
+      "name": "composition после второй клавиши",
+      "status": "ready",
+      "waited_ms": 5.66725,
+      "at_ms": 17369.396083,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 116,
+      "name": "снятие composition",
+      "status": "ready",
+      "waited_ms": 5.4264589999999995,
+      "at_ms": 17374.857333,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 117,
+      "name": "фокус A после снятия",
+      "status": "ready",
+      "waited_ms": 5.669375,
+      "at_ms": 17380.557916,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 118,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.7130410000000005,
+      "at_ms": 17386.303625,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 119,
+      "name": "источник ввода",
+      "status": "ready",
+      "waited_ms": 5.17925,
+      "at_ms": 17391.516458,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 120,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.56325,
+      "at_ms": 17407.300625,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 121,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 160.326084,
+      "at_ms": 17567.79525,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 122,
+      "name": "источник ввода",
+      "status": "ready",
+      "waited_ms": 5.697,
+      "at_ms": 17573.583958,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 123,
+      "name": "cmdk-marked",
+      "status": "ready",
+      "waited_ms": 5.326625,
+      "at_ms": 17602.289541,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 124,
+      "name": "k a",
+      "status": "ready",
+      "waited_ms": 5.6515,
+      "at_ms": 17607.956375,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 125,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 28.64725,
+      "at_ms": 17637.095833,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 126,
+      "name": "composition метода ввода",
+      "status": "ready",
+      "waited_ms": 5.669458,
+      "at_ms": 17642.782291,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 127,
+      "name": "состояние до Cmd-K",
+      "status": "ready",
+      "waited_ms": 5.657,
+      "at_ms": 17648.464125,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 128,
+      "name": "Cmd-K",
+      "status": "ready",
+      "waited_ms": 5.140833,
+      "at_ms": 17653.670833,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 129,
+      "name": "клавиши прошли sendEvent",
+      "status": "ready",
+      "waited_ms": 6.3825829999999995,
+      "at_ms": 17660.49475,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 130,
+      "name": "состояние после Cmd-K",
+      "status": "ready",
+      "waited_ms": 5.698916,
+      "at_ms": 17666.246375,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 131,
+      "name": "снятие composition",
+      "status": "ready",
+      "waited_ms": 424.245416,
+      "at_ms": 18090.576541,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 132,
+      "name": "фокус A после снятия",
+      "status": "ready",
+      "waited_ms": 5.704125,
+      "at_ms": 18096.331875,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 133,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.6865,
+      "at_ms": 18102.04025,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 134,
+      "name": "источник ввода",
+      "status": "ready",
+      "waited_ms": 5.700083,
+      "at_ms": 18107.792041,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 135,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.219584,
+      "at_ms": 18122.137791,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 136,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 155.68558299999998,
+      "at_ms": 18277.970125,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 137,
+      "name": "источник ввода",
+      "status": "ready",
+      "waited_ms": 5.2255,
+      "at_ms": 18283.253166,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 138,
+      "name": "щелчок в клетке прокрутки",
+      "status": "ready",
+      "waited_ms": 5.684167,
+      "at_ms": 18289.622625,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 139,
+      "name": "щелчок прошёл sendEvent и задал позицию",
+      "status": "ready",
+      "waited_ms": 5.708083,
+      "at_ms": 18295.780958,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 140,
+      "name": "отчёт мыши включён",
+      "status": "ready",
+      "waited_ms": 5.0981250000000005,
+      "at_ms": 18300.903708,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 141,
+      "name": "квитанция ack",
+      "status": "ready",
+      "waited_ms": 5.7139169999999995,
+      "at_ms": 18306.664875,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 142,
+      "name": "маркер в видимом тексте",
+      "status": "ready",
+      "waited_ms": 5.738084,
+      "at_ms": 18312.452541,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 143,
+      "name": "scroll-report",
+      "status": "ready",
+      "waited_ms": 5.19425,
+      "at_ms": 18317.674375,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 144,
+      "name": "прокрутка вниз на щелчок колеса",
+      "status": "ready",
+      "waited_ms": 5.709083000000001,
+      "at_ms": 18323.422,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 145,
+      "name": "прокрутка прошла sendEvent",
+      "status": "ready",
+      "waited_ms": 5.677917,
+      "at_ms": 18329.401916,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 146,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.721958,
+      "at_ms": 18335.21475,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 147,
+      "name": "прокрутка у вида",
+      "status": "ready",
+      "waited_ms": 5.712375,
+      "at_ms": 18340.964875,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 148,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.696292000000001,
+      "at_ms": 18346.707041,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 149,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 170.626042,
+      "at_ms": 18517.571791,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 150,
+      "name": "отчёт мыши выключен",
+      "status": "ready",
+      "waited_ms": 5.67075,
+      "at_ms": 18523.300666,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 151,
+      "name": "квитанция ack",
+      "status": "ready",
+      "waited_ms": 5.688417,
+      "at_ms": 18529.046166,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 152,
+      "name": "маркер в видимом тексте",
+      "status": "ready",
+      "waited_ms": 5.727,
+      "at_ms": 18534.832791,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 153,
+      "name": "история в 200 строк",
+      "status": "ready",
+      "waited_ms": 5.678624999999999,
+      "at_ms": 18540.549,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 154,
+      "name": "история на экране",
+      "status": "ready",
+      "waited_ms": 5.700708,
+      "at_ms": 18546.371916,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 155,
+      "name": "scroll-history",
+      "status": "ready",
+      "waited_ms": 5.67775,
+      "at_ms": 18552.084333,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 156,
+      "name": "прокрутка вверх",
+      "status": "ready",
+      "waited_ms": 5.558,
+      "at_ms": 18557.695125,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 157,
+      "name": "прокрутка прошла sendEvent",
+      "status": "ready",
+      "waited_ms": 5.687792,
+      "at_ms": 18563.673416,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 158,
+      "name": "видимый текст сдвинулся",
+      "status": "ready",
+      "waited_ms": 5.778208,
+      "at_ms": 18569.479208,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 159,
+      "name": "прокрутка обратно",
+      "status": "ready",
+      "waited_ms": 5.775417,
+      "at_ms": 18575.313166,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 160,
+      "name": "прокрутка обратно прошла sendEvent",
+      "status": "ready",
+      "waited_ms": 5.6785000000000005,
+      "at_ms": 18581.241083,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 161,
+      "name": "ожидаемые байты",
+      "status": "ready",
+      "waited_ms": 5.622166,
+      "at_ms": 18586.885708,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 162,
+      "name": "ограда",
+      "status": "ready",
+      "waited_ms": 5.1203330000000005,
+      "at_ms": 18592.027833,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 163,
+      "name": "ограда и тишина другой фикстуры",
+      "status": "ready",
+      "waited_ms": 175.352292,
+      "at_ms": 18767.55,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 164,
+      "name": "возврат источника ввода",
+      "status": "ready",
+      "waited_ms": 5.675833,
+      "at_ms": 18773.280041,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 165,
+      "name": "закрытие обеих поверхностей",
+      "status": "ready",
+      "waited_ms": 5.425458,
+      "at_ms": 18784.640666,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    },
+    {
+      "index": 166,
+      "name": "освобождение и выход фикстур",
+      "status": "ready",
+      "waited_ms": 27.539292,
+      "at_ms": 18812.200083,
+      "state": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5"
+    }
+  ],
+  "events": [
+    {
+      "number": 1,
+      "label": "keyDown привет по кодам клавиш code 5 [\"п\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606697760859375,
+      "dispatch_start_ns": 606697769238583,
+      "send_return_ns": 606697782605583,
+      "display_pass_ns": 606697813314916,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "keyUp привет по кодам клавиш code 5 [\"п\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606697760922041,
+      "dispatch_start_ns": 606697782757166,
+      "send_return_ns": 606697782768791,
+      "display_pass_ns": 606697813314916,
+      "undispatched": false
+    },
+    {
+      "number": 3,
+      "label": "keyDown привет по кодам клавиш code 4 [\"р\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606697760954416,
+      "dispatch_start_ns": 606697782794208,
+      "send_return_ns": 606697782995583,
+      "display_pass_ns": 606697813314916,
+      "undispatched": false
+    },
+    {
+      "number": 4,
+      "label": "keyUp привет по кодам клавиш code 4 [\"р\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606697760979458,
+      "dispatch_start_ns": 606697783018375,
+      "send_return_ns": 606697783026666,
+      "display_pass_ns": 606697813314916,
+      "undispatched": false
+    },
+    {
+      "number": 5,
+      "label": "keyDown привет по кодам клавиш code 11 [\"и\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606697761022375,
+      "dispatch_start_ns": 606697783046875,
+      "send_return_ns": 606697783179125,
+      "display_pass_ns": 606697813314916,
+      "undispatched": false
+    },
+    {
+      "number": 6,
+      "label": "keyUp привет по кодам клавиш code 11 [\"и\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606697761057208,
+      "dispatch_start_ns": 606697783202291,
+      "send_return_ns": 606697783211208,
+      "display_pass_ns": 606697813314916,
+      "undispatched": false
+    },
+    {
+      "number": 7,
+      "label": "keyDown привет по кодам клавиш code 2 [\"в\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606697761085041,
+      "dispatch_start_ns": 606697783230500,
+      "send_return_ns": 606697783373875,
+      "display_pass_ns": 606697813314916,
+      "undispatched": false
+    },
+    {
+      "number": 8,
+      "label": "keyUp привет по кодам клавиш code 2 [\"в\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606697761113666,
+      "dispatch_start_ns": 606697783386833,
+      "send_return_ns": 606697783393083,
+      "display_pass_ns": 606697813314916,
+      "undispatched": false
+    },
+    {
+      "number": 9,
+      "label": "keyDown привет по кодам клавиш code 17 [\"е\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606697761141750,
+      "dispatch_start_ns": 606697783409250,
+      "send_return_ns": 606697783520583,
+      "display_pass_ns": 606697813314916,
+      "undispatched": false
+    },
+    {
+      "number": 10,
+      "label": "keyUp привет по кодам клавиш code 17 [\"е\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606697761168458,
+      "dispatch_start_ns": 606697783546375,
+      "send_return_ns": 606697783555541,
+      "display_pass_ns": 606697813314916,
+      "undispatched": false
+    },
+    {
+      "number": 11,
+      "label": "keyDown привет по кодам клавиш code 45 [\"т\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606697761206583,
+      "dispatch_start_ns": 606697783575125,
+      "send_return_ns": 606697783707541,
+      "display_pass_ns": 606697813314916,
+      "undispatched": false
+    },
+    {
+      "number": 12,
+      "label": "keyUp привет по кодам клавиш code 45 [\"т\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606697761236916,
+      "dispatch_start_ns": 606697783716166,
+      "send_return_ns": 606697783722375,
+      "display_pass_ns": 606697813314916,
+      "undispatched": false
+    },
+    {
+      "number": 13,
+      "label": "keyDown `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606697831146708,
+      "dispatch_start_ns": 606697831236083,
+      "send_return_ns": 606697841203208,
+      "display_pass_ns": 606697841813875,
+      "undispatched": false
+    },
+    {
+      "number": 14,
+      "label": "keyUp `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606697831188291,
+      "dispatch_start_ns": 606697841249208,
+      "send_return_ns": 606697841253875,
+      "display_pass_ns": 606697841813875,
+      "undispatched": false
+    },
+    {
+      "number": 15,
+      "label": "keyDown Option-e e code 14 [\"\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606698013831958,
+      "dispatch_start_ns": 606698014116958,
+      "send_return_ns": 606698014899833,
+      "display_pass_ns": 606698015273500,
+      "undispatched": false
+    },
+    {
+      "number": 16,
+      "label": "keyUp Option-e e code 14 [\"\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606698013914541,
+      "dispatch_start_ns": 606698014979500,
+      "send_return_ns": 606698014992375,
+      "display_pass_ns": 606698015273500,
+      "undispatched": false
+    },
+    {
+      "number": 17,
+      "label": "keyDown Option-e e code 14 [\"e\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606698013993083,
+      "dispatch_start_ns": 606698015017125,
+      "send_return_ns": 606698015198958,
+      "display_pass_ns": 606698015273500,
+      "undispatched": false
+    },
+    {
+      "number": 18,
+      "label": "keyUp Option-e e code 14 [\"e\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606698014066541,
+      "dispatch_start_ns": 606698015210291,
+      "send_return_ns": 606698015211541,
+      "display_pass_ns": 606698015273500,
+      "undispatched": false
+    },
+    {
+      "number": 19,
+      "label": "keyDown `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606698036065458,
+      "dispatch_start_ns": 606698036111375,
+      "send_return_ns": 606698037115375,
+      "display_pass_ns": 606698037182291,
+      "undispatched": false
+    },
+    {
+      "number": 20,
+      "label": "keyUp `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606698036084250,
+      "dispatch_start_ns": 606698037134708,
+      "send_return_ns": 606698037138166,
+      "display_pass_ns": 606698037182291,
+      "undispatched": false
+    },
+    {
+      "number": 21,
+      "label": "keyDown контроль, ABC: k a code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698216192625,
+      "dispatch_start_ns": 606698219062083,
+      "send_return_ns": 606698245097291,
+      "display_pass_ns": 606698256601666,
+      "undispatched": false
+    },
+    {
+      "number": 22,
+      "label": "keyUp контроль, ABC: k a code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698216301250,
+      "dispatch_start_ns": 606698245301083,
+      "send_return_ns": 606698245357125,
+      "display_pass_ns": 606698256601666,
+      "undispatched": false
+    },
+    {
+      "number": 23,
+      "label": "keyDown контроль, ABC: k a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698216374500,
+      "dispatch_start_ns": 606698245397000,
+      "send_return_ns": 606698250849750,
+      "display_pass_ns": 606698256601666,
+      "undispatched": false
+    },
+    {
+      "number": 24,
+      "label": "keyUp контроль, ABC: k a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698216438666,
+      "dispatch_start_ns": 606698250870791,
+      "send_return_ns": 606698250886666,
+      "display_pass_ns": 606698256601666,
+      "undispatched": false
+    },
+    {
+      "number": 25,
+      "label": "keyDown контроль: k a code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698316074208,
+      "dispatch_start_ns": 606698319130916,
+      "send_return_ns": 606698424075666,
+      "display_pass_ns": 606698445362333,
+      "undispatched": false
+    },
+    {
+      "number": 26,
+      "label": "keyUp контроль: k a code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698316193875,
+      "dispatch_start_ns": 606698424188291,
+      "send_return_ns": 606698424230083,
+      "display_pass_ns": 606698445362333,
+      "undispatched": false
+    },
+    {
+      "number": 27,
+      "label": "keyDown контроль: k a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698316267625,
+      "dispatch_start_ns": 606698424279333,
+      "send_return_ns": 606698442726666,
+      "display_pass_ns": 606698445362333,
+      "undispatched": false
+    },
+    {
+      "number": 28,
+      "label": "keyUp контроль: k a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698316319708,
+      "dispatch_start_ns": 606698442768208,
+      "send_return_ns": 606698442796666,
+      "display_pass_ns": 606698445362333,
+      "undispatched": false
+    },
+    {
+      "number": 29,
+      "label": "keyDown контроль: Return code 36 [\"\\r\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698457467166,
+      "dispatch_start_ns": 606698457632041,
+      "send_return_ns": 606698459739875,
+      "display_pass_ns": 606698461488666,
+      "undispatched": false
+    },
+    {
+      "number": 30,
+      "label": "keyUp контроль: Return code 36 [\"\\r\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698457549250,
+      "dispatch_start_ns": 606698459760458,
+      "send_return_ns": 606698459778583,
+      "display_pass_ns": 606698461488666,
+      "undispatched": false
+    },
+    {
+      "number": 31,
+      "label": "keyDown контроль: k a перед Esc code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698480265625,
+      "dispatch_start_ns": 606698485743416,
+      "send_return_ns": 606698500811000,
+      "display_pass_ns": 606698512857583,
+      "undispatched": false
+    },
+    {
+      "number": 32,
+      "label": "keyUp контроль: k a перед Esc code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698480363958,
+      "dispatch_start_ns": 606698500854875,
+      "send_return_ns": 606698500880041,
+      "display_pass_ns": 606698512857583,
+      "undispatched": false
+    },
+    {
+      "number": 33,
+      "label": "keyDown контроль: k a перед Esc code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698480428625,
+      "dispatch_start_ns": 606698500916708,
+      "send_return_ns": 606698511387416,
+      "display_pass_ns": 606698512857583,
+      "undispatched": false
+    },
+    {
+      "number": 34,
+      "label": "keyUp контроль: k a перед Esc code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698480503041,
+      "dispatch_start_ns": 606698511413291,
+      "send_return_ns": 606698511431791,
+      "display_pass_ns": 606698512857583,
+      "undispatched": false
+    },
+    {
+      "number": 35,
+      "label": "keyDown контроль: Esc code 53 [\"\\u{1b}\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698529965208,
+      "dispatch_start_ns": 606698530119416,
+      "send_return_ns": 606698531640041,
+      "display_pass_ns": 606698533192708,
+      "undispatched": false
+    },
+    {
+      "number": 36,
+      "label": "keyUp контроль: Esc code 53 [\"\\u{1b}\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606698530048208,
+      "dispatch_start_ns": 606698531660708,
+      "send_return_ns": 606698531679083,
+      "display_pass_ns": 606698533192708,
+      "undispatched": false
+    },
+    {
+      "number": 37,
+      "label": "keyDown контроль: второй Esc code 53 [\"\\u{1b}\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701552339416,
+      "dispatch_start_ns": 606701552709250,
+      "send_return_ns": 606701564171125,
+      "display_pass_ns": 606701567432083,
+      "undispatched": false
+    },
+    {
+      "number": 38,
+      "label": "keyUp контроль: второй Esc code 53 [\"\\u{1b}\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701552477791,
+      "dispatch_start_ns": 606701564277291,
+      "send_return_ns": 606701564347291,
+      "display_pass_ns": 606701567432083,
+      "undispatched": false
+    },
+    {
+      "number": 39,
+      "label": "keyDown контроль: k a n a code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701592129666,
+      "dispatch_start_ns": 606701602572708,
+      "send_return_ns": 606701628841125,
+      "display_pass_ns": 606701732417375,
+      "undispatched": false
+    },
+    {
+      "number": 40,
+      "label": "keyUp контроль: k a n a code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701592306166,
+      "dispatch_start_ns": 606701629005708,
+      "send_return_ns": 606701629088250,
+      "display_pass_ns": 606701732417375,
+      "undispatched": false
+    },
+    {
+      "number": 41,
+      "label": "keyDown контроль: k a n a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701592384916,
+      "dispatch_start_ns": 606701629202083,
+      "send_return_ns": 606701662270166,
+      "display_pass_ns": 606701732417375,
+      "undispatched": false
+    },
+    {
+      "number": 42,
+      "label": "keyUp контроль: k a n a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701592457083,
+      "dispatch_start_ns": 606701662419166,
+      "send_return_ns": 606701662493125,
+      "display_pass_ns": 606701732417375,
+      "undispatched": false
+    },
+    {
+      "number": 43,
+      "label": "keyDown контроль: k a n a code 45 [\"n\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701592524625,
+      "dispatch_start_ns": 606701662592541,
+      "send_return_ns": 606701709048541,
+      "display_pass_ns": 606701732417375,
+      "undispatched": false
+    },
+    {
+      "number": 44,
+      "label": "keyUp контроль: k a n a code 45 [\"n\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701592594375,
+      "dispatch_start_ns": 606701709196500,
+      "send_return_ns": 606701709269500,
+      "display_pass_ns": 606701732417375,
+      "undispatched": false
+    },
+    {
+      "number": 45,
+      "label": "keyDown контроль: k a n a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701592662916,
+      "dispatch_start_ns": 606701709360375,
+      "send_return_ns": 606701727053416,
+      "display_pass_ns": 606701732417375,
+      "undispatched": false
+    },
+    {
+      "number": 46,
+      "label": "keyUp контроль: k a n a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701592728125,
+      "dispatch_start_ns": 606701727169875,
+      "send_return_ns": 606701727243500,
+      "display_pass_ns": 606701732417375,
+      "undispatched": false
+    },
+    {
+      "number": 47,
+      "label": "keyDown контроль: Space Space code 49 [\" \"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701744294916,
+      "dispatch_start_ns": 606701745451666,
+      "send_return_ns": 606701845211125,
+      "display_pass_ns": 606701872852541,
+      "undispatched": false
+    },
+    {
+      "number": 48,
+      "label": "keyUp контроль: Space Space code 49 [\" \"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701744656500,
+      "dispatch_start_ns": 606701845458000,
+      "send_return_ns": 606701845557875,
+      "display_pass_ns": 606701872852541,
+      "undispatched": false
+    },
+    {
+      "number": 49,
+      "label": "keyDown контроль: Space Space code 49 [\" \"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701744935625,
+      "dispatch_start_ns": 606701845668375,
+      "send_return_ns": 606701868001208,
+      "display_pass_ns": 606701872852541,
+      "undispatched": false
+    },
+    {
+      "number": 50,
+      "label": "keyUp контроль: Space Space code 49 [\" \"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701745199791,
+      "dispatch_start_ns": 606701868078708,
+      "send_return_ns": 606701868130166,
+      "display_pass_ns": 606701872852541,
+      "undispatched": false
+    },
+    {
+      "number": 51,
+      "label": "keyDown контроль: Return преобразования code 36 [\"\\r\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701884403708,
+      "dispatch_start_ns": 606701885743750,
+      "send_return_ns": 606701893655166,
+      "display_pass_ns": 606701895408833,
+      "undispatched": false
+    },
+    {
+      "number": 52,
+      "label": "keyUp контроль: Return преобразования code 36 [\"\\r\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606701884557041,
+      "dispatch_start_ns": 606701893721375,
+      "send_return_ns": 606701893777875,
+      "display_pass_ns": 606701895408833,
+      "undispatched": false
+    },
+    {
+      "number": 53,
+      "label": "keyDown контроль: второй Return code 36 [\"\\r\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606704908794750,
+      "dispatch_start_ns": 606704909328541,
+      "send_return_ns": 606704940428375,
+      "display_pass_ns": 606704945608166,
+      "undispatched": false
+    },
+    {
+      "number": 54,
+      "label": "keyUp контроль: второй Return code 36 [\"\\r\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=NSTextView cursor=1923,705.5",
+      "t_post_ns": 606704909079041,
+      "dispatch_start_ns": 606704940527000,
+      "send_return_ns": 606704940595208,
+      "display_pass_ns": 606704945608166,
+      "undispatched": false
+    },
+    {
+      "number": 55,
+      "label": "keyDown k a code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606705025200125,
+      "dispatch_start_ns": 606705035776500,
+      "send_return_ns": 606705051562500,
+      "display_pass_ns": 606705078041541,
+      "undispatched": false
+    },
+    {
+      "number": 56,
+      "label": "keyUp k a code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606705025298541,
+      "dispatch_start_ns": 606705051694666,
+      "send_return_ns": 606705051720333,
+      "display_pass_ns": 606705078041541,
+      "undispatched": false
+    },
+    {
+      "number": 57,
+      "label": "keyDown k a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606705025378958,
+      "dispatch_start_ns": 606705051792041,
+      "send_return_ns": 606705074359791,
+      "display_pass_ns": 606705078041541,
+      "undispatched": false
+    },
+    {
+      "number": 58,
+      "label": "keyUp k a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606705025443791,
+      "dispatch_start_ns": 606705074397333,
+      "send_return_ns": 606705074418958,
+      "display_pass_ns": 606705078041541,
+      "undispatched": false
+    },
+    {
+      "number": 59,
+      "label": "keyDown Return code 36 [\"\\r\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606705089073416,
+      "dispatch_start_ns": 606705102418375,
+      "send_return_ns": 606705107080958,
+      "display_pass_ns": 606705109533500,
+      "undispatched": false
+    },
+    {
+      "number": 60,
+      "label": "keyUp Return code 36 [\"\\r\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606705089150041,
+      "dispatch_start_ns": 606705107117875,
+      "send_return_ns": 606705107120708,
+      "display_pass_ns": 606705109533500,
+      "undispatched": false
+    },
+    {
+      "number": 61,
+      "label": "keyDown `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606705148612500,
+      "dispatch_start_ns": 606705148712000,
+      "send_return_ns": 606705150034583,
+      "display_pass_ns": 606705150186625,
+      "undispatched": false
+    },
+    {
+      "number": 62,
+      "label": "keyUp `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606705148652250,
+      "dispatch_start_ns": 606705150058000,
+      "send_return_ns": 606705150061791,
+      "display_pass_ns": 606705150186625,
+      "undispatched": false
+    },
+    {
+      "number": 63,
+      "label": "keyDown k a code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606705344081250,
+      "dispatch_start_ns": 606705344431291,
+      "send_return_ns": 606705357861166,
+      "display_pass_ns": 606705379479083,
+      "undispatched": false
+    },
+    {
+      "number": 64,
+      "label": "keyUp k a code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606705344163625,
+      "dispatch_start_ns": 606705357978375,
+      "send_return_ns": 606705358002416,
+      "display_pass_ns": 606705379479083,
+      "undispatched": false
+    },
+    {
+      "number": 65,
+      "label": "keyDown k a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606705344235791,
+      "dispatch_start_ns": 606705358066875,
+      "send_return_ns": 606705377811083,
+      "display_pass_ns": 606705379479083,
+      "undispatched": false
+    },
+    {
+      "number": 66,
+      "label": "keyUp k a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606705344296375,
+      "dispatch_start_ns": 606705377886375,
+      "send_return_ns": 606705377919875,
+      "display_pass_ns": 606705379479083,
+      "undispatched": false
+    },
+    {
+      "number": 67,
+      "label": "keyDown Esc code 53 [\"\\u{1b}\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606705391914791,
+      "dispatch_start_ns": 606705402415416,
+      "send_return_ns": 606705408088583,
+      "display_pass_ns": 606705409613250,
+      "undispatched": false
+    },
+    {
+      "number": 68,
+      "label": "keyUp Esc code 53 [\"\\u{1b}\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606705392023291,
+      "dispatch_start_ns": 606705408120291,
+      "send_return_ns": 606705408122791,
+      "display_pass_ns": 606705409613250,
+      "undispatched": false
+    },
+    {
+      "number": 69,
+      "label": "keyDown вторая клавиша code 53 [\"\\u{1b}\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708425884166,
+      "dispatch_start_ns": 606708426496291,
+      "send_return_ns": 606708429265458,
+      "display_pass_ns": 606708435943458,
+      "undispatched": false
+    },
+    {
+      "number": 70,
+      "label": "keyUp вторая клавиша code 53 [\"\\u{1b}\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708425961250,
+      "dispatch_start_ns": 606708429288666,
+      "send_return_ns": 606708429291625,
+      "display_pass_ns": 606708435943458,
+      "undispatched": false
+    },
+    {
+      "number": 71,
+      "label": "keyDown `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708480386500,
+      "dispatch_start_ns": 606708480457125,
+      "send_return_ns": 606708481280291,
+      "display_pass_ns": 606708481374166,
+      "undispatched": false
+    },
+    {
+      "number": 72,
+      "label": "keyUp `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708480414375,
+      "dispatch_start_ns": 606708481302041,
+      "send_return_ns": 606708481305125,
+      "display_pass_ns": 606708481374166,
+      "undispatched": false
+    },
+    {
+      "number": 73,
+      "label": "keyDown k a n a code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708689240458,
+      "dispatch_start_ns": 606708689645458,
+      "send_return_ns": 606708707136333,
+      "display_pass_ns": 606708763285333,
+      "undispatched": false
+    },
+    {
+      "number": 74,
+      "label": "keyUp k a n a code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708689302333,
+      "dispatch_start_ns": 606708707226208,
+      "send_return_ns": 606708707241041,
+      "display_pass_ns": 606708763285333,
+      "undispatched": false
+    },
+    {
+      "number": 75,
+      "label": "keyDown k a n a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708689348541,
+      "dispatch_start_ns": 606708707283958,
+      "send_return_ns": 606708723110208,
+      "display_pass_ns": 606708763285333,
+      "undispatched": false
+    },
+    {
+      "number": 76,
+      "label": "keyUp k a n a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708689394416,
+      "dispatch_start_ns": 606708723160041,
+      "send_return_ns": 606708723173250,
+      "display_pass_ns": 606708763285333,
+      "undispatched": false
+    },
+    {
+      "number": 77,
+      "label": "keyDown k a n a code 45 [\"n\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708689436541,
+      "dispatch_start_ns": 606708723209875,
+      "send_return_ns": 606708748159916,
+      "display_pass_ns": 606708763285333,
+      "undispatched": false
+    },
+    {
+      "number": 78,
+      "label": "keyUp k a n a code 45 [\"n\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708689480916,
+      "dispatch_start_ns": 606708748217708,
+      "send_return_ns": 606708748232166,
+      "display_pass_ns": 606708763285333,
+      "undispatched": false
+    },
+    {
+      "number": 79,
+      "label": "keyDown k a n a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708689522666,
+      "dispatch_start_ns": 606708748268583,
+      "send_return_ns": 606708761981916,
+      "display_pass_ns": 606708763285333,
+      "undispatched": false
+    },
+    {
+      "number": 80,
+      "label": "keyUp k a n a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708689563458,
+      "dispatch_start_ns": 606708762012958,
+      "send_return_ns": 606708762029458,
+      "display_pass_ns": 606708763285333,
+      "undispatched": false
+    },
+    {
+      "number": 81,
+      "label": "keyDown Space Space code 49 [\" \"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708774723791,
+      "dispatch_start_ns": 606708785721958,
+      "send_return_ns": 606708818704375,
+      "display_pass_ns": 606708827677000,
+      "undispatched": false
+    },
+    {
+      "number": 82,
+      "label": "keyUp Space Space code 49 [\" \"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708774798541,
+      "dispatch_start_ns": 606708818752625,
+      "send_return_ns": 606708818766083,
+      "display_pass_ns": 606708827677000,
+      "undispatched": false
+    },
+    {
+      "number": 83,
+      "label": "keyDown Space Space code 49 [\" \"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708774881208,
+      "dispatch_start_ns": 606708818802750,
+      "send_return_ns": 606708826222666,
+      "display_pass_ns": 606708827677000,
+      "undispatched": false
+    },
+    {
+      "number": 84,
+      "label": "keyUp Space Space code 49 [\" \"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606708774944416,
+      "dispatch_start_ns": 606708826245833,
+      "send_return_ns": 606708826260208,
+      "display_pass_ns": 606708827677000,
+      "undispatched": false
+    },
+    {
+      "number": 85,
+      "label": "keyDown Return code 36 [\"\\r\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606711849721000,
+      "dispatch_start_ns": 606711850197500,
+      "send_return_ns": 606711860187583,
+      "display_pass_ns": 606711863899291,
+      "undispatched": false
+    },
+    {
+      "number": 86,
+      "label": "keyUp Return code 36 [\"\\r\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606711849948750,
+      "dispatch_start_ns": 606711860276833,
+      "send_return_ns": 606711860285041,
+      "display_pass_ns": 606711863899291,
+      "undispatched": false
+    },
+    {
+      "number": 87,
+      "label": "keyDown вторая клавиша code 36 [\"\\r\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606714875717125,
+      "dispatch_start_ns": 606714876199625,
+      "send_return_ns": 606714910420000,
+      "display_pass_ns": 606714918651416,
+      "undispatched": false
+    },
+    {
+      "number": 88,
+      "label": "keyUp вторая клавиша code 36 [\"\\r\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606714875902458,
+      "dispatch_start_ns": 606714912985833,
+      "send_return_ns": 606714913006416,
+      "display_pass_ns": 606714918651416,
+      "undispatched": false
+    },
+    {
+      "number": 89,
+      "label": "keyDown `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606714968075083,
+      "dispatch_start_ns": 606714969056125,
+      "send_return_ns": 606714970391583,
+      "display_pass_ns": 606714970519708,
+      "undispatched": false
+    },
+    {
+      "number": 90,
+      "label": "keyUp `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606714968138541,
+      "dispatch_start_ns": 606714970430666,
+      "send_return_ns": 606714970435625,
+      "display_pass_ns": 606714970519708,
+      "undispatched": false
+    },
+    {
+      "number": 91,
+      "label": "keyDown k a code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715168859250,
+      "dispatch_start_ns": 606715169327416,
+      "send_return_ns": 606715179938583,
+      "display_pass_ns": 606715197829833,
+      "undispatched": false
+    },
+    {
+      "number": 92,
+      "label": "keyUp k a code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715168974458,
+      "dispatch_start_ns": 606715180031416,
+      "send_return_ns": 606715180050833,
+      "display_pass_ns": 606715197829833,
+      "undispatched": false
+    },
+    {
+      "number": 93,
+      "label": "keyDown k a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715169090166,
+      "dispatch_start_ns": 606715180105625,
+      "send_return_ns": 606715196182250,
+      "display_pass_ns": 606715197829833,
+      "undispatched": false
+    },
+    {
+      "number": 94,
+      "label": "keyUp k a code 0 [\"a\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715169192166,
+      "dispatch_start_ns": 606715196241916,
+      "send_return_ns": 606715196272833,
+      "display_pass_ns": 606715197829833,
+      "undispatched": false
+    },
+    {
+      "number": 95,
+      "label": "keyDown Cmd-K code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715214674416,
+      "dispatch_start_ns": 606715215004208,
+      "send_return_ns": 606715219522166,
+      "display_pass_ns": 606715221237958,
+      "undispatched": false
+    },
+    {
+      "number": 96,
+      "label": "keyUp Cmd-K code 40 [\"k\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715214850375,
+      "dispatch_start_ns": 606715219550541,
+      "send_return_ns": 606715219575916,
+      "display_pass_ns": 606715221237958,
+      "undispatched": false
+    },
+    {
+      "number": 97,
+      "label": "keyDown Esc снятия code 53 [\"\\u{1b}\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715232959041,
+      "dispatch_start_ns": 606715235825416,
+      "send_return_ns": 606715241294000,
+      "display_pass_ns": 606715242955666,
+      "undispatched": false
+    },
+    {
+      "number": 98,
+      "label": "keyUp Esc снятия code 53 [\"\\u{1b}\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715233085041,
+      "dispatch_start_ns": 606715241368791,
+      "send_return_ns": 606715241374166,
+      "display_pass_ns": 606715242955666,
+      "undispatched": false
+    },
+    {
+      "number": 99,
+      "label": "keyDown Esc снятия code 53 [\"\\u{1b}\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715641119625,
+      "dispatch_start_ns": 606715641800833,
+      "send_return_ns": 606715647993583,
+      "display_pass_ns": 606715651285791,
+      "undispatched": false
+    },
+    {
+      "number": 100,
+      "label": "keyUp Esc снятия code 53 [\"\\u{1b}\"]",
+      "window": 0,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715641503708,
+      "dispatch_start_ns": 606715648080250,
+      "send_return_ns": 606715648086833,
+      "display_pass_ns": 606715651285791,
+      "undispatched": false
+    },
+    {
+      "number": 101,
+      "label": "keyDown `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715682908958,
+      "dispatch_start_ns": 606715682998083,
+      "send_return_ns": 606715684183875,
+      "display_pass_ns": 606715684317833,
+      "undispatched": false
+    },
+    {
+      "number": 102,
+      "label": "keyUp `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715682944083,
+      "dispatch_start_ns": 606715684218750,
+      "send_return_ns": 606715684223375,
+      "display_pass_ns": 606715684317833,
+      "undispatched": false
+    },
+    {
+      "number": 103,
+      "label": "клетка прокрутки at 1024,957",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715850713416,
+      "dispatch_start_ns": 606715852410416,
+      "send_return_ns": 606715853815375,
+      "display_pass_ns": 606715854381500,
+      "undispatched": false
+    },
+    {
+      "number": 104,
+      "label": "клетка прокрутки at 1024,957",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715850798458,
+      "dispatch_start_ns": 606715854022708,
+      "send_return_ns": 606715854118875,
+      "display_pass_ns": 606715854381500,
+      "undispatched": false
+    },
+    {
+      "number": 105,
+      "label": "keyDown `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715907503166,
+      "dispatch_start_ns": 606715919204583,
+      "send_return_ns": 606715923521416,
+      "display_pass_ns": 606715924183500,
+      "undispatched": false
+    },
+    {
+      "number": 106,
+      "label": "keyUp `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606715907629791,
+      "dispatch_start_ns": 606715923701333,
+      "send_return_ns": 606715923734500,
+      "display_pass_ns": 606715924183500,
+      "undispatched": false
+    },
+    {
+      "number": 107,
+      "label": "keyDown `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606716152808541,
+      "dispatch_start_ns": 606716169201041,
+      "send_return_ns": 606716173040958,
+      "display_pass_ns": 606716173618833,
+      "undispatched": false
+    },
+    {
+      "number": 108,
+      "label": "keyUp `",
+      "window": 67461,
+      "before": "isActive=true keyWindow=#67461 mainWindow=#67461 firstResponder=ProbeSurfaceView cursor=1923,705.5",
+      "t_post_ns": 606716152911166,
+      "dispatch_start_ns": 606716173176958,
+      "send_return_ns": 606716173195500,
+      "display_pass_ns": 606716173618833,
+      "undispatched": false
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "accept"
+    },
+    {
+      "key": "route",
+      "value": "direct"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "variant",
+      "value": "base"
+    },
+    {
+      "key": "accept_note",
+      "value": "приёмочный проход исполнителя (ADR-0036): клавиши по коду с символами текущего источника ввода через postEvent и обычную доставку процесса; источник выбирается через Text Input Sources и возвращается после сценария; японский ввод сверяется с контролем на NSTextView"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "pasteboard",
+      "value": "io.github.dsbasko.shellio.probe.33bbf745be94a20f"
+    },
+    {
+      "key": "ghostty_init",
+      "value": {
+        "after": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "en_US.UTF-8",
+            "LC_COLLATE": "en_US.UTF-8",
+            "LC_CTYPE": "en_US.UTF-8",
+            "LC_MESSAGES": "en_US.UTF-8",
+            "LC_MONETARY": "en_US.UTF-8",
+            "LC_NUMERIC": "en_US.UTF-8",
+            "LC_TIME": "en_US.UTF-8"
+          },
+          "threads": 3
+        },
+        "argv": [
+          "probe-ghostty-surface"
+        ],
+        "before": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "C",
+            "LC_COLLATE": "C",
+            "LC_CTYPE": "C",
+            "LC_MESSAGES": "C",
+            "LC_MONETARY": "C",
+            "LC_NUMERIC": "C",
+            "LC_TIME": "C"
+          },
+          "threads": 3
+        },
+        "code": 0,
+        "duration_ms": 1.545458,
+        "finished_ns": 606697441384458,
+        "started_ns": 606697439839000
+      }
+    },
+    {
+      "key": "ghostty_init_env_changes",
+      "value": ""
+    },
+    {
+      "key": "ghostty_version",
+      "value": "1.4.0"
+    },
+    {
+      "key": "ghostty_build_mode",
+      "value": "release-fast"
+    },
+    {
+      "key": "ghostty_config",
+      "value": "font-family = Menlo\nfont-size = 13\nscrollback-limit-bytes = 10000000\ntheme = light:Builtin Light,dark:Builtin Dark\ncursor-style-blink = true\nconfirm-close-surface = false\nclipboard-paste-protection = false\n"
+    },
+    {
+      "key": "ghostty_config_diagnostics",
+      "value": []
+    },
+    {
+      "key": "ghostty_runtime_start",
+      "value": {
+        "app_focused": false,
+        "app_new_finished_ns": 606697572716083,
+        "app_new_started_ns": 606697572639125,
+        "color_scheme": "light",
+        "config_change_from_update": 1,
+        "reload_config_from_scheme": 0
+      }
+    },
+    {
+      "key": "surface_command",
+      "value": "'/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface' '--fixture' '--channel' '/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/20261118-093622-39144/accept-base/fixture.sock' '--nonce' '33bbf745be94a20f-s1'"
+    },
+    {
+      "key": "fixture_nonce",
+      "value": "33bbf745be94a20f-s1"
+    },
+    {
+      "key": "env_nonce",
+      "value": "f494d22b6eb5cee1"
+    },
+    {
+      "key": "responder_hidden_accepted",
+      "value": null
+    },
+    {
+      "key": "router",
+      "value": {
+        "has_source": false,
+        "mode": "input",
+        "record": {
+          "composing_passed": 17,
+          "key_ups_swallowed": 0,
+          "menu": 0,
+          "moves": [],
+          "repeats_swallowed": 0,
+          "replays": []
+        },
+        "reentrant": 0,
+        "saved_press": null,
+        "transitions": [
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "click-surface",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          },
+          {
+            "action": "pass",
+            "cancel": null,
+            "from": "input",
+            "signal": "key",
+            "to": "input",
+            "waiting_after": false,
+            "waiting_before": false
+          }
+        ],
+        "waiting": false
+      }
+    },
+    {
+      "key": "palette",
+      "value": {
+        "child_of_parent": false,
+        "field_editing": false,
+        "field_text": "",
+        "frame": [
+          0.0,
+          0.0,
+          480.0,
+          200.0
+        ],
+        "open": false,
+        "panel_class": "ProbeGhosttyPalettePanel",
+        "panel_key": false,
+        "panel_opaque": true,
+        "panel_visible": false,
+        "panels_created": 1,
+        "record": {
+          "closes": [],
+          "composing_passed": 1,
+          "key_ups_swallowed": 0,
+          "opens": [],
+          "outside_clicks": 0,
+          "parent_keys_swallowed": 0,
+          "repeats_swallowed": 0
+        }
+      }
+    },
+    {
+      "key": "checks",
+      "value": [
+        {
+          "expected_a": "d0bfd180d0b8d0b2d0b5d182",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "d0bfd180d0b8d0b2d0b5d182",
+          "got_b": "",
+          "independent_ok": true,
+          "name": "layout-ru",
+          "not_run": null,
+          "notes": [
+            "источник ввода com.apple.keylayout.Russian: выбран (текущий Some(\"com.apple.keylayout.Russian\"))",
+            "источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "c3a9",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "c3a9",
+          "got_b": "",
+          "independent_ok": true,
+          "name": "dead-key",
+          "not_run": null,
+          "notes": [
+            "источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))",
+            "источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "e3818b",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "e3818b",
+          "got_b": "",
+          "independent_ok": true,
+          "name": "ja-commit",
+          "not_run": null,
+          "notes": [
+            "контроль, ABC: текст: true, текст \"ka\", marked false",
+            "контроль: composition: true, текст \"か\", marked true",
+            "контроль: коммит: true, текст \"か\", marked false",
+            "контроль: composition перед Esc: true, текст \"か\", marked true",
+            "контроль: снятие Esc: false, текст \"か\", marked true",
+            "контроль: второй Esc: true, текст \"\", marked false",
+            "контроль: composition かな: true, текст \"かな\", marked true",
+            "контроль: преобразование: true, текст \"カナ\", marked true",
+            "контроль: коммит преобразования: false, текст \"カナ\", marked true",
+            "контроль: второй Return: true, текст \"カナ\", marked false",
+            "источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))",
+            "источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\"))",
+            "marked text после клавиш: true, preedit Some(\"か\")",
+            "до коммита в PTY ничего: : да",
+            "источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "",
+          "expected_b": "",
+          "failures": [
+            "composition снята одним Esc: false (контроль NSTextView: Some(false))"
+          ],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "",
+          "independent_ok": false,
+          "name": "ja-esc",
+          "not_run": null,
+          "notes": [
+            "источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\"))",
+            "marked text после клавиш: true, preedit Some(\"か\")",
+            "до коммита в PTY ничего: : да",
+            "после Esc в PTY ничего: : да",
+            "composition снята одним Esc: false (контроль NSTextView: Some(false)): НЕТ",
+            "источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+          ],
+          "pass": false
+        },
+        {
+          "expected_a": "e382abe3838a",
+          "expected_b": "",
+          "failures": [
+            "коммит выбранного кандидата по Return (контроль NSTextView: Some(false))"
+          ],
+          "fence_to": "A",
+          "got_a": "e382abe3838a",
+          "got_b": "",
+          "independent_ok": false,
+          "name": "ja-candidate",
+          "not_run": null,
+          "notes": [
+            "источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\"))",
+            "marked text после клавиш: true, preedit Some(\"かな\")",
+            "до коммита в PTY ничего: : да",
+            "preedit перед коммитом \"カナ\"",
+            "коммит выбранного кандидата по Return (контроль NSTextView: Some(false)): НЕТ",
+            "источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+          ],
+          "pass": false
+        },
+        {
+          "expected_a": "",
+          "expected_b": "",
+          "failures": [
+            "экран не очищен привязкой super+k"
+          ],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "",
+          "independent_ok": false,
+          "name": "cmdk-marked",
+          "not_run": null,
+          "notes": [
+            "источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\"))",
+            "marked text после клавиш: true, preedit Some(\"か\")",
+            "до коммита в PTY ничего: : да",
+            "палитра не открылась: открытий 0 → 0, открыта false: да",
+            "перехват палитры пропустил нажатие при composition: 0 → 1: да",
+            "composition с тем же текстом: Some(\"か\") → Some(\"か\"): да",
+            "экран не очищен привязкой super+k: НЕТ",
+            "фокус у A: да",
+            "источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+          ],
+          "pass": false
+        },
+        {
+          "expected_a": "1b5b3c36353b31313b354d1b5b3c36353b31313b354d1b5b3c36353b31313b354d",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "1b5b3c36353b31313b354d1b5b3c36353b31313b354d1b5b3c36353b31313b354d",
+          "got_b": "",
+          "independent_ok": true,
+          "name": "scroll-report",
+          "not_run": null,
+          "notes": [
+            "источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))",
+            "клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек",
+            "клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек",
+            "прокрутка: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется",
+            "прокруток у вида: 1"
+          ],
+          "pass": true
+        },
+        {
+          "expected_a": "",
+          "expected_b": "",
+          "failures": [],
+          "fence_to": "A",
+          "got_a": "",
+          "got_b": "",
+          "independent_ok": true,
+          "name": "scroll-history",
+          "not_run": null,
+          "notes": [
+            "клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек",
+            "прокрутка истории: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется",
+            "прокруток у вида 1, текст сдвинулся true",
+            "видимый текст сдвинулся: true: да",
+            "клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек",
+            "прокрутка истории обратно: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется"
+          ],
+          "pass": true
+        }
+      ]
+    },
+    {
+      "key": "candidate",
+      "value": {
+        "first_rect": [
+          944.0,
+          963.0,
+          64.0,
+          15.0
+        ],
+        "input_method_windows": [],
+        "line_cg": [
+          462.0,
+          477.0
+        ],
+        "marked": "カナ",
+        "near": null,
+        "paths": [],
+        "scale": 2.0
+      }
+    },
+    {
+      "key": "input_source_restored",
+      "value": "Some(Ok(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "key": "input_log_a",
+      "value": {
+        "arrivals": [
+          {
+            "at_ns": 606697780463750,
+            "key_code": 5,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606697782760250,
+            "key_code": 5,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606697782887166,
+            "key_code": 4,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606697783019625,
+            "key_code": 4,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606697783103583,
+            "key_code": 11,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606697783203625,
+            "key_code": 11,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606697783290791,
+            "key_code": 2,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606697783387541,
+            "key_code": 2,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606697783455500,
+            "key_code": 17,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606697783547708,
+            "key_code": 17,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606697783635708,
+            "key_code": 45,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606697783716791,
+            "key_code": 45,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606697840930458,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606697841251333,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606698014538375,
+            "key_code": 14,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606698014981791,
+            "key_code": 14,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606698015091916,
+            "key_code": 14,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606698015211291,
+            "key_code": 14,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606698037086041,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606698037136166,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606705036355083,
+            "key_code": 40,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606705051700166,
+            "key_code": 40,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606705051974416,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606705074399750,
+            "key_code": 0,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606705102604500,
+            "key_code": 36,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606705107120166,
+            "key_code": 36,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606705149986875,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606705150059541,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606705344900333,
+            "key_code": 40,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606705357983000,
+            "key_code": 40,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606705358244041,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606705377890208,
+            "key_code": 0,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606705402601000,
+            "key_code": 53,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606705408122333,
+            "key_code": 53,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708426613791,
+            "key_code": 53,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708429291375,
+            "key_code": 53,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708481237583,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708481303416,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708689972083,
+            "key_code": 40,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708707229208,
+            "key_code": 40,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708707400083,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708723162416,
+            "key_code": 0,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708723320708,
+            "key_code": 45,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708748220791,
+            "key_code": 45,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708748398416,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708762014958,
+            "key_code": 0,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708785849958,
+            "key_code": 49,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708818755708,
+            "key_code": 49,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708818919958,
+            "key_code": 49,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606708826247458,
+            "key_code": 49,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606711850613458,
+            "key_code": 36,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606711860284041,
+            "key_code": 36,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606714876682000,
+            "key_code": 36,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606714913002750,
+            "key_code": 36,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606714970321625,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606714970433208,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606715169953708,
+            "key_code": 40,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606715180034375,
+            "key_code": 40,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606715180243208,
+            "key_code": 0,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606715196246166,
+            "key_code": 0,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606715215299750,
+            "key_code": 40,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606715219554500,
+            "key_code": 40,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606715236166458,
+            "key_code": 53,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606715241373375,
+            "key_code": 53,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606715642296000,
+            "key_code": 53,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606715648086208,
+            "key_code": 53,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606715684129375,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606715684220791,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606715923285458,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606715923715708,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          },
+          {
+            "at_ns": 606716172827500,
+            "key_code": 50,
+            "kind": "keyDown",
+            "owned": false,
+            "repeat": false
+          },
+          {
+            "at_ns": 606716173185208,
+            "key_code": 50,
+            "kind": "keyUp",
+            "owned": true,
+            "repeat": false
+          }
+        ],
+        "bindings": 1,
+        "commands": [],
+        "dropped": [
+          {
+            "key_code": 14,
+            "kind": "keyUp",
+            "reason": "нажатие не ушло в терминал"
+          },
+          {
+            "key_code": 36,
+            "kind": "keyUp",
+            "reason": "нажатие не ушло в терминал"
+          },
+          {
+            "key_code": 53,
+            "kind": "keyDown",
+            "reason": "съедено composition"
+          },
+          {
+            "key_code": 53,
+            "kind": "keyUp",
+            "reason": "нажатие не ушло в терминал"
+          },
+          {
+            "key_code": 53,
+            "kind": "keyDown",
+            "reason": "съедено composition"
+          },
+          {
+            "key_code": 53,
+            "kind": "keyUp",
+            "reason": "нажатие не ушло в терминал"
+          },
+          {
+            "key_code": 36,
+            "kind": "keyDown",
+            "reason": "съедено composition"
+          },
+          {
+            "key_code": 36,
+            "kind": "keyUp",
+            "reason": "нажатие не ушло в терминал"
+          },
+          {
+            "key_code": 36,
+            "kind": "keyUp",
+            "reason": "нажатие не ушло в терминал"
+          },
+          {
+            "key_code": 53,
+            "kind": "keyDown",
+            "reason": "съедено composition"
+          },
+          {
+            "key_code": 53,
+            "kind": "keyUp",
+            "reason": "нажатие не ушло в терминал"
+          },
+          {
+            "key_code": 53,
+            "kind": "keyDown",
+            "reason": "съедено composition"
+          },
+          {
+            "key_code": 53,
+            "kind": "keyUp",
+            "reason": "нажатие не ушло в терминал"
+          }
+        ],
+        "marked_discarded": 0,
+        "mouse_buttons": 2,
+        "mouse_positions": 2,
+        "pressures": 0,
+        "scrolls": 3,
+        "sent": [
+          {
+            "at_ns": 606697782568875,
+            "done_ns": 606697782600625,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 5,
+              "mods": 0,
+              "text": "п",
+              "unshifted_codepoint": 1087
+            }
+          },
+          {
+            "at_ns": 606697782767750,
+            "done_ns": 606697782768125,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 5,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 1087
+            }
+          },
+          {
+            "at_ns": 606697782989458,
+            "done_ns": 606697782994875,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 4,
+              "mods": 0,
+              "text": "р",
+              "unshifted_codepoint": 1088
+            }
+          },
+          {
+            "at_ns": 606697783026125,
+            "done_ns": 606697783026416,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 4,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 1088
+            }
+          },
+          {
+            "at_ns": 606697783174458,
+            "done_ns": 606697783177750,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 11,
+              "mods": 0,
+              "text": "и",
+              "unshifted_codepoint": 1080
+            }
+          },
+          {
+            "at_ns": 606697783210708,
+            "done_ns": 606697783210958,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 11,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 1080
+            }
+          },
+          {
+            "at_ns": 606697783371250,
+            "done_ns": 606697783373541,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 2,
+              "mods": 0,
+              "text": "в",
+              "unshifted_codepoint": 1074
+            }
+          },
+          {
+            "at_ns": 606697783392708,
+            "done_ns": 606697783392916,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 2,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 1074
+            }
+          },
+          {
+            "at_ns": 606697783515250,
+            "done_ns": 606697783519041,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 17,
+              "mods": 0,
+              "text": "е",
+              "unshifted_codepoint": 1077
+            }
+          },
+          {
+            "at_ns": 606697783555083,
+            "done_ns": 606697783555333,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 17,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 1077
+            }
+          },
+          {
+            "at_ns": 606697783705375,
+            "done_ns": 606697783707208,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 45,
+              "mods": 0,
+              "text": "т",
+              "unshifted_codepoint": 1090
+            }
+          },
+          {
+            "at_ns": 606697783722125,
+            "done_ns": 606697783722250,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 45,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 1090
+            }
+          },
+          {
+            "at_ns": 606697841190083,
+            "done_ns": 606697841199291,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606697841253291,
+            "done_ns": 606697841253625,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606698014867541,
+            "done_ns": 606698014895958,
+            "from": "keyDown",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": true,
+              "consumed_mods": 4,
+              "keycode": 14,
+              "mods": 4,
+              "text": null,
+              "unshifted_codepoint": 101
+            }
+          },
+          {
+            "at_ns": 606698014991375,
+            "done_ns": 606698014992041,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 4,
+              "keycode": 14,
+              "mods": 4,
+              "text": null,
+              "unshifted_codepoint": 101
+            }
+          },
+          {
+            "at_ns": 606698015189583,
+            "done_ns": 606698015197750,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 4294967295,
+              "mods": 0,
+              "text": "é",
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 606698037107208,
+            "done_ns": 606698037113041,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606698037137541,
+            "done_ns": 606698037137833,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606705051552958,
+            "done_ns": 606705051557041,
+            "from": "keyDown",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": true,
+              "consumed_mods": 0,
+              "keycode": 40,
+              "mods": 0,
+              "text": "k",
+              "unshifted_codepoint": 107
+            }
+          },
+          {
+            "at_ns": 606705051718916,
+            "done_ns": 606705051719500,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 40,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 107
+            }
+          },
+          {
+            "at_ns": 606705074355208,
+            "done_ns": 606705074358291,
+            "from": "keyDown",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": true,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": "a",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 606705074418125,
+            "done_ns": 606705074418583,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 606705107063000,
+            "done_ns": 606705107076750,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 4294967295,
+              "mods": 0,
+              "text": "か",
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 606705150020541,
+            "done_ns": 606705150031625,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606705150061125,
+            "done_ns": 606705150061458,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606705357850583,
+            "done_ns": 606705357854666,
+            "from": "keyDown",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": true,
+              "consumed_mods": 0,
+              "keycode": 40,
+              "mods": 0,
+              "text": "k",
+              "unshifted_codepoint": 107
+            }
+          },
+          {
+            "at_ns": 606705358001375,
+            "done_ns": 606705358001958,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 40,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 107
+            }
+          },
+          {
+            "at_ns": 606705377801125,
+            "done_ns": 606705377806041,
+            "from": "keyDown",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": true,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": "a",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 606705377918541,
+            "done_ns": 606705377919125,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 606708481264375,
+            "done_ns": 606708481277375,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606708481304625,
+            "done_ns": 606708481304958,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606708707127750,
+            "done_ns": 606708707130666,
+            "from": "keyDown",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": true,
+              "consumed_mods": 0,
+              "keycode": 40,
+              "mods": 0,
+              "text": "k",
+              "unshifted_codepoint": 107
+            }
+          },
+          {
+            "at_ns": 606708707240250,
+            "done_ns": 606708707240583,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 40,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 107
+            }
+          },
+          {
+            "at_ns": 606708723105208,
+            "done_ns": 606708723108000,
+            "from": "keyDown",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": true,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": "a",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 606708723172500,
+            "done_ns": 606708723172833,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 606708748155500,
+            "done_ns": 606708748158125,
+            "from": "keyDown",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": true,
+              "consumed_mods": 0,
+              "keycode": 45,
+              "mods": 0,
+              "text": "n",
+              "unshifted_codepoint": 110
+            }
+          },
+          {
+            "at_ns": 606708748231625,
+            "done_ns": 606708748231958,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 45,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 110
+            }
+          },
+          {
+            "at_ns": 606708761978708,
+            "done_ns": 606708761980708,
+            "from": "keyDown",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": true,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": "a",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 606708762028833,
+            "done_ns": 606708762029125,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 606708818697166,
+            "done_ns": 606708818700458,
+            "from": "keyDown",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": true,
+              "consumed_mods": 0,
+              "keycode": 49,
+              "mods": 0,
+              "text": " ",
+              "unshifted_codepoint": 32
+            }
+          },
+          {
+            "at_ns": 606708818765500,
+            "done_ns": 606708818765833,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 49,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 32
+            }
+          },
+          {
+            "at_ns": 606708826219541,
+            "done_ns": 606708826221875,
+            "from": "keyDown",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": true,
+              "consumed_mods": 0,
+              "keycode": 49,
+              "mods": 0,
+              "text": " ",
+              "unshifted_codepoint": 32
+            }
+          },
+          {
+            "at_ns": 606708826259500,
+            "done_ns": 606708826259708,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 49,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 32
+            }
+          },
+          {
+            "at_ns": 606714910306208,
+            "done_ns": 606714910398958,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 4294967295,
+              "mods": 0,
+              "text": "カナ",
+              "unshifted_codepoint": 0
+            }
+          },
+          {
+            "at_ns": 606714970365208,
+            "done_ns": 606714970387708,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606714970434875,
+            "done_ns": 606714970435291,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606715179931833,
+            "done_ns": 606715179934791,
+            "from": "keyDown",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": true,
+              "consumed_mods": 0,
+              "keycode": 40,
+              "mods": 0,
+              "text": "k",
+              "unshifted_codepoint": 107
+            }
+          },
+          {
+            "at_ns": 606715180049666,
+            "done_ns": 606715180050208,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 40,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 107
+            }
+          },
+          {
+            "at_ns": 606715196171750,
+            "done_ns": 606715196175833,
+            "from": "keyDown",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "press",
+              "composing": true,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": "a",
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 606715196271666,
+            "done_ns": 606715196272250,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 0,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 97
+            }
+          },
+          {
+            "at_ns": 606715219434125,
+            "done_ns": 606715219514916,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": true,
+              "consumed_mods": 0,
+              "keycode": 40,
+              "mods": 8,
+              "text": "k",
+              "unshifted_codepoint": 107
+            }
+          },
+          {
+            "at_ns": 606715219575000,
+            "done_ns": 606715219575458,
+            "from": "keyUp",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 40,
+              "mods": 8,
+              "text": null,
+              "unshifted_codepoint": 107
+            }
+          },
+          {
+            "at_ns": 606715684166625,
+            "done_ns": 606715684179125,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606715684222500,
+            "done_ns": 606715684223000,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606715923455833,
+            "done_ns": 606715923506875,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606715923725583,
+            "done_ns": 606715923733541,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606716172970333,
+            "done_ns": 606716173027458,
+            "from": "keyDown",
+            "handled": {
+              "Ok": true
+            },
+            "input": {
+              "action": "press",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": "`",
+              "unshifted_codepoint": 96
+            }
+          },
+          {
+            "at_ns": 606716173191958,
+            "done_ns": 606716173194833,
+            "from": "keyUp",
+            "handled": {
+              "Ok": false
+            },
+            "input": {
+              "action": "release",
+              "composing": false,
+              "consumed_mods": 0,
+              "keycode": 50,
+              "mods": 0,
+              "text": null,
+              "unshifted_codepoint": 96
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": "input_log_b",
+      "value": {
+        "arrivals": [],
+        "bindings": 0,
+        "commands": [],
+        "dropped": [],
+        "marked_discarded": 0,
+        "mouse_buttons": 0,
+        "mouse_positions": 0,
+        "pressures": 0,
+        "scrolls": 0,
+        "sent": []
+      }
+    },
+    {
+      "key": "surface_view_feeds_b",
+      "value": {
+        "detached_skipped": 0,
+        "display_ids": [
+          3
+        ],
+        "focus": [
+          false
+        ],
+        "last_scale": [
+          2.0,
+          2.0
+        ],
+        "last_size_px": [
+          1108,
+          372
+        ],
+        "preedits": [],
+        "refreshes": 1,
+        "scale_feeds": 1,
+        "size_feeds": 1,
+        "zero_size_skipped": 0
+      }
+    },
+    {
+      "key": "ghostty_runtime",
+      "value": {
+        "app_focus": [
+          true
+        ],
+        "clipboard_denied": 0,
+        "clipboard_denied_on_retire": 0,
+        "clipboard_held": 0,
+        "clipboard_late_skipped": 0,
+        "clipboard_served": 0,
+        "clipboard_write_confirm_denied": 0,
+        "clipboard_written": 0,
+        "close_intents": 2,
+        "close_sources": {
+          "probe:scheduled": 2
+        },
+        "creations": [
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 606697640537125,
+            "injected": null,
+            "key": "s0g1",
+            "new_ms": 5.617125,
+            "pass": 1,
+            "started_ns": 606697634920000,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 606697644077791,
+            "injected": null,
+            "key": "s1g1",
+            "new_ms": 3.519083,
+            "pass": 1,
+            "started_ns": 606697640558708,
+            "trigger": "initial"
+          }
+        ],
+        "delivered": {
+          "close-intent": 2,
+          "config-change": 1,
+          "unsupported": 17
+        },
+        "dropped_at_source": 0,
+        "dropped_stale": 0,
+        "frees_held_passes": 0,
+        "keyboard_changes": 42,
+        "layout_retries": 0,
+        "log": [
+          "pass=1 t=606697572786958 app ConfigChange → delivered",
+          "pass=18 t=606716345407375 s0g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=18 t=606716345409125 s1g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled"
+        ],
+        "messages": 20,
+        "messages_pushed": 20,
+        "passes": 19,
+        "passes_tracking": 0,
+        "releases": [
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 606716358993541,
+            "free_ms": 13.546083,
+            "key": "s0g1",
+            "messages_during_free": 0,
+            "pass": 19,
+            "started_ns": 606716345447458
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 606716372923125,
+            "free_ms": 13.9245,
+            "key": "s1g1",
+            "messages_during_free": 1,
+            "pass": 19,
+            "started_ns": 606716358998625
+          }
+        ],
+        "scheme_changes": [],
+        "screen_wakes": 0,
+        "surface_config_updates": 0,
+        "surfaces_created": 2,
+        "surfaces_failed": 0,
+        "surfaces_freed": 2,
+        "unsupported_actions": {
+          "22": 2,
+          "25": 2,
+          "26": 7,
+          "38": 2,
+          "43": 3,
+          "46": 1
+        },
+        "wakeups": 33
+      }
+    },
+    {
+      "key": "surface_view_feeds",
+      "value": {
+        "detached_skipped": 0,
+        "display_ids": [
+          3
+        ],
+        "focus": [
+          true,
+          false,
+          true
+        ],
+        "last_scale": [
+          2.0,
+          2.0
+        ],
+        "last_size_px": [
+          1108,
+          896
+        ],
+        "preedits": [
+          "´",
+          "",
+          "k",
+          "か",
+          "",
+          "k",
+          "か",
+          "か",
+          "",
+          "k",
+          "か",
+          "かn",
+          "かな",
+          "かな",
+          "カナ",
+          "カナ",
+          "",
+          "k",
+          "か",
+          "か",
+          "か",
+          ""
+        ],
+        "refreshes": 1,
+        "scale_feeds": 1,
+        "size_feeds": 1,
+        "zero_size_skipped": 0
+      }
+    },
+    {
+      "key": "events_posted",
+      "value": "108"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "3932"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "surface_free",
+      "unit": "ms",
+      "samples": [
+        13.546083,
+        13.9245
+      ],
+      "summary": {
+        "count": 2,
+        "p50": 13.546083,
+        "p95": 13.9245,
+        "max": 13.9245
+      }
+    },
+    {
+      "name": "app_free",
+      "unit": "ms",
+      "samples": [
+        0.005875
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 0.005875,
+        "p95": 0.005875,
+        "max": 0.005875
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "name": "acc-layout-ru",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось d0bfd180d0b8d0b2d0b5d182, пришло d0bfd180d0b8d0b2d0b5d182; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.Russian: выбран (текущий Some(\"com.apple.keylayout.Russian\")); источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "name": "acc-dead-key",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось c3a9, пришло c3a9; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "name": "acc-ja-commit",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось e3818b, пришло e3818b; B: ожидалось , пришло ; ограда у A; контроль, ABC: текст: true, текст \"ka\", marked false; контроль: composition: true, текст \"か\", marked true; контроль: коммит: true, текст \"か\", marked false; контроль: composition перед Esc: true, текст \"か\", marked true; контроль: снятие Esc: false, текст \"か\", marked true; контроль: второй Esc: true, текст \"\", marked false; контроль: composition かな: true, текст \"かな\", marked true; контроль: преобразование: true, текст \"カナ\", marked true; контроль: коммит преобразования: false, текст \"カナ\", marked true; контроль: второй Return: true, текст \"カナ\", marked false; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "name": "acc-ja-esc",
+      "requirement": "required",
+      "verdict": "fail",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; расхождения: composition снята одним Esc: false (контроль NSTextView: Some(false)); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; после Esc в PTY ничего: : да; composition снята одним Esc: false (контроль NSTextView: Some(false)): НЕТ; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "name": "acc-ja-candidate",
+      "requirement": "required",
+      "verdict": "fail",
+      "reason": "A: ожидалось e382abe3838a, пришло e382abe3838a; B: ожидалось , пришло ; ограда у A; расхождения: коммит выбранного кандидата по Return (контроль NSTextView: Some(false)); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"かな\"); до коммита в PTY ничего: : да; preedit перед коммитом \"カナ\"; коммит выбранного кандидата по Return (контроль NSTextView: Some(false)): НЕТ; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "name": "acc-cmdk-marked",
+      "requirement": "required",
+      "verdict": "fail",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; расхождения: экран не очищен привязкой super+k; источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; палитра не открылась: открытий 0 → 0, открыта false: да; перехват палитры пропустил нажатие при composition: 0 → 1: да; composition с тем же текстом: Some(\"か\") → Some(\"か\"): да; экран не очищен привязкой super+k: НЕТ; фокус у A: да; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "name": "acc-scroll-report",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 1b5b3c36353b31313b354d1b5b3c36353b31313b354d1b5b3c36353b31313b354d, пришло 1b5b3c36353b31313b354d1b5b3c36353b31313b354d1b5b3c36353b31313b354d; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется; прокруток у вида: 1"
+    },
+    {
+      "name": "acc-scroll-history",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка истории: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется; прокруток у вида 1, текст сдвинулся true; видимый текст сдвинулся: true: да; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка истории обратно: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется"
+    },
+    {
+      "name": "acc-exact-bytes-one-receiver",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "весь поток A 64 байт (ожидалось 64), B 0 байт (ожидалось 0); точное совпадение true; сценарий до конца true; непроведённые части с неизвестным отрезком получателя: []"
+    },
+    {
+      "name": "acc-display-scale",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "масштаб дисплея как есть: backingScaleFactor вида 2, режим Some(Mode { width: 2560, height: 1440, pixel_width: 5120, pixel_height: 2880, refresh_hz: 60.0 })"
+    },
+    {
+      "name": "acc-ja-control",
+      "requirement": "research",
+      "verdict": "observed",
+      "reason": "NSTextView, источник com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: Control { warmup: Some(\"ABC: true, текст \\\"ka\\\"\"), source_selected: true, focused: true, composed: true, marked_before_return: Some(\"か\"), text: \"か\", committed: true, esc_cancels: Some(false), converted: Some(\"カナ\"), convert_commits: Some(false), second_esc_cancels: Some(true), second_return_commits: Some(true) }"
+    },
+    {
+      "name": "acc-ja-esc-second",
+      "requirement": "research",
+      "verdict": "observed",
+      "reason": "вторая клавиша сняла composition поверхности: true; у контроля NSTextView: Some(true)"
+    },
+    {
+      "name": "acc-ime-window-geometry",
+      "requirement": "required",
+      "verdict": "not_run",
+      "reason": "стенд: окно процесса метода ввода не появилось и не сменило рамку"
+    },
+    {
+      "name": "acc-ja-candidate-second-return",
+      "requirement": "research",
+      "verdict": "observed",
+      "reason": "вторая клавиша сняла composition поверхности: true; у контроля NSTextView: Some(true)"
+    },
+    {
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "… 466 ранних строк вытеснено",
+      "18087.314ms dispatch #100",
+      "18087.321ms return #100",
+      "18090.563ms шаг «снятие composition» готов за 424.2 мс",
+      "18096.302ms шаг «фокус A после снятия» готов за 5.7 мс",
+      "18102.030ms шаг «ожидаемые байты» готов за 5.7 мс",
+      "18107.771ms шаг «источник ввода» готов за 5.7 мс",
+      "18122.128ms шаг «ограда» готов за 5.2 мс",
+      "18122.143ms post #101 keyDown `",
+      "18122.178ms post #102 keyUp `",
+      "18122.232ms dispatch #101",
+      "18123.418ms return #101",
+      "18123.453ms dispatch #102",
+      "18123.457ms return #102",
+      "18277.919ms шаг «ограда и тишина другой фикстуры» готов за 155.7 мс",
+      "18283.233ms шаг «источник ввода» готов за 5.2 мс",
+      "18289.611ms шаг «щелчок в клетке прокрутки» готов за 5.7 мс",
+      "18289.947ms post #103 клетка прокрутки at 1024,957",
+      "18290.032ms post #104 клетка прокрутки at 1024,957",
+      "18291.644ms dispatch #103",
+      "18293.049ms return #103",
+      "18293.257ms dispatch #104",
+      "18293.353ms return #104",
+      "18295.766ms шаг «щелчок прошёл sendEvent и задал позицию» готов за 5.7 мс",
+      "18300.895ms шаг «отчёт мыши включён» готов за 5.1 мс",
+      "18306.655ms шаг «квитанция ack» готов за 5.7 мс",
+      "18312.441ms шаг «маркер в видимом тексте» готов за 5.7 мс",
+      "18317.663ms шаг «scroll-report» готов за 5.2 мс",
+      "18317.686ms проверка scroll-report",
+      "18323.414ms шаг «прокрутка вниз на щелчок колеса» готов за 5.7 мс",
+      "18329.388ms шаг «прокрутка прошла sendEvent» готов за 5.7 мс",
+      "18335.150ms шаг «ожидаемые байты» готов за 5.7 мс",
+      "18340.951ms шаг «прокрутка у вида» готов за 5.7 мс",
+      "18346.696ms шаг «ограда» готов за 5.7 мс",
+      "18346.737ms post #105 keyDown `",
+      "18346.864ms post #106 keyUp `",
+      "18358.438ms dispatch #105",
+      "18362.755ms return #105",
+      "18362.935ms dispatch #106",
+      "18362.968ms return #106",
+      "18517.538ms шаг «ограда и тишина другой фикстуры» готов за 170.6 мс",
+      "18523.289ms шаг «отчёт мыши выключен» готов за 5.7 мс",
+      "18529.026ms шаг «квитанция ack» готов за 5.7 мс",
+      "18534.817ms шаг «маркер в видимом тексте» готов за 5.7 мс",
+      "18540.534ms шаг «история в 200 строк» готов за 5.7 мс",
+      "18546.362ms шаг «история на экране» готов за 5.7 мс",
+      "18552.070ms шаг «scroll-history» готов за 5.7 мс",
+      "18552.099ms проверка scroll-history",
+      "18557.683ms шаг «прокрутка вверх» готов за 5.6 мс",
+      "18563.661ms шаг «прокрутка прошла sendEvent» готов за 5.7 мс",
+      "18569.469ms шаг «видимый текст сдвинулся» готов за 5.8 мс",
+      "18575.292ms шаг «прокрутка обратно» готов за 5.8 мс",
+      "18581.222ms шаг «прокрутка обратно прошла sendEvent» готов за 5.7 мс",
+      "18586.876ms шаг «ожидаемые байты» готов за 5.6 мс",
+      "18592.018ms шаг «ограда» готов за 5.1 мс",
+      "18592.042ms post #107 keyDown `",
+      "18592.145ms post #108 keyUp `",
+      "18608.435ms dispatch #107",
+      "18612.275ms return #107",
+      "18612.411ms dispatch #108",
+      "18612.429ms return #108",
+      "18767.529ms шаг «ограда и тишина другой фикстуры» готов за 175.4 мс",
+      "18773.264ms шаг «возврат источника ввода» готов за 5.7 мс",
+      "18784.630ms шаг «закрытие обеих поверхностей» готов за 5.4 мс",
+      "18812.191ms шаг «освобождение и выход фикстур» готов за 27.5 мс"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeAppActivity",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbePaletteObserver",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbePalettePanel",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeRouterObserver",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeScreenWake",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeSplitView",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      },
+      {
+        "class": "ProbeStandView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSurfaceView",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      },
+      {
+        "class": "ProbeTile",
+        "created": 4,
+        "released": 0,
+        "live": 4
+      },
+      {
+        "class": "ProbeZoneHost",
+        "created": 4,
+        "released": 0,
+        "live": 4
+      }
+    ]
+  }
+}

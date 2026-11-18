@@ -1,0 +1,2683 @@
+{
+  "schema": 1,
+  "scenario": "zones",
+  "variant": "base",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "8b64a9487156-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.3.2, objc2-quartz-core 0.3.2",
+      "ghostty_version": "1.4.0",
+      "ghostty_rev": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "process": {
+      "pid": 12793,
+      "route": "direct",
+      "nonce": "90b2226c689f8fb6",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_STATE_DIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.90b2226c689f8fb6",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    },
+    "bundle": {
+      "path": "/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app",
+      "identifier": "io.github.dsbasko.shellio.probe.ghostty-surface",
+      "executable": "/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface",
+      "signature": "valid: identifier \"io.github.dsbasko.shellio.probe.ghostty-surface\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.RussianWin"
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "активность, key window и фокус вида поверхности",
+      "status": "ready",
+      "waited_ms": 41.01975,
+      "at_ms": 57.313709,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 1,
+      "name": "окно неподвижно",
+      "status": "ready",
+      "waited_ms": 510.61554099999995,
+      "at_ms": 567.962542,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 2,
+      "name": "нулевой размер вида: создание ждёт",
+      "status": "ready",
+      "waited_ms": 5.6585,
+      "at_ms": 573.655375,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 3,
+      "name": "ненулевой размер вида в пикселях",
+      "status": "ready",
+      "waited_ms": 5.658708,
+      "at_ms": 579.430792,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 4,
+      "name": "готовность фикстуры в поверхности",
+      "status": "ready",
+      "waited_ms": 50.339542,
+      "at_ms": 634.738834,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 5,
+      "name": "размер ребёнка после создания",
+      "status": "ready",
+      "waited_ms": 5.677416,
+      "at_ms": 640.479334,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 6,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 5.665833999999999,
+      "at_ms": 646.176625,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 7,
+      "name": "поток вывода фикстуры",
+      "status": "ready",
+      "waited_ms": 5.65225,
+      "at_ms": 651.862167,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 8,
+      "name": "первая квитанция хода потока",
+      "status": "ready",
+      "waited_ms": 100.582792,
+      "at_ms": 752.468625,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 9,
+      "name": "перенос в левую зону через нулевой размер",
+      "status": "ready",
+      "waited_ms": 5.271459,
+      "at_ms": 757.751709,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 10,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 25.592166,
+      "at_ms": 784.336417,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 11,
+      "name": "перенос в правую зону",
+      "status": "ready",
+      "waited_ms": 5.682458,
+      "at_ms": 790.091042,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 12,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 25.43325,
+      "at_ms": 816.101375,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 13,
+      "name": "деление правой зоны и перенос во вторую часть",
+      "status": "ready",
+      "waited_ms": 5.663875,
+      "at_ms": 821.810417,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 14,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 25.635041,
+      "at_ms": 848.157792,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 15,
+      "name": "перенос в нижнюю зону",
+      "status": "ready",
+      "waited_ms": 5.367833,
+      "at_ms": 853.573292,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 16,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 25.596,
+      "at_ms": 879.88675,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 17,
+      "name": "деление нижней зоны и перенос во вторую часть",
+      "status": "ready",
+      "waited_ms": 5.665917,
+      "at_ms": 885.602667,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 18,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 25.477166999999998,
+      "at_ms": 911.951667,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 19,
+      "name": "возврат в центральную зону",
+      "status": "ready",
+      "waited_ms": 5.654666,
+      "at_ms": 917.667375,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 20,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 30.612709,
+      "at_ms": 949.247792,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 21,
+      "name": "делитель левой и центральной зон",
+      "status": "ready",
+      "waited_ms": 5.664792,
+      "at_ms": 955.001625,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 22,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 30.329375,
+      "at_ms": 986.974167,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 23,
+      "name": "делитель центральной и нижней зон",
+      "status": "ready",
+      "waited_ms": 5.706958,
+      "at_ms": 992.812834,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 24,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 30.460666,
+      "at_ms": 1025.22925,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 25,
+      "name": "возврат делителя центральной и нижней зон",
+      "status": "ready",
+      "waited_ms": 5.663792,
+      "at_ms": 1031.077625,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 26,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 30.739542,
+      "at_ms": 1063.580292,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 27,
+      "name": "возврат делителя левой и центральной зон",
+      "status": "ready",
+      "waited_ms": 5.66125,
+      "at_ms": 1069.363709,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 28,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 30.638958000000002,
+      "at_ms": 1102.247917,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 29,
+      "name": "рост окна",
+      "status": "ready",
+      "waited_ms": 5.391875,
+      "at_ms": 1107.782334,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 30,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 25.60375,
+      "at_ms": 1138.820792,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 31,
+      "name": "возврат окна к исходному размеру",
+      "status": "ready",
+      "waited_ms": 5.582791,
+      "at_ms": 1144.497792,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 32,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 25.60925,
+      "at_ms": 1173.028667,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 33,
+      "name": "смена масштаба подложки окна",
+      "status": "ready",
+      "waited_ms": 5.476833,
+      "at_ms": 1178.597542,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 34,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 18.465083,
+      "at_ms": 1696.840375,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,1261.859375"
+    },
+    {
+      "index": 35,
+      "name": "возврат прежнего режима дисплея",
+      "status": "ready",
+      "waited_ms": 5.392459,
+      "at_ms": 1702.287375,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,1261.859375"
+    },
+    {
+      "index": 36,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 5.713666,
+      "at_ms": 2023.189042,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 37,
+      "name": "нажатие в правом нижнем углу окна",
+      "status": "ready",
+      "waited_ms": 5.324708,
+      "at_ms": 2028.575709,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 38,
+      "name": "перетаскивание угла окна",
+      "status": "ready",
+      "waited_ms": 628.876958,
+      "at_ms": 2657.5315,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 39,
+      "name": "размер ребёнка после живого ресайза",
+      "status": "ready",
+      "waited_ms": 5.6981660000000005,
+      "at_ms": 2663.242209,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 40,
+      "name": "возврат окна после живого ресайза",
+      "status": "ready",
+      "waited_ms": 5.659917,
+      "at_ms": 2668.972584,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 41,
+      "name": "размер ребёнка после изменения",
+      "status": "ready",
+      "waited_ms": 25.33575,
+      "at_ms": 2696.066625,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 42,
+      "name": "остановка потока",
+      "status": "ready",
+      "waited_ms": 5.653916,
+      "at_ms": 2701.792417,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 43,
+      "name": "конец потока",
+      "status": "ready",
+      "waited_ms": 5.2705,
+      "at_ms": 2707.0855,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 44,
+      "name": "два намерения закрыть",
+      "status": "ready",
+      "waited_ms": 5.368167,
+      "at_ms": 2712.495792,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 45,
+      "name": "освобождение поверхности и выход фикстуры",
+      "status": "ready",
+      "waited_ms": 17.056749999999997,
+      "at_ms": 2729.588542,
+      "state": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    }
+  ],
+  "events": [
+    {
+      "number": 1,
+      "label": "mouseDown угол окна at 1344,116",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595633914053875,
+      "dispatch_start_ns": 595633914499833,
+      "send_return_ns": 595633915764625,
+      "display_pass_ns": 595633915820333,
+      "undispatched": false
+    },
+    {
+      "number": 2,
+      "label": "mouseDragged угол окна at 1348,114",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595633934168958,
+      "dispatch_start_ns": 595633939529000,
+      "send_return_ns": 595633942158833,
+      "display_pass_ns": 595633942340916,
+      "undispatched": false
+    },
+    {
+      "number": 3,
+      "label": "mouseDragged угол окна at 1352,111",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595633954723208,
+      "dispatch_start_ns": 595633956177708,
+      "send_return_ns": 595633960074625,
+      "display_pass_ns": 595633964325833,
+      "undispatched": false
+    },
+    {
+      "number": 4,
+      "label": "mouseDragged угол окна at 1356,109",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595633974667500,
+      "dispatch_start_ns": 595633981637791,
+      "send_return_ns": 595633982999708,
+      "display_pass_ns": 595633985137875,
+      "undispatched": false
+    },
+    {
+      "number": 5,
+      "label": "mouseDragged угол окна at 1360,106",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595633994677083,
+      "dispatch_start_ns": 595633997842375,
+      "send_return_ns": 595633999182375,
+      "display_pass_ns": 595634001389416,
+      "undispatched": false
+    },
+    {
+      "number": 6,
+      "label": "mouseDragged угол окна at 1364,104",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634016459041,
+      "dispatch_start_ns": 595634022865291,
+      "send_return_ns": 595634024130791,
+      "display_pass_ns": 595634025972500,
+      "undispatched": false
+    },
+    {
+      "number": 7,
+      "label": "mouseDragged угол окна at 1368,102",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634034167041,
+      "dispatch_start_ns": 595634039516166,
+      "send_return_ns": 595634040900166,
+      "display_pass_ns": 595634042764000,
+      "undispatched": false
+    },
+    {
+      "number": 8,
+      "label": "mouseDragged угол окна at 1372,99",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634054708083,
+      "dispatch_start_ns": 595634056206958,
+      "send_return_ns": 595634057583333,
+      "display_pass_ns": 595634059722583,
+      "undispatched": false
+    },
+    {
+      "number": 9,
+      "label": "mouseDragged угол окна at 1376,97",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634074725958,
+      "dispatch_start_ns": 595634081192666,
+      "send_return_ns": 595634082577958,
+      "display_pass_ns": 595634084385875,
+      "undispatched": false
+    },
+    {
+      "number": 10,
+      "label": "mouseDragged угол окна at 1380,94",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634094684041,
+      "dispatch_start_ns": 595634097839708,
+      "send_return_ns": 595634099151375,
+      "display_pass_ns": 595634101025166,
+      "undispatched": false
+    },
+    {
+      "number": 11,
+      "label": "mouseDragged угол окна at 1384,92",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634114570750,
+      "dispatch_start_ns": 595634122848750,
+      "send_return_ns": 595634124176416,
+      "display_pass_ns": 595634126084083,
+      "undispatched": false
+    },
+    {
+      "number": 12,
+      "label": "mouseDragged угол окна at 1388,90",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634134177500,
+      "dispatch_start_ns": 595634139520875,
+      "send_return_ns": 595634140887833,
+      "display_pass_ns": 595634142859833,
+      "undispatched": false
+    },
+    {
+      "number": 13,
+      "label": "mouseDragged угол окна at 1392,87",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634154693208,
+      "dispatch_start_ns": 595634156173666,
+      "send_return_ns": 595634157562541,
+      "display_pass_ns": 595634159476458,
+      "undispatched": false
+    },
+    {
+      "number": 14,
+      "label": "mouseDragged угол окна at 1396,85",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634174707041,
+      "dispatch_start_ns": 595634181191250,
+      "send_return_ns": 595634182565833,
+      "display_pass_ns": 595634184426916,
+      "undispatched": false
+    },
+    {
+      "number": 15,
+      "label": "mouseDragged угол окна at 1400,82",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634194682250,
+      "dispatch_start_ns": 595634197848500,
+      "send_return_ns": 595634199146416,
+      "display_pass_ns": 595634200983250,
+      "undispatched": false
+    },
+    {
+      "number": 16,
+      "label": "mouseDragged угол окна at 1404,80",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634214588875,
+      "dispatch_start_ns": 595634222849791,
+      "send_return_ns": 595634224161083,
+      "display_pass_ns": 595634227917666,
+      "undispatched": false
+    },
+    {
+      "number": 17,
+      "label": "mouseDragged угол окна at 1408,78",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634234169958,
+      "dispatch_start_ns": 595634239526541,
+      "send_return_ns": 595634240819708,
+      "display_pass_ns": 595634242758125,
+      "undispatched": false
+    },
+    {
+      "number": 18,
+      "label": "mouseDragged угол окна at 1412,75",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634254584750,
+      "dispatch_start_ns": 595634256179750,
+      "send_return_ns": 595634257636125,
+      "display_pass_ns": 595634259751958,
+      "undispatched": false
+    },
+    {
+      "number": 19,
+      "label": "mouseDragged угол окна at 1416,73",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634274248666,
+      "dispatch_start_ns": 595634281184458,
+      "send_return_ns": 595634282534750,
+      "display_pass_ns": 595634284481875,
+      "undispatched": false
+    },
+    {
+      "number": 20,
+      "label": "mouseDragged угол окна at 1420,70",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634294681166,
+      "dispatch_start_ns": 595634297840125,
+      "send_return_ns": 595634299004500,
+      "display_pass_ns": 595634300851708,
+      "undispatched": false
+    },
+    {
+      "number": 21,
+      "label": "mouseDragged угол окна at 1424,68",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634314579583,
+      "dispatch_start_ns": 595634322847333,
+      "send_return_ns": 595634324185250,
+      "display_pass_ns": 595634326034333,
+      "undispatched": false
+    },
+    {
+      "number": 22,
+      "label": "mouseDragged угол окна at 1428,66",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634334166375,
+      "dispatch_start_ns": 595634339509916,
+      "send_return_ns": 595634340816208,
+      "display_pass_ns": 595634342736041,
+      "undispatched": false
+    },
+    {
+      "number": 23,
+      "label": "mouseDragged угол окна at 1432,63",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634354664041,
+      "dispatch_start_ns": 595634356171625,
+      "send_return_ns": 595634357383291,
+      "display_pass_ns": 595634359925333,
+      "undispatched": false
+    },
+    {
+      "number": 24,
+      "label": "mouseDragged угол окна at 1436,61",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634374665875,
+      "dispatch_start_ns": 595634381185666,
+      "send_return_ns": 595634382552958,
+      "display_pass_ns": 595634385174166,
+      "undispatched": false
+    },
+    {
+      "number": 25,
+      "label": "mouseDragged угол окна at 1440,58",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634394679291,
+      "dispatch_start_ns": 595634397834708,
+      "send_return_ns": 595634399121791,
+      "display_pass_ns": 595634401481791,
+      "undispatched": false
+    },
+    {
+      "number": 26,
+      "label": "mouseDragged угол окна at 1444,56",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634414608583,
+      "dispatch_start_ns": 595634422826916,
+      "send_return_ns": 595634423923333,
+      "display_pass_ns": 595634426459208,
+      "undispatched": false
+    },
+    {
+      "number": 27,
+      "label": "mouseDragged угол окна at 1448,54",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634434157916,
+      "dispatch_start_ns": 595634439550333,
+      "send_return_ns": 595634440797583,
+      "display_pass_ns": 595634443249750,
+      "undispatched": false
+    },
+    {
+      "number": 28,
+      "label": "mouseDragged угол окна at 1452,51",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634454660666,
+      "dispatch_start_ns": 595634456161291,
+      "send_return_ns": 595634457384416,
+      "display_pass_ns": 595634459987291,
+      "undispatched": false
+    },
+    {
+      "number": 29,
+      "label": "mouseDragged угол окна at 1456,49",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634474626958,
+      "dispatch_start_ns": 595634481171375,
+      "send_return_ns": 595634482518458,
+      "display_pass_ns": 595634485310625,
+      "undispatched": false
+    },
+    {
+      "number": 30,
+      "label": "mouseDragged угол окна at 1460,46",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634494329125,
+      "dispatch_start_ns": 595634497847541,
+      "send_return_ns": 595634499658791,
+      "display_pass_ns": 595634502083833,
+      "undispatched": false
+    },
+    {
+      "number": 31,
+      "label": "mouseDragged угол окна at 1464,44",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634514602416,
+      "dispatch_start_ns": 595634522860958,
+      "send_return_ns": 595634524639541,
+      "display_pass_ns": 595634527109041,
+      "undispatched": false
+    },
+    {
+      "number": 32,
+      "label": "mouseUp угол окна at 1468,42",
+      "window": 64698,
+      "before": "isActive=true keyWindow=#64698 mainWindow=#64698 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375",
+      "t_post_ns": 595634534193208,
+      "dispatch_start_ns": 595634539547541,
+      "send_return_ns": 595634541784416,
+      "display_pass_ns": 595634542920583,
+      "undispatched": false
+    }
+  ],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "zones"
+    },
+    {
+      "key": "route",
+      "value": "direct"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "variant",
+      "value": "base"
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "ghostty_init",
+      "value": {
+        "after": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "en_US.UTF-8",
+            "LC_COLLATE": "en_US.UTF-8",
+            "LC_CTYPE": "en_US.UTF-8",
+            "LC_MESSAGES": "en_US.UTF-8",
+            "LC_MONETARY": "en_US.UTF-8",
+            "LC_NUMERIC": "en_US.UTF-8",
+            "LC_TIME": "en_US.UTF-8"
+          },
+          "threads": 3
+        },
+        "argv": [
+          "probe-ghostty-surface"
+        ],
+        "before": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "C",
+            "LC_COLLATE": "C",
+            "LC_CTYPE": "C",
+            "LC_MESSAGES": "C",
+            "LC_MONETARY": "C",
+            "LC_NUMERIC": "C",
+            "LC_TIME": "C"
+          },
+          "threads": 3
+        },
+        "code": 0,
+        "duration_ms": 0.380584,
+        "finished_ns": 595631782479125,
+        "started_ns": 595631782098541
+      }
+    },
+    {
+      "key": "ghostty_init_env_changes",
+      "value": ""
+    },
+    {
+      "key": "ghostty_version",
+      "value": "1.4.0"
+    },
+    {
+      "key": "ghostty_build_mode",
+      "value": "release-fast"
+    },
+    {
+      "key": "ghostty_config",
+      "value": "font-family = Menlo\nfont-size = 13\nscrollback-limit-bytes = 10000000\ntheme = light:Builtin Light,dark:Builtin Dark\ncursor-style-blink = true\nconfirm-close-surface = false\nclipboard-paste-protection = false\n"
+    },
+    {
+      "key": "ghostty_config_diagnostics",
+      "value": []
+    },
+    {
+      "key": "ghostty_runtime_start",
+      "value": {
+        "app_focused": false,
+        "app_new_finished_ns": 595631900538500,
+        "app_new_started_ns": 595631900481875,
+        "color_scheme": "light",
+        "config_change_from_update": 1,
+        "reload_config_from_scheme": 0
+      }
+    },
+    {
+      "key": "surface_command",
+      "value": "'/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface' '--fixture' '--channel' '/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/20261118-005012-11214/zones-base/fixture.sock' '--nonce' '90b2226c689f8fb6-s1'"
+    },
+    {
+      "key": "fixture_nonce",
+      "value": "90b2226c689f8fb6-s1"
+    },
+    {
+      "key": "env_nonce",
+      "value": "2f48142537c9b491"
+    },
+    {
+      "key": "scene_initial",
+      "value": [
+        {
+          "content": [
+            6.0,
+            6.0,
+            236.0,
+            674.0
+          ],
+          "focused": false,
+          "frame": [
+            6.0,
+            6.0,
+            236.0,
+            708.0
+          ],
+          "part": 0,
+          "tabs": [],
+          "zone": "left"
+        },
+        {
+          "content": [
+            248.0,
+            232.0,
+            554.0,
+            448.0
+          ],
+          "focused": true,
+          "frame": [
+            248.0,
+            232.0,
+            554.0,
+            482.0
+          ],
+          "part": 0,
+          "tabs": [
+            "терминал"
+          ],
+          "zone": "center"
+        },
+        {
+          "content": [
+            808.0,
+            6.0,
+            366.0,
+            674.0
+          ],
+          "focused": false,
+          "frame": [
+            808.0,
+            6.0,
+            366.0,
+            708.0
+          ],
+          "part": 0,
+          "tabs": [],
+          "zone": "right"
+        },
+        {
+          "content": [
+            248.0,
+            6.0,
+            554.0,
+            186.0
+          ],
+          "focused": false,
+          "frame": [
+            248.0,
+            6.0,
+            554.0,
+            220.0
+          ],
+          "part": 0,
+          "tabs": [],
+          "zone": "bottom"
+        }
+      ]
+    },
+    {
+      "key": "focus_feeds_during_moves",
+      "value": []
+    },
+    {
+      "key": "scene_final",
+      "value": [
+        {
+          "content": [
+            6.0,
+            6.0,
+            236.0,
+            674.0
+          ],
+          "focused": false,
+          "frame": [
+            6.0,
+            6.0,
+            236.0,
+            708.0
+          ],
+          "part": 0,
+          "tabs": [],
+          "zone": "left"
+        },
+        {
+          "content": [
+            248.0,
+            232.0,
+            554.0,
+            448.0
+          ],
+          "focused": true,
+          "frame": [
+            248.0,
+            232.0,
+            554.0,
+            482.0
+          ],
+          "part": 0,
+          "tabs": [
+            "терминал"
+          ],
+          "zone": "center"
+        },
+        {
+          "content": [
+            808.0,
+            6.0,
+            366.0,
+            674.0
+          ],
+          "focused": false,
+          "frame": [
+            808.0,
+            6.0,
+            366.0,
+            708.0
+          ],
+          "part": 0,
+          "tabs": [],
+          "zone": "right"
+        },
+        {
+          "content": [
+            248.0,
+            6.0,
+            554.0,
+            186.0
+          ],
+          "focused": false,
+          "frame": [
+            248.0,
+            6.0,
+            554.0,
+            220.0
+          ],
+          "part": 0,
+          "tabs": [],
+          "zone": "bottom"
+        }
+      ]
+    },
+    {
+      "key": "checkpoints",
+      "value": [
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "размер ребёнка после создания",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 6,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 5.704416999999999,
+          "stream_done": false,
+          "stream_lines": 0,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 68,
+            "height_px": 896,
+            "rows": 29,
+            "width_px": 1108
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595632525932916,
+          "t_end_ns": 595632531616000,
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "view_points": [
+            554.0,
+            448.0
+          ],
+          "winches": 0,
+          "window_frame": [
+            166.0,
+            114.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 68,
+            "rows": 29,
+            "xpixel": 1100,
+            "ypixel": 888
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 0,
+          "zone": "center"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "перенос в левую зону через нулевой размер",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 43,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 26.6135,
+          "stream_done": false,
+          "stream_lines": 100,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 29,
+            "height_px": 1348,
+            "rows": 44,
+            "width_px": 472
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595632643191916,
+          "t_end_ns": 595632669776000,
+          "view_pixels": [
+            472,
+            1348
+          ],
+          "view_points": [
+            236.0,
+            674.0
+          ],
+          "winches": 1,
+          "window_frame": [
+            166.0,
+            114.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 29,
+            "rows": 44,
+            "xpixel": 464,
+            "ypixel": 1340
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "left"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "перенос в правую зону",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 55,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 26.040792,
+          "stream_done": false,
+          "stream_lines": 100,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 45,
+            "height_px": 1348,
+            "rows": 44,
+            "width_px": 732
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595632675530875,
+          "t_end_ns": 595632701540750,
+          "view_pixels": [
+            732,
+            1348
+          ],
+          "view_points": [
+            366.0,
+            674.0
+          ],
+          "winches": 2,
+          "window_frame": [
+            166.0,
+            114.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 45,
+            "rows": 44,
+            "xpixel": 724,
+            "ypixel": 1340
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "right"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "деление правой зоны и перенос во вторую часть",
+          "last_focus_feed": true,
+          "part": 1,
+          "passes": 65,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 26.379333000000003,
+          "stream_done": false,
+          "stream_lines": 100,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 45,
+            "height_px": 634,
+            "rows": 20,
+            "width_px": 732
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595632707250708,
+          "t_end_ns": 595632733597541,
+          "view_pixels": [
+            732,
+            634
+          ],
+          "view_points": [
+            366.0,
+            317.0
+          ],
+          "winches": 3,
+          "window_frame": [
+            166.0,
+            114.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 45,
+            "rows": 20,
+            "xpixel": 724,
+            "ypixel": 626
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "right"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "перенос в нижнюю зону",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 77,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 26.343208999999998,
+          "stream_done": false,
+          "stream_lines": 200,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 68,
+            "height_px": 372,
+            "rows": 12,
+            "width_px": 1108
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595632739013583,
+          "t_end_ns": 595632765326125,
+          "view_pixels": [
+            1108,
+            372
+          ],
+          "view_points": [
+            554.0,
+            186.0
+          ],
+          "winches": 4,
+          "window_frame": [
+            166.0,
+            114.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 68,
+            "rows": 12,
+            "xpixel": 1100,
+            "ypixel": 364
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "bottom"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "деление нижней зоны и перенос во вторую часть",
+          "last_focus_feed": true,
+          "part": 1,
+          "passes": 85,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 26.38425,
+          "stream_done": false,
+          "stream_lines": 200,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 33,
+            "height_px": 372,
+            "rows": 12,
+            "width_px": 548
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595632771042916,
+          "t_end_ns": 595632797390958,
+          "view_pixels": [
+            548,
+            372
+          ],
+          "view_points": [
+            274.0,
+            186.0
+          ],
+          "winches": 5,
+          "window_frame": [
+            166.0,
+            114.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 33,
+            "rows": 12,
+            "xpixel": 540,
+            "ypixel": 364
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "bottom"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "возврат в центральную зону",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 97,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 31.636708,
+          "stream_done": false,
+          "stream_lines": 200,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 68,
+            "height_px": 896,
+            "rows": 29,
+            "width_px": 1108
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595632803108000,
+          "t_end_ns": 595632834687875,
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "view_points": [
+            554.0,
+            448.0
+          ],
+          "winches": 6,
+          "window_frame": [
+            166.0,
+            114.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 68,
+            "rows": 29,
+            "xpixel": 1100,
+            "ypixel": 888
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "center"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "делитель левой и центральной зон",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 111,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 32.018459,
+          "stream_done": false,
+          "stream_lines": 300,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 58,
+            "height_px": 896,
+            "rows": 29,
+            "width_px": 948
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595632840444458,
+          "t_end_ns": 595632872413791,
+          "view_pixels": [
+            948,
+            896
+          ],
+          "view_points": [
+            474.0,
+            448.0
+          ],
+          "winches": 7,
+          "window_frame": [
+            166.0,
+            114.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 58,
+            "rows": 29,
+            "xpixel": 940,
+            "ypixel": 888
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "center"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "делитель центральной и нижней зон",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 123,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 32.506625,
+          "stream_done": false,
+          "stream_lines": 300,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 58,
+            "height_px": 736,
+            "rows": 24,
+            "width_px": 948
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595632878255500,
+          "t_end_ns": 595632910669375,
+          "view_pixels": [
+            948,
+            736
+          ],
+          "view_points": [
+            474.0,
+            368.0
+          ],
+          "winches": 8,
+          "window_frame": [
+            166.0,
+            114.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 58,
+            "rows": 24,
+            "xpixel": 940,
+            "ypixel": 728
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "center"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "возврат делителя центральной и нижней зон",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 139,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 32.564,
+          "stream_done": false,
+          "stream_lines": 400,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 58,
+            "height_px": 896,
+            "rows": 29,
+            "width_px": 948
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595632916523250,
+          "t_end_ns": 595632949020708,
+          "view_pixels": [
+            948,
+            896
+          ],
+          "view_points": [
+            474.0,
+            448.0
+          ],
+          "winches": 9,
+          "window_frame": [
+            166.0,
+            114.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 58,
+            "rows": 29,
+            "xpixel": 940,
+            "ypixel": 888
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "center"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "возврат делителя левой и центральной зон",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 151,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 32.964042,
+          "stream_done": false,
+          "stream_lines": 400,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 68,
+            "height_px": 896,
+            "rows": 29,
+            "width_px": 1108
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595632954806958,
+          "t_end_ns": 595632987688333,
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "view_points": [
+            554.0,
+            448.0
+          ],
+          "winches": 10,
+          "window_frame": [
+            166.0,
+            114.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 68,
+            "rows": 29,
+            "xpixel": 1100,
+            "ypixel": 888
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "center"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "рост окна",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 164,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 31.094875000000002,
+          "stream_done": false,
+          "stream_lines": 400,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 93,
+            "height_px": 1136,
+            "rows": 37,
+            "width_px": 1508
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595632993226541,
+          "t_end_ns": 595633024260541,
+          "view_pixels": [
+            1508,
+            1136
+          ],
+          "view_points": [
+            754.0,
+            568.0
+          ],
+          "winches": 11,
+          "window_frame": [
+            132.0,
+            0.0,
+            1380.0,
+            872.0
+          ],
+          "winsize": {
+            "cols": 93,
+            "rows": 37,
+            "xpixel": 1500,
+            "ypixel": 1128
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "center"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "возврат окна к исходному размеру",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 174,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 28.588083,
+          "stream_done": false,
+          "stream_lines": 500,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 68,
+            "height_px": 896,
+            "rows": 29,
+            "width_px": 1108
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595633029939125,
+          "t_end_ns": 595633058468791,
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "view_points": [
+            554.0,
+            448.0
+          ],
+          "winches": 12,
+          "window_frame": [
+            166.0,
+            114.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 68,
+            "rows": 29,
+            "xpixel": 1100,
+            "ypixel": 888
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "center"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "смена масштаба подложки окна",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 177,
+          "scale": 1.0,
+          "settle_limit_reached": false,
+          "settled_ms": 518.270125,
+          "stream_done": false,
+          "stream_lines": 1027,
+          "surface": {
+            "cell_height_px": 15,
+            "cell_width_px": 8,
+            "columns": 68,
+            "height_px": 448,
+            "rows": 29,
+            "width_px": 554
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595633064039208,
+          "t_end_ns": 595633582280166,
+          "view_pixels": [
+            554,
+            448
+          ],
+          "view_points": [
+            554.0,
+            448.0
+          ],
+          "winches": 12,
+          "window_frame": [
+            922.0,
+            664.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 68,
+            "rows": 29,
+            "xpixel": 1100,
+            "ypixel": 888
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "center"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "возврат прежнего режима дисплея",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 184,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 320.93033399999996,
+          "stream_done": false,
+          "stream_lines": 1300,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 68,
+            "height_px": 896,
+            "rows": 29,
+            "width_px": 1108
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595633587729791,
+          "t_end_ns": 595633908628541,
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "view_points": [
+            554.0,
+            448.0
+          ],
+          "winches": 13,
+          "window_frame": [
+            166.0,
+            114.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 68,
+            "rows": 29,
+            "xpixel": 550,
+            "ypixel": 444
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "center"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "живой ресайз окна",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 442,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 634.7110419999999,
+          "stream_done": false,
+          "stream_lines": 2000,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 83,
+            "height_px": 1040,
+            "rows": 34,
+            "width_px": 1348
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595633914017375,
+          "t_end_ns": 595634548681875,
+          "view_pixels": [
+            1348,
+            1040
+          ],
+          "view_points": [
+            674.0,
+            520.0
+          ],
+          "winches": 28,
+          "window_frame": [
+            166.0,
+            42.0,
+            1300.0,
+            824.0
+          ],
+          "winsize": {
+            "cols": 83,
+            "rows": 34,
+            "xpixel": 1332,
+            "ypixel": 1028
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "center"
+        },
+        {
+          "detached_skipped": 0,
+          "first_responder": true,
+          "geometry_changed": true,
+          "identity_differences": [],
+          "label": "возврат окна после живого ресайза",
+          "last_focus_feed": true,
+          "part": 0,
+          "passes": 454,
+          "scale": 2.0,
+          "settle_limit_reached": false,
+          "settled_ms": 27.133625000000002,
+          "stream_done": false,
+          "stream_lines": 2000,
+          "surface": {
+            "cell_height_px": 30,
+            "cell_width_px": 16,
+            "columns": 68,
+            "height_px": 896,
+            "rows": 29,
+            "width_px": 1108
+          },
+          "surfaces_created": 1,
+          "surfaces_freed": 0,
+          "t_begin_ns": 595634554413708,
+          "t_end_ns": 595634581506208,
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "view_points": [
+            554.0,
+            448.0
+          ],
+          "winches": 30,
+          "window_frame": [
+            166.0,
+            114.0,
+            1180.0,
+            752.0
+          ],
+          "winsize": {
+            "cols": 68,
+            "rows": 29,
+            "xpixel": 1100,
+            "ypixel": 888
+          },
+          "winsize_matches": true,
+          "zero_size_skipped": 2,
+          "zone": "center"
+        }
+      ]
+    },
+    {
+      "key": "moves",
+      "value": [
+        {
+          "focus_feeds_during": [],
+          "kept_by_appkit": true,
+          "located": [
+            "left",
+            0
+          ],
+          "part": 0,
+          "responder_before": true,
+          "restored": false,
+          "to": "left",
+          "zero": {
+            "create": "Waiting(Exists(Live))",
+            "created": 1,
+            "freed": 0,
+            "phase": "live",
+            "pixels": [
+              0,
+              0
+            ],
+            "zero_skipped_after": 1,
+            "zero_skipped_before": 0
+          }
+        },
+        {
+          "focus_feeds_during": [],
+          "kept_by_appkit": true,
+          "located": [
+            "right",
+            0
+          ],
+          "part": 0,
+          "responder_before": true,
+          "restored": false,
+          "to": "right",
+          "zero": null
+        },
+        {
+          "focus_feeds_during": [],
+          "kept_by_appkit": true,
+          "located": [
+            "right",
+            1
+          ],
+          "part": 1,
+          "responder_before": true,
+          "restored": false,
+          "to": "right",
+          "zero": null
+        },
+        {
+          "focus_feeds_during": [],
+          "kept_by_appkit": true,
+          "located": [
+            "bottom",
+            0
+          ],
+          "part": 0,
+          "responder_before": true,
+          "restored": false,
+          "to": "bottom",
+          "zero": null
+        },
+        {
+          "focus_feeds_during": [],
+          "kept_by_appkit": true,
+          "located": [
+            "bottom",
+            1
+          ],
+          "part": 1,
+          "responder_before": true,
+          "restored": false,
+          "to": "bottom",
+          "zero": null
+        },
+        {
+          "focus_feeds_during": [],
+          "kept_by_appkit": true,
+          "located": [
+            "center",
+            0
+          ],
+          "part": 0,
+          "responder_before": true,
+          "restored": false,
+          "to": "center",
+          "zero": null
+        }
+      ]
+    },
+    {
+      "key": "drag",
+      "value": {
+        "corner": [
+          1344.0,
+          116.0
+        ],
+        "frame_after": [
+          166.0,
+          42.0,
+          1300.0,
+          824.0
+        ],
+        "frame_before": [
+          166.0,
+          114.0,
+          1180.0,
+          752.0
+        ],
+        "passes_tracking_after": 252,
+        "passes_tracking_before": 0,
+        "posted_drags": 30,
+        "receipts_in_tracking": 21,
+        "samples": 124,
+        "samples_live_resize": 119,
+        "samples_tracking": 123,
+        "up_forced": false,
+        "up_posted": true,
+        "winches_in_tracking": 15
+      }
+    },
+    {
+      "key": "scale",
+      "value": {
+        "from_scale": 2.0,
+        "screens": [
+          [
+            1,
+            2.0
+          ]
+        ],
+        "to_scale": 1.0
+      }
+    },
+    {
+      "key": "identity_baseline",
+      "value": {
+        "conn": 1,
+        "foreground_pid": 12800,
+        "generation": 1,
+        "handle": 535722901504,
+        "key": "s0g1",
+        "nonce": "90b2226c689f8fb6-s1",
+        "part": 0,
+        "pid": 12801,
+        "ready_connections": 1,
+        "shown_view": 4402081824,
+        "surface_views_created": 1,
+        "surface_views_live": 1,
+        "tty": "/dev/ttys008",
+        "tty_name": "/dev/ttys008",
+        "view": 4402081824,
+        "zone": "center"
+      }
+    },
+    {
+      "key": "identity_final",
+      "value": {
+        "conn": 1,
+        "foreground_pid": 12800,
+        "generation": 1,
+        "handle": 535722901504,
+        "key": "s0g1",
+        "nonce": "90b2226c689f8fb6-s1",
+        "part": 0,
+        "pid": 12801,
+        "ready_connections": 1,
+        "shown_view": 4402081824,
+        "surface_views_created": 1,
+        "surface_views_live": 1,
+        "tty": "/dev/ttys008",
+        "tty_name": "/dev/ttys008",
+        "view": 4402081824,
+        "zone": "center"
+      }
+    },
+    {
+      "key": "ghostty_runtime",
+      "value": {
+        "app_focus": [
+          true
+        ],
+        "clipboard_denied": 0,
+        "clipboard_denied_on_retire": 0,
+        "clipboard_held": 0,
+        "clipboard_late_skipped": 0,
+        "clipboard_served": 0,
+        "clipboard_write_confirm_denied": 0,
+        "clipboard_written": 0,
+        "close_intents": 2,
+        "close_sources": {
+          "probe:already-closing": 1,
+          "probe:scheduled": 1
+        },
+        "creations": [
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 595632469777958,
+            "injected": null,
+            "key": "s0g1",
+            "new_ms": 4.904,
+            "pass": 1,
+            "started_ns": 595632464873958,
+            "trigger": "initial"
+          }
+        ],
+        "delivered": {
+          "close-intent": 2,
+          "config-change": 1,
+          "pwd": 82,
+          "title": 82,
+          "unsupported": 245
+        },
+        "dropped_at_source": 0,
+        "dropped_stale": 0,
+        "frees_held_passes": 0,
+        "keyboard_changes": 0,
+        "layout_retries": 0,
+        "log": [
+          "pass=1 t=595631900569958 app ConfigChange → delivered",
+          "pass=7 t=595632561710541 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 24\")) → delivered",
+          "pass=8 t=595632561719958 s0g1 Pwd(Some(\"/tmp/shellio-probe/24\")) → delivered",
+          "pass=14 t=595632586642250 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 49\")) → delivered",
+          "pass=14 t=595632586643333 s0g1 Pwd(Some(\"/tmp/shellio-probe/49\")) → delivered",
+          "pass=22 t=595632611509625 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 74\")) → delivered",
+          "pass=22 t=595632611511541 s0g1 Pwd(Some(\"/tmp/shellio-probe/74\")) → delivered",
+          "pass=30 t=595632636539583 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 99\")) → delivered",
+          "pass=30 t=595632636541208 s0g1 Pwd(Some(\"/tmp/shellio-probe/99\")) → delivered",
+          "pass=40 t=595632661651958 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 124\")) → delivered",
+          "pass=40 t=595632661652958 s0g1 Pwd(Some(\"/tmp/shellio-probe/124\")) → delivered",
+          "pass=50 t=595632686583041 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 149\")) → delivered",
+          "pass=50 t=595632686585208 s0g1 Pwd(Some(\"/tmp/shellio-probe/149\")) → delivered",
+          "pass=58 t=595632712466625 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 174\")) → delivered",
+          "pass=58 t=595632712467875 s0g1 Pwd(Some(\"/tmp/shellio-probe/174\")) → delivered",
+          "pass=66 t=595632736634833 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 199\")) → delivered",
+          "pass=66 t=595632736636541 s0g1 Pwd(Some(\"/tmp/shellio-probe/199\")) → delivered",
+          "pass=74 t=595632761628541 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 224\")) → delivered",
+          "pass=74 t=595632761629708 s0g1 Pwd(Some(\"/tmp/shellio-probe/224\")) → delivered",
+          "pass=82 t=595632786611291 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 249\")) → delivered",
+          "pass=82 t=595632786612750 s0g1 Pwd(Some(\"/tmp/shellio-probe/249\")) → delivered",
+          "pass=90 t=595632811939958 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 274\")) → delivered",
+          "pass=90 t=595632811942125 s0g1 Pwd(Some(\"/tmp/shellio-probe/274\")) → delivered",
+          "pass=98 t=595632836616166 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 299\")) → delivered",
+          "pass=98 t=595632836618541 s0g1 Pwd(Some(\"/tmp/shellio-probe/299\")) → delivered",
+          "pass=108 t=595632861658250 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 324\")) → delivered",
+          "pass=108 t=595632861660666 s0g1 Pwd(Some(\"/tmp/shellio-probe/324\")) → delivered",
+          "pass=116 t=595632887003208 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 349\")) → delivered",
+          "pass=116 t=595632887005875 s0g1 Pwd(Some(\"/tmp/shellio-probe/349\")) → delivered",
+          "pass=124 t=595632911639250 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 374\")) → delivered",
+          "pass=124 t=595632911642291 s0g1 Pwd(Some(\"/tmp/shellio-probe/374\")) → delivered",
+          "pass=134 t=595632936679916 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 399\")) → delivered",
+          "pass=134 t=595632936683333 s0g1 Pwd(Some(\"/tmp/shellio-probe/399\")) → delivered",
+          "pass=142 t=595632962708208 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 424\")) → delivered",
+          "pass=142 t=595632962710916 s0g1 Pwd(Some(\"/tmp/shellio-probe/424\")) → delivered",
+          "pass=150 t=595632986678750 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 449\")) → delivered",
+          "pass=150 t=595632986686625 s0g1 Pwd(Some(\"/tmp/shellio-probe/449\")) → delivered",
+          "pass=159 t=595633011643875 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 474\")) → delivered",
+          "pass=159 t=595633011646250 s0g1 Pwd(Some(\"/tmp/shellio-probe/474\")) → delivered",
+          "pass=167 t=595633039258333 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 499\")) → delivered",
+          "pass=167 t=595633039260541 s0g1 Pwd(Some(\"/tmp/shellio-probe/499\")) → delivered",
+          "pass=175 t=595633061647375 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 524\")) → delivered",
+          "pass=175 t=595633061650291 s0g1 Pwd(Some(\"/tmp/shellio-probe/524\")) → delivered",
+          "pass=177 t=595633564539041 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 549\")) → delivered",
+          "pass=177 t=595633564540541 s0g1 Pwd(Some(\"/tmp/shellio-probe/549\")) → delivered",
+          "pass=177 t=595633564541833 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 574\")) → delivered",
+          "pass=177 t=595633564541958 s0g1 Pwd(Some(\"/tmp/shellio-probe/574\")) → delivered",
+          "pass=177 t=595633564542083 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 599\")) → delivered",
+          "pass=177 t=595633564542291 s0g1 Pwd(Some(\"/tmp/shellio-probe/599\")) → delivered",
+          "pass=177 t=595633564542666 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 624\")) → delivered",
+          "pass=177 t=595633564547000 s0g1 Pwd(Some(\"/tmp/shellio-probe/624\")) → delivered",
+          "pass=177 t=595633564547666 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 649\")) → delivered",
+          "pass=177 t=595633564547750 s0g1 Pwd(Some(\"/tmp/shellio-probe/649\")) → delivered",
+          "pass=177 t=595633564548041 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 674\")) → delivered",
+          "pass=177 t=595633564548125 s0g1 Pwd(Some(\"/tmp/shellio-probe/674\")) → delivered",
+          "pass=177 t=595633564548541 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 699\")) → delivered",
+          "pass=177 t=595633564548625 s0g1 Pwd(Some(\"/tmp/shellio-probe/699\")) → delivered",
+          "pass=177 t=595633564549583 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 724\")) → delivered",
+          "pass=177 t=595633564549666 s0g1 Pwd(Some(\"/tmp/shellio-probe/724\")) → delivered",
+          "pass=177 t=595633564550000 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 749\")) → delivered",
+          "pass=177 t=595633564550083 s0g1 Pwd(Some(\"/tmp/shellio-probe/749\")) → delivered",
+          "pass=177 t=595633564550333 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 774\")) → delivered",
+          "pass=177 t=595633564550416 s0g1 Pwd(Some(\"/tmp/shellio-probe/774\")) → delivered",
+          "pass=177 t=595633564550708 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 799\")) → delivered",
+          "pass=177 t=595633564550791 s0g1 Pwd(Some(\"/tmp/shellio-probe/799\")) → delivered",
+          "pass=177 t=595633564551083 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 824\")) → delivered",
+          "pass=177 t=595633564551166 s0g1 Pwd(Some(\"/tmp/shellio-probe/824\")) → delivered",
+          "pass=177 t=595633564551458 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 849\")) → delivered",
+          "pass=177 t=595633564551541 s0g1 Pwd(Some(\"/tmp/shellio-probe/849\")) → delivered",
+          "pass=178 t=595633582358750 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 874\")) → delivered",
+          "pass=178 t=595633582360375 s0g1 Pwd(Some(\"/tmp/shellio-probe/874\")) → delivered",
+          "pass=178 t=595633582360666 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 899\")) → delivered",
+          "pass=178 t=595633582360875 s0g1 Pwd(Some(\"/tmp/shellio-probe/899\")) → delivered",
+          "pass=178 t=595633582361000 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 924\")) → delivered",
+          "pass=178 t=595633582361541 s0g1 Pwd(Some(\"/tmp/shellio-probe/924\")) → delivered",
+          "pass=178 t=595633582361708 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 949\")) → delivered",
+          "pass=178 t=595633582361833 s0g1 Pwd(Some(\"/tmp/shellio-probe/949\")) → delivered",
+          "pass=178 t=595633582361958 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 974\")) → delivered",
+          "pass=178 t=595633582362500 s0g1 Pwd(Some(\"/tmp/shellio-probe/974\")) → delivered",
+          "pass=178 t=595633582362625 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 999\")) → delivered",
+          "pass=178 t=595633582362708 s0g1 Pwd(Some(\"/tmp/shellio-probe/999\")) → delivered",
+          "pass=178 t=595633582362875 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1024\")) → delivered",
+          "pass=178 t=595633582363000 s0g1 Pwd(Some(\"/tmp/shellio-probe/1024\")) → delivered",
+          "pass=182 t=595633586632541 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1049\")) → delivered",
+          "pass=182 t=595633586634250 s0g1 Pwd(Some(\"/tmp/shellio-probe/1049\")) → delivered",
+          "pass=184 t=595633903492750 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1074\")) → delivered",
+          "pass=184 t=595633903494416 s0g1 Pwd(Some(\"/tmp/shellio-probe/1074\")) → delivered",
+          "pass=184 t=595633903495000 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1099\")) → delivered",
+          "pass=184 t=595633903495083 s0g1 Pwd(Some(\"/tmp/shellio-probe/1099\")) → delivered",
+          "pass=184 t=595633903495875 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1124\")) → delivered",
+          "pass=184 t=595633903496166 s0g1 Pwd(Some(\"/tmp/shellio-probe/1124\")) → delivered",
+          "pass=184 t=595633903496416 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1149\")) → delivered",
+          "pass=184 t=595633903496625 s0g1 Pwd(Some(\"/tmp/shellio-probe/1149\")) → delivered",
+          "pass=184 t=595633903496833 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1174\")) → delivered",
+          "pass=184 t=595633903496958 s0g1 Pwd(Some(\"/tmp/shellio-probe/1174\")) → delivered",
+          "pass=184 t=595633903497208 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1199\")) → delivered",
+          "pass=184 t=595633903501500 s0g1 Pwd(Some(\"/tmp/shellio-probe/1199\")) → delivered",
+          "pass=184 t=595633903501625 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1224\")) → delivered",
+          "pass=184 t=595633903501708 s0g1 Pwd(Some(\"/tmp/shellio-probe/1224\")) → delivered",
+          "pass=184 t=595633903501958 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1249\")) → delivered",
+          "pass=184 t=595633903502083 s0g1 Pwd(Some(\"/tmp/shellio-probe/1249\")) → delivered",
+          "pass=184 t=595633903502500 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1274\")) → delivered",
+          "pass=184 t=595633903502583 s0g1 Pwd(Some(\"/tmp/shellio-probe/1274\")) → delivered",
+          "pass=184 t=595633903502875 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1299\")) → delivered",
+          "pass=184 t=595633903503708 s0g1 Pwd(Some(\"/tmp/shellio-probe/1299\")) → delivered",
+          "pass=184 t=595633903504000 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1324\")) → delivered",
+          "pass=184 t=595633903504083 s0g1 Pwd(Some(\"/tmp/shellio-probe/1324\")) → delivered",
+          "pass=185 t=595633908686125 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1349\")) → delivered",
+          "pass=185 t=595633908687375 s0g1 Pwd(Some(\"/tmp/shellio-probe/1349\")) → delivered",
+          "pass=187 t=595633911589208 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1374\")) → delivered",
+          "pass=187 t=595633911590750 s0g1 Pwd(Some(\"/tmp/shellio-probe/1374\")) → delivered",
+          "pass=195 t=595633936572041 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1399\")) → delivered",
+          "pass=195 t=595633936573583 s0g1 Pwd(Some(\"/tmp/shellio-probe/1399\")) → delivered",
+          "pass=201 t=595633964280541 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1424\")) → delivered",
+          "pass=201 t=595633964281166 s0g1 Pwd(Some(\"/tmp/shellio-probe/1424\")) → delivered",
+          "pass=211 t=595633986604458 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1449\")) → delivered",
+          "pass=211 t=595633986605750 s0g1 Pwd(Some(\"/tmp/shellio-probe/1449\")) → delivered",
+          "pass=221 t=595634011596041 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1474\")) → delivered",
+          "pass=221 t=595634011597333 s0g1 Pwd(Some(\"/tmp/shellio-probe/1474\")) → delivered",
+          "pass=231 t=595634036536583 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1499\")) → delivered",
+          "pass=231 t=595634036538208 s0g1 Pwd(Some(\"/tmp/shellio-probe/1499\")) → delivered",
+          "pass=243 t=595634062021833 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1524\")) → delivered",
+          "pass=243 t=595634062023250 s0g1 Pwd(Some(\"/tmp/shellio-probe/1524\")) → delivered",
+          "pass=253 t=595634086631708 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1549\")) → delivered",
+          "pass=253 t=595634086632916 s0g1 Pwd(Some(\"/tmp/shellio-probe/1549\")) → delivered",
+          "pass=263 t=595634111576083 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1574\")) → delivered",
+          "pass=263 t=595634111577125 s0g1 Pwd(Some(\"/tmp/shellio-probe/1574\")) → delivered",
+          "pass=273 t=595634136580583 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1599\")) → delivered",
+          "pass=273 t=595634136582000 s0g1 Pwd(Some(\"/tmp/shellio-probe/1599\")) → delivered",
+          "pass=285 t=595634161576416 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1624\")) → delivered",
+          "pass=285 t=595634161577750 s0g1 Pwd(Some(\"/tmp/shellio-probe/1624\")) → delivered",
+          "pass=295 t=595634186575375 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1649\")) → delivered",
+          "pass=295 t=595634186576458 s0g1 Pwd(Some(\"/tmp/shellio-probe/1649\")) → delivered",
+          "pass=305 t=595634211575416 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1674\")) → delivered",
+          "pass=305 t=595634211576416 s0g1 Pwd(Some(\"/tmp/shellio-probe/1674\")) → delivered",
+          "pass=313 t=595634236579791 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1699\")) → delivered",
+          "pass=313 t=595634236581125 s0g1 Pwd(Some(\"/tmp/shellio-probe/1699\")) → delivered",
+          "pass=325 t=595634261573916 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1724\")) → delivered",
+          "pass=325 t=595634261574625 s0g1 Pwd(Some(\"/tmp/shellio-probe/1724\")) → delivered",
+          "pass=335 t=595634286588708 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1749\")) → delivered",
+          "pass=335 t=595634286590083 s0g1 Pwd(Some(\"/tmp/shellio-probe/1749\")) → delivered",
+          "pass=345 t=595634311574291 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1774\")) → delivered",
+          "pass=345 t=595634311575416 s0g1 Pwd(Some(\"/tmp/shellio-probe/1774\")) → delivered",
+          "pass=355 t=595634336587416 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1799\")) → delivered",
+          "pass=355 t=595634336588833 s0g1 Pwd(Some(\"/tmp/shellio-probe/1799\")) → delivered",
+          "pass=367 t=595634361577041 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1824\")) → delivered",
+          "pass=367 t=595634361578416 s0g1 Pwd(Some(\"/tmp/shellio-probe/1824\")) → delivered",
+          "pass=377 t=595634386576500 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1849\")) → delivered",
+          "pass=377 t=595634386577625 s0g1 Pwd(Some(\"/tmp/shellio-probe/1849\")) → delivered",
+          "pass=387 t=595634411569375 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1874\")) → delivered",
+          "pass=387 t=595634411570541 s0g1 Pwd(Some(\"/tmp/shellio-probe/1874\")) → delivered",
+          "pass=397 t=595634436549291 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1899\")) → delivered",
+          "pass=397 t=595634436550875 s0g1 Pwd(Some(\"/tmp/shellio-probe/1899\")) → delivered",
+          "pass=409 t=595634461631875 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1924\")) → delivered",
+          "pass=409 t=595634461633958 s0g1 Pwd(Some(\"/tmp/shellio-probe/1924\")) → delivered",
+          "pass=419 t=595634486592500 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1949\")) → delivered",
+          "pass=419 t=595634486594125 s0g1 Pwd(Some(\"/tmp/shellio-probe/1949\")) → delivered",
+          "pass=429 t=595634511629541 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1974\")) → delivered",
+          "pass=429 t=595634511631041 s0g1 Pwd(Some(\"/tmp/shellio-probe/1974\")) → delivered",
+          "pass=439 t=595634536589708 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 1999\")) → delivered",
+          "pass=439 t=595634536591625 s0g1 Pwd(Some(\"/tmp/shellio-probe/1999\")) → delivered",
+          "pass=449 t=595634561484583 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 2024\")) → delivered",
+          "pass=449 t=595634561486541 s0g1 Pwd(Some(\"/tmp/shellio-probe/2024\")) → delivered",
+          "pass=457 t=595634586622750 s0g1 Title(Some(\"probe 90b2226c689f8fb6-s1 2049\")) → delivered",
+          "pass=457 t=595634586624458 s0g1 Pwd(Some(\"/tmp/shellio-probe/2049\")) → delivered",
+          "pass=461 t=595634597936041 s0g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=461 t=595634597937333 s0g1 CloseIntent { process_alive: None, source: \"probe\" } → already-closing"
+        ],
+        "messages": 412,
+        "messages_pushed": 412,
+        "passes": 462,
+        "passes_tracking": 252,
+        "releases": [
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 595634614940375,
+            "free_ms": 16.96025,
+            "key": "s0g1",
+            "messages_during_free": 1,
+            "pass": 462,
+            "started_ns": 595634597980125
+          }
+        ],
+        "scheme_changes": [],
+        "screen_wakes": 0,
+        "surface_config_updates": 0,
+        "surfaces_created": 1,
+        "surfaces_failed": 0,
+        "surfaces_freed": 1,
+        "unsupported_actions": {
+          "22": 1,
+          "25": 3,
+          "26": 239,
+          "43": 2
+        },
+        "wakeups": 837
+      }
+    },
+    {
+      "key": "surface_view_feeds",
+      "value": {
+        "detached_skipped": 0,
+        "display_ids": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "focus": [
+          true
+        ],
+        "last_scale": [
+          2.0,
+          2.0
+        ],
+        "last_size_px": [
+          1108,
+          896
+        ],
+        "preedits": [],
+        "refreshes": 54,
+        "scale_feeds": 10,
+        "size_feeds": 54,
+        "zero_size_skipped": 2
+      }
+    },
+    {
+      "key": "events_posted",
+      "value": "32"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "1161"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "settle",
+      "unit": "ms",
+      "samples": [
+        5.704416999999999,
+        26.6135,
+        26.040792,
+        26.379333000000003,
+        26.343208999999998,
+        26.38425,
+        31.636708,
+        32.018459,
+        32.506625,
+        32.564,
+        32.964042,
+        31.094875000000002,
+        28.588083,
+        518.270125,
+        320.93033399999996,
+        634.7110419999999,
+        27.133625000000002
+      ],
+      "summary": {
+        "count": 17,
+        "p50": 31.094875000000002,
+        "p95": 634.7110419999999,
+        "max": 634.7110419999999
+      }
+    },
+    {
+      "name": "surface_free",
+      "unit": "ms",
+      "samples": [
+        16.96025
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 16.96025,
+        "p95": 16.96025,
+        "max": 16.96025
+      }
+    },
+    {
+      "name": "app_free",
+      "unit": "ms",
+      "samples": [
+        0.034417
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 0.034417,
+        "p95": 0.034417,
+        "max": 0.034417
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "name": "h5-identity",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "17 контрольных точек; NSView 0x106627020, ручка 0x7cbb92c000, s0g1, PID 12801, TTY Some(\"/dev/ttys008\"), nonce 90b2226c689f8fb6-s1; расхождения: нет"
+    },
+    {
+      "name": "h5-winsize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "TIOCGWINSZ ребёнка совпадает с ghostty_surface_size в 17 из 17 контрольных точек; квитанций winch 30; расхождения: нет"
+    },
+    {
+      "name": "h5-geometry-applied",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "размер вида менялся после 16 из 16 изменений; без изменения: []"
+    },
+    {
+      "name": "h5-create-free-counts",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "до закрытия во всех точках создано 1 и освобождено 0: true; до создания при нулевом размере: Some(\"Waiting(Wait) при размере в пикселях (0, 0)\"); при нулевых промежуточных границах: Some(ZeroCheck { pixels: (0, 0), zero_skipped_before: 0, zero_skipped_after: 1, create: \"Waiting(Exists(Live))\", phase: Some(\"live\"), created: 1, freed: 0 })"
+    },
+    {
+      "name": "h5-focus-kept",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "вид поверхности first responder и последняя подача фокуса true во всех точках, кроме []; сцена восстанавливала фокус после 0 из 6 переносов"
+    },
+    {
+      "name": "h5-under-output",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "поток фикстуры шёл до и после 16 из 16 изменений геометрии (квитанция хода до начала, квитанция хода или конца потока после конца изменения); квитанций хода внутри изменений [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 5, 3, 7, 0]; без потока: []"
+    },
+    {
+      "name": "h5-scale-change",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "смена масштаба окна на 1 (замена второго экрана: режим 1x встроенного дисплея на время процесса): Some(Checkpoint { label: \"смена масштаба подложки окна\", t_begin_ns: 595633064039208, t_end_ns: 595633582280166, window_frame: [922.0, 664.0, 1180.0, 752.0], zone: Some(Center), part: Some(0), view_points: (554.0, 448.0), view_pixels: (554, 448), scale: 1.0, surface: Some(GridSize { columns: 68, rows: 29, width_px: 554, height_px: 448, cell_width_px: 8, cell_height_px: 15 }), winsize: Some(Winsize { rows: 29, cols: 68, xpixel: 1100, ypixel: 888 }), winches: 12, winsize_matches: true, geometry_changed: true, settled_ms: 518.270125, settle_limit_reached: false, first_responder: true, last_focus_feed: Some(true), identity_differences: [], surfaces_created: 1, surfaces_freed: 0, passes: 177, stream_lines: 1027, stream_done: false, zero_size_skipped: 2, detached_skipped: 0 })"
+    },
+    {
+      "name": "h5-main-queue-in-tracking",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "живой ресайз перетаскиванием угла: выборок 124 (в режиме отслеживания 123, inLiveResize 119), проходов runtime в режиме отслеживания 252, квитанций фикстуры 21 (winch 15), окно 1180×752 → 1300×824, отпускание по сроку false"
+    },
+    {
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 1, освобождено 1, вызовов free 1"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "… 115 ранних строк вытеснено",
+      "2312.409ms dispatch #15",
+      "2313.707ms return #15",
+      "2329.150ms post #16 mouseDragged угол окна at 1404,80",
+      "2337.411ms dispatch #16",
+      "2338.722ms return #16",
+      "2348.731ms post #17 mouseDragged угол окна at 1408,78",
+      "2354.087ms dispatch #17",
+      "2355.381ms return #17",
+      "2369.146ms post #18 mouseDragged угол окна at 1412,75",
+      "2370.741ms dispatch #18",
+      "2372.197ms return #18",
+      "2388.809ms post #19 mouseDragged угол окна at 1416,73",
+      "2395.745ms dispatch #19",
+      "2397.096ms return #19",
+      "2409.242ms post #20 mouseDragged угол окна at 1420,70",
+      "2412.401ms dispatch #20",
+      "2413.565ms return #20",
+      "2429.140ms post #21 mouseDragged угол окна at 1424,68",
+      "2437.408ms dispatch #21",
+      "2438.746ms return #21",
+      "2448.727ms post #22 mouseDragged угол окна at 1428,66",
+      "2454.071ms dispatch #22",
+      "2455.377ms return #22",
+      "2469.225ms post #23 mouseDragged угол окна at 1432,63",
+      "2470.732ms dispatch #23",
+      "2471.944ms return #23",
+      "2489.227ms post #24 mouseDragged угол окна at 1436,61",
+      "2495.747ms dispatch #24",
+      "2497.114ms return #24",
+      "2509.240ms post #25 mouseDragged угол окна at 1440,58",
+      "2512.396ms dispatch #25",
+      "2513.683ms return #25",
+      "2529.169ms post #26 mouseDragged угол окна at 1444,56",
+      "2537.388ms dispatch #26",
+      "2538.484ms return #26",
+      "2548.719ms post #27 mouseDragged угол окна at 1448,54",
+      "2554.111ms dispatch #27",
+      "2555.358ms return #27",
+      "2569.222ms post #28 mouseDragged угол окна at 1452,51",
+      "2570.722ms dispatch #28",
+      "2571.945ms return #28",
+      "2589.188ms post #29 mouseDragged угол окна at 1456,49",
+      "2595.732ms dispatch #29",
+      "2597.079ms return #29",
+      "2608.890ms post #30 mouseDragged угол окна at 1460,46",
+      "2612.408ms dispatch #30",
+      "2614.220ms return #30",
+      "2629.163ms post #31 mouseDragged угол окна at 1464,44",
+      "2637.422ms dispatch #31",
+      "2639.200ms return #31",
+      "2648.754ms post #32 mouseUp угол окна at 1468,42",
+      "2654.108ms dispatch #32",
+      "2656.345ms return #32",
+      "2657.526ms шаг «перетаскивание угла окна» готов за 628.9 мс",
+      "2663.238ms шаг «размер ребёнка после живого ресайза» готов за 5.7 мс",
+      "2663.292ms контрольная точка «живой ресайз окна»: Some(Center)/Some(0), сетка Some((34, 83)), у ребёнка Some((34, 83)), совпадает true",
+      "2668.967ms шаг «возврат окна после живого ресайза» готов за 5.7 мс",
+      "2696.058ms шаг «размер ребёнка после изменения» готов за 25.3 мс",
+      "2696.114ms контрольная точка «возврат окна после живого ресайза»: Some(Center)/Some(0), сетка Some((29, 68)), у ребёнка Some((29, 68)), совпадает true",
+      "2701.786ms шаг «остановка потока» готов за 5.7 мс",
+      "2707.079ms шаг «конец потока» готов за 5.3 мс",
+      "2712.490ms шаг «два намерения закрыть» готов за 5.4 мс",
+      "2712.499ms намерения закрыть: s0g1, s0g1",
+      "2729.575ms шаг «освобождение поверхности и выход фикстуры» готов за 17.1 мс"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeAppActivity",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeScreenWake",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeSplitView",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      },
+      {
+        "class": "ProbeStandView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSurfaceView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeTile",
+        "created": 6,
+        "released": 2,
+        "live": 4
+      },
+      {
+        "class": "ProbeZoneHost",
+        "created": 4,
+        "released": 0,
+        "live": 4
+      }
+    ]
+  }
+}

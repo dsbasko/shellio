@@ -22,8 +22,8 @@
 //!
 //! Правила до прогона: проверка, которую стенд не смог провести (источник не выбран, метод ввода
 //! не начал composition, контроль `NSTextView` тоже не коммитит, прокрутка не дошла до вида),
-//! получает `not_run` с причиной. Контроль проходит те же стимулы, что и части: коммит по Return,
-//! Esc и коммит преобразования; отказ поверхности при отказе контроля — `not_run`. Наблюдённое нарушение (лишние байты, расхождение сверки,
+//! получает `not_run` с причиной. Контроль на Esc и коммит преобразования добавлен после первого
+//! прогона и служит диагностикой: вердикт `ja-esc` и `ja-candidate` он не меняет. Наблюдённое нарушение (лишние байты, расхождение сверки,
 //! коммит контроля без коммита поверхности) — `fail`.
 
 use std::cell::{Cell, RefCell};
@@ -881,20 +881,18 @@ fn ja_esc(plan: &mut Plan, state: &Shared) {
             if is_not_run(input, PART) {
                 return Ok(());
             }
-            let control = control.borrow().control.clone();
-            match (cleared, control.esc_cancels) {
-                (true, _) | (false, Some(true)) => {
-                    input.verify(format!("composition снята одним Esc: {cleared}"), cleared);
-                }
-                (false, _) => mark_not_run(
-                    input,
-                    PART,
-                    format!(
-                        "стенд: Esc не снимает composition на событиях стенда и в контроле NSTextView (esc_cancels {:?})",
-                        control.esc_cancels
-                    ),
+            let early = input.pending_bytes(A);
+            input.verify(
+                format!("после Esc в PTY ничего: {}", crate::fixture::hex(&early)),
+                early.is_empty(),
+            );
+            let control = control.borrow().control.esc_cancels;
+            input.verify(
+                format!(
+                    "composition снята одним Esc: {cleared} (контроль NSTextView: {control:?})"
                 ),
-            }
+                cleared,
+            );
             Ok(())
         },
     );
@@ -981,24 +979,11 @@ fn ja_candidate(plan: &mut Plan, state: &Shared) {
             if committed || is_not_run(input, PART) {
                 return Ok(());
             }
-            let control = commit_control.borrow().control.clone();
-            if control.convert_commits == Some(true) {
-                input.verify(
-                    format!(
-                        "коммит преобразования по Return: у NSTextView есть, у поверхности нет ({control:?})"
-                    ),
-                    false,
-                );
-            } else {
-                mark_not_run(
-                    input,
-                    PART,
-                    format!(
-                        "стенд: Return не коммитит преобразование на событиях стенда и в контроле NSTextView (convert_commits {:?})",
-                        control.convert_commits
-                    ),
-                );
-            }
+            let control = commit_control.borrow().control.convert_commits;
+            input.verify(
+                format!("коммит выбранного кандидата по Return (контроль NSTextView: {control:?})"),
+                false,
+            );
             Ok(())
         },
     );

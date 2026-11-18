@@ -1,0 +1,4650 @@
+{
+  "schema": 1,
+  "scenario": "visibility",
+  "variant": "syncdraw",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "92234835a970-dirty",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "block2 0.6.2, dispatch2 0.3.0, objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-io-surface 0.3.2, objc2-metal 0.3.2, objc2-quartz-core 0.3.2",
+      "ghostty_version": "1.4.0",
+      "ghostty_rev": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "process": {
+      "pid": 3633,
+      "route": "direct",
+      "nonce": "a5e4b07f09e92d0a",
+      "env": {
+        "HOME": "/Users/dsbasko",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_STATE_DIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/shellio-probe-state.a5e4b07f09e92d0a",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    },
+    "bundle": {
+      "path": "/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app",
+      "identifier": "io.github.dsbasko.shellio.probe.ghostty-surface",
+      "executable": "/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface",
+      "signature": "valid: identifier \"io.github.dsbasko.shellio.probe.ghostty-surface\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    },
+    "display": {
+      "id": 1,
+      "name": "Built-in Retina Display",
+      "builtin": true,
+      "chosen": "builtin",
+      "frame": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1512.0,
+        "height": 982.0
+      },
+      "scale": 2.0,
+      "max_fps": 120
+    },
+    "window": {
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "bitmap_pixels": {
+        "width": 2360.0,
+        "height": 1440.0
+      },
+      "backing_scale": 2.0
+    },
+    "input_source": "com.apple.keylayout.ABC"
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "steps": [
+    {
+      "index": 0,
+      "name": "активность, key window и фокус вида поверхности",
+      "status": "ready",
+      "waited_ms": 52.641208,
+      "at_ms": 73.999916,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 1,
+      "name": "окно видимо по occlusionState или опознан щит",
+      "status": "ready",
+      "waited_ms": 5.650291,
+      "at_ms": 79.664208,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 2,
+      "name": "ненулевой размер вида в пикселях",
+      "status": "ready",
+      "waited_ms": 5.280167,
+      "at_ms": 84.959625,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 3,
+      "name": "готовность фикстуры A",
+      "status": "ready",
+      "waited_ms": 55.591958,
+      "at_ms": 147.309583,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 4,
+      "name": "начальный маркер в кадре A",
+      "status": "ready",
+      "waited_ms": 5.183625,
+      "at_ms": 152.5405,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 5,
+      "name": "начальная серия замеров",
+      "status": "ready",
+      "waited_ms": 3555.092917,
+      "at_ms": 3707.6515,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 6,
+      "name": "палитра частично перекрывает A",
+      "status": "ready",
+      "waited_ms": 5.196458,
+      "at_ms": 3712.872791,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 7,
+      "name": "окно наблюдения под палитрой",
+      "status": "ready",
+      "waited_ms": 585.167792,
+      "at_ms": 4318.907,
+      "state": "isActive=true keyWindow=#66641 mainWindow=#66632 firstResponder=field-editor(NSTextView) cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 8,
+      "name": "tab",
+      "status": "ready",
+      "waited_ms": 7.426375,
+      "at_ms": 4335.178125,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 9,
+      "name": "прогрев: маркер в кадре",
+      "status": "ready",
+      "waited_ms": 10.2775,
+      "at_ms": 4345.641458,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 10,
+      "name": "скрытие установлено",
+      "status": "ready",
+      "waited_ms": 5.267667,
+      "at_ms": 4353.385166,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 11,
+      "name": "замер скрытой",
+      "status": "ready",
+      "waited_ms": 3360.326917,
+      "at_ms": 7713.73175,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 12,
+      "name": "нагрузка скрытой",
+      "status": "ready",
+      "waited_ms": 5.192541,
+      "at_ms": 7718.96175,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 13,
+      "name": "маркер скрытой в модели",
+      "status": "ready",
+      "waited_ms": 5.096666,
+      "at_ms": 7724.11575,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 14,
+      "name": "тишина скрытой",
+      "status": "ready",
+      "waited_ms": 1200.11025,
+      "at_ms": 8924.269208,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 15,
+      "name": "свежий кадр после показа",
+      "status": "ready",
+      "waited_ms": 5.0660419999999995,
+      "at_ms": 8941.626833,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 16,
+      "name": "замер после показа",
+      "status": "ready",
+      "waited_ms": 2730.107833,
+      "at_ms": 11671.750833,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 17,
+      "name": "zone",
+      "status": "ready",
+      "waited_ms": 5.192457999999999,
+      "at_ms": 11676.959958,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 18,
+      "name": "прогрев: маркер в кадре",
+      "status": "ready",
+      "waited_ms": 5.1129169999999995,
+      "at_ms": 11682.109083,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 19,
+      "name": "скрытие установлено",
+      "status": "ready",
+      "waited_ms": 5.274958,
+      "at_ms": 11687.552916,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 20,
+      "name": "замер скрытой",
+      "status": "ready",
+      "waited_ms": 2925.2275,
+      "at_ms": 14612.799333,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 21,
+      "name": "нагрузка скрытой",
+      "status": "ready",
+      "waited_ms": 5.063959,
+      "at_ms": 14617.882458,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 22,
+      "name": "маркер скрытой в модели",
+      "status": "ready",
+      "waited_ms": 5.201,
+      "at_ms": 14623.110875,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 23,
+      "name": "тишина скрытой",
+      "status": "ready",
+      "waited_ms": 1200.244792,
+      "at_ms": 15823.412666,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 24,
+      "name": "свежий кадр после показа",
+      "status": "ready",
+      "waited_ms": 5.231625,
+      "at_ms": 15839.11075,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 25,
+      "name": "замер после показа",
+      "status": "ready",
+      "waited_ms": 2935.23075,
+      "at_ms": 18774.362458,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 26,
+      "name": "miniaturize",
+      "status": "ready",
+      "waited_ms": 5.2191659999999995,
+      "at_ms": 18779.618041,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 27,
+      "name": "прогрев: маркер в кадре",
+      "status": "ready",
+      "waited_ms": 5.2745,
+      "at_ms": 18784.942208,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 28,
+      "name": "скрытие установлено",
+      "status": "ready",
+      "waited_ms": 638.605667,
+      "at_ms": 19423.717,
+      "state": "isActive=true keyWindow=none mainWindow=none firstResponder=none cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 29,
+      "name": "замер скрытой",
+      "status": "ready",
+      "waited_ms": 3125.243042,
+      "at_ms": 22548.978833,
+      "state": "isActive=true keyWindow=none mainWindow=none firstResponder=none cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 30,
+      "name": "нагрузка скрытой",
+      "status": "ready",
+      "waited_ms": 5.108833,
+      "at_ms": 22554.104833,
+      "state": "isActive=true keyWindow=none mainWindow=none firstResponder=none cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 31,
+      "name": "маркер скрытой в модели",
+      "status": "ready",
+      "waited_ms": 5.2424159999999995,
+      "at_ms": 22559.394458,
+      "state": "isActive=true keyWindow=none mainWindow=none firstResponder=none cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 32,
+      "name": "тишина скрытой",
+      "status": "ready",
+      "waited_ms": 1200.188208,
+      "at_ms": 23759.61375,
+      "state": "isActive=true keyWindow=none mainWindow=none firstResponder=none cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 33,
+      "name": "свежий кадр после показа",
+      "status": "ready",
+      "waited_ms": 570.1073749999999,
+      "at_ms": 24330.01525,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 34,
+      "name": "замер после показа",
+      "status": "ready",
+      "waited_ms": 2615.262375,
+      "at_ms": 26945.296333,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 35,
+      "name": "order-out",
+      "status": "ready",
+      "waited_ms": 5.1435830000000005,
+      "at_ms": 26950.481791,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 36,
+      "name": "прогрев: маркер в кадре",
+      "status": "ready",
+      "waited_ms": 5.142834,
+      "at_ms": 26955.675375,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 37,
+      "name": "скрытие установлено",
+      "status": "ready",
+      "waited_ms": 285.223541,
+      "at_ms": 27247.604083,
+      "state": "isActive=true keyWindow=none mainWindow=none firstResponder=none cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 38,
+      "name": "замер скрытой",
+      "status": "ready",
+      "waited_ms": 2830.104875,
+      "at_ms": 30077.726583,
+      "state": "isActive=true keyWindow=none mainWindow=none firstResponder=none cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 39,
+      "name": "нагрузка скрытой",
+      "status": "ready",
+      "waited_ms": 5.171125,
+      "at_ms": 30082.91475,
+      "state": "isActive=true keyWindow=none mainWindow=none firstResponder=none cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 40,
+      "name": "маркер скрытой в модели",
+      "status": "ready",
+      "waited_ms": 5.075958,
+      "at_ms": 30088.016416,
+      "state": "isActive=true keyWindow=none mainWindow=none firstResponder=none cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 41,
+      "name": "тишина скрытой",
+      "status": "ready",
+      "waited_ms": 1200.126,
+      "at_ms": 31288.160791,
+      "state": "isActive=true keyWindow=none mainWindow=none firstResponder=none cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 42,
+      "name": "свежий кадр после показа",
+      "status": "ready",
+      "waited_ms": 40.107167,
+      "at_ms": 31332.119,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 43,
+      "name": "замер после показа",
+      "status": "ready",
+      "waited_ms": 2735.2796660000004,
+      "at_ms": 34067.418875,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 44,
+      "name": "covered",
+      "status": "ready",
+      "waited_ms": 5.128125,
+      "at_ms": 34072.56325,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 45,
+      "name": "прогрев: маркер в кадре",
+      "status": "ready",
+      "waited_ms": 5.033666,
+      "at_ms": 34077.636416,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 46,
+      "name": "скрытие установлено",
+      "status": "ready",
+      "waited_ms": 20.139459,
+      "at_ms": 34110.652875,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 47,
+      "name": "замер скрытой",
+      "status": "ready",
+      "waited_ms": 2980.254458,
+      "at_ms": 37090.931791,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 48,
+      "name": "нагрузка скрытой",
+      "status": "ready",
+      "waited_ms": 5.056500000000001,
+      "at_ms": 37096.022958,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 49,
+      "name": "маркер скрытой в модели",
+      "status": "ready",
+      "waited_ms": 5.244417,
+      "at_ms": 37101.352166,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 50,
+      "name": "тишина скрытой",
+      "status": "ready",
+      "waited_ms": 1200.215125,
+      "at_ms": 38301.596875,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 51,
+      "name": "свежий кадр после показа",
+      "status": "ready",
+      "waited_ms": 65.161125,
+      "at_ms": 38368.998958,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 52,
+      "name": "замер после показа",
+      "status": "ready",
+      "waited_ms": 2715.158083,
+      "at_ms": 41084.205666,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 53,
+      "name": "app-hidden",
+      "status": "ready",
+      "waited_ms": 5.236583,
+      "at_ms": 41089.485291,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 54,
+      "name": "прогрев: маркер в кадре",
+      "status": "ready",
+      "waited_ms": 5.179917,
+      "at_ms": 41094.7465,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 55,
+      "name": "скрытие установлено",
+      "status": "ready",
+      "waited_ms": 56.039416,
+      "at_ms": 41150.999958,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 56,
+      "name": "замер скрытой",
+      "status": "ready",
+      "waited_ms": 2875.161083,
+      "at_ms": 44026.174583,
+      "state": "isActive=false keyWindow=none mainWindow=none firstResponder=none cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 57,
+      "name": "нагрузка скрытой",
+      "status": "ready",
+      "waited_ms": 5.275958,
+      "at_ms": 44031.487625,
+      "state": "isActive=false keyWindow=none mainWindow=none firstResponder=none cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 58,
+      "name": "маркер скрытой в модели",
+      "status": "ready",
+      "waited_ms": 5.165417000000001,
+      "at_ms": 44036.714708,
+      "state": "isActive=false keyWindow=none mainWindow=none firstResponder=none cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 59,
+      "name": "тишина скрытой",
+      "status": "ready",
+      "waited_ms": 1200.20225,
+      "at_ms": 45236.972458,
+      "state": "isActive=false keyWindow=none mainWindow=none firstResponder=none cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 60,
+      "name": "свежий кадр после показа",
+      "status": "ready",
+      "waited_ms": 45.223542,
+      "at_ms": 45287.105791,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 61,
+      "name": "замер после показа",
+      "status": "ready",
+      "waited_ms": 2825.170833,
+      "at_ms": 48112.294125,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 62,
+      "name": "cold-tab",
+      "status": "ready",
+      "waited_ms": 5.296666999999999,
+      "at_ms": 48117.628708,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 63,
+      "name": "скрытие установлено",
+      "status": "ready",
+      "waited_ms": 90.15933299999999,
+      "at_ms": 48214.824833,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 64,
+      "name": "замер скрытой",
+      "status": "ready",
+      "waited_ms": 2605.1375000000003,
+      "at_ms": 50819.980125,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 65,
+      "name": "нагрузка скрытой",
+      "status": "ready",
+      "waited_ms": 5.236541,
+      "at_ms": 50825.256666,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 66,
+      "name": "маркер скрытой в модели",
+      "status": "ready",
+      "waited_ms": 5.199750000000001,
+      "at_ms": 50830.541583,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 67,
+      "name": "тишина скрытой",
+      "status": "ready",
+      "waited_ms": 1200.157375,
+      "at_ms": 52030.717208,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 68,
+      "name": "свежий кадр после показа",
+      "status": "ready",
+      "waited_ms": 5.1137500000000005,
+      "at_ms": 52038.344166,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 69,
+      "name": "замер после показа",
+      "status": "ready",
+      "waited_ms": 2950.263375,
+      "at_ms": 54988.623583,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 70,
+      "name": "освобождение C и выход её фикстуры",
+      "status": "ready",
+      "waited_ms": 12.754583,
+      "at_ms": 55001.404916,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 71,
+      "name": "zone-resize",
+      "status": "ready",
+      "waited_ms": 5.150834,
+      "at_ms": 55006.582958,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 72,
+      "name": "прогрев: маркер в кадре",
+      "status": "ready",
+      "waited_ms": 5.046667,
+      "at_ms": 55011.675583,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 73,
+      "name": "скрытие установлено",
+      "status": "ready",
+      "waited_ms": 5.22925,
+      "at_ms": 55017.106916,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 74,
+      "name": "замер скрытой",
+      "status": "ready",
+      "waited_ms": 3850.38375,
+      "at_ms": 58867.511166,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 75,
+      "name": "нагрузка скрытой",
+      "status": "ready",
+      "waited_ms": 5.964042,
+      "at_ms": 58874.348166,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 76,
+      "name": "маркер скрытой в модели",
+      "status": "ready",
+      "waited_ms": 5.256083,
+      "at_ms": 58879.644916,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 77,
+      "name": "тишина скрытой",
+      "status": "ready",
+      "waited_ms": 1200.0606659999999,
+      "at_ms": 60079.80925,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 78,
+      "name": "свежий кадр после показа",
+      "status": "ready",
+      "waited_ms": 7.250209,
+      "at_ms": 60097.337875,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 79,
+      "name": "замер после показа",
+      "status": "ready",
+      "waited_ms": 4050.3030000000003,
+      "at_ms": 64147.663333,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 80,
+      "name": "делитель на прежнем месте",
+      "status": "ready",
+      "waited_ms": 5.050584000000001,
+      "at_ms": 64153.3925,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 81,
+      "name": "reparent",
+      "status": "ready",
+      "waited_ms": 5.1370000000000005,
+      "at_ms": 64158.538791,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 82,
+      "name": "прогрев: маркер в кадре",
+      "status": "ready",
+      "waited_ms": 5.040083,
+      "at_ms": 64163.614458,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 83,
+      "name": "скрытие установлено",
+      "status": "ready",
+      "waited_ms": 65.262959,
+      "at_ms": 64229.456125,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 84,
+      "name": "замер скрытой",
+      "status": "ready",
+      "waited_ms": 3765.225167,
+      "at_ms": 67994.699583,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 85,
+      "name": "нагрузка скрытой",
+      "status": "ready",
+      "waited_ms": 5.051875,
+      "at_ms": 67999.768208,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 86,
+      "name": "маркер скрытой в модели",
+      "status": "ready",
+      "waited_ms": 5.2245,
+      "at_ms": 68005.036666,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 87,
+      "name": "тишина скрытой",
+      "status": "ready",
+      "waited_ms": 1200.305875,
+      "at_ms": 69205.4335,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 88,
+      "name": "свежий кадр после показа",
+      "status": "ready",
+      "waited_ms": 5.441583,
+      "at_ms": 69226.308291,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 89,
+      "name": "замер после показа",
+      "status": "ready",
+      "waited_ms": 2815.139916,
+      "at_ms": 72041.470833,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 90,
+      "name": "long",
+      "status": "ready",
+      "waited_ms": 5.141,
+      "at_ms": 72046.653958,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 91,
+      "name": "прогрев: маркер в кадре",
+      "status": "ready",
+      "waited_ms": 5.084042,
+      "at_ms": 72051.840375,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 92,
+      "name": "скрытие установлено",
+      "status": "ready",
+      "waited_ms": 5.067458,
+      "at_ms": 72057.986291,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 93,
+      "name": "замер скрытой",
+      "status": "ready",
+      "waited_ms": 3995.331167,
+      "at_ms": 76053.366458,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 94,
+      "name": "нагрузка скрытой",
+      "status": "ready",
+      "waited_ms": 10000.03125,
+      "at_ms": 86053.485333,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 95,
+      "name": "маркер скрытой в модели",
+      "status": "ready",
+      "waited_ms": 5.3387080000000005,
+      "at_ms": 86059.206666,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 96,
+      "name": "тишина скрытой",
+      "status": "ready",
+      "waited_ms": 1200.273583,
+      "at_ms": 87259.551541,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 97,
+      "name": "свежий кадр после показа",
+      "status": "ready",
+      "waited_ms": 10.180541,
+      "at_ms": 87288.839958,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 98,
+      "name": "замер после показа",
+      "status": "ready",
+      "waited_ms": 2715.1662920000003,
+      "at_ms": 90004.022458,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 99,
+      "name": "output",
+      "status": "ready",
+      "waited_ms": 5.252,
+      "at_ms": 90009.329625,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 100,
+      "name": "прогрев: маркер в кадре",
+      "status": "ready",
+      "waited_ms": 5.221292,
+      "at_ms": 90014.600208,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 101,
+      "name": "скрытие установлено",
+      "status": "ready",
+      "waited_ms": 5.118334000000001,
+      "at_ms": 90020.827041,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 102,
+      "name": "замер скрытой",
+      "status": "ready",
+      "waited_ms": 3750.270125,
+      "at_ms": 93771.113791,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 103,
+      "name": "нагрузка скрытой",
+      "status": "ready",
+      "waited_ms": 3000.332917,
+      "at_ms": 96771.532583,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 104,
+      "name": "маркер скрытой в модели",
+      "status": "ready",
+      "waited_ms": 5.334541,
+      "at_ms": 96777.120125,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 105,
+      "name": "тишина скрытой",
+      "status": "ready",
+      "waited_ms": 1200.2535,
+      "at_ms": 97977.444708,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=NSKVONotifying_NSWindow cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 106,
+      "name": "свежий кадр после показа",
+      "status": "ready",
+      "waited_ms": 10.082,
+      "at_ms": 98003.749583,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 107,
+      "name": "замер после показа",
+      "status": "ready",
+      "waited_ms": 2815.2438330000004,
+      "at_ms": 100819.011666,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 108,
+      "name": "намерение закрыть A",
+      "status": "ready",
+      "waited_ms": 5.113,
+      "at_ms": 100824.152458,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    },
+    {
+      "index": 109,
+      "name": "освобождение A и выход фикстуры",
+      "status": "ready",
+      "waited_ms": 14.88775,
+      "at_ms": 100839.053291,
+      "state": "isActive=true keyWindow=#66632 mainWindow=#66632 firstResponder=ProbeSurfaceView cursor=1113.0546875,279.859375"
+    }
+  ],
+  "events": [],
+  "observations": [
+    {
+      "key": "scenario",
+      "value": "visibility"
+    },
+    {
+      "key": "route",
+      "value": "direct"
+    },
+    {
+      "key": "activation",
+      "value": "NSApplication.activateIgnoringOtherApps(true) в applicationDidFinishLaunching"
+    },
+    {
+      "key": "variant",
+      "value": "syncdraw"
+    },
+    {
+      "key": "workarounds",
+      "value": [
+        "syncdraw"
+      ]
+    },
+    {
+      "key": "session_on_console",
+      "value": "true"
+    },
+    {
+      "key": "session_locked",
+      "value": "false"
+    },
+    {
+      "key": "visibility_note",
+      "value": "кадры — смены contents слоя (нижняя граница), свежесть — пиксели IOSurface слоя по маркеру фикстуры; счётчики — диагностика в пределах калибровки задачи 11; вердикты H7a и H7b — по записи Instruments в задаче 19"
+    },
+    {
+      "key": "gpu_devices",
+      "value": [
+        {
+          "headless": false,
+          "low_power": false,
+          "name": "Apple M3 Pro",
+          "registry_id": 4294968921,
+          "removable": false,
+          "unified_memory": true
+        }
+      ]
+    },
+    {
+      "key": "ghostty_init",
+      "value": {
+        "after": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "en_US.UTF-8",
+            "LC_COLLATE": "en_US.UTF-8",
+            "LC_CTYPE": "en_US.UTF-8",
+            "LC_MESSAGES": "en_US.UTF-8",
+            "LC_MONETARY": "en_US.UTF-8",
+            "LC_NUMERIC": "en_US.UTF-8",
+            "LC_TIME": "en_US.UTF-8"
+          },
+          "threads": 3
+        },
+        "argv": [
+          "probe-ghostty-surface"
+        ],
+        "before": {
+          "language_env": {
+            "LANG": "en_US.UTF-8"
+          },
+          "locale": {
+            "LC_ALL": "C",
+            "LC_COLLATE": "C",
+            "LC_CTYPE": "C",
+            "LC_MESSAGES": "C",
+            "LC_MONETARY": "C",
+            "LC_NUMERIC": "C",
+            "LC_TIME": "C"
+          },
+          "threads": 3
+        },
+        "code": 0,
+        "duration_ms": 0.748625,
+        "finished_ns": 604345601796000,
+        "started_ns": 604345601047375
+      }
+    },
+    {
+      "key": "ghostty_init_env_changes",
+      "value": ""
+    },
+    {
+      "key": "ghostty_version",
+      "value": "1.4.0"
+    },
+    {
+      "key": "ghostty_build_mode",
+      "value": "release-fast"
+    },
+    {
+      "key": "ghostty_config",
+      "value": "font-family = Menlo\nfont-size = 13\nscrollback-limit-bytes = 10000000\ntheme = light:Builtin Light,dark:Builtin Dark\ncursor-style-blink = true\nconfirm-close-surface = false\nclipboard-paste-protection = false\n"
+    },
+    {
+      "key": "ghostty_config_diagnostics",
+      "value": []
+    },
+    {
+      "key": "ghostty_runtime_start",
+      "value": {
+        "app_focused": false,
+        "app_new_finished_ns": 604345779636916,
+        "app_new_started_ns": 604345779563125,
+        "color_scheme": "light",
+        "config_change_from_update": 1,
+        "reload_config_from_scheme": 0
+      }
+    },
+    {
+      "key": "surface_command",
+      "value": "'/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app/Contents/MacOS/probe-ghostty-surface' '--fixture' '--channel' '/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/20261118-081458-96309/visibility-syncdraw/fixture.sock' '--nonce' 'a5e4b07f09e92d0a-s1'"
+    },
+    {
+      "key": "fixture_nonce",
+      "value": "a5e4b07f09e92d0a-s1"
+    },
+    {
+      "key": "env_nonce",
+      "value": "47f2ef09ed4a3496"
+    },
+    {
+      "key": "visibility_cells",
+      "value": [
+        {
+          "at_first_pass": "fresh",
+          "at_show": "stale",
+          "contents_at_hide": true,
+          "counters": {
+            "before": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 146916408,
+              "footprint.phys_footprint": 146916408,
+              "metal.current_allocated_size": 17154048
+            },
+            "hidden": {
+              "footprint.IOSurface.dirty": 0,
+              "footprint.Owned physical footprint (unmapped).dirty": 0,
+              "footprint.footprint": 36619320,
+              "footprint.phys_footprint": 36619320,
+              "metal.current_allocated_size": 950272
+            },
+            "hidden_settled": true,
+            "shown": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 149275704,
+              "footprint.phys_footprint": 149275704,
+              "metal.current_allocated_size": 17154048
+            },
+            "shown_settled": true
+          },
+          "deferred_at_hide": false,
+          "during": null,
+          "established_ms": 7.733083,
+          "evaluations_at_hide": 1,
+          "evaluations_established": 2,
+          "frame": {
+            "contents": 526218910736,
+            "height": 896,
+            "samples": [
+              [
+                234,
+                202,
+                67
+              ],
+              [
+                234,
+                202,
+                67
+              ],
+              [
+                234,
+                202,
+                67
+              ],
+              [
+                234,
+                202,
+                67
+              ],
+              [
+                234,
+                202,
+                67
+              ]
+            ],
+            "surface_id": 81,
+            "width": 1108
+          },
+          "frames_hidden_late": 0,
+          "frames_hidden_total": 0,
+          "fresh": true,
+          "fresh_ms": 5.140208,
+          "fronts": [
+            {
+              "at_ns": 604350107022375,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [
+                "вне окна",
+                "окно не на экране"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604354684635625,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [],
+              "visible": true
+            }
+          ],
+          "hidden_state": "вид в окне false",
+          "hidden_state_reached": true,
+          "marker_pixels": [
+            1108,
+            896
+          ],
+          "mechanism": "tab",
+          "model_hidden": true,
+          "name": "tab",
+          "note": "скрытая вкладка прогретой поверхности",
+          "occlusion_masked": false,
+          "post_color": [
+            240,
+            200,
+            0
+          ],
+          "pre_color": [
+            40,
+            80,
+            230
+          ],
+          "shown_state": "вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false",
+          "shown_state_reached": true,
+          "size_matches": true,
+          "surface": "s0g1",
+          "sync_draws": [
+            {
+              "at_ns": 604354684639375,
+              "ms": 10.788125
+            }
+          ],
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "who": "A",
+          "workarounds": [
+            "syncdraw"
+          ]
+        },
+        {
+          "at_first_pass": "stale",
+          "at_show": "stale",
+          "contents_at_hide": true,
+          "counters": {
+            "before": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 149275704,
+              "footprint.phys_footprint": 149275704,
+              "metal.current_allocated_size": 17154048
+            },
+            "hidden": {
+              "footprint.IOSurface.dirty": 0,
+              "footprint.Owned physical footprint (unmapped).dirty": 0,
+              "footprint.footprint": 36504632,
+              "footprint.phys_footprint": 36504632,
+              "metal.current_allocated_size": 950272
+            },
+            "hidden_settled": true,
+            "shown": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 149554232,
+              "footprint.phys_footprint": 149554232,
+              "metal.current_allocated_size": 17154048
+            },
+            "shown_settled": true
+          },
+          "deferred_at_hide": false,
+          "during": null,
+          "established_ms": 5.44325,
+          "evaluations_at_hide": 3,
+          "evaluations_established": 4,
+          "frame": {
+            "contents": 526218917152,
+            "height": 896,
+            "samples": [
+              [
+                192,
+                40,
+                203
+              ],
+              [
+                192,
+                40,
+                203
+              ],
+              [
+                192,
+                40,
+                203
+              ],
+              [
+                192,
+                40,
+                203
+              ],
+              [
+                192,
+                40,
+                203
+              ]
+            ],
+            "surface_id": 81,
+            "width": 1108
+          },
+          "frames_hidden_late": 0,
+          "frames_hidden_total": 0,
+          "fresh": true,
+          "fresh_ms": 5.305209,
+          "fronts": [
+            {
+              "at_ns": 604357442132208,
+              "contents": true,
+              "from": "view-hidden",
+              "reasons": [
+                "скрыт вид или предок"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604361583512458,
+              "contents": true,
+              "from": "view-unhidden",
+              "reasons": [],
+              "visible": true
+            }
+          ],
+          "hidden_state": "вид в окне true, скрыт предок true",
+          "hidden_state_reached": true,
+          "marker_pixels": [
+            1108,
+            896
+          ],
+          "mechanism": "zone",
+          "model_hidden": true,
+          "name": "zone",
+          "note": "скрытая зона: плитка setHidden, вид в окне",
+          "occlusion_masked": false,
+          "post_color": [
+            210,
+            0,
+            210
+          ],
+          "pre_color": [
+            0,
+            200,
+            210
+          ],
+          "shown_state": "вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false",
+          "shown_state_reached": true,
+          "size_matches": true,
+          "surface": "s0g1",
+          "sync_draws": [
+            {
+              "at_ns": 604361583523416,
+              "ms": 10.127667
+            }
+          ],
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "who": "A",
+          "workarounds": [
+            "syncdraw"
+          ]
+        },
+        {
+          "at_first_pass": "stale",
+          "at_show": "stale",
+          "contents_at_hide": true,
+          "counters": {
+            "before": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 149554232,
+              "footprint.phys_footprint": 149554232,
+              "metal.current_allocated_size": 17154048
+            },
+            "hidden": {
+              "footprint.IOSurface.dirty": 0,
+              "footprint.Owned physical footprint (unmapped).dirty": 180224,
+              "footprint.footprint": 37012536,
+              "footprint.phys_footprint": 37012536,
+              "metal.current_allocated_size": 950272
+            },
+            "hidden_settled": true,
+            "shown": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 149799992,
+              "footprint.phys_footprint": 149799992,
+              "metal.current_allocated_size": 17154048
+            },
+            "shown_settled": true
+          },
+          "deferred_at_hide": false,
+          "during": null,
+          "established_ms": 638.774541,
+          "evaluations_at_hide": 5,
+          "evaluations_established": 7,
+          "frame": {
+            "contents": 526218916688,
+            "height": 896,
+            "samples": [
+              [
+                238,
+                128,
+                49
+              ],
+              [
+                238,
+                128,
+                49
+              ],
+              [
+                238,
+                128,
+                49
+              ],
+              [
+                238,
+                128,
+                49
+              ],
+              [
+                238,
+                128,
+                49
+              ]
+            ],
+            "surface_id": 59,
+            "width": 1108
+          },
+          "frames_hidden_late": 0,
+          "frames_hidden_total": 0,
+          "fresh": true,
+          "fresh_ms": 570.122167,
+          "fronts": [
+            {
+              "at_ns": 604365181611250,
+              "contents": true,
+              "from": "window-or-app",
+              "reasons": [
+                "окно не на экране",
+                "окно свёрнуто"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604370065979208,
+              "contents": true,
+              "from": "window-or-app",
+              "reasons": [],
+              "visible": true
+            }
+          ],
+          "hidden_state": "окно свёрнуто true",
+          "hidden_state_reached": true,
+          "marker_pixels": [
+            1108,
+            896
+          ],
+          "mechanism": "miniaturize",
+          "model_hidden": true,
+          "name": "miniaturize",
+          "note": "свёрнутое окно",
+          "occlusion_masked": false,
+          "post_color": [
+            255,
+            120,
+            0
+          ],
+          "pre_color": [
+            0,
+            170,
+            60
+          ],
+          "shown_state": "вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false",
+          "shown_state_reached": true,
+          "size_matches": true,
+          "surface": "s0g1",
+          "sync_draws": [
+            {
+              "at_ns": 604370065987958,
+              "ms": 10.546542
+            }
+          ],
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "who": "A",
+          "workarounds": [
+            "syncdraw"
+          ]
+        },
+        {
+          "at_first_pass": "stale",
+          "at_show": "stale",
+          "contents_at_hide": true,
+          "counters": {
+            "before": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 149799992,
+              "footprint.phys_footprint": 149799992,
+              "metal.current_allocated_size": 17154048
+            },
+            "hidden": {
+              "footprint.IOSurface.dirty": 0,
+              "footprint.Owned physical footprint (unmapped).dirty": 0,
+              "footprint.footprint": 37372984,
+              "footprint.phys_footprint": 37372984,
+              "metal.current_allocated_size": 950272
+            },
+            "hidden_settled": true,
+            "shown": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 150012984,
+              "footprint.phys_footprint": 150012984,
+              "metal.current_allocated_size": 17154048
+            },
+            "shown_settled": true
+          },
+          "deferred_at_hide": false,
+          "during": null,
+          "established_ms": 291.928958,
+          "evaluations_at_hide": 9,
+          "evaluations_established": 10,
+          "frame": {
+            "contents": 526229524032,
+            "height": 896,
+            "samples": [
+              [
+                211,
+                61,
+                52
+              ],
+              [
+                211,
+                61,
+                52
+              ],
+              [
+                211,
+                61,
+                52
+              ],
+              [
+                211,
+                61,
+                52
+              ],
+              [
+                211,
+                61,
+                52
+              ]
+            ],
+            "surface_id": 58,
+            "width": 1108
+          },
+          "frames_hidden_late": 0,
+          "frames_hidden_total": 1,
+          "fresh": true,
+          "fresh_ms": 40.111667,
+          "fronts": [
+            {
+              "at_ns": 604373005600708,
+              "contents": true,
+              "from": "window-or-app",
+              "reasons": [
+                "окно не на экране",
+                "окно перекрыто"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604377079387208,
+              "contents": true,
+              "from": "window-or-app",
+              "reasons": [],
+              "visible": true
+            }
+          ],
+          "hidden_state": "окно на экране false",
+          "hidden_state_reached": true,
+          "marker_pixels": [
+            1108,
+            896
+          ],
+          "mechanism": "order-out",
+          "model_hidden": true,
+          "name": "order-out",
+          "note": "убранное окно (orderOut)",
+          "occlusion_masked": false,
+          "post_color": [
+            230,
+            40,
+            40
+          ],
+          "pre_color": [
+            120,
+            40,
+            200
+          ],
+          "shown_state": "вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false",
+          "shown_state_reached": true,
+          "size_matches": true,
+          "surface": "s0g1",
+          "sync_draws": [
+            {
+              "at_ns": 604377079391625,
+              "ms": 6.285
+            }
+          ],
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "who": "A",
+          "workarounds": [
+            "syncdraw"
+          ]
+        },
+        {
+          "at_first_pass": "other",
+          "at_show": "other",
+          "contents_at_hide": true,
+          "counters": {
+            "before": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 150012984,
+              "footprint.phys_footprint": 150012984,
+              "metal.current_allocated_size": 17154048
+            },
+            "hidden": {
+              "footprint.IOSurface.dirty": 0,
+              "footprint.Owned physical footprint (unmapped).dirty": 0,
+              "footprint.footprint": 37323832,
+              "footprint.phys_footprint": 37323832,
+              "metal.current_allocated_size": 950272
+            },
+            "hidden_settled": true,
+            "shown": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 150193208,
+              "footprint.phys_footprint": 150193208,
+              "metal.current_allocated_size": 17154048
+            },
+            "shown_settled": true
+          },
+          "deferred_at_hide": false,
+          "during": null,
+          "established_ms": 33.015917,
+          "evaluations_at_hide": 11,
+          "evaluations_established": 12,
+          "frame": {
+            "contents": 526229523248,
+            "height": 896,
+            "samples": [
+              [
+                234,
+                202,
+                67
+              ],
+              [
+                234,
+                202,
+                67
+              ],
+              [
+                234,
+                202,
+                67
+              ],
+              [
+                234,
+                202,
+                67
+              ],
+              [
+                234,
+                202,
+                67
+              ]
+            ],
+            "surface_id": 59,
+            "width": 1108
+          },
+          "frames_hidden_late": 0,
+          "frames_hidden_total": 0,
+          "fresh": true,
+          "fresh_ms": 65.16779100000001,
+          "fronts": [
+            {
+              "at_ns": 604379867508375,
+              "contents": true,
+              "from": "window-or-app",
+              "reasons": [
+                "окно перекрыто"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604384108016375,
+              "contents": true,
+              "from": "window-or-app",
+              "reasons": [],
+              "visible": true
+            }
+          ],
+          "hidden_state": "occlusionState Visible false",
+          "hidden_state_reached": true,
+          "marker_pixels": [
+            1108,
+            896
+          ],
+          "mechanism": "covered",
+          "model_hidden": true,
+          "name": "covered",
+          "note": "окно перекрыто другим непрозрачным окном",
+          "occlusion_masked": false,
+          "post_color": [
+            240,
+            200,
+            0
+          ],
+          "pre_color": [
+            40,
+            80,
+            230
+          ],
+          "shown_state": "вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false",
+          "shown_state_reached": true,
+          "size_matches": true,
+          "surface": "s0g1",
+          "sync_draws": [
+            {
+              "at_ns": 604384108022458,
+              "ms": 15.2325
+            }
+          ],
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "who": "A",
+          "workarounds": [
+            "syncdraw"
+          ]
+        },
+        {
+          "at_first_pass": "stale",
+          "at_show": "stale",
+          "contents_at_hide": true,
+          "counters": {
+            "before": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 150193208,
+              "footprint.phys_footprint": 150193208,
+              "metal.current_allocated_size": 17154048
+            },
+            "hidden": {
+              "footprint.IOSurface.dirty": 0,
+              "footprint.Owned physical footprint (unmapped).dirty": 180224,
+              "footprint.footprint": 37651512,
+              "footprint.phys_footprint": 37651512,
+              "metal.current_allocated_size": 950272
+            },
+            "hidden_settled": true,
+            "shown": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 150520888,
+              "footprint.phys_footprint": 150520888,
+              "metal.current_allocated_size": 17154048
+            },
+            "shown_settled": true
+          },
+          "deferred_at_hide": false,
+          "during": null,
+          "established_ms": 56.251208,
+          "evaluations_at_hide": 13,
+          "evaluations_established": 14,
+          "frame": {
+            "contents": 526229524976,
+            "height": 896,
+            "samples": [
+              [
+                192,
+                40,
+                203
+              ],
+              [
+                192,
+                40,
+                203
+              ],
+              [
+                192,
+                40,
+                203
+              ],
+              [
+                192,
+                40,
+                203
+              ],
+              [
+                192,
+                40,
+                203
+              ]
+            ],
+            "surface_id": 58,
+            "width": 1108
+          },
+          "frames_hidden_late": 0,
+          "frames_hidden_total": 2,
+          "fresh": true,
+          "fresh_ms": 45.246291,
+          "fronts": [
+            {
+              "at_ns": 604386893231666,
+              "contents": true,
+              "from": "window-or-app",
+              "reasons": [
+                "окно не на экране",
+                "приложение скрыто"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604391039386708,
+              "contents": true,
+              "from": "window-or-app",
+              "reasons": [],
+              "visible": true
+            }
+          ],
+          "hidden_state": "приложение скрыто true",
+          "hidden_state_reached": true,
+          "marker_pixels": [
+            1108,
+            896
+          ],
+          "mechanism": "app-hidden",
+          "model_hidden": true,
+          "name": "app-hidden",
+          "note": "скрытие и показ приложения",
+          "occlusion_masked": false,
+          "post_color": [
+            210,
+            0,
+            210
+          ],
+          "pre_color": [
+            0,
+            200,
+            210
+          ],
+          "shown_state": "вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false",
+          "shown_state_reached": true,
+          "size_matches": true,
+          "surface": "s0g1",
+          "sync_draws": [
+            {
+              "at_ns": 604391039393083,
+              "ms": 4.853125
+            }
+          ],
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "who": "A",
+          "workarounds": [
+            "syncdraw"
+          ]
+        },
+        {
+          "at_first_pass": "other",
+          "at_show": "other",
+          "contents_at_hide": false,
+          "counters": {
+            "before": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 150520888,
+              "footprint.phys_footprint": 150520888,
+              "metal.current_allocated_size": 17154048
+            },
+            "hidden": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 154158208,
+              "footprint.phys_footprint": 154158208,
+              "metal.current_allocated_size": 17154048
+            },
+            "hidden_settled": true,
+            "shown": {
+              "footprint.IOSurface.dirty": 23986176,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 171934848,
+              "footprint.phys_footprint": 171934848,
+              "metal.current_allocated_size": 33128448
+            },
+            "shown_settled": true
+          },
+          "deferred_at_hide": false,
+          "during": null,
+          "established_ms": 95.164917,
+          "evaluations_at_hide": 0,
+          "evaluations_established": 2,
+          "frame": {
+            "contents": 526229528000,
+            "height": 1348,
+            "samples": [
+              [
+                238,
+                128,
+                49
+              ],
+              [
+                238,
+                128,
+                49
+              ],
+              [
+                238,
+                128,
+                49
+              ],
+              [
+                238,
+                128,
+                49
+              ],
+              [
+                238,
+                128,
+                49
+              ]
+            ],
+            "surface_id": 89,
+            "width": 732
+          },
+          "frames_hidden_late": 0,
+          "frames_hidden_total": 1,
+          "fresh": true,
+          "fresh_ms": 5.1165840000000005,
+          "fronts": [
+            {
+              "at_ns": 604393884319041,
+              "contents": false,
+              "from": "move-to-window",
+              "reasons": [
+                "вне окна",
+                "окно не на экране"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604397790828458,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [],
+              "visible": true
+            }
+          ],
+          "hidden_state": "вид в окне false",
+          "hidden_state_reached": true,
+          "marker_pixels": [
+            732,
+            1348
+          ],
+          "mechanism": "tab",
+          "model_hidden": true,
+          "name": "cold-tab",
+          "note": "скрытие до первого кадра: новая поверхность C уходит за вкладку сразу после ghostty_surface_new; прогретая — клетка tab",
+          "occlusion_masked": false,
+          "post_color": [
+            255,
+            120,
+            0
+          ],
+          "pre_color": [
+            0,
+            170,
+            60
+          ],
+          "shown_state": "вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false",
+          "shown_state_reached": true,
+          "size_matches": true,
+          "surface": "s1g1",
+          "sync_draws": [
+            {
+              "at_ns": 604397790830666,
+              "ms": 1.8965
+            }
+          ],
+          "view_pixels": [
+            732,
+            1348
+          ],
+          "who": "C",
+          "workarounds": [
+            "syncdraw"
+          ]
+        },
+        {
+          "at_first_pass": "stale",
+          "at_show": "stale",
+          "contents_at_hide": true,
+          "counters": {
+            "before": {
+              "footprint.IOSurface.dirty": 23986176,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 171934848,
+              "footprint.phys_footprint": 171934848,
+              "metal.current_allocated_size": 33128448
+            },
+            "hidden": {
+              "footprint.IOSurface.dirty": 0,
+              "footprint.Owned physical footprint (unmapped).dirty": 0,
+              "footprint.footprint": 40240184,
+              "footprint.phys_footprint": 40240184,
+              "metal.current_allocated_size": 950272
+            },
+            "hidden_settled": true,
+            "shown": {
+              "footprint.IOSurface.dirty": 9633792,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 150750264,
+              "footprint.phys_footprint": 150750264,
+              "metal.current_allocated_size": 14745600
+            },
+            "shown_settled": true
+          },
+          "deferred_at_hide": false,
+          "during": "ресайз скрытого вида (1108, 896) → (868, 896) пикселей, подач размера 5, последний поданный Some((868, 896))",
+          "established_ms": 5.430375,
+          "evaluations_at_hide": 17,
+          "evaluations_established": 18,
+          "frame": {
+            "contents": 526229529104,
+            "height": 896,
+            "samples": [
+              [
+                211,
+                61,
+                52
+              ],
+              [
+                211,
+                61,
+                52
+              ],
+              [
+                211,
+                61,
+                52
+              ],
+              [
+                211,
+                61,
+                52
+              ],
+              [
+                211,
+                61,
+                52
+              ]
+            ],
+            "surface_id": 81,
+            "width": 868
+          },
+          "frames_hidden_late": 1,
+          "frames_hidden_total": 1,
+          "fresh": true,
+          "fresh_ms": 7.415417,
+          "fronts": [
+            {
+              "at_ns": 604400771688875,
+              "contents": true,
+              "from": "view-hidden",
+              "reasons": [
+                "скрыт вид или предок"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604405839956875,
+              "contents": true,
+              "from": "view-unhidden",
+              "reasons": [],
+              "visible": true
+            }
+          ],
+          "hidden_state": "вид в окне true, скрыт предок true",
+          "hidden_state_reached": true,
+          "marker_pixels": [
+            868,
+            896
+          ],
+          "mechanism": "zone",
+          "model_hidden": true,
+          "name": "zone-resize",
+          "note": "скрытие → ресайз скрытого вида (делитель) → показ; вид в окне",
+          "occlusion_masked": false,
+          "post_color": [
+            230,
+            40,
+            40
+          ],
+          "pre_color": [
+            120,
+            40,
+            200
+          ],
+          "shown_state": "вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false",
+          "shown_state_reached": true,
+          "size_matches": true,
+          "surface": "s0g1",
+          "sync_draws": [
+            {
+              "at_ns": 604405839994000,
+              "ms": 9.572125
+            }
+          ],
+          "view_pixels": [
+            868,
+            896
+          ],
+          "who": "A",
+          "workarounds": [
+            "syncdraw"
+          ]
+        },
+        {
+          "at_first_pass": "fresh",
+          "at_show": "stale",
+          "contents_at_hide": true,
+          "counters": {
+            "before": {
+              "footprint.IOSurface.dirty": 9633792,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 150750264,
+              "footprint.phys_footprint": 150750264,
+              "metal.current_allocated_size": 14745600
+            },
+            "hidden": {
+              "footprint.IOSurface.dirty": 0,
+              "footprint.Owned physical footprint (unmapped).dirty": 0,
+              "footprint.footprint": 40846392,
+              "footprint.phys_footprint": 40846392,
+              "metal.current_allocated_size": 950272
+            },
+            "hidden_settled": true,
+            "shown": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 153683000,
+              "footprint.phys_footprint": 153683000,
+              "metal.current_allocated_size": 17154048
+            },
+            "shown_settled": true
+          },
+          "deferred_at_hide": false,
+          "during": null,
+          "established_ms": 65.841,
+          "evaluations_at_hide": 19,
+          "evaluations_established": 32,
+          "frame": {
+            "contents": 526229505216,
+            "height": 896,
+            "samples": [
+              [
+                234,
+                202,
+                67
+              ],
+              [
+                234,
+                202,
+                67
+              ],
+              [
+                234,
+                202,
+                67
+              ],
+              [
+                234,
+                202,
+                67
+              ],
+              [
+                234,
+                202,
+                67
+              ]
+            ],
+            "surface_id": 81,
+            "width": 1108
+          },
+          "frames_hidden_late": 0,
+          "frames_hidden_total": 13,
+          "fresh": true,
+          "fresh_ms": 5.539042,
+          "fronts": [
+            {
+              "at_ns": 604409924130625,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [
+                "вне окна",
+                "окно не на экране"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604409929390750,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [],
+              "visible": true
+            },
+            {
+              "at_ns": 604409934321875,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [
+                "вне окна",
+                "окно не на экране"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604409939400875,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [],
+              "visible": true
+            },
+            {
+              "at_ns": 604409944322250,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [
+                "вне окна",
+                "окно не на экране"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604409949411375,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [],
+              "visible": true
+            },
+            {
+              "at_ns": 604409954356750,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [
+                "вне окна",
+                "окно не на экране"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604409959233000,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [],
+              "visible": true
+            },
+            {
+              "at_ns": 604409964439250,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [
+                "вне окна",
+                "окно не на экране"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604409969387833,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [],
+              "visible": true
+            },
+            {
+              "at_ns": 604409974442750,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [
+                "вне окна",
+                "окно не на экране"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604409979382291,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [],
+              "visible": true
+            },
+            {
+              "at_ns": 604409984383208,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [
+                "вне окна",
+                "окно не на экране"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604414965926208,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [],
+              "visible": true
+            }
+          ],
+          "hidden_state": "вид в окне false",
+          "hidden_state_reached": true,
+          "marker_pixels": [
+            1108,
+            896
+          ],
+          "mechanism": "reparent",
+          "model_hidden": true,
+          "name": "reparent",
+          "note": "многократная короткая смена родителя: снятие из окна и вставка в другую зону по одному шагу таймера",
+          "occlusion_masked": false,
+          "post_color": [
+            240,
+            200,
+            0
+          ],
+          "pre_color": [
+            40,
+            80,
+            230
+          ],
+          "shown_state": "вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false",
+          "shown_state_reached": true,
+          "size_matches": true,
+          "surface": "s0g1",
+          "sync_draws": [
+            {
+              "at_ns": 604409929391458,
+              "ms": 1.377458
+            },
+            {
+              "at_ns": 604409939401666,
+              "ms": 1.477042
+            },
+            {
+              "at_ns": 604409949412125,
+              "ms": 1.941
+            },
+            {
+              "at_ns": 604409959233625,
+              "ms": 1.55825
+            },
+            {
+              "at_ns": 604409969388375,
+              "ms": 1.67375
+            },
+            {
+              "at_ns": 604409979382708,
+              "ms": 1.235208
+            },
+            {
+              "at_ns": 604414965931750,
+              "ms": 14.000791
+            }
+          ],
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "who": "A",
+          "workarounds": [
+            "syncdraw"
+          ]
+        },
+        {
+          "at_first_pass": "fresh",
+          "at_show": "stale",
+          "contents_at_hide": true,
+          "counters": {
+            "before": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 153683000,
+              "footprint.phys_footprint": 153683000,
+              "metal.current_allocated_size": 17154048
+            },
+            "hidden": {
+              "footprint.IOSurface.dirty": 0,
+              "footprint.Owned physical footprint (unmapped).dirty": 0,
+              "footprint.footprint": 40928312,
+              "footprint.phys_footprint": 40928312,
+              "metal.current_allocated_size": 950272
+            },
+            "hidden_settled": true,
+            "shown": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 153404472,
+              "footprint.phys_footprint": 153404472,
+              "metal.current_allocated_size": 16678912
+            },
+            "shown_settled": true
+          },
+          "deferred_at_hide": false,
+          "during": "скрытие ещё 10 с",
+          "established_ms": 6.143209,
+          "evaluations_at_hide": 33,
+          "evaluations_established": 34,
+          "frame": {
+            "contents": 526229506448,
+            "height": 896,
+            "samples": [
+              [
+                192,
+                40,
+                203
+              ],
+              [
+                192,
+                40,
+                203
+              ],
+              [
+                192,
+                40,
+                203
+              ],
+              [
+                192,
+                40,
+                203
+              ],
+              [
+                192,
+                40,
+                203
+              ]
+            ],
+            "surface_id": 81,
+            "width": 1108
+          },
+          "frames_hidden_late": 0,
+          "frames_hidden_total": 0,
+          "fresh": true,
+          "fresh_ms": 5.546125,
+          "fronts": [
+            {
+              "at_ns": 604417812439625,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [
+                "вне окна",
+                "окно не на экране"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604433020426541,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [],
+              "visible": true
+            }
+          ],
+          "hidden_state": "вид в окне false",
+          "hidden_state_reached": true,
+          "marker_pixels": [
+            1108,
+            896
+          ],
+          "mechanism": "tab",
+          "model_hidden": true,
+          "name": "long",
+          "note": "длительное скрытие за вкладкой",
+          "occlusion_masked": false,
+          "post_color": [
+            210,
+            0,
+            210
+          ],
+          "pre_color": [
+            0,
+            200,
+            210
+          ],
+          "shown_state": "вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false",
+          "shown_state_reached": true,
+          "size_matches": true,
+          "surface": "s0g1",
+          "sync_draws": [
+            {
+              "at_ns": 604433020467666,
+              "ms": 16.391709
+            }
+          ],
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "who": "A",
+          "workarounds": [
+            "syncdraw"
+          ]
+        },
+        {
+          "at_first_pass": "fresh",
+          "at_show": "stale",
+          "contents_at_hide": true,
+          "counters": {
+            "before": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 153404472,
+              "footprint.phys_footprint": 153404472,
+              "metal.current_allocated_size": 16678912
+            },
+            "hidden": {
+              "footprint.IOSurface.dirty": 0,
+              "footprint.Owned physical footprint (unmapped).dirty": 0,
+              "footprint.footprint": 40649784,
+              "footprint.phys_footprint": 40649784,
+              "metal.current_allocated_size": 475136
+            },
+            "hidden_settled": true,
+            "shown": {
+              "footprint.IOSurface.dirty": 12042240,
+              "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+              "footprint.footprint": 153633848,
+              "footprint.phys_footprint": 153633848,
+              "metal.current_allocated_size": 16875520
+            },
+            "shown_settled": true
+          },
+          "deferred_at_hide": false,
+          "during": "поток вывода скрытой: строк 3000, прерван false",
+          "established_ms": 6.225917,
+          "evaluations_at_hide": 35,
+          "evaluations_established": 36,
+          "frame": {
+            "contents": 526229507616,
+            "height": 896,
+            "samples": [
+              [
+                238,
+                128,
+                49
+              ],
+              [
+                238,
+                128,
+                49
+              ],
+              [
+                238,
+                128,
+                49
+              ],
+              [
+                238,
+                128,
+                49
+              ],
+              [
+                238,
+                128,
+                49
+              ]
+            ],
+            "surface_id": 81,
+            "width": 1108
+          },
+          "frames_hidden_late": 0,
+          "frames_hidden_total": 0,
+          "fresh": true,
+          "fresh_ms": 7.047124999999999,
+          "fronts": [
+            {
+              "at_ns": 604435775275375,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [
+                "вне окна",
+                "окно не на экране"
+              ],
+              "visible": false
+            },
+            {
+              "at_ns": 604443737909875,
+              "contents": true,
+              "from": "move-to-window",
+              "reasons": [],
+              "visible": true
+            }
+          ],
+          "hidden_state": "вид в окне false",
+          "hidden_state_reached": true,
+          "marker_pixels": [
+            1108,
+            896
+          ],
+          "mechanism": "tab",
+          "model_hidden": true,
+          "name": "output",
+          "note": "скрытая поверхность с непрерывным выводом за вкладкой",
+          "occlusion_masked": false,
+          "post_color": [
+            255,
+            120,
+            0
+          ],
+          "pre_color": [
+            0,
+            170,
+            60
+          ],
+          "shown_state": "вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false",
+          "shown_state_reached": true,
+          "size_matches": true,
+          "surface": "s0g1",
+          "sync_draws": [
+            {
+              "at_ns": 604443737913583,
+              "ms": 14.163083
+            }
+          ],
+          "view_pixels": [
+            1108,
+            896
+          ],
+          "who": "A",
+          "workarounds": [
+            "syncdraw"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "visibility_overlay",
+      "value": {
+        "fronts_during": 0,
+        "model_visible": true,
+        "overlay_signal": true,
+        "palette_open": true,
+        "window_occlusion_visible": true
+      }
+    },
+    {
+      "key": "visibility_shield",
+      "value": null
+    },
+    {
+      "key": "occlusion_masked",
+      "value": "false"
+    },
+    {
+      "key": "visibility_initial_counters",
+      "value": {
+        "footprint.IOSurface.dirty": 12042240,
+        "footprint.Owned physical footprint (unmapped).dirty": 1966080,
+        "footprint.footprint": 146916408,
+        "footprint.phys_footprint": 146916408,
+        "metal.current_allocated_size": 17154048
+      }
+    },
+    {
+      "key": "frame_watch_ticks",
+      "value": "49595"
+    },
+    {
+      "key": "visibility_log_0",
+      "value": {
+        "bounds_redraw": [],
+        "deferred_ns": [],
+        "evaluations": 37,
+        "fed": [
+          {
+            "at_ns": 604350107022375,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [
+              "вне окна",
+              "окно не на экране"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604354684635625,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604357442132208,
+            "contents": true,
+            "from": "view-hidden",
+            "reasons": [
+              "скрыт вид или предок"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604361583512458,
+            "contents": true,
+            "from": "view-unhidden",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604365181611250,
+            "contents": true,
+            "from": "window-or-app",
+            "reasons": [
+              "окно не на экране",
+              "окно свёрнуто"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604370065979208,
+            "contents": true,
+            "from": "window-or-app",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604373005600708,
+            "contents": true,
+            "from": "window-or-app",
+            "reasons": [
+              "окно не на экране",
+              "окно перекрыто"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604377079387208,
+            "contents": true,
+            "from": "window-or-app",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604379867508375,
+            "contents": true,
+            "from": "window-or-app",
+            "reasons": [
+              "окно перекрыто"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604384108016375,
+            "contents": true,
+            "from": "window-or-app",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604386893231666,
+            "contents": true,
+            "from": "window-or-app",
+            "reasons": [
+              "окно не на экране",
+              "приложение скрыто"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604391039386708,
+            "contents": true,
+            "from": "window-or-app",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604400771688875,
+            "contents": true,
+            "from": "view-hidden",
+            "reasons": [
+              "скрыт вид или предок"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604405839956875,
+            "contents": true,
+            "from": "view-unhidden",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604409924130625,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [
+              "вне окна",
+              "окно не на экране"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604409929390750,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604409934321875,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [
+              "вне окна",
+              "окно не на экране"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604409939400875,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604409944322250,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [
+              "вне окна",
+              "окно не на экране"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604409949411375,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604409954356750,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [
+              "вне окна",
+              "окно не на экране"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604409959233000,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604409964439250,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [
+              "вне окна",
+              "окно не на экране"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604409969387833,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604409974442750,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [
+              "вне окна",
+              "окно не на экране"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604409979382291,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604409984383208,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [
+              "вне окна",
+              "окно не на экране"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604414965926208,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604417812439625,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [
+              "вне окна",
+              "окно не на экране"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604433020426541,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [],
+            "visible": true
+          },
+          {
+            "at_ns": 604435775275375,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [
+              "вне окна",
+              "окно не на экране"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604443737909875,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [],
+            "visible": true
+          }
+        ],
+        "first_frame_ns": null,
+        "last_signals": {
+          "app_hidden": false,
+          "hidden_ancestor": false,
+          "in_window": true,
+          "occlusion_masked": false,
+          "overlay_partial": false,
+          "window_miniaturized": false,
+          "window_occluded": false,
+          "window_visible": true
+        },
+        "sync_draws": [
+          {
+            "at_ns": 604354684639375,
+            "ms": 10.788125
+          },
+          {
+            "at_ns": 604361583523416,
+            "ms": 10.127667
+          },
+          {
+            "at_ns": 604370065987958,
+            "ms": 10.546542
+          },
+          {
+            "at_ns": 604377079391625,
+            "ms": 6.285
+          },
+          {
+            "at_ns": 604384108022458,
+            "ms": 15.2325
+          },
+          {
+            "at_ns": 604391039393083,
+            "ms": 4.853125
+          },
+          {
+            "at_ns": 604405839994000,
+            "ms": 9.572125
+          },
+          {
+            "at_ns": 604409929391458,
+            "ms": 1.377458
+          },
+          {
+            "at_ns": 604409939401666,
+            "ms": 1.477042
+          },
+          {
+            "at_ns": 604409949412125,
+            "ms": 1.941
+          },
+          {
+            "at_ns": 604409959233625,
+            "ms": 1.55825
+          },
+          {
+            "at_ns": 604409969388375,
+            "ms": 1.67375
+          },
+          {
+            "at_ns": 604409979382708,
+            "ms": 1.235208
+          },
+          {
+            "at_ns": 604414965931750,
+            "ms": 14.000791
+          },
+          {
+            "at_ns": 604433020467666,
+            "ms": 16.391709
+          },
+          {
+            "at_ns": 604443737913583,
+            "ms": 14.163083
+          }
+        ],
+        "workarounds": [
+          "syncdraw"
+        ]
+      }
+    },
+    {
+      "key": "visibility_log_1",
+      "value": {
+        "bounds_redraw": [],
+        "deferred_ns": [],
+        "evaluations": 3,
+        "fed": [
+          {
+            "at_ns": 604393884319041,
+            "contents": false,
+            "from": "move-to-window",
+            "reasons": [
+              "вне окна",
+              "окно не на экране"
+            ],
+            "visible": false
+          },
+          {
+            "at_ns": 604397790828458,
+            "contents": true,
+            "from": "move-to-window",
+            "reasons": [],
+            "visible": true
+          }
+        ],
+        "first_frame_ns": null,
+        "last_signals": {
+          "app_hidden": false,
+          "hidden_ancestor": false,
+          "in_window": true,
+          "occlusion_masked": false,
+          "overlay_partial": false,
+          "window_miniaturized": false,
+          "window_occluded": false,
+          "window_visible": true
+        },
+        "sync_draws": [
+          {
+            "at_ns": 604397790830666,
+            "ms": 1.8965
+          }
+        ],
+        "workarounds": [
+          "syncdraw"
+        ]
+      }
+    },
+    {
+      "key": "ghostty_runtime",
+      "value": {
+        "app_focus": [
+          true,
+          false,
+          true
+        ],
+        "clipboard_denied": 0,
+        "clipboard_denied_on_retire": 0,
+        "clipboard_held": 0,
+        "clipboard_late_skipped": 0,
+        "clipboard_served": 0,
+        "clipboard_write_confirm_denied": 0,
+        "clipboard_written": 0,
+        "close_intents": 2,
+        "close_sources": {
+          "probe:scheduled": 2
+        },
+        "creations": [
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 604345851662833,
+            "injected": null,
+            "key": "s0g1",
+            "new_ms": 6.711042,
+            "pass": 1,
+            "started_ns": 604345844951791,
+            "trigger": "initial"
+          },
+          {
+            "after": null,
+            "created": true,
+            "display_asleep": null,
+            "display_id": null,
+            "failure": null,
+            "finished_ns": 604393882806833,
+            "injected": null,
+            "key": "s1g1",
+            "new_ms": 3.161208,
+            "pass": 6,
+            "started_ns": 604393879645625,
+            "trigger": "initial"
+          }
+        ],
+        "delivered": {
+          "close-intent": 2,
+          "config-change": 1,
+          "pwd": 120,
+          "title": 120,
+          "unsupported": 14
+        },
+        "dropped_at_source": 0,
+        "dropped_stale": 0,
+        "frees_held_passes": 0,
+        "keyboard_changes": 0,
+        "layout_retries": 0,
+        "log": [
+          "pass=1 t=604345779676416 app ConfigChange → delivered",
+          "pass=11 t=604400748616625 s1g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled",
+          "pass=17 t=604439555451208 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 24\")) → delivered",
+          "pass=17 t=604439555453041 s0g1 Pwd(Some(\"/tmp/shellio-probe/24\")) → delivered",
+          "pass=19 t=604439580398083 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 49\")) → delivered",
+          "pass=19 t=604439580399041 s0g1 Pwd(Some(\"/tmp/shellio-probe/49\")) → delivered",
+          "pass=21 t=604439605428083 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 74\")) → delivered",
+          "pass=21 t=604439605429250 s0g1 Pwd(Some(\"/tmp/shellio-probe/74\")) → delivered",
+          "pass=23 t=604439630366000 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 99\")) → delivered",
+          "pass=23 t=604439630367166 s0g1 Pwd(Some(\"/tmp/shellio-probe/99\")) → delivered",
+          "pass=25 t=604439655416833 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 124\")) → delivered",
+          "pass=25 t=604439655418291 s0g1 Pwd(Some(\"/tmp/shellio-probe/124\")) → delivered",
+          "pass=27 t=604439680415125 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 149\")) → delivered",
+          "pass=27 t=604439680416541 s0g1 Pwd(Some(\"/tmp/shellio-probe/149\")) → delivered",
+          "pass=29 t=604439705408541 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 174\")) → delivered",
+          "pass=29 t=604439705410166 s0g1 Pwd(Some(\"/tmp/shellio-probe/174\")) → delivered",
+          "pass=31 t=604439730409666 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 199\")) → delivered",
+          "pass=31 t=604439730412041 s0g1 Pwd(Some(\"/tmp/shellio-probe/199\")) → delivered",
+          "pass=33 t=604439755384750 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 224\")) → delivered",
+          "pass=33 t=604439755387125 s0g1 Pwd(Some(\"/tmp/shellio-probe/224\")) → delivered",
+          "pass=35 t=604439780596458 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 249\")) → delivered",
+          "pass=35 t=604439780603958 s0g1 Pwd(Some(\"/tmp/shellio-probe/249\")) → delivered",
+          "pass=37 t=604439805396625 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 274\")) → delivered",
+          "pass=37 t=604439805399958 s0g1 Pwd(Some(\"/tmp/shellio-probe/274\")) → delivered",
+          "pass=39 t=604439830448083 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 299\")) → delivered",
+          "pass=39 t=604439830452541 s0g1 Pwd(Some(\"/tmp/shellio-probe/299\")) → delivered",
+          "pass=41 t=604439855500666 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 324\")) → delivered",
+          "pass=41 t=604439855509625 s0g1 Pwd(Some(\"/tmp/shellio-probe/324\")) → delivered",
+          "pass=43 t=604439880502416 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 349\")) → delivered",
+          "pass=43 t=604439880509458 s0g1 Pwd(Some(\"/tmp/shellio-probe/349\")) → delivered",
+          "pass=45 t=604439905428791 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 374\")) → delivered",
+          "pass=45 t=604439905433041 s0g1 Pwd(Some(\"/tmp/shellio-probe/374\")) → delivered",
+          "pass=47 t=604439930443083 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 399\")) → delivered",
+          "pass=47 t=604439930448333 s0g1 Pwd(Some(\"/tmp/shellio-probe/399\")) → delivered",
+          "pass=49 t=604439955274875 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 424\")) → delivered",
+          "pass=49 t=604439955280083 s0g1 Pwd(Some(\"/tmp/shellio-probe/424\")) → delivered",
+          "pass=51 t=604439980484250 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 449\")) → delivered",
+          "pass=51 t=604439980489708 s0g1 Pwd(Some(\"/tmp/shellio-probe/449\")) → delivered",
+          "pass=53 t=604440005435375 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 474\")) → delivered",
+          "pass=53 t=604440005440333 s0g1 Pwd(Some(\"/tmp/shellio-probe/474\")) → delivered",
+          "pass=55 t=604440030487208 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 499\")) → delivered",
+          "pass=55 t=604440030494166 s0g1 Pwd(Some(\"/tmp/shellio-probe/499\")) → delivered",
+          "pass=57 t=604440055552291 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 524\")) → delivered",
+          "pass=57 t=604440055562041 s0g1 Pwd(Some(\"/tmp/shellio-probe/524\")) → delivered",
+          "pass=59 t=604440080562791 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 549\")) → delivered",
+          "pass=59 t=604440080576583 s0g1 Pwd(Some(\"/tmp/shellio-probe/549\")) → delivered",
+          "pass=61 t=604440105438458 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 574\")) → delivered",
+          "pass=61 t=604440105444083 s0g1 Pwd(Some(\"/tmp/shellio-probe/574\")) → delivered",
+          "pass=63 t=604440130491083 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 599\")) → delivered",
+          "pass=63 t=604440130498666 s0g1 Pwd(Some(\"/tmp/shellio-probe/599\")) → delivered",
+          "pass=65 t=604440155496083 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 624\")) → delivered",
+          "pass=65 t=604440155504375 s0g1 Pwd(Some(\"/tmp/shellio-probe/624\")) → delivered",
+          "pass=67 t=604440180537083 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 649\")) → delivered",
+          "pass=67 t=604440180546500 s0g1 Pwd(Some(\"/tmp/shellio-probe/649\")) → delivered",
+          "pass=69 t=604440205474791 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 674\")) → delivered",
+          "pass=69 t=604440205479958 s0g1 Pwd(Some(\"/tmp/shellio-probe/674\")) → delivered",
+          "pass=71 t=604440230426791 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 699\")) → delivered",
+          "pass=71 t=604440230429625 s0g1 Pwd(Some(\"/tmp/shellio-probe/699\")) → delivered",
+          "pass=73 t=604440255419125 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 724\")) → delivered",
+          "pass=73 t=604440255420750 s0g1 Pwd(Some(\"/tmp/shellio-probe/724\")) → delivered",
+          "pass=75 t=604440280390458 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 749\")) → delivered",
+          "pass=75 t=604440280391958 s0g1 Pwd(Some(\"/tmp/shellio-probe/749\")) → delivered",
+          "pass=77 t=604440305391333 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 774\")) → delivered",
+          "pass=77 t=604440305393458 s0g1 Pwd(Some(\"/tmp/shellio-probe/774\")) → delivered",
+          "pass=79 t=604440330522166 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 799\")) → delivered",
+          "pass=79 t=604440330530000 s0g1 Pwd(Some(\"/tmp/shellio-probe/799\")) → delivered",
+          "pass=81 t=604440355519166 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 824\")) → delivered",
+          "pass=81 t=604440355530000 s0g1 Pwd(Some(\"/tmp/shellio-probe/824\")) → delivered",
+          "pass=83 t=604440380537083 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 849\")) → delivered",
+          "pass=83 t=604440380548208 s0g1 Pwd(Some(\"/tmp/shellio-probe/849\")) → delivered",
+          "pass=85 t=604440405477541 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 874\")) → delivered",
+          "pass=85 t=604440405482458 s0g1 Pwd(Some(\"/tmp/shellio-probe/874\")) → delivered",
+          "pass=87 t=604440430552208 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 899\")) → delivered",
+          "pass=87 t=604440430563750 s0g1 Pwd(Some(\"/tmp/shellio-probe/899\")) → delivered",
+          "pass=89 t=604440455684291 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 924\")) → delivered",
+          "pass=89 t=604440455696083 s0g1 Pwd(Some(\"/tmp/shellio-probe/924\")) → delivered",
+          "pass=91 t=604440480581041 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 949\")) → delivered",
+          "pass=91 t=604440480591500 s0g1 Pwd(Some(\"/tmp/shellio-probe/949\")) → delivered",
+          "pass=93 t=604440505468791 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 974\")) → delivered",
+          "pass=93 t=604440505473916 s0g1 Pwd(Some(\"/tmp/shellio-probe/974\")) → delivered",
+          "pass=95 t=604440530518458 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 999\")) → delivered",
+          "pass=95 t=604440530530375 s0g1 Pwd(Some(\"/tmp/shellio-probe/999\")) → delivered",
+          "pass=97 t=604440555597958 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1024\")) → delivered",
+          "pass=97 t=604440555605916 s0g1 Pwd(Some(\"/tmp/shellio-probe/1024\")) → delivered",
+          "pass=99 t=604440580532791 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1049\")) → delivered",
+          "pass=99 t=604440580541500 s0g1 Pwd(Some(\"/tmp/shellio-probe/1049\")) → delivered",
+          "pass=101 t=604440605444041 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1074\")) → delivered",
+          "pass=101 t=604440605448541 s0g1 Pwd(Some(\"/tmp/shellio-probe/1074\")) → delivered",
+          "pass=103 t=604440630501791 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1099\")) → delivered",
+          "pass=103 t=604440630508875 s0g1 Pwd(Some(\"/tmp/shellio-probe/1099\")) → delivered",
+          "pass=105 t=604440655540291 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1124\")) → delivered",
+          "pass=105 t=604440655549250 s0g1 Pwd(Some(\"/tmp/shellio-probe/1124\")) → delivered",
+          "pass=107 t=604440680508000 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1149\")) → delivered",
+          "pass=107 t=604440680515916 s0g1 Pwd(Some(\"/tmp/shellio-probe/1149\")) → delivered",
+          "pass=109 t=604440705487125 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1174\")) → delivered",
+          "pass=109 t=604440705497291 s0g1 Pwd(Some(\"/tmp/shellio-probe/1174\")) → delivered",
+          "pass=111 t=604440730523250 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1199\")) → delivered",
+          "pass=111 t=604440730532833 s0g1 Pwd(Some(\"/tmp/shellio-probe/1199\")) → delivered",
+          "pass=113 t=604440755543708 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1224\")) → delivered",
+          "pass=113 t=604440755555291 s0g1 Pwd(Some(\"/tmp/shellio-probe/1224\")) → delivered",
+          "pass=115 t=604440780552791 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1249\")) → delivered",
+          "pass=115 t=604440780565125 s0g1 Pwd(Some(\"/tmp/shellio-probe/1249\")) → delivered",
+          "pass=117 t=604440805440041 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1274\")) → delivered",
+          "pass=117 t=604440805444708 s0g1 Pwd(Some(\"/tmp/shellio-probe/1274\")) → delivered",
+          "pass=119 t=604440830394458 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1299\")) → delivered",
+          "pass=119 t=604440830397291 s0g1 Pwd(Some(\"/tmp/shellio-probe/1299\")) → delivered",
+          "pass=121 t=604440855500125 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1324\")) → delivered",
+          "pass=121 t=604440855508208 s0g1 Pwd(Some(\"/tmp/shellio-probe/1324\")) → delivered",
+          "pass=123 t=604440880504291 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1349\")) → delivered",
+          "pass=123 t=604440880513333 s0g1 Pwd(Some(\"/tmp/shellio-probe/1349\")) → delivered",
+          "pass=125 t=604440905423875 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1374\")) → delivered",
+          "pass=125 t=604440905429000 s0g1 Pwd(Some(\"/tmp/shellio-probe/1374\")) → delivered",
+          "pass=127 t=604440930544000 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1399\")) → delivered",
+          "pass=127 t=604440930553791 s0g1 Pwd(Some(\"/tmp/shellio-probe/1399\")) → delivered",
+          "pass=129 t=604440955527958 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1424\")) → delivered",
+          "pass=129 t=604440955537958 s0g1 Pwd(Some(\"/tmp/shellio-probe/1424\")) → delivered",
+          "pass=131 t=604440981885458 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1449\")) → delivered",
+          "pass=131 t=604440981899083 s0g1 Pwd(Some(\"/tmp/shellio-probe/1449\")) → delivered",
+          "pass=133 t=604441005427291 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1474\")) → delivered",
+          "pass=133 t=604441005431916 s0g1 Pwd(Some(\"/tmp/shellio-probe/1474\")) → delivered",
+          "pass=135 t=604441030382625 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1499\")) → delivered",
+          "pass=135 t=604441030393625 s0g1 Pwd(Some(\"/tmp/shellio-probe/1499\")) → delivered",
+          "pass=137 t=604441055487541 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1524\")) → delivered",
+          "pass=137 t=604441055495250 s0g1 Pwd(Some(\"/tmp/shellio-probe/1524\")) → delivered",
+          "pass=139 t=604441080515500 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1549\")) → delivered",
+          "pass=139 t=604441080524166 s0g1 Pwd(Some(\"/tmp/shellio-probe/1549\")) → delivered",
+          "pass=141 t=604441105453500 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1574\")) → delivered",
+          "pass=141 t=604441105457875 s0g1 Pwd(Some(\"/tmp/shellio-probe/1574\")) → delivered",
+          "pass=143 t=604441130515000 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1599\")) → delivered",
+          "pass=143 t=604441130524083 s0g1 Pwd(Some(\"/tmp/shellio-probe/1599\")) → delivered",
+          "pass=145 t=604441155565166 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1624\")) → delivered",
+          "pass=145 t=604441155573916 s0g1 Pwd(Some(\"/tmp/shellio-probe/1624\")) → delivered",
+          "pass=147 t=604441180391375 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1649\")) → delivered",
+          "pass=147 t=604441180402875 s0g1 Pwd(Some(\"/tmp/shellio-probe/1649\")) → delivered",
+          "pass=149 t=604441205476250 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1674\")) → delivered",
+          "pass=149 t=604441205482541 s0g1 Pwd(Some(\"/tmp/shellio-probe/1674\")) → delivered",
+          "pass=151 t=604441230405250 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1699\")) → delivered",
+          "pass=151 t=604441230408083 s0g1 Pwd(Some(\"/tmp/shellio-probe/1699\")) → delivered",
+          "pass=153 t=604441255381541 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1724\")) → delivered",
+          "pass=153 t=604441255383375 s0g1 Pwd(Some(\"/tmp/shellio-probe/1724\")) → delivered",
+          "pass=155 t=604441280426166 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1749\")) → delivered",
+          "pass=155 t=604441280429000 s0g1 Pwd(Some(\"/tmp/shellio-probe/1749\")) → delivered",
+          "pass=157 t=604441305425791 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1774\")) → delivered",
+          "pass=157 t=604441305428500 s0g1 Pwd(Some(\"/tmp/shellio-probe/1774\")) → delivered",
+          "pass=159 t=604441330473208 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1799\")) → delivered",
+          "pass=159 t=604441330478750 s0g1 Pwd(Some(\"/tmp/shellio-probe/1799\")) → delivered",
+          "pass=161 t=604441355538458 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1824\")) → delivered",
+          "pass=161 t=604441355546541 s0g1 Pwd(Some(\"/tmp/shellio-probe/1824\")) → delivered",
+          "pass=163 t=604441380462958 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1849\")) → delivered",
+          "pass=163 t=604441380468041 s0g1 Pwd(Some(\"/tmp/shellio-probe/1849\")) → delivered",
+          "pass=165 t=604441405450750 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1874\")) → delivered",
+          "pass=165 t=604441405455791 s0g1 Pwd(Some(\"/tmp/shellio-probe/1874\")) → delivered",
+          "pass=167 t=604441430577708 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1899\")) → delivered",
+          "pass=167 t=604441430588916 s0g1 Pwd(Some(\"/tmp/shellio-probe/1899\")) → delivered",
+          "pass=169 t=604441456169166 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1924\")) → delivered",
+          "pass=169 t=604441456199875 s0g1 Pwd(Some(\"/tmp/shellio-probe/1924\")) → delivered",
+          "pass=171 t=604441480536416 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1949\")) → delivered",
+          "pass=171 t=604441480549041 s0g1 Pwd(Some(\"/tmp/shellio-probe/1949\")) → delivered",
+          "pass=173 t=604441505453208 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1974\")) → delivered",
+          "pass=173 t=604441505459250 s0g1 Pwd(Some(\"/tmp/shellio-probe/1974\")) → delivered",
+          "pass=175 t=604441530515750 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 1999\")) → delivered",
+          "pass=175 t=604441530526125 s0g1 Pwd(Some(\"/tmp/shellio-probe/1999\")) → delivered",
+          "pass=177 t=604441555480666 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2024\")) → delivered",
+          "pass=177 t=604441555490416 s0g1 Pwd(Some(\"/tmp/shellio-probe/2024\")) → delivered",
+          "pass=179 t=604441580541083 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2049\")) → delivered",
+          "pass=179 t=604441580549833 s0g1 Pwd(Some(\"/tmp/shellio-probe/2049\")) → delivered",
+          "pass=181 t=604441605474625 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2074\")) → delivered",
+          "pass=181 t=604441605479916 s0g1 Pwd(Some(\"/tmp/shellio-probe/2074\")) → delivered",
+          "pass=183 t=604441630511083 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2099\")) → delivered",
+          "pass=183 t=604441630520583 s0g1 Pwd(Some(\"/tmp/shellio-probe/2099\")) → delivered",
+          "pass=185 t=604441655522958 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2124\")) → delivered",
+          "pass=185 t=604441655535000 s0g1 Pwd(Some(\"/tmp/shellio-probe/2124\")) → delivered",
+          "pass=187 t=604441680498333 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2149\")) → delivered",
+          "pass=187 t=604441680509125 s0g1 Pwd(Some(\"/tmp/shellio-probe/2149\")) → delivered",
+          "pass=189 t=604441705467583 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2174\")) → delivered",
+          "pass=189 t=604441705472333 s0g1 Pwd(Some(\"/tmp/shellio-probe/2174\")) → delivered",
+          "pass=191 t=604441730545625 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2199\")) → delivered",
+          "pass=191 t=604441730554083 s0g1 Pwd(Some(\"/tmp/shellio-probe/2199\")) → delivered",
+          "pass=193 t=604441755465916 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2224\")) → delivered",
+          "pass=193 t=604441755471625 s0g1 Pwd(Some(\"/tmp/shellio-probe/2224\")) → delivered",
+          "pass=195 t=604441780478791 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2249\")) → delivered",
+          "pass=195 t=604441780485333 s0g1 Pwd(Some(\"/tmp/shellio-probe/2249\")) → delivered",
+          "pass=197 t=604441805458291 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2274\")) → delivered",
+          "pass=197 t=604441805462500 s0g1 Pwd(Some(\"/tmp/shellio-probe/2274\")) → delivered",
+          "pass=199 t=604441830483125 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2299\")) → delivered",
+          "pass=199 t=604441830493166 s0g1 Pwd(Some(\"/tmp/shellio-probe/2299\")) → delivered",
+          "pass=201 t=604441855460041 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2324\")) → delivered",
+          "pass=201 t=604441855464166 s0g1 Pwd(Some(\"/tmp/shellio-probe/2324\")) → delivered",
+          "pass=203 t=604441880484125 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2349\")) → delivered",
+          "pass=203 t=604441880492041 s0g1 Pwd(Some(\"/tmp/shellio-probe/2349\")) → delivered",
+          "pass=205 t=604441905411208 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2374\")) → delivered",
+          "pass=205 t=604441905415041 s0g1 Pwd(Some(\"/tmp/shellio-probe/2374\")) → delivered",
+          "pass=207 t=604441930471458 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2399\")) → delivered",
+          "pass=207 t=604441930476333 s0g1 Pwd(Some(\"/tmp/shellio-probe/2399\")) → delivered",
+          "pass=209 t=604441955409458 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2424\")) → delivered",
+          "pass=209 t=604441955413791 s0g1 Pwd(Some(\"/tmp/shellio-probe/2424\")) → delivered",
+          "pass=211 t=604441980407291 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2449\")) → delivered",
+          "pass=211 t=604441980410916 s0g1 Pwd(Some(\"/tmp/shellio-probe/2449\")) → delivered",
+          "pass=213 t=604442005433000 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2474\")) → delivered",
+          "pass=213 t=604442005436833 s0g1 Pwd(Some(\"/tmp/shellio-probe/2474\")) → delivered",
+          "pass=215 t=604442030418416 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2499\")) → delivered",
+          "pass=215 t=604442030422458 s0g1 Pwd(Some(\"/tmp/shellio-probe/2499\")) → delivered",
+          "pass=217 t=604442055462291 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2524\")) → delivered",
+          "pass=217 t=604442055468250 s0g1 Pwd(Some(\"/tmp/shellio-probe/2524\")) → delivered",
+          "pass=219 t=604442080455000 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2549\")) → delivered",
+          "pass=219 t=604442080460375 s0g1 Pwd(Some(\"/tmp/shellio-probe/2549\")) → delivered",
+          "pass=221 t=604442105458625 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2574\")) → delivered",
+          "pass=221 t=604442105463291 s0g1 Pwd(Some(\"/tmp/shellio-probe/2574\")) → delivered",
+          "pass=223 t=604442130468000 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2599\")) → delivered",
+          "pass=223 t=604442130474500 s0g1 Pwd(Some(\"/tmp/shellio-probe/2599\")) → delivered",
+          "pass=225 t=604442155483958 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2624\")) → delivered",
+          "pass=225 t=604442155490208 s0g1 Pwd(Some(\"/tmp/shellio-probe/2624\")) → delivered",
+          "pass=227 t=604442180482250 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2649\")) → delivered",
+          "pass=227 t=604442180488125 s0g1 Pwd(Some(\"/tmp/shellio-probe/2649\")) → delivered",
+          "pass=229 t=604442205472916 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2674\")) → delivered",
+          "pass=229 t=604442205477958 s0g1 Pwd(Some(\"/tmp/shellio-probe/2674\")) → delivered",
+          "pass=231 t=604442230510333 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2699\")) → delivered",
+          "pass=231 t=604442230519708 s0g1 Pwd(Some(\"/tmp/shellio-probe/2699\")) → delivered",
+          "pass=233 t=604442255513041 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2724\")) → delivered",
+          "pass=233 t=604442255523166 s0g1 Pwd(Some(\"/tmp/shellio-probe/2724\")) → delivered",
+          "pass=235 t=604442280405333 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2749\")) → delivered",
+          "pass=235 t=604442280409625 s0g1 Pwd(Some(\"/tmp/shellio-probe/2749\")) → delivered",
+          "pass=237 t=604442305382458 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2774\")) → delivered",
+          "pass=237 t=604442305384166 s0g1 Pwd(Some(\"/tmp/shellio-probe/2774\")) → delivered",
+          "pass=239 t=604442330424958 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2799\")) → delivered",
+          "pass=239 t=604442330426583 s0g1 Pwd(Some(\"/tmp/shellio-probe/2799\")) → delivered",
+          "pass=241 t=604442355408958 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2824\")) → delivered",
+          "pass=241 t=604442355410166 s0g1 Pwd(Some(\"/tmp/shellio-probe/2824\")) → delivered",
+          "pass=243 t=604442380422083 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2849\")) → delivered",
+          "pass=243 t=604442380424041 s0g1 Pwd(Some(\"/tmp/shellio-probe/2849\")) → delivered",
+          "pass=245 t=604442405400250 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2874\")) → delivered",
+          "pass=245 t=604442405402625 s0g1 Pwd(Some(\"/tmp/shellio-probe/2874\")) → delivered",
+          "pass=247 t=604442430452833 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2899\")) → delivered",
+          "pass=247 t=604442430461958 s0g1 Pwd(Some(\"/tmp/shellio-probe/2899\")) → delivered",
+          "pass=249 t=604442455507083 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2924\")) → delivered",
+          "pass=249 t=604442455515708 s0g1 Pwd(Some(\"/tmp/shellio-probe/2924\")) → delivered",
+          "pass=251 t=604442480552208 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2949\")) → delivered",
+          "pass=251 t=604442480566208 s0g1 Pwd(Some(\"/tmp/shellio-probe/2949\")) → delivered",
+          "pass=253 t=604442505455500 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2974\")) → delivered",
+          "pass=253 t=604442505461500 s0g1 Pwd(Some(\"/tmp/shellio-probe/2974\")) → delivered",
+          "pass=255 t=604442530512833 s0g1 Title(Some(\"probe a5e4b07f09e92d0a-s1 2999\")) → delivered",
+          "pass=255 t=604442530520916 s0g1 Pwd(Some(\"/tmp/shellio-probe/2999\")) → delivered",
+          "pass=259 t=604446584136500 s0g1 CloseIntent { process_alive: None, source: \"probe\" } → scheduled"
+        ],
+        "messages": 257,
+        "messages_pushed": 257,
+        "passes": 260,
+        "passes_tracking": 0,
+        "releases": [
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 604400761359958,
+            "free_ms": 12.699917,
+            "key": "s1g1",
+            "messages_during_free": 0,
+            "pass": 12,
+            "started_ns": 604400748660041
+          },
+          {
+            "clipboard": {
+              "completed": 0,
+              "completed_to_confirm": 0,
+              "confirms": 0,
+              "confirms_without_read": 0,
+              "denied": 0,
+              "denied_on_close": 0,
+              "late_skipped": 0,
+              "reads_started": 0,
+              "reads_unavailable": 0,
+              "reads_unsupported": 0,
+              "served": 0
+            },
+            "clipboard_denied_before_free": 0,
+            "clipboard_pending_after_free": 0,
+            "dropped_during_free": 0,
+            "finished_ns": 604446598997708,
+            "free_ms": 14.826458,
+            "key": "s0g1",
+            "messages_during_free": 1,
+            "pass": 260,
+            "started_ns": 604446584171250
+          }
+        ],
+        "scheme_changes": [],
+        "screen_wakes": 0,
+        "surface_config_updates": 0,
+        "surfaces_created": 2,
+        "surfaces_failed": 0,
+        "surfaces_freed": 2,
+        "unsupported_actions": {
+          "22": 2,
+          "25": 2,
+          "26": 7,
+          "43": 3
+        },
+        "wakeups": 509
+      }
+    },
+    {
+      "key": "surface_view_feeds",
+      "value": {
+        "detached_skipped": 20,
+        "display_ids": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "focus": [
+          true,
+          false,
+          true,
+          false,
+          true,
+          false,
+          true,
+          false,
+          true,
+          false,
+          true,
+          false,
+          true,
+          false,
+          true,
+          false,
+          true,
+          false,
+          true,
+          false,
+          true
+        ],
+        "last_scale": [
+          2.0,
+          2.0
+        ],
+        "last_size_px": [
+          1108,
+          896
+        ],
+        "preedits": [],
+        "refreshes": 33,
+        "scale_feeds": 21,
+        "size_feeds": 33,
+        "zero_size_skipped": 0
+      }
+    },
+    {
+      "key": "events_posted",
+      "value": "0"
+    },
+    {
+      "key": "events_held",
+      "value": "0"
+    },
+    {
+      "key": "display_passes",
+      "value": "66236"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "footprint_roundtrip",
+      "unit": "ms",
+      "samples": [
+        52.223875,
+        47.015875,
+        44.024625,
+        44.093916,
+        45.15,
+        47.789667,
+        45.165083,
+        47.038125,
+        45.232584,
+        46.460625,
+        45.975375,
+        45.765458,
+        44.470959,
+        44.193834,
+        45.250709,
+        45.778458,
+        45.928917,
+        46.413875,
+        43.202125,
+        42.919875,
+        46.299917,
+        48.588666,
+        43.093458,
+        46.569375,
+        45.142542,
+        45.571208,
+        45.481209,
+        45.620708,
+        45.287792,
+        42.837417,
+        42.029959,
+        43.62875,
+        43.131125,
+        42.66925,
+        45.870792,
+        52.370875,
+        42.599167,
+        44.450292,
+        45.488333,
+        43.966167,
+        44.881125,
+        45.098583,
+        45.783625,
+        46.319666,
+        45.342167,
+        46.474417,
+        42.132917,
+        45.51625,
+        44.968042,
+        45.323125,
+        47.543,
+        46.117208,
+        46.822625,
+        44.934125,
+        46.705959,
+        46.335334,
+        42.103291,
+        45.387209,
+        45.27,
+        46.027708,
+        45.632333,
+        45.580875,
+        45.846583,
+        48.350875,
+        48.551333,
+        44.7695,
+        43.113667,
+        46.745625,
+        47.331083,
+        47.059375,
+        43.448458,
+        45.937458,
+        45.543334,
+        44.89775,
+        45.771166,
+        47.12175,
+        44.962542,
+        45.947084,
+        43.221292,
+        44.347875,
+        45.921875,
+        41.343375,
+        42.952167,
+        41.927041,
+        43.048666,
+        48.377875,
+        44.130959,
+        45.655167,
+        45.924458,
+        45.28975,
+        45.03275,
+        46.369125,
+        45.4615,
+        45.80675,
+        42.939875,
+        42.387,
+        44.548791,
+        44.385958,
+        47.198208,
+        44.421958,
+        45.072,
+        52.699041,
+        46.067958,
+        44.938083,
+        46.857458,
+        45.644084,
+        45.539875,
+        45.349208,
+        45.987042,
+        44.720708,
+        45.051375,
+        44.993416,
+        45.319708,
+        45.9895,
+        45.078667,
+        46.212875,
+        45.440375,
+        46.110583,
+        45.771541,
+        46.123875,
+        48.173208,
+        42.985125,
+        43.550333,
+        43.302291,
+        57.250791,
+        51.886792,
+        47.949,
+        46.063458,
+        46.807709,
+        45.104333,
+        45.918333,
+        45.756083,
+        55.898959,
+        45.303791,
+        46.924166,
+        54.117375,
+        49.287708,
+        51.578959,
+        49.218875,
+        56.195875,
+        50.611167,
+        45.692959,
+        47.973167,
+        46.484584,
+        42.287708,
+        45.896167,
+        46.138,
+        46.062125,
+        45.01575,
+        45.468583,
+        45.276959,
+        45.235792,
+        46.700792,
+        60.971583,
+        49.256667,
+        46.261625,
+        43.549042,
+        47.036208,
+        48.886875,
+        43.641208,
+        43.126209,
+        45.741542,
+        44.035042,
+        45.83225,
+        45.067875,
+        45.91025,
+        42.906834,
+        44.357417,
+        43.915542,
+        46.598917,
+        45.652375,
+        44.471666,
+        46.515083,
+        45.8705,
+        46.502458,
+        44.277875,
+        41.758333,
+        45.937958,
+        42.2685,
+        45.033417,
+        44.658333,
+        46.046833,
+        80.859625,
+        45.598333,
+        62.095875,
+        51.710834,
+        46.2615,
+        45.173667,
+        45.923458,
+        48.000333,
+        45.189625,
+        45.919417,
+        44.516208,
+        46.748459,
+        45.950833,
+        43.326375,
+        43.338208,
+        42.290916,
+        42.582917,
+        45.9585,
+        47.331083,
+        47.402042,
+        45.645125,
+        45.636167,
+        44.605,
+        46.003167,
+        48.299792,
+        43.738708,
+        46.46,
+        46.111125,
+        60.00825,
+        50.972125,
+        73.289208,
+        45.383917,
+        46.748917,
+        44.579708,
+        45.37875,
+        45.727625,
+        45.6595,
+        42.21325,
+        45.119792,
+        44.704625,
+        45.496958,
+        46.193333,
+        45.597375,
+        46.120584,
+        46.23575,
+        46.138459,
+        46.331167,
+        42.497042,
+        44.808041,
+        45.067541,
+        45.29225,
+        42.250083,
+        45.203,
+        45.129084,
+        46.139375,
+        45.28,
+        55.735209,
+        48.444541,
+        47.405833,
+        47.089958,
+        44.706333,
+        45.308083,
+        46.817083,
+        44.393834,
+        43.4655,
+        45.064375,
+        44.950125,
+        47.185958,
+        48.663958,
+        46.841083,
+        44.417625,
+        47.460583,
+        41.636958,
+        45.389291,
+        45.089333,
+        45.238416,
+        44.136584,
+        45.605917,
+        44.026041,
+        47.11075,
+        44.682916,
+        43.5335,
+        46.230625,
+        44.992167,
+        45.097042,
+        46.665541,
+        45.397291,
+        44.556209,
+        45.988709,
+        43.783708,
+        44.48725,
+        43.716084,
+        44.029875,
+        43.908041,
+        43.841208,
+        44.786,
+        43.925667,
+        44.148666,
+        43.8485,
+        43.921083,
+        43.833,
+        44.010958,
+        44.607666,
+        52.166708,
+        44.740292,
+        45.424083,
+        57.45875,
+        58.332875,
+        65.010292,
+        162.526042,
+        126.343333,
+        369.173084,
+        46.426708,
+        45.058625,
+        48.534292,
+        48.456458,
+        72.647084,
+        47.544792,
+        81.301083,
+        93.99225,
+        53.953459,
+        53.775083,
+        50.520166,
+        45.022625,
+        62.215375,
+        57.832792,
+        77.41225,
+        44.627541,
+        52.551416,
+        66.136375,
+        58.350625,
+        56.055125,
+        64.557792,
+        59.993458,
+        68.546334,
+        92.721167,
+        127.730416,
+        120.492791,
+        67.840958,
+        64.83275,
+        74.255,
+        61.096167,
+        187.270875,
+        61.969041,
+        57.246167,
+        53.708292,
+        53.629334,
+        51.594667,
+        53.293042,
+        63.979958,
+        44.334833,
+        44.367792,
+        42.1585,
+        43.941583,
+        44.239583,
+        45.793209,
+        45.859,
+        45.90825,
+        46.122166,
+        45.82475,
+        44.44925,
+        45.084166,
+        50.664584,
+        45.423916,
+        44.604875,
+        45.033166,
+        43.879083,
+        47.565417,
+        44.242875,
+        45.316916,
+        45.979667,
+        51.274791,
+        45.732125,
+        45.558375,
+        44.600792,
+        45.571083,
+        43.94825,
+        43.743958,
+        43.505,
+        44.276875,
+        46.359875,
+        50.066416,
+        44.558541,
+        43.677084,
+        47.602125,
+        44.226083,
+        65.468125,
+        43.838417,
+        42.1015,
+        45.112458,
+        43.16475,
+        43.03725,
+        44.416375,
+        43.305459,
+        44.364208,
+        44.808666,
+        45.276834,
+        44.924042,
+        45.535958,
+        43.274209,
+        43.164416,
+        43.1115,
+        45.360959,
+        42.859333,
+        44.743917,
+        45.761291,
+        43.924291,
+        43.475625,
+        44.006916,
+        44.971959,
+        44.731791,
+        44.966417,
+        44.521708,
+        45.779041,
+        45.64025,
+        44.268083,
+        43.425375,
+        43.046458,
+        45.586375,
+        45.041958,
+        45.313958,
+        46.222459,
+        46.285834,
+        48.673709,
+        46.536166,
+        44.502917,
+        42.2785,
+        45.178167,
+        44.794375,
+        48.391416,
+        46.050167,
+        45.822083,
+        46.278292,
+        46.305875,
+        67.132292,
+        44.839125,
+        44.451458,
+        45.7615,
+        46.255292,
+        43.955459,
+        44.390458,
+        45.405458,
+        45.361,
+        45.141042,
+        45.828667,
+        42.953709,
+        44.0875,
+        45.088375,
+        45.120042,
+        45.825792,
+        45.345875,
+        45.502083,
+        45.883625,
+        45.286917,
+        46.202291,
+        46.052625,
+        44.927875,
+        44.832375,
+        45.26275,
+        45.540583,
+        44.927167,
+        45.220292,
+        46.059416,
+        46.117084,
+        43.848917,
+        43.019375,
+        44.088458,
+        45.00275,
+        45.922,
+        45.722458,
+        44.760042,
+        45.0,
+        57.220583,
+        44.435459,
+        44.138583,
+        45.333916,
+        45.725833,
+        45.546042,
+        45.358333,
+        45.987292,
+        45.5615,
+        45.60375,
+        45.337459,
+        64.387792,
+        43.078125,
+        44.762958,
+        45.056417,
+        45.958458,
+        45.948459,
+        46.389958,
+        45.637625,
+        46.038542,
+        45.62675,
+        46.272333,
+        42.157833,
+        44.311208,
+        45.653833,
+        45.522125,
+        43.950708,
+        44.19625,
+        46.8315,
+        45.263833,
+        46.262166,
+        44.517625,
+        42.386041,
+        44.058042,
+        45.032334,
+        44.863584,
+        45.768709,
+        53.173791,
+        48.873833,
+        45.081083,
+        43.066583,
+        42.438083,
+        42.895167,
+        44.068667,
+        44.483042,
+        44.661042,
+        45.579708,
+        44.467542,
+        44.543583,
+        44.841041,
+        46.965333,
+        47.522209,
+        43.410583,
+        44.797417,
+        44.570041,
+        44.993666,
+        45.795917,
+        45.117333,
+        44.899375,
+        45.363583,
+        45.316667,
+        46.770375,
+        45.581625,
+        45.100375,
+        45.521958,
+        44.909875,
+        45.501084,
+        44.5755,
+        47.07875,
+        43.886792,
+        45.493042,
+        43.219792,
+        45.953,
+        45.855917,
+        43.54125,
+        62.988875,
+        47.885042,
+        45.505416,
+        44.892084,
+        47.228125,
+        44.968125,
+        46.123459,
+        56.15,
+        43.102667,
+        44.494042,
+        45.413459,
+        51.362209,
+        44.788584,
+        59.897375,
+        48.1775,
+        45.100375,
+        45.267333,
+        44.165333,
+        44.570542,
+        43.98625,
+        43.598333,
+        43.519291,
+        43.501167,
+        43.831084,
+        43.856125,
+        43.102208,
+        42.892667,
+        42.986416,
+        43.149083,
+        44.044959,
+        43.401583,
+        44.015666,
+        43.4475,
+        43.198458,
+        43.724,
+        44.584,
+        42.965625,
+        72.576834,
+        122.02425,
+        113.856416,
+        72.003208,
+        69.902542,
+        63.03075,
+        82.3405,
+        100.933042,
+        110.735083,
+        82.197791,
+        72.844375,
+        87.804417,
+        68.836375,
+        57.50775,
+        54.347042,
+        49.580291,
+        61.623042,
+        47.0535,
+        49.875834,
+        48.416125,
+        46.864709,
+        57.638917,
+        64.671125,
+        70.541166,
+        64.867542,
+        62.366709,
+        73.579792,
+        62.738792,
+        57.377333,
+        56.278792,
+        53.972,
+        59.420042,
+        68.082292,
+        53.737375,
+        60.873,
+        56.0635,
+        490.14875,
+        67.870375,
+        42.292,
+        50.83075,
+        46.771709,
+        45.182083,
+        42.927834,
+        44.767709,
+        42.156416,
+        47.678292,
+        44.1615,
+        44.116083,
+        42.114458,
+        45.309709,
+        45.860167,
+        45.026708,
+        44.855833,
+        45.807083,
+        45.416708,
+        45.3795,
+        46.455167,
+        41.98025,
+        42.046917,
+        44.117917,
+        45.640708,
+        43.751917,
+        44.187833,
+        44.117041,
+        45.06475,
+        42.2,
+        43.999167,
+        45.801834,
+        43.573875,
+        42.609584,
+        42.965,
+        43.318375,
+        42.298208,
+        45.323709,
+        44.811084,
+        45.806333,
+        45.5835,
+        44.039041,
+        45.020875,
+        44.616083,
+        45.141625,
+        45.672542,
+        44.7025,
+        45.456875,
+        45.672458,
+        44.489167,
+        44.946333,
+        44.572584,
+        43.749833,
+        44.174333,
+        46.898875,
+        44.656459,
+        44.256291,
+        45.066833,
+        55.473792,
+        45.059792,
+        50.433209,
+        43.013625,
+        42.733417,
+        44.127916,
+        45.390125,
+        44.90425,
+        70.818833,
+        47.151542,
+        44.403375,
+        44.969292,
+        44.873083,
+        45.309,
+        42.450625,
+        44.332625,
+        45.782875,
+        44.956125,
+        44.610042,
+        45.101042,
+        45.0655,
+        44.749625,
+        52.011042,
+        43.07375,
+        44.264709,
+        43.475208,
+        44.726125,
+        45.213708,
+        42.811833,
+        44.002291,
+        44.610667,
+        45.859459,
+        44.106125,
+        45.464958,
+        41.795125,
+        44.749125
+      ],
+      "summary": {
+        "count": 696,
+        "p50": 45.363583,
+        "p95": 67.132292,
+        "max": 490.14875
+      }
+    },
+    {
+      "name": "surface_free",
+      "unit": "ms",
+      "samples": [
+        12.699917,
+        14.826458
+      ],
+      "summary": {
+        "count": 2,
+        "p50": 12.699917,
+        "p95": 14.826458,
+        "max": 14.826458
+      }
+    },
+    {
+      "name": "app_free",
+      "unit": "ms",
+      "samples": [
+        0.015333
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 0.015333,
+        "p95": 0.015333,
+        "max": 0.015333
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "name": "h7-fronts-only",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: подачи set_occlusion чередуются и начинаются с false: A true (32 подач), C true (2 подач)"
+    },
+    {
+      "name": "h7-partial-overlay",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "палитра открыта true, подач за 600 мс под палитрой 0, модель видима true, occlusionState окна Visible true, признак наложения true"
+    },
+    {
+      "name": "h7-hide-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: скрытая вкладка прогретой поверхности (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 7.7 мс"
+    },
+    {
+      "name": "h7b-fresh-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (10.8 мс)"
+    },
+    {
+      "name": "h7-hidden-diagnostics-tab",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -105.19, показ +107.44 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "name": "h7-hide-zone",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: скрытая зона: плитка setHidden, вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.4 мс"
+    },
+    {
+      "name": "h7b-fresh-zone",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 5.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (10.1 мс)"
+    },
+    {
+      "name": "h7-hidden-diagnostics-zone",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.55, показ +107.81 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "name": "h7-hide-miniaturize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: свёрнутое окно (окно свёрнуто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 638.8 мс"
+    },
+    {
+      "name": "h7b-fresh-miniaturize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 570.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (10.5 мс)"
+    },
+    {
+      "name": "h7-hidden-diagnostics-miniaturize",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.33, показ +107.56 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+    },
+    {
+      "name": "h7-hide-order-out",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: убранное окно (orderOut) (окно на экране false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 291.9 мс"
+    },
+    {
+      "name": "h7b-fresh-order-out",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 40.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (6.3 мс)"
+    },
+    {
+      "name": "h7-hidden-diagnostics-order-out",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.22, показ +107.42 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "name": "h7-hide-covered",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: окно перекрыто другим непрозрачным окном (occlusionState Visible false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 33.0 мс"
+    },
+    {
+      "name": "h7b-fresh-covered",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр other, на первом проходе отображения other, свежий маркер true за 65.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (15.2 мс)"
+    },
+    {
+      "name": "h7-hidden-diagnostics-covered",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.47, показ +107.64 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "name": "h7-hide-app-hidden",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: скрытие и показ приложения (приложение скрыто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 56.3 мс"
+    },
+    {
+      "name": "h7b-fresh-app-hidden",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 45.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (4.9 мс)"
+    },
+    {
+      "name": "h7-hidden-diagnostics-app-hidden",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 2, после установления скрытия 0; footprint.footprint скрытие -107.33, показ +107.64 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+    },
+    {
+      "name": "h7-hide-cold-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: скрытие до первого кадра: новая поверхность C уходит за вкладку сразу после ghostty_surface_new; прогретая — клетка tab (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии false, установлено за 95.2 мс"
+    },
+    {
+      "name": "h7b-fresh-cold-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр other, на первом проходе отображения other, свежий маркер true за 5.1 мс, кадр 732×1348 при виде (732, 1348) (совпадает true), синхронных кадров 1 (1.9 мс)"
+    },
+    {
+      "name": "h7-hidden-diagnostics-cold-tab",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие +3.47, показ +16.95 МиБ; footprint.IOSurface.dirty скрытие +0.00, показ +11.39 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие +0.00, показ +0.00 МиБ; серии устоялись true/true"
+    },
+    {
+      "name": "h7-hide-zone-resize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: скрытие → ресайз скрытого вида (делитель) → показ; вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.4 мс"
+    },
+    {
+      "name": "h7b-fresh-zone-resize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 7.4 мс, кадр 868×896 при виде (868, 896) (совпадает true), синхронных кадров 1 (9.6 мс)"
+    },
+    {
+      "name": "h7-hidden-diagnostics-zone-resize",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 1, после установления скрытия 1; ресайз скрытого вида (1108, 896) → (868, 896) пикселей, подач размера 5, последний поданный Some((868, 896)); footprint.footprint скрытие -125.59, показ +105.39 МиБ; footprint.IOSurface.dirty скрытие -22.88, показ +9.19 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "name": "h7-hide-reparent",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: многократная короткая смена родителя: снятие из окна и вставка в другую зону по одному шагу таймера (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 65.8 мс"
+    },
+    {
+      "name": "h7b-fresh-reparent",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.5 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 7 (23.3 мс)"
+    },
+    {
+      "name": "h7-hidden-diagnostics-reparent",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 13, после установления скрытия 0; footprint.footprint скрытие -104.81, показ +107.61 МиБ; footprint.IOSurface.dirty скрытие -9.19, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "name": "h7-hide-long",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: длительное скрытие за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.1 мс"
+    },
+    {
+      "name": "h7b-fresh-long",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.5 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (16.4 мс)"
+    },
+    {
+      "name": "h7-hidden-diagnostics-long",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; скрытие ещё 10 с; footprint.footprint скрытие -107.53, показ +107.27 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "name": "h7-hide-output",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: скрытая поверхность с непрерывным выводом за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.2 мс"
+    },
+    {
+      "name": "h7b-fresh-output",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 7.0 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (14.2 мс)"
+    },
+    {
+      "name": "h7-hidden-diagnostics-output",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; поток вывода скрытой: строк 3000, прерван false; footprint.footprint скрытие -107.53, показ +107.75 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "name": "h7a-instruments",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "обходы syncdraw: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+    },
+    {
+      "name": "h7b-instruments",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "обходы syncdraw: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+    },
+    {
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+    }
+  ],
+  "snapshots": [],
+  "diagnostics": {
+    "trace": [
+      "… 73 ранних строк вытеснено",
+      "41089.486ms клетка app-hidden",
+      "41094.738ms шаг «прогрев: маркер в кадре» готов за 5.2 мс",
+      "41150.993ms шаг «скрытие установлено» готов за 56.0 мс",
+      "44026.169ms шаг «замер скрытой» готов за 2875.2 мс",
+      "44031.479ms шаг «нагрузка скрытой» готов за 5.3 мс",
+      "44036.713ms шаг «маркер скрытой в модели» готов за 5.2 мс",
+      "45236.942ms шаг «тишина скрытой» готов за 1200.2 мс",
+      "45287.097ms шаг «свежий кадр после показа» готов за 45.2 мс",
+      "48112.286ms шаг «замер после показа» готов за 2825.2 мс",
+      "48117.619ms шаг «cold-tab» готов за 5.3 мс",
+      "48117.630ms клетка cold-tab",
+      "48122.834ms поверхность C s1g1 создана за 3.2 мс",
+      "48214.810ms шаг «скрытие установлено» готов за 90.2 мс",
+      "50819.972ms шаг «замер скрытой» готов за 2605.1 мс",
+      "50825.247ms шаг «нагрузка скрытой» готов за 5.2 мс",
+      "50830.531ms шаг «маркер скрытой в модели» готов за 5.2 мс",
+      "52030.707ms шаг «тишина скрытой» готов за 1200.2 мс",
+      "52038.339ms шаг «свежий кадр после показа» готов за 5.1 мс",
+      "54988.616ms шаг «замер после показа» готов за 2950.3 мс",
+      "55001.400ms шаг «освобождение C и выход её фикстуры» готов за 12.8 мс",
+      "55006.573ms шаг «zone-resize» готов за 5.2 мс",
+      "55006.584ms клетка zone-resize",
+      "55011.674ms шаг «прогрев: маркер в кадре» готов за 5.0 мс",
+      "55017.089ms шаг «скрытие установлено» готов за 5.2 мс",
+      "58867.503ms шаг «замер скрытой» готов за 3850.4 мс",
+      "58874.344ms шаг «нагрузка скрытой» готов за 6.0 мс",
+      "58879.643ms шаг «маркер скрытой в модели» готов за 5.3 мс",
+      "60079.743ms шаг «тишина скрытой» готов за 1200.1 мс",
+      "60097.318ms шаг «свежий кадр после показа» готов за 7.3 мс",
+      "64147.654ms шаг «замер после показа» готов за 4050.3 мс",
+      "64153.388ms шаг «делитель на прежнем месте» готов за 5.1 мс",
+      "64153.394ms делитель возвращён, вид (1108, 896) пикселей",
+      "64158.536ms шаг «reparent» готов за 5.1 мс",
+      "64158.539ms клетка reparent",
+      "64163.613ms шаг «прогрев: маркер в кадре» готов за 5.0 мс",
+      "64229.450ms шаг «скрытие установлено» готов за 65.3 мс",
+      "67994.690ms шаг «замер скрытой» готов за 3765.2 мс",
+      "67999.766ms шаг «нагрузка скрытой» готов за 5.1 мс",
+      "68005.035ms шаг «маркер скрытой в модели» готов за 5.2 мс",
+      "69205.381ms шаг «тишина скрытой» готов за 1200.3 мс",
+      "69226.296ms шаг «свежий кадр после показа» готов за 5.4 мс",
+      "72041.460ms шаг «замер после показа» готов за 2815.1 мс",
+      "72046.638ms шаг «long» готов за 5.1 мс",
+      "72046.654ms клетка long",
+      "72051.829ms шаг «прогрев: маркер в кадре» готов за 5.1 мс",
+      "72057.976ms шаг «скрытие установлено» готов за 5.1 мс",
+      "76053.341ms шаг «замер скрытой» готов за 3995.3 мс",
+      "86053.443ms шаг «нагрузка скрытой» готов за 10000.0 мс",
+      "86059.189ms шаг «маркер скрытой в модели» готов за 5.3 мс",
+      "87259.507ms шаг «тишина скрытой» готов за 1200.3 мс",
+      "87288.832ms шаг «свежий кадр после показа» готов за 10.2 мс",
+      "90004.015ms шаг «замер после показа» готов за 2715.2 мс",
+      "90009.307ms шаг «output» готов за 5.3 мс",
+      "90009.331ms клетка output",
+      "90014.598ms шаг «прогрев: маркер в кадре» готов за 5.2 мс",
+      "90020.819ms шаг «скрытие установлено» готов за 5.1 мс",
+      "93771.105ms шаг «замер скрытой» готов за 3750.3 мс",
+      "96771.493ms шаг «нагрузка скрытой» готов за 3000.3 мс",
+      "96777.092ms шаг «маркер скрытой в модели» готов за 5.3 мс",
+      "97977.402ms шаг «тишина скрытой» готов за 1200.3 мс",
+      "98003.735ms шаг «свежий кадр после показа» готов за 10.1 мс",
+      "100819.003ms шаг «замер после показа» готов за 2815.2 мс",
+      "100824.150ms шаг «намерение закрыть A» готов за 5.1 мс",
+      "100839.048ms шаг «освобождение A и выход фикстуры» готов за 14.9 мс"
+    ],
+    "appkit_internal_events": [],
+    "live_objects": [
+      {
+        "class": "ProbeAppActivity",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbePaletteObserver",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbePalettePanel",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeScreenWake",
+        "created": 1,
+        "released": 1,
+        "live": 0
+      },
+      {
+        "class": "ProbeSplitView",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      },
+      {
+        "class": "ProbeStandView",
+        "created": 1,
+        "released": 0,
+        "live": 1
+      },
+      {
+        "class": "ProbeSurfaceView",
+        "created": 2,
+        "released": 0,
+        "live": 2
+      },
+      {
+        "class": "ProbeTile",
+        "created": 4,
+        "released": 0,
+        "live": 4
+      },
+      {
+        "class": "ProbeZoneHost",
+        "created": 4,
+        "released": 0,
+        "live": 4
+      }
+    ]
+  }
+}

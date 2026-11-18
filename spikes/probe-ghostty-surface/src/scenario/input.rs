@@ -318,12 +318,13 @@ impl Input {
     /// незавершённость — `not_run`. Ограды не было, поэтому последний байт не снимается, а в
     /// итоговый поток проверка не входит.
     fn abandon(&mut self, reason: &str) {
+        // Отрезок проверки отсчитывается от её отметок: байты читаются до снятия `pending`.
+        let seen = [self.since(A), self.since(B)];
         let Some(pending) = self.pending.take() else {
             return;
         };
-        let seen = [self.since(A), self.since(B)];
-        let other = 1 - pending.fence_to;
-        let independent_ok = seen[other] == pending.expect[other] && pending.failures.is_empty();
+        let independent_ok =
+            independent_ok(&seen, &pending.expect, pending.fence_to) && pending.failures.is_empty();
         self.checks.push(CheckRecord {
             name: pending.name,
             fence_to: NAMES[pending.fence_to],
@@ -457,9 +458,8 @@ impl Input {
             .iter()
             .find(|(name, _)| *name == pending.name)
             .map(|(_, reason)| reason.clone());
-        let other = 1 - fence_to;
-        // Независимый оракул непроведённой проверки: второй получатель и сверки состояния.
-        let independent_ok = seen[other] == pending.expect[other] && pending.failures.is_empty();
+        let independent_ok =
+            independent_ok(&seen, &pending.expect, fence_to) && pending.failures.is_empty();
         let pass = seen[A] == pending.expect[A]
             && seen[B] == pending.expect[B]
             && pending.failures.is_empty();
@@ -489,6 +489,13 @@ impl Input {
         });
         Ok(())
     }
+}
+
+/// Независимый оракул непроведённой проверки: второй получатель совпадает с ожиданием, а
+/// получатель с пустым ожиданием не получил ничего — отрезок неизвестен только у непустого.
+fn independent_ok(seen: &[Vec<u8>; 2], expect: &[Vec<u8>; 2], fence_to: usize) -> bool {
+    let other = 1 - fence_to;
+    seen[other] == expect[other] && (!expect[fence_to].is_empty() || seen[fence_to].is_empty())
 }
 
 fn short(nonce: &str) -> String {
@@ -1576,6 +1583,22 @@ fn conclude(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn independent_oracle_keeps_empty_primary_expectation() {
+        let empty: [Vec<u8>; 2] = [Vec::new(), Vec::new()];
+        assert!(independent_ok(&empty, &empty, A));
+        assert!(!independent_ok(&[b"\x1b".to_vec(), Vec::new()], &empty, A));
+        assert!(!independent_ok(&[Vec::new(), b"x".to_vec()], &empty, A));
+        let commit = [b"ka".to_vec(), Vec::new()];
+        assert!(independent_ok(&[Vec::new(), Vec::new()], &commit, A));
+        assert!(independent_ok(&[b"zz".to_vec(), Vec::new()], &commit, A));
+        assert!(!independent_ok(
+            &[b"ka".to_vec(), b"x".to_vec()],
+            &commit,
+            A
+        ));
+    }
 
     #[test]
     fn not_run_yields_to_observed_violation() {

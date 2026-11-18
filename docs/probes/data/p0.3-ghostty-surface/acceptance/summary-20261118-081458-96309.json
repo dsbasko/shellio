@@ -1,0 +1,3116 @@
+{
+  "schema": 1,
+  "run_dir": "/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/20261118-081458-96309",
+  "percentile_method": "nearest-rank",
+  "totals": {
+    "processes": 5,
+    "execution_ok": 5,
+    "execution_errors": 0,
+    "pass": 140,
+    "fail": 0,
+    "observed": 55,
+    "pending_manual": 10,
+    "required_pending_manual": 10,
+    "snapshots_pending_manual": 0,
+    "not_run": 0
+  },
+  "processes": [
+    {
+      "dir": "visibility-all",
+      "scenario": "visibility",
+      "variant": "all",
+      "route": "direct",
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "h1-init-once",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+        },
+        {
+          "name": "h1-version",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+        },
+        {
+          "name": "h1-config-diagnostics",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_config_diagnostics_count = 0"
+        },
+        {
+          "name": "h7-fronts-only",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: подачи set_occlusion чередуются и начинаются с false: A true (32 подач), C true (2 подач)"
+        },
+        {
+          "name": "h7-partial-overlay",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "палитра открыта true, подач за 600 мс под палитрой 0, модель видима true, occlusionState окна Visible true, признак наложения true"
+        },
+        {
+          "name": "h7-hide-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: скрытая вкладка прогретой поверхности (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.1 мс"
+        },
+        {
+          "name": "h7b-fresh-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 6.9 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (14.5 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-tab",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -105.28, показ +107.45 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-zone",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: скрытая зона: плитка setHidden, вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.3 мс"
+        },
+        {
+          "name": "h7b-fresh-zone",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (15.4 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-zone",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.58, показ +107.67 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-miniaturize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: свёрнутое окно (окно свёрнуто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 635.7 мс"
+        },
+        {
+          "name": "h7b-fresh-miniaturize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 560.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (15.4 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-miniaturize",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.33, показ +107.56 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-order-out",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: убранное окно (orderOut) (окно на экране false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 293.3 мс"
+        },
+        {
+          "name": "h7b-fresh-order-out",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 40.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (5.3 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-order-out",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.22, показ +107.44 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-covered",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: окно перекрыто другим непрозрачным окном (occlusionState Visible false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 34.0 мс"
+        },
+        {
+          "name": "h7b-fresh-covered",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 55.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (10.9 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-covered",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.45, показ +107.66 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-app-hidden",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: скрытие и показ приложения (приложение скрыто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 9.7 мс"
+        },
+        {
+          "name": "h7b-fresh-app-hidden",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 45.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (5.0 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-app-hidden",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.42, показ +107.77 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-cold-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: скрытие до первого кадра: новая поверхность C уходит за вкладку сразу после ghostty_surface_new; прогретая — клетка tab (вид в окне false); модель подала false, отложено при скрытии true, contents при скрытии false, установлено за 46.8 мс"
+        },
+        {
+          "name": "h7b-fresh-cold-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр other, на первом проходе отображения fresh, свежий маркер true за 5.5 мс, кадр 732×1348 при виде (732, 1348) (совпадает true), синхронных кадров 1 (7.9 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-cold-tab",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 2, после установления скрытия 0; footprint.footprint скрытие +3.45, показ +16.94 МиБ; footprint.IOSurface.dirty скрытие +0.00, показ +11.39 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие +0.00, показ +0.00 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-zone-resize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: скрытие → ресайз скрытого вида (делитель) → показ; вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.2 мс"
+        },
+        {
+          "name": "h7b-fresh-zone-resize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.8 мс, кадр 868×896 при виде (868, 896) (совпадает true), синхронных кадров 1 (14.5 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-zone-resize",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; ресайз скрытого вида (1108, 896) → (868, 896) пикселей, подач размера 5, последний поданный Some((868, 896)); footprint.footprint скрытие -125.52, показ +105.44 МиБ; footprint.IOSurface.dirty скрытие -22.88, показ +9.19 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-reparent",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: многократная короткая смена родителя: снятие из окна и вставка в другую зону по одному шагу таймера (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 65.7 мс"
+        },
+        {
+          "name": "h7b-fresh-reparent",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 7 (27.6 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-reparent",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 12, после установления скрытия 0; footprint.footprint скрытие -104.88, показ +107.66 МиБ; footprint.IOSurface.dirty скрытие -9.19, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-long",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: длительное скрытие за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.5 мс"
+        },
+        {
+          "name": "h7b-fresh-long",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (21.5 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-long",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; скрытие ещё 10 с; footprint.footprint скрытие -107.52, показ +107.28 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-output",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: скрытая поверхность с непрерывным выводом за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.1 мс"
+        },
+        {
+          "name": "h7b-fresh-output",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (13.6 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-output",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; поток вывода скрытой: строк 3000, прерван false; footprint.footprint скрытие -107.56, показ +111.67 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +15.28 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7a-instruments",
+          "requirement": "required",
+          "verdict": "pending-manual",
+          "reason": "обходы bounds+defer+syncdraw: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+        },
+        {
+          "name": "h7b-instruments",
+          "requirement": "required",
+          "verdict": "pending-manual",
+          "reason": "обходы bounds+defer+syncdraw: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+        },
+        {
+          "name": "surface-single-free",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "footprint_roundtrip",
+          "unit": "ms",
+          "summary": {
+            "count": 681,
+            "p50": 45.314292,
+            "p95": 49.284333,
+            "max": 77.855125
+          }
+        },
+        {
+          "name": "surface_free",
+          "unit": "ms",
+          "summary": {
+            "count": 2,
+            "p50": 14.061625,
+            "p95": 14.093334,
+            "max": 14.093334
+          }
+        },
+        {
+          "name": "app_free",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 0.012292,
+            "p95": 0.012292,
+            "max": 0.012292
+          }
+        }
+      ],
+      "snapshots": [],
+      "spawn_uptime_ns": 604446669276291
+    },
+    {
+      "dir": "visibility-base",
+      "scenario": "visibility",
+      "variant": "base",
+      "route": "direct",
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "h1-init-once",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+        },
+        {
+          "name": "h1-version",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+        },
+        {
+          "name": "h1-config-diagnostics",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_config_diagnostics_count = 0"
+        },
+        {
+          "name": "h7-fronts-only",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: подачи set_occlusion чередуются и начинаются с false: A true (32 подач), C true (2 подач)"
+        },
+        {
+          "name": "h7-partial-overlay",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "палитра открыта true, подач за 600 мс под палитрой 0, модель видима true, occlusionState окна Visible true, признак наложения true"
+        },
+        {
+          "name": "h7-hide-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: скрытая вкладка прогретой поверхности (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 7.5 мс"
+        },
+        {
+          "name": "h7b-fresh-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 15.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-tab",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "базовый вариант: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -104.16, показ +107.41 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-zone",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: скрытая зона: плитка setHidden, вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.6 мс"
+        },
+        {
+          "name": "h7b-fresh-zone",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 15.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-zone",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "базовый вариант: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.83, показ +107.69 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-miniaturize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: свёрнутое окно (окно свёрнуто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 615.5 мс"
+        },
+        {
+          "name": "h7b-fresh-miniaturize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 565.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-miniaturize",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "базовый вариант: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.31, показ +107.55 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-order-out",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: убранное окно (orderOut) (окно на экране false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 275.3 мс"
+        },
+        {
+          "name": "h7b-fresh-order-out",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 30.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-order-out",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "базовый вариант: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.22, показ +107.47 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-covered",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: окно перекрыто другим непрозрачным окном (occlusionState Visible false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 28.8 мс"
+        },
+        {
+          "name": "h7b-fresh-covered",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 45.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-covered",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "базовый вариант: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.47, показ +107.64 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-app-hidden",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: скрытие и показ приложения (приложение скрыто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 7.4 мс"
+        },
+        {
+          "name": "h7b-fresh-app-hidden",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 35.0 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-app-hidden",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "базовый вариант: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.39, показ +107.75 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-cold-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: скрытие до первого кадра: новая поверхность C уходит за вкладку сразу после ghostty_surface_new; прогретая — клетка tab (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии false, установлено за 46.7 мс"
+        },
+        {
+          "name": "h7b-fresh-cold-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр other, на первом проходе отображения other, свежий маркер true за 5.2 мс, кадр 732×1348 при виде (732, 1348) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-cold-tab",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "базовый вариант: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие +3.39, показ +16.98 МиБ; footprint.IOSurface.dirty скрытие +0.00, показ +11.39 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие +0.00, показ +0.00 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-zone-resize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: скрытие → ресайз скрытого вида (делитель) → показ; вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.5 мс"
+        },
+        {
+          "name": "h7b-fresh-zone-resize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 15.4 мс, кадр 868×896 при виде (868, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-zone-resize",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "базовый вариант: смен contents от скрытия до показа 1, после установления скрытия 1; ресайз скрытого вида (1108, 896) → (868, 896) пикселей, подач размера 5, последний поданный Some((868, 896)); footprint.footprint скрытие -125.59, показ +109.23 МиБ; footprint.IOSurface.dirty скрытие -22.88, показ +12.98 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-reparent",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: многократная короткая смена родителя: снятие из окна и вставка в другую зону по одному шагу таймера (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 65.7 мс"
+        },
+        {
+          "name": "h7b-fresh-reparent",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 20.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-reparent",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "базовый вариант: смен contents от скрытия до показа 6, после установления скрытия 0; footprint.footprint скрытие -108.59, показ +111.38 МиБ; footprint.IOSurface.dirty скрытие -12.98, показ +15.28 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-long",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: длительное скрытие за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.3 мс"
+        },
+        {
+          "name": "h7b-fresh-long",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 25.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-long",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "базовый вариант: смен contents от скрытия до показа 0, после установления скрытия 0; скрытие ещё 10 с; footprint.footprint скрытие -111.36, показ +111.12 МиБ; footprint.IOSurface.dirty скрытие -15.28, показ +15.28 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-output",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: скрытая поверхность с непрерывным выводом за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.0 мс"
+        },
+        {
+          "name": "h7b-fresh-output",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 25.4 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-output",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "базовый вариант: смен contents от скрытия до показа 0, после установления скрытия 0; поток вывода скрытой: строк 3000, прерван false; footprint.footprint скрытие -111.38, показ +111.53 МиБ; footprint.IOSurface.dirty скрытие -15.28, показ +15.28 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7a-instruments",
+          "requirement": "required",
+          "verdict": "pending-manual",
+          "reason": "базовый вариант: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+        },
+        {
+          "name": "h7b-instruments",
+          "requirement": "required",
+          "verdict": "pending-manual",
+          "reason": "базовый вариант: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+        },
+        {
+          "name": "surface-single-free",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "footprint_roundtrip",
+          "unit": "ms",
+          "summary": {
+            "count": 682,
+            "p50": 45.504584,
+            "p95": 50.109167,
+            "max": 88.597041
+          }
+        },
+        {
+          "name": "surface_free",
+          "unit": "ms",
+          "summary": {
+            "count": 2,
+            "p50": 13.921792,
+            "p95": 14.092416,
+            "max": 14.092416
+          }
+        },
+        {
+          "name": "app_free",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 0.015459,
+            "p95": 0.015459,
+            "max": 0.015459
+          }
+        }
+      ],
+      "snapshots": [],
+      "spawn_uptime_ns": 604046143856250
+    },
+    {
+      "dir": "visibility-bounds",
+      "scenario": "visibility",
+      "variant": "bounds",
+      "route": "direct",
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "h1-init-once",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+        },
+        {
+          "name": "h1-version",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+        },
+        {
+          "name": "h1-config-diagnostics",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_config_diagnostics_count = 0"
+        },
+        {
+          "name": "h7-fronts-only",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: подачи set_occlusion чередуются и начинаются с false: A true (32 подач), C true (2 подач)"
+        },
+        {
+          "name": "h7-partial-overlay",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "палитра открыта true, подач за 600 мс под палитрой 0, модель видима true, occlusionState окна Visible true, признак наложения true"
+        },
+        {
+          "name": "h7-hide-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: скрытая вкладка прогретой поверхности (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 7.6 мс"
+        },
+        {
+          "name": "h7b-fresh-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 5.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-tab",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -105.19, показ +107.45 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-zone",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: скрытая зона: плитка setHidden, вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.4 мс"
+        },
+        {
+          "name": "h7b-fresh-zone",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 10.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-zone",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.61, показ +107.66 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-miniaturize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: свёрнутое окно (окно свёрнуто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 631.5 мс"
+        },
+        {
+          "name": "h7b-fresh-miniaturize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 565.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-miniaturize",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.28, показ +107.58 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-order-out",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: убранное окно (orderOut) (окно на экране false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 280.1 мс"
+        },
+        {
+          "name": "h7b-fresh-order-out",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 45.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-order-out",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.23, показ +107.42 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-covered",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: окно перекрыто другим непрозрачным окном (occlusionState Visible false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 34.0 мс"
+        },
+        {
+          "name": "h7b-fresh-covered",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 65.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-covered",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.50, показ +107.64 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-app-hidden",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: скрытие и показ приложения (приложение скрыто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 10.4 мс"
+        },
+        {
+          "name": "h7b-fresh-app-hidden",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 40.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-app-hidden",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.33, показ +107.67 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-cold-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: скрытие до первого кадра: новая поверхность C уходит за вкладку сразу после ghostty_surface_new; прогретая — клетка tab (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии false, установлено за 51.7 мс"
+        },
+        {
+          "name": "h7b-fresh-cold-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр other, на первом проходе отображения other, свежий маркер true за 5.1 мс, кадр 732×1348 при виде (732, 1348) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-cold-tab",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие +3.44, показ +15.95 МиБ; footprint.IOSurface.dirty скрытие +0.00, показ +11.39 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие +0.00, показ +0.00 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-zone-resize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: скрытие → ресайз скрытого вида (делитель) → показ; вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.2 мс"
+        },
+        {
+          "name": "h7b-fresh-zone-resize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 20.3 мс, кадр 868×896 при виде (868, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-zone-resize",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds: смен contents от скрытия до показа 0, после установления скрытия 0; ресайз скрытого вида (1108, 896) → (868, 896) пикселей, подач размера 5, последний поданный Some((868, 896)); footprint.footprint скрытие -124.53, показ +105.42 МиБ; footprint.IOSurface.dirty скрытие -22.88, показ +9.19 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-reparent",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: многократная короткая смена родителя: снятие из окна и вставка в другую зону по одному шагу таймера (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 65.9 мс"
+        },
+        {
+          "name": "h7b-fresh-reparent",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 15.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-reparent",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds: смен contents от скрытия до показа 6, после установления скрытия 0; footprint.footprint скрытие -104.77, показ +107.53 МиБ; footprint.IOSurface.dirty скрытие -9.19, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-long",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: длительное скрытие за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.3 мс"
+        },
+        {
+          "name": "h7b-fresh-long",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 25.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-long",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds: смен contents от скрытия до показа 0, после установления скрытия 0; скрытие ещё 10 с; footprint.footprint скрытие -107.52, показ +107.33 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-output",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: скрытая поверхность с непрерывным выводом за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.2 мс"
+        },
+        {
+          "name": "h7b-fresh-output",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 10.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-output",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы bounds: смен contents от скрытия до показа 0, после установления скрытия 0; поток вывода скрытой: строк 3000, прерван false; footprint.footprint скрытие -107.48, показ +107.75 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7a-instruments",
+          "requirement": "required",
+          "verdict": "pending-manual",
+          "reason": "обходы bounds: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+        },
+        {
+          "name": "h7b-instruments",
+          "requirement": "required",
+          "verdict": "pending-manual",
+          "reason": "обходы bounds: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+        },
+        {
+          "name": "surface-single-free",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "footprint_roundtrip",
+          "unit": "ms",
+          "summary": {
+            "count": 692,
+            "p50": 45.644209,
+            "p95": 49.318958,
+            "max": 75.139833
+          }
+        },
+        {
+          "name": "surface_free",
+          "unit": "ms",
+          "summary": {
+            "count": 2,
+            "p50": 12.695458,
+            "p95": 14.128667,
+            "max": 14.128667
+          }
+        },
+        {
+          "name": "app_free",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 0.013333,
+            "p95": 0.013333,
+            "max": 0.013333
+          }
+        }
+      ],
+      "snapshots": [],
+      "spawn_uptime_ns": 604145156652958
+    },
+    {
+      "dir": "visibility-defer",
+      "scenario": "visibility",
+      "variant": "defer",
+      "route": "direct",
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "h1-init-once",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+        },
+        {
+          "name": "h1-version",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+        },
+        {
+          "name": "h1-config-diagnostics",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_config_diagnostics_count = 0"
+        },
+        {
+          "name": "h7-fronts-only",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: подачи set_occlusion чередуются и начинаются с false: A true (32 подач), C true (2 подач)"
+        },
+        {
+          "name": "h7-partial-overlay",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "палитра открыта true, подач за 600 мс под палитрой 0, модель видима true, occlusionState окна Visible true, признак наложения true"
+        },
+        {
+          "name": "h7-hide-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: скрытая вкладка прогретой поверхности (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 7.4 мс"
+        },
+        {
+          "name": "h7b-fresh-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 10.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-tab",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы defer: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -105.17, показ +107.41 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-zone",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: скрытая зона: плитка setHidden, вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.5 мс"
+        },
+        {
+          "name": "h7b-fresh-zone",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 20.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-zone",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы defer: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.61, показ +107.69 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-miniaturize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: свёрнутое окно (окно свёрнуто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 633.7 мс"
+        },
+        {
+          "name": "h7b-fresh-miniaturize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 560.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-miniaturize",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы defer: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.33, показ +107.56 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-order-out",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: убранное окно (orderOut) (окно на экране false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 272.9 мс"
+        },
+        {
+          "name": "h7b-fresh-order-out",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 35.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-order-out",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы defer: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.27, показ +107.45 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-covered",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: окно перекрыто другим непрозрачным окном (occlusionState Visible false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 35.8 мс"
+        },
+        {
+          "name": "h7b-fresh-covered",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 45.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-covered",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы defer: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.47, показ +107.59 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-app-hidden",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: скрытие и показ приложения (приложение скрыто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 12.3 мс"
+        },
+        {
+          "name": "h7b-fresh-app-hidden",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 40.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-app-hidden",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы defer: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.39, показ +107.67 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-cold-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: скрытие до первого кадра: новая поверхность C уходит за вкладку сразу после ghostty_surface_new; прогретая — клетка tab (вид в окне false); модель подала false, отложено при скрытии true, contents при скрытии false, установлено за 46.6 мс"
+        },
+        {
+          "name": "h7b-fresh-cold-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр other, на первом проходе отображения other, свежий маркер true за 5.2 мс, кадр 732×1348 при виде (732, 1348) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-cold-tab",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы defer: смен contents от скрытия до показа 2, после установления скрытия 0; footprint.footprint скрытие +3.56, показ +17.08 МиБ; footprint.IOSurface.dirty скрытие +0.00, показ +11.39 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие +0.00, показ +0.00 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-zone-resize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: скрытие → ресайз скрытого вида (делитель) → показ; вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.3 мс"
+        },
+        {
+          "name": "h7b-fresh-zone-resize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 10.4 мс, кадр 868×896 при виде (868, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-zone-resize",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы defer: смен contents от скрытия до показа 1, после установления скрытия 1; ресайз скрытого вида (1108, 896) → (868, 896) пикселей, подач размера 5, последний поданный Some((868, 896)); footprint.footprint скрытие -125.56, показ +105.44 МиБ; footprint.IOSurface.dirty скрытие -22.88, показ +9.19 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-reparent",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: многократная короткая смена родителя: снятие из окна и вставка в другую зону по одному шагу таймера (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 65.9 мс"
+        },
+        {
+          "name": "h7b-fresh-reparent",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 15.4 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-reparent",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы defer: смен contents от скрытия до показа 6, после установления скрытия 0; footprint.footprint скрытие -104.89, показ +107.66 МиБ; footprint.IOSurface.dirty скрытие -9.19, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-long",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: длительное скрытие за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.2 мс"
+        },
+        {
+          "name": "h7b-fresh-long",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 35.5 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-long",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы defer: смен contents от скрытия до показа 0, после установления скрытия 0; скрытие ещё 10 с; footprint.footprint скрытие -107.53, показ +107.23 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-output",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: скрытая поверхность с непрерывным выводом за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 7.2 мс"
+        },
+        {
+          "name": "h7b-fresh-output",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 20.4 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-output",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы defer: смен contents от скрытия до показа 0, после установления скрытия 0; поток вывода скрытой: строк 3000, прерван false; footprint.footprint скрытие -107.55, показ +111.59 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +15.28 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7a-instruments",
+          "requirement": "required",
+          "verdict": "pending-manual",
+          "reason": "обходы defer: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+        },
+        {
+          "name": "h7b-instruments",
+          "requirement": "required",
+          "verdict": "pending-manual",
+          "reason": "обходы defer: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+        },
+        {
+          "name": "surface-single-free",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "footprint_roundtrip",
+          "unit": "ms",
+          "summary": {
+            "count": 705,
+            "p50": 45.603542,
+            "p95": 49.441375,
+            "max": 83.275625
+          }
+        },
+        {
+          "name": "surface_free",
+          "unit": "ms",
+          "summary": {
+            "count": 2,
+            "p50": 14.048625,
+            "p95": 14.133041,
+            "max": 14.133041
+          }
+        },
+        {
+          "name": "app_free",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 0.007625,
+            "p95": 0.007625,
+            "max": 0.007625
+          }
+        }
+      ],
+      "snapshots": [],
+      "spawn_uptime_ns": 604244836431041
+    },
+    {
+      "dir": "visibility-syncdraw",
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "route": "direct",
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "h1-init-once",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+        },
+        {
+          "name": "h1-version",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+        },
+        {
+          "name": "h1-config-diagnostics",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_config_diagnostics_count = 0"
+        },
+        {
+          "name": "h7-fronts-only",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: подачи set_occlusion чередуются и начинаются с false: A true (32 подач), C true (2 подач)"
+        },
+        {
+          "name": "h7-partial-overlay",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "палитра открыта true, подач за 600 мс под палитрой 0, модель видима true, occlusionState окна Visible true, признак наложения true"
+        },
+        {
+          "name": "h7-hide-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: скрытая вкладка прогретой поверхности (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 7.7 мс"
+        },
+        {
+          "name": "h7b-fresh-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (10.8 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-tab",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -105.19, показ +107.44 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-zone",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: скрытая зона: плитка setHidden, вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.4 мс"
+        },
+        {
+          "name": "h7b-fresh-zone",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 5.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (10.1 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-zone",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.55, показ +107.81 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-miniaturize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: свёрнутое окно (окно свёрнуто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 638.8 мс"
+        },
+        {
+          "name": "h7b-fresh-miniaturize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 570.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (10.5 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-miniaturize",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.33, показ +107.56 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-order-out",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: убранное окно (orderOut) (окно на экране false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 291.9 мс"
+        },
+        {
+          "name": "h7b-fresh-order-out",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 40.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (6.3 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-order-out",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы syncdraw: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.22, показ +107.42 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-covered",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: окно перекрыто другим непрозрачным окном (occlusionState Visible false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 33.0 мс"
+        },
+        {
+          "name": "h7b-fresh-covered",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр other, на первом проходе отображения other, свежий маркер true за 65.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (15.2 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-covered",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.47, показ +107.64 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-app-hidden",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: скрытие и показ приложения (приложение скрыто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 56.3 мс"
+        },
+        {
+          "name": "h7b-fresh-app-hidden",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 45.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (4.9 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-app-hidden",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы syncdraw: смен contents от скрытия до показа 2, после установления скрытия 0; footprint.footprint скрытие -107.33, показ +107.64 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-cold-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: скрытие до первого кадра: новая поверхность C уходит за вкладку сразу после ghostty_surface_new; прогретая — клетка tab (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии false, установлено за 95.2 мс"
+        },
+        {
+          "name": "h7b-fresh-cold-tab",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр other, на первом проходе отображения other, свежий маркер true за 5.1 мс, кадр 732×1348 при виде (732, 1348) (совпадает true), синхронных кадров 1 (1.9 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-cold-tab",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы syncdraw: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие +3.47, показ +16.95 МиБ; footprint.IOSurface.dirty скрытие +0.00, показ +11.39 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие +0.00, показ +0.00 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-zone-resize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: скрытие → ресайз скрытого вида (делитель) → показ; вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.4 мс"
+        },
+        {
+          "name": "h7b-fresh-zone-resize",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 7.4 мс, кадр 868×896 при виде (868, 896) (совпадает true), синхронных кадров 1 (9.6 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-zone-resize",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы syncdraw: смен contents от скрытия до показа 1, после установления скрытия 1; ресайз скрытого вида (1108, 896) → (868, 896) пикселей, подач размера 5, последний поданный Some((868, 896)); footprint.footprint скрытие -125.59, показ +105.39 МиБ; footprint.IOSurface.dirty скрытие -22.88, показ +9.19 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-reparent",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: многократная короткая смена родителя: снятие из окна и вставка в другую зону по одному шагу таймера (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 65.8 мс"
+        },
+        {
+          "name": "h7b-fresh-reparent",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.5 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 7 (23.3 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-reparent",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы syncdraw: смен contents от скрытия до показа 13, после установления скрытия 0; footprint.footprint скрытие -104.81, показ +107.61 МиБ; footprint.IOSurface.dirty скрытие -9.19, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-long",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: длительное скрытие за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.1 мс"
+        },
+        {
+          "name": "h7b-fresh-long",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.5 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (16.4 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-long",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; скрытие ещё 10 с; footprint.footprint скрытие -107.53, показ +107.27 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7-hide-output",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: скрытая поверхность с непрерывным выводом за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.2 мс"
+        },
+        {
+          "name": "h7b-fresh-output",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 7.0 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (14.2 мс)"
+        },
+        {
+          "name": "h7-hidden-diagnostics-output",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; поток вывода скрытой: строк 3000, прерван false; footprint.footprint скрытие -107.53, показ +107.75 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+        },
+        {
+          "name": "h7a-instruments",
+          "requirement": "required",
+          "verdict": "pending-manual",
+          "reason": "обходы syncdraw: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+        },
+        {
+          "name": "h7b-instruments",
+          "requirement": "required",
+          "verdict": "pending-manual",
+          "reason": "обходы syncdraw: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+        },
+        {
+          "name": "surface-single-free",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "footprint_roundtrip",
+          "unit": "ms",
+          "summary": {
+            "count": 696,
+            "p50": 45.363583,
+            "p95": 67.132292,
+            "max": 490.14875
+          }
+        },
+        {
+          "name": "surface_free",
+          "unit": "ms",
+          "summary": {
+            "count": 2,
+            "p50": 12.699917,
+            "p95": 14.826458,
+            "max": 14.826458
+          }
+        },
+        {
+          "name": "app_free",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 0.015333,
+            "p95": 0.015333,
+            "max": 0.015333
+          }
+        }
+      ],
+      "snapshots": [],
+      "spawn_uptime_ns": 604345590631416
+    }
+  ],
+  "findings": [
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-fronts-only",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: подачи set_occlusion чередуются и начинаются с false: A true (32 подач), C true (2 подач)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-partial-overlay",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "палитра открыта true, подач за 600 мс под палитрой 0, модель видима true, occlusionState окна Visible true, признак наложения true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hide-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: скрытая вкладка прогретой поверхности (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.1 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7b-fresh-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 6.9 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (14.5 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hidden-diagnostics-tab",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -105.28, показ +107.45 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hide-zone",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: скрытая зона: плитка setHidden, вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.3 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7b-fresh-zone",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (15.4 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hidden-diagnostics-zone",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.58, показ +107.67 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hide-miniaturize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: свёрнутое окно (окно свёрнуто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 635.7 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7b-fresh-miniaturize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 560.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (15.4 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hidden-diagnostics-miniaturize",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.33, показ +107.56 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hide-order-out",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: убранное окно (orderOut) (окно на экране false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 293.3 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7b-fresh-order-out",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 40.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (5.3 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hidden-diagnostics-order-out",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.22, показ +107.44 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hide-covered",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: окно перекрыто другим непрозрачным окном (occlusionState Visible false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 34.0 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7b-fresh-covered",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 55.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (10.9 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hidden-diagnostics-covered",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.45, показ +107.66 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hide-app-hidden",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: скрытие и показ приложения (приложение скрыто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 9.7 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7b-fresh-app-hidden",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 45.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (5.0 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hidden-diagnostics-app-hidden",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.42, показ +107.77 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hide-cold-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: скрытие до первого кадра: новая поверхность C уходит за вкладку сразу после ghostty_surface_new; прогретая — клетка tab (вид в окне false); модель подала false, отложено при скрытии true, contents при скрытии false, установлено за 46.8 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7b-fresh-cold-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр other, на первом проходе отображения fresh, свежий маркер true за 5.5 мс, кадр 732×1348 при виде (732, 1348) (совпадает true), синхронных кадров 1 (7.9 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hidden-diagnostics-cold-tab",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 2, после установления скрытия 0; footprint.footprint скрытие +3.45, показ +16.94 МиБ; footprint.IOSurface.dirty скрытие +0.00, показ +11.39 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие +0.00, показ +0.00 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hide-zone-resize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: скрытие → ресайз скрытого вида (делитель) → показ; вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.2 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7b-fresh-zone-resize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.8 мс, кадр 868×896 при виде (868, 896) (совпадает true), синхронных кадров 1 (14.5 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hidden-diagnostics-zone-resize",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; ресайз скрытого вида (1108, 896) → (868, 896) пикселей, подач размера 5, последний поданный Some((868, 896)); footprint.footprint скрытие -125.52, показ +105.44 МиБ; footprint.IOSurface.dirty скрытие -22.88, показ +9.19 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hide-reparent",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: многократная короткая смена родителя: снятие из окна и вставка в другую зону по одному шагу таймера (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 65.7 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7b-fresh-reparent",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 7 (27.6 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hidden-diagnostics-reparent",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 12, после установления скрытия 0; footprint.footprint скрытие -104.88, показ +107.66 МиБ; footprint.IOSurface.dirty скрытие -9.19, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hide-long",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: длительное скрытие за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.5 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7b-fresh-long",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (21.5 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hidden-diagnostics-long",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; скрытие ещё 10 с; footprint.footprint скрытие -107.52, показ +107.28 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hide-output",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: скрытая поверхность с непрерывным выводом за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.1 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7b-fresh-output",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds+defer+syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (13.6 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7-hidden-diagnostics-output",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds+defer+syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; поток вывода скрытой: строк 3000, прерван false; footprint.footprint скрытие -107.56, показ +111.67 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +15.28 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7a-instruments",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "обходы bounds+defer+syncdraw: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "h7b-instruments",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "обходы bounds+defer+syncdraw: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "all",
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-fronts-only",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: подачи set_occlusion чередуются и начинаются с false: A true (32 подач), C true (2 подач)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-partial-overlay",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "палитра открыта true, подач за 600 мс под палитрой 0, модель видима true, occlusionState окна Visible true, признак наложения true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hide-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: скрытая вкладка прогретой поверхности (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 7.5 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7b-fresh-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 15.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hidden-diagnostics-tab",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "базовый вариант: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -104.16, показ +107.41 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hide-zone",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: скрытая зона: плитка setHidden, вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.6 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7b-fresh-zone",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 15.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hidden-diagnostics-zone",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "базовый вариант: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.83, показ +107.69 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hide-miniaturize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: свёрнутое окно (окно свёрнуто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 615.5 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7b-fresh-miniaturize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 565.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hidden-diagnostics-miniaturize",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "базовый вариант: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.31, показ +107.55 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hide-order-out",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: убранное окно (orderOut) (окно на экране false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 275.3 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7b-fresh-order-out",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 30.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hidden-diagnostics-order-out",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "базовый вариант: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.22, показ +107.47 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hide-covered",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: окно перекрыто другим непрозрачным окном (occlusionState Visible false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 28.8 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7b-fresh-covered",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 45.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hidden-diagnostics-covered",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "базовый вариант: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.47, показ +107.64 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hide-app-hidden",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: скрытие и показ приложения (приложение скрыто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 7.4 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7b-fresh-app-hidden",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 35.0 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hidden-diagnostics-app-hidden",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "базовый вариант: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.39, показ +107.75 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hide-cold-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: скрытие до первого кадра: новая поверхность C уходит за вкладку сразу после ghostty_surface_new; прогретая — клетка tab (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии false, установлено за 46.7 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7b-fresh-cold-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр other, на первом проходе отображения other, свежий маркер true за 5.2 мс, кадр 732×1348 при виде (732, 1348) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hidden-diagnostics-cold-tab",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "базовый вариант: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие +3.39, показ +16.98 МиБ; footprint.IOSurface.dirty скрытие +0.00, показ +11.39 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие +0.00, показ +0.00 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hide-zone-resize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: скрытие → ресайз скрытого вида (делитель) → показ; вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.5 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7b-fresh-zone-resize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 15.4 мс, кадр 868×896 при виде (868, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hidden-diagnostics-zone-resize",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "базовый вариант: смен contents от скрытия до показа 1, после установления скрытия 1; ресайз скрытого вида (1108, 896) → (868, 896) пикселей, подач размера 5, последний поданный Some((868, 896)); footprint.footprint скрытие -125.59, показ +109.23 МиБ; footprint.IOSurface.dirty скрытие -22.88, показ +12.98 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hide-reparent",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: многократная короткая смена родителя: снятие из окна и вставка в другую зону по одному шагу таймера (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 65.7 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7b-fresh-reparent",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 20.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hidden-diagnostics-reparent",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "базовый вариант: смен contents от скрытия до показа 6, после установления скрытия 0; footprint.footprint скрытие -108.59, показ +111.38 МиБ; footprint.IOSurface.dirty скрытие -12.98, показ +15.28 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hide-long",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: длительное скрытие за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.3 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7b-fresh-long",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 25.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hidden-diagnostics-long",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "базовый вариант: смен contents от скрытия до показа 0, после установления скрытия 0; скрытие ещё 10 с; footprint.footprint скрытие -111.36, показ +111.12 МиБ; footprint.IOSurface.dirty скрытие -15.28, показ +15.28 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hide-output",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: скрытая поверхность с непрерывным выводом за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.0 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7b-fresh-output",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "базовый вариант: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 25.4 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7-hidden-diagnostics-output",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "базовый вариант: смен contents от скрытия до показа 0, после установления скрытия 0; поток вывода скрытой: строк 3000, прерван false; footprint.footprint скрытие -111.38, показ +111.53 МиБ; footprint.IOSurface.dirty скрытие -15.28, показ +15.28 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7a-instruments",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "базовый вариант: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "h7b-instruments",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "базовый вариант: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "base",
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-fronts-only",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: подачи set_occlusion чередуются и начинаются с false: A true (32 подач), C true (2 подач)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-partial-overlay",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "палитра открыта true, подач за 600 мс под палитрой 0, модель видима true, occlusionState окна Visible true, признак наложения true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hide-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: скрытая вкладка прогретой поверхности (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 7.6 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7b-fresh-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 5.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hidden-diagnostics-tab",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -105.19, показ +107.45 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hide-zone",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: скрытая зона: плитка setHidden, вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.4 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7b-fresh-zone",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 10.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hidden-diagnostics-zone",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.61, показ +107.66 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hide-miniaturize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: свёрнутое окно (окно свёрнуто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 631.5 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7b-fresh-miniaturize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 565.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hidden-diagnostics-miniaturize",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.28, показ +107.58 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hide-order-out",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: убранное окно (orderOut) (окно на экране false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 280.1 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7b-fresh-order-out",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 45.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hidden-diagnostics-order-out",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.23, показ +107.42 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hide-covered",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: окно перекрыто другим непрозрачным окном (occlusionState Visible false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 34.0 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7b-fresh-covered",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 65.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hidden-diagnostics-covered",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.50, показ +107.64 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hide-app-hidden",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: скрытие и показ приложения (приложение скрыто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 10.4 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7b-fresh-app-hidden",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 40.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hidden-diagnostics-app-hidden",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.33, показ +107.67 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hide-cold-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: скрытие до первого кадра: новая поверхность C уходит за вкладку сразу после ghostty_surface_new; прогретая — клетка tab (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии false, установлено за 51.7 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7b-fresh-cold-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр other, на первом проходе отображения other, свежий маркер true за 5.1 мс, кадр 732×1348 при виде (732, 1348) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hidden-diagnostics-cold-tab",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие +3.44, показ +15.95 МиБ; footprint.IOSurface.dirty скрытие +0.00, показ +11.39 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие +0.00, показ +0.00 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hide-zone-resize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: скрытие → ресайз скрытого вида (делитель) → показ; вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.2 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7b-fresh-zone-resize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 20.3 мс, кадр 868×896 при виде (868, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hidden-diagnostics-zone-resize",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds: смен contents от скрытия до показа 0, после установления скрытия 0; ресайз скрытого вида (1108, 896) → (868, 896) пикселей, подач размера 5, последний поданный Some((868, 896)); footprint.footprint скрытие -124.53, показ +105.42 МиБ; footprint.IOSurface.dirty скрытие -22.88, показ +9.19 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hide-reparent",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: многократная короткая смена родителя: снятие из окна и вставка в другую зону по одному шагу таймера (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 65.9 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7b-fresh-reparent",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 15.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hidden-diagnostics-reparent",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds: смен contents от скрытия до показа 6, после установления скрытия 0; footprint.footprint скрытие -104.77, показ +107.53 МиБ; footprint.IOSurface.dirty скрытие -9.19, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hide-long",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: длительное скрытие за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.3 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7b-fresh-long",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 25.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hidden-diagnostics-long",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds: смен contents от скрытия до показа 0, после установления скрытия 0; скрытие ещё 10 с; footprint.footprint скрытие -107.52, показ +107.33 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hide-output",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: скрытая поверхность с непрерывным выводом за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.2 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7b-fresh-output",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы bounds: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 10.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7-hidden-diagnostics-output",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы bounds: смен contents от скрытия до показа 0, после установления скрытия 0; поток вывода скрытой: строк 3000, прерван false; footprint.footprint скрытие -107.48, показ +107.75 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7a-instruments",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "обходы bounds: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "h7b-instruments",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "обходы bounds: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "bounds",
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-fronts-only",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: подачи set_occlusion чередуются и начинаются с false: A true (32 подач), C true (2 подач)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-partial-overlay",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "палитра открыта true, подач за 600 мс под палитрой 0, модель видима true, occlusionState окна Visible true, признак наложения true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hide-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: скрытая вкладка прогретой поверхности (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 7.4 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7b-fresh-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 10.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hidden-diagnostics-tab",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы defer: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -105.17, показ +107.41 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hide-zone",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: скрытая зона: плитка setHidden, вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.5 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7b-fresh-zone",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 20.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hidden-diagnostics-zone",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы defer: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.61, показ +107.69 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hide-miniaturize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: свёрнутое окно (окно свёрнуто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 633.7 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7b-fresh-miniaturize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 560.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hidden-diagnostics-miniaturize",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы defer: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.33, показ +107.56 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hide-order-out",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: убранное окно (orderOut) (окно на экране false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 272.9 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7b-fresh-order-out",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 35.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hidden-diagnostics-order-out",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы defer: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.27, показ +107.45 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hide-covered",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: окно перекрыто другим непрозрачным окном (occlusionState Visible false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 35.8 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7b-fresh-covered",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 45.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hidden-diagnostics-covered",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы defer: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.47, показ +107.59 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hide-app-hidden",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: скрытие и показ приложения (приложение скрыто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 12.3 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7b-fresh-app-hidden",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 40.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hidden-diagnostics-app-hidden",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы defer: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.39, показ +107.67 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hide-cold-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: скрытие до первого кадра: новая поверхность C уходит за вкладку сразу после ghostty_surface_new; прогретая — клетка tab (вид в окне false); модель подала false, отложено при скрытии true, contents при скрытии false, установлено за 46.6 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7b-fresh-cold-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр other, на первом проходе отображения other, свежий маркер true за 5.2 мс, кадр 732×1348 при виде (732, 1348) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hidden-diagnostics-cold-tab",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы defer: смен contents от скрытия до показа 2, после установления скрытия 0; footprint.footprint скрытие +3.56, показ +17.08 МиБ; footprint.IOSurface.dirty скрытие +0.00, показ +11.39 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие +0.00, показ +0.00 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hide-zone-resize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: скрытие → ресайз скрытого вида (делитель) → показ; вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.3 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7b-fresh-zone-resize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 10.4 мс, кадр 868×896 при виде (868, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hidden-diagnostics-zone-resize",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы defer: смен contents от скрытия до показа 1, после установления скрытия 1; ресайз скрытого вида (1108, 896) → (868, 896) пикселей, подач размера 5, последний поданный Some((868, 896)); footprint.footprint скрытие -125.56, показ +105.44 МиБ; footprint.IOSurface.dirty скрытие -22.88, показ +9.19 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hide-reparent",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: многократная короткая смена родителя: снятие из окна и вставка в другую зону по одному шагу таймера (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 65.9 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7b-fresh-reparent",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 15.4 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hidden-diagnostics-reparent",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы defer: смен contents от скрытия до показа 6, после установления скрытия 0; footprint.footprint скрытие -104.89, показ +107.66 МиБ; footprint.IOSurface.dirty скрытие -9.19, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hide-long",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: длительное скрытие за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.2 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7b-fresh-long",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 35.5 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hidden-diagnostics-long",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы defer: смен contents от скрытия до показа 0, после установления скрытия 0; скрытие ещё 10 с; footprint.footprint скрытие -107.53, показ +107.23 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hide-output",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: скрытая поверхность с непрерывным выводом за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 7.2 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7b-fresh-output",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы defer: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 20.4 мс, кадр 1108×896 при виде (1108, 896) (совпадает true)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7-hidden-diagnostics-output",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы defer: смен contents от скрытия до показа 0, после установления скрытия 0; поток вывода скрытой: строк 3000, прерван false; footprint.footprint скрытие -107.55, показ +111.59 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +15.28 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7a-instruments",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "обходы defer: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "h7b-instruments",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "обходы defer: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "defer",
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-fronts-only",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: подачи set_occlusion чередуются и начинаются с false: A true (32 подач), C true (2 подач)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-partial-overlay",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "палитра открыта true, подач за 600 мс под палитрой 0, модель видима true, occlusionState окна Visible true, признак наложения true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hide-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: скрытая вкладка прогретой поверхности (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 7.7 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7b-fresh-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (10.8 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hidden-diagnostics-tab",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -105.19, показ +107.44 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hide-zone",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: скрытая зона: плитка setHidden, вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.4 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7b-fresh-zone",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 5.3 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (10.1 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hidden-diagnostics-zone",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.55, показ +107.81 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hide-miniaturize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: свёрнутое окно (окно свёрнуто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 638.8 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7b-fresh-miniaturize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 570.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (10.5 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hidden-diagnostics-miniaturize",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.33, показ +107.56 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hide-order-out",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: убранное окно (orderOut) (окно на экране false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 291.9 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7b-fresh-order-out",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 40.1 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (6.3 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hidden-diagnostics-order-out",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие -107.22, показ +107.42 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hide-covered",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: окно перекрыто другим непрозрачным окном (occlusionState Visible false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 33.0 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7b-fresh-covered",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр other, на первом проходе отображения other, свежий маркер true за 65.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (15.2 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hidden-diagnostics-covered",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; footprint.footprint скрытие -107.47, показ +107.64 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hide-app-hidden",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: скрытие и показ приложения (приложение скрыто true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 56.3 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7b-fresh-app-hidden",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 45.2 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (4.9 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hidden-diagnostics-app-hidden",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 2, после установления скрытия 0; footprint.footprint скрытие -107.33, показ +107.64 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.70, показ +1.70 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hide-cold-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: скрытие до первого кадра: новая поверхность C уходит за вкладку сразу после ghostty_surface_new; прогретая — клетка tab (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии false, установлено за 95.2 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7b-fresh-cold-tab",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр other, на первом проходе отображения other, свежий маркер true за 5.1 мс, кадр 732×1348 при виде (732, 1348) (совпадает true), синхронных кадров 1 (1.9 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hidden-diagnostics-cold-tab",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 1, после установления скрытия 0; footprint.footprint скрытие +3.47, показ +16.95 МиБ; footprint.IOSurface.dirty скрытие +0.00, показ +11.39 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие +0.00, показ +0.00 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hide-zone-resize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: скрытие → ресайз скрытого вида (делитель) → показ; вид в окне (вид в окне true, скрыт предок true); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 5.4 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7b-fresh-zone-resize",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения stale, свежий маркер true за 7.4 мс, кадр 868×896 при виде (868, 896) (совпадает true), синхронных кадров 1 (9.6 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hidden-diagnostics-zone-resize",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 1, после установления скрытия 1; ресайз скрытого вида (1108, 896) → (868, 896) пикселей, подач размера 5, последний поданный Some((868, 896)); footprint.footprint скрытие -125.59, показ +105.39 МиБ; footprint.IOSurface.dirty скрытие -22.88, показ +9.19 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hide-reparent",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: многократная короткая смена родителя: снятие из окна и вставка в другую зону по одному шагу таймера (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 65.8 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7b-fresh-reparent",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.5 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 7 (23.3 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hidden-diagnostics-reparent",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 13, после установления скрытия 0; footprint.footprint скрытие -104.81, показ +107.61 МиБ; footprint.IOSurface.dirty скрытие -9.19, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hide-long",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: длительное скрытие за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.1 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7b-fresh-long",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 5.5 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (16.4 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hidden-diagnostics-long",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; скрытие ещё 10 с; footprint.footprint скрытие -107.53, показ +107.27 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hide-output",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: скрытая поверхность с непрерывным выводом за вкладкой (вид в окне false); модель подала false, отложено при скрытии false, contents при скрытии true, установлено за 6.2 мс"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7b-fresh-output",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "обходы syncdraw: показ (вид в окне true, скрыт предок false, окно на экране true, свёрнуто false, occlusion Visible true, приложение скрыто false): в момент показа кадр stale, на первом проходе отображения fresh, свежий маркер true за 7.0 мс, кадр 1108×896 при виде (1108, 896) (совпадает true), синхронных кадров 1 (14.2 мс)"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7-hidden-diagnostics-output",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "обходы syncdraw: смен contents от скрытия до показа 0, после установления скрытия 0; поток вывода скрытой: строк 3000, прерван false; footprint.footprint скрытие -107.53, показ +107.75 МиБ; footprint.IOSurface.dirty скрытие -11.48, показ +11.48 МиБ; footprint.Owned physical footprint (unmapped).dirty скрытие -1.88, показ +1.88 МиБ; серии устоялись true/true"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7a-instruments",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "обходы syncdraw: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "h7b-instruments",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "обходы syncdraw: вердикт по записи Instruments (отправки команд GPU, выделения ресурсов Metal) в задаче 19; счётчики пробы — диагностика"
+    },
+    {
+      "scenario": "visibility",
+      "variant": "syncdraw",
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+    }
+  ]
+}

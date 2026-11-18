@@ -1,0 +1,22 @@
+CARGO=/Users/dsbasko/.cargo/bin/cargo spikes/probe-ghostty-surface/run.sh demo --defer-create 20
+    Finished `release` profile [optimized] target(s) in 0.09s
+набор ghostty 1.4.0 (83fb95624b0439ee660c2679b43b38c8b63769cd) актуален: /Users/dsbasko/Develop/dsbasko/shellio/vendor/ghostty
+/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/bundle/.staging.QfgTqw/probe-ghostty-surface.app: replacing existing signature
+/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/bundle/.staging.QfgTqw/probe-ghostty-surface.app: valid on disk
+/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/bundle/.staging.QfgTqw/probe-ghostty-surface.app: satisfies its Designated Requirement
+бандл /Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/bundle/probe-ghostty-surface.app собран и подписан (io.github.dsbasko.shellio.probe.ghostty-surface)
+демонстрация: конфигурация /Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/demo/20261118-032541-67921/ghostty.conf
+демонстрация: доступность: таймер обновления с периодом 0.5 с запускается первым запросом доступности при включённом VoiceOver
+демонстрация: доступность: таймер обновления с периодом 0.5 с запускается первым запросом доступности при включённом VoiceOver
+демонстрация: видимость: вариант base, обходы []; маршрутизатор: Ctrl-\ — Navigation, в Navigation h/j/k/l — фокус, Ctrl-o — возврат к источнику, i или Enter — Input, второй Ctrl-\ подряд уходит в терминал; палитра — Cmd-K
+демонстрация: центральная поверхность создаётся через 20 с; усыпите дисплей (pmset displaysleepnow) и разбудите его после этого срока
+демонстрация: первая попытка: Live { key: SurfaceKey { id: SurfaceId(1), generation: 1 }, new_ms: 13.184208 }
+демонстрация: попытка s1g1 (Initial): создана true, сбой None, дальше None, дисплей None спит None, 13.2 мс
+демонстрация: первая попытка: Live { key: SurfaceKey { id: SurfaceId(0), generation: 1 }, new_ms: 3.260667 }
+демонстрация: попытка s0g1 (Initial): создана true, сбой None, дальше None, дисплей None спит None, 3.3 мс
+демонстрация: итог: попыток 1, поводы [], отказ None, создано поверхностей 2
+launch: route=direct nonce=3f9cab91813f1a81 exit=signal 15 watchdog=false killed=0 leftovers=0
+launch: execution=error
+launch: reason=падение: сигнал 15
+make[1]: *** [locked-probe-ghostty-demo] Error 3
+make: *** [probe-ghostty-demo] Error 2
