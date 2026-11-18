@@ -698,7 +698,7 @@ pub fn aggregate(run_dir: &Path) -> Result<SummaryFile, String> {
             totals.required.add(row.status);
         }
     }
-    let outcome = outcome(&cells, totals.execution_errors);
+    let outcome = outcome(&cells, &processes);
     Ok(SummaryFile {
         schema: SCHEMA,
         run_dir: run_dir.display().to_string(),
@@ -716,12 +716,33 @@ fn part_label(row: &CellRow, part: &CellPart) -> String {
     }
 }
 
-/// Итог пробы по сведённым клеткам. Неполный прогон итога не получает: клетка каталога, которой
-/// нет, — не `pass`, а процесс с ошибкой исполнения мог нести недостающие части.
-pub fn outcome(cells: &[CellRow], execution_errors: usize) -> Outcome {
+/// Итог пробы по сведённым клеткам и процессам прогона. Неполный прогон итога не получает:
+/// процесс с ошибкой исполнения мог нести недостающие части, сценарий без процесса — тоже (клетки
+/// A1, A2 и D2 собираются из двух сценариев), а клетка каталога, которой нет, и обязательная
+/// клетка без обязательных частей — не `pass`.
+pub fn outcome(cells: &[CellRow], processes: &[ProcessSummary]) -> Outcome {
     let mut reasons = Vec::new();
+    let execution_errors = processes
+        .iter()
+        .filter(|process| !process.execution.is_ok())
+        .count();
     if execution_errors > 0 {
         reasons.push(format!("ошибок исполнения: {execution_errors}"));
+    }
+    let absent: Vec<&str> = Scenario::ALL
+        .iter()
+        .map(|scenario| scenario.name())
+        .filter(|name| {
+            !processes
+                .iter()
+                .any(|process| process.execution.is_ok() && process.scenario == *name)
+        })
+        .collect();
+    if !absent.is_empty() {
+        reasons.push(format!(
+            "нет сценариев без ошибки исполнения: {}",
+            absent.join(", ")
+        ));
     }
     let missing: Vec<&str> = CELLS
         .iter()
@@ -730,6 +751,23 @@ pub fn outcome(cells: &[CellRow], execution_errors: usize) -> Outcome {
         .collect();
     if !missing.is_empty() {
         reasons.push(format!("нет клеток в прогоне: {}", missing.join(", ")));
+    }
+    let hollow: Vec<&str> = cells
+        .iter()
+        .filter(|row| {
+            row.kind == Kind::Required
+                && !row
+                    .parts
+                    .iter()
+                    .any(|part| part.requirement == Requirement::Required)
+        })
+        .map(|row| row.id.as_str())
+        .collect();
+    if !hollow.is_empty() {
+        reasons.push(format!(
+            "у обязательных клеток нет обязательных частей: {}",
+            hollow.join(", ")
+        ));
     }
     if !reasons.is_empty() {
         return Outcome::Undetermined { reasons };
@@ -935,6 +973,24 @@ mod tests {
         }
     }
 
+    fn summary(scenario: &str, execution: Execution) -> ProcessSummary {
+        ProcessSummary {
+            dir: format!("{scenario}-base"),
+            scenario: scenario.to_owned(),
+            variant: "base".to_owned(),
+            execution,
+            cells: 1,
+        }
+    }
+
+    /// Процесс без ошибки на каждый сценарий.
+    fn all_scenarios() -> Vec<ProcessSummary> {
+        Scenario::ALL
+            .iter()
+            .map(|scenario| summary(scenario.name(), Execution::Ok))
+            .collect()
+    }
+
     fn full_catalogue(observation: Status) -> Vec<CellRow> {
         CELLS
             .iter()
@@ -1073,11 +1129,11 @@ mod tests {
     #[test]
     fn outcome_of_a_complete_run() {
         assert_eq!(
-            outcome(&full_catalogue(Status::Pass), 0),
+            outcome(&full_catalogue(Status::Pass), &all_scenarios()),
             Outcome::Confirmed
         );
         assert_eq!(
-            outcome(&full_catalogue(Status::NotRun), 0),
+            outcome(&full_catalogue(Status::NotRun), &all_scenarios()),
             Outcome::ConfirmedExcept {
                 not_run: vec!["E".to_owned(), "F".to_owned(), "G".to_owned()]
             }
@@ -1085,7 +1141,7 @@ mod tests {
         let mut observed_fail = full_catalogue(Status::NotRun);
         observed_fail[10] = row("F", &[(Requirement::Observation, Status::Fail)]);
         assert_eq!(
-            outcome(&observed_fail, 0),
+            outcome(&observed_fail, &all_scenarios()),
             Outcome::NotConfirmed {
                 failed: vec!["F".to_owned()]
             }
@@ -1099,7 +1155,7 @@ mod tests {
             ],
         );
         assert_eq!(
-            outcome(&required_fail, 0),
+            outcome(&required_fail, &all_scenarios()),
             Outcome::NotConfirmed {
                 failed: vec!["B2/p1".to_owned()]
             }
@@ -1117,7 +1173,7 @@ mod tests {
             ],
         );
         assert_eq!(
-            outcome(&cells, 0),
+            outcome(&cells, &all_scenarios()),
             Outcome::ConfirmedExcept {
                 not_run: vec!["D2/p1".to_owned()]
             }
@@ -1128,13 +1184,16 @@ mod tests {
     fn partial_run_or_execution_error_has_no_verdict() {
         let mut partial = full_catalogue(Status::Pass);
         partial.retain(|row| row.id != "C1" && row.id != "G");
-        match outcome(&partial, 0) {
+        match outcome(&partial, &all_scenarios()) {
             Outcome::Undetermined { reasons } => {
                 assert_eq!(reasons, ["нет клеток в прогоне: C1, G"]);
             }
             other => panic!("{other:?}"),
         }
-        match outcome(&full_catalogue(Status::Pass), 2) {
+        let mut errored = all_scenarios();
+        errored.push(summary("smoke", Execution::error("сторож")));
+        errored.push(summary("smoke", Execution::error("падение")));
+        match outcome(&full_catalogue(Status::Pass), &errored) {
             Outcome::Undetermined { reasons } => {
                 assert_eq!(reasons, ["ошибок исполнения: 2"]);
             }
@@ -1142,9 +1201,42 @@ mod tests {
         }
         let smoke_only = vec![row(SMOKE_CELL, &[(Requirement::Required, Status::Pass)])];
         assert!(matches!(
-            outcome(&smoke_only, 0),
+            outcome(&smoke_only, &all_scenarios()),
             Outcome::Undetermined { .. }
         ));
+    }
+
+    #[test]
+    fn scenario_without_a_clean_process_leaves_no_verdict() {
+        let mut processes = all_scenarios();
+        let first = processes.remove(0);
+        match outcome(&full_catalogue(Status::Pass), &processes) {
+            Outcome::Undetermined { reasons } => {
+                assert_eq!(
+                    reasons,
+                    [format!(
+                        "нет сценариев без ошибки исполнения: {}",
+                        first.scenario
+                    )]
+                );
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn required_cell_of_observation_parts_only_leaves_no_verdict() {
+        let mut cells = full_catalogue(Status::Pass);
+        cells[7] = row("D2", &[(Requirement::Observation, Status::Pass)]);
+        match outcome(&cells, &all_scenarios()) {
+            Outcome::Undetermined { reasons } => {
+                assert_eq!(
+                    reasons,
+                    ["у обязательных клеток нет обязательных частей: D2"]
+                );
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]
