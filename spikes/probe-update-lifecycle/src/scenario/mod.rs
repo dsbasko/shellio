@@ -1,11 +1,12 @@
 //! Сценарии пробы и процесс сценария: предусловие окружения, сценарий, `result.json` в `--out`.
-//! Сценарии добавляют задачи плана; задача 2 — сценарий стенда `smoke`.
+//! Сценарии добавляют задачи плана; задача 2 — сценарий стенда `smoke`, задача 3 — `host`.
 
+pub mod host;
 pub mod smoke;
 
 use std::collections::BTreeMap;
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -20,14 +21,17 @@ use crate::{EXIT_EXECUTION, EXIT_USAGE, say, sys};
 pub enum Scenario {
     /// Самопроверка стенда: разрешения терминала исполнителя и окружение процесса.
     Smoke,
+    /// Самопроверка стенда: минимальный хост, attach-клиент и нагрузка.
+    Host,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 1] = [Scenario::Smoke];
+    pub const ALL: [Scenario; 2] = [Scenario::Smoke, Scenario::Host];
 
     pub fn name(self) -> &'static str {
         match self {
             Scenario::Smoke => "smoke",
+            Scenario::Host => "host",
         }
     }
 
@@ -41,6 +45,7 @@ impl Scenario {
     pub fn deadline(self) -> Duration {
         match self {
             Scenario::Smoke => smoke::DEADLINE,
+            Scenario::Host => host::DEADLINE,
         }
     }
 }
@@ -111,6 +116,25 @@ pub fn process_main(
 fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
     match target.scenario {
         Scenario::Smoke => smoke::run(&target.out, environment),
+        Scenario::Host => host::run(&target.out, environment),
+    }
+}
+
+/// Вспомогательный бинарь пробы рядом с раннером: `run.sh` собирает все бинари пакета в один
+/// каталог.
+pub fn sibling_binary(name: &str) -> Result<PathBuf, String> {
+    let runner = std::env::current_exe().map_err(|err| format!("путь раннера: {err}"))?;
+    let binary = runner
+        .parent()
+        .ok_or_else(|| format!("у {} нет каталога", runner.display()))?
+        .join(name);
+    if binary.is_file() {
+        Ok(binary)
+    } else {
+        Err(format!(
+            "предусловие: нет {} (run.sh собирает все бинари пакета)",
+            binary.display()
+        ))
     }
 }
 

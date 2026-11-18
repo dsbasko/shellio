@@ -6,7 +6,13 @@
 //! упрощено с пометкой источника в каждом модуле.
 
 pub mod args;
+pub mod attach;
+pub mod fixture;
+pub mod host;
 pub mod launch;
+pub mod observer;
+pub mod proto;
+pub mod pty;
 pub mod results;
 pub mod scenario;
 pub mod sys;
@@ -22,6 +28,27 @@ pub const PROBE_NAME: &str = "probe-update";
 /// тайм-аут, сторож, повреждённый результат. `fail` и `not_run` ошибкой исполнения не считаются.
 pub const EXIT_EXECUTION: u8 = 3;
 pub const EXIT_USAGE: u8 = 2;
+/// Поколение сборки: `PROBE_UPDATE_GENERATION` при сборке, иначе 1. `run.sh` собирает каждое
+/// поколение в свой каталог cargo (задача 4).
+pub const GENERATION: u32 = build_number(option_env!("PROBE_UPDATE_GENERATION"), 1);
+
+/// Десятичное число из переменной сборки; разбор константный, неверное значение роняет сборку.
+const fn build_number(value: Option<&str>, default: u32) -> u32 {
+    let Some(text) = value else {
+        return default;
+    };
+    let bytes = text.as_bytes();
+    assert!(!bytes.is_empty(), "число при сборке пусто");
+    let mut value: u64 = 0;
+    let mut at = 0;
+    while at < bytes.len() {
+        assert!(bytes[at].is_ascii_digit(), "число при сборке: не цифра");
+        value = value * 10 + (bytes[at] - b'0') as u64;
+        assert!(value <= u32::MAX as u64, "число при сборке больше u32");
+        at += 1;
+    }
+    value as u32
+}
 
 /// Вход раннера: разбор аргументов и выбор режима.
 pub fn main() -> ExitCode {
@@ -91,4 +118,35 @@ fn usage_error(message: &str) -> ExitCode {
 
 pub(crate) fn say(text: &str) {
     let _ = writeln!(io::stderr().lock(), "{text}");
+}
+
+/// Аргументы вспомогательного бинаря без имени программы; не UTF-8 — ошибка использования.
+pub fn helper_args(name: &str) -> Result<Vec<String>, ExitCode> {
+    std::env::args_os()
+        .skip(1)
+        .map(|arg| arg.into_string())
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|arg| {
+            say(&format!("{name}: аргумент не в UTF-8: {arg:?}"));
+            ExitCode::from(EXIT_USAGE)
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_numbers_parse_or_default() {
+        assert_eq!(build_number(None, 1), 1);
+        assert_eq!(build_number(Some("2"), 1), 2);
+        assert_eq!(build_number(Some("4294967295"), 1), u32::MAX);
+        const { assert!(GENERATION >= 1) };
+    }
+
+    #[test]
+    #[should_panic(expected = "число при сборке")]
+    fn malformed_build_number_does_not_fall_back() {
+        build_number(Some("2a"), 1);
+    }
 }

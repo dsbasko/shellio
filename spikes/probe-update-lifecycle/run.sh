@@ -1,6 +1,6 @@
 #!/bin/bash
 # Сборка и запуск пробы P0.5 probe-update-lifecycle (ADR-0034).
-#   run.sh scenarios [сценарий …]  сборка раннера, затем каждый сценарий отдельным процессом через
+#   run.sh scenarios [сценарий …]  сборка бинарей пакета, затем каждый сценарий отдельным процессом через
 #                                  --launch под caffeinate -dimsu (временный SHELLIO_STATE_DIR
 #                                  создаёт --launch), выход в
 #                                  target/probes/update-lifecycle/<время>-<pid>/, затем --aggregate
@@ -13,7 +13,7 @@ CARGO="${CARGO:-cargo}"
 PACKAGE=probe-update-lifecycle
 BIN="$ROOT/target/release/probe-update"
 OUT_BASE="$ROOT/target/probes/update-lifecycle"
-ALL_SCENARIOS="smoke"
+ALL_SCENARIOS="smoke host"
 
 die() {
     echo "run.sh: $*" >&2
@@ -67,7 +67,9 @@ cmd_scenarios() {
     for scenario in $scenarios; do
         known_scenario "$scenario" || die "неизвестный сценарий «${scenario}», известны: $ALL_SCENARIOS"
     done
-    (cd "$ROOT" && "$CARGO" build --release -p "$PACKAGE" --locked --bin probe-update)
+    # Все бинари пакета: раннер, хост, attach-клиент и нагрузка лежат в одном каталоге, процесс
+    # сценария находит их рядом с собой.
+    (cd "$ROOT" && "$CARGO" build --release -p "$PACKAGE" --locked --bins)
     [ -x "$BIN" ] || die "нет раннера $BIN"
     build_info
     mkdir -p "$OUT_BASE"

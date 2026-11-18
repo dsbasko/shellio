@@ -108,9 +108,11 @@ impl Requirement {
 
 /// Самопроверка стенда: разрешения терминала исполнителя и окружение процесса.
 pub const SMOKE_CELL: &str = "smoke";
+/// Самопроверка стенда: минимальный хост, attach-клиент и нагрузка.
+pub const HOST_CELL: &str = "host";
 
 /// Каталог клеток в порядке сводки.
-pub const CELLS: [(&str, Kind); 13] = [
+pub const CELLS: [(&str, Kind); 14] = [
     ("A1", Kind::Required),
     ("A2", Kind::Required),
     ("B1", Kind::Required),
@@ -124,6 +126,7 @@ pub const CELLS: [(&str, Kind); 13] = [
     ("F", Kind::Observation),
     ("G", Kind::Observation),
     (SMOKE_CELL, Kind::Stand),
+    (HOST_CELL, Kind::Stand),
 ];
 
 pub fn kind_of(id: &str) -> Option<Kind> {
@@ -927,7 +930,7 @@ mod tests {
             args: Vec::new(),
             env: BTreeMap::new(),
             nonce: "n1".to_owned(),
-            state_dir: "/tmp/shellio-probe-state.n1".to_owned(),
+            state_dir: "/tmp/psu.n1".to_owned(),
             spawn_uptime_ns: 1,
             exit_uptime_ns: Some(2),
             exit: Some(ExitRecord {
@@ -1030,6 +1033,7 @@ mod tests {
             .collect();
         assert_eq!(observations, ["E", "F", "G"]);
         assert_eq!(kind_of(SMOKE_CELL), Some(Kind::Stand));
+        assert_eq!(kind_of(HOST_CELL), Some(Kind::Stand));
         assert_eq!(kind_of("B4"), None);
         assert!(cell_order("A1") < cell_order("H"));
         assert!(cell_order("H") < cell_order("E"));

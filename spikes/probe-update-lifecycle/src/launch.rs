@@ -72,7 +72,9 @@ pub const FORBIDDEN_PREFIXES: [&str; 7] = [
     "ZMX_",
     "HOMEBREW_",
 ];
-const STATE_DIR_PREFIX: &str = "shellio-probe-state.";
+/// Короткий префикс: сокеты под каталогом состояния должны поместиться в `sun_path` (103 байта),
+/// а канонический `$TMPDIR` macOS уже занимает около 57.
+const STATE_DIR_PREFIX: &str = "psu.";
 
 /// Имя временного `SHELLIO_STATE_DIR`, который создаёт запуск с этим nonce.
 pub fn state_dir_name(nonce: &str) -> String {
@@ -772,13 +774,13 @@ mod tests {
             BUILD_COMMIT => Some("a9cbb05".to_owned()),
             _ => None,
         };
-        let env = build_env(parent, "/tmp/shellio-probe-state.n1").unwrap();
+        let env = build_env(parent, "/tmp/psu.n1").unwrap();
         assert_eq!(
             env,
             pairs(&[
                 ("HOME", "/Users/t"),
                 ("PATH", "/usr/bin:/bin"),
-                (STATE_DIR, "/tmp/shellio-probe-state.n1"),
+                (STATE_DIR, "/tmp/psu.n1"),
                 (LANG, LANG_VALUE),
                 (BUILD_COMMIT, "a9cbb05"),
             ])
@@ -796,7 +798,7 @@ mod tests {
             "PATH" => Some("/usr/bin".to_owned()),
             _ => None,
         };
-        let env = build_env(parent, "/tmp/shellio-probe-state.n1").unwrap();
+        let env = build_env(parent, "/tmp/psu.n1").unwrap();
         assert_eq!(check_env(&env, Some("n1")), Check::default());
     }
 
@@ -809,7 +811,7 @@ mod tests {
             "SHELLIO_PROBE_VERSION_UNKNOWN" => Some("1".to_owned()),
             _ => None,
         };
-        let env = build_env(parent, "/tmp/shellio-probe-state.n1").unwrap();
+        let env = build_env(parent, "/tmp/psu.n1").unwrap();
         assert_eq!(
             env.last(),
             Some(&(
@@ -849,7 +851,7 @@ mod tests {
         assert!(check.violations[3].starts_with("HOMEBREW_PREFIX"));
         assert_eq!(check.extra, ["__CF_USER_TEXT_ENCODING"]);
         let relative = check_env(
-            &pairs(&[(STATE_DIR, "shellio-probe-state.n1"), (LANG, LANG_VALUE)]),
+            &pairs(&[(STATE_DIR, "psu.n1"), (LANG, LANG_VALUE)]),
             Some("n1"),
         );
         assert_eq!(relative.violations.len(), 1);
@@ -972,10 +974,7 @@ mod tests {
         assert_eq!(first.len(), 16);
         assert!(first.bytes().all(|byte| byte.is_ascii_hexdigit()));
         assert_ne!(first, second);
-        assert_eq!(
-            state_dir_name(&first),
-            format!("shellio-probe-state.{first}")
-        );
+        assert_eq!(state_dir_name(&first), format!("psu.{first}"));
     }
 
     #[test]
