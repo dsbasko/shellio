@@ -6,6 +6,11 @@
 #                                  wrong-id и бандл-контроль .denied, подписанные Shellio Dev
 #                                  (foreign — временной идентичностью во временной keychain), и
 #                                  bundles.json в target/probes/update-lifecycle/bundle/
+#   run.sh tcc-grant               шаг выдачи TCC владельца (план P0.5, «Предусловия»): бандлы как
+#                                  run.sh bundle, tccutil reset SystemPolicyDocumentsFolder только
+#                                  для идентификаторов пробы с журналом tccutil.log, затем
+#                                  probe-update --tcc-grant открывает разрешённый бандл и контроль
+#                                  .denied и пишет target/probes/update-lifecycle/tcc-grant.json
 #   run.sh scenarios [сценарий …]  сборка бинарей пакета, для сценариев не из стенда ещё бандлы
 #                                  (как run.sh bundle), затем каждый сценарий отдельным процессом
 #                                  через --launch под caffeinate -dimsu (временный
@@ -16,6 +21,8 @@
 # Сценарий brew (клетка G) сам заводит изолированный Homebrew в target/probes/update-lifecycle/brew/
 # локальным git clone из /opt/homebrew с копией portable-ruby, ставит cask из шаблонов
 # spikes/probe-update-lifecycle/brew/Casks/ и удаляет префикс в конце; /opt/homebrew только читает.
+# Сценарий tcc (клетка E) идёт вариантами plain и disclaim отдельными процессами; без действительной
+# tcc-grant.json защищённых чтений нет. tccutil вызывает только run.sh tcc-grant.
 # Набор ghostty проба не читает и блокировку vendor/ghostty.lock не берёт: собирается только её
 # пакет. Ненулевой код — только при ошибке исполнения; fail и not_run показывает сводка.
 set -euo pipefail
@@ -25,7 +32,7 @@ CARGO="${CARGO:-cargo}"
 PACKAGE=probe-update-lifecycle
 BIN="$ROOT/target/release/probe-update"
 OUT_BASE="$ROOT/target/probes/update-lifecycle"
-ALL_SCENARIOS="smoke host identity reject-verify owner-basic incompatible swap identity-live reject incompatible-activate window-update owner kill runtimes env-faults keychain brew"
+ALL_SCENARIOS="smoke host identity reject-verify owner-basic incompatible swap identity-live reject incompatible-activate window-update owner kill runtimes env-faults keychain brew tcc"
 # Сценарии стенда без бандлов: для них run.sh scenarios бандлы не собирает.
 STAND_SCENARIOS="smoke host"
 # Каталоги cargo поколений: исполняемые файлы поколений различаются константами сборки.
@@ -311,7 +318,10 @@ cmd_bundle() {
     [ "$before" != "$after" ] || die "tampered: файл не изменился"
     tampered="{\"file\": \"$TAMPERED_FILE\", \"sha256_before\": \"$before\", \"sha256_after\": \"$after\"}"
     assemble 2 "$BUNDLE_ID.wrong-id" probe-update-app "$staging/wrong-id/$APP_NAME" "$work" "$pinned" "$KEYCHAIN"
+    # Отрицательный граф E: бандл .denied поколений 1 и 2, его хост и нагрузка подписаны
+    # <id>.denied.host и <id>.denied.fixture.
     assemble 1 "$BUNDLE_ID.denied" probe-update-denied "$staging/denied/$DENIED_APP_NAME" "$work" "$pinned" "$KEYCHAIN"
+    assemble 2 "$BUNDLE_ID.denied" probe-update-denied "$staging/denied-2/$DENIED_APP_NAME" "$work" "$pinned" "$KEYCHAIN"
     FOREIGN_SHA1=""
     foreign_bundle "$staging" "$work" "$pinned"
     rm -rf "$work"
@@ -329,6 +339,8 @@ cmd_bundle() {
     entry="$(layout_entry wrong-id 2 "$staging/wrong-id/$APP_NAME" "$BUNDLE_DIR/wrong-id/$APP_NAME" "$BUNDLE_ID.wrong-id" "$pinned")"
     entries+=("$entry")
     entry="$(layout_entry denied 1 "$staging/denied/$DENIED_APP_NAME" "$BUNDLE_DIR/denied/$DENIED_APP_NAME" "$BUNDLE_ID.denied" "$pinned")"
+    entries+=("$entry")
+    entry="$(layout_entry denied-2 2 "$staging/denied-2/$DENIED_APP_NAME" "$BUNDLE_DIR/denied-2/$DENIED_APP_NAME" "$BUNDLE_ID.denied" "$pinned")"
     entries+=("$entry")
     {
         printf '{\n  "bundle_id": "%s",\n  "leaf": "%s",\n  "bundles": [\n' "$BUNDLE_ID" "$(lower "$pinned")"
@@ -359,6 +371,7 @@ needs_bundles() {
 # Варианты сценария: имя — строчные буквы и цифры, оно входит в имя каталога.
 variants_of() {
     case "$1" in
+        tcc) echo plain disclaim ;;
         *) echo base ;;
     esac
 }
@@ -426,7 +439,29 @@ cmd_scenarios() {
     fi
 }
 
+# Шаг выдачи TCC владельца. Каждый вызов tccutil пишется в журнал с идентификатором и кодом;
+# отказ сброса не прерывает шаг: его итог видит проверка выдачи сценария tcc.
+cmd_tcc_grant() {
+    local id code log="$OUT_BASE/tccutil.log"
+    local ids="$BUNDLE_ID $BUNDLE_ID.host $BUNDLE_ID.fixture $BUNDLE_ID.denied $BUNDLE_ID.denied.host $BUNDLE_ID.denied.fixture"
+    (cd "$ROOT" && "$CARGO" build --release -p "$PACKAGE" --locked --bins)
+    [ -x "$BIN" ] || die "нет раннера $BIN"
+    cmd_bundle
+    mkdir -p "$OUT_BASE"
+    for id in $ids; do
+        code=0
+        tccutil reset SystemPolicyDocumentsFolder "$id" >>"$log" 2>&1 || code=$?
+        printf '%s tccutil reset SystemPolicyDocumentsFolder %s -> %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$id" "$code" >>"$log"
+    done
+    echo "сброс разрешений записан в $log"
+    echo "сейчас откроется probe-update.app: нажмите «Разрешить»; затем probe-update-denied.app: нажмите «Не разрешать»"
+    "$BIN" --tcc-grant "$BUNDLE_DIR" "$OUT_BASE/tcc-grant.json"
+}
+
 case "${1:-}" in
+    tcc-grant)
+        cmd_tcc_grant
+        ;;
     bundle)
         cmd_bundle
         ;;
@@ -435,6 +470,6 @@ case "${1:-}" in
         cmd_scenarios "$@"
         ;;
     *)
-        die "использование: run.sh bundle | run.sh scenarios [сценарий …]"
+        die "использование: run.sh bundle | run.sh tcc-grant | run.sh scenarios [сценарий …]"
         ;;
 esac

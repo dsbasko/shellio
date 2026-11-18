@@ -147,6 +147,7 @@ fn spawn_bounded(
         env,
         stdio: [None, Some(OwnedFd::from(out)), Some(OwnedFd::from(err))],
         setsid,
+        disclaim: false,
     })
     .map_err(|err| format!("запуск {}: {err}", program.display()))?;
     let queue = Queue::new()?;

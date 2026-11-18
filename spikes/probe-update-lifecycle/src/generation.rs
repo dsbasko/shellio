@@ -50,7 +50,7 @@ const SHASUM: &str = "/usr/bin/shasum";
 const PLUTIL: &str = "/usr/bin/plutil";
 
 /// Бандлы `bundles.json` по именам.
-pub const BUNDLES: [&str; 7] = [
+pub const BUNDLES: [&str; 8] = [
     "gen-1",
     "gen-2",
     "incompatible",
@@ -58,6 +58,7 @@ pub const BUNDLES: [&str; 7] = [
     "foreign",
     "wrong-id",
     "denied",
+    "denied-2",
 ];
 
 /// Исполняемая часть бандла: исполняемый файл бандла и вспомогательные бинари.

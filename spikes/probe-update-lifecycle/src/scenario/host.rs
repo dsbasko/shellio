@@ -275,7 +275,7 @@ fn walk(
         program: bins.fixture.clone(),
         args: vec!["--tag".to_owned(), nonce.to_owned()],
     };
-    let record = host::launch(&bins.host, &options, stderr)?;
+    let record = host::launch(&bins.host, &options, stderr, false)?;
     guard.record = Some(record.clone());
     let host_info = observer::inspect(record.host.pid)?;
     let workload_info = observer::inspect(record.workload.pid)?;

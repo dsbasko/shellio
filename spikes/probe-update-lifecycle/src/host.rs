@@ -948,8 +948,14 @@ impl Hub {
 /// Запускает хост через `posix_spawn` с `POSIX_SPAWN_CLOEXEC_DEFAULT` ([`spawn`]) и ждёт строку
 /// [`Launch`] не дольше [`LAUNCH_TIMEOUT`]. stderr хоста идёт в `stderr`, stdin — `/dev/null`,
 /// окружение — вызывающего. Владелец запускает хосты, держа `shellio.lock` и свой сокет: хост их
-/// не наследует.
-pub fn launch(binary: &Path, options: &Options, stderr: File) -> Result<SessionRecord, String> {
+/// не наследует. `disclaim` — вариант клетки E: хост запускается с
+/// `responsibility_spawnattrs_setdisclaim` и отвечает перед TCC сам за себя.
+pub fn launch(
+    binary: &Path,
+    options: &Options,
+    stderr: File,
+    disclaim: bool,
+) -> Result<SessionRecord, String> {
     let (read, write) = spawn::pipe().map_err(|err| format!("канал строки запуска: {err}"))?;
     let pid = spawn::spawn(spawn::Spec {
         program: binary,
@@ -957,6 +963,7 @@ pub fn launch(binary: &Path, options: &Options, stderr: File) -> Result<SessionR
         env: None,
         stdio: [None, Some(write), Some(OwnedFd::from(stderr))],
         setsid: false,
+        disclaim,
     })
     .map_err(|err| format!("запуск {}: {err}", binary.display()))?;
     let (sender, receiver) = mpsc::channel();

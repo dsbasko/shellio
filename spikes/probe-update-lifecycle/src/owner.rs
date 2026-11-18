@@ -62,6 +62,7 @@ use crate::proto::{ATTACH_VERSIONS, Hello, Purpose};
 use crate::pty::Winsize;
 use crate::recover::{self, Actor, Checker, Next, Seen};
 use crate::runtime::{self, Prepared};
+use crate::tcc;
 use crate::update::{self, Launched};
 use crate::{EXIT_USAGE, kq, launch, say, spawn, sys, window};
 
@@ -120,6 +121,10 @@ pub struct AppOptions {
     pub tag: String,
     pub update_attempt: Option<String>,
     pub window: bool,
+    /// Вариант клетки E: хосты запускаются с `responsibility_spawnattrs_setdisclaim`.
+    pub disclaim: bool,
+    /// Клетка E: файл-фикстура, который роль GUI читает при старте (`<state>/tcc/gui-<pid>.json`).
+    pub tcc_fixture: Option<PathBuf>,
     /// Аргументы, которые получает владелец: свои у владельца, переданные у второго запуска.
     pub forward: Vec<String>,
 }
@@ -141,6 +146,12 @@ impl AppOptions {
         ];
         if self.window {
             args.push("--window".to_owned());
+        }
+        if self.disclaim {
+            args.push("--disclaim".to_owned());
+        }
+        if let Some(fixture) = &self.tcc_fixture {
+            args.extend(["--tcc-fixture".to_owned(), fixture.display().to_string()]);
         }
         args
     }
@@ -168,13 +179,15 @@ pub enum AppMode {
     Stub(StubMode),
     /// Разовая операция keychain клетки F (задача 14).
     Keychain(keychain::OpArgs),
+    /// Разовое чтение фикстуры клетки E (задача 16).
+    Tcc(tcc::OpArgs),
     Run(AppOptions),
 }
 
 pub const USAGE: &str = "\
 использование: probe-update-app --installed <бандл> --leaf <SHA-1> --tag <метка>
        [--state <каталог>] [--identifier <id>] [--update-attempt <номер>] [--window]
-       [-- <аргументы владельцу>…]
+       [--disclaim] [--tcc-fixture <файл>] [-- <аргументы владельцу>…]
        probe-update-app --manifest | --report
        probe-update-app --keychain … (операция клетки F, см. ниже)
 каталог состояния — --state или SHELLIO_STATE_DIR, по умолчанию его нет";
@@ -193,6 +206,9 @@ pub fn parse_app_args(args: &[String], env_state: Option<&str>) -> Result<AppMod
     if args.first().map(String::as_str) == Some("--keychain") {
         return keychain::OpArgs::parse(args).map(AppMode::Keychain);
     }
+    if args.first().map(String::as_str) == Some("--tcc") {
+        return tcc::OpArgs::parse(args).map(AppMode::Tcc);
+    }
     if args
         .iter()
         .any(|arg| arg == "--manifest" || arg == "--report")
@@ -201,7 +217,8 @@ pub fn parse_app_args(args: &[String], env_state: Option<&str>) -> Result<AppMod
     }
     let (mut state, mut installed, mut leaf, mut identifier, mut tag, mut attempt) =
         (None, None, None, None, None, None);
-    let mut window = false;
+    let mut fixture = None;
+    let (mut window, mut disclaim) = (false, false);
     let mut forward = Vec::new();
     let mut rest = args.iter();
     while let Some(flag) = rest.next() {
@@ -213,8 +230,13 @@ pub fn parse_app_args(args: &[String], env_state: Option<&str>) -> Result<AppMod
             window = true;
             continue;
         }
+        if flag == "--disclaim" {
+            disclaim = true;
+            continue;
+        }
         let value = rest.next().ok_or_else(|| format!("{flag}: нет значения"))?;
         let slot = match flag.as_str() {
+            "--tcc-fixture" => &mut fixture,
             "--state" => &mut state,
             "--installed" => &mut installed,
             "--leaf" => &mut leaf,
@@ -264,6 +286,10 @@ pub fn parse_app_args(args: &[String], env_state: Option<&str>) -> Result<AppMod
         tag,
         update_attempt: attempt,
         window,
+        disclaim,
+        tcc_fixture: fixture
+            .map(|fixture| absolute("--tcc-fixture", &fixture))
+            .transpose()?,
         forward,
     }))
 }
@@ -772,6 +798,7 @@ pub fn app_main(args: &[String]) -> ExitCode {
         }
         Ok(AppMode::Stub(_)) => generation::stub_main(APP_BIN, args),
         Ok(AppMode::Keychain(op)) => keychain_main(op),
+        Ok(AppMode::Tcc(op)) => tcc_main(op),
         Ok(AppMode::Run(options)) => {
             barrier::set_role(if options.update_attempt.is_some() {
                 barrier::Role::Next
@@ -830,6 +857,56 @@ fn keychain_main(op: keychain::OpArgs) -> ExitCode {
     ExitCode::from(finish(&op))
 }
 
+fn tcc_main(op: tcc::OpArgs) -> ExitCode {
+    fn finish(op: &tcc::OpArgs) -> u8 {
+        match tcc::write_report(&op.out, &tcc::perform(op)) {
+            Ok(()) => 0,
+            Err(reason) => {
+                say(&format!("{APP_BIN}: --tcc: {reason}"));
+                EXIT_ERROR
+            }
+        }
+    }
+    if op.window {
+        let started = window::run_main(crate::GENERATION, move || {
+            std::process::exit(i32::from(finish(&op)));
+        });
+        say(&format!(
+            "{APP_BIN}: --tcc --window: {}",
+            started
+                .err()
+                .unwrap_or_else(|| "цикл окна вернулся".to_owned())
+        ));
+        return ExitCode::from(EXIT_ERROR);
+    }
+    ExitCode::from(finish(&op))
+}
+
+/// Каталог отчётов чтения роли GUI в каталоге состояния.
+pub const TCC_DIR: &str = "tcc";
+
+/// Чтение фикстуры ролью GUI при старте: `<state>/tcc/gui-<pid>.json`. Ошибка записи отчёта не
+/// роняет роль: её увидит сценарий по отсутствию отчёта.
+fn tcc_gui_read(options: &AppOptions) {
+    let Some(fixture) = &options.tcc_fixture else {
+        return;
+    };
+    let dir = options.state.join(TCC_DIR);
+    let out = dir.join(format!("gui-{}.json", std::process::id()));
+    let op = tcc::OpArgs {
+        op: tcc::Op::Read,
+        fixture: fixture.clone(),
+        out: out.clone(),
+        window: options.window,
+    };
+    let written = fs::create_dir_all(&dir)
+        .map_err(|err| format!("{}: {err}", dir.display()))
+        .and_then(|()| tcc::write_report(&out, &tcc::perform(&op)));
+    if let Err(reason) = written {
+        say(&format!("{APP_BIN}: --tcc-fixture: {reason}"));
+    }
+}
+
 fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -863,6 +940,7 @@ enum Waited {
 }
 
 fn run(options: &AppOptions) -> AppReport {
+    tcc_gui_read(options);
     let me = match observer::current() {
         Ok(info) => info.key,
         Err(reason) => return AppReport::Error { key: None, reason },
@@ -1734,6 +1812,7 @@ impl Server {
                 Some(output(update::HELPER_STDERR)?),
             ],
             setsid: true,
+            disclaim: false,
         })
         .map_err(|err| format!("запуск {}: {err}", program.display()))?;
         Ok(observer::inspect(pid)?
@@ -1850,7 +1929,7 @@ impl Server {
             .try_clone_to_owned()
             .map(File::from)
             .map_err(|err| format!("stderr для хоста: {err}"))?;
-        host::launch(&binaries.host, &options, stderr)
+        host::launch(&binaries.host, &options, stderr, self.options.disclaim)
     }
 }
 
@@ -1943,6 +2022,8 @@ mod tests {
             tag: "0123456789abcdef".to_owned(),
             update_attempt: None,
             window: false,
+            disclaim: false,
+            tcc_fixture: None,
             forward: Vec::new(),
         }
     }

@@ -4,7 +4,7 @@
 //! `incompatible` (D2 до активации), задача 8 — `swap` (B1), `identity-live` (A1), `reject` (A2)
 //! и `incompatible-activate` (D2, активация), задача 9 — `window-update` (H), задача 10 — `owner`
 //! (C1), задача 11 — `kill` (B2), задача 12 — `runtimes` (D1), задача 13 — `env-faults` (B3),
-//! задача 14 — `keychain` (F), задача 15 — `brew` (G).
+//! задача 14 — `keychain` (F), задача 15 — `brew` (G), задача 16 — `tcc` (E).
 
 pub mod brew;
 pub mod env_faults;
@@ -22,6 +22,7 @@ pub mod reject_live;
 pub mod runtimes;
 pub mod smoke;
 pub mod swap;
+pub mod tcc;
 pub mod update_flow;
 pub mod window;
 
@@ -75,10 +76,12 @@ pub enum Scenario {
     Keychain,
     /// G: карантин через изолированный Homebrew.
     Brew,
+    /// E: TCC.
+    Tcc,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 17] = [
+    pub const ALL: [Scenario; 18] = [
         Scenario::Smoke,
         Scenario::Host,
         Scenario::Identity,
@@ -96,6 +99,7 @@ impl Scenario {
         Scenario::EnvFaults,
         Scenario::Keychain,
         Scenario::Brew,
+        Scenario::Tcc,
     ];
 
     pub fn name(self) -> &'static str {
@@ -117,6 +121,7 @@ impl Scenario {
             Scenario::EnvFaults => "env-faults",
             Scenario::Keychain => "keychain",
             Scenario::Brew => "brew",
+            Scenario::Tcc => "tcc",
         }
     }
 
@@ -146,6 +151,7 @@ impl Scenario {
             Scenario::EnvFaults => env_faults::DEADLINE,
             Scenario::Keychain => keychain::DEADLINE,
             Scenario::Brew => brew::DEADLINE,
+            Scenario::Tcc => tcc::DEADLINE,
         }
     }
 }
@@ -232,6 +238,7 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::EnvFaults => env_faults::run(&target.out, environment),
         Scenario::Keychain => keychain::run(&target.out, environment),
         Scenario::Brew => brew::run(&target.out, environment),
+        Scenario::Tcc => tcc::run(&target.out, environment),
     }
 }
 
@@ -448,7 +455,8 @@ mod tests {
             assert_eq!(Scenario::from_name(scenario.name()), Some(scenario));
             assert!(!scenario.deadline().is_zero());
         }
-        assert_eq!(Scenario::from_name("tcc"), None);
+        assert_eq!(Scenario::from_name("tcc"), Some(Scenario::Tcc));
+        assert_eq!(Scenario::from_name("nope"), None);
     }
 
     #[test]

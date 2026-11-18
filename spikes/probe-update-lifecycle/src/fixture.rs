@@ -1,5 +1,5 @@
 //! Нагрузка пробы `probe-update-fixture` (план P0.5, раскладка cargo): нумерованный вывод и
-//! квитанции ввода в том же нумерованном потоке. Чтение файла TCC добавляет задача 16.
+//! квитанции ввода в том же нумерованном потоке, защищённое чтение файла клетки E (задача 16).
 //!
 //! Нагрузка работает в PTY хоста лидером своей сессии. Первым делом она переводит терминал в
 //! raw-режим без эха и только потом печатает строку `ready`: ввод, пришедший после неё, не
@@ -11,6 +11,8 @@
 //! потому что её получает любой следующий `attach` в хвосте. Команды:
 //! - `emit <k>` — `k` строк `emit <seq> <i>/<k>`, затем квитанция;
 //! - `ping` — квитанция;
+//! - `read <путь>` — защищённое чтение файла: строка [`crate::tcc::reply`] с итогом и ответственным
+//!   процессом нагрузки, затем квитанция;
 //! - `exit` — квитанция и выход с кодом 0.
 //!
 //! Нагрузка выходит по `exit`, по концу PTY и по `SIGHUP` или `SIGTERM` (действие по умолчанию).
@@ -67,6 +69,18 @@ pub struct Response {
 
 /// Ответ на строку ввода без перевода строки.
 pub fn respond(line: &str) -> Response {
+    respond_with(line, &|seq, path| {
+        let responsible = crate::tcc::responsible_pid(std::process::id() as i32).ok();
+        crate::tcc::reply(
+            seq,
+            &crate::tcc::read(std::path::Path::new(path)),
+            responsible,
+        )
+    })
+}
+
+/// Ответ на строку ввода; `read` — строка итога чтения `seq` по пути.
+pub fn respond_with(line: &str, read: &dyn Fn(u64, &str) -> String) -> Response {
     let line = line.strip_suffix('\r').unwrap_or(line);
     let Some((seq, command)) = line
         .split_once(' ')
@@ -77,6 +91,14 @@ pub fn respond(line: &str) -> Response {
             exit: false,
         };
     };
+    if let Some(path) = command.strip_prefix("read ").map(str::trim)
+        && !path.is_empty()
+    {
+        return Response {
+            lines: vec![read(seq, path), receipt(seq, command)],
+            exit: false,
+        };
+    }
     let words: Vec<&str> = command.split_whitespace().collect();
     match words[..] {
         ["emit", count] => match count.parse::<u64>() {
@@ -223,6 +245,10 @@ mod tests {
         );
         assert_eq!(respond("3 emit 0").lines, ["ack 3 emit 0"]);
         assert_eq!(respond("4 ping\r").lines, ["ack 4 ping"]);
+        let read = respond_with("6 read /tmp/a b", &|seq, path| format!("tcc {seq} {path}"));
+        assert_eq!(read.lines, ["tcc 6 /tmp/a b", "ack 6 read /tmp/a b"]);
+        assert!(!read.exit);
+        assert!(respond("7 read ").lines[0].starts_with("error 7"));
         assert_eq!(
             respond("5 exit"),
             Response {

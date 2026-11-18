@@ -25,6 +25,8 @@ pub struct Spec<'a> {
     pub stdio: [Option<OwnedFd>; 3],
     /// Новая сессия (`POSIX_SPAWN_SETSID`): потомок не делит группу и сессию с вызывающим.
     pub setsid: bool,
+    /// `responsibility_spawnattrs_setdisclaim`: потомок сам отвечает за себя перед TCC.
+    pub disclaim: bool,
 }
 
 /// `POSIX_SPAWN_SETSID` из `spawn.h`: в `libc` для Apple его нет.
@@ -178,6 +180,9 @@ pub fn spawn(spec: Spec<'_>) -> io::Result<i32> {
                 attr.as_mut_ptr(),
                 flags as libc::c_short,
             ))?;
+            if spec.disclaim {
+                crate::tcc::set_disclaim(attr.as_mut_ptr())?;
+            }
             let mut pid: libc::pid_t = 0;
             check(libc::posix_spawn(
                 &mut pid,
@@ -242,6 +247,7 @@ pub fn output(program: &Path, args: &[String]) -> io::Result<Output> {
         env: None,
         stdio: [None, Some(out_write), Some(err_write)],
         setsid: false,
+        disclaim: false,
     })?;
     let stderr = thread::Builder::new()
         .name("spawn-stderr".to_owned())
@@ -305,6 +311,7 @@ mod tests {
             env: Some(&env),
             stdio: [None, Some(write), None],
             setsid: true,
+            disclaim: false,
         })
         .unwrap();
         let text = read_all(read).unwrap();

@@ -261,6 +261,8 @@ fn walk(
         tag: nonce.to_owned(),
         update_attempt: None,
         window: false,
+        disclaim: false,
+        tcc_fixture: None,
         forward: Vec::new(),
     };
     let checker = Codesign {

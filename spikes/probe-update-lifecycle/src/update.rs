@@ -209,6 +209,7 @@ pub fn mode(journal: &Journal) -> Result<AppOptions, String> {
         AppMode::Run(options) => Ok(options),
         AppMode::Stub(_) => Err("в журнале аргументы заглушки".to_owned()),
         AppMode::Keychain(_) => Err("в журнале аргументы операции keychain".to_owned()),
+        AppMode::Tcc(_) => Err("в журнале аргументы операции tcc".to_owned()),
     }
 }
 

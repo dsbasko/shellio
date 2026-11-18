@@ -368,6 +368,8 @@ fn walk(
         tag: nonce.to_owned(),
         update_attempt: None,
         window: false,
+        disclaim: false,
+        tcc_fixture: None,
         forward: forward.iter().map(|arg| (*arg).to_owned()).collect(),
     };
 

@@ -873,6 +873,20 @@ pub fn ax_press(pid: i32, identifier: &str) -> Result<(), String> {
 
 /// Нажатия клавиш процессу `pid`: каждый символ — нажатие с этим символом Unicode, затем
 /// `Return`. События идут в очередь процесса, а не в активное приложение.
+/// Код клавиши Escape (`kVK_Escape`).
+pub const ESCAPE_KEYCODE: u16 = 53;
+
+/// Синтетический Escape процессу `pid`: запасное закрытие окна запроса TCC (клетка E).
+pub fn post_escape(pid: i32) -> Result<(), String> {
+    for down in [true, false] {
+        let event = CGEvent::new_keyboard_event(None, ESCAPE_KEYCODE, down)
+            .ok_or("CGEventCreateKeyboardEvent вернул NULL")?;
+        CGEvent::set_integer_value_field(Some(&event), CGEventField::EventSourceUserData, MARK);
+        CGEvent::post_to_pid(pid, Some(&event));
+    }
+    Ok(())
+}
+
 pub fn type_text(pid: i32, text: &str) -> Result<(), String> {
     let post = |keycode: u16, unicode: Option<&[u16]>| -> Result<(), String> {
         for down in [true, false] {

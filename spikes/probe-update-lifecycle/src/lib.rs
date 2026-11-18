@@ -28,6 +28,7 @@ pub mod runtime;
 pub mod scenario;
 pub mod spawn;
 pub mod sys;
+pub mod tcc;
 pub mod update;
 pub mod volume;
 pub mod watchdog;
@@ -84,6 +85,9 @@ pub fn main() -> ExitCode {
         Ok(args) => args,
         Err(arg) => return usage_error(&format!("аргумент не в UTF-8: {arg:?}")),
     };
+    if args.first().map(String::as_str) == Some("--tcc-grant") {
+        return tcc::grant_main(&args[1..]);
+    }
     let mode = match args::parse(&args) {
         Ok(mode) => mode,
         Err(err) => return usage_error(&err.to_string()),

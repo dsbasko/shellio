@@ -28,7 +28,7 @@ PROBE_UPDATE := spikes/probe-update-lifecycle/run.sh
 LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run test-bundle \
 	probe-ghostty probe-ghostty-demo probe-session-surface
 
-.PHONY: setup test-scripts probe-appkit probe-appkit-demo probe-session probe-update $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
+.PHONY: setup test-scripts probe-appkit probe-appkit-demo probe-session probe-update probe-update-tcc-grant $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
 
 # Под make -j цели одного вызова иначе столкнулись бы на собственной блокировке.
 .NOTPARALLEL:
@@ -136,3 +136,9 @@ locked-probe-session-surface:
 # проверяет разрешения Accessibility и Screen Recording терминала, из которого идёт make (ADR-0034).
 probe-update:
 	CARGO=$(CARGO) $(PROBE_UPDATE) scenarios $(SCENARIOS)
+
+# Шаг выдачи TCC для владельца между запусками P0.5 (план, «Предусловия»): сброс разрешений
+# SystemPolicyDocumentsFolder только идентификаторов пробы с журналом tccutil.log, затем бандл пробы
+# («Разрешить») и контроль .denied («Не разрешать»), запись tcc-grant.json. В check и CI не входит.
+probe-update-tcc-grant:
+	CARGO=$(CARGO) $(PROBE_UPDATE) tcc-grant
