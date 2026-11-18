@@ -4,8 +4,11 @@
 //! Текст diff хранится один раз как `Arc<[u8]>`, строки и заголовки ссылаются на него диапазонами
 //! байт. Адреса строк начинаются с 1, как в git и в якоре ADR-0015, и живут внутри файла.
 
+pub mod heights;
 pub mod parse;
 pub mod rows;
+pub mod state;
+pub mod wrap;
 
 use std::io;
 use std::num::NonZeroU32;
