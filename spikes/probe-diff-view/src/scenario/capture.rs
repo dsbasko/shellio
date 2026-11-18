@@ -280,7 +280,7 @@ impl Capture {
             let config = SCStreamConfiguration::new();
             config.setWidth(window_w.round() as usize);
             config.setHeight(window_h.round() as usize);
-            config.setMinimumFrameInterval(CMTime::new(1, 120));
+            config.setMinimumFrameInterval(CMTime::new(1, 240));
             config.setPixelFormat(kCVPixelFormatType_32BGRA);
             config.setShowsCursor(false);
             config.setQueueDepth(QUEUE_DEPTH);
