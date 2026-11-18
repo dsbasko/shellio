@@ -550,6 +550,111 @@ pub fn confirm_rate(vsyncs: &[Vsync], display: &str, expected_period_ns: u64) ->
     }
 }
 
+/// Допуск попадания строк vsync и концов показа на сетку, наносекунды. Записан до первого прогона
+/// `calibrate`: в разведке отклонения не больше 1 мкс, половина периода — 4,17 мс.
+pub const GRID_TOLERANCE_NS: f64 = 100_000.0;
+
+/// Сетка vsync дисплея: такт `k` приходится на `origin + intercept + k × period`. Строки
+/// `display-vsyncs-interval` идут пачками с разрывами, поэтому сетка строится не по соседним
+/// строкам, а по номерам тактов всех строк методом наименьших квадратов.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Grid {
+    pub origin_ns: u64,
+    pub intercept_ns: f64,
+    pub period_ns: f64,
+    pub rows: usize,
+    /// Наибольшее отклонение строки vsync от сетки.
+    pub max_offset_ns: f64,
+}
+
+impl Grid {
+    /// Номер такта, ближайшего к моменту `at_ns`.
+    pub fn slot(&self, at_ns: u64) -> i64 {
+        ((self.relative(at_ns) - self.intercept_ns) / self.period_ns).round() as i64
+    }
+
+    /// Отклонение момента от ближайшего такта.
+    pub fn offset_ns(&self, at_ns: u64) -> f64 {
+        self.relative(at_ns) - self.intercept_ns - self.slot(at_ns) as f64 * self.period_ns
+    }
+
+    /// Моменты дальше [`GRID_TOLERANCE_NS`] от сетки.
+    pub fn off_grid(&self, times_ns: &[u64]) -> Vec<u64> {
+        times_ns
+            .iter()
+            .copied()
+            .filter(|&at| self.offset_ns(at).abs() > GRID_TOLERANCE_NS)
+            .collect()
+    }
+
+    fn relative(&self, at_ns: u64) -> f64 {
+        at_ns as f64 - self.origin_ns as f64
+    }
+}
+
+/// Сетка vsync дисплея `display`. Начальный период — медиана интервалов соседних строк, номер
+/// такта строки — округлённое частное. Строка vsync дальше [`GRID_TOLERANCE_NS`] от сетки —
+/// ошибка: тогда строки не ложатся на один период.
+pub fn grid(vsyncs: &[Vsync], display: &str) -> Result<Grid, String> {
+    let mut times: Vec<u64> = vsyncs
+        .iter()
+        .filter(|vsync| vsync.display == display)
+        .map(|vsync| vsync.at_ns)
+        .collect();
+    times.sort_unstable();
+    times.dedup();
+    if times.len() < 3 {
+        return Err(format!(
+            "сетка vsync {display}: {} строк, нужно не меньше 3",
+            times.len()
+        ));
+    }
+    let mut periods: Vec<u64> = times.windows(2).map(|pair| pair[1] - pair[0]).collect();
+    periods.sort_unstable();
+    let initial = periods[periods.len() / 2] as f64;
+    if initial <= 0.0 {
+        return Err(format!("сетка vsync {display}: нулевой период"));
+    }
+    let origin = times[0];
+    let points: Vec<(f64, f64)> = times
+        .iter()
+        .map(|&at| {
+            let t = (at - origin) as f64;
+            ((t / initial).round(), t)
+        })
+        .collect();
+    let n = points.len() as f64;
+    let mean_k = points.iter().map(|p| p.0).sum::<f64>() / n;
+    let mean_t = points.iter().map(|p| p.1).sum::<f64>() / n;
+    let spread: f64 = points.iter().map(|p| (p.0 - mean_k).powi(2)).sum();
+    if spread == 0.0 {
+        return Err(format!("сетка vsync {display}: строки на одном такте"));
+    }
+    let period = points
+        .iter()
+        .map(|p| (p.0 - mean_k) * (p.1 - mean_t))
+        .sum::<f64>()
+        / spread;
+    let mut grid = Grid {
+        origin_ns: origin,
+        intercept_ns: mean_t - period * mean_k,
+        period_ns: period,
+        rows: times.len(),
+        max_offset_ns: 0.0,
+    };
+    grid.max_offset_ns = times
+        .iter()
+        .map(|&at| grid.offset_ns(at).abs())
+        .fold(0.0, f64::max);
+    if grid.max_offset_ns > GRID_TOLERANCE_NS {
+        return Err(format!(
+            "сетка vsync {display}: строка в {:.0} нс от сетки, допуск {GRID_TOLERANCE_NS:.0} нс",
+            grid.max_offset_ns
+        ));
+    }
+    Ok(grid)
+}
+
 /// Строка `xctrace record`, после которой запись идёт.
 pub const RECORDING_STARTED: &str = "Ctrl-C to stop the recording";
 
@@ -826,6 +931,59 @@ mod tests {
             .unwrap();
         assert_eq!((clock.numer, clock.denom), (125, 3));
     }
+    /// Пачки по 10 тактов с разрывами около секунды и дрожанием до 600 нс, как в разведке.
+    fn bursts(period: f64, start: u64) -> Vec<Vsync> {
+        let mut rows = Vec::new();
+        for burst in 0..5u64 {
+            for tick in 0..10u64 {
+                let k = burst * 120 + tick;
+                let jitter = [0.0, 400.0, -600.0, 250.0, -100.0][(k % 5) as usize];
+                rows.push(Vsync {
+                    at_ns: (start as f64 + k as f64 * period + jitter) as u64,
+                    display: "Built-In Display 1".to_owned(),
+                });
+            }
+        }
+        rows
+    }
+
+    #[test]
+    fn grid_fits_bursts_and_flags_offsets() {
+        let period = 1e9 / 120.0;
+        let mut rows = bursts(period, 5_000_000_000);
+        rows.push(Vsync {
+            at_ns: 7,
+            display: "Other".to_owned(),
+        });
+        let grid = grid(&rows, "Built-In Display 1").unwrap();
+        assert_eq!(grid.rows, 50);
+        assert!((grid.period_ns - period).abs() < 1.0, "{grid:?}");
+        assert!(grid.max_offset_ns < 1_000.0);
+        let on = 5_000_000_000 + (1000.0 * period) as u64;
+        assert_eq!(grid.slot(on), 1000);
+        assert!(grid.off_grid(&[on, on + 50_000]).is_empty());
+        assert_eq!(grid.off_grid(&[on + 2_000_000]), vec![on + 2_000_000]);
+        assert_eq!(grid.slot(on + 5_000_000), 1001);
+
+        let mut stray = bursts(period, 5_000_000_000);
+        stray[13].at_ns += 1_000_000;
+        assert!(super::grid(&stray, "Built-In Display 1").is_err());
+        assert!(super::grid(&rows[..2], "Built-In Display 1").is_err());
+        assert!(super::grid(&rows, "Нет такого").is_err());
+    }
+
+    #[test]
+    fn recorded_vsyncs_lie_on_one_grid() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/xctrace-attach-vsyncs.xml"
+        );
+        let table = parse_table(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let vsyncs = vsyncs(&table).unwrap();
+        let grid = grid(&vsyncs, &vsyncs[0].display).unwrap();
+        assert!((grid.period_ns - 8_333_333.3).abs() < 100.0, "{grid:?}");
+    }
+
     #[test]
     fn recorder_waits_for_start_and_stops_on_sigint() {
         let dir = std::env::temp_dir().join(format!("probe-diff-recorder-{}", std::process::id()));
