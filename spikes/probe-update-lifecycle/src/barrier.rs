@@ -13,11 +13,16 @@
 //!
 //! Каталог границ ([`B2`], [`C1`]) переписан из раздела «Рубежи и клетки» плана P0.5 строка в
 //! строку; тест сверяет, что у каждой границы есть барьер в коде.
+//!
+//! Отметки (задача 10): процесс с ролью пишет [`note`] — файл в `<state>/barriers/notes/` о шаге,
+//! который стенд иначе не увидит (ответ владельца второму запуску, запрос, дождавшийся готовности
+//! владельца). Без каталога отметок они ничего не делают и ничего не ждут.
 
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -276,6 +281,108 @@ pub fn wait_reached(state: &Path, barrier: Barrier, deadline: Instant) -> Result
         }
         if queue.wait(deadline)? == kq::Event::TimedOut {
             return Err(format!("барьер {} не достигнут к сроку", barrier.key()));
+        }
+    }
+}
+
+// --- отметки ---
+
+pub const NOTES_DIR: &str = "notes";
+
+pub fn notes_dir(state: &Path) -> PathBuf {
+    dir(state).join(NOTES_DIR)
+}
+
+/// Отметка процесса с ролью.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Note {
+    pub event: String,
+    pub role: Role,
+    pub process: ProcessKey,
+    /// Номер отметки в процессе, с 1.
+    pub seq: u64,
+    pub uptime_ns: u64,
+    pub detail: serde_json::Value,
+}
+
+static NOTE_SEQ: AtomicU64 = AtomicU64::new(0);
+static NOTE_KEY: OnceLock<ProcessKey> = OnceLock::new();
+
+/// Отметка `event` в `<state>/barriers/notes/<роль>.<pid>.<номер>.json`; без роли или без
+/// каталога отметок — ничего. Ошибка записи отметки процесс не останавливает.
+pub fn note(state: &Path, event: &str, detail: serde_json::Value) {
+    let Some(role) = ROLE.get().copied() else {
+        return;
+    };
+    let dir = notes_dir(state);
+    if !dir.is_dir() {
+        return;
+    }
+    let process = match NOTE_KEY.get() {
+        Some(key) => *key,
+        None => match observer::current() {
+            Ok(info) => *NOTE_KEY.get_or_init(|| info.key),
+            Err(_) => return,
+        },
+    };
+    let seq = NOTE_SEQ.fetch_add(1, Ordering::Relaxed) + 1;
+    let note = Note {
+        event: event.to_owned(),
+        role,
+        process,
+        seq,
+        uptime_ns: sys::uptime_ns(),
+        detail,
+    };
+    let Ok(text) = serde_json::to_vec(&note) else {
+        return;
+    };
+    let name = format!("{}.{}.{seq}.json", role.name(), process.pid);
+    let tmp = dir.join(format!(".{name}"));
+    if fs::write(&tmp, text)
+        .and_then(|()| fs::rename(&tmp, dir.join(&name)))
+        .is_err()
+    {
+        let _ = fs::remove_file(&tmp);
+    }
+}
+
+/// Все отметки по времени.
+pub fn read_notes(state: &Path) -> Result<Vec<Note>, String> {
+    let dir = notes_dir(state);
+    let mut notes = Vec::new();
+    for entry in fs::read_dir(&dir)
+        .map_err(|err| format!("{}: {err}", dir.display()))?
+        .filter_map(Result::ok)
+    {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with('.') || !name.ends_with(".json") {
+            continue;
+        }
+        let bytes = fs::read(entry.path()).map_err(|err| format!("{name}: {err}"))?;
+        notes.push(serde_json::from_slice(&bytes).map_err(|err| format!("{name}: {err}"))?);
+    }
+    notes.sort_by_key(|note: &Note| (note.uptime_ns, note.process.pid, note.seq));
+    Ok(notes)
+}
+
+/// Ждёт, пока отметки не удовлетворят `ready`, не позже `deadline`.
+pub fn wait_notes(
+    state: &Path,
+    deadline: Instant,
+    ready: impl Fn(&[Note]) -> bool,
+) -> Result<Vec<Note>, String> {
+    let queue = kq::Queue::on_dir(&notes_dir(state))?;
+    loop {
+        let notes = read_notes(state)?;
+        if ready(&notes) {
+            return Ok(notes);
+        }
+        if queue.wait(deadline)? == kq::Event::TimedOut {
+            return Err(format!(
+                "отметки к сроку не появились, есть {}",
+                notes.len()
+            ));
         }
     }
 }
@@ -577,6 +684,31 @@ mod tests {
                 assert!(all.insert(key.clone()), "{key} повторяется");
             }
         }
+    }
+
+    #[test]
+    fn notes_are_written_only_into_an_existing_notes_dir_and_read_in_order() {
+        set_role(Role::Gui);
+        let dir = temp_dir("notes");
+        let state = dir.join("state");
+        fs::create_dir_all(&state).unwrap();
+        note(&state, "lost", serde_json::json!({}));
+        assert!(!notes_dir(&state).exists(), "без каталога отметок — ничего");
+        fs::create_dir_all(notes_dir(&state)).unwrap();
+        note(&state, "first", serde_json::json!({ "n": 1 }));
+        note(&state, "second", serde_json::json!({ "n": 2 }));
+        let notes = read_notes(&state).unwrap();
+        let events: Vec<&str> = notes.iter().map(|note| note.event.as_str()).collect();
+        assert_eq!(events, ["first", "second"]);
+        assert!(notes[0].seq < notes[1].seq);
+        assert_eq!(notes[0].role, Role::Gui);
+        assert_eq!(notes[0].process.pid, std::process::id() as i32);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let waited = wait_notes(&state, deadline, |notes| notes.len() == 2).unwrap();
+        assert_eq!(waited, notes);
+        let missing = wait_notes(&state, Instant::now(), |notes| notes.len() == 3);
+        assert!(missing.is_err());
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     /// Запись журнала останавливается на обеих своих границах: до `rename` на диске прежний

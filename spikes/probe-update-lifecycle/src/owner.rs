@@ -47,6 +47,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use crate::attach::{self, Connected};
 use crate::barrier::{self, Point};
@@ -838,6 +839,16 @@ fn run(options: &AppOptions) -> AppReport {
             None
         }
     };
+    barrier::note(
+        &options.state,
+        "start",
+        json!({
+            "forward": options.forward,
+            "attempt": options.update_attempt,
+            "generation": crate::GENERATION,
+            "cdhash": own_cdhash,
+        }),
+    );
     if let Some(attempt) = &options.update_attempt {
         if let Err(reason) = update::report_started(&options.state, attempt, me) {
             return error(reason);
@@ -855,6 +866,7 @@ fn run(options: &AppOptions) -> AppReport {
                 Ok(lock) => held = lock,
                 Err(err) => return error(format!("{}: {err}", lock_file.display())),
             }
+            barrier::note(&options.state, "lock", json!({ "taken": held.is_some() }));
         }
         if let Some(lock) = held.take() {
             match with_lock(options, me, own_cdhash.as_deref(), lock) {
@@ -965,6 +977,11 @@ fn with_lock(
         .iter()
         .map(|step| format!("{step:?}"))
         .collect();
+    barrier::note(
+        &options.state,
+        "role",
+        json!({ "role": role, "recovery": recovery }),
+    );
     match role {
         Role::Owner => {
             let (Some(own), Some(installed)) = (own_cdhash, installed) else {
@@ -1061,7 +1078,9 @@ fn wait_and_forward(
             from: me,
             wait_ms: left.as_millis() as u64,
         };
-        match request(&options.state, &forward, left + REQUEST_TIMEOUT)? {
+        let answer = request(&options.state, &forward, left + REQUEST_TIMEOUT)?;
+        barrier::note(&options.state, "answer", answer_note(&answer));
+        match answer {
             Answer::Reply(Reply::Receipt { seq, owner }) => {
                 return Ok(Waited::Forwarded { seq, owner });
             }
@@ -1095,6 +1114,20 @@ fn wait_and_forward(
                 });
             }
         }
+    }
+}
+
+/// Ответ на `forward` для отметки стенда.
+fn answer_note(answer: &Answer) -> serde_json::Value {
+    match answer {
+        Answer::Reply(Reply::Receipt { seq, owner }) => {
+            json!({ "answer": "receipt", "seq": seq, "owner": owner })
+        }
+        Answer::Reply(Reply::Refused { reason, retry }) => {
+            json!({ "answer": "refused", "reason": reason, "retry": retry })
+        }
+        Answer::Reply(other) => json!({ "answer": "other", "reply": format!("{other:?}") }),
+        Answer::Unavailable(why) => json!({ "answer": "unavailable", "unavailable": why }),
     }
 }
 
@@ -1179,6 +1212,9 @@ type Unhealthy = (String, Option<Box<health::Facts>>);
 struct ServerState {
     ready: bool,
     received: Vec<Forwarded>,
+    /// Владелец уходит: `activate` начал передачу или ответ на `quit` дан. Аргументы второго
+    /// запуска он больше не принимает: его квитанция была бы ложным успехом.
+    closing: bool,
     quitting: bool,
     /// `activate` записал `intent` и запустил помощника.
     handing: Option<(String, ProcessKey)>,
@@ -1256,6 +1292,7 @@ fn serve(
         state: Mutex::new(ServerState {
             ready: pending.is_none(),
             received: Vec::new(),
+            closing: false,
             quitting: false,
             handing: None,
             update: None,
@@ -1264,7 +1301,7 @@ fn serve(
         gate: Mutex::new(Gate::default()),
         update: Mutex::new(()),
     });
-    server.record(me, options.forward.clone());
+    let _ = server.record(me, options.forward.clone());
     if pending.is_none() {
         print_report(&AppReport::Owner(Box::new(server.snapshot())));
         show_first_session(&options.state);
@@ -1335,11 +1372,19 @@ impl Server {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
-    fn record(&self, from: ProcessKey, args: Vec<String>) -> u64 {
+    /// Принять аргументы; `None` — владелец уходит и больше их не принимает.
+    fn record(&self, from: ProcessKey, args: Vec<String>) -> Option<u64> {
         let mut state = self.lock();
+        if state.closing {
+            return None;
+        }
         let seq = state.received.len() as u64 + 1;
         state.received.push(Forwarded { seq, from, args });
-        seq
+        Some(seq)
+    }
+
+    fn set_closing(&self, closing: bool) {
+        self.lock().closing = closing;
     }
 
     fn snapshot(&self) -> OwnerInfo {
@@ -1420,13 +1465,22 @@ impl Server {
                 from,
                 wait_ms,
             } => {
-                if self.wait_ready(wait_ms) {
-                    Reply::Receipt {
-                        seq: self.record(from, args),
+                let state = &self.options.state;
+                if !self.lock().ready {
+                    barrier::note(state, "forward-held", json!({ "from": from }));
+                }
+                if !self.wait_ready(wait_ms) {
+                    return Server::not_ready();
+                }
+                match self.record(from, args) {
+                    Some(seq) => Reply::Receipt {
+                        seq,
                         owner: self.info.key,
+                    },
+                    None => {
+                        barrier::note(state, "forward-refused", json!({ "from": from }));
+                        Server::not_ready()
                     }
-                } else {
-                    Server::not_ready()
                 }
             }
             Request::CreateSession { name } => {
@@ -1506,7 +1560,10 @@ impl Server {
                     cleanup,
                 }
             }
-            Request::Quit => Reply::Done,
+            Request::Quit => {
+                self.set_closing(true);
+                Reply::Done
+            }
         }
     }
 
@@ -1580,6 +1637,7 @@ impl Server {
         let me = self.info.key;
         let deadline = now_ms() + update::HEALTH_WINDOW.as_millis() as u64;
         let launch = self.options.relaunch_args();
+        self.set_closing(true);
         if let Err(err) = store.advance(&journal.attempt, &[State::Staged], |next| {
             next.state = State::Intent;
             next.deadline_ms = Some(deadline);
@@ -1587,6 +1645,7 @@ impl Server {
             next.sessions = sessions;
             next.gui_from = Some(me);
         }) {
+            self.set_closing(false);
             return refused(err.to_string());
         }
         match self.spawn_helper(&journal.attempt) {
@@ -1599,6 +1658,7 @@ impl Server {
             }
             Err(reason) => {
                 let aborted = update::recover_now(&store, &self.options, me);
+                self.set_closing(false);
                 self.gate
                     .lock()
                     .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -2204,6 +2264,7 @@ mod tests {
             state: Mutex::new(ServerState {
                 ready: true,
                 received: Vec::new(),
+                closing: false,
                 quitting: false,
                 handing: None,
                 update: None,
@@ -2212,6 +2273,64 @@ mod tests {
             gate: Mutex::new(Gate::default()),
             update: Mutex::new(()),
         }
+    }
+
+    /// Уходящий владелец (после `quit` или начала `activate`) аргументы второго запуска не
+    /// принимает: временный отказ с повтором, квитанции нет, принятые раньше остаются.
+    #[test]
+    fn a_closing_owner_refuses_forwarded_args_with_a_retry() {
+        let dir = temp_dir("owner-closing");
+        let server = test_server(&dir);
+        let from = ProcessKey {
+            pid: 7,
+            start_us: 7,
+        };
+        let forward = |arg: &str| {
+            server.handle(Request::Forward {
+                args: vec![arg.to_owned()],
+                from,
+                wait_ms: 0,
+            })
+        };
+        assert_eq!(
+            forward("before"),
+            Reply::Receipt {
+                seq: 1,
+                owner: server.info.key
+            }
+        );
+        assert_eq!(server.handle(Request::Quit), Reply::Done);
+        assert_eq!(
+            forward("after-quit"),
+            Reply::Refused {
+                reason: Unavailable::Restarting.reason().to_owned(),
+                retry: true
+            }
+        );
+        let snapshot = server.snapshot();
+        assert_eq!(snapshot.received.len(), 1);
+        assert_eq!(snapshot.received[0].args, ["before"]);
+        assert!(matches!(
+            server.handle(Request::Ping { wait_ms: 0 }),
+            Reply::Pong(_)
+        ));
+        fs::remove_dir_all(&dir).unwrap();
+        // Отказ activate по предусловию владельца не закрывает: квитанции идут дальше.
+        let dir = temp_dir("owner-closing-activate");
+        let server = test_server(&dir);
+        assert!(matches!(
+            server.handle(Request::Activate),
+            Reply::Refused { retry: false, .. }
+        ));
+        assert!(matches!(
+            server.handle(Request::Forward {
+                args: Vec::new(),
+                from,
+                wait_ms: 0,
+            }),
+            Reply::Receipt { seq: 1, .. }
+        ));
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

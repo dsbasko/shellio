@@ -51,7 +51,18 @@ pub struct Stand {
 impl Stand {
     /// Копия бандла `source` из раскладки в `<state>/install/probe-update.app`.
     pub fn new(state: &Path, nonce: &str, layout: &Layout, source: &str) -> Result<Stand, String> {
-        let installed = state.join(INSTALL_DIR).join(generation::APP_NAME);
+        Stand::at(state, nonce, layout, source, INSTALL_DIR)
+    }
+
+    /// Копия бандла `source` в `<state>/<install_dir>/probe-update.app`.
+    pub fn at(
+        state: &Path,
+        nonce: &str,
+        layout: &Layout,
+        source: &str,
+        install_dir: &str,
+    ) -> Result<Stand, String> {
+        let installed = state.join(install_dir).join(generation::APP_NAME);
         install(&layout.get(source)?.app, &installed)?;
         Ok(Stand {
             state: state.to_path_buf(),

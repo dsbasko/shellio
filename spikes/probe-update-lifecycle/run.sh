@@ -20,7 +20,7 @@ CARGO="${CARGO:-cargo}"
 PACKAGE=probe-update-lifecycle
 BIN="$ROOT/target/release/probe-update"
 OUT_BASE="$ROOT/target/probes/update-lifecycle"
-ALL_SCENARIOS="smoke host identity reject-verify owner-basic incompatible swap identity-live reject incompatible-activate window-update"
+ALL_SCENARIOS="smoke host identity reject-verify owner-basic incompatible swap identity-live reject incompatible-activate window-update owner"
 # Сценарии стенда без бандлов: для них run.sh scenarios бандлы не собирает.
 STAND_SCENARIOS="smoke host"
 # Каталоги cargo поколений: исполняемые файлы поколений различаются константами сборки.
