@@ -1,9 +1,11 @@
 //! Сценарии пробы и процесс сценария: предусловие окружения, сценарий, `result.json` в `--out`.
 //! Сценарии добавляют задачи плана; задача 2 — сценарий стенда `smoke`, задача 3 — `host`,
-//! задача 4 — `identity` (A1) и `reject-verify` (A2), задача 6 — `owner-basic`.
+//! задача 4 — `identity` (A1) и `reject-verify` (A2), задача 6 — `owner-basic`, задача 7 —
+//! `incompatible` (D2 до активации).
 
 pub mod host;
 pub mod identity;
+pub mod incompatible;
 pub mod owner_basic;
 pub mod reject;
 pub mod smoke;
@@ -34,15 +36,18 @@ pub enum Scenario {
     RejectVerify,
     /// Самопроверка стенда: роль GUI и владение без обновления.
     OwnerBasic,
+    /// D2 до активации: заморозка, проверка совместимости и отсрочка.
+    Incompatible,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 5] = [
+    pub const ALL: [Scenario; 6] = [
         Scenario::Smoke,
         Scenario::Host,
         Scenario::Identity,
         Scenario::RejectVerify,
         Scenario::OwnerBasic,
+        Scenario::Incompatible,
     ];
 
     pub fn name(self) -> &'static str {
@@ -52,6 +57,7 @@ impl Scenario {
             Scenario::Identity => "identity",
             Scenario::RejectVerify => "reject-verify",
             Scenario::OwnerBasic => "owner-basic",
+            Scenario::Incompatible => "incompatible",
         }
     }
 
@@ -69,6 +75,7 @@ impl Scenario {
             Scenario::Identity => identity::DEADLINE,
             Scenario::RejectVerify => reject::DEADLINE,
             Scenario::OwnerBasic => owner_basic::DEADLINE,
+            Scenario::Incompatible => incompatible::DEADLINE,
         }
     }
 }
@@ -143,6 +150,7 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::Identity => identity::run(&target.out, environment),
         Scenario::RejectVerify => reject::run(&target.out, environment),
         Scenario::OwnerBasic => owner_basic::run(&target.out, environment),
+        Scenario::Incompatible => incompatible::run(&target.out, environment),
     }
 }
 

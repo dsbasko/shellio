@@ -15,6 +15,9 @@
 //! владелец исчез (блокирующий `flock` в отдельном потоке будит ожидание событием
 //! `EVFILT_USER`). Без `sleep` и опроса.
 //!
+//! Создание сессий идёт под мьютексом заморозки ([`compat::Gate`]): проверка совместимости
+//! обновления (задача 7) замораживает создание, и запрос под заморозкой получает временный отказ.
+//!
 //! Протокол управляющего сокета — одна строка JSON запроса и одна строка ответа на соединение.
 //! Клиент пробы при ошибке `connect` сокет не удаляет: `ENOENT` и `ECONNREFUSED` — явный
 //! временный отказ «владелец запускается или перезапускается» с признаком повтора. «Недоступен»
@@ -36,11 +39,12 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::attach::{self, Connected};
+use crate::compat::{self, Gate, Install, Staging};
 use crate::generation::{self, APP_BIN, BUNDLE_ID, Manifest, Part, StubMode};
 use crate::host::{self, SessionRecord};
 use crate::journal::{self, Journal, State};
 use crate::observer::{self, ProcessKey};
-use crate::proto::{ATTACH_VERSIONS, Purpose};
+use crate::proto::{ATTACH_VERSIONS, Hello, Purpose};
 use crate::pty::Winsize;
 use crate::recover::{self, Actor, Checker, Next, Seen};
 use crate::runtime::{self, Prepared};
@@ -335,6 +339,12 @@ pub enum Request {
         name: String,
     },
     Sessions,
+    /// Начать попытку обновления кандидатом — бандлом по абсолютному пути вне установки.
+    Update {
+        candidate: String,
+    },
+    /// Повторить отложенную попытку из журнала: `staged-deferred → staged`.
+    Retry,
     /// Владелец убирает свой сокет и выходит; сессии живут.
     Quit,
 }
@@ -406,6 +416,8 @@ pub enum Reply {
         /// Кандидаты на уборку `runtime/` по живым хостам.
         cleanup: Vec<u32>,
     },
+    /// Итог постановки или повторной проверки обновления.
+    Staging(Box<Staging>),
     Done,
     Refused {
         reason: String,
@@ -1154,8 +1166,10 @@ struct Server {
     info: OwnerInfo,
     state: Mutex<ServerState>,
     changed: Condvar,
-    /// Сессии запускаются по одной.
-    create: Mutex<()>,
+    /// Сессии запускаются по одной под этим мьютексом; заморозка — флаг под ним же.
+    gate: Mutex<Gate>,
+    /// Проверки обновления идут по одной.
+    update: Mutex<()>,
 }
 
 fn serve(
@@ -1218,7 +1232,8 @@ fn serve(
             quitting: false,
         }),
         changed: Condvar::new(),
-        create: Mutex::new(()),
+        gate: Mutex::new(Gate::default()),
+        update: Mutex::new(()),
     });
     server.record(me, options.forward.clone());
     print_report(&AppReport::Owner(Box::new(server.snapshot())));
@@ -1345,13 +1360,26 @@ impl Server {
                 if !self.wait_ready(0) {
                     return Server::not_ready();
                 }
-                match self.create_session(&name) {
-                    Ok(record) => Reply::Session(Box::new(record)),
-                    Err(reason) => Reply::Refused {
-                        reason,
-                        retry: false,
-                    },
+                self.create_session(&name)
+            }
+            Request::Update { candidate } => {
+                if !self.wait_ready(0) {
+                    return Server::not_ready();
                 }
+                let candidate = PathBuf::from(candidate);
+                if !candidate.is_absolute() {
+                    return Reply::Refused {
+                        reason: format!("кандидат {}: нужен абсолютный путь", candidate.display()),
+                        retry: false,
+                    };
+                }
+                self.staging(|install, gate| compat::stage(install, gate, &candidate))
+            }
+            Request::Retry => {
+                if !self.wait_ready(0) {
+                    return Server::not_ready();
+                }
+                self.staging(compat::restage)
             }
             Request::Sessions => {
                 let (entries, problems) = registry(&self.options.state);
@@ -1380,12 +1408,53 @@ impl Server {
         }
     }
 
-    /// Хост из `runtime/<N>/` с нагрузкой оттуда же; запись сессии — в `<state>/s`.
-    fn create_session(&self, name: &str) -> Result<SessionRecord, String> {
+    /// Постановка или повторная проверка обновления, по одной за раз.
+    fn staging(
+        &self,
+        work: impl FnOnce(&Install, &Mutex<Gate>) -> Result<Staging, compat::Refusal>,
+    ) -> Reply {
         let _one = self
-            .create
+            .update
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let install = Install {
+            state: &self.options.state,
+            installed: &self.options.installed,
+            identifier: &self.options.identifier,
+            leaf: &self.options.leaf,
+        };
+        match work(&install, &self.gate) {
+            Ok(staging) => Reply::Staging(Box::new(staging)),
+            Err(refusal) => Reply::Refused {
+                reason: refusal.reason,
+                retry: refusal.retry,
+            },
+        }
+    }
+
+    /// Сессия под мьютексом заморозки: под заморозкой — временный отказ без запуска.
+    fn create_session(&self, name: &str) -> Reply {
+        let gate = self
+            .gate
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Err(reason) = gate.admit() {
+            return Reply::Refused {
+                reason,
+                retry: true,
+            };
+        }
+        match self.launch_session(name) {
+            Ok(record) => Reply::Session(Box::new(record)),
+            Err(reason) => Reply::Refused {
+                reason,
+                retry: false,
+            },
+        }
+    }
+
+    /// Хост из `runtime/<N>/` с нагрузкой оттуда же; запись сессии — в `<state>/s`.
+    fn launch_session(&self, name: &str) -> Result<SessionRecord, String> {
         host::check_session_name(name)?;
         let state = &self.options.state;
         let dir = state.join(host::SESSIONS_DIR);
@@ -1419,6 +1488,15 @@ impl Server {
 /// диска, а не из памяти. Каждая запись проверяется сейчас: живы ли хост и нагрузка по ключам,
 /// отвечает ли хост на `probe` с диапазоном attach этой сборки.
 pub fn registry(state: &Path) -> (Vec<Entry>, Vec<String>) {
+    registry_with(
+        state,
+        &attach::hello(Purpose::Probe, ATTACH_VERSIONS, 0, Winsize::cells(0, 0)),
+    )
+}
+
+/// Реестр, где каждый хост проверяется рукопожатием `hello` (назначение `probe`): так проверка
+/// совместимости спрашивает диапазоном attach кандидата.
+pub fn registry_with(state: &Path, hello: &Hello) -> (Vec<Entry>, Vec<String>) {
     let dir = state.join(host::SESSIONS_DIR);
     let mut entries = Vec::new();
     let mut problems = Vec::new();
@@ -1447,8 +1525,7 @@ pub fn registry(state: &Path) -> (Vec<Entry>, Vec<String>) {
             }
         };
         let alive = |key: ProcessKey| observer::identify(key).is_ok_and(|found| found.is_alive());
-        let hello = attach::hello(Purpose::Probe, ATTACH_VERSIONS, 0, Winsize::cells(0, 0));
-        let probe = match attach::connect(Path::new(&record.socket), &hello, PROBE_TIMEOUT) {
+        let probe = match attach::connect(Path::new(&record.socket), hello, PROBE_TIMEOUT) {
             Ok(Connected::Welcome(client)) => Probe::Welcome {
                 version: client.welcome.version,
             },
@@ -1766,6 +1843,10 @@ mod tests {
                 name: "h1".to_owned(),
             },
             Request::Sessions,
+            Request::Update {
+                candidate: "/b/probe-update.app".to_owned(),
+            },
+            Request::Retry,
             Request::Quit,
         ];
         for request in requests {
@@ -1828,6 +1909,137 @@ mod tests {
         published.unpublish();
         assert!(!socket.exists());
         drop(listener);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    fn test_server(state: &Path) -> Server {
+        let key = ProcessKey {
+            pid: 1,
+            start_us: 1,
+        };
+        let inode = Inode { dev: 0, ino: 0 };
+        Server {
+            options: AppOptions {
+                state: state.to_path_buf(),
+                installed: state.join("install").join(generation::APP_NAME),
+                ..options()
+            },
+            info: OwnerInfo {
+                generation: 1,
+                key,
+                executable: String::new(),
+                cdhash: String::new(),
+                installed: String::new(),
+                installed_cdhash: String::new(),
+                socket: String::new(),
+                socket_inode: inode,
+                lock_inode: inode,
+                stale_socket: None,
+                runtime: Prepared {
+                    dir: runtime::ready_dir(state, 1),
+                    outcome: runtime::Outcome::Created,
+                    recovered: None,
+                },
+                recovery: Vec::new(),
+                window: false,
+                ready: true,
+                received: Vec::new(),
+            },
+            state: Mutex::new(ServerState {
+                ready: true,
+                received: Vec::new(),
+                quitting: false,
+            }),
+            changed: Condvar::new(),
+            gate: Mutex::new(Gate::default()),
+            update: Mutex::new(()),
+        }
+    }
+
+    #[test]
+    fn session_creation_under_freeze_is_a_temporary_refusal_without_launch() {
+        let dir = temp_dir("owner-freeze");
+        let server = test_server(&dir);
+        let create = || {
+            server.handle(Request::CreateSession {
+                name: "h1".to_owned(),
+            })
+        };
+        let freeze = compat::Freeze::take(&server.gate).unwrap();
+        assert_eq!(
+            create(),
+            Reply::Refused {
+                reason: compat::CHECKING.to_owned(),
+                retry: true
+            }
+        );
+        assert!(
+            !dir.join(host::SESSIONS_DIR).exists(),
+            "под заморозкой хост не запускался"
+        );
+        drop(freeze);
+        // Без заморозки запрос доходит до запуска хоста; рантайма нет — окончательный отказ.
+        match create() {
+            Reply::Refused {
+                retry: false,
+                reason,
+            } => assert!(reason.contains("runtime"), "{reason}"),
+            other => panic!("{other:?}"),
+        }
+        compat::Freeze::take(&server.gate).unwrap().keep();
+        assert!(matches!(create(), Reply::Refused { retry: true, .. }));
+        // Под оставленной заморозкой новая проверка обновления не начинается.
+        assert!(matches!(
+            server.handle(Request::Update {
+                candidate: "/nonexistent/probe-update.app".to_owned()
+            }),
+            Reply::Refused { retry: true, .. }
+        ));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn update_requests_refuse_without_touching_the_journal() {
+        let dir = temp_dir("owner-update");
+        let server = test_server(&dir);
+        assert!(matches!(
+            server.handle(Request::Update {
+                candidate: "probe-update.app".to_owned()
+            }),
+            Reply::Refused { retry: false, .. }
+        ));
+        match server.handle(Request::Retry) {
+            Reply::Refused {
+                retry: false,
+                reason,
+            } => assert!(reason.contains("отложенной попытки нет"), "{reason}"),
+            other => panic!("{other:?}"),
+        }
+        let store = journal::Store::new(&dir);
+        assert_eq!(store.read(), Ok(None));
+        let deferred = journal_in(State::StagedDeferred, &server.options.installed);
+        journal::tests::put(&store, &deferred);
+        let before = fs::read(store.path()).unwrap();
+        match server.handle(Request::Update {
+            candidate: "/nonexistent/probe-update.app".to_owned(),
+        }) {
+            Reply::Refused {
+                retry: false,
+                reason,
+            } => assert!(reason.contains("staged-deferred"), "{reason}"),
+            other => panic!("{other:?}"),
+        }
+        // Повтор без кандидата на диске: проверка подписи не проходит, журнал прежний.
+        assert!(matches!(
+            server.handle(Request::Retry),
+            Reply::Refused { retry: false, .. }
+        ));
+        assert_eq!(fs::read(store.path()).unwrap(), before);
+        assert_eq!(
+            server.gate.lock().unwrap().admit(),
+            Ok(()),
+            "заморозка снята"
+        );
         fs::remove_dir_all(&dir).unwrap();
     }
 

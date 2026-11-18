@@ -7,6 +7,7 @@
 
 pub mod args;
 pub mod attach;
+pub mod compat;
 pub mod fixture;
 pub mod generation;
 pub mod host;

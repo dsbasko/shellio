@@ -84,11 +84,11 @@ pub struct Part5 {
 }
 
 /// Процессы и файлы стенда, если сценарий не дошёл до проверенной уборки.
-struct Guard {
-    state: PathBuf,
-    apps: Vec<Child>,
-    sessions: Vec<SessionRecord>,
-    armed: bool,
+pub(super) struct Guard {
+    pub(super) state: PathBuf,
+    pub(super) apps: Vec<Child>,
+    pub(super) sessions: Vec<SessionRecord>,
+    pub(super) armed: bool,
 }
 
 impl Drop for Guard {
@@ -116,7 +116,7 @@ impl Drop for Guard {
 }
 
 /// Всё содержимое каталога состояния.
-fn clear_state(state: &Path) {
+pub(super) fn clear_state(state: &Path) {
     if let Ok(entries) = fs::read_dir(state) {
         for entry in entries.filter_map(Result::ok) {
             let path = entry.path();
@@ -138,7 +138,12 @@ fn artifact(name: &str) -> String {
 }
 
 /// Запуск роли GUI напрямую из установленного бандла; stdout и stderr — в файлы прогона.
-fn start_app(binary: &Path, options: &AppOptions, out: &Path, name: &str) -> Result<Child, String> {
+pub(super) fn start_app(
+    binary: &Path,
+    options: &AppOptions,
+    out: &Path,
+    name: &str,
+) -> Result<Child, String> {
     let stdout = File::create(out.join(format!("{name}.stdout")))
         .map_err(|err| format!("{name}.stdout: {err}"))?;
     let stderr = File::create(out.join(format!("{name}.stderr")))
@@ -153,7 +158,7 @@ fn start_app(binary: &Path, options: &AppOptions, out: &Path, name: &str) -> Res
 }
 
 /// Строки итога роли GUI из её stdout.
-fn reports(out: &Path, name: &str) -> Result<Vec<AppReport>, String> {
+pub(super) fn reports(out: &Path, name: &str) -> Result<Vec<AppReport>, String> {
     let path = out.join(format!("{name}.stdout"));
     let text = fs::read_to_string(&path).map_err(|err| format!("{}: {err}", path.display()))?;
     text.lines()
@@ -165,7 +170,7 @@ fn reports(out: &Path, name: &str) -> Result<Vec<AppReport>, String> {
 }
 
 /// Ждёт выхода процесса не дольше шага и прибирает его.
-fn reap(child: &mut Child, what: &str) -> Result<std::process::ExitStatus, String> {
+pub(super) fn reap(child: &mut Child, what: &str) -> Result<std::process::ExitStatus, String> {
     let alive = launch::wait_exit(&[child.id() as i32], STEP);
     if !alive.is_empty() {
         return Err(format!("{what} не вышел за {} с", STEP.as_secs()));
@@ -173,7 +178,7 @@ fn reap(child: &mut Child, what: &str) -> Result<std::process::ExitStatus, Strin
     child.wait().map_err(|err| format!("{what}: wait: {err}"))
 }
 
-fn ask(state: &Path, request: &Request) -> Result<Reply, String> {
+pub(super) fn ask(state: &Path, request: &Request) -> Result<Reply, String> {
     match owner::request(state, request, STEP)? {
         Answer::Reply(reply) => Ok(reply),
         Answer::Unavailable(why) => Err(format!("{request:?}: {}", why.reason())),
@@ -181,13 +186,13 @@ fn ask(state: &Path, request: &Request) -> Result<Reply, String> {
 }
 
 /// Ответ `Sessions`.
-struct Registry {
-    entries: Vec<Entry>,
-    problems: Vec<String>,
-    cleanup: Vec<u32>,
+pub(super) struct Registry {
+    pub(super) entries: Vec<Entry>,
+    pub(super) problems: Vec<String>,
+    pub(super) cleanup: Vec<u32>,
 }
 
-fn sessions(state: &Path) -> Result<Registry, String> {
+pub(super) fn sessions(state: &Path) -> Result<Registry, String> {
     match ask(state, &Request::Sessions)? {
         Reply::Sessions {
             entries,
@@ -202,7 +207,7 @@ fn sessions(state: &Path) -> Result<Registry, String> {
     }
 }
 
-fn ping(state: &Path) -> Result<OwnerInfo, String> {
+pub(super) fn ping(state: &Path) -> Result<OwnerInfo, String> {
     match ask(state, &Request::Ping { wait_ms: 0 })? {
         Reply::Pong(info) => Ok(*info),
         other => Err(format!("на Ping пришло {other:?}")),
@@ -218,7 +223,7 @@ fn alive(key: ProcessKey) -> Result<bool, String> {
 }
 
 /// Запись сессии `name` в реестре: жива, отвечает на `probe` версией 1 и с теми же процессами.
-fn found_alive(entries: &[Entry], record: &SessionRecord) -> bool {
+pub(super) fn found_alive(entries: &[Entry], record: &SessionRecord) -> bool {
     entries.iter().any(|entry| {
         entry.record.session == record.session
             && entry.record.host == record.host
