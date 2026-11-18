@@ -694,7 +694,8 @@ pub struct Recorder {
     errors: std::thread::JoinHandle<Vec<String>>,
 }
 
-/// Команда записи шаблона Animation Hitches с присоединением к процессу `pid`.
+/// Команда записи шаблона Animation Hitches с присоединением к процессу `pid` и пределом
+/// [`RECORD_LIMIT`].
 pub fn record_command(pid: u32, output: &std::path::Path) -> std::process::Command {
     let mut command = std::process::Command::new("xcrun");
     command
@@ -708,9 +709,15 @@ pub fn record_command(pid: u32, output: &std::path::Path) -> std::process::Comma
         .arg(pid.to_string())
         .arg("--output")
         .arg(output)
+        .arg("--time-limit")
+        .arg(RECORD_LIMIT)
         .arg("--no-prompt");
     command
 }
+
+/// Предел записи из отчёта: отрезок останавливается `SIGINT` раньше, а предел не даёт `xctrace`
+/// пережить выход сторожа через `_exit` и держать kperf.
+pub const RECORD_LIMIT: &str = "30s";
 
 /// Ждёт конца дочернего процесса не дольше `timeout`, иначе убивает его.
 fn wait_with_timeout(
@@ -1107,6 +1114,19 @@ mod tests {
             .err()
             .unwrap();
         assert!(error.contains("no permission"), "{error}");
+    }
+
+    #[test]
+    fn record_command_has_limit() {
+        let command = record_command(42, std::path::Path::new("/tmp/x.trace"));
+        let args: Vec<String> = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        let limit = args.iter().position(|arg| arg == "--time-limit").unwrap();
+        assert_eq!(args[limit + 1], RECORD_LIMIT);
+        let attach = args.iter().position(|arg| arg == "--attach").unwrap();
+        assert_eq!(args[attach + 1], "42");
     }
 
     /// Строка начала до отказа kperf: запись неудачна, хотя начало было.
