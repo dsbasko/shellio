@@ -157,6 +157,7 @@ pub fn run(out: &Path, environment: &Environment) -> Result<Report, String> {
     Ok(Report {
         cells,
         diagnostics: Diagnostics {
+            partial: None,
             notes: vec![format!(
                 "срок health {} с от intent, срок шага стенда {} с; вывод без клиента — {OFFLINE_LINES} строк, живой — {LIVE_LINES}",
                 crate::update::HEALTH_WINDOW.as_secs(),

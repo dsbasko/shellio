@@ -2062,6 +2062,7 @@ pub fn run(out: &Path, environment: &Environment) -> Result<Report, String> {
     Ok(Report {
         cells,
         diagnostics: Diagnostics {
+            partial: None,
             notes: vec![format!(
                 "частей {}; том установки {VOLUME_MIB} МиБ APFS без таблицы разделов, том кандидата EXDEV {SIDE_MIB} МиБ; запас части enospc-candidate {MARGIN_BYTES} байт; «полон» — файл в 1500 байт не создаётся с ENOSPC (до {FILL_ROUNDS} заполнений); errno инъекций {INJECTED_ERRNO} (EIO); срок шага стенда {} с",
                 CASES.len(),

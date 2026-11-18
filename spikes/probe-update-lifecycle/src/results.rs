@@ -262,6 +262,10 @@ impl Execution {
 pub struct Diagnostics {
     #[serde(default)]
     pub notes: Vec<String>,
+    /// Процесс прогнал не все свои части (отладочный фильтр): итог пробы по такому прогону не
+    /// выносится.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub partial: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -503,6 +507,9 @@ pub struct ProcessSummary {
     pub execution: Execution,
     /// Записей частей в `result.json`.
     pub cells: usize,
+    /// [`Diagnostics::partial`] процесса.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub partial: Option<String>,
 }
 
 /// Часть сведённой клетки: запись одного процесса.
@@ -578,6 +585,7 @@ fn process_summary(dir: &Path, name: String) -> (ProcessSummary, Vec<Cell>) {
         variant: String::new(),
         execution: Execution::Ok,
         cells: 0,
+        partial: None,
     };
     let launch = match read_launch(dir) {
         Ok(launch) => {
@@ -620,6 +628,7 @@ fn process_summary(dir: &Path, name: String) -> (ProcessSummary, Vec<Cell>) {
                 reasons.push(reason.clone());
             }
             summary.cells = result.cells.len();
+            summary.partial = result.diagnostics.partial;
             cells = result.cells;
         }
         Err(ReadError::Missing) if launch.as_ref().is_some_and(|l| l.watchdog_fired) => {
@@ -753,6 +762,18 @@ pub fn outcome(cells: &[CellRow], processes: &[ProcessSummary]) -> Outcome {
             "нет сценариев без ошибки исполнения: {}",
             absent.join(", ")
         ));
+    }
+    let partial: Vec<String> = processes
+        .iter()
+        .filter_map(|process| {
+            process
+                .partial
+                .as_ref()
+                .map(|why| format!("{} ({why})", process.dir))
+        })
+        .collect();
+    if !partial.is_empty() {
+        reasons.push(format!("неполные процессы: {}", partial.join(", ")));
     }
     let missing: Vec<&str> = CELLS
         .iter()
@@ -991,6 +1012,7 @@ mod tests {
             variant: "base".to_owned(),
             execution,
             cells: 1,
+            partial: None,
         }
     }
 
@@ -1217,6 +1239,37 @@ mod tests {
             outcome(&smoke_only, &all_scenarios()),
             Outcome::Undetermined { .. }
         ));
+    }
+
+    #[test]
+    fn filtered_process_leaves_no_verdict() {
+        let mut processes = all_scenarios();
+        let kill = processes
+            .iter_mut()
+            .find(|process| process.scenario == "kill")
+            .unwrap();
+        kill.partial = Some("фильтр".to_owned());
+        match outcome(&full_catalogue(Status::Pass), &processes) {
+            Outcome::Undetermined { reasons } => {
+                assert_eq!(reasons, ["неполные процессы: kill-base (фильтр)"]);
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn partial_marker_reaches_the_process_summary() {
+        let run = temp_dir("partial");
+        let dir = run.join("kill-base");
+        fs::create_dir_all(&dir).unwrap();
+        write_launch(&dir, &launch("kill", Execution::Ok, false)).unwrap();
+        let mut file = result(vec![required("B2", Status::Pass)]);
+        file.scenario = "kill".to_owned();
+        file.diagnostics.partial = Some("фильтр".to_owned());
+        write_result(&dir, &file).unwrap();
+        let summary = aggregate(&run).unwrap();
+        assert_eq!(summary.processes[0].partial.as_deref(), Some("фильтр"));
+        fs::remove_dir_all(&run).unwrap();
     }
 
     #[test]

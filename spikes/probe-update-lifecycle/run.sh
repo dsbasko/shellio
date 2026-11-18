@@ -440,10 +440,12 @@ cmd_scenarios() {
 }
 
 # Шаг выдачи TCC владельца. Каждый вызов tccutil пишется в журнал с идентификатором и кодом;
-# отказ сброса не прерывает шаг: его итог видит проверка выдачи сценария tcc.
+# отказ сброса не прерывает шаг: его итог видит проверка выдачи сценария tcc. Сбрасываются только
+# бандлы: хосты и нагрузки <id>.host и <id>.fixture бандлами LaunchServices не являются, tccutil
+# отвечает для них кодом 64, и их записи TCC этим сбросом не убираются (передано в P2.1).
 cmd_tcc_grant() {
     local id code log="$OUT_BASE/tccutil.log"
-    local ids="$BUNDLE_ID $BUNDLE_ID.host $BUNDLE_ID.fixture $BUNDLE_ID.denied $BUNDLE_ID.denied.host $BUNDLE_ID.denied.fixture"
+    local ids="$BUNDLE_ID $BUNDLE_ID.denied"
     (cd "$ROOT" && "$CARGO" build --release -p "$PACKAGE" --locked --bins)
     [ -x "$BIN" ] || die "нет раннера $BIN"
     cmd_bundle

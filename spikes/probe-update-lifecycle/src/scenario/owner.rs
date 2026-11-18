@@ -451,6 +451,7 @@ pub fn run(out: &Path, environment: &Environment) -> Result<Report, String> {
     Ok(Report {
         cells,
         diagnostics: Diagnostics {
+            partial: None,
             notes: vec![format!(
                 "проходов {}, стимулов в проходе {}; срок шага стенда {} с, ожидание сокета вторым запуском {} с за круг, срок health {} с от intent",
                 Pass::ALL.len(),

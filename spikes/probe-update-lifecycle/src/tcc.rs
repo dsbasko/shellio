@@ -43,19 +43,12 @@ pub fn fixture_path(home: &Path) -> PathBuf {
     home.join(FIXTURE_DIR).join(FIXTURE_FILE)
 }
 
-/// Идентификаторы, разрешения которых сбрасывает цель выдачи: бандлы обоих графов, их хосты и
-/// нагрузки.
+/// Идентификаторы, разрешения которых сбрасывает цель выдачи (`run.sh`, `cmd_tcc_grant`): бандлы
+/// обоих графов. `tccutil reset` принимает только идентификатор бандла LaunchServices: для хостов
+/// и нагрузок (`<id>.host`, `<id>.fixture`), которые бандлами не являются, он отвечает кодом 64
+/// «No such bundle identifier», поэтому их записи TCC этим сбросом не убираются.
 pub fn reset_identifiers() -> Vec<String> {
-    [BUNDLE_ID, DENIED_ID]
-        .into_iter()
-        .flat_map(|base| {
-            [
-                base.to_owned(),
-                format!("{base}.host"),
-                format!("{base}.fixture"),
-            ]
-        })
-        .collect()
+    vec![BUNDLE_ID.to_owned(), DENIED_ID.to_owned()]
 }
 
 // --- чтение ---
@@ -853,10 +846,7 @@ mod tests {
             fixture_path(Path::new("/Users/u")),
             PathBuf::from("/Users/u/Documents/shellio-probe-update/fixture.txt")
         );
-        let ids = reset_identifiers();
-        assert_eq!(ids.len(), 6);
-        assert!(ids.contains(&format!("{DENIED_ID}.fixture")));
-        assert!(ids.contains(&format!("{BUNDLE_ID}.host")));
+        assert_eq!(reset_identifiers(), [BUNDLE_ID, DENIED_ID]);
     }
 
     #[test]

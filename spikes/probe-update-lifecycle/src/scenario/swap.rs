@@ -115,6 +115,7 @@ pub fn run(out: &Path, environment: &Environment) -> Result<Report, String> {
     Ok(Report {
         cells,
         diagnostics: Diagnostics {
+            partial: None,
             notes: vec![format!(
                 "срок health {} с от intent, срок запуска N+1 {} с, срок шага стенда {} с",
                 update::HEALTH_WINDOW.as_secs(),

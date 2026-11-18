@@ -415,6 +415,7 @@ pub fn run(out: &Path, environment: &Environment) -> Result<Report, String> {
     Ok(Report {
         cells,
         diagnostics: Diagnostics {
+            partial: None,
             notes: vec![format!(
                 "срок шага стенда {} с; барьер {}; к runtime/2/probe-update-attach дописано {} байт",
                 STEP.as_secs(),

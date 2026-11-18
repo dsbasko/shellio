@@ -504,6 +504,7 @@ pub fn run(out: &Path, environment: &Environment) -> Result<Report, String> {
     Ok(Report {
         cells,
         diagnostics: Diagnostics {
+            partial: None,
             notes: vec![format!(
                 "требование кандидата: {requirement}; установленный N — копия поколения 1 в <state>/{INSTALL_DIR}/"
             )],

@@ -226,6 +226,7 @@ pub fn run(out: &Path, environment: &Environment) -> Result<Report, String> {
     Ok(Report {
         cells,
         diagnostics: Diagnostics {
+            partial: None,
             notes: vec![format!(
                 "срок шага {} с, срок рукопожатия probe {} с на сессию",
                 STEP.as_secs(),

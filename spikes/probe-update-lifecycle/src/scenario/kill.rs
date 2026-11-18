@@ -910,16 +910,17 @@ pub fn run(out: &Path, environment: &Environment) -> Result<Report, String> {
         COMMIT_MARGIN_MS,
         LATE_MARGIN_MS
     )];
-    if let Some(names) = filter {
-        notes.push(format!(
+    let partial = filter.map(|names| {
+        format!(
             "отладочный прогон с фильтром {}: {}; рубежом не считается",
             launch::KILL_PARTS,
             names.join(" ")
-        ));
-    }
+        )
+    });
+    notes.extend(partial.clone());
     Ok(Report {
         cells,
-        diagnostics: Diagnostics { notes },
+        diagnostics: Diagnostics { notes, partial },
     })
 }
 

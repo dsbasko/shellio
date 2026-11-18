@@ -1074,11 +1074,9 @@ pub fn control_verdict(facts: &ControlFacts) -> (Status, String) {
         );
     }
     let gk = &facts.gatekeeper;
-    let terminated = if open.app_pids.is_empty() {
-        !gk.terminated.is_empty()
-    } else {
-        gk.terminated.iter().any(|pid| open.app_pids.contains(pid))
-    };
+    // Без PID процесса контроля строку о прекращении не с чем связать: она могла быть о чужом
+    // процессе в том же окне `log show`.
+    let terminated = gk.terminated.iter().any(|pid| open.app_pids.contains(pid));
     if !(gk.prompt || gk.breadcrumb) || !terminated {
         return (
             Status::NotRun,
@@ -1227,7 +1225,10 @@ pub fn run(out: &Path, environment: &Environment) -> Result<Report, String> {
     }
     Ok(Report {
         cells,
-        diagnostics: Diagnostics { notes },
+        diagnostics: Diagnostics {
+            notes,
+            partial: None,
+        },
     })
 }
 
@@ -1711,7 +1712,9 @@ mod tests {
         assert_eq!(control_verdict(&no_prompt).0, Status::NotRun);
         let mut unknown_pid = control();
         unknown_pid.open.as_mut().unwrap().app_pids.clear();
-        assert_eq!(control_verdict(&unknown_pid).0, Status::Pass);
+        let (status, reason) = control_verdict(&unknown_pid);
+        assert_eq!(status, Status::NotRun, "процесс контроля не наблюдён");
+        assert!(reason.contains("при процессах контроля []"), "{reason}");
     }
 
     #[test]

@@ -781,7 +781,10 @@ pub fn run(out: &Path, environment: &Environment) -> Result<Report, String> {
     }
     Ok(Report {
         cells,
-        diagnostics: Diagnostics { notes },
+        diagnostics: Diagnostics {
+            notes,
+            partial: None,
+        },
     })
 }
 

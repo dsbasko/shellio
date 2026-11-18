@@ -12,8 +12,17 @@
 //!   процессом; и только после срока;
 //! - владелец завершился до срока без подтверждения — откат без ожидания срока.
 //!
-//! Откат идёт под блокировкой после перечитывания журнала: подтверждение, записанное до срока,
-//! всегда побеждает. Без записанного решения сторож не действует.
+//! Время берётся до чтения журнала: решение `Kill` значит, что журнал был в `launched` уже после
+//! срока, поэтому `committed`, записанный до срока, сторож всегда видит. Подтверждение, проверившее
+//! срок до него, а записанное после, может опоздать к чтению сторожа: тогда владелец снят после
+//! `committed`, и сторож под блокировкой доводит уборку и запускает установленный N+1, а не
+//! оставляет приложение остановленным. Запускает он N+1, только если под блокировкой журнал ещё в
+//! `committed` или `cleaning` этой попытки: `idle` с итогом «подтверждена» значит, что попытку довёл
+//! другой процесс, взявший блокировку раньше сторожа, и запуск открыл бы приложение вслед за выходом
+//! пользователя ([`rollback`]).
+//!
+//! Откат идёт под блокировкой после перечитывания журнала. Без записанного решения сторож не
+//! действует.
 
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -92,7 +101,8 @@ pub fn decide(
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Outcome {
     pub summary: String,
-    /// Попытка откачена: запустить N.
+    /// Запустить установленный бандл: N после отката или N+1, если владелец снят после
+    /// `committed`.
     pub relaunch: bool,
 }
 
@@ -118,8 +128,10 @@ pub fn watch(
     queue.watch_dir(&store.state().join(journal::UPDATE_DIR))?;
     queue.watch_exit(owner.pid)?;
     loop {
+        // До чтения журнала: см. раздел модуля.
+        let now = now_ms();
         let journal = store.read().map_err(|err| err.to_string())?;
-        let action = decide(journal.as_ref(), attempt, owner, alive(owner), now_ms());
+        let action = decide(journal.as_ref(), attempt, owner, alive(owner), now);
         match action {
             Action::Finished { why } => {
                 event("watch-finished", json!({ "why": why }));
@@ -154,22 +166,67 @@ pub fn watch(
                         KILL_WAIT.as_secs()
                     ));
                 }
-                return rollback(store, attempt, me, "срок истёк, владелец снят");
+                return rollback(store, attempt, me, true, "срок истёк, владелец снят");
             }
             Action::Rollback => {
                 event("watch-owner-exited", json!({ "owner": owner }));
-                return rollback(store, attempt, me, "владелец завершился без подтверждения");
+                return rollback(
+                    store,
+                    attempt,
+                    me,
+                    false,
+                    "владелец завершился без подтверждения",
+                );
             }
         }
     }
 }
 
+/// Подтверждение попытки `attempt` записано, а уборка не доведена: `committed` или `cleaning`.
+fn confirmed(journal: Option<&Journal>, attempt: &str) -> bool {
+    journal.is_some_and(|journal| {
+        journal.attempt == attempt && matches!(journal.state, State::Committed | State::Cleaning)
+    })
+}
+
 /// Под блокировкой: если журнал всё ещё в `launched` этой попытки — откат по таблице
-/// восстановления; иначе ничего.
-fn rollback(store: &Store, attempt: &str, me: ProcessKey, why: &str) -> Result<Outcome, String> {
+/// восстановления. Если владелец снят (`killed`), а журнал под блокировкой в `committed` или
+/// `cleaning` этой попытки — уборка по таблице и запуск установленного N+1: уборку никто не довёл,
+/// значит, владельца после снятия никто не принял. Иначе ничего.
+fn rollback(
+    store: &Store,
+    attempt: &str,
+    me: ProcessKey,
+    killed: bool,
+    why: &str,
+) -> Result<Outcome, String> {
     let lock = Lock::acquire(&owner::lock_path(store.state()))
         .map_err(|err| format!("блокировка: {err}"))?;
     let journal = store.read().map_err(|err| err.to_string())?;
+    if killed && confirmed(journal.as_ref(), attempt) {
+        let journal = journal.ok_or("журнала нет")?;
+        let options = update::mode(&journal)?;
+        let report = update::recover_now(store, &options, me)?;
+        let done = store.read().map_err(|err| err.to_string())?;
+        drop(lock);
+        if !done
+            .as_ref()
+            .is_some_and(|done| update::committed(done, attempt))
+        {
+            return Err(format!("после уборки снятого владельца журнал {done:?}"));
+        }
+        event(
+            "watch-killed-committed",
+            json!({ "why": why, "steps": format!("{:?}", report.steps) }),
+        );
+        return Ok(Outcome {
+            summary: format!(
+                "{why} после committed: уборка {:?}, N+1 запущен",
+                report.steps
+            ),
+            relaunch: true,
+        });
+    }
     let Some(journal) =
         journal.filter(|journal| journal.attempt == attempt && journal.state == State::Launched)
     else {
@@ -235,6 +292,28 @@ mod tests {
             decide(Some(&other), ATTEMPT, OWNER, true, DEADLINE + 1),
             Action::Finished { .. }
         ));
+    }
+
+    #[test]
+    fn confirmed_attempt_is_committed_or_cleaning_only() {
+        let at = |state| journal_in(state, Path::new("/i/probe-update.app"));
+        assert!(confirmed(Some(&at(State::Committed)), ATTEMPT));
+        assert!(confirmed(Some(&at(State::Cleaning)), ATTEMPT));
+        let mut idle = at(State::Idle);
+        idle.outcome = Some(Result_::Committed);
+        assert!(
+            !confirmed(Some(&idle), ATTEMPT),
+            "уборку довёл другой процесс: сторож не запускает N+1"
+        );
+        idle.outcome = Some(Result_::RolledBack);
+        assert!(!confirmed(Some(&idle), ATTEMPT), "откат — не подтверждение");
+        for state in [State::Launched, State::RollbackIntent, State::Swapped] {
+            assert!(!confirmed(Some(&at(state)), ATTEMPT), "{}", state.name());
+        }
+        let mut other = at(State::Committed);
+        other.attempt = "ffff".to_owned();
+        assert!(!confirmed(Some(&other), ATTEMPT), "другая попытка");
+        assert!(!confirmed(None, ATTEMPT));
     }
 
     #[test]

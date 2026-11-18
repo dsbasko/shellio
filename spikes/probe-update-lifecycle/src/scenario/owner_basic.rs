@@ -333,6 +333,7 @@ pub fn report(parts: &[Part5]) -> Report {
     Report {
         cells,
         diagnostics: Diagnostics {
+            partial: None,
             notes: vec![format!(
                 "ожидание сокета вторым запуском {} с, срок ответа владельца {} с",
                 owner::SOCKET_WAIT.as_secs(),

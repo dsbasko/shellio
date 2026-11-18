@@ -569,6 +569,7 @@ pub fn run(out: &Path, environment: &Environment) -> Result<Report, String> {
     Ok(Report {
         cells,
         diagnostics: Diagnostics {
+            partial: None,
             notes: vec![format!(
                 "бандлы {}; кандидат incompatible и бандл .denied проходят проверку под своими требованиями",
                 bundle_dir.display()

@@ -245,6 +245,7 @@ pub fn report(parts: &[Part]) -> Report {
     Report {
         cells,
         diagnostics: Diagnostics {
+            partial: None,
             notes: vec![format!(
                 "протокол хоста {HOST_VERSIONS}, attach {ATTACH_VERSIONS}, поколение {}",
                 crate::GENERATION
