@@ -580,9 +580,8 @@ pub fn request(state: &Path, request: &Request, timeout: Duration) -> Result<Ans
                 .map_err(|reason| format!("{}: {reason}", socket.display()));
         }
     };
-    stream
-        .set_read_timeout(Some(timeout))
-        .and_then(|()| stream.set_write_timeout(Some(timeout)))
+    sys::socket_timeout(stream.set_read_timeout(Some(timeout)))
+        .and_then(|()| sys::socket_timeout(stream.set_write_timeout(Some(timeout))))
         .map_err(|err| format!("сроки сокета: {err}"))?;
     if let Err(err) = write_json_line(&mut stream, request) {
         return match err.kind() {

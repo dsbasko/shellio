@@ -50,6 +50,7 @@ use crate::fixture;
 use crate::host::SessionRecord;
 use crate::proto::{self, ATTACH_VERSIONS, Message, Purpose};
 use crate::pty::Winsize;
+use crate::sys;
 
 /// Начало номеров ввода окна: квитанция `ack <seq> <команда>` не совпадает с вводом стенда и
 /// health. Номер — `SEQ_BASE + 1000 × поколение + n`.
@@ -507,7 +508,7 @@ pub fn show(record: &SessionRecord) -> Result<(), String> {
     let (reader, welcome) = client.into_parts();
     let writer = reader
         .try_clone()
-        .and_then(|writer| reader.set_read_timeout(None).map(|()| writer))
+        .and_then(|writer| sys::socket_timeout(reader.set_read_timeout(None)).map(|()| writer))
         .map_err(|err| format!("сокет окна: {err}"))?;
     let (sender, receiver) = mpsc::channel::<Sent>();
     {

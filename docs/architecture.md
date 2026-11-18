@@ -80,7 +80,7 @@ scripts/
   ghostty-patches/      патчи закреплённой ревизии Ghostty
   signing/              идентичность Shellio Dev, requirement, подпись
 spikes/                 пробы фазы 0 (ADR-0034), продукт от них не зависит
-  probe-appkit-shell/ probe-ghostty-surface/ probe-session-survival/
+  probe-appkit-shell/ probe-ghostty-surface/ probe-session-survival/ probe-update-lifecycle/
 vendor/                 собранный набор ghostty, не хранится в git
 ```
 

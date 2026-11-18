@@ -21,6 +21,7 @@ use crate::proto::{
     self, ATTACH_VERSIONS, Ack, Hello, Message, Purpose, Status, Versions, Welcome,
 };
 use crate::pty::Winsize;
+use crate::sys;
 
 pub const ATTACH_NAME: &str = "probe-update-attach";
 /// Срок одного шага клиента по умолчанию.
@@ -156,9 +157,8 @@ pub enum Connected {
 pub fn connect(socket: &Path, hello: &Hello, timeout: Duration) -> Result<Connected, String> {
     let mut stream = UnixStream::connect(socket)
         .map_err(|err| format!("connect {}: {err}", socket.display()))?;
-    stream
-        .set_read_timeout(Some(timeout))
-        .and_then(|()| stream.set_write_timeout(Some(timeout)))
+    sys::socket_timeout(stream.set_read_timeout(Some(timeout)))
+        .and_then(|()| sys::socket_timeout(stream.set_write_timeout(Some(timeout))))
         .map_err(|err| format!("сроки сокета: {err}"))?;
     proto::write_message(&mut stream, &Message::Hello(hello.clone()))
         .map_err(|err| format!("Hello: {err}"))?;
@@ -206,8 +206,7 @@ impl Client {
         if left.is_zero() {
             return Err("срок ответа хоста вышел".to_owned());
         }
-        self.stream
-            .set_read_timeout(Some(left))
+        sys::socket_timeout(self.stream.set_read_timeout(Some(left)))
             .map_err(|err| format!("срок чтения: {err}"))?;
         match proto::read_message(&mut self.stream) {
             Ok(Some(message)) => Ok(message),

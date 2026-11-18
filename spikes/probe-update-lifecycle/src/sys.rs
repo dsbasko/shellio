@@ -86,6 +86,17 @@ pub fn swap_paths(first: &Path, second: &Path) -> io::Result<()> {
     }
 }
 
+/// Итог `setsockopt` срока сокета Unix (задача 17). Сокету, который собеседник уже закрыл, macOS
+/// отвечает `EINVAL`, хотя непрочитанные кадры ещё лежат в буфере. Чтение такого сокета не
+/// блокируется — отдаёт буфер, затем конец потока, — а запись получает `EPIPE`, поэтому `EINVAL`
+/// здесь не ошибка: итог решает следующее чтение или запись.
+pub fn socket_timeout(result: io::Result<()>) -> io::Result<()> {
+    match result {
+        Err(err) if err.raw_os_error() == Some(libc::EINVAL) => Ok(()),
+        other => other,
+    }
+}
+
 /// `fsync` каталога: запись о переименовании внутри него доходит до диска.
 pub fn sync_dir(dir: &Path) -> io::Result<()> {
     File::open(dir)?.sync_all()
@@ -388,6 +399,25 @@ mod tests {
         assert_eq!(sysctl_string("kern.no-such-name"), None);
         let first = uptime_ns();
         assert!(first > 0 && uptime_ns() >= first);
+    }
+
+    #[test]
+    fn timeout_of_socket_closed_by_peer_keeps_buffered_frames() {
+        use std::io::{Read, Write};
+        use std::os::unix::net::UnixStream;
+        use std::time::Duration;
+
+        let (mut ours, mut peer) = UnixStream::pair().unwrap();
+        peer.write_all(b"frame").unwrap();
+        drop(peer);
+        let raw = ours.set_read_timeout(Some(Duration::from_secs(1)));
+        assert_eq!(raw.unwrap_err().raw_os_error(), Some(libc::EINVAL));
+        socket_timeout(ours.set_read_timeout(Some(Duration::from_secs(1)))).unwrap();
+        let mut got = Vec::new();
+        ours.read_to_end(&mut got).unwrap();
+        assert_eq!(got, b"frame");
+        let zero = socket_timeout(ours.set_read_timeout(Some(Duration::ZERO)));
+        assert!(zero.is_err(), "нулевой срок отвергает std, а не EINVAL");
     }
 
     #[test]
