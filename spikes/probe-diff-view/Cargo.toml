@@ -39,6 +39,10 @@ objc2-core-graphics = { version = "0.3.2", default-features = false, features = 
     "libc",
     "CGDirectDisplay",
     "CGDisplayConfiguration",
+    "CGError",
+    "CGEvent",
+    "CGEventTypes",
+    "CGRemoteOperation",
     "CGWindow",
 ] }
 objc2-core-text = { version = "0.3.2", default-features = false, features = [
