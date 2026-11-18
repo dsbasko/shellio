@@ -667,12 +667,31 @@ pub const TABLES: [&str; 5] = [
     "time-info",
 ];
 
+/// Сроки `xctrace` из отчёта, раздел «Сроки и размеры»: строка начала записи, сохранение трассы
+/// после `SIGINT`, выгрузка одной таблицы.
+pub const START_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+pub const SAVE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(180);
+pub const EXPORT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// Строки журнала, после которых запись считается неудачной, даже если строка начала была:
+/// при занятом kperf `xctrace` печатает строку начала до отказа.
+pub const FAILURE_MARKERS: [&str; 2] = ["[Error]", "Recording failed"];
+
+fn failure_lines(lines: &[String]) -> Vec<&str> {
+    lines
+        .iter()
+        .filter(|line| FAILURE_MARKERS.iter().any(|marker| line.contains(marker)))
+        .map(String::as_str)
+        .collect()
+}
+
 /// Идущая запись `xctrace record`. Останавливается `SIGINT`, как Ctrl-C, и ждёт сохранения
-/// трассы: у Xcode 27 сохранение записи на 2 с длится около 30 с.
+/// трассы: у Xcode 27 сохранение записи на 2 с длится около 30 с. Журнал — stdout и stderr.
 pub struct Recorder {
     child: std::process::Child,
     output: std::path::PathBuf,
     log: std::thread::JoinHandle<Vec<String>>,
+    errors: std::thread::JoinHandle<Vec<String>>,
 }
 
 /// Команда записи шаблона Animation Hitches с присоединением к процессу `pid`.
@@ -693,21 +712,61 @@ pub fn record_command(pid: u32, output: &std::path::Path) -> std::process::Comma
     command
 }
 
+/// Ждёт конца дочернего процесса не дольше `timeout`, иначе убивает его.
+fn wait_with_timeout(
+    mut child: std::process::Child,
+    timeout: std::time::Duration,
+    what: &str,
+) -> Result<std::process::ExitStatus, String> {
+    let pid = child.id();
+    let (done, wait) = std::sync::mpsc::channel();
+    let waiter = std::thread::spawn(move || {
+        let _ = done.send(child.wait());
+    });
+    match wait.recv_timeout(timeout) {
+        Ok(status) => {
+            let _ = waiter.join();
+            status.map_err(|error| format!("ожидание {what}: {error}"))
+        }
+        Err(_) => {
+            // SAFETY: `kill` посылает сигнал дочернему процессу по его pid, память не затрагивается.
+            unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) };
+            let _ = waiter.join();
+            Err(format!("{what} не закончился за {} с", timeout.as_secs()))
+        }
+    }
+}
+
+fn collect_lines(
+    stream: impl std::io::Read + Send + 'static,
+) -> std::thread::JoinHandle<Vec<String>> {
+    use std::io::BufRead;
+    std::thread::spawn(move || {
+        std::io::BufReader::new(stream)
+            .lines()
+            .map_while(Result::ok)
+            .collect()
+    })
+}
+
 impl Recorder {
-    /// Запускает команду записи и блокирует вызывающий поток до строки [`RECORDING_STARTED`].
-    /// Вызывается не с главного потока.
+    /// Запускает команду записи и блокирует вызывающий поток до строки [`RECORDING_STARTED`], но
+    /// не дольше `timeout`. Вызывается не с главного потока.
     pub fn start(
         mut command: std::process::Command,
         output: std::path::PathBuf,
+        timeout: std::time::Duration,
     ) -> Result<Recorder, String> {
         use std::io::BufRead;
         let mut child = command
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::piped())
             .spawn()
             .map_err(|error| format!("xctrace record: {error}"))?;
         let stdout = child.stdout.take().ok_or("xctrace record без stdout")?;
+        let stderr = child.stderr.take().ok_or("xctrace record без stderr")?;
+        let errors = collect_lines(stderr);
         let (started, wait) = std::sync::mpsc::channel();
         let log = std::thread::spawn(move || {
             let mut lines = Vec::new();
@@ -725,19 +784,33 @@ impl Recorder {
             }
             lines
         });
-        if wait.recv().is_err() {
-            let _ = child.wait();
-            let lines = log.join().unwrap_or_default();
-            return Err(format!(
-                "xctrace record не начал запись: {}",
-                lines.join(" | ")
-            ));
+        let failed = match wait.recv_timeout(timeout) {
+            Ok(()) => None,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => Some(format!(
+                "xctrace record не начал запись за {} с",
+                timeout.as_secs()
+            )),
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                Some("xctrace record не начал запись".to_owned())
+            }
+        };
+        if let Some(reason) = failed {
+            let _ = wait_with_timeout(child, std::time::Duration::ZERO, "xctrace record");
+            let mut lines = log.join().unwrap_or_default();
+            lines.extend(errors.join().unwrap_or_default());
+            return Err(format!("{reason}: {}", lines.join(" | ")));
         }
-        Ok(Recorder { child, output, log })
+        Ok(Recorder {
+            child,
+            output,
+            log,
+            errors,
+        })
     }
 
-    /// Останавливает запись и ждёт сохранения трассы. Возвращает журнал `xctrace`.
-    pub fn stop(mut self) -> Result<Vec<String>, String> {
+    /// Останавливает запись и ждёт сохранения трассы не дольше `timeout`. Возвращает журнал
+    /// `xctrace`: сначала stdout, затем stderr.
+    pub fn stop(mut self, timeout: std::time::Duration) -> Result<Vec<String>, String> {
         // SAFETY: `kill` посылает сигнал дочернему процессу по его pid, память не затрагивается.
         if unsafe { libc::kill(self.child.id() as libc::pid_t, libc::SIGINT) } != 0 {
             return Err(format!(
@@ -746,11 +819,21 @@ impl Recorder {
             ));
         }
         drop(self.child.stdin.take());
-        let status = self
-            .child
-            .wait()
-            .map_err(|error| format!("ожидание xctrace: {error}"))?;
-        let lines = self.log.join().map_err(|_| "поток журнала xctrace упал")?;
+        let status = wait_with_timeout(self.child, timeout, "xctrace record");
+        let mut lines = self.log.join().map_err(|_| "поток журнала xctrace упал")?;
+        lines.extend(
+            self.errors
+                .join()
+                .map_err(|_| "поток stderr xctrace упал")?,
+        );
+        let status = status.map_err(|reason| format!("{reason}, {}", lines.join(" | ")))?;
+        let failures = failure_lines(&lines);
+        if !failures.is_empty() {
+            return Err(format!(
+                "xctrace record: запись не удалась: {}",
+                failures.join(" | ")
+            ));
+        }
         if !status.success() {
             return Err(format!("xctrace record: {status}, {}", lines.join(" | ")));
         }
@@ -761,25 +844,40 @@ impl Recorder {
     }
 }
 
-/// Выгружает таблицу схемы `schema` первого прогона трассы.
+/// Выгружает таблицу схемы `schema` первого прогона трассы не дольше [`EXPORT_TIMEOUT`].
 pub fn export_table(trace: &std::path::Path, schema: &str) -> Result<String, String> {
-    let output = std::process::Command::new("xcrun")
+    let mut child = std::process::Command::new("xcrun")
         .args(["xctrace", "export", "--input"])
         .arg(trace)
         .arg("--xpath")
         .arg(format!(
             "/trace-toc/run[@number=\"1\"]/data/table[@schema=\"{schema}\"]"
         ))
-        .output()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
         .map_err(|error| format!("xctrace export: {error}"))?;
-    if !output.status.success() {
+    let stdout = child.stdout.take().ok_or("xctrace export без stdout")?;
+    let stderr = child.stderr.take().ok_or("xctrace export без stderr")?;
+    let out = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        std::io::Read::read_to_end(&mut std::io::BufReader::new(stdout), &mut bytes).map(|_| bytes)
+    });
+    let errors = collect_lines(stderr);
+    let status = wait_with_timeout(child, EXPORT_TIMEOUT, &format!("xctrace export {schema}"));
+    let bytes = out
+        .join()
+        .map_err(|_| "поток выгрузки xctrace упал")?
+        .map_err(|error| format!("xctrace export {schema}: {error}"))?;
+    let errors = errors.join().unwrap_or_default();
+    let status = status?;
+    if !status.success() {
         return Err(format!(
-            "xctrace export {schema}: {}, {}",
-            output.status,
-            String::from_utf8_lossy(&output.stderr).trim()
+            "xctrace export {schema}: {status}, {}",
+            errors.join(" | ")
         ));
     }
-    String::from_utf8(output.stdout).map_err(|_| format!("выгрузка {schema} не UTF-8"))
+    String::from_utf8(bytes).map_err(|_| format!("выгрузка {schema} не UTF-8"))
 }
 
 #[cfg(test)]
@@ -994,8 +1092,8 @@ mod tests {
             "trap 'touch {out}; exit 0' INT; echo 'Starting'; echo '{RECORDING_STARTED}'; read line; read line",
             out = output.display()
         ));
-        let recorder = Recorder::start(command, output.clone()).unwrap();
-        let lines = recorder.stop().unwrap();
+        let recorder = Recorder::start(command, output.clone(), START_TIMEOUT).unwrap();
+        let lines = recorder.stop(SAVE_TIMEOUT).unwrap();
         assert_eq!(
             lines,
             vec!["Starting".to_string(), RECORDING_STARTED.to_string()]
@@ -1005,9 +1103,42 @@ mod tests {
 
         let mut silent = std::process::Command::new("/bin/sh");
         silent.arg("-c").arg("echo 'no permission'; exit 1");
-        let error = Recorder::start(silent, dir.join("none.trace"))
+        let error = Recorder::start(silent, dir.join("none.trace"), START_TIMEOUT)
             .err()
             .unwrap();
         assert!(error.contains("no permission"), "{error}");
+    }
+
+    /// Строка начала до отказа kperf: запись неудачна, хотя начало было.
+    #[test]
+    fn recorder_reports_failure_after_start_line() {
+        let dir = std::env::temp_dir().join(format!("probe-diff-failed-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let output = dir.join("fake.trace");
+        let mut command = std::process::Command::new("/bin/sh");
+        command.arg("-c").arg(format!(
+            "trap 'touch {out}; echo \"Recording failed with errors\"; exit 0' INT; echo '{RECORDING_STARTED}'; echo '[Error] Failed to start the recording: _lockKPerf: could not lock kperf' >&2; read line; read line",
+            out = output.display()
+        ));
+        let recorder = Recorder::start(command, output, START_TIMEOUT).unwrap();
+        let error = recorder.stop(SAVE_TIMEOUT).err().unwrap();
+        assert!(error.contains("kperf"), "{error}");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Команда без строки начала и без выхода снимается по сроку, а не ждёт вечно.
+    #[test]
+    fn recorder_start_times_out() {
+        let mut command = std::process::Command::new("/bin/sh");
+        command.arg("-c").arg("echo 'Starting'; read line");
+        let error = Recorder::start(
+            command,
+            std::env::temp_dir().join("none.trace"),
+            std::time::Duration::from_millis(200),
+        )
+        .err()
+        .unwrap();
+        assert!(error.contains("не начал запись за 0 с"), "{error}");
+        assert!(error.contains("Starting"), "{error}");
     }
 }
