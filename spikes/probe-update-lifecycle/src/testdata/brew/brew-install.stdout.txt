@@ -1,0 +1,3 @@
+==> Installing Cask probe-update-fresh
+==> Moving App 'probe-update.app' to '/tmp/brew/apps4/probe-update.app'
+🍺  probe-update-fresh was successfully installed!

@@ -19,7 +19,8 @@
 //!
 //! Чтение через доступность и синтетический ввод для сценария — [`ax_text`] и [`type_text`]:
 //! они работают из другого процесса, как VoiceOver и средства автоматизации. Код AX упрощён из
-//! `spikes/probe-ghostty-surface/src/scenario/ax.rs`.
+//! `spikes/probe-ghostty-surface/src/scenario/ax.rs`. Кнопки окна чужого процесса и `AXPress` —
+//! [`ax_dialog`] и [`ax_press`] (окно Gatekeeper клетки G, задача 15).
 
 use std::cell::RefCell;
 use std::ffi::c_void;
@@ -635,6 +636,7 @@ unsafe extern "C" {
         attribute: CfRef,
         value: *mut CfRef,
     ) -> AxError;
+    fn AXUIElementPerformAction(element: CfRef, action: CfRef) -> AxError;
 }
 
 /// Процесс доверен Accessibility.
@@ -744,6 +746,129 @@ pub fn ax_text(pid: i32) -> AxRead {
         stack.append(&mut next);
     }
     read
+}
+
+/// Кнопка окна чужого процесса, прочитанная через доступность (окно Gatekeeper клетки G).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AxButton {
+    pub identifier: Option<String>,
+    pub title: Option<String>,
+    /// Кнопка — `AXDefaultButton` своего окна.
+    pub default: bool,
+}
+
+/// Окна процесса: подроли, статический текст и кнопки.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AxDialog {
+    pub trusted: bool,
+    pub windows: usize,
+    pub subroles: Vec<String>,
+    pub texts: Vec<String>,
+    pub buttons: Vec<AxButton>,
+    pub windows_error: Option<AxError>,
+}
+
+fn application(pid: i32) -> Option<Retained<AnyObject>> {
+    // SAFETY: Create-функция отдаёт объект с правом владения.
+    let application = unsafe { owned(AXUIElementCreateApplication(pid)) }?;
+    // SAFETY: элемент — живой объект AX.
+    unsafe { AXUIElementSetMessagingTimeout(as_ref(&application), AX_MESSAGING_TIMEOUT_S) };
+    Some(application)
+}
+
+/// Обход окна в глубину не дальше [`AX_TREE_LIMIT`] узлов.
+fn walk_tree(window: Retained<AnyObject>, mut visit: impl FnMut(&Retained<AnyObject>)) {
+    let mut stack = vec![window];
+    let mut nodes = 0;
+    while let Some(element) = stack.pop() {
+        nodes += 1;
+        if nodes > AX_TREE_LIMIT {
+            break;
+        }
+        visit(&element);
+        let mut next = children(&element, "AXChildren");
+        next.reverse();
+        stack.append(&mut next);
+    }
+}
+
+/// Кнопки и текст окон процесса `pid`. Ничего не нажимает.
+pub fn ax_dialog(pid: i32) -> AxDialog {
+    let mut dialog = AxDialog {
+        trusted: ax_trusted(),
+        ..AxDialog::default()
+    };
+    let Some(application) = application(pid) else {
+        dialog.windows_error = Some(-1);
+        return dialog;
+    };
+    let windows = match copy_attribute(&application, "AXWindows") {
+        Ok(windows) => windows
+            .downcast_ref::<NSArray>()
+            .map_or(Vec::new(), |array| array.iter().collect()),
+        Err(error) => {
+            dialog.windows_error = Some(error);
+            Vec::new()
+        }
+    };
+    dialog.windows = windows.len();
+    for window in windows {
+        dialog
+            .subroles
+            .push(string_attribute(&window, "AXSubrole").unwrap_or_default());
+        let default = copy_attribute(&window, "AXDefaultButton")
+            .ok()
+            .and_then(|button| string_attribute(&button, "AXIdentifier"));
+        walk_tree(window, |element| {
+            match string_attribute(element, "AXRole").as_deref() {
+                Some("AXButton") => {
+                    let identifier = string_attribute(element, "AXIdentifier");
+                    dialog.buttons.push(AxButton {
+                        default: identifier.is_some() && identifier == default,
+                        identifier,
+                        title: string_attribute(element, "AXTitle"),
+                    });
+                }
+                Some("AXStaticText") => {
+                    dialog
+                        .texts
+                        .push(string_attribute(element, "AXValue").unwrap_or_default());
+                }
+                _ => {}
+            }
+        });
+    }
+    dialog
+}
+
+/// `AXPress` кнопки с `AXIdentifier` = `identifier` в окнах процесса `pid`.
+pub fn ax_press(pid: i32, identifier: &str) -> Result<(), String> {
+    let application = application(pid).ok_or("AXUIElementCreateApplication вернул NULL")?;
+    let windows = copy_attribute(&application, "AXWindows")
+        .map_err(|error| format!("AXWindows: ошибка AX {error}"))?;
+    let windows: Vec<Retained<AnyObject>> = windows
+        .downcast_ref::<NSArray>()
+        .map_or(Vec::new(), |array| array.iter().collect());
+    let mut target = None;
+    for window in windows {
+        walk_tree(window, |element| {
+            if target.is_none()
+                && string_attribute(element, "AXRole").as_deref() == Some("AXButton")
+                && string_attribute(element, "AXIdentifier").as_deref() == Some(identifier)
+            {
+                target = Some(element.clone());
+            }
+        });
+    }
+    let button = target.ok_or_else(|| format!("кнопки {identifier} в окнах нет"))?;
+    let action = NSString::from_str("AXPress");
+    // SAFETY: элемент и имя действия — живые объекты CF.
+    let error = unsafe { AXUIElementPerformAction(as_ref(&button), as_ref(&action)) };
+    if error == AX_SUCCESS {
+        Ok(())
+    } else {
+        Err(format!("AXPress {identifier}: ошибка AX {error}"))
+    }
 }
 
 /// Нажатия клавиш процессу `pid`: каждый символ — нажатие с этим символом Unicode, затем

@@ -1,0 +1,7 @@
+2026-11-18 17:27:31.672 Df syspolicyd[510:4d15ed3] [com.apple.syspolicy.exec:default] GK performScan: PST: (path: a31c608a0baa4b09), (team: (null)), (id: (null)), (bundle_id: (null))
+2026-11-18 17:27:32.269 Df syspolicyd[510:4d16776] [com.apple.syspolicy.exec:default] GK evaluateScanResult: 0, PST: (path: a31c608a0baa4b09), (team: (null)), (id: io.github.dsbasko.shellio.probe.update-lifecycle), (bundle_id: io.github.dsbasko.shellio.probe.update-lifecycle), 1, 0, 1, 0, 0, 0, 0
+2026-11-18 17:27:32.270 Df syspolicyd[510:4d16776] [com.apple.syspolicy.exec:default] Prompt shown (6, 0), waiting for response: PST: (path: a31c608a0baa4b09), (team: (null)), (id: io.github.dsbasko.shellio.probe.update-lifecycle), (bundle_id: io.github.dsbasko.shellio.probe.update-lifecycle)
+2026-11-18 17:27:39.146 Df syspolicyd[510:4d15ee6] [com.apple.syspolicy.exec:default] GK performScan: PST: (path: 81ea4415a2705ed5), (team: (null)), (id: (null)), (bundle_id: (null))
+2026-11-18 17:27:39.251 Df syspolicyd[510:4d1669f] [com.apple.launchservices:code-evaluation] -[LSCodeEvaluation moveItemToTrashWithReply:]: info={<private>}
+2026-11-18 17:27:39.273 E  syspolicyd[510:4d1661e] [com.apple.syspolicy.exec:default] Terminating process due to Gatekeeper rejection: 26234, <private>
+2026-11-18 17:27:39.472 Df syspolicyd[510:4d1669f] [com.apple.syspolicy.exec:default] GK evaluateScanResult: 2, PST: (path: 81ea4415a2705ed5), (team: (null)), (id: escape), (bundle_id: NOT_A_BUNDLE), 0, 0, 1, 0, 0, 0, 0

@@ -931,12 +931,22 @@ N+1 подтверждается, только когда выполнено в�
 - Create: `spikes/probe-update-lifecycle/brew/`
 - Create: `spikes/probe-update-lifecycle/src/scenario/brew.rs`
 - Modify: `spikes/probe-update-lifecycle/run.sh`
+- ➕ Create: `spikes/probe-update-lifecycle/src/brew.rs` (разборы `xattr -l`, вывода `brew` и `syspolicyd`, выбор кнопки окна Gatekeeper, сверка снимков настоящего Homebrew, шаблоны cask), `src/testdata/brew/` (выводы опыта ранней проверки)
+- ➕ Modify: `spikes/probe-update-lifecycle/src/window.rs` (`ax_dialog`, `ax_press`), `src/lib.rs`, `src/scenario/mod.rs`, `docs/probes/p0.5-update-lifecycle.md`
 
-- [ ] ранняя проверка изоляции по порядку раздела «Brew»; итог записан в отчёт до клетки
-- [ ] локальный tap и cask с `preflight_steps`, архив `file://`, `--appdir` во временный каталог
-- [ ] части 1–4 раздела «Brew»; проверка, что `/opt/homebrew` не изменился
-- [ ] тесты разбора `xattr -l` и вывода brew
-- [ ] `make check` и `make probe-update SCENARIOS="brew"` проходят, с `not_run`, если изоляция не удалась
+- [x] ранняя проверка изоляции по порядку раздела «Brew»; итог записан в отчёт до клетки
+- [x] локальный tap и cask с `preflight_steps`, архив `file://`, `--appdir` во временный каталог
+- [x] части 1–4 раздела «Brew»; проверка, что `/opt/homebrew` не изменился
+- [x] тесты разбора `xattr -l` и вывода brew
+- [x] `make check` и `make probe-update SCENARIOS="brew"` проходят, с `not_run`, если изоляция не удалась
+
+⚠️ Решения исполнителя в задаче 15 (записаны и в отчёте):
+- Ранняя проверка изоляции выполнена вручную до записи ожиданий на одноразовом префиксе: изоляция удалась (локальный клон 0,6 с, копия portable-ruby 4.0.9, `brew --prefix` — изолированный префикс), cask из локального tap ставится без сети. Опыт пошёл дальше изоляции: исполнитель поставил оба cask и открыл оба бандла, поэтому ожидания G записаны со знанием исхода, это сказано в отчёте.
+- Синтетический Escape плана в окне Gatekeeper на macOS 27 выбрал «Переместить в Корзину»: контроль опыта оказался в `~/.Trash/probe-update.app`, исполнитель удалил его по точному пути. Кнопка по умолчанию окна — «Переместить в Корзину», `AXCancelButton` нет. Окно закрывается `AXPress` кнопки «Готово»: это кнопка действия (`action-button-*`), которая не равна `AXDefaultButton`. Если контроль всё же пропал, стенд удаляет из Корзины только бандл с подписью пробы поколения 1 и даёт части `not_run`.
+- Homebrew 7 при `install` по полному имени сам доверяет cask и пишет `trust.json`. Окружение `brew` получает `XDG_CONFIG_HOME` во временном каталоге, иначе изменился бы настоящий `~/.homebrew/trust.json`. Ещё добавлены `HOMEBREW_NO_ENV_HINTS` и системный `PATH`. Снимок настоящего Homebrew включает SHA-256 `trust.json`, HEAD, `git --no-optional-locks status`, списки tap и Caskroom; расхождение — ошибка исполнения.
+- Оракул контроля — не `spctl --assess`: он отвергает оба бандла, с карантином и без. Опора — карантин на контроле, нет квитанции, окно закрыто стендом, контроль на месте, строки `syspolicyd` `Prompt shown` или `denial breadcrumb` пробы и `Terminating process due to Gatekeeper rejection` с PID процесса контроля.
+- Префикс заводится заново в каждом прогоне в `target/probes/update-lifecycle/brew/prefix/` и удаляется в конце: так запись шага прошлого прогона не сойдёт за доказательство этого прогона. Готовит его процесс сценария, `run.sh` знает только имя сценария. Наблюдение шага `preflight_steps` — `stdout_path` рядом с каталогом версии в Caskroom, `xattr -lr` вместо `xattr -l`.
+- Вывод: G — `pass` всех четырёх частей. Первый прогон — `20261118-174940-45985`, рубеж — `20261118-175131-55752` вместе с `window-update`, там же H — `pass`. Передача в P5.3: Escape или Return в окне Gatekeeper отправляют приложение в Корзину.
 
 ### Task 16: Стенд TCC и цель выдачи
 

@@ -1,0 +1,17 @@
+==> Trusted cask shellio-probe/probe/probe-update-badsum
+Warning: Your Homebrew's prefix is not /opt/homebrew.
+
+Some of Homebrew's bottles (binary packages) cannot be used with this prefix.
+
+Consider uninstalling Homebrew and reinstalling into the default prefix.
+
+==> Fetching downloads for: shellio-probe/probe/probe-update-badsum
+✘ Cask probe-update-badsum (1)
+Error: Cask probe-update-badsum (1) reports different checksum: 0000000000000000000000000000000000000000000000000000000000000000
+Error: shellio-probe/probe/probe-update-badsum: Download failed for probe-update-badsum.
+
+This is a Tier 3 configuration:
+  https://docs.brew.sh/Support-Tiers#tier-3
+You can report issues with Tier 3 configurations to Homebrew/* repositories!
+  
+Read the above document before opening any issues or PRs.

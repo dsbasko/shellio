@@ -1,0 +1,2 @@
+Homebrew 7.0.14-26-gb63354c
+Homebrew/homebrew-core N/A

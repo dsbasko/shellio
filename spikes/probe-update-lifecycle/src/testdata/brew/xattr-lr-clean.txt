@@ -1,0 +1,13 @@
+/tmp/brew/apps/probe-update.app/Contents/_CodeSignature/CodeResources: com.apple.provenance: 
+/tmp/brew/apps/probe-update.app/Contents/_CodeSignature: com.apple.provenance: 
+/tmp/brew/apps/probe-update.app/Contents/MacOS/probe-update-host: com.apple.provenance: 
+/tmp/brew/apps/probe-update.app/Contents/MacOS/probe-update-fixture: com.apple.provenance: 
+/tmp/brew/apps/probe-update.app/Contents/MacOS/probe-update-app: com.apple.provenance: 
+/tmp/brew/apps/probe-update.app/Contents/MacOS/probe-update-helper: com.apple.provenance: 
+/tmp/brew/apps/probe-update.app/Contents/MacOS/probe-update-attach: com.apple.provenance: 
+/tmp/brew/apps/probe-update.app/Contents/MacOS: com.apple.provenance: 
+/tmp/brew/apps/probe-update.app/Contents/Resources/generation.json: com.apple.provenance: 
+/tmp/brew/apps/probe-update.app/Contents/Resources: com.apple.provenance: 
+/tmp/brew/apps/probe-update.app/Contents/Info.plist: com.apple.provenance: 
+/tmp/brew/apps/probe-update.app/Contents: com.apple.provenance: 
+/tmp/brew/apps/probe-update.app: com.apple.provenance: 

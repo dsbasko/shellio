@@ -4,8 +4,9 @@
 //! `incompatible` (D2 до активации), задача 8 — `swap` (B1), `identity-live` (A1), `reject` (A2)
 //! и `incompatible-activate` (D2, активация), задача 9 — `window-update` (H), задача 10 — `owner`
 //! (C1), задача 11 — `kill` (B2), задача 12 — `runtimes` (D1), задача 13 — `env-faults` (B3),
-//! задача 14 — `keychain` (F).
+//! задача 14 — `keychain` (F), задача 15 — `brew` (G).
 
+pub mod brew;
 pub mod env_faults;
 pub mod host;
 pub mod identity;
@@ -72,10 +73,12 @@ pub enum Scenario {
     EnvFaults,
     /// F: Keychain.
     Keychain,
+    /// G: карантин через изолированный Homebrew.
+    Brew,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 16] = [
+    pub const ALL: [Scenario; 17] = [
         Scenario::Smoke,
         Scenario::Host,
         Scenario::Identity,
@@ -92,6 +95,7 @@ impl Scenario {
         Scenario::Runtimes,
         Scenario::EnvFaults,
         Scenario::Keychain,
+        Scenario::Brew,
     ];
 
     pub fn name(self) -> &'static str {
@@ -112,6 +116,7 @@ impl Scenario {
             Scenario::Runtimes => "runtimes",
             Scenario::EnvFaults => "env-faults",
             Scenario::Keychain => "keychain",
+            Scenario::Brew => "brew",
         }
     }
 
@@ -140,6 +145,7 @@ impl Scenario {
             Scenario::Runtimes => runtimes::DEADLINE,
             Scenario::EnvFaults => env_faults::DEADLINE,
             Scenario::Keychain => keychain::DEADLINE,
+            Scenario::Brew => brew::DEADLINE,
         }
     }
 }
@@ -225,6 +231,7 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::Runtimes => runtimes::run(&target.out, environment),
         Scenario::EnvFaults => env_faults::run(&target.out, environment),
         Scenario::Keychain => keychain::run(&target.out, environment),
+        Scenario::Brew => brew::run(&target.out, environment),
     }
 }
 
@@ -441,7 +448,7 @@ mod tests {
             assert_eq!(Scenario::from_name(scenario.name()), Some(scenario));
             assert!(!scenario.deadline().is_zero());
         }
-        assert_eq!(Scenario::from_name("brew"), None);
+        assert_eq!(Scenario::from_name("tcc"), None);
     }
 
     #[test]

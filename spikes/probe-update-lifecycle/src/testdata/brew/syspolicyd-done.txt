@@ -1,0 +1,10 @@
+2026-11-18 17:35:26.504 Df syspolicyd[510:4d15ee6] [com.apple.syspolicy.exec:default] GK performScan: PST: (path: 836935cf2d1168ca), (team: (null)), (id: (null)), (bundle_id: (null))
+2026-11-18 17:35:27.121 Df syspolicyd[510:4d21ce4] [com.apple.syspolicy.exec:default] GK performScan: PST: (path: 920c0870b24c7325), (team: (null)), (id: (null)), (bundle_id: (null))
+2026-11-18 17:35:27.340 Df syspolicyd[510:4d2d33b] [com.apple.syspolicy.exec:default] GK evaluateScanResult: 2, PST: (path: 920c0870b24c7325), (team: (null)), (id: libjnidispatch.jnilib), (bundle_id: NOT_A_BUNDLE), 0, 0, 1, 0, 0, 0, 0
+2026-11-18 17:35:27.444 Df syspolicyd[510:4d21ce5] [com.apple.syspolicy.exec:default] GK evaluateScanResult: 0, PST: (path: 836935cf2d1168ca), (team: (null)), (id: io.github.dsbasko.shellio.probe.update-lifecycle), (bundle_id: io.github.dsbasko.shellio.probe.update-lifecycle), 1, 0, 1, 0, 0, 0, 0
+2026-11-18 17:35:27.444 Df syspolicyd[510:4d21ce5] [com.apple.syspolicy.exec:default] Prompt shown (6, 0), waiting for response: PST: (path: 836935cf2d1168ca), (team: (null)), (id: io.github.dsbasko.shellio.probe.update-lifecycle), (bundle_id: io.github.dsbasko.shellio.probe.update-lifecycle)
+2026-11-18 17:35:27.666 Df syspolicyd[510:4d2d339] [com.apple.syspolicy.exec:default] GK performScan: PST: (path: 30f761dec601c249), (team: (null)), (id: (null)), (bundle_id: (null))
+2026-11-18 17:35:28.062 Df syspolicyd[510:4d2d338] [com.apple.syspolicy.exec:default] GK performScan: PST: (path: 80bb16876f7d86f3), (team: (null)), (id: (null)), (bundle_id: (null))
+2026-11-18 17:35:31.095 Df syspolicyd[510:4d2d339] [com.apple.syspolicy.exec:default] Code evaluation completed: 2
+2026-11-18 17:35:31.096 Df syspolicyd[510:4d21ce5] [com.apple.syspolicy.exec:default] Adding Gatekeeper denial breadcrumb (open): PST: (path: 836935cf2d1168ca), (team: (null)), (id: io.github.dsbasko.shellio.probe.update-lifecycle), (bundle_id: io.github.dsbasko.shellio.probe.update-lifecycle)
+2026-11-18 17:35:31.128 E  syspolicyd[510:4d2d338] [com.apple.syspolicy.exec:default] Terminating process due to Gatekeeper rejection: 34373, <private>

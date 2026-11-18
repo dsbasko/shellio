@@ -8,6 +8,7 @@
 pub mod args;
 pub mod attach;
 pub mod barrier;
+pub mod brew;
 pub mod compat;
 pub mod fixture;
 pub mod generation;
