@@ -120,13 +120,33 @@ pub fn judge_peak(before: Sample, touched: Sample, after: Sample, control: u64) 
 /// страница записывается, затем буфер освобождается.
 pub fn check_peak() -> Result<PeakCheck, String> {
     let before = sample()?;
-    let mut buffer = vec![0u8; CONTROL_BYTES];
-    for page in buffer.chunks_mut(4096) {
-        page[0] = 1;
+    // Отображение без распределителя: `munmap` возвращает страницы ядру сразу, а освобождённый
+    // `Vec` распределитель может держать, и след после освобождения не упал бы (прогон
+    // калибровки 02:01).
+    // SAFETY: анонимное отображение без файла, указатель проверяется на `MAP_FAILED`.
+    let base = unsafe {
+        libc::mmap(
+            std::ptr::null_mut(),
+            CONTROL_BYTES,
+            libc::PROT_READ | libc::PROT_WRITE,
+            libc::MAP_PRIVATE | libc::MAP_ANON,
+            -1,
+            0,
+        )
+    };
+    if base == libc::MAP_FAILED {
+        return Err(format!("mmap: {}", std::io::Error::last_os_error()));
     }
-    std::hint::black_box(&buffer);
+    let page = 4096;
+    for offset in (0..CONTROL_BYTES).step_by(page) {
+        // SAFETY: смещение внутри отображения длины `CONTROL_BYTES`, запись в каждую страницу.
+        unsafe { std::ptr::write_volatile(base.cast::<u8>().add(offset), 1) };
+    }
     let touched = sample()?;
-    drop(buffer);
+    // SAFETY: то же отображение той же длины, после вызова указатель не используется.
+    if unsafe { libc::munmap(base, CONTROL_BYTES) } != 0 {
+        return Err(format!("munmap: {}", std::io::Error::last_os_error()));
+    }
     let after = sample()?;
     let control = CONTROL_BYTES as u64;
     Ok(PeakCheck {
@@ -149,6 +169,12 @@ mod tests {
             footprint_bytes: footprint,
             lifetime_max_bytes: peak,
         }
+    }
+
+    #[test]
+    fn peak_check_sees_the_control_mapping() {
+        let check = check_peak().unwrap();
+        assert_eq!(check.failure, None, "{check:?}");
     }
 
     #[test]

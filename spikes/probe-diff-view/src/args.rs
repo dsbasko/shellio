@@ -93,15 +93,18 @@ pub enum Scenario {
     Smoke,
     /// Подсветка на worker без окна: замеры разбора и запросов, сверка с эталоном.
     Highlight,
+    /// Калибровка замера кадров: окно с движением по S1, отметка `drawRect:`, сверка пика.
+    Calibrate,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 2] = [Scenario::Smoke, Scenario::Highlight];
+    pub const ALL: [Scenario; 3] = [Scenario::Smoke, Scenario::Highlight, Scenario::Calibrate];
 
     pub fn name(self) -> &'static str {
         match self {
             Scenario::Smoke => "smoke",
             Scenario::Highlight => "highlight",
+            Scenario::Calibrate => "calibrate",
         }
     }
 
@@ -113,7 +116,7 @@ impl Scenario {
 
     pub fn axes(self) -> Axes {
         match self {
-            Scenario::Smoke | Scenario::Highlight => Axes::STAND,
+            Scenario::Smoke | Scenario::Highlight | Scenario::Calibrate => Axes::STAND,
         }
     }
 
@@ -121,7 +124,7 @@ impl Scenario {
     /// (`needs_fixtures`) повторяет её.
     pub fn needs_fixtures(self) -> bool {
         match self {
-            Scenario::Smoke => false,
+            Scenario::Smoke | Scenario::Calibrate => false,
             Scenario::Highlight => true,
         }
     }

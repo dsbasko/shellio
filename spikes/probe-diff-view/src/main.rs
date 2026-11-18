@@ -214,13 +214,15 @@ fn run_scenario(
     // Грамматика проверяется до окна: разбор строки из одного выражения, без AppKit.
     let grammar = check_grammar();
     let mut outcome = match scenario {
-        Scenario::Smoke => run_app(Some(scenario), view).unwrap_or_else(|| {
-            Outcome::error(
-                "основной цикл завершился без итога сценария",
-                None,
-                Report::default(),
-            )
-        }),
+        Scenario::Smoke | Scenario::Calibrate => {
+            run_app(Some(scenario), view).unwrap_or_else(|| {
+                Outcome::error(
+                    "основной цикл завершился без итога сценария",
+                    None,
+                    Report::default(),
+                )
+            })
+        }
         Scenario::Highlight => run_headless(fixtures),
     };
     if outcome.execution.is_ok() {
@@ -432,6 +434,7 @@ struct DelegateIvars {
     timer: RefCell<Option<Retained<NSTimer>>>,
     /// Конец `applicationDidFinishLaunching`: начало ожидания готового окна.
     shown_at: OnceCell<Instant>,
+    calibration: RefCell<Option<scenario::calibrate_run::Calibration>>,
 }
 
 define_class!(
@@ -473,7 +476,18 @@ define_class!(
     impl AppDelegate {
         #[unsafe(method(pollWindow:))]
         fn poll_window(&self, _timer: &NSTimer) {
-            self.check_window();
+            let polled = self.ivars().calibration.borrow().as_ref().map(|run| run.poll());
+            match polled {
+                None => self.check_window(),
+                Some(None) => {}
+                Some(Some(result)) => {
+                    drop(self.ivars().calibration.borrow_mut().take());
+                    self.finish(match result {
+                        Ok(report) => Outcome::ok(report),
+                        Err(failed) => Outcome::error(failed.0, None, failed.1),
+                    });
+                }
+            }
         }
     }
 );
@@ -492,6 +506,7 @@ impl AppDelegate {
             window: OnceCell::new(),
             timer: RefCell::new(None),
             shown_at: OnceCell::new(),
+            calibration: RefCell::new(None),
         });
         // SAFETY: `init` у NSObject без аргументов.
         unsafe { msg_send![super(this), init] }
@@ -582,7 +597,14 @@ impl AppDelegate {
                     |display| format!("{}, до {} Гц", display.name, display.max_fps),
                 ),
             );
-            self.finish(Outcome::ok(report));
+            if ivars.scenario != Some(Scenario::Calibrate) {
+                self.finish(Outcome::ok(report));
+                return;
+            }
+            match scenario::calibrate_run::Calibration::start(self.mtm(), window, report) {
+                Ok(run) => *ivars.calibration.borrow_mut() = Some(run),
+                Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
+            }
         } else if waited >= SMOKE_TIMEOUT {
             self.finish(Outcome::error(
                 format!("окно не готово за {} мс", SMOKE_TIMEOUT.as_millis()),

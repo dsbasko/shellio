@@ -5,6 +5,7 @@
 // подключением, промежуточная точка задачи 6.
 #[allow(dead_code)]
 pub mod calibrate;
+pub mod calibrate_run;
 #[allow(dead_code, unused_macros, unused_imports)]
 pub mod counters;
 #[allow(dead_code)]
