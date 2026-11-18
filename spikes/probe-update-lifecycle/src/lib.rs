@@ -13,11 +13,14 @@ pub mod host;
 pub mod journal;
 pub mod launch;
 pub mod observer;
+pub mod owner;
 pub mod proto;
 pub mod pty;
 pub mod recover;
 pub mod results;
+pub mod runtime;
 pub mod scenario;
+pub mod spawn;
 pub mod sys;
 
 use std::io::{self, Write};

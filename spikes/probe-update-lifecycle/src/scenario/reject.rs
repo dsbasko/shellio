@@ -364,7 +364,8 @@ fn installed(
     })
 }
 
-fn install(source: &Path, dest: &Path) -> Result<(), String> {
+/// Копия бандла `source` в `dest` через `ditto`: подпись сохраняется.
+pub fn install(source: &Path, dest: &Path) -> Result<(), String> {
     let parent = dest
         .parent()
         .ok_or_else(|| format!("у {} нет каталога", dest.display()))?;

@@ -26,7 +26,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::Child;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
@@ -40,8 +40,11 @@ use crate::proto::{
     self, Ack, HOST_VERSIONS, Hello, Message, OUTPUT_CHUNK, Purpose, Status, Versions, Welcome,
 };
 use crate::pty::{self, Spawn, Winsize};
+use crate::spawn;
 
 pub const HOST_NAME: &str = "probe-update-host";
+/// Каталог сокетов и записей сессий внутри каталога состояния.
+pub const SESSIONS_DIR: &str = "s";
 /// Предел хранимого хвоста вывода в байтах; вытесненное начало сдвигает `start`.
 pub const LOG_LIMIT: usize = 4 << 20;
 /// Срок `Hello` от подключения.
@@ -942,28 +945,32 @@ impl Hub {
     }
 }
 
-/// Запускает хост и ждёт строку [`Launch`] не дольше [`LAUNCH_TIMEOUT`]. stderr хоста идёт в
-/// `stderr`, stdin — `/dev/null`.
+/// Запускает хост через `posix_spawn` с `POSIX_SPAWN_CLOEXEC_DEFAULT` ([`spawn`]) и ждёт строку
+/// [`Launch`] не дольше [`LAUNCH_TIMEOUT`]. stderr хоста идёт в `stderr`, stdin — `/dev/null`,
+/// окружение — вызывающего. Владелец запускает хосты, держа `shellio.lock` и свой сокет: хост их
+/// не наследует.
 pub fn launch(binary: &Path, options: &Options, stderr: File) -> Result<SessionRecord, String> {
-    let mut child = Command::new(binary)
-        .args(options.to_args())
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::from(stderr))
-        .spawn()
-        .map_err(|err| format!("запуск {}: {err}", binary.display()))?;
-    let stdout = child.stdout.take().ok_or("нет stdout хоста")?;
+    let (read, write) = spawn::pipe().map_err(|err| format!("канал строки запуска: {err}"))?;
+    let pid = spawn::spawn(spawn::Spec {
+        program: binary,
+        args: &options.to_args(),
+        env: None,
+        stdio: [None, Some(write), Some(OwnedFd::from(stderr))],
+    })
+    .map_err(|err| format!("запуск {}: {err}", binary.display()))?;
     let (sender, receiver) = mpsc::channel();
     thread::Builder::new()
         .name("host-launch".to_owned())
         .spawn(move || {
             let mut line = String::new();
-            let read = BufReader::new(stdout).read_line(&mut line).map(|_| line);
+            let read = BufReader::new(File::from(read))
+                .read_line(&mut line)
+                .map(|_| line);
             let _ = sender.send(read);
         })
         .map_err(|err| format!("поток строки запуска: {err}"))?;
     let line = receiver.recv_timeout(LAUNCH_TIMEOUT);
-    let _ = child.wait();
+    let _ = spawn::wait(pid);
     let line = match line {
         Ok(Ok(line)) => line,
         Ok(Err(err)) => return Err(format!("строка запуска хоста: {err}")),

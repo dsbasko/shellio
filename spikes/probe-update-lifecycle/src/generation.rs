@@ -20,12 +20,12 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
-use std::process::{Command, ExitCode, Stdio};
+use std::process::ExitCode;
 
 use serde::{Deserialize, Serialize};
 
 use crate::proto::{ATTACH_VERSIONS, HOST_VERSIONS, Versions};
-use crate::{EXIT_USAGE, attach, fixture, host};
+use crate::{EXIT_USAGE, attach, fixture, host, spawn};
 
 /// Идентификатор бандла пробы и основа идентификаторов его частей.
 pub const BUNDLE_ID: &str = "io.github.dsbasko.shellio.probe.update-lifecycle";
@@ -640,18 +640,16 @@ impl Run {
     }
 }
 
-/// Запуск команды до выхода; отказ запуска — ошибка исполнения.
+/// Запуск команды до выхода через `posix_spawn` с `POSIX_SPAWN_CLOEXEC_DEFAULT` ([`spawn`]):
+/// роль GUI вызывает `codesign`, держа `shellio.lock`. Отказ запуска — ошибка исполнения.
 pub fn run(program: &str, args: &[String]) -> Result<Run, String> {
-    let output = Command::new(program)
-        .args(args)
-        .stdin(Stdio::null())
-        .output()
+    let output = spawn::output(Path::new(program), args)
         .map_err(|err| format!("запуск {program}: {err}"))?;
     let mut command = vec![program.to_owned()];
     command.extend(args.iter().cloned());
     Ok(Run {
         command,
-        code: output.status.code(),
+        code: output.exit.code,
         stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
         stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
     })

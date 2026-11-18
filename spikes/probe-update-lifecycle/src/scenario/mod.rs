@@ -1,9 +1,10 @@
 //! Сценарии пробы и процесс сценария: предусловие окружения, сценарий, `result.json` в `--out`.
 //! Сценарии добавляют задачи плана; задача 2 — сценарий стенда `smoke`, задача 3 — `host`,
-//! задача 4 — `identity` (A1) и `reject-verify` (A2).
+//! задача 4 — `identity` (A1) и `reject-verify` (A2), задача 6 — `owner-basic`.
 
 pub mod host;
 pub mod identity;
+pub mod owner_basic;
 pub mod reject;
 pub mod smoke;
 
@@ -31,14 +32,17 @@ pub enum Scenario {
     Identity,
     /// Ранняя часть A2: отказ проверки кандидата каждым видом.
     RejectVerify,
+    /// Самопроверка стенда: роль GUI и владение без обновления.
+    OwnerBasic,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 4] = [
+    pub const ALL: [Scenario; 5] = [
         Scenario::Smoke,
         Scenario::Host,
         Scenario::Identity,
         Scenario::RejectVerify,
+        Scenario::OwnerBasic,
     ];
 
     pub fn name(self) -> &'static str {
@@ -47,6 +51,7 @@ impl Scenario {
             Scenario::Host => "host",
             Scenario::Identity => "identity",
             Scenario::RejectVerify => "reject-verify",
+            Scenario::OwnerBasic => "owner-basic",
         }
     }
 
@@ -63,6 +68,7 @@ impl Scenario {
             Scenario::Host => host::DEADLINE,
             Scenario::Identity => identity::DEADLINE,
             Scenario::RejectVerify => reject::DEADLINE,
+            Scenario::OwnerBasic => owner_basic::DEADLINE,
         }
     }
 }
@@ -136,6 +142,7 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::Host => host::run(&target.out, environment),
         Scenario::Identity => identity::run(&target.out, environment),
         Scenario::RejectVerify => reject::run(&target.out, environment),
+        Scenario::OwnerBasic => owner_basic::run(&target.out, environment),
     }
 }
 

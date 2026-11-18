@@ -110,9 +110,11 @@ impl Requirement {
 pub const SMOKE_CELL: &str = "smoke";
 /// Самопроверка стенда: минимальный хост, attach-клиент и нагрузка.
 pub const HOST_CELL: &str = "host";
+/// Самопроверка стенда: роль GUI и владение без обновления (задача 6).
+pub const OWNER_BASIC_CELL: &str = "owner-basic";
 
 /// Каталог клеток в порядке сводки.
-pub const CELLS: [(&str, Kind); 14] = [
+pub const CELLS: [(&str, Kind); 15] = [
     ("A1", Kind::Required),
     ("A2", Kind::Required),
     ("B1", Kind::Required),
@@ -127,6 +129,7 @@ pub const CELLS: [(&str, Kind); 14] = [
     ("G", Kind::Observation),
     (SMOKE_CELL, Kind::Stand),
     (HOST_CELL, Kind::Stand),
+    (OWNER_BASIC_CELL, Kind::Stand),
 ];
 
 pub fn kind_of(id: &str) -> Option<Kind> {
@@ -1039,6 +1042,7 @@ mod tests {
         assert_eq!(observations, ["E", "F", "G"]);
         assert_eq!(kind_of(SMOKE_CELL), Some(Kind::Stand));
         assert_eq!(kind_of(HOST_CELL), Some(Kind::Stand));
+        assert_eq!(kind_of(OWNER_BASIC_CELL), Some(Kind::Stand));
         assert_eq!(kind_of("B4"), None);
         assert!(cell_order("A1") < cell_order("H"));
         assert!(cell_order("H") < cell_order("E"));

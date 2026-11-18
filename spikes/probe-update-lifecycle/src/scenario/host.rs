@@ -46,8 +46,6 @@ pub const DEADLINE: Duration = Duration::from_secs(60);
 pub const DIR: &str = "host";
 pub const STEPS_ARTIFACT: &str = "host/steps.json";
 pub const HOST_STDERR: &str = "host/host.stderr";
-/// Каталог сокетов и записей сессий внутри `SHELLIO_STATE_DIR`.
-pub const SESSIONS_DIR: &str = "s";
 const SESSION: &str = "h1";
 /// Срок одного шага.
 const STEP: Duration = Duration::from_secs(10);
@@ -208,7 +206,7 @@ pub fn run(out: &Path, environment: &Environment) -> Result<Report, String> {
     fs::create_dir(&dir).map_err(|err| format!("{}: {err}", dir.display()))?;
     let stderr = File::create(out.join(HOST_STDERR))
         .map_err(|err| format!("{}: {err}", out.join(HOST_STDERR).display()))?;
-    let sessions = state_dir.join(SESSIONS_DIR);
+    let sessions = state_dir.join(host::SESSIONS_DIR);
     fs::create_dir(&sessions).map_err(|err| format!("{}: {err}", sessions.display()))?;
     let mut guard = Guard {
         sessions: sessions.clone(),
@@ -820,7 +818,7 @@ mod tests {
             "x".repeat(48),
             launch::state_dir_name("0123456789abcdef")
         ));
-        let socket = host::socket_path(&state.join(SESSIONS_DIR), SESSION);
+        let socket = host::socket_path(&state.join(host::SESSIONS_DIR), SESSION);
         assert!(
             host::check_socket_path(&socket).is_ok(),
             "{}",
