@@ -15,6 +15,8 @@ pub mod highlight;
 #[allow(dead_code)]
 pub mod sampler;
 #[allow(dead_code)]
+pub mod stand;
+#[allow(dead_code)]
 pub mod watchdog;
 
 /// Код выхода ошибки исполнения, тот же, что у `main`.
