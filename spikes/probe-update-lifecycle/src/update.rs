@@ -208,6 +208,7 @@ pub fn mode(journal: &Journal) -> Result<AppOptions, String> {
     match owner::parse_app_args(&journal.launch, None)? {
         AppMode::Run(options) => Ok(options),
         AppMode::Stub(_) => Err("в журнале аргументы заглушки".to_owned()),
+        AppMode::Keychain(_) => Err("в журнале аргументы операции keychain".to_owned()),
     }
 }
 

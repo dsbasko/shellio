@@ -14,6 +14,7 @@ pub mod generation;
 pub mod health;
 pub mod host;
 pub mod journal;
+pub mod keychain;
 pub mod kq;
 pub mod launch;
 pub mod observer;

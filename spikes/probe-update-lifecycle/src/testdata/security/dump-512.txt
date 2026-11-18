@@ -1,0 +1,98 @@
+keychain: "/Users/u/Library/Keychains/psu-f-0011223344556677.keychain-db"
+version: 512
+class: "genp"
+attributes:
+    0x00000007 <blob>="probe n"
+    0x00000008 <blob>=<NULL>
+    "acct"<blob>="n"
+    "cdat"<timedate>=0x32303236313131383131353732375A00  "20261118115727Z\000"
+    "crtr"<uint32>=<NULL>
+    "cusi"<sint32>=<NULL>
+    "desc"<blob>=<NULL>
+    "gena"<blob>=<NULL>
+    "icmt"<blob>=<NULL>
+    "invi"<sint32>=<NULL>
+    "mdat"<timedate>=0x32303236313131383131353732375A00  "20261118115727Z\000"
+    "nega"<sint32>=<NULL>
+    "prot"<blob>=<NULL>
+    "scrp"<sint32>=<NULL>
+    "svce"<blob>="probe.f"
+    "type"<uint32>=<NULL>
+access: 5 entries
+    entry 0:
+        authorizations (6): decrypt derive export_clear export_wrapped mac sign
+        don't-require-password
+        description: probe n
+        applications (1):
+            0: /usr/bin/security (OK)
+                requirement: identifier "com.apple.security" and anchor apple
+    entry 1:
+        authorizations (1): encrypt
+        don't-require-password
+        description: probe n
+        applications: <null>
+    entry 2:
+        authorizations (1): integrity
+        don't-require-password
+        description: a5ec2307d748aedee21ae22c19a778b00efc3c2412cf085ed87de2c4eaa15956
+        applications: <null>
+    entry 3:
+        authorizations (1): partition_id
+        don't-require-password
+        description: cdhash:0123456789abcdef0123456789abcdef01234567, teamid:ABCDE12345
+        applications: <null>
+    entry 4:
+        authorizations (1): change_acl
+        don't-require-password
+        description: probe n
+        applications (0):
+keychain: "/Users/u/Library/Keychains/psu-f-0011223344556677.keychain-db"
+version: 512
+class: "genp"
+attributes:
+    0x00000007 <blob>="probe.f"
+    0x00000008 <blob>=<NULL>
+    "acct"<blob>="denied"
+    "cdat"<timedate>=0x32303236313131383131353732375A00  "20261118115727Z\000"
+    "crtr"<uint32>=<NULL>
+    "cusi"<sint32>=<NULL>
+    "desc"<blob>=<NULL>
+    "gena"<blob>=<NULL>
+    "icmt"<blob>=<NULL>
+    "invi"<sint32>=<NULL>
+    "mdat"<timedate>=0x32303236313131383131353732375A00  "20261118115727Z\000"
+    "nega"<sint32>=<NULL>
+    "prot"<blob>=<NULL>
+    "scrp"<sint32>=<NULL>
+    "svce"<blob>="probe.f"
+    "type"<uint32>=<NULL>
+access: 5 entries
+    entry 0:
+        authorizations (6): decrypt derive export_clear export_wrapped mac sign
+        don't-require-password
+        description: probe.f
+        applications (2):
+            0: /usr/bin/true (OK)
+                requirement: identifier "com.apple.true" and anchor apple
+            1: /usr/bin/false (OK)
+                requirement: identifier "com.apple.false" and anchor apple
+    entry 1:
+        authorizations (1): encrypt
+        don't-require-password
+        description: probe.f
+        applications: <null>
+    entry 2:
+        authorizations (1): integrity
+        don't-require-password
+        description: aa8a974fd4b15f8aa41bbfe60e97158655c6f45260e4bf39329b53c71f62c88a
+        applications: <null>
+    entry 3:
+        authorizations (1): partition_id
+        don't-require-password
+        description: apple-tool:
+        applications: <null>
+    entry 4:
+        authorizations (1): change_acl
+        don't-require-password
+        description: probe.f
+        applications (0):

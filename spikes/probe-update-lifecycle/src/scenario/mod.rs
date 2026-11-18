@@ -3,7 +3,8 @@
 //! задача 4 — `identity` (A1) и `reject-verify` (A2), задача 6 — `owner-basic`, задача 7 —
 //! `incompatible` (D2 до активации), задача 8 — `swap` (B1), `identity-live` (A1), `reject` (A2)
 //! и `incompatible-activate` (D2, активация), задача 9 — `window-update` (H), задача 10 — `owner`
-//! (C1), задача 11 — `kill` (B2), задача 12 — `runtimes` (D1), задача 13 — `env-faults` (B3).
+//! (C1), задача 11 — `kill` (B2), задача 12 — `runtimes` (D1), задача 13 — `env-faults` (B3),
+//! задача 14 — `keychain` (F).
 
 pub mod env_faults;
 pub mod host;
@@ -11,6 +12,7 @@ pub mod identity;
 pub mod identity_live;
 pub mod incompatible;
 pub mod incompatible_activate;
+pub mod keychain;
 pub mod kill;
 pub mod owner;
 pub mod owner_basic;
@@ -68,10 +70,12 @@ pub enum Scenario {
     Runtimes,
     /// B3: ошибки среды.
     EnvFaults,
+    /// F: Keychain.
+    Keychain,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 15] = [
+    pub const ALL: [Scenario; 16] = [
         Scenario::Smoke,
         Scenario::Host,
         Scenario::Identity,
@@ -87,6 +91,7 @@ impl Scenario {
         Scenario::Kill,
         Scenario::Runtimes,
         Scenario::EnvFaults,
+        Scenario::Keychain,
     ];
 
     pub fn name(self) -> &'static str {
@@ -106,6 +111,7 @@ impl Scenario {
             Scenario::Kill => "kill",
             Scenario::Runtimes => "runtimes",
             Scenario::EnvFaults => "env-faults",
+            Scenario::Keychain => "keychain",
         }
     }
 
@@ -133,6 +139,7 @@ impl Scenario {
             Scenario::Kill => kill::DEADLINE,
             Scenario::Runtimes => runtimes::DEADLINE,
             Scenario::EnvFaults => env_faults::DEADLINE,
+            Scenario::Keychain => keychain::DEADLINE,
         }
     }
 }
@@ -217,6 +224,7 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::Kill => kill::run(&target.out, environment),
         Scenario::Runtimes => runtimes::run(&target.out, environment),
         Scenario::EnvFaults => env_faults::run(&target.out, environment),
+        Scenario::Keychain => keychain::run(&target.out, environment),
     }
 }
 
@@ -433,7 +441,7 @@ mod tests {
             assert_eq!(Scenario::from_name(scenario.name()), Some(scenario));
             assert!(!scenario.deadline().is_zero());
         }
-        assert_eq!(Scenario::from_name("keychain"), None);
+        assert_eq!(Scenario::from_name("brew"), None);
     }
 
     #[test]

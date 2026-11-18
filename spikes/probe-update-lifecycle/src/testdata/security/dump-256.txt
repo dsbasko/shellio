@@ -1,0 +1,38 @@
+keychain: "/tmp/x/probe.keychain-db"
+version: 256
+class: "genp"
+attributes:
+    0x00000007 <blob>="probe.f"
+    0x00000008 <blob>=<NULL>
+    "acct"<blob>="n"
+    "cdat"<timedate>=0x32303236313131383131353732385A00  "20261118115728Z\000"
+    "crtr"<uint32>=<NULL>
+    "cusi"<sint32>=<NULL>
+    "desc"<blob>=<NULL>
+    "gena"<blob>=<NULL>
+    "icmt"<blob>=<NULL>
+    "invi"<sint32>=<NULL>
+    "mdat"<timedate>=0x32303236313131383131353732385A00  "20261118115728Z\000"
+    "nega"<sint32>=<NULL>
+    "prot"<blob>=<NULL>
+    "scrp"<sint32>=<NULL>
+    "svce"<blob>="probe.f"
+    "type"<uint32>=<NULL>
+access: 3 entries
+    entry 0:
+        authorizations (1): encrypt
+        don't-require-password
+        description: probe.f
+        applications: <null>
+    entry 1:
+        authorizations (6): decrypt derive export_clear export_wrapped mac sign
+        don't-require-password
+        description: probe.f
+        applications (1):
+            0: /usr/bin/security (OK)
+                requirement: identifier "com.apple.security" and anchor apple
+    entry 2:
+        authorizations (1): change_acl
+        don't-require-password
+        description: probe.f
+        applications (0):

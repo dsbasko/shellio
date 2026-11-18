@@ -335,8 +335,17 @@ fn execute(launch: &Launch, program: &Path) -> Result<ExitCode, String> {
     } else {
         Vec::new()
     };
+    // Временную keychain F процесс сценария удаляет сам; оставшаяся после его `SIGKILL` — тоже
+    // ошибка исполнения, её удаляет запуск.
+    let keychains = match std::env::var("HOME") {
+        Ok(home) if target.scenario == crate::scenario::Scenario::Keychain && !home.is_empty() => {
+            crate::keychain::sweep(Path::new(&home), &nonce)
+        }
+        _ => Vec::new(),
+    };
     let mut state_dir_leftovers = list_dir(&state_dir);
     state_dir_leftovers.extend(swept.into_iter().map(|image| format!("том {image}")));
+    state_dir_leftovers.extend(keychains);
     let _ = fs::remove_dir_all(&state_dir);
     let mut record = LaunchRecord {
         schema: results::SCHEMA,

@@ -529,7 +529,7 @@ fn window_entry(dict: &CFDictionary<CFString, CFType>) -> Option<WindowEntry> {
 }
 
 /// Окна на экране спереди назад.
-fn window_list() -> Vec<WindowEntry> {
+pub fn window_list() -> Vec<WindowEntry> {
     let Some(list) = CGWindowListCopyWindowInfo(CGWindowListOption::OptionOnScreenOnly, 0) else {
         return Vec::new();
     };

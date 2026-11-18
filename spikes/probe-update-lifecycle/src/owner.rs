@@ -56,6 +56,7 @@ use crate::generation::{self, APP_BIN, BUNDLE_ID, Manifest, StubMode};
 use crate::health;
 use crate::host::{self, SessionRecord};
 use crate::journal::{self, Journal, SessionKeys, State};
+use crate::keychain;
 use crate::observer::{self, ProcessKey};
 use crate::proto::{ATTACH_VERSIONS, Hello, Purpose};
 use crate::pty::Winsize;
@@ -165,6 +166,8 @@ impl AppOptions {
 pub enum AppMode {
     /// `--manifest` и `--report` задачи 4.
     Stub(StubMode),
+    /// Разовая операция keychain клетки F (задача 14).
+    Keychain(keychain::OpArgs),
     Run(AppOptions),
 }
 
@@ -173,6 +176,7 @@ pub const USAGE: &str = "\
        [--state <каталог>] [--identifier <id>] [--update-attempt <номер>] [--window]
        [-- <аргументы владельцу>…]
        probe-update-app --manifest | --report
+       probe-update-app --keychain … (операция клетки F, см. ниже)
 каталог состояния — --state или SHELLIO_STATE_DIR, по умолчанию его нет";
 
 fn absolute(flag: &str, value: &str) -> Result<PathBuf, String> {
@@ -186,6 +190,9 @@ fn absolute(flag: &str, value: &str) -> Result<PathBuf, String> {
 
 /// Разбор аргументов; `env_state` — `SHELLIO_STATE_DIR`, если `--state` не задан.
 pub fn parse_app_args(args: &[String], env_state: Option<&str>) -> Result<AppMode, String> {
+    if args.first().map(String::as_str) == Some("--keychain") {
+        return keychain::OpArgs::parse(args).map(AppMode::Keychain);
+    }
     if args
         .iter()
         .any(|arg| arg == "--manifest" || arg == "--report")
@@ -757,10 +764,14 @@ pub fn app_main(args: &[String]) -> ExitCode {
     let env_state = std::env::var(launch::STATE_DIR).ok();
     match parse_app_args(args, env_state.as_deref()) {
         Err(reason) => {
-            say(&format!("{APP_BIN}: {reason}\n\n{USAGE}"));
+            say(&format!(
+                "{APP_BIN}: {reason}\n\n{USAGE}\n{}",
+                keychain::USAGE
+            ));
             ExitCode::from(EXIT_USAGE)
         }
         Ok(AppMode::Stub(_)) => generation::stub_main(APP_BIN, args),
+        Ok(AppMode::Keychain(op)) => keychain_main(op),
         Ok(AppMode::Run(options)) => {
             barrier::set_role(if options.update_attempt.is_some() {
                 barrier::Role::Next
@@ -789,6 +800,34 @@ pub fn app_main(args: &[String]) -> ExitCode {
             report.exit_code()
         }
     }
+}
+
+/// Разовая операция keychain клетки F: итог в `--keychain-out`. С `--window` операция идёт в
+/// процессе с окном AppKit, как у GUI N, и завершает процесс сама.
+fn keychain_main(op: keychain::OpArgs) -> ExitCode {
+    fn finish(op: &keychain::OpArgs) -> u8 {
+        let report = keychain::perform(op);
+        match keychain::write_report(&op.out, &report) {
+            Ok(()) => 0,
+            Err(reason) => {
+                say(&format!("{APP_BIN}: --keychain: {reason}"));
+                EXIT_ERROR
+            }
+        }
+    }
+    if op.window {
+        let started = window::run_main(crate::GENERATION, move || {
+            std::process::exit(i32::from(finish(&op)));
+        });
+        say(&format!(
+            "{APP_BIN}: --keychain --window: {}",
+            started
+                .err()
+                .unwrap_or_else(|| "цикл окна вернулся".to_owned())
+        ));
+        return ExitCode::from(EXIT_ERROR);
+    }
+    ExitCode::from(finish(&op))
 }
 
 fn now_ms() -> u64 {
@@ -1968,6 +2007,28 @@ mod tests {
             Ok(AppMode::Stub(StubMode::Report))
         );
         assert!(parse_app_args(&strings(&["--report", "--state", "/x"]), None).is_err());
+    }
+
+    #[test]
+    fn keychain_operation_is_its_own_mode() {
+        let op = keychain::OpArgs {
+            op: keychain::Op::Read,
+            keychain: PathBuf::from("/k/psu-f-1.keychain-db"),
+            account: keychain::ACCOUNT_N.to_owned(),
+            no_ui: keychain::NoUi::ProcessFlag,
+            secret_file: None,
+            out: PathBuf::from("/o/next-read.json"),
+            tag: "nonce.kc-next-read".to_owned(),
+            window: true,
+        };
+        assert_eq!(
+            parse_app_args(&op.to_args(), Some("/state")),
+            Ok(AppMode::Keychain(op.clone()))
+        );
+        // Не первым аргументом `--keychain` — обычная роль GUI, которой он неизвестен.
+        let mut late = strings(&["--tag", "n"]);
+        late.extend(op.to_args());
+        assert!(parse_app_args(&late, Some("/state")).is_err());
     }
 
     #[test]

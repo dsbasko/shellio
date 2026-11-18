@@ -11,6 +11,8 @@
 #                                  через --launch под caffeinate -dimsu (временный
 #                                  SHELLIO_STATE_DIR создаёт --launch), выход в
 #                                  target/probes/update-lifecycle/<время>-<pid>/, затем --aggregate
+# Сценарий keychain (клетка F) сам создаёт временную keychain ~/Library/Keychains/psu-f-<nonce>.keychain-db
+# вне списка поиска и удаляет её в любом исходе; после SIGKILL процесса сценария её удаляет --launch.
 # Набор ghostty проба не читает и блокировку vendor/ghostty.lock не берёт: собирается только её
 # пакет. Ненулевой код — только при ошибке исполнения; fail и not_run показывает сводка.
 set -euo pipefail
@@ -20,7 +22,7 @@ CARGO="${CARGO:-cargo}"
 PACKAGE=probe-update-lifecycle
 BIN="$ROOT/target/release/probe-update"
 OUT_BASE="$ROOT/target/probes/update-lifecycle"
-ALL_SCENARIOS="smoke host identity reject-verify owner-basic incompatible swap identity-live reject incompatible-activate window-update owner kill runtimes env-faults"
+ALL_SCENARIOS="smoke host identity reject-verify owner-basic incompatible swap identity-live reject incompatible-activate window-update owner kill runtimes env-faults keychain"
 # Сценарии стенда без бандлов: для них run.sh scenarios бандлы не собирает.
 STAND_SCENARIOS="smoke host"
 # Каталоги cargo поколений: исполняемые файлы поколений различаются константами сборки.

@@ -906,14 +906,24 @@ N+1 подтверждается, только когда выполнено в�
 **Files:**
 - Create: `spikes/probe-update-lifecycle/src/keychain.rs`
 - Create: `spikes/probe-update-lifecycle/src/scenario/keychain.rs`
+- ➕ Create: `spikes/probe-update-lifecycle/src/testdata/security/` (выводы `security dump-keychain -a`, `list-keychains`, `default-keychain` для тестов разбора)
+- ➕ Modify: `spikes/probe-update-lifecycle/src/owner.rs` (разовый режим `probe-update-app --keychain`), `src/update.rs`, `src/launch.rs` (внешняя уборка временной keychain после процесса `keychain`), `src/scenario/mod.rs`, `src/scenario/smoke.rs` (`window_list` для окон запроса), `src/lib.rs`, `Cargo.toml` (`CFData`), `run.sh`, `docs/probes/p0.5-update-lifecycle.md`
 
-- [ ] временная keychain; item из GUI N с `--window` через Security API и базовое чтение самим N; явная keychain в каждом запросе через `kSecMatchSearchList`
-- [ ] отрицательный контроль способа запрета взаимодействия через item бандла `.denied`; чтение N+1 и `foreign`
-- [ ] запись `OSStatus`, ACL и partition list до и после; при отказе item не трогается
-- [ ] сверка до и после клетки: список поиска keychain, keychain по умолчанию, `scripts/signing/requirement.txt`
-- [ ] ожидания с обоими исходами в отчёте; сценарий `keychain`
-- [ ] тесты разбора вывода `security dump-keychain` и `security list-keychains`, классификации `OSStatus`
-- [ ] `make check` и `make probe-update SCENARIOS="keychain"` проходят
+- [x] временная keychain; item из GUI N с `--window` через Security API и базовое чтение самим N; явная keychain в каждом запросе через `kSecMatchSearchList`
+- [x] отрицательный контроль способа запрета взаимодействия через item бандла `.denied`; чтение N+1 и `foreign`
+- [x] запись `OSStatus`, ACL и partition list до и после; при отказе item не трогается
+- [x] сверка до и после клетки: список поиска keychain, keychain по умолчанию, `scripts/signing/requirement.txt`
+- [x] ожидания с обоими исходами в отчёте; сценарий `keychain`
+- [x] тесты разбора вывода `security dump-keychain` и `security list-keychains`, классификации `OSStatus`
+- [x] `make check` и `make probe-update SCENARIOS="keychain"` проходят
+
+⚠️ Решения исполнителя в задаче 14 (записаны и в отчёте):
+- Временная keychain лежит в `~/Library/Keychains/psu-f-<nonce>.keychain-db`, а не в `target/…/probe.keychain-db`: вне `~/Library/Keychains/` `security create-keychain` создаёт keychain версии 256 без записи ACL `partition_id`, и предмет клетки (partition ID `cdhash:`) не наблюдался бы. В список поиска она не добавляется, удаляется в любом исходе, после `SIGKILL` процесса сценария — внешним запуском (`keychain::sweep`).
+- Каждая операция — разовый режим `probe-update-app --keychain add|read … --window` отдельным процессом через `open -n -W`, а не запрос к роли GUI: Keychain узнаёт клиента по подписи процесса. N+1 и `foreign` ставит на установленный путь стенд обменом `RENAME_SWAP`, протокол обновления здесь не повторяется (его проверяют B1 и H).
+- ACL и partition list — из `security dump-keychain -a`; чтение N+1 засчитывается только при способе, подтверждённом контролем, и keychain версии 512 с partition list у item n.
+- Первый прогон `20261118-171243-87046` дал `item-unchanged` — `fail` только по отметке проверки пути приложения в записи ACL (`OK` → `status -2147415734` после обмена на `foreign`). Это итог проверки кода, лежащего по пути в момент снимка, а не состояние item, поэтому оракул сравнивает записи ACL без отметки и называет отметки в причине. Путь, требование, авторизации, partition list и атрибуты по-прежнему сравниваются полностью.
+- Расхождение с ожиданием: вместо `errSecInteractionNotAllowed` все три чтения чужим для item кодом (контроль, N+1, `foreign`) вернули `errSecAuthFailed` без окна. Что отказ N+1 дал partition ID, выведено (N+1 выполняет требование ACL, его CDHash в partition list нет), трассировки `securityd` нет.
+- Вывод: F — `fail` (наблюдение): `next-read` — отказ, остальные четыре части — `pass`. По правилу «Keychain» — отрицательный вывод с передачей в новый ADR при планировании P4.1 или P5.2. Рубеж — прогон `20261118-171926-11684`, статусы те же, что в `20261118-171509-90928`.
 
 ### Task 15: Изолированный Homebrew и карантин (G)
 
