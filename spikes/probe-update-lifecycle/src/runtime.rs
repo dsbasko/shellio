@@ -8,7 +8,12 @@
 //! задача 4), `fsync` каталога и переименование без перезаписи (`RENAME_EXCL`). Оставшийся
 //! каталог подготовки — прерванная подготовка, он удаляется и подготовка повторяется. Готовый
 //! `runtime/<N>/` не перезаписывается: совпадающий с бандлом переиспользуется, несовпадающий —
-//! явная ошибка. Подготовку выполняет только владелец под `shellio.lock`.
+//! явная ошибка. Подготовку выполняет только владелец под `shellio.lock`. Посреди подготовки
+//! (первый бинарь скопирован) стоит барьер стенда: на нём сценарий `runtimes` убивает владельца.
+//!
+//! Новая сессия берёт хост и нагрузку только из готового рантайма поколения владельца
+//! ([`for_new_session`]): прежний каталог с живыми хостами и оставшийся после отката более новый
+//! она не берёт.
 //!
 //! Уборка рантаймов — поведение P5.2; здесь только кандидаты: готовые каталоги не своего
 //! поколения, из которых не запущен ни один живой хост.
@@ -19,6 +24,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::barrier::{self, Point};
 use crate::generation::{self, Part, Verify};
 use crate::sys;
 
@@ -62,7 +68,8 @@ pub fn ready_dir(state: &Path, generation: u32) -> PathBuf {
     root(state).join(generation.to_string())
 }
 
-fn prep_dir(state: &Path, generation: u32) -> PathBuf {
+/// Каталог подготовки `runtime/.prep-<N>`.
+pub fn prep_dir(state: &Path, generation: u32) -> PathBuf {
     root(state).join(format!("{PREP_PREFIX}{generation}"))
 }
 
@@ -168,7 +175,10 @@ pub fn prepare(
         });
     }
     fs::create_dir(&prep).map_err(|err| io_err(&prep, err))?;
-    for part in Part::RUNTIME {
+    for (index, part) in Part::RUNTIME.into_iter().enumerate() {
+        if index == 1 {
+            barrier::reach(state, Point::RuntimePartial);
+        }
         let source = part.path(bundle);
         let copy = prep.join(part.file_name());
         fs::copy(&source, &copy)
@@ -199,6 +209,39 @@ pub fn prepare(
         outcome: Outcome::Created,
         recovered,
     })
+}
+
+/// Бинари новой сессии.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionBinaries {
+    pub host: PathBuf,
+    pub fixture: PathBuf,
+}
+
+/// Выбор рантайма новой сессии среди готовых `ready` в `root`: только каталог поколения
+/// владельца `generation`. Наибольший готовый номер или прежний каталог с живыми хостами не
+/// подставляются; без своего готового каталога сессия не создаётся.
+pub fn choose_for_session(
+    root: &Path,
+    ready: &[u32],
+    generation: u32,
+) -> Result<SessionBinaries, String> {
+    if !ready.contains(&generation) {
+        return Err(format!(
+            "{}: runtime/{generation} не готов (готовы {ready:?}), новая сессия не создаётся",
+            root.display()
+        ));
+    }
+    let dir = root.join(generation.to_string());
+    Ok(SessionBinaries {
+        host: dir.join(Part::Host.file_name()),
+        fixture: dir.join(Part::Fixture.file_name()),
+    })
+}
+
+/// Рантайм новой сессии по готовым каталогам на диске ([`choose_for_session`]).
+pub fn for_new_session(state: &Path, generation: u32) -> Result<SessionBinaries, String> {
+    choose_for_session(&root(state), &ready_generations(state)?, generation)
 }
 
 /// Готовые рантаймы по номерам поколений; каталоги подготовки и посторонние имена не входят.
@@ -381,6 +424,49 @@ mod tests {
         let host10 = root.join("10").join("probe-update-host");
         assert_eq!(cleanup_candidates(&root, &[1, 10], 10, &[host10]), [1]);
         assert_eq!(cleanup_candidates(&root, &[1], 1, &[]), Vec::<u32>::new());
+    }
+
+    #[test]
+    fn new_session_takes_the_owner_generation_only() {
+        let root = PathBuf::from("/s/runtime");
+        let own = |generation: u32| SessionBinaries {
+            host: root.join(generation.to_string()).join("probe-update-host"),
+            fixture: root
+                .join(generation.to_string())
+                .join("probe-update-fixture"),
+        };
+        // N+1 при живом хосте из прежнего рантайма: своя копия, не прежняя.
+        assert_eq!(choose_for_session(&root, &[1, 2], 2).unwrap(), own(2));
+        // После отката N+1 остаётся его готовый каталог: N не берёт наибольший номер.
+        assert_eq!(choose_for_session(&root, &[1, 2, 3], 2).unwrap(), own(2));
+        assert_eq!(choose_for_session(&root, &[1, 3], 1).unwrap(), own(1));
+        // Своего готового каталога нет — отказ, а не прежний или более новый каталог.
+        for (ready, generation) in [(&[1][..], 2), (&[][..], 1), (&[2, 3][..], 1)] {
+            let err = choose_for_session(&root, ready, generation).unwrap_err();
+            assert!(err.contains(&format!("runtime/{generation}")), "{err}");
+        }
+    }
+
+    #[test]
+    fn new_session_ignores_preparation_until_ready() {
+        let bench = Bench::new("session");
+        assert!(for_new_session(&bench.state, 2).is_err(), "рантаймов нет");
+        fs::create_dir_all(prep_dir(&bench.state, 2)).unwrap();
+        prepare(&bench.state, 1, &bench.bundle, &Fake::default()).unwrap();
+        let err = for_new_session(&bench.state, 2).unwrap_err();
+        assert!(
+            err.contains("runtime/2"),
+            "каталог подготовки не готов: {err}"
+        );
+        prepare(&bench.state, 2, &bench.bundle, &Fake::default()).unwrap();
+        let chosen = for_new_session(&bench.state, 2).unwrap();
+        assert_eq!(chosen.host, binary(&bench.state, 2, Part::Host));
+        assert_eq!(chosen.fixture, binary(&bench.state, 2, Part::Fixture));
+        assert!(chosen.host.is_file() && chosen.fixture.is_file());
+        assert_eq!(
+            for_new_session(&bench.state, 1).unwrap().host,
+            binary(&bench.state, 1, Part::Host)
+        );
     }
 
     #[test]

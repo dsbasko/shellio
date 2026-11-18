@@ -112,6 +112,9 @@ pub enum Point {
     BeforePublish,
     /// N+1: сокет опубликован, `committed` не записан.
     Published,
+    /// Владелец посреди подготовки `runtime/<N>/` (задача 12): первый бинарь скопирован в каталог
+    /// подготовки, переименования в готовый каталог не было.
+    RuntimePartial,
 }
 
 impl Point {
@@ -139,11 +142,12 @@ impl Point {
             Point::Started => "started".to_owned(),
             Point::BeforePublish => "before-publish".to_owned(),
             Point::Published => "published".to_owned(),
+            Point::RuntimePartial => "runtime-partial".to_owned(),
         }
     }
 
     /// Точки, которые ставит код одного места (не запись журнала и не мутация восстановления).
-    pub const SITES: [Point; 11] = [
+    pub const SITES: [Point; 12] = [
         Point::RemovePartial,
         Point::HelperSpawned,
         Point::GuiExited,
@@ -155,6 +159,7 @@ impl Point {
         Point::Started,
         Point::BeforePublish,
         Point::Published,
+        Point::RuntimePartial,
     ];
 }
 
@@ -591,6 +596,7 @@ mod tests {
             ("journal.rs", strip(include_str!("journal.rs"))),
             ("recover.rs", strip(include_str!("recover.rs"))),
             ("compat.rs", strip(include_str!("compat.rs"))),
+            ("runtime.rs", strip(include_str!("runtime.rs"))),
         ]
     }
 

@@ -52,7 +52,7 @@ use serde_json::json;
 use crate::attach::{self, Connected};
 use crate::barrier::{self, Point};
 use crate::compat::{self, Gate, Install, Staging};
-use crate::generation::{self, APP_BIN, BUNDLE_ID, Manifest, Part, StubMode};
+use crate::generation::{self, APP_BIN, BUNDLE_ID, Manifest, StubMode};
 use crate::health;
 use crate::host::{self, SessionRecord};
 use crate::journal::{self, Journal, SessionKeys, State};
@@ -1545,14 +1545,12 @@ impl Server {
                     .filter(|entry| entry.host_alive)
                     .filter_map(|entry| sys::process_path(entry.record.host.pid).ok())
                     .collect();
+                // `proc_pidpath` хостов канонический: корень рантаймов сравнивается тоже им.
+                let root = runtime::root(&self.options.state);
+                let root = fs::canonicalize(&root).unwrap_or(root);
                 let cleanup = runtime::ready_generations(&self.options.state)
                     .map(|ready| {
-                        runtime::cleanup_candidates(
-                            &runtime::root(&self.options.state),
-                            &ready,
-                            crate::GENERATION,
-                            &hosts,
-                        )
+                        runtime::cleanup_candidates(&root, &ready, crate::GENERATION, &hosts)
                     })
                     .unwrap_or_default();
                 Reply::Sessions {
@@ -1788,7 +1786,8 @@ impl Server {
         }
     }
 
-    /// Хост из `runtime/<N>/` с нагрузкой оттуда же; запись сессии — в `<state>/s`.
+    /// Хост из `runtime/<N>/` поколения владельца с нагрузкой оттуда же
+    /// ([`runtime::for_new_session`]); запись сессии — в `<state>/s`.
     fn launch_session(&self, name: &str) -> Result<SessionRecord, String> {
         host::check_session_name(name)?;
         let state = &self.options.state;
@@ -1797,13 +1796,14 @@ impl Server {
         if host::record_path(&dir, name).exists() {
             return Err(format!("сессия {name} уже есть"));
         }
+        let binaries = runtime::for_new_session(state, crate::GENERATION)?;
         let tag = self.options.tag.clone();
         let options = host::Options {
             dir,
             session: name.to_owned(),
             size: SESSION_SIZE,
             tag: tag.clone(),
-            program: runtime::binary(state, crate::GENERATION, Part::Fixture),
+            program: binaries.fixture,
             args: vec!["--tag".to_owned(), tag],
         };
         let stderr = io::stderr()
@@ -1811,11 +1811,7 @@ impl Server {
             .try_clone_to_owned()
             .map(File::from)
             .map_err(|err| format!("stderr для хоста: {err}"))?;
-        host::launch(
-            &runtime::binary(state, crate::GENERATION, Part::Host),
-            &options,
-            stderr,
-        )
+        host::launch(&binaries.host, &options, stderr)
     }
 }
 
