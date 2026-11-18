@@ -303,6 +303,10 @@ pub struct Environment {
     /// Версии внешних инструментов, например Homebrew.
     #[serde(default)]
     pub versions: BTreeMap<String, String>,
+    /// CDHash подписанных бандлов стенда по именам из `bundles.json` (задача 4). Пусто, если
+    /// процесс шёл без бандлов; ошибку чтения `bundles.json` несёт ключ `error`.
+    #[serde(default)]
+    pub generations: BTreeMap<String, String>,
     pub process: ProcessInfo,
 }
 
@@ -904,6 +908,7 @@ mod tests {
                 probe_version: "0.1.0".to_owned(),
             },
             versions: BTreeMap::new(),
+            generations: BTreeMap::new(),
             process: ProcessInfo::default(),
         }
     }

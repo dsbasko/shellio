@@ -1,0 +1,27 @@
+Executable=/tmp/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-host
+Identifier=io.github.dsbasko.shellio.probe.update-lifecycle.host
+Format=Mach-O thin (arm64)
+CodeDirectory v=20400 size=1614 flags=0x0(none) hashes=44+2 location=embedded
+VersionPlatform=1
+VersionMin=1769472
+VersionSDK=1769472
+Hash type=sha256 size=32
+CandidateCDHash sha256=26c1e97aed44bef341b6aa50f59f7f0cf94885b5
+CandidateCDHashFull sha256=26c1e97aed44bef341b6aa50f59f7f0cf94885b5546a7998a7e3694b53ee4d7b
+Hash choices=sha256
+CMSDigest=26c1e97aed44bef341b6aa50f59f7f0cf94885b5546a7998a7e3694b53ee4d7b
+CMSDigestType=2
+Executable Segment base=0
+Executable Segment limit=475136
+Executable Segment flags=0x1
+Page size=16384
+CDHash=26c1e97aed44bef341b6aa50f59f7f0cf94885b5
+Signature size=2056
+Authority=Shellio Dev
+Signed Time=18 Nov 2026 at 11:54:47
+Info.plist=not bound
+TeamIdentifier=not set
+Sealed Resources=none
+Internal requirements count=1 size=132
+Total signatures=1
+Chosen signature=1

@@ -1,7 +1,10 @@
 //! Сценарии пробы и процесс сценария: предусловие окружения, сценарий, `result.json` в `--out`.
-//! Сценарии добавляют задачи плана; задача 2 — сценарий стенда `smoke`, задача 3 — `host`.
+//! Сценарии добавляют задачи плана; задача 2 — сценарий стенда `smoke`, задача 3 — `host`,
+//! задача 4 — `identity` (A1) и `reject-verify` (A2).
 
 pub mod host;
+pub mod identity;
+pub mod reject;
 pub mod smoke;
 
 use std::collections::BTreeMap;
@@ -11,6 +14,7 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use crate::args::Target;
+use crate::generation::Layout;
 use crate::launch;
 use crate::results::{
     self, Build, Environment, Execution, Hardware, Os, ProcessInfo, Report, ResultFile, Status,
@@ -23,15 +27,26 @@ pub enum Scenario {
     Smoke,
     /// Самопроверка стенда: минимальный хост, attach-клиент и нагрузка.
     Host,
+    /// Статическая часть A1: подписи и CDHash поколений на диске.
+    Identity,
+    /// Ранняя часть A2: отказ проверки кандидата каждым видом.
+    RejectVerify,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 2] = [Scenario::Smoke, Scenario::Host];
+    pub const ALL: [Scenario; 4] = [
+        Scenario::Smoke,
+        Scenario::Host,
+        Scenario::Identity,
+        Scenario::RejectVerify,
+    ];
 
     pub fn name(self) -> &'static str {
         match self {
             Scenario::Smoke => "smoke",
             Scenario::Host => "host",
+            Scenario::Identity => "identity",
+            Scenario::RejectVerify => "reject-verify",
         }
     }
 
@@ -46,6 +61,8 @@ impl Scenario {
         match self {
             Scenario::Smoke => smoke::DEADLINE,
             Scenario::Host => host::DEADLINE,
+            Scenario::Identity => identity::DEADLINE,
+            Scenario::RejectVerify => reject::DEADLINE,
         }
     }
 }
@@ -117,6 +134,92 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
     match target.scenario {
         Scenario::Smoke => smoke::run(&target.out, environment),
         Scenario::Host => host::run(&target.out, environment),
+        Scenario::Identity => identity::run(&target.out, environment),
+        Scenario::RejectVerify => reject::run(&target.out, environment),
+    }
+}
+
+/// Каталог бандлов стенда из окружения процесса и его `bundles.json`. Без них сценарий не
+/// начинается: это ошибка исполнения, а не вывод клетки.
+pub fn bundles(environment: &Environment) -> Result<(PathBuf, Layout), String> {
+    let dir = environment
+        .process
+        .env
+        .get(launch::BUNDLES_DIR)
+        .filter(|dir| !dir.trim().is_empty())
+        .map(PathBuf::from)
+        .ok_or_else(|| {
+            format!(
+                "предусловие: нет {} (бандлы собирает run.sh bundle)",
+                launch::BUNDLES_DIR
+            )
+        })?;
+    let layout = Layout::read(&dir).map_err(|err| format!("предусловие: {err}"))?;
+    for entry in &layout.bundles {
+        if !entry.app.is_dir() {
+            return Err(format!(
+                "предусловие: нет бандла {} ({})",
+                entry.name,
+                entry.app.display()
+            ));
+        }
+    }
+    Ok((dir, layout))
+}
+
+/// Вывод части обязательной клетки: `pass`, если оракул выполнен, иначе `fail`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Verdict {
+    pub status: Status,
+    pub reason: String,
+}
+
+impl Verdict {
+    /// Оракул выполнен, если нарушений нет; причина `pass` — доказательство, `fail` — нарушения.
+    pub fn of(violations: Vec<String>, evidence: String) -> Verdict {
+        if violations.is_empty() {
+            Verdict {
+                status: Status::Pass,
+                reason: evidence,
+            }
+        } else {
+            Verdict {
+                status: Status::Fail,
+                reason: violations.join("; "),
+            }
+        }
+    }
+}
+
+/// Описание части обязательной клетки до прогона.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PartSpec {
+    pub name: &'static str,
+    pub stimulus: &'static str,
+    pub oracle: &'static str,
+}
+
+/// Обязательная часть клетки `id` с выводом и артефактами.
+pub fn required_cell(
+    id: &str,
+    spec: &PartSpec,
+    completion: &str,
+    verdict: Verdict,
+    artifacts: &[&str],
+) -> results::Cell {
+    results::Cell {
+        id: id.to_owned(),
+        part: Some(spec.name.to_owned()),
+        requirement: results::Requirement::Required,
+        status: verdict.status,
+        stimulus: spec.stimulus.to_owned(),
+        oracle: spec.oracle.to_owned(),
+        completion: completion.to_owned(),
+        reason: verdict.reason,
+        artifacts: artifacts
+            .iter()
+            .map(|artifact| (*artifact).to_owned())
+            .collect(),
     }
 }
 
@@ -205,6 +308,12 @@ pub fn collect_environment(
             .iter()
             .filter_map(|(name, key)| lookup(name).map(|value| ((*key).to_owned(), value)))
             .collect::<BTreeMap<_, _>>(),
+        generations: lookup(launch::BUNDLES_DIR)
+            .map(|dir| match Layout::read(Path::new(&dir)) {
+                Ok(layout) => layout.cdhashes(),
+                Err(reason) => BTreeMap::from([("error".to_owned(), reason)]),
+            })
+            .unwrap_or_default(),
         process: ProcessInfo {
             pid: std::process::id(),
             nonce,

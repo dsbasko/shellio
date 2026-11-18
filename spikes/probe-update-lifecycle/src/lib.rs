@@ -8,6 +8,7 @@
 pub mod args;
 pub mod attach;
 pub mod fixture;
+pub mod generation;
 pub mod host;
 pub mod launch;
 pub mod observer;

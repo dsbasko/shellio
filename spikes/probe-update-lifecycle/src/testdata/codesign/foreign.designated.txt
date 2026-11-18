@@ -1,0 +1,2 @@
+Executable=/tmp/bundle/foreign/probe-update.app/Contents/MacOS/probe-update-app
+designated => identifier "io.github.dsbasko.shellio.probe.update-lifecycle" and certificate leaf = H"f5997ff5d087cb45153d7c3e1ef1fa78b2c983c8"

@@ -132,7 +132,7 @@ locked-probe-session-surface:
 	CARGO=$(CARGO) $(PROBE_SESSION) surface $(SCENARIOS)
 
 # Проба P0.5 probe-update набор ghostty не читает и идёт без блокировки: run.sh собирает только её
-# пакет. Сценарий smoke проверяет разрешения Accessibility и Screen Recording терминала, из которого
-# идёт make (ADR-0034).
+# пакет, для сценариев не из стенда ещё поколения бандлов, подписанные Shellio Dev. Сценарий smoke
+# проверяет разрешения Accessibility и Screen Recording терминала, из которого идёт make (ADR-0034).
 probe-update:
 	CARGO=$(CARGO) $(PROBE_UPDATE) scenarios $(SCENARIOS)

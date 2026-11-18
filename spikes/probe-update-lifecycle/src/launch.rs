@@ -5,7 +5,8 @@
 //! падение и процессы, оставшиеся после выхода. Процессы стенда узнаются по nonce в аргументах.
 //!
 //! Источник — `spikes/probe-session-survival/src/launch.rs`: без кандидатов хоста, наборов пробы и
-//! источников ввода поверхности. Сведения, которые передаёт `run.sh`, — сборка и версия Homebrew.
+//! источников ввода поверхности. Сведения, которые передаёт `run.sh`, — сборка, версия Homebrew и
+//! каталог подписанных бандлов стенда.
 
 use std::collections::BTreeMap;
 use std::ffi::c_int;
@@ -55,11 +56,17 @@ const BUILD_VARS: [&str; 2] = [BUILD_COMMIT, BUILD_RUSTC];
 /// Имена не начинаются с запрещённых префиксов.
 pub const VERSIONS: [(&str, &str); 1] = [("SHELLIO_PROBE_VERSION_HOMEBREW", "homebrew")];
 
+/// Каталог подписанных бандлов стенда с `bundles.json`: его собирает `run.sh bundle` (задача 4).
+pub const BUNDLES_DIR: &str = "SHELLIO_PROBE_BUNDLES";
+/// Пути стенда, которые `run.sh` передаёт запуску.
+const PATH_VARS: [&str; 1] = [BUNDLES_DIR];
+
 /// Переменные `run.sh`, которые запуск передаёт процессу сценария как есть, если они не пусты.
 fn passed_vars() -> impl Iterator<Item = &'static str> {
     BUILD_VARS
         .into_iter()
         .chain(VERSIONS.into_iter().map(|(name, _)| name))
+        .chain(PATH_VARS)
 }
 /// Префиксы, которых не бывает в окружении процесса сценария: терминал и ghostty, nvim,
 /// настоящие сессии пользователя и настоящий Homebrew.
@@ -829,6 +836,28 @@ mod tests {
             );
             assert!(!key.is_empty());
         }
+    }
+
+    #[test]
+    fn bundles_dir_passes_through_launch() {
+        let parent = |name: &str| match name {
+            "HOME" => Some("/Users/t".to_owned()),
+            "PATH" => Some("/usr/bin".to_owned()),
+            BUNDLES_DIR => Some("/r/target/probes/update-lifecycle/bundle".to_owned()),
+            _ => None,
+        };
+        let env = build_env(parent, "/tmp/psu.n1").unwrap();
+        assert!(env.contains(&(
+            BUNDLES_DIR.to_owned(),
+            "/r/target/probes/update-lifecycle/bundle".to_owned()
+        )));
+        assert_eq!(check_env(&env, Some("n1")), Check::default());
+        assert!(BUNDLES_DIR.starts_with("SHELLIO_PROBE_"));
+        assert!(
+            !FORBIDDEN_PREFIXES
+                .iter()
+                .any(|prefix| BUNDLES_DIR.starts_with(prefix))
+        );
     }
 
     #[test]

@@ -1,0 +1,1 @@
+/tmp/bundle/tampered/probe-update.app: a sealed resource is missing or invalid

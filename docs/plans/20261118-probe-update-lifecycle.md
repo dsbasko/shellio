@@ -659,13 +659,26 @@ N+1 подтверждается, только когда выполнено в�
 - Create: `spikes/probe-update-lifecycle/src/bin/probe-update-app.rs` (заглушка)
 - Create: `spikes/probe-update-lifecycle/src/bin/probe-update-helper.rs` (заглушка)
 - Modify: `spikes/probe-update-lifecycle/run.sh`
+- ➕ Create: `spikes/probe-update-lifecycle/src/scenario/identity.rs`, `src/scenario/reject.rs` (сценарии `identity` и `reject-verify`), `src/testdata/codesign/*.txt` (сохранённые выводы `codesign` для тестов)
+- ➕ Modify: `spikes/probe-update-lifecycle/Cargo.toml`, `src/lib.rs`, `src/launch.rs` (`SHELLIO_PROBE_BUNDLES`), `src/results.rs` (`environment.generations`), `src/scenario/mod.rs`, `Makefile` (комментарий цели), `docs/probes/p0.5-update-lifecycle.md`
 
-- [ ] `run.sh bundle`: поколения 1 и 2 и кандидат `incompatible` из отдельных каталогов cargo с параметрами поколения, с заглушкой `probe-update-app` и `probe-update-helper`, которые сообщают номер поколения; кандидаты `tampered`, `foreign` (временная идентичность во временной keychain), `wrong-id`; бандл-контроль `.denied`
-- [ ] `generation`: манифест, `codesign --verify --strict --deep -R` вместе с разбором `codesign -d --verbose=4` (CDHash, идентификатор, leaf, requirement), проверка кандидата
-- [ ] проверка, что создание временной идентичности не изменило `scripts/signing/requirement.txt` и список поиска keychain
-- [ ] ожидания статической части A1 (подписи и CDHash на диске) и ранней части A2 (отказ проверки кандидата каждым видом) в отчёте до прогона; сценарии `identity` и `reject-verify`
-- [ ] тесты разбора `codesign` и проверки кандидата на сохранённых выводах: успех и каждый вид отказа
-- [ ] `make check` и `make probe-update SCENARIOS="identity reject-verify"` проходят
+- [x] `run.sh bundle`: поколения 1 и 2 и кандидат `incompatible` из отдельных каталогов cargo с параметрами поколения, с заглушкой `probe-update-app` и `probe-update-helper`, которые сообщают номер поколения; кандидаты `tampered`, `foreign` (временная идентичность во временной keychain), `wrong-id`; бандл-контроль `.denied`
+- [x] `generation`: манифест, `codesign --verify --strict --deep -R` вместе с разбором `codesign -d --verbose=4` (CDHash, идентификатор, leaf, requirement), проверка кандидата
+- [x] проверка, что создание временной идентичности не изменило `scripts/signing/requirement.txt` и список поиска keychain
+- [x] ожидания статической части A1 (подписи и CDHash на диске) и ранней части A2 (отказ проверки кандидата каждым видом) в отчёте до прогона; сценарии `identity` и `reject-verify`
+- [x] тесты разбора `codesign` и проверки кандидата на сохранённых выводах: успех и каждый вид отказа
+- [x] `make check` и `make probe-update SCENARIOS="identity reject-verify"` проходят
+
+⚠️ Решения исполнителя в задаче 4 (записаны и в отчёте):
+- `codesign --verify --strict --deep -R` применяет требование только к внешнему бандлу, а вложенный код проверяет лишь на целостность (проверено на одноразовом бандле до записи ожиданий). Формула плана для бандла верна, но требование к частям она не доказывает: `identity` сверяет каждую из пяти частей отдельно со своим требованием. Это нужно учесть и в проверке помощника, который задача 8 копирует в `<state>/update/helper/<attempt>/`.
+- Решение о кандидате принимается только по коду выхода проверки (0, 3 или 1) и CDHash. Вид отказа уточняется по идентификатору из `codesign -d` и SHA-1 листа, извлечённого `--extract-certificates`. `Authority=` у `foreign` совпадает с `Shellio Dev` по построению, а designated requirement пишет сам подписант, поэтому ни то, ни другое лист не доказывает.
+- В `tampered` после подписи изменён запечатанный ресурс `Contents/Resources/generation.json`: дописан пробел, JSON остаётся разбираемым. CDHash бандла при этом не меняется — это прямой довод правила «CDHash без проверки целостности поколение не определяет».
+- Манифест `generation.json` печатает `probe-update-app --manifest` своего поколения, а не `run.sh`: манифест не расходится со скомпилированными константами.
+- Раскладку бандлов `run.sh` пишет в `bundle/bundles.json`, путь передаётся процессу сценария через `SHELLIO_PROBE_BUNDLES` (белый список запуска), CDHash бандлов попадают в `environment.generations`. `run.sh scenarios` собирает бандлы, только если выбран сценарий не из стенда (`smoke`, `host`).
+- Имена: бандл поколений и кандидатов — `probe-update.app`, контроль — `probe-update-denied.app` с `CFBundleName` `probe-update-denied`. У `wrong-id` и `.denied` вспомогательные бинари подписаны `<id>.wrong-id.*` и `<id>.denied.*`.
+- Временная идентичность `foreign` живёт только на время подписи: keychain под `$TMPDIR`, удаляется сразу после подписи. Подпись кандидата на диске остаётся, клетке F нужен только он.
+- `reject-verify` добавляет к трём отказам принятый контроль (`gen-2` и `incompatible`) и часть `installed-untouched` с копией поколения 1 в `<state>/install/`: без принятого контроля отказы ничего не доказывают.
+- `identity` проверяет кандидата `incompatible` и бандл `.denied` под их требованиями как стенд: сломанный бандл — ошибка исполнения, а не `fail` A1.
 
 ### Task 5: Журнал и автомат восстановления
 

@@ -27,6 +27,14 @@ path = "src/bin/probe-update-attach.rs"
 name = "probe-update-fixture"
 path = "src/bin/probe-update-fixture.rs"
 
+[[bin]]
+name = "probe-update-app"
+path = "src/bin/probe-update-app.rs"
+
+[[bin]]
+name = "probe-update-helper"
+path = "src/bin/probe-update-helper.rs"
+
 [dependencies]
 libc = "0.2.191"
 objc2 = "0.6.5"
