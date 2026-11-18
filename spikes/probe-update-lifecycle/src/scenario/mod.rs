@@ -2,7 +2,7 @@
 //! Сценарии добавляют задачи плана; задача 2 — сценарий стенда `smoke`, задача 3 — `host`,
 //! задача 4 — `identity` (A1) и `reject-verify` (A2), задача 6 — `owner-basic`, задача 7 —
 //! `incompatible` (D2 до активации), задача 8 — `swap` (B1), `identity-live` (A1), `reject` (A2)
-//! и `incompatible-activate` (D2, активация).
+//! и `incompatible-activate` (D2, активация), задача 9 — `window-update` (H).
 
 pub mod host;
 pub mod identity;
@@ -15,6 +15,7 @@ pub mod reject_live;
 pub mod smoke;
 pub mod swap;
 pub mod update_flow;
+pub mod window;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -52,10 +53,12 @@ pub enum Scenario {
     Reject,
     /// D2: активация отложенного кандидата после остановки сессии.
     IncompatibleActivate,
+    /// H: связный проход обновления в окне.
+    WindowUpdate,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 10] = [
+    pub const ALL: [Scenario; 11] = [
         Scenario::Smoke,
         Scenario::Host,
         Scenario::Identity,
@@ -66,6 +69,7 @@ impl Scenario {
         Scenario::IdentityLive,
         Scenario::Reject,
         Scenario::IncompatibleActivate,
+        Scenario::WindowUpdate,
     ];
 
     pub fn name(self) -> &'static str {
@@ -80,6 +84,7 @@ impl Scenario {
             Scenario::IdentityLive => "identity-live",
             Scenario::Reject => "reject",
             Scenario::IncompatibleActivate => "incompatible-activate",
+            Scenario::WindowUpdate => "window-update",
         }
     }
 
@@ -102,6 +107,7 @@ impl Scenario {
             Scenario::IdentityLive => identity_live::DEADLINE,
             Scenario::Reject => reject_live::DEADLINE,
             Scenario::IncompatibleActivate => incompatible_activate::DEADLINE,
+            Scenario::WindowUpdate => window::DEADLINE,
         }
     }
 }
@@ -181,6 +187,7 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::IdentityLive => identity_live::run(&target.out, environment),
         Scenario::Reject => reject_live::run(&target.out, environment),
         Scenario::IncompatibleActivate => incompatible_activate::run(&target.out, environment),
+        Scenario::WindowUpdate => window::run(&target.out, environment),
     }
 }
 

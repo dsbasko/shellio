@@ -61,7 +61,7 @@ use crate::pty::Winsize;
 use crate::recover::{self, Actor, Checker, Next, Seen};
 use crate::runtime::{self, Prepared};
 use crate::update::{self, Launched};
-use crate::{EXIT_USAGE, kq, launch, say, spawn, sys};
+use crate::{EXIT_USAGE, kq, launch, say, spawn, sys, window};
 
 pub const LOCK_FILE: &str = "shellio.lock";
 pub const SOCKET_FILE: &str = "shellio.sock";
@@ -361,6 +361,12 @@ pub enum Request {
     /// Активировать попытку, поставленную этим процессом: `staged → intent`, запуск помощника и
     /// выход.
     Activate,
+    /// Квитанция окна `--window` (задача 9): текст, прочитанный обратно из текстового вида,
+    /// когда выполнено `wait`, но не позже `wait_ms`.
+    WindowReceipt {
+        wait: window::Wait,
+        wait_ms: u64,
+    },
     /// Владелец убирает свой сокет и выходит; сессии живут.
     Quit,
 }
@@ -454,6 +460,7 @@ pub enum Reply {
         attempt: String,
         helper: ProcessKey,
     },
+    Window(Box<window::Receipt>),
     Done,
     Refused {
         reason: String,
@@ -719,16 +726,20 @@ pub enum AppReport {
 }
 
 impl AppReport {
-    fn exit_code(&self) -> ExitCode {
+    fn code(&self) -> u8 {
         match self {
             AppReport::Owner(_)
             | AppReport::Stopped { .. }
             | AppReport::Updated { .. }
-            | AppReport::Forwarded { .. } => ExitCode::SUCCESS,
-            AppReport::Unconfirmed { .. } => ExitCode::from(EXIT_ERROR),
-            AppReport::Refused { .. } => ExitCode::from(EXIT_TEMPFAIL),
-            AppReport::Error { .. } => ExitCode::from(EXIT_ERROR),
+            | AppReport::Forwarded { .. } => 0,
+            AppReport::Unconfirmed { .. } => EXIT_ERROR,
+            AppReport::Refused { .. } => EXIT_TEMPFAIL,
+            AppReport::Error { .. } => EXIT_ERROR,
         }
+    }
+
+    fn exit_code(&self) -> ExitCode {
+        ExitCode::from(self.code())
     }
 }
 
@@ -755,6 +766,23 @@ pub fn app_main(args: &[String]) -> ExitCode {
             } else {
                 barrier::Role::Gui
             });
+            if options.window {
+                // Главный поток держит AppKit; роль GUI завершает процесс сама.
+                let started = window::run_main(crate::GENERATION, move || {
+                    let report = run(&options);
+                    print_report(&report);
+                    std::process::exit(i32::from(report.code()));
+                });
+                let report = AppReport::Error {
+                    key: None,
+                    reason: match started {
+                        Ok(()) => "цикл окна вернулся".to_owned(),
+                        Err(reason) => reason,
+                    },
+                };
+                print_report(&report);
+                return report.exit_code();
+            }
             let report = run(&options);
             print_report(&report);
             report.exit_code()
@@ -1086,6 +1114,24 @@ impl Published {
     }
 }
 
+/// Окно владельца показывает первую по имени живую сессию реестра: N+1 открывает ту же сессию,
+/// что была у N.
+fn show_first_session(state: &Path) {
+    if !window::active() || window::showing() {
+        return;
+    }
+    let (entries, _) = registry(state);
+    let first = entries
+        .iter()
+        .filter(|entry| entry.host_alive && entry.workload_alive)
+        .min_by(|a, b| a.record.session.cmp(&b.record.session));
+    if let Some(entry) = first
+        && let Err(reason) = window::show(&entry.record)
+    {
+        say(&format!("{APP_BIN}: окно: {reason}"));
+    }
+}
+
 /// Удаление оставшегося пути сокета под блокировкой: прежний владелец мёртв, раз блокировка
 /// свободна. Не сокет на этом пути — явная ошибка.
 fn remove_stale_socket(socket: &Path) -> Result<Option<Inode>, String> {
@@ -1221,6 +1267,7 @@ fn serve(
     server.record(me, options.forward.clone());
     if pending.is_none() {
         print_report(&AppReport::Owner(Box::new(server.snapshot())));
+        show_first_session(&options.state);
     }
     let accepting = Arc::clone(&server);
     thread::Builder::new()
@@ -1238,6 +1285,7 @@ fn serve(
                 }
                 server.changed.notify_all();
                 print_report(&AppReport::Owner(Box::new(server.snapshot())));
+                show_first_session(&options.state);
             }
             Ok(None) => {
                 published.unpublish();
@@ -1385,7 +1433,30 @@ impl Server {
                 if !self.wait_ready(0) {
                     return Server::not_ready();
                 }
-                self.create_session(&name)
+                let reply = self.create_session(&name);
+                if let Reply::Session(record) = &reply
+                    && window::active()
+                    && !window::showing()
+                    && let Err(reason) = window::show(record)
+                {
+                    say(&format!("{APP_BIN}: окно: {reason}"));
+                }
+                reply
+            }
+            Request::WindowReceipt { wait, wait_ms } => {
+                if !window::active() {
+                    return Reply::Refused {
+                        reason: "окна нет: владелец запущен без --window".to_owned(),
+                        retry: false,
+                    };
+                }
+                match window::receipt(&wait, Instant::now() + Duration::from_millis(wait_ms)) {
+                    Ok(receipt) => Reply::Window(Box::new(receipt)),
+                    Err(reason) => Reply::Refused {
+                        reason,
+                        retry: false,
+                    },
+                }
             }
             Request::Update { candidate } => {
                 if !self.wait_ready(0) {

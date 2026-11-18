@@ -47,12 +47,18 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "NSBox",
     "NSColor",
     "NSColorSpace",
+    "NSControl",
     "NSEvent",
+    "NSFont",
     "NSGraphics",
     "NSImageRep",
     "NSResponder",
     "NSRunningApplication",
     "NSScreen",
+    "NSScrollView",
+    "NSText",
+    "NSTextField",
+    "NSTextView",
     "NSView",
     "NSWindow",
 ] }
@@ -65,12 +71,18 @@ objc2-core-foundation = { version = "0.3.2", default-features = false, features 
 ] }
 objc2-core-graphics = { version = "0.3.2", default-features = false, features = [
     "std",
+    "CGEvent",
+    "CGEventTypes",
+    "CGRemoteOperation",
     "CGWindow",
+    "libc",
 ] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "std",
+    "NSArray",
     "NSData",
     "NSDate",
+    "NSEnumerator",
     "NSGeometry",
     "NSObjCRuntime",
     "NSRunLoop",

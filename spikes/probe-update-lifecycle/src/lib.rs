@@ -28,6 +28,7 @@ pub mod spawn;
 pub mod sys;
 pub mod update;
 pub mod watchdog;
+pub mod window;
 
 use std::io::{self, Write};
 use std::path::Path;

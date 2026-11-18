@@ -191,6 +191,11 @@ pub fn hello(purpose: Purpose, versions: Versions, from: u64, size: Winsize) -> 
 }
 
 impl Client {
+    /// Поток соединения и `Welcome`: окно задачи 9 читает и пишет в разных потоках.
+    pub fn into_parts(self) -> (UnixStream, Welcome) {
+        (self.stream, self.welcome)
+    }
+
     pub fn send(&mut self, message: &Message) -> Result<(), String> {
         proto::write_message(&mut self.stream, message).map_err(|err| format!("запись: {err}"))
     }
