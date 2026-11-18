@@ -60,6 +60,9 @@ pub const VERSIONS: [(&str, &str); 1] = [("SHELLIO_PROBE_VERSION_HOMEBREW", "hom
 pub const BUNDLES_DIR: &str = "SHELLIO_PROBE_BUNDLES";
 /// Пути стенда, которые `run.sh` передаёт запуску.
 const PATH_VARS: [&str; 1] = [BUNDLES_DIR];
+/// Фильтр частей сценария `kill` для отладочного прогона (задача 11): имена через пробел.
+/// Прогон с фильтром рубежом не считается.
+pub const KILL_PARTS: &str = "SHELLIO_PROBE_KILL_PARTS";
 
 /// Переменные `run.sh`, которые запуск передаёт процессу сценария как есть, если они не пусты.
 fn passed_vars() -> impl Iterator<Item = &'static str> {
@@ -67,6 +70,7 @@ fn passed_vars() -> impl Iterator<Item = &'static str> {
         .into_iter()
         .chain(VERSIONS.into_iter().map(|(name, _)| name))
         .chain(PATH_VARS)
+        .chain([KILL_PARTS])
 }
 /// Префиксы, которых не бывает в окружении процесса сценария: терминал и ghostty, nvim,
 /// настоящие сессии пользователя и настоящий Homebrew.

@@ -104,6 +104,8 @@ pub enum Point {
     Opened,
     /// Помощник: `launched` записан, блокировка отпущена.
     Released,
+    /// N+1: процесс запущен, о запуске не сообщено (задача 11: `swapped → rollback-intent`).
+    Launching,
     /// N+1: о запуске сообщено, блокировка не бралась.
     Started,
     /// N+1: владелец, сокет не опубликован.
@@ -133,6 +135,7 @@ impl Point {
             Point::Exchanged => "exchanged".to_owned(),
             Point::Opened => "opened".to_owned(),
             Point::Released => "released".to_owned(),
+            Point::Launching => "launching".to_owned(),
             Point::Started => "started".to_owned(),
             Point::BeforePublish => "before-publish".to_owned(),
             Point::Published => "published".to_owned(),
@@ -140,7 +143,7 @@ impl Point {
     }
 
     /// Точки, которые ставит код одного места (не запись журнала и не мутация восстановления).
-    pub const SITES: [Point; 10] = [
+    pub const SITES: [Point; 11] = [
         Point::RemovePartial,
         Point::HelperSpawned,
         Point::GuiExited,
@@ -148,6 +151,7 @@ impl Point {
         Point::Exchanged,
         Point::Opened,
         Point::Released,
+        Point::Launching,
         Point::Started,
         Point::BeforePublish,
         Point::Published,

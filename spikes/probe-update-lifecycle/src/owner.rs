@@ -850,6 +850,7 @@ fn run(options: &AppOptions) -> AppReport {
         }),
     );
     if let Some(attempt) = &options.update_attempt {
+        barrier::reach(&options.state, Point::Launching);
         if let Err(reason) = update::report_started(&options.state, attempt, me) {
             return error(reason);
         }

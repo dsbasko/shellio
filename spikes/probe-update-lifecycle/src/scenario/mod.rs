@@ -3,13 +3,14 @@
 //! задача 4 — `identity` (A1) и `reject-verify` (A2), задача 6 — `owner-basic`, задача 7 —
 //! `incompatible` (D2 до активации), задача 8 — `swap` (B1), `identity-live` (A1), `reject` (A2)
 //! и `incompatible-activate` (D2, активация), задача 9 — `window-update` (H), задача 10 — `owner`
-//! (C1).
+//! (C1), задача 11 — `kill` (B2).
 
 pub mod host;
 pub mod identity;
 pub mod identity_live;
 pub mod incompatible;
 pub mod incompatible_activate;
+pub mod kill;
 pub mod owner;
 pub mod owner_basic;
 pub mod reject;
@@ -59,10 +60,12 @@ pub enum Scenario {
     WindowUpdate,
     /// C1: владелец и второй запуск при обновлении.
     Owner,
+    /// B2: убийства на границах.
+    Kill,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 12] = [
+    pub const ALL: [Scenario; 13] = [
         Scenario::Smoke,
         Scenario::Host,
         Scenario::Identity,
@@ -75,6 +78,7 @@ impl Scenario {
         Scenario::IncompatibleActivate,
         Scenario::WindowUpdate,
         Scenario::Owner,
+        Scenario::Kill,
     ];
 
     pub fn name(self) -> &'static str {
@@ -91,6 +95,7 @@ impl Scenario {
             Scenario::IncompatibleActivate => "incompatible-activate",
             Scenario::WindowUpdate => "window-update",
             Scenario::Owner => "owner",
+            Scenario::Kill => "kill",
         }
     }
 
@@ -115,6 +120,7 @@ impl Scenario {
             Scenario::IncompatibleActivate => incompatible_activate::DEADLINE,
             Scenario::WindowUpdate => window::DEADLINE,
             Scenario::Owner => owner::DEADLINE,
+            Scenario::Kill => kill::DEADLINE,
         }
     }
 }
@@ -196,6 +202,7 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::IncompatibleActivate => incompatible_activate::run(&target.out, environment),
         Scenario::WindowUpdate => window::run(&target.out, environment),
         Scenario::Owner => owner::run(&target.out, environment),
+        Scenario::Kill => kill::run(&target.out, environment),
     }
 }
 
@@ -412,7 +419,7 @@ mod tests {
             assert_eq!(Scenario::from_name(scenario.name()), Some(scenario));
             assert!(!scenario.deadline().is_zero());
         }
-        assert_eq!(Scenario::from_name("kill"), None);
+        assert_eq!(Scenario::from_name("runtimes"), None);
     }
 
     #[test]
