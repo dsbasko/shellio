@@ -426,7 +426,7 @@ impl ViewState {
                 self
             }
             Command::ScrollTo(y) => {
-                if let Some(anchor) = view.anchor_at(self.mode, y) {
+                if let Some(anchor) = self.anchor_for(view, position.anchor, view.clamp(y)) {
                     self.position = Some(Position { anchor, ..position });
                 }
                 self
@@ -463,7 +463,7 @@ impl ViewState {
             return self;
         };
         let y = view.reveal(view.clamp(y), row);
-        let Some(anchor) = view.anchor_at(self.mode, y) else {
+        let Some(anchor) = self.anchor_for(view, previous.anchor, y) else {
             return self;
         };
         let next = Position { anchor, cursor };
@@ -476,6 +476,17 @@ impl ViewState {
         self.position = Some(next);
         self.extend_selection(view);
         self
+    }
+
+    /// Якорь для верхнего края на `y`. Если край не сдвинулся, остаётся прежний якорь: иначе
+    /// движение курсора без прокрутки после смены ширины или режима заменило бы сохранённый
+    /// якорь показанным положением.
+    fn anchor_for(&self, view: &Viewport<'_>, previous: Anchor, y: u64) -> Option<Anchor> {
+        if view.shown(self.mode, previous).map(|shown| shown.y) == Some(y) {
+            Some(previous)
+        } else {
+            view.anchor_at(self.mode, y)
+        }
     }
 
     fn extend_selection(&mut self, view: &Viewport<'_>) {
@@ -932,6 +943,46 @@ mod tests {
         assert_eq!(state.anchor().unwrap().addr, LineAddr::old(84));
         let state = state.with_mode(Mode::Unified);
         assert_eq!(shown(&state, &unified_view).1, 103);
+    }
+
+    #[test]
+    fn moves_without_scroll_keep_preserved_anchor() {
+        let diff = blocks_diff(40, 4);
+        let unified = index(&diff, Mode::Unified, 80);
+        let side = index(&diff, Mode::SideBySide, 80);
+        let unified_view = view(&diff, &unified);
+        let side_view = view(&diff, &side);
+        // Наверху строка 4 — вставка `+new0` (новая 4), курсор на строке 13.
+        let state = run(
+            ViewState::open(&diff, 0, Mode::Unified),
+            &[Command::Down; 13],
+            &unified_view,
+        );
+        assert_eq!(shown(&state, &unified_view), (40, 4, 0));
+        // В «Рядом» вставка стоит в паре строки 3, курсор на строке 11 виден: `k` прокрутку не
+        // двигает и якорь не меняет.
+        let state = state.with_mode(Mode::SideBySide);
+        assert_eq!(shown(&state, &side_view), (30, 3, 0));
+        let state = state.apply(Command::Up, &side_view);
+        assert_eq!(state.cursor_row(&side_view), Some(10));
+        assert_eq!(state.anchor().unwrap().addr, LineAddr::new(4));
+        let state = state.with_mode(Mode::Unified);
+        assert_eq!(shown(&state, &unified_view), (40, 4, 0));
+
+        // Прокрутка на показанное положение тоже не меняет якорь: смещение 25 строки,
+        // обрезанное до 19 при широком переносе, возвращается при узком.
+        let long = blocks_diff(40, 100);
+        let wide = index(&long, Mode::Unified, 80);
+        let narrow = index(&long, Mode::Unified, 40);
+        let wide_view = view(&long, &wide);
+        let narrow_view = view(&long, &narrow);
+        let top = narrow.top(53).unwrap();
+        let state = ViewState::open(&long, 0, Mode::Unified)
+            .apply(Command::ScrollTo(top + 25), &narrow_view);
+        let clipped = state.shown(&wide_view).unwrap();
+        assert_eq!(clipped.offset, 19);
+        let state = state.apply(Command::ScrollTo(clipped.y), &wide_view);
+        assert_eq!(shown(&state, &narrow_view), (top + 25, 53, 25));
     }
 
     #[test]
