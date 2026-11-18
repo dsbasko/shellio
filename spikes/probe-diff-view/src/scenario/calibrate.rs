@@ -64,10 +64,16 @@ pub fn tick_of(vsyncs_ns: &[u64], window: Window, target_ns: u64) -> Option<usiz
     (index < ticks.len()).then_some(index)
 }
 
+/// Наибольший сдвиг показа против такта `targetTimestamp`, такты: кадр для такта T доходит до
+/// дисплея на целое число vsync позже. Записан до первого прогона.
+pub const MAX_SHIFT: usize = 3;
+
 /// Итог прямого контроля одного отрезка.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Forward {
     pub ticks: usize,
+    /// Сдвиг `k` удержанных тактов к найденным, один для всех групп удержания.
+    pub shift: usize,
     pub held: Vec<usize>,
     pub missed: Vec<usize>,
     pub unexpected: Vec<usize>,
@@ -80,12 +86,31 @@ impl Forward {
     }
 }
 
-/// Прямой контроль: удержанные такты против найденных.
+/// Прямой контроль: удержанные такты, сдвинутые на `k` от 0 до [`MAX_SHIFT`], против найденных.
+/// Берётся `k` с наименьшим числом расхождений, при равенстве — меньший.
 pub fn forward(
     vsyncs_ns: &[u64],
     frames_ns: &[u64],
     window: Window,
     held_targets_ns: &[u64],
+) -> Forward {
+    (0..=MAX_SHIFT)
+        .map(|shift| forward_at(vsyncs_ns, frames_ns, window, held_targets_ns, shift))
+        .min_by_key(|result| {
+            (
+                result.unexpected.len() + result.undetected.len(),
+                result.shift,
+            )
+        })
+        .unwrap_or_else(|| forward_at(vsyncs_ns, frames_ns, window, held_targets_ns, 0))
+}
+
+fn forward_at(
+    vsyncs_ns: &[u64],
+    frames_ns: &[u64],
+    window: Window,
+    held_targets_ns: &[u64],
+    shift: usize,
 ) -> Forward {
     let ticks = vsyncs_ns
         .iter()
@@ -94,12 +119,14 @@ pub fn forward(
     let held: BTreeSet<usize> = held_targets_ns
         .iter()
         .filter_map(|&target| tick_of(vsyncs_ns, window, target))
+        .map(|tick| tick + shift)
         .collect();
     let missed: BTreeSet<usize> = missed_ticks(vsyncs_ns, frames_ns, window)
         .into_iter()
         .collect();
     Forward {
         ticks,
+        shift,
         unexpected: missed.difference(&held).copied().collect(),
         undetected: held.difference(&missed).copied().collect(),
         held: held.into_iter().collect(),
@@ -177,6 +204,15 @@ mod tests {
         assert_eq!(result.ticks, 200);
         assert_eq!(result.missed, held);
         assert!(result.passed(), "{result:?}");
+
+        let late: Vec<usize> = held.iter().map(|&i| i + 2).collect();
+        let shifted = forward(&vsyncs, &frames(&vsyncs, &late), whole(&vsyncs), &targets);
+        assert_eq!(shifted.shift, 2);
+        assert!(shifted.passed(), "{shifted:?}");
+        let beyond: Vec<usize> = held.iter().map(|&i| i + MAX_SHIFT + 1).collect();
+        assert!(!forward(&vsyncs, &frames(&vsyncs, &beyond), whole(&vsyncs), &targets).passed());
+        let split: Vec<usize> = (41..44).chain(100..110).collect();
+        assert!(!forward(&vsyncs, &frames(&vsyncs, &split), whole(&vsyncs), &targets).passed());
 
         let clean = forward(&vsyncs, &frames(&vsyncs, &[]), whole(&vsyncs), &[]);
         assert!(clean.missed.is_empty());
