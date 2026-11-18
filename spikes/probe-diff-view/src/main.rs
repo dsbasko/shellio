@@ -74,7 +74,7 @@ fn main() -> ExitCode {
         Command::Aggregate { run_dir } => aggregate(&run_dir),
         Command::Reference { dir } => reference(&dir),
         Command::Neighbor => neighbor(),
-        Command::Demo(view) => match run_app(None, view) {
+        Command::Demo(view) => match run_app(None, view, None) {
             None => ExitCode::SUCCESS,
             Some(outcome) => print_outcome(&outcome),
         },
@@ -257,15 +257,14 @@ fn run_scenario(
         Scenario::Smoke | Scenario::Highlight => None,
     };
     let mut outcome = match scenario {
-        Scenario::Smoke | Scenario::Calibrate => {
-            run_app(Some(scenario), view).unwrap_or_else(|| {
+        Scenario::Smoke | Scenario::Calibrate => run_app(Some(scenario), view, Some(out.clone()))
+            .unwrap_or_else(|| {
                 Outcome::error(
                     "основной цикл завершился без итога сценария",
                     None,
                     Report::default(),
                 )
-            })
-        }
+            }),
         Scenario::Highlight => run_headless(fixtures),
     };
     if outcome.execution.is_ok() {
@@ -368,7 +367,7 @@ fn check_grammar() -> Result<String, String> {
 }
 
 /// Крутит основной цикл. `None` — демонстрация закончилась без итога, как и должна.
-fn run_app(scenario: Option<Scenario>, view: ViewOptions) -> Option<Outcome> {
+fn run_app(scenario: Option<Scenario>, view: ViewOptions, out: Option<PathBuf>) -> Option<Outcome> {
     let Some(mtm) = MainThreadMarker::new() else {
         return Some(Outcome::error(
             "запуск не на главном потоке",
@@ -389,7 +388,7 @@ fn run_app(scenario: Option<Scenario>, view: ViewOptions) -> Option<Outcome> {
     app.setMainMenu(Some(&main_menu(mtm)));
 
     let slot = Rc::new(RefCell::new(None));
-    let delegate = AppDelegate::new(mtm, scenario, view, Rc::clone(&slot));
+    let delegate = AppDelegate::new(mtm, scenario, view, out, Rc::clone(&slot));
     app.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
     app.run();
     app.setDelegate(None);
@@ -472,6 +471,8 @@ fn demo_title(view: ViewOptions) -> String {
 struct DelegateIvars {
     scenario: Option<Scenario>,
     view: ViewOptions,
+    /// Каталог процесса сценария: в нём `calibrate` пишет трассы отрезков.
+    out: Option<PathBuf>,
     slot: Rc<RefCell<Option<Outcome>>>,
     window: OnceCell<Retained<NSWindow>>,
     timer: RefCell<Option<Retained<NSTimer>>>,
@@ -540,11 +541,13 @@ impl AppDelegate {
         mtm: MainThreadMarker,
         scenario: Option<Scenario>,
         view: ViewOptions,
+        out: Option<PathBuf>,
         slot: Rc<RefCell<Option<Outcome>>>,
     ) -> Retained<AppDelegate> {
         let this = AppDelegate::alloc(mtm).set_ivars(DelegateIvars {
             scenario,
             view,
+            out,
             slot,
             window: OnceCell::new(),
             timer: RefCell::new(None),
@@ -644,7 +647,11 @@ impl AppDelegate {
                 self.finish(Outcome::ok(report));
                 return;
             }
-            match scenario::calibrate_run::Calibration::start(self.mtm(), window, report) {
+            let Some(out) = ivars.out.as_deref() else {
+                self.finish(Outcome::error("calibrate без --out", None, report));
+                return;
+            };
+            match scenario::calibrate_run::Calibration::start(self.mtm(), window, report, out) {
                 Ok(run) => *ivars.calibration.borrow_mut() = Some(run),
                 Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
             }

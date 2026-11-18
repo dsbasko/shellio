@@ -10,6 +10,8 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
+use super::frames::{self, Clock, GRID_TOLERANCE_NS, Grid, Lifetime, Rate, Update, Vsync};
+
 /// Частота, на которую рассчитаны номера тактов движения, Гц.
 pub const RATE_HZ: f64 = 120.0;
 /// Период повторения удержаний, такты: отрезок калибровки в 5 с — ровно один период, а в долгом
@@ -183,6 +185,168 @@ pub fn reverse(probe_frames_ns: &[u64], neighbor_frames_ns: &[u64], window: Wind
     }
 }
 
+/// Такты прогрева отрезка до окна замера: 1 с при 120 Гц.
+pub const WARMUP_TICKS: u64 = 120;
+/// Окно замера отрезка, секунды после прогрева.
+pub const MEASURE_S: f64 = 4.0;
+/// Движение после окна замера до остановки записи, секунды: кадры последних тактов окна доходят
+/// до дисплея на несколько vsync позже, их жизнь должна закрыться в записи.
+pub const TAIL_S: f64 = 0.5;
+/// Ожидаемый период vsync, наносекунды.
+pub const PERIOD_NS: u64 = 8_333_333;
+/// Запас отбора обновлений до окна замера: обновление начинается раньше показа своего кадра.
+pub const UPDATE_LEAD_NS: u64 = 100_000_000;
+
+/// Выгрузка одной записи, разобранная по таблицам.
+#[derive(Clone, Debug)]
+pub struct Exported {
+    pub clock: Clock,
+    pub vsyncs: Vec<Vsync>,
+    pub updates: Vec<Update>,
+    pub lifetimes: Vec<Lifetime>,
+}
+
+/// Разбор отрезка записи: окно замера в тактах сетки, кадры пробы и прямой контроль. Время —
+/// время трассы, наносекунды.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Segment {
+    pub vsync_display: String,
+    pub frames_displays: Vec<String>,
+    pub grid: Grid,
+    pub rate: Rate,
+    pub window: Window,
+    pub ticks: usize,
+    pub first_shown_ns: u64,
+    pub last_shown_ns: u64,
+    pub probe_frames: Vec<u64>,
+    pub forward: Forward,
+}
+
+/// Окно замера, привязанное к сетке: границы — середины между тактами, ближайшими к границам
+/// окна по `targetTimestamp`. Тогда такт на границе не перескакивает в соседнее окно от дрожи.
+pub fn snap(grid: &Grid, window: Window) -> Window {
+    let half = grid.period_ns / 2.0;
+    let edge = |at: u64| (grid.slot_ns(grid.slot(at)) as f64 - half).round() as u64;
+    Window {
+        start_ns: edge(window.start_ns),
+        end_ns: edge(window.end_ns),
+    }
+}
+
+/// Дисплей окна среди строк vsync: единственный или единственный, на сетку которого ложатся
+/// показы кадров пробы. Имена дисплеев таблиц vsync и hitches разные, по имени не сравниваются.
+fn vsync_display(vsyncs: &[Vsync], shown_ns: &[u64]) -> Result<(String, Grid), String> {
+    let mut names: Vec<&str> = vsyncs.iter().map(|vsync| vsync.display.as_str()).collect();
+    names.sort_unstable();
+    names.dedup();
+    if let [only] = names.as_slice() {
+        return Ok((only.to_string(), frames::grid(vsyncs, only)?));
+    }
+    let fitting: Vec<(String, Grid)> = names
+        .iter()
+        .filter_map(|name| {
+            let grid = frames::grid(vsyncs, name).ok()?;
+            grid.off_grid(shown_ns)
+                .is_empty()
+                .then(|| (name.to_string(), grid))
+        })
+        .collect();
+    match <[(String, Grid); 1]>::try_from(fitting) {
+        Ok([only]) => Ok(only),
+        Err(fitting) => Err(format!(
+            "дисплей окна среди {names:?} не определён: показам пробы подходят {} сеток",
+            fitting.len()
+        )),
+    }
+}
+
+/// Разбор отрезка. `window` и `held_targets_ns` — время `CLOCK_UPTIME_RAW`: окно замера по
+/// `targetTimestamp` и цели удержанных тактов. Ошибка — нарушение условий записи: окно не покрыто
+/// жизнями кадров, показ или строка vsync вне сетки, кадр пробы без жизни.
+pub fn analyze(
+    exported: &Exported,
+    pid: u32,
+    window: Window,
+    held_targets_ns: &[u64],
+) -> Result<Segment, String> {
+    let clock = &exported.clock;
+    let to_trace = |at: u64| {
+        clock
+            .trace_ns(at)
+            .ok_or_else(|| format!("момент {at} раньше начала трассы"))
+    };
+    let nominal = Window {
+        start_ns: to_trace(window.start_ns)?,
+        end_ns: to_trace(window.end_ns)?,
+    };
+    let mut shown: Vec<u64> = exported.lifetimes.iter().map(Lifetime::shown_ns).collect();
+    shown.sort_unstable();
+    let (first_shown, last_shown) = match (shown.first(), shown.last()) {
+        (Some(&first), Some(&last)) => (first, last),
+        _ => return Err("в hitches-frame-lifetimes нет кадров".to_owned()),
+    };
+    let (display, grid) = vsync_display(&exported.vsyncs, &shown)?;
+    let rate = frames::confirm_rate(&exported.vsyncs, &display, PERIOD_NS);
+    let window = snap(&grid, nominal);
+    if first_shown > window.start_ns || last_shown < window.end_ns {
+        return Err(format!(
+            "жизни кадров {first_shown}–{last_shown} нс не покрывают окно замера {}–{} нс",
+            window.start_ns, window.end_ns
+        ));
+    }
+    let inside: Vec<u64> = shown
+        .iter()
+        .copied()
+        .filter(|&at| window.start_ns <= at && at < window.end_ns)
+        .collect();
+    let off = grid.off_grid(&inside);
+    if !off.is_empty() {
+        return Err(format!(
+            "{} показов окна замера дальше {GRID_TOLERANCE_NS:.0} нс от сетки, первый {}",
+            off.len(),
+            off[0]
+        ));
+    }
+    let lead = window.start_ns.saturating_sub(UPDATE_LEAD_NS);
+    let updates: Vec<Update> = exported
+        .updates
+        .iter()
+        .filter(|update| {
+            update.pid == pid && lead <= update.start_ns && update.start_ns < window.end_ns
+        })
+        .cloned()
+        .collect();
+    let mut frames_displays: Vec<String> = exported
+        .lifetimes
+        .iter()
+        .map(|lifetime| lifetime.display.clone())
+        .collect();
+    frames_displays.sort_unstable();
+    frames_displays.dedup();
+    let probe_frames: Vec<u64> = frames::shown_frames(&updates, &exported.lifetimes, pid)?
+        .into_iter()
+        .filter(|&at| window.start_ns <= at && at < window.end_ns)
+        .collect();
+    let ticks = grid.ticks(window.start_ns, window.end_ns);
+    let held = held_targets_ns
+        .iter()
+        .map(|&at| to_trace(at))
+        .collect::<Result<Vec<u64>, String>>()?;
+    let forward = forward(&ticks, &probe_frames, window, &held);
+    Ok(Segment {
+        vsync_display: display,
+        frames_displays,
+        grid,
+        rate,
+        window,
+        ticks: ticks.len(),
+        first_shown_ns: first_shown,
+        last_shown_ns: last_shown,
+        probe_frames,
+        forward,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -306,5 +470,112 @@ mod tests {
         assert!(reverse(&[50, 250], &[120, 150], window).passed());
         assert!(!reverse(&[150], &[120], window).passed());
         assert!(!reverse(&[], &[], window).passed());
+    }
+
+    /// Выгрузка с vsync пачками по 10 тактов, жизнями кадров на каждом такте и обновлениями пробы
+    /// `pid` на всех тактах, кроме `skip`. Время трассы — от 0, эпоха — 1 с.
+    fn exported(slots: u64, skip: &[u64], pid: u32) -> Exported {
+        let period = 1e9 / RATE_HZ;
+        let at = |slot: u64| (100_000_000.0 + slot as f64 * period).round() as u64;
+        let vsyncs = (0..slots)
+            .filter(|slot| slot % 120 < 10)
+            .map(|slot| Vsync {
+                at_ns: at(slot),
+                display: "Built-In Display 1".to_owned(),
+            })
+            .collect();
+        let lifetimes = (0..slots)
+            .map(|slot| Lifetime {
+                start_ns: at(slot) - 33_333_333,
+                duration_ns: 33_333_333,
+                display: "Display 1".to_owned(),
+                swap_id: slot,
+                surface_id: 1,
+            })
+            .collect();
+        let updates = (0..slots)
+            .filter(|slot| !skip.contains(slot))
+            .map(|slot| Update {
+                start_ns: at(slot) - 20_000_000,
+                duration_ns: 200_000,
+                process: "probe".to_owned(),
+                pid,
+                swap_id: slot,
+                surface_id: 1,
+            })
+            .collect();
+        Exported {
+            clock: Clock {
+                mabs_epoch: 3_000_000_000,
+                numer: 1,
+                denom: 3,
+            },
+            vsyncs,
+            updates,
+            lifetimes,
+        }
+    }
+
+    #[test]
+    fn analyze_finds_holds_on_the_grid_ticks() {
+        let period = 1e9 / RATE_HZ;
+        let epoch = 1_000_000_000;
+        let at = |slot: u64| epoch + (100_000_000.0 + slot as f64 * period).round() as u64;
+        // Окно замера — такты 120..600, удержания по `targetTimestamp` с 120-го такта окна,
+        // показ на 2 такта позже.
+        let held: Vec<u64> = (240..243).chain(420..430).collect();
+        let shown_late: Vec<u64> = held.iter().map(|slot| slot + 2).collect();
+        let data = exported(700, &shown_late, 42);
+        let window = Window {
+            start_ns: at(120) + 300,
+            end_ns: at(600) - 300,
+        };
+        let targets: Vec<u64> = held.iter().map(|&slot| at(slot)).collect();
+        let segment = analyze(&data, 42, window, &targets).unwrap();
+        assert_eq!(segment.vsync_display, "Built-In Display 1");
+        assert_eq!(segment.frames_displays, vec!["Display 1".to_owned()]);
+        assert_eq!(segment.ticks, 480);
+        assert!(segment.rate.confirmed);
+        assert_eq!(segment.forward.shift, 2);
+        assert_eq!(segment.forward.held.len(), 13);
+        assert!(segment.forward.passed(), "{:?}", segment.forward);
+        assert_eq!(segment.probe_frames.len(), 480 - 13);
+
+        // Удержание на первом такте окна: дрожь границы его не выбрасывает.
+        let edge = analyze(&data, 42, window, &[at(120)]).unwrap();
+        assert_eq!(edge.forward.held, vec![edge.forward.shift]);
+
+        let clean = analyze(&exported(700, &[], 42), 42, window, &[]).unwrap();
+        assert!(clean.forward.missed.is_empty());
+        let other = analyze(&data, 7, window, &[]).unwrap();
+        assert!(other.probe_frames.is_empty());
+    }
+
+    #[test]
+    fn analyze_rejects_uncovered_or_unknown_windows() {
+        let data = exported(300, &[], 42);
+        let beyond = Window {
+            start_ns: 1_200_000_000,
+            end_ns: 1_000_000_000 + 4_000_000_000,
+        };
+        assert!(analyze(&data, 42, beyond, &[]).is_err());
+        let before = Window {
+            start_ns: 10,
+            end_ns: 1_200_000_000,
+        };
+        assert!(analyze(&data, 42, before, &[]).is_err());
+        let mut two = exported(300, &[], 42);
+        let mut second = two.vsyncs.clone();
+        for vsync in &mut second {
+            vsync.display = "Ext".to_owned();
+            vsync.at_ns += 4_000_000;
+        }
+        two.vsyncs.extend(second);
+        let window = Window {
+            start_ns: 1_200_000_000,
+            end_ns: 1_300_000_000,
+        };
+        let segment = analyze(&two, 42, window, &[]).unwrap();
+        assert_eq!(segment.vsync_display, "Built-In Display 1");
     }
 }

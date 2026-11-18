@@ -1,10 +1,11 @@
 //! Служебный процесс `--neighbor` обратного контроля калибровки: узкое окно без рамки у левого края
 //! дисплея, его полосы движутся по S1 от `displayLink`. Приложение не активируется и key у пробы
 //! не отбирает. Процесс печатает свой pid, живёт до закрытия stdin и перед выходом печатает число
-//! своих тактов — свидетельство движения, независимое от трассы.
+//! своих тактов и их `targetTimestamp` — свидетельство движения, независимое от трассы.
 
 use std::cell::Cell;
 use std::io::{Read, Write};
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use objc2::{MainThreadMarker, MainThreadOnly, sel};
@@ -23,6 +24,13 @@ pub const WIDTH: f64 = 120.0;
 pub const MARGIN: f64 = 8.0;
 
 static TICKS: AtomicU64 = AtomicU64::new(0);
+/// `targetTimestamp` тактов соседа, наносекунды `CLOCK_UPTIME_RAW`.
+static TARGETS: Mutex<Vec<u64>> = Mutex::new(Vec::new());
+
+/// Префиксы строк соседа в stdout.
+pub const PID_LINE: &str = "neighbor_pid=";
+pub const TICKS_LINE: &str = "neighbor_ticks=";
+pub const TARGETS_LINE: &str = "neighbor_targets_ns=";
 
 /// Строит окно соседа и крутит основной цикл. Возвращается только с отказом.
 pub fn run(mtm: MainThreadMarker, screen: &NSScreen) -> Result<(), String> {
@@ -66,6 +74,9 @@ pub fn run(mtm: MainThreadMarker, screen: &NSScreen) -> Result<(), String> {
             start.set(Some(origin));
             moving.move_to(s1_offset(origin, target, SPEED));
             TICKS.fetch_add(1, Ordering::Relaxed);
+            if let Ok(mut targets) = TARGETS.lock() {
+                targets.push((target * 1e9).round() as u64);
+            }
         }),
     );
     // SAFETY: цель — объект пробы с методом `tick:`, принимающим `CADisplayLink`.
@@ -79,17 +90,19 @@ pub fn run(mtm: MainThreadMarker, screen: &NSScreen) -> Result<(), String> {
             let mut sink = Vec::new();
             let _ = std::io::stdin().lock().read_to_end(&mut sink);
             let mut stdout = std::io::stdout().lock();
-            let _ = writeln!(stdout, "neighbor_ticks={}", TICKS.load(Ordering::Relaxed));
+            let _ = writeln!(stdout, "{TICKS_LINE}{}", TICKS.load(Ordering::Relaxed));
+            let targets = TARGETS
+                .lock()
+                .map(|targets| targets.clone())
+                .unwrap_or_default();
+            let list: Vec<String> = targets.iter().map(u64::to_string).collect();
+            let _ = writeln!(stdout, "{TARGETS_LINE}{}", list.join(","));
             let _ = stdout.flush();
             // SAFETY: `_exit` завершает процесс без обработчиков `atexit`, главный поток в цикле.
             unsafe { libc::_exit(0) }
         })
         .map_err(|err| format!("поток stdin не запущен: {err}"))?;
-    let _ = writeln!(
-        std::io::stdout().lock(),
-        "neighbor_pid={}",
-        std::process::id()
-    );
+    let _ = writeln!(std::io::stdout().lock(), "{PID_LINE}{}", std::process::id());
     app.run();
     drop((link, driver, view, window));
     Err("основной цикл соседа завершился".to_owned())

@@ -309,8 +309,16 @@ impl Clock {
 
     /// Время трассы, наносекунды от начала, во время `CLOCK_UPTIME_RAW`.
     pub fn uptime_ns(&self, trace_ns: u64) -> u64 {
-        let epoch = u128::from(self.mabs_epoch) * u128::from(self.numer) / u128::from(self.denom);
-        epoch as u64 + trace_ns
+        self.epoch_ns() + trace_ns
+    }
+
+    /// Время `CLOCK_UPTIME_RAW` во время трассы, если оно не раньше начала трассы.
+    pub fn trace_ns(&self, uptime_ns: u64) -> Option<u64> {
+        uptime_ns.checked_sub(self.epoch_ns())
+    }
+
+    fn epoch_ns(&self) -> u64 {
+        (u128::from(self.mabs_epoch) * u128::from(self.numer) / u128::from(self.denom)) as u64
     }
 }
 
@@ -576,6 +584,27 @@ impl Grid {
     /// Отклонение момента от ближайшего такта.
     pub fn offset_ns(&self, at_ns: u64) -> f64 {
         self.relative(at_ns) - self.intercept_ns - self.slot(at_ns) as f64 * self.period_ns
+    }
+
+    /// Время такта `slot`.
+    pub fn slot_ns(&self, slot: i64) -> u64 {
+        (self.origin_ns as f64 + self.intercept_ns + slot as f64 * self.period_ns).round() as u64
+    }
+
+    /// Все такты сетки в `[start; end)`: сплошной ряд, которого нет в разреженных строках vsync.
+    pub fn ticks(&self, start_ns: u64, end_ns: u64) -> Vec<u64> {
+        let mut slot = self.slot(start_ns) - 1;
+        let mut ticks = Vec::new();
+        loop {
+            let at = self.slot_ns(slot);
+            if at >= end_ns {
+                return ticks;
+            }
+            if at >= start_ns {
+                ticks.push(at);
+            }
+            slot += 1;
+        }
     }
 
     /// Моменты дальше [`GRID_TOLERANCE_NS`] от сетки.
@@ -1075,6 +1104,35 @@ mod tests {
         assert!(super::grid(&stray, "Built-In Display 1").is_err());
         assert!(super::grid(&rows[..2], "Built-In Display 1").is_err());
         assert!(super::grid(&rows, "Нет такого").is_err());
+    }
+
+    #[test]
+    fn grid_ticks_fill_the_gaps_between_bursts() {
+        let period = 1e9 / 120.0;
+        let grid = grid(&bursts(period, 5_000_000_000), "Built-In Display 1").unwrap();
+        let start = grid.slot_ns(100);
+        let end = grid.slot_ns(580);
+        let ticks = grid.ticks(start, end);
+        assert_eq!(ticks.len(), 480);
+        assert_eq!(ticks[0], start);
+        assert!(
+            ticks
+                .windows(2)
+                .all(|pair| (pair[1] - pair[0]).abs_diff(8_333_333) <= 1)
+        );
+        assert_eq!(grid.ticks(start + 1, start + 2), Vec::<u64>::new());
+        assert_eq!(grid.ticks(start - 1, start + 1), vec![start]);
+    }
+
+    #[test]
+    fn clock_round_trips_uptime() {
+        let clock = Clock {
+            mabs_epoch: 30,
+            numer: 125,
+            denom: 3,
+        };
+        assert_eq!(clock.trace_ns(clock.uptime_ns(7)), Some(7));
+        assert_eq!(clock.trace_ns(1_249), None);
     }
 
     #[test]
