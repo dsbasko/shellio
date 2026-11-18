@@ -236,6 +236,7 @@ name = "probe-diff-view"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "memchr",
  "objc2",
  "objc2-app-kit",
  "objc2-core-foundation",

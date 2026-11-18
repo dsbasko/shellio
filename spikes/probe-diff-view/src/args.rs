@@ -14,12 +14,15 @@ pub const USAGE: &str = "\
   probe-diff-view [--variant a|b] [--mode unified|side]
       демонстрация без стенда и result.json
   probe-diff-view --scenario <имя> --out <каталог> [--variant a|b] [--mode unified|side]
+                  [--fixtures <каталог фикстур>]
       сценарий стенда, итог в <каталог>/result.json
   probe-diff-view --aggregate <каталог прогона>
       сводка результатов прогона без окна
+  probe-diff-view --reference <каталог фикстур>
+      эталоны подсветки фикстур в <каталог фикстур>/<имя>/reference.json
 
 у демонстрации по умолчанию --variant a --mode unified; сценарий стенда идёт без --variant и
---mode, сценарий вида требует обоих";
+--mode, сценарий вида требует обоих; --fixtures нужен ровно сценариям с эталоном подсветки";
 
 /// Вариант отрисовки: A — собственный `NSView` с Core Text, B — view-based `NSTableView`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -88,14 +91,17 @@ impl Axes {
 pub enum Scenario {
     /// Пустое окно: приложение активно, окно видимо и key, `result.json` записан.
     Smoke,
+    /// Подсветка на worker без окна: замеры разбора и запросов, сверка с эталоном.
+    Highlight,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 1] = [Scenario::Smoke];
+    pub const ALL: [Scenario; 2] = [Scenario::Smoke, Scenario::Highlight];
 
     pub fn name(self) -> &'static str {
         match self {
             Scenario::Smoke => "smoke",
+            Scenario::Highlight => "highlight",
         }
     }
 
@@ -107,7 +113,16 @@ impl Scenario {
 
     pub fn axes(self) -> Axes {
         match self {
-            Scenario::Smoke => Axes::STAND,
+            Scenario::Smoke | Scenario::Highlight => Axes::STAND,
+        }
+    }
+
+    /// Сценарию нужен каталог фикстур с эталонами `--reference`. Таблица `run.sh`
+    /// (`needs_fixtures`) повторяет её.
+    pub fn needs_fixtures(self) -> bool {
+        match self {
+            Scenario::Smoke => false,
+            Scenario::Highlight => true,
         }
     }
 }
@@ -127,9 +142,13 @@ pub enum Command {
         scenario: Scenario,
         view: ViewOptions,
         out: PathBuf,
+        fixtures: Option<PathBuf>,
     },
     Aggregate {
         run_dir: PathBuf,
+    },
+    Reference {
+        dir: PathBuf,
     },
 }
 
@@ -146,7 +165,11 @@ pub enum ArgsError {
     UnknownScenario(String),
     ScenarioWithoutOut,
     OutWithoutScenario,
-    AggregateWithOthers,
+    FixturesWithoutScenario,
+    /// Команда `--aggregate` или `--reference` идёт одна.
+    Exclusive(&'static str),
+    FixturesRequired(&'static str),
+    FixturesNotAccepted(&'static str),
     /// Сценарий вида идёт только с этим флагом.
     AxisRequired {
         scenario: &'static str,
@@ -183,8 +206,15 @@ impl fmt::Display for ArgsError {
             }
             ArgsError::ScenarioWithoutOut => write!(f, "--scenario требует --out"),
             ArgsError::OutWithoutScenario => write!(f, "--out имеет смысл только с --scenario"),
-            ArgsError::AggregateWithOthers => {
-                write!(f, "--aggregate не сочетается с другими флагами")
+            ArgsError::FixturesWithoutScenario => {
+                write!(f, "--fixtures имеет смысл только с --scenario")
+            }
+            ArgsError::Exclusive(flag) => write!(f, "{flag} не сочетается с другими флагами"),
+            ArgsError::FixturesRequired(scenario) => {
+                write!(f, "сценарий {scenario} требует --fixtures")
+            }
+            ArgsError::FixturesNotAccepted(scenario) => {
+                write!(f, "сценарий {scenario} идёт без --fixtures")
             }
             ArgsError::AxisRequired { scenario, flag } => {
                 write!(f, "сценарий {scenario} требует {flag}")
@@ -196,22 +226,26 @@ impl fmt::Display for ArgsError {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Flag {
     Scenario,
     Variant,
     Mode,
     Out,
+    Fixtures,
     Aggregate,
+    Reference,
 }
 
 impl Flag {
-    const ALL: [Flag; 5] = [
+    const ALL: [Flag; 7] = [
         Flag::Scenario,
         Flag::Variant,
         Flag::Mode,
         Flag::Out,
+        Flag::Fixtures,
         Flag::Aggregate,
+        Flag::Reference,
     ];
 
     fn name(self) -> &'static str {
@@ -220,7 +254,9 @@ impl Flag {
             Flag::Variant => "--variant",
             Flag::Mode => "--mode",
             Flag::Out => "--out",
+            Flag::Fixtures => "--fixtures",
             Flag::Aggregate => "--aggregate",
+            Flag::Reference => "--reference",
         }
     }
 
@@ -235,7 +271,26 @@ struct Raw {
     variant: Option<Variant>,
     mode: Option<ViewMode>,
     out: Option<PathBuf>,
+    fixtures: Option<PathBuf>,
     aggregate: Option<PathBuf>,
+    reference: Option<PathBuf>,
+}
+
+impl Raw {
+    fn others_than(&self, flag: Flag) -> bool {
+        let given = [
+            (Flag::Scenario, self.scenario.is_some()),
+            (Flag::Variant, self.variant.is_some()),
+            (Flag::Mode, self.mode.is_some()),
+            (Flag::Out, self.out.is_some()),
+            (Flag::Fixtures, self.fixtures.is_some()),
+            (Flag::Aggregate, self.aggregate.is_some()),
+            (Flag::Reference, self.reference.is_some()),
+        ];
+        given
+            .into_iter()
+            .any(|(other, present)| present && other != flag)
+    }
 }
 
 /// Разбирает аргументы без имени программы.
@@ -269,20 +324,25 @@ pub fn parse(args: &[String]) -> Result<Command, ArgsError> {
                 set(&mut raw.mode, flag, mode)?;
             }
             Flag::Out => set(&mut raw.out, flag, path(flag, value)?)?,
+            Flag::Fixtures => set(&mut raw.fixtures, flag, path(flag, value)?)?,
             Flag::Aggregate => set(&mut raw.aggregate, flag, path(flag, value)?)?,
+            Flag::Reference => set(&mut raw.reference, flag, path(flag, value)?)?,
         }
     }
 
+    for (flag, given) in [
+        (Flag::Aggregate, raw.aggregate.is_some()),
+        (Flag::Reference, raw.reference.is_some()),
+    ] {
+        if given && raw.others_than(flag) {
+            return Err(ArgsError::Exclusive(flag.name()));
+        }
+    }
     if let Some(run_dir) = raw.aggregate {
-        let others = raw.scenario.is_some()
-            || raw.variant.is_some()
-            || raw.mode.is_some()
-            || raw.out.is_some();
-        return if others {
-            Err(ArgsError::AggregateWithOthers)
-        } else {
-            Ok(Command::Aggregate { run_dir })
-        };
+        return Ok(Command::Aggregate { run_dir });
+    }
+    if let Some(dir) = raw.reference {
+        return Ok(Command::Reference { dir });
     }
 
     let view = ViewOptions {
@@ -292,14 +352,21 @@ pub fn parse(args: &[String]) -> Result<Command, ArgsError> {
     match (raw.scenario, raw.out) {
         (Some(scenario), Some(out)) => {
             check_axes(scenario.name(), scenario.axes(), view)?;
+            match (scenario.needs_fixtures(), raw.fixtures.is_some()) {
+                (true, false) => return Err(ArgsError::FixturesRequired(scenario.name())),
+                (false, true) => return Err(ArgsError::FixturesNotAccepted(scenario.name())),
+                (true, true) | (false, false) => {}
+            }
             Ok(Command::Scenario {
                 scenario,
                 view,
                 out,
+                fixtures: raw.fixtures,
             })
         }
         (Some(_), None) => Err(ArgsError::ScenarioWithoutOut),
         (None, Some(_)) => Err(ArgsError::OutWithoutScenario),
+        (None, None) if raw.fixtures.is_some() => Err(ArgsError::FixturesWithoutScenario),
         (None, None) => Ok(Command::Demo(view)),
     }
 }
@@ -392,8 +459,81 @@ mod tests {
                 scenario: Scenario::Smoke,
                 view: ViewOptions::default(),
                 out: PathBuf::from("/tmp/run/smoke"),
+                fixtures: None,
             })
         );
+    }
+
+    #[test]
+    fn highlight_needs_fixtures_and_smoke_rejects_them() {
+        assert_eq!(
+            parse_str(&["--scenario", "highlight", "--out", "o", "--fixtures", "f"]),
+            Ok(Command::Scenario {
+                scenario: Scenario::Highlight,
+                view: ViewOptions::default(),
+                out: PathBuf::from("o"),
+                fixtures: Some(PathBuf::from("f")),
+            })
+        );
+        assert_eq!(
+            parse_str(&["--scenario", "highlight", "--out", "o"]),
+            Err(ArgsError::FixturesRequired("highlight"))
+        );
+        assert_eq!(
+            parse_str(&["--scenario", "smoke", "--out", "o", "--fixtures", "f"]),
+            Err(ArgsError::FixturesNotAccepted("smoke"))
+        );
+        assert_eq!(
+            parse_str(&["--fixtures", "f"]),
+            Err(ArgsError::FixturesWithoutScenario)
+        );
+        assert_eq!(
+            parse_str(&[
+                "--scenario",
+                "highlight",
+                "--out",
+                "o",
+                "--fixtures",
+                "f",
+                "--mode",
+                "side"
+            ]),
+            Err(ArgsError::AxisNotAccepted {
+                scenario: "highlight",
+                flag: "--mode"
+            })
+        );
+    }
+
+    #[test]
+    fn reference_alone() {
+        assert_eq!(
+            parse_str(&["--reference", "target/probes/diff-view/fixtures"]),
+            Ok(Command::Reference {
+                dir: PathBuf::from("target/probes/diff-view/fixtures"),
+            })
+        );
+        for extra in [
+            ["--scenario", "highlight"],
+            ["--fixtures", "f"],
+            ["--out", "o"],
+            ["--variant", "a"],
+        ] {
+            let mut args = vec!["--reference", "dir"];
+            args.extend(extra);
+            assert_eq!(
+                parse_str(&args),
+                Err(ArgsError::Exclusive("--reference")),
+                "{extra:?}"
+            );
+        }
+        assert!(matches!(
+            parse_str(&["--reference", ""]),
+            Err(ArgsError::InvalidValue {
+                flag: "--reference",
+                ..
+            })
+        ));
     }
 
     #[test]
@@ -484,12 +624,14 @@ mod tests {
             ["--variant", "a"],
             ["--mode", "side"],
             ["--out", "out"],
+            ["--fixtures", "f"],
+            ["--reference", "dir"],
         ] {
             let mut args = vec!["--aggregate", "run"];
             args.extend(extra);
             assert_eq!(
                 parse_str(&args),
-                Err(ArgsError::AggregateWithOthers),
+                Err(ArgsError::Exclusive("--aggregate")),
                 "{extra:?}"
             );
         }

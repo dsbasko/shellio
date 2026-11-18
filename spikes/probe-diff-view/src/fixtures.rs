@@ -200,21 +200,21 @@ impl Rng {
     }
 }
 
-struct Fnv(u64);
+pub(crate) struct Fnv(u64);
 
 impl Fnv {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Fnv(0xCBF2_9CE4_8422_2325)
     }
 
-    fn write(&mut self, bytes: &[u8]) {
+    pub(crate) fn write(&mut self, bytes: &[u8]) {
         for &byte in bytes {
             self.0 ^= u64::from(byte);
             self.0 = self.0.wrapping_mul(0x0000_0100_0000_01B3);
         }
     }
 
-    fn finish(&self) -> u64 {
+    pub(crate) fn finish(&self) -> u64 {
         self.0
     }
 }

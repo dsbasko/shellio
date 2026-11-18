@@ -6,6 +6,8 @@
 #                                   пишет summary.json и сводку выводов
 #   run.sh demo [аргументы пробы …]  демонстрация для ручной работы
 # VARIANTS (по умолчанию «a b») и MODES («unified side») сужают оси сценариев вида.
+# Перед сценариями с эталоном подсветки отдельный процесс --reference пишет эталоны фикстур в
+# target/probes/diff-view/fixtures/<имя>/reference.json, вне измеряемых процессов.
 # Набор ghostty проба не читает, поэтому блокировка vendor/ghostty.lock не нужна.
 set -euo pipefail
 
@@ -13,7 +15,8 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CARGO="${CARGO:-cargo}"
 BIN="$ROOT/target/release/probe-diff-view"
 OUT_BASE="$ROOT/target/probes/diff-view"
-ALL_SCENARIOS="smoke"
+FIXTURES_DIR="$OUT_BASE/fixtures"
+ALL_SCENARIOS="smoke highlight"
 ALL_VARIANTS="a b"
 ALL_MODES="unified side"
 
@@ -104,9 +107,28 @@ check_state_dir() {
 # «view» — процесс на каждую пару варианта и режима.
 axes_of() {
     case "$1" in
-        smoke) echo stand ;;
+        smoke | highlight) echo stand ;;
         *) die "неизвестный сценарий «${1}», известны: $ALL_SCENARIOS" ;;
     esac
+}
+
+# Сценарии с эталоном подсветки, как Scenario::needs_fixtures в args.rs.
+needs_fixtures() {
+    case "$1" in
+        highlight) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Эталоны подсветки отдельным процессом пробы до сценариев, журнал — reference.txt прогона.
+write_references() {
+    local run_dir="$1" code=0
+    "$BIN" --reference "$FIXTURES_DIR" >"$run_dir/reference.txt" 2>&1 || code=$?
+    if [ "$code" -ne 0 ]; then
+        sed 's/^/    /' "$run_dir/reference.txt" >&2
+        die "эталоны подсветки не записаны (код $code)"
+    fi
+    tail -n 1 "$run_dir/reference.txt"
 }
 
 # Номера повторных запусков: «_» — один запуск без номера.
@@ -145,6 +167,12 @@ cmd_scenarios() {
     run_dir="$OUT_BASE/$(date +%Y%m%d-%H%M%S)-$$"
     mkdir "$run_dir"
     for scenario in $scenarios; do
+        if needs_fixtures "$scenario"; then
+            write_references "$run_dir"
+            break
+        fi
+    done
+    for scenario in $scenarios; do
         axes="$(axes_of "$scenario")"
         local cells
         if [ "$axes" = stand ]; then
@@ -164,6 +192,9 @@ cmd_scenarios() {
                 [ "$index" = _ ] && index=""
                 name="$scenario"
                 local flags=(--scenario "$scenario")
+                if needs_fixtures "$scenario"; then
+                    flags+=(--fixtures "$FIXTURES_DIR")
+                fi
                 if [ "$variant" != - ]; then
                     name="$name-$variant"
                     flags+=(--variant "$variant")

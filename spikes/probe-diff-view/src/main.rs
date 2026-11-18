@@ -1,12 +1,13 @@
 //! Проба P0.6 `probe-diff-view` (ADR-0034). Без `--scenario` показывает демонстрацию, со
 //! `--scenario` сценарий ведёт процесс изнутри, пишет `result.json` в `--out` и печатает итог.
-//! `--aggregate` сводит прогон без `NSApplication`.
+//! `--aggregate` сводит прогон, `--reference` пишет эталоны подсветки, оба без `NSApplication`.
 //!
 //! Активация без бандла, меню приложения, выбор дисплея и сведения о системе скопированы из
 //! `spikes/probe-appkit-shell/src/main.rs` и `scenario/readback.rs` (P0.2) и упрощены.
 
 mod args;
 mod results;
+mod scenario;
 mod stats;
 
 use std::cell::{OnceCell, RefCell};
@@ -68,6 +69,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Command::Aggregate { run_dir } => aggregate(&run_dir),
+        Command::Reference { dir } => reference(&dir),
         Command::Demo(view) => match run_app(None, view) {
             None => ExitCode::SUCCESS,
             Some(outcome) => print_outcome(&outcome),
@@ -76,11 +78,12 @@ fn main() -> ExitCode {
             scenario,
             view,
             out,
+            fixtures,
         } => {
             if !out.is_dir() {
                 return usage_error(&format!("--out {}: каталога нет", out.display()));
             }
-            run_scenario(scenario, view, out)
+            run_scenario(scenario, view, out, fixtures.as_deref())
         }
     }
 }
@@ -109,6 +112,29 @@ fn aggregate(run_dir: &Path) -> ExitCode {
         ExitCode::from(EXIT_EXECUTION)
     } else {
         ExitCode::SUCCESS
+    }
+}
+
+/// Эталоны подсветки фикстур вне измеряемого процесса. Ненулевой код — ошибка исполнения.
+fn reference(dir: &Path) -> ExitCode {
+    let started = Instant::now();
+    match probe_diff_view::highlight::reference::write_all(dir) {
+        Ok(paths) => {
+            let mut stdout = io::stdout().lock();
+            for path in paths {
+                let _ = writeln!(stdout, "эталон: {}", path.display());
+            }
+            let _ = writeln!(
+                stdout,
+                "эталоны записаны за {:.1} с",
+                started.elapsed().as_secs_f64()
+            );
+            ExitCode::SUCCESS
+        }
+        Err(reason) => {
+            let _ = writeln!(io::stderr().lock(), "{PROBE_NAME}: --reference: {reason}");
+            ExitCode::from(EXIT_EXECUTION)
+        }
     }
 }
 
@@ -177,18 +203,26 @@ fn print_outcome(outcome: &Outcome) -> ExitCode {
     code
 }
 
-/// Процесс сценария: сцена, затем `result.json` в `--out` и итог в stdout.
-fn run_scenario(scenario: Scenario, view: ViewOptions, out: PathBuf) -> ExitCode {
+/// Процесс сценария: сцена или сценарий без окна, затем `result.json` в `--out` и итог в stdout.
+fn run_scenario(
+    scenario: Scenario,
+    view: ViewOptions,
+    out: PathBuf,
+    fixtures: Option<&Path>,
+) -> ExitCode {
     let environment = static_environment();
     // Грамматика проверяется до окна: разбор строки из одного выражения, без AppKit.
     let grammar = check_grammar();
-    let mut outcome = run_app(Some(scenario), view).unwrap_or_else(|| {
-        Outcome::error(
-            "основной цикл завершился без итога сценария",
-            None,
-            Report::default(),
-        )
-    });
+    let mut outcome = match scenario {
+        Scenario::Smoke => run_app(Some(scenario), view).unwrap_or_else(|| {
+            Outcome::error(
+                "основной цикл завершился без итога сценария",
+                None,
+                Report::default(),
+            )
+        }),
+        Scenario::Highlight => run_headless(fixtures),
+    };
     if outcome.execution.is_ok() {
         match grammar {
             Ok(reason) => outcome
@@ -245,6 +279,21 @@ fn run_scenario(scenario: Scenario, view: ViewOptions, out: PathBuf) -> ExitCode
             ExitCode::from(EXIT_EXECUTION)
         }
     }
+}
+
+/// Сценарий без окна и без `NSApplication`. Дисплеи для окружения читаются через `NSScreen`.
+fn run_headless(fixtures: Option<&Path>) -> Outcome {
+    let Some(fixtures) = fixtures else {
+        return Outcome::error("сценарию нужен --fixtures", None, Report::default());
+    };
+    let mut outcome = match scenario::highlight::run(fixtures) {
+        (report, Ok(())) => Outcome::ok(report),
+        (report, Err(reason)) => Outcome::error(reason, None, report),
+    };
+    if let Some(mtm) = MainThreadMarker::new() {
+        outcome.report.displays = display_infos(mtm);
+    }
+    outcome
 }
 
 /// Грамматика `tree-sitter-rust` загружается в разборщик этой версии `tree-sitter` и разбирает
