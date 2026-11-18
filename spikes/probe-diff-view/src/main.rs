@@ -25,7 +25,7 @@ use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_se
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate,
     NSApplicationTerminateReply, NSBackingStoreType, NSEvent, NSEventModifierFlags, NSEventType,
-    NSMenu, NSMenuItem, NSScreen, NSWindow, NSWindowStyleMask,
+    NSMenu, NSMenuItem, NSRunningApplication, NSScreen, NSWindow, NSWindowStyleMask,
 };
 use objc2_core_graphics::CGDisplayIsBuiltin;
 use objc2_foundation::{
@@ -45,6 +45,8 @@ const EXIT_USAGE: u8 = 2;
 /// тайм-аут. Отрицательный вывод гипотезы ошибкой исполнения не считается.
 const EXIT_EXECUTION: u8 = 3;
 const WINDOW_SIZE: NSSize = NSSize::new(1180.0, 720.0);
+/// Менеджер окон, при котором окно стенда не держит запрошенную рамку.
+const AEROSPACE_BUNDLE_ID: &str = "bobko.aerospace";
 /// Срок `smoke` от `applicationDidFinishLaunching` до готового окна.
 const SMOKE_TIMEOUT: Duration = Duration::from_secs(10);
 /// Срок сторожа `calibrate` из отчёта, раздел «Сроки и размеры»: четыре записи по 5 с, у каждой
@@ -438,6 +440,53 @@ fn window_frame(screen: &NSScreen, size: NSSize) -> NSRect {
     NSRect::new(origin, size)
 }
 
+/// Прямоугольник относительно дисплея в глобальных координатах AppKit.
+fn global_rect(local: NSRect, screen_origin: NSPoint) -> NSRect {
+    NSRect::new(
+        NSPoint::new(
+            local.origin.x + screen_origin.x,
+            local.origin.y + screen_origin.y,
+        ),
+        local.size,
+    )
+}
+
+fn describe_rect(rect: NSRect) -> String {
+    format!(
+        "{},{} {}x{}",
+        rect.origin.x, rect.origin.y, rect.size.width, rect.size.height
+    )
+}
+
+/// Рамка содержимого, отличная от запрошенной: окно разложил менеджер окон или система, и
+/// сценарий меряет не ту геометрию.
+fn frame_mismatch(actual: NSRect, requested: NSRect) -> Option<String> {
+    (actual != requested).then(|| {
+        format!(
+            "предусловие: рамка содержимого окна {} вместо запрошенной {}",
+            describe_rect(actual),
+            describe_rect(requested)
+        )
+    })
+}
+
+/// Физические предусловия окна стенда из плана, раздел «Предусловия»: AeroSpace выключен
+/// полностью, окно держит запрошенную рамку. Нарушение — ошибка исполнения.
+fn precondition_violation(window: &NSWindow, requested: Option<NSRect>) -> Option<String> {
+    let aerospace = NSRunningApplication::runningApplicationsWithBundleIdentifier(
+        &NSString::from_str(AEROSPACE_BUNDLE_ID),
+    );
+    if aerospace.count() > 0 {
+        return Some(format!(
+            "предусловие: AeroSpace запущен ({AEROSPACE_BUNDLE_ID}), выключить его может только владелец"
+        ));
+    }
+    let Some(requested) = requested else {
+        return Some("запрошенная рамка окна не записана".to_owned());
+    };
+    frame_mismatch(window.contentRectForFrameRect(window.frame()), requested)
+}
+
 fn main_window(mtm: MainThreadMarker, screen: &NSScreen, title: &str) -> Retained<NSWindow> {
     let style = NSWindowStyleMask::Titled
         | NSWindowStyleMask::Closable
@@ -478,6 +527,8 @@ struct DelegateIvars {
     timer: RefCell<Option<Retained<NSTimer>>>,
     /// Конец `applicationDidFinishLaunching`: начало ожидания готового окна.
     shown_at: OnceCell<Instant>,
+    /// Запрошенная рамка содержимого окна в глобальных координатах AppKit.
+    requested: OnceCell<NSRect>,
     calibration: RefCell<Option<scenario::calibrate_run::Calibration>>,
 }
 
@@ -552,6 +603,7 @@ impl AppDelegate {
             window: OnceCell::new(),
             timer: RefCell::new(None),
             shown_at: OnceCell::new(),
+            requested: OnceCell::new(),
             calibration: RefCell::new(None),
         });
         // SAFETY: `init` у NSObject без аргументов.
@@ -575,6 +627,10 @@ impl AppDelegate {
             None => demo_title(ivars.view),
         };
         let window = main_window(mtm, &screen, &title);
+        let _ = ivars.requested.set(global_rect(
+            window_frame(&screen, WINDOW_SIZE),
+            screen.frame().origin,
+        ));
         window.makeKeyAndOrderFront(None);
         // Кооперативный `activate()` (macOS 14) отклоняется, пока активен терминал, из которого
         // запущен процесс; устаревший запрос с игнорированием других приложений проходит.
@@ -643,6 +699,11 @@ impl AppDelegate {
                     |display| format!("{}, до {} Гц", display.name, display.max_fps),
                 ),
             );
+            let requested = ivars.requested.get().copied();
+            if let Some(reason) = precondition_violation(window, requested) {
+                self.finish(Outcome::error(reason, Some(state), report));
+                return;
+            }
             if ivars.scenario != Some(Scenario::Calibrate) {
                 self.finish(Outcome::ok(report));
                 return;
@@ -807,6 +868,23 @@ mod tests {
     fn grammar_loads_into_parser() {
         let reason = check_grammar().unwrap();
         assert!(reason.contains("source_file"), "{reason}");
+    }
+
+    #[test]
+    fn requested_frame_is_global_and_exact() {
+        let local = NSRect::new(NSPoint::new(10.0, 20.0), WINDOW_SIZE);
+        let requested = global_rect(local, NSPoint::new(-1512.0, 300.0));
+        assert_eq!(requested.origin, NSPoint::new(-1502.0, 320.0));
+        assert_eq!(requested.size, WINDOW_SIZE);
+        assert_eq!(frame_mismatch(requested, requested), None);
+        // Плитка AeroSpace итерации 7: 750 × 948 точек вместо 1180 × 720.
+        let tiled = NSRect::new(NSPoint::new(8.0, 8.0), NSSize::new(750.0, 948.0));
+        let reason = frame_mismatch(tiled, requested).unwrap_or_default();
+        assert!(reason.starts_with("предусловие: "), "{reason}");
+        assert!(reason.contains("8,8 750x948"), "{reason}");
+        assert!(reason.contains("-1502,320 1180x720"), "{reason}");
+        let shifted = NSRect::new(NSPoint::new(-1501.0, 320.0), WINDOW_SIZE);
+        assert!(frame_mismatch(shifted, requested).is_some());
     }
 
     #[test]
