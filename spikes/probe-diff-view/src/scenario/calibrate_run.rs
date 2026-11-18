@@ -20,8 +20,10 @@ use objc2_quartz_core::CADisplayLink;
 use serde::Serialize;
 
 use super::calibrate::{
-    self, Exported, MEASURE_S, PERIOD_NS, Reverse, Segment, TAIL_S, WARMUP_TICKS, Window,
+    self, CaptureSegment, Exported, MEASURE_S, PERIOD_NS, Reverse, Segment, TAIL_S, WARMUP_TICKS,
+    Window,
 };
+use super::capture::Capture;
 use super::drawmark::{self, Change, Covered, Mark};
 use super::frames::{self, Recorder};
 use super::neighbor;
@@ -67,6 +69,45 @@ pub const SEGMENTS: [Stimulus; 4] = [
     Stimulus::Stall,
 ];
 
+/// Путь замера кадров по правилу «Способ замера кадров».
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub enum FramesPath {
+    Xctrace,
+    Capture,
+}
+
+impl FramesPath {
+    pub fn name(self) -> &'static str {
+        match self {
+            FramesPath::Xctrace => "xctrace",
+            FramesPath::Capture => "screencapturekit",
+        }
+    }
+}
+
+/// Переменная окружения разработки: пути калибровки через запятую, по умолчанию оба по порядку.
+/// Отрезки ScreenCaptureKit идут без записи `xctrace`.
+pub const PATHS_ENV: &str = "PROBE_DIFF_CALIBRATE_PATHS";
+
+/// Отрезки процесса: пути из [`PATHS_ENV`], у каждого четыре стимула.
+pub fn runs(paths: Option<&str>) -> Result<Vec<(FramesPath, Stimulus)>, String> {
+    let paths: Vec<FramesPath> = match paths {
+        None => vec![FramesPath::Xctrace, FramesPath::Capture],
+        Some(list) => list
+            .split(',')
+            .map(|name| match name.trim() {
+                "xctrace" => Ok(FramesPath::Xctrace),
+                "screencapturekit" => Ok(FramesPath::Capture),
+                other => Err(format!("{PATHS_ENV}: путь «{other}» не известен")),
+            })
+            .collect::<Result<_, _>>()?,
+    };
+    Ok(paths
+        .into_iter()
+        .flat_map(|path| SEGMENTS.map(|stimulus| (path, stimulus)))
+        .collect())
+}
+
 /// Задержки главного потока: такт окна замера и длительность в периодах.
 pub const STALLS: [(u64, u64); 2] = [(120, 3), (300, 10)];
 
@@ -101,9 +142,22 @@ pub struct SegmentOutcome {
     pub neighbor_ticks: Option<usize>,
 }
 
+/// Итог отрезка ScreenCaptureKit.
+#[derive(Clone, Debug, Serialize)]
+pub struct CaptureOutcome {
+    pub segment: CaptureSegment,
+    pub reverse: Option<Reverse>,
+    pub neighbor_ticks: Option<usize>,
+}
+
+enum Outcome {
+    Xctrace(Box<SegmentOutcome>),
+    Capture(Box<CaptureOutcome>),
+}
+
 enum FromWorker {
     Started,
-    Done(Result<Box<SegmentOutcome>, String>),
+    Done(Result<Outcome, String>),
 }
 
 struct Stop {
@@ -128,6 +182,10 @@ enum Phase {
 
 /// Идущая калибровка: вид, цель и ссылка `displayLink` живут до [`Calibration::poll`] с итогом.
 pub struct Calibration {
+    runs: Vec<(FramesPath, Stimulus)>,
+    window_id: u32,
+    window_w: f64,
+    window_h: f64,
     view: Retained<MotionView>,
     driver: Retained<FrameDriver>,
     link: Retained<CADisplayLink>,
@@ -135,6 +193,7 @@ pub struct Calibration {
     out: PathBuf,
     phase: RefCell<Phase>,
     outcomes: RefCell<Vec<(Stimulus, SegmentOutcome, Vec<Tick>)>>,
+    captures: RefCell<Vec<(Stimulus, CaptureOutcome, Vec<Tick>)>>,
     /// Такты отрезка, который сохраняет рабочий поток.
     pending: RefCell<Vec<Tick>>,
     report: RefCell<Option<Report>>,
@@ -153,6 +212,10 @@ impl Calibration {
         mut report: Report,
         out: &Path,
     ) -> Result<Calibration, Failed> {
+        let runs = match runs(std::env::var(PATHS_ENV).ok().as_deref()) {
+            Ok(runs) => runs,
+            Err(reason) => return Err(Box::new((reason, report))),
+        };
         match sampler::check_peak() {
             Ok(check) => {
                 match &check.failure {
@@ -179,7 +242,9 @@ impl Calibration {
             .map(|view| view.bounds())
             .unwrap_or_else(|| window.contentLayoutRect());
         let view = MotionView::new(mtm, bounds);
+        view.show_marker();
         window.setContentView(Some(&view));
+        let frame = window.frame();
         let state = Rc::new(State::default());
         drawmark::take();
         let handler_state = Rc::clone(&state);
@@ -193,6 +258,10 @@ impl Calibration {
         // SAFETY: ссылка добавляется в цикл главного потока в общих режимах.
         unsafe { link.addToRunLoop_forMode(&NSRunLoop::currentRunLoop(), NSRunLoopCommonModes) };
         Ok(Calibration {
+            window_id: window.windowNumber() as u32,
+            window_w: frame.size.width,
+            window_h: frame.size.height,
+            runs,
             view,
             driver,
             link,
@@ -200,6 +269,7 @@ impl Calibration {
             out: out.to_path_buf(),
             phase: RefCell::new(Phase::Next(0)),
             outcomes: RefCell::new(Vec::new()),
+            captures: RefCell::new(Vec::new()),
             pending: RefCell::new(Vec::new()),
             report: RefCell::new(Some(report)),
         })
@@ -219,10 +289,21 @@ impl Calibration {
 
     fn step(&self, phase: Phase) -> Result<Phase, String> {
         Ok(match phase {
-            Phase::Next(index) if index < SEGMENTS.len() => {
-                let stimulus = SEGMENTS[index];
-                let dir = self.out.join(format!("calibrate-{}", stimulus.name()));
-                Phase::Starting(index, spawn_worker(stimulus, std::process::id(), dir)?)
+            Phase::Next(index) if index < self.runs.len() => {
+                let (path, stimulus) = self.runs[index];
+                let dir = match path {
+                    FramesPath::Xctrace => self.out.join(format!("calibrate-{}", stimulus.name())),
+                    FramesPath::Capture => {
+                        self.out.join(format!("calibrate-sck-{}", stimulus.name()))
+                    }
+                };
+                let target = Target {
+                    pid: std::process::id(),
+                    window_id: self.window_id,
+                    window_w: self.window_w,
+                    window_h: self.window_h,
+                };
+                Phase::Starting(index, spawn_worker(path, stimulus, target, dir)?)
             }
             Phase::Next(_) | Phase::Finished => Phase::Finished,
             Phase::Starting(index, worker) => match worker.from.try_recv() {
@@ -232,16 +313,13 @@ impl Calibration {
                     state.stalls.set(0);
                     state.ticks.borrow_mut().clear();
                     state.ended.set(false);
-                    state.stimulus.set(Some(SEGMENTS[index]));
+                    state.stimulus.set(Some(self.runs[index].1));
                     Phase::Running(index, worker)
                 }
-                Ok(FromWorker::Done(result)) => return Err(segment_error(index, result)),
+                Ok(FromWorker::Done(result)) => return Err(self.segment_error(index, result)),
                 Err(TryRecvError::Empty) => Phase::Starting(index, worker),
                 Err(TryRecvError::Disconnected) => {
-                    return Err(format!(
-                        "отрезок {}: рабочий поток упал",
-                        SEGMENTS[index].name()
-                    ));
+                    return Err(format!("отрезок {}: рабочий поток упал", self.label(index)));
                 }
             },
             Phase::Running(index, worker) => {
@@ -261,7 +339,7 @@ impl Calibration {
                 };
                 let held_targets_ns = ticks
                     .iter()
-                    .filter(|tick| tick.held && SEGMENTS[index] == Stimulus::Holds)
+                    .filter(|tick| tick.held && self.runs[index].1 == Stimulus::Holds)
                     .map(|tick| (tick.target_s * 1e9).round() as u64)
                     .collect();
                 worker
@@ -279,22 +357,38 @@ impl Calibration {
                 Ok(FromWorker::Done(Ok(outcome))) => {
                     let _ = worker.handle.join();
                     let ticks = self.pending.take();
-                    self.outcomes
-                        .borrow_mut()
-                        .push((SEGMENTS[index], *outcome, ticks));
+                    let stimulus = self.runs[index].1;
+                    match outcome {
+                        Outcome::Xctrace(outcome) => {
+                            self.outcomes.borrow_mut().push((stimulus, *outcome, ticks))
+                        }
+                        Outcome::Capture(outcome) => {
+                            self.captures.borrow_mut().push((stimulus, *outcome, ticks))
+                        }
+                    }
                     Phase::Next(index + 1)
                 }
-                Ok(FromWorker::Done(result)) => return Err(segment_error(index, result)),
+                Ok(FromWorker::Done(result)) => return Err(self.segment_error(index, result)),
                 Ok(FromWorker::Started) => Phase::Saving(index, worker),
                 Err(TryRecvError::Empty) => Phase::Saving(index, worker),
                 Err(TryRecvError::Disconnected) => {
-                    return Err(format!(
-                        "отрезок {}: рабочий поток упал",
-                        SEGMENTS[index].name()
-                    ));
+                    return Err(format!("отрезок {}: рабочий поток упал", self.label(index)));
                 }
             },
         })
+    }
+
+    fn label(&self, index: usize) -> String {
+        let (path, stimulus) = self.runs[index];
+        format!("{} {}", path.name(), stimulus.name())
+    }
+
+    fn segment_error(&self, index: usize, result: Result<Outcome, String>) -> String {
+        let name = self.label(index);
+        match result {
+            Ok(_) => format!("отрезок {name}: итог без начала записи"),
+            Err(reason) => format!("отрезок {name}: {reason}"),
+        }
     }
 
     fn stop_link(&self) {
@@ -306,6 +400,7 @@ impl Calibration {
         self.stop_link();
         let mut report = self.report.borrow_mut().take().unwrap_or_default();
         record_segments(&mut report, &self.outcomes.borrow());
+        record_captures(&mut report, &self.captures.borrow());
         Box::new((reason, report))
     }
 
@@ -313,21 +408,26 @@ impl Calibration {
         self.stop_link();
         let mut report = self.report.borrow_mut().take().unwrap_or_default();
         let outcomes = self.outcomes.borrow();
+        let captures = self.captures.borrow();
         record_segments(&mut report, &outcomes);
-        judge(&mut report, &outcomes);
+        record_captures(&mut report, &captures);
+        let paths: Vec<FramesPath> = {
+            let mut paths: Vec<FramesPath> = self.runs.iter().map(|(path, _)| *path).collect();
+            paths.dedup();
+            paths
+        };
+        let xctrace = paths
+            .contains(&FramesPath::Xctrace)
+            .then(|| judge(&mut report, &outcomes));
+        let screen = paths
+            .contains(&FramesPath::Capture)
+            .then(|| judge_capture(&mut report, &captures));
+        report.push("frames_path", frames_path(xctrace, screen));
         let changes = self.state.changes.take();
         let marks = drawmark::take();
         judge_drawmark(&mut report, &changes, &marks);
         report.push("generations", self.view.generation());
         report
-    }
-}
-
-fn segment_error(index: usize, result: Result<Box<SegmentOutcome>, String>) -> String {
-    let name = SEGMENTS[index].name();
-    match result {
-        Ok(_) => format!("отрезок {name}: итог без начала записи"),
-        Err(reason) => format!("отрезок {name}: {reason}"),
     }
 }
 
@@ -449,7 +549,29 @@ fn median_interval_ms(ticks: &[Tick]) -> Option<f64> {
     intervals.get(intervals.len() / 2).copied()
 }
 
-fn judge(report: &mut Report, outcomes: &[(Stimulus, SegmentOutcome, Vec<Tick>)]) {
+/// Итог калибровки пути: прошёл ли он и почему нет.
+pub type PathVerdict = Result<(), String>;
+
+/// Выбор пути по правилу «Способ замера кадров»: `xctrace`, если прошёл, иначе ScreenCaptureKit,
+/// иначе `not_run` с причинами. Путь, который процесс не калибровал, не выбирается.
+pub fn frames_path(xctrace: Option<PathVerdict>, screen: Option<PathVerdict>) -> String {
+    let reason = |name: &str, verdict: &Option<PathVerdict>| match verdict {
+        None => format!("{name} не калибровался"),
+        Some(Ok(())) => String::new(),
+        Some(Err(reason)) => format!("{name}: {reason}"),
+    };
+    match (&xctrace, &screen) {
+        (Some(Ok(())), _) => "xctrace".to_owned(),
+        (_, Some(Ok(()))) => "screencapturekit".to_owned(),
+        _ => format!(
+            "not_run: {}; {}",
+            reason("xctrace", &xctrace),
+            reason("screencapturekit", &screen)
+        ),
+    }
+}
+
+fn judge(report: &mut Report, outcomes: &[(Stimulus, SegmentOutcome, Vec<Tick>)]) -> PathVerdict {
     let expected_ms = PERIOD_NS as f64 / 1e6;
     let rates: Vec<String> = outcomes
         .iter()
@@ -550,12 +672,193 @@ fn judge(report: &mut Report, outcomes: &[(Stimulus, SegmentOutcome, Vec<Tick>)]
             ),
         );
     }
-    let path = if rate_ok && holds_ok && clean_ok && reverse_ok {
-        "xctrace".to_owned()
+    failed(&[
+        ("rate_confirmed", rate_ok),
+        ("forward_holds", holds_ok),
+        ("forward_clean", clean_ok),
+        ("reverse", reverse_ok),
+    ])
+}
+
+fn failed(checks: &[(&str, bool)]) -> PathVerdict {
+    let failed: Vec<&str> = checks
+        .iter()
+        .filter(|(_, ok)| !ok)
+        .map(|(name, _)| *name)
+        .collect();
+    if failed.is_empty() {
+        Ok(())
     } else {
-        "screencapturekit: калибровка xctrace не прошла".to_owned()
-    };
-    report.push("frames_path", path);
+        Err(format!("не прошли {}", failed.join(", ")))
+    }
+}
+
+/// Сводка отрезка ScreenCaptureKit для `result.json` без рядов кадров.
+#[derive(Serialize)]
+struct CaptureSummary<'a> {
+    grid: &'a frames::Grid,
+    window: Window,
+    ticks: usize,
+    samples: usize,
+    complete: usize,
+    unread_outside: usize,
+    new_frames: usize,
+    skipped_generations: u64,
+    max_handler_ns: u64,
+    off_grid_targets: usize,
+    offset_median_ns: f64,
+    offset_max_ns: f64,
+    frame_period_median_ns: u64,
+    forward: &'a calibrate::Forward,
+    reverse: Option<&'a Reverse>,
+    neighbor_ticks: Option<usize>,
+    displaylink_ticks: usize,
+    held_ticks: usize,
+}
+
+fn record_captures(report: &mut Report, captures: &[(Stimulus, CaptureOutcome, Vec<Tick>)]) {
+    for (stimulus, outcome, ticks) in captures {
+        let segment = &outcome.segment;
+        let summary = CaptureSummary {
+            grid: &segment.grid,
+            window: segment.window,
+            ticks: segment.ticks,
+            samples: segment.samples,
+            complete: segment.complete,
+            unread_outside: segment.unread_outside,
+            new_frames: segment.new_frames.len(),
+            skipped_generations: segment.skipped_generations,
+            max_handler_ns: segment.max_handler_ns,
+            off_grid_targets: segment.off_grid_targets,
+            offset_median_ns: segment.offset_median_ns,
+            offset_max_ns: segment.offset_max_ns,
+            frame_period_median_ns: segment.frame_period_median_ns,
+            forward: &segment.forward,
+            reverse: outcome.reverse.as_ref(),
+            neighbor_ticks: outcome.neighbor_ticks,
+            displaylink_ticks: ticks.len(),
+            held_ticks: ticks.iter().filter(|tick| tick.held).count(),
+        };
+        report.push(
+            &format!("sck_segment_{}", stimulus.name()),
+            serde_json::to_string(&summary).unwrap_or_default(),
+        );
+    }
+}
+
+fn verdict(ok: bool) -> Verdict {
+    if ok { Verdict::Pass } else { Verdict::Fail }
+}
+
+/// Калибровка пути ScreenCaptureKit теми же контролями, что у `xctrace`. Частота: `displayLink`
+/// и медиана интервала новых кадров потока в чистом отрезке — 8,33 мс. Наблюдатель: обработчик
+/// кадра короче периода во всех отрезках.
+fn judge_capture(
+    report: &mut Report,
+    captures: &[(Stimulus, CaptureOutcome, Vec<Tick>)],
+) -> PathVerdict {
+    let find = |stimulus: Stimulus| captures.iter().find(|(kind, _, _)| *kind == stimulus);
+    let expected_ms = PERIOD_NS as f64 / 1e6;
+    let near = |ms: f64| (ms - expected_ms).abs() / expected_ms <= frames::PERIOD_TOLERANCE;
+    let link_ok = captures.len() == SEGMENTS.len()
+        && captures
+            .iter()
+            .all(|(_, _, ticks)| median_interval_ms(ticks).is_some_and(near));
+    let stream_ms = find(Stimulus::Clean)
+        .map(|(_, outcome, _)| outcome.segment.frame_period_median_ns as f64 / 1e6);
+    let rate_ok = link_ok && stream_ms.is_some_and(near);
+    report.finding(
+        "sck_rate_confirmed",
+        verdict(rate_ok),
+        format!(
+            "displayLink {}; новые кадры потока в clean {:?} мс",
+            captures
+                .iter()
+                .map(|(kind, _, ticks)| format!(
+                    "{} {:.3} мс",
+                    kind.name(),
+                    median_interval_ms(ticks).unwrap_or(0.0)
+                ))
+                .collect::<Vec<_>>()
+                .join(", "),
+            stream_ms
+        ),
+    );
+    let holds_ok = find(Stimulus::Holds).is_some_and(|(_, outcome, _)| {
+        let forward = &outcome.segment.forward;
+        let expected: usize = calibrate::HOLDS.iter().map(|&(_, len)| len as usize).sum();
+        let ok = forward.passed() && forward.held.len() == expected;
+        report.finding(
+            "sck_forward_holds",
+            verdict(ok),
+            format!(
+                "сдвиг k = {}, тактов {}, удержано {}, найдено {}, лишних {:?}, ненайденных {:?}",
+                forward.shift,
+                forward.ticks,
+                forward.held.len(),
+                forward.missed.len(),
+                forward.unexpected,
+                forward.undetected
+            ),
+        );
+        ok
+    });
+    let clean_ok = find(Stimulus::Clean).is_some_and(|(_, outcome, _)| {
+        let forward = &outcome.segment.forward;
+        let ok = forward.ticks > 0 && forward.missed.is_empty();
+        report.finding(
+            "sck_forward_clean",
+            verdict(ok),
+            format!(
+                "тактов {}, без нового кадра {:?}, перескочено поколений {}",
+                forward.ticks, forward.missed, outcome.segment.skipped_generations
+            ),
+        );
+        ok
+    });
+    let reverse_ok = find(Stimulus::Frozen).is_some_and(|(_, outcome, _)| {
+        let Some(reverse) = &outcome.reverse else {
+            return false;
+        };
+        let ok = reverse.passed();
+        report.finding(
+            "sck_reverse",
+            verdict(ok),
+            format!(
+                "новых кадров пробы в окне замера {}, тактов соседа {}",
+                reverse.probe_frames, reverse.neighbor_frames
+            ),
+        );
+        ok
+    });
+    let handler_max = captures
+        .iter()
+        .map(|(_, outcome, _)| outcome.segment.max_handler_ns)
+        .max()
+        .unwrap_or(0);
+    let observer_ok = captures.len() == SEGMENTS.len() && handler_max < PERIOD_NS;
+    report.finding(
+        "sck_observer",
+        verdict(observer_ok),
+        format!("наибольший обработчик кадра {handler_max} нс, период {PERIOD_NS} нс"),
+    );
+    if let Some((_, outcome, _)) = find(Stimulus::Stall) {
+        report.push(
+            "sck_stall_missed",
+            format!(
+                "задержки {STALLS:?}: тактов без нового кадра {} {:?}",
+                outcome.segment.forward.missed.len(),
+                outcome.segment.forward.missed
+            ),
+        );
+    }
+    failed(&[
+        ("sck_rate_confirmed", rate_ok),
+        ("sck_forward_holds", holds_ok),
+        ("sck_forward_clean", clean_ok),
+        ("sck_reverse", reverse_ok),
+        ("sck_observer", observer_ok),
+    ])
 }
 
 /// Самопроверка порядка: у каждого изменения первая отметка его или старшего поколения начата не
@@ -679,13 +982,36 @@ impl Drop for Neighbor {
     }
 }
 
-fn spawn_worker(stimulus: Stimulus, pid: u32, dir: PathBuf) -> Result<Worker, String> {
+/// Окно пробы для отрезка: процесс записи `xctrace` и окно потока ScreenCaptureKit.
+#[derive(Clone, Copy)]
+struct Target {
+    pid: u32,
+    window_id: u32,
+    window_w: f64,
+    window_h: f64,
+}
+
+fn spawn_worker(
+    path: FramesPath,
+    stimulus: Stimulus,
+    target: Target,
+    dir: PathBuf,
+) -> Result<Worker, String> {
     let (to, stops) = mpsc::channel::<Stop>();
     let (events, from) = mpsc::channel::<FromWorker>();
     let handle = std::thread::Builder::new()
-        .name(format!("probe-calibrate-{}", stimulus.name()))
+        .name(format!(
+            "probe-calibrate-{}-{}",
+            path.name(),
+            stimulus.name()
+        ))
         .spawn(move || {
-            let result = run_segment(stimulus, pid, &dir, &events, &stops).map(Box::new);
+            let result = match path {
+                FramesPath::Xctrace => run_segment(stimulus, target.pid, &dir, &events, &stops)
+                    .map(|outcome| Outcome::Xctrace(Box::new(outcome))),
+                FramesPath::Capture => run_capture_segment(stimulus, target, &dir, &events, &stops)
+                    .map(|outcome| Outcome::Capture(Box::new(outcome))),
+            };
             let _ = events.send(FromWorker::Done(result));
         })
         .map_err(|err| format!("рабочий поток отрезка не запущен: {err}"))?;
@@ -770,9 +1096,100 @@ fn run_segment(
     })
 }
 
+/// Отрезок ScreenCaptureKit: поток окна пробы без записи `xctrace`, журнал доставки и разбор.
+fn run_capture_segment(
+    stimulus: Stimulus,
+    target: Target,
+    dir: &Path,
+    events: &Sender<FromWorker>,
+    stops: &Receiver<Stop>,
+) -> Result<CaptureOutcome, String> {
+    std::fs::create_dir_all(dir).map_err(|err| format!("{}: {err}", dir.display()))?;
+    let neighbor = match stimulus {
+        Stimulus::Frozen => Some(Neighbor::spawn(dir)?),
+        Stimulus::Holds | Stimulus::Clean | Stimulus::Stall => None,
+    };
+    let capture = Capture::start(target.window_id, Some(dir.join("first-frame.bgra")))?;
+    let (window_w, window_h) = (capture.window_w, capture.window_h);
+    let started_ns = now_ns();
+    events
+        .send(FromWorker::Started)
+        .map_err(|_| "главный поток не ждёт отрезок".to_owned())?;
+    let stop = stops
+        .recv()
+        .map_err(|_| "главный поток не остановил отрезок".to_owned())?;
+    let neighbor = neighbor.map(Neighbor::finish).transpose()?;
+    let stopped_ns = now_ns();
+    let samples = capture.stop()?;
+    write(
+        &dir.join("samples.json"),
+        serde_json::to_string(&samples).unwrap_or_default(),
+    )?;
+    write(
+        &dir.join("ticks.json"),
+        serde_json::to_string(&stop.ticks).unwrap_or_default(),
+    )?;
+    let streamed = Window {
+        start_ns: started_ns,
+        end_ns: stopped_ns,
+    };
+    write(
+        &dir.join("segment-input.json"),
+        serde_json::to_string(&serde_json::json!({
+            "streamed": streamed,
+            "window": stop.window,
+            "held_targets_ns": stop.held_targets_ns,
+            "window_w": window_w,
+            "window_h": window_h,
+            "window_w_at_start": target.window_w,
+            "window_h_at_start": target.window_h,
+        }))
+        .unwrap_or_default(),
+    )?;
+    let targets: Vec<u64> = stop
+        .ticks
+        .iter()
+        .map(|tick| (tick.target_s * 1e9).round() as u64)
+        .collect();
+    let segment = calibrate::analyze_capture(
+        &samples,
+        &targets,
+        streamed,
+        stop.window,
+        &stop.held_targets_ns,
+    )?;
+    let reverse = neighbor
+        .as_ref()
+        .map(|(_, targets)| calibrate::reverse(&segment.new_frames, targets, segment.window));
+    Ok(CaptureOutcome {
+        segment,
+        reverse,
+        neighbor_ticks: neighbor.map(|(ticks, _)| ticks),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn paths_come_from_the_environment_list() {
+        assert_eq!(runs(None).unwrap().len(), 8);
+        let only = runs(Some("screencapturekit")).unwrap();
+        assert!(only.iter().all(|(path, _)| *path == FramesPath::Capture));
+        assert_eq!(only.len(), 4);
+        assert!(runs(Some("vnc")).is_err());
+    }
+
+    #[test]
+    fn path_choice_follows_the_rule() {
+        let fail = || Some(Err("не прошли reverse".to_owned()));
+        assert_eq!(frames_path(Some(Ok(())), fail()), "xctrace");
+        assert_eq!(frames_path(fail(), Some(Ok(()))), "screencapturekit");
+        let none = frames_path(fail(), fail());
+        assert!(none.starts_with("not_run: xctrace: не прошли"), "{none}");
+        assert!(frames_path(None, fail()).contains("xctrace не калибровался"));
+    }
 
     fn mark(generation: u64, start: u64, end: u64) -> Mark {
         Mark {

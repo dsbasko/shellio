@@ -12,6 +12,7 @@ use objc2_quartz_core::CADisplayLink;
 
 use super::counters::{Live, counter};
 use super::drawmark::{self, Mark};
+use super::marker;
 use super::sampler;
 
 counter!(FRAME_DRIVER, "ProbeDiffFrameDriver");
@@ -77,6 +78,7 @@ pub struct MotionIvars {
     _live: Live,
     offset: Cell<f64>,
     generation: Cell<u64>,
+    marker: Cell<bool>,
 }
 
 define_class!(
@@ -110,6 +112,9 @@ define_class!(
                 ));
                 y += STRIPE_PERIOD;
             }
+            if self.ivars().marker.get() {
+                draw_marker(bounds, self.ivars().generation.get());
+            }
             drawmark::mark(Mark {
                 generation: self.ivars().generation.get(),
                 rows: 0..1,
@@ -126,6 +131,7 @@ impl MotionView {
             _live: MOTION_VIEW.live(),
             offset: Cell::new(0.0),
             generation: Cell::new(0),
+            marker: Cell::new(false),
         });
         // SAFETY: назначенный инициализатор NSView с прямоугольником.
         unsafe { msg_send![super(this), initWithFrame: frame] }
@@ -144,6 +150,31 @@ impl MotionView {
 
     pub fn generation(&self) -> u64 {
         self.ivars().generation.get()
+    }
+
+    /// Включает маркер поколения у нижнего края для пути ScreenCaptureKit.
+    pub fn show_marker(&self) {
+        self.ivars().marker.set(true);
+        self.setNeedsDisplay(true);
+    }
+}
+
+/// Полоса маркера поколения у нижнего края вида ([`marker::cells`]).
+fn draw_marker(bounds: NSRect, generation: u64) {
+    let origin = NSPoint::new(bounds.origin.x + marker::INSET_X, bounds.origin.y);
+    NSColor::whiteColor().setFill();
+    NSRectFill(NSRect::new(
+        origin,
+        NSSize::new(marker::CELLS as f64 * marker::CELL_W, marker::CELL_H),
+    ));
+    NSColor::blackColor().setFill();
+    for (index, dark) in marker::cells(generation).into_iter().enumerate() {
+        if dark {
+            NSRectFill(NSRect::new(
+                NSPoint::new(origin.x + index as f64 * marker::CELL_W, origin.y),
+                NSSize::new(marker::CELL_W, marker::CELL_H),
+            ));
+        }
     }
 }
 

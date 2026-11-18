@@ -7,6 +7,8 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
+block2 = "0.6.2"
+dispatch2 = { version = "0.3.0", default-features = false, features = ["std", "objc2"] }
 libc = "0.2.191"
 memchr = "2.8.3"
 objc2 = "0.6.5"
@@ -37,6 +39,7 @@ objc2-core-graphics = { version = "0.3.2", default-features = false, features = 
     "libc",
     "CGDirectDisplay",
     "CGDisplayConfiguration",
+    "CGWindow",
 ] }
 objc2-core-text = { version = "0.3.2", default-features = false, features = [
     "std",
@@ -48,6 +51,8 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "std",
     "NSArray",
     "NSDate",
+    "NSDictionary",
+    "NSError",
     "NSEnumerator",
     "NSGeometry",
     "NSNotification",
@@ -56,12 +61,38 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "NSRunLoop",
     "NSString",
     "NSTimer",
+    "NSValue",
 ] }
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = [
     "std",
     "objc2-core-foundation",
     "objc2-core-graphics",
     "CADisplayLink",
+] }
+objc2-core-media = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "objc2-core-video",
+    "CMBase",
+    "CMSampleBuffer",
+    "CMTime",
+] }
+objc2-core-video = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "CVBase",
+    "CVBuffer",
+    "CVImageBuffer",
+    "CVPixelBuffer",
+    "CVReturn",
+] }
+objc2-screen-capture-kit = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "block2",
+    "dispatch2",
+    "objc2-core-foundation",
+    "objc2-core-graphics",
+    "objc2-core-media",
+    "SCShareableContent",
+    "SCStream",
 ] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
