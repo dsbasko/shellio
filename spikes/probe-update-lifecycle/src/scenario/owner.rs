@@ -20,6 +20,10 @@
 //! владельца. Невыполненный оракул — `fail` части, сломанный стенд — ошибка исполнения. Шаги и
 //! факты — в `owner/steps.json`, отметки, файлы помощника и stdout процессов — в
 //! `owner/<проход>/`.
+//!
+//! Часть-наблюдение `acceptance-plain-open` приёмочного прохода (второй план, задача 2) читает
+//! те же факты: обычный `open` во время обновления не создаёт второго владельца. Новых стимулов
+//! у неё нет.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -500,8 +504,119 @@ fn walk(
         descriptors_verdict(&all),
         &[],
     ));
+    let mut artifacts = vec![STEPS_ARTIFACT.to_owned()];
+    for facts in &all {
+        artifacts.push(format!("{DIR}/{}/notes", facts.pass.name()));
+        artifacts.extend(
+            facts
+                .stimuli
+                .iter()
+                .filter(|stimulus| {
+                    stimulus.kind == Kind::Open && stimulus.launch == Launch::Spawned
+                })
+                .map(|stimulus| format!("{DIR}/{}/{}.stdout", facts.pass.name(), stimulus.name)),
+        );
+    }
+    cells.push(super::observation_cell(
+        CELL,
+        &PLAIN_OPEN,
+        COMPLETION,
+        plain_open_verdict(&all.iter().map(PassFacts::plain_open).collect::<Vec<_>>()),
+        &artifacts,
+    ));
     guard.armed = false;
     Ok(cells)
+}
+
+pub const PLAIN_OPEN: super::PartSpec = super::PartSpec {
+    name: "acceptance-plain-open",
+    stimulus: "приёмочный проход: обычный open установленного бандла на границах пяти проходов C1 во время обновления (стимул open каждого прохода)",
+    oracle: "в каждом проходе процессов с сокетом владельца не больше одного в точках до стимулов, на границе после стимулов и в конце (наблюдатель по дескрипторам); процесс обычного open, если LaunchServices его запустил, владельцем не становится, кроме прохода «после смерти владельца», где он единственный владелец в конце; код и stderr open и строка итога его процесса записаны",
+};
+
+/// Что часть `acceptance-plain-open` читает из прохода.
+pub struct PlainOpen<'a> {
+    pub pass: Pass,
+    /// PID процессов с сокетом владельца до стимулов, на границе после стимулов и в конце.
+    pub owners: [Vec<i32>; 3],
+    pub stimulus: Option<&'a Stimulus>,
+    pub final_owner: ProcessKey,
+}
+
+impl PassFacts {
+    pub fn plain_open(&self) -> PlainOpen<'_> {
+        let pids = |seen: &Seen| seen.owners.iter().map(|(pid, _)| *pid).collect();
+        PlainOpen {
+            pass: self.pass,
+            owners: [pids(&self.before), pids(&self.at), pids(&self.end)],
+            stimulus: self
+                .stimuli
+                .iter()
+                .find(|stimulus| stimulus.kind == Kind::Open),
+            final_owner: self.final_owner.key,
+        }
+    }
+}
+
+/// Обычный `open` во время обновления не создаёт второго владельца ни в одном проходе.
+pub fn plain_open_verdict(passes: &[PlainOpen]) -> Verdict {
+    let mut v = Vec::new();
+    let mut evidence = Vec::new();
+    for facts in passes {
+        let pass = facts.pass.name();
+        let counts: Vec<usize> = facts.owners.iter().map(Vec::len).collect();
+        violation(&mut v, counts.iter().all(|count| *count <= 1), || {
+            format!("{pass}: владельцев в точках наблюдения {counts:?}")
+        });
+        let Some(stimulus) = facts.stimulus else {
+            v.push(format!("{pass}: стимула open нет"));
+            continue;
+        };
+        let response = match (stimulus.launch, stimulus.key) {
+            (Launch::Activated, _) => format!("«{ALREADY_RUNNING}», нового процесса нет"),
+            (Launch::LsError, _) => format!(
+                "ошибка LaunchServices, код {:?}: {}",
+                stimulus.open_exit, stimulus.open_stderr
+            ),
+            (Launch::Spawned, None) => {
+                v.push(format!("{pass}: процесс open без отметки start"));
+                "процесс без отметки".to_owned()
+            }
+            (Launch::Spawned, Some(key)) => {
+                let owns = facts.owners[1..]
+                    .iter()
+                    .any(|owners| owners.contains(&key.pid));
+                let allowed = facts.pass == Pass::OwnerDead && facts.final_owner == key;
+                violation(&mut v, !owns || allowed, || {
+                    format!("{pass}: процесс open {} стал вторым владельцем", key.pid)
+                });
+                match stimulus.reports.first() {
+                    Some(AppReport::Owner(_)) => {
+                        violation(&mut v, allowed, || {
+                            format!("{pass}: процесс open {} сообщил владение", key.pid)
+                        });
+                        format!("процесс {} — единственный владелец в конце", key.pid)
+                    }
+                    Some(AppReport::Forwarded { receipt, owner, .. }) => format!(
+                        "процесс {}: квитанция {receipt} от владельца {}",
+                        key.pid, owner.pid
+                    ),
+                    Some(AppReport::Refused { reason, retry, .. }) => {
+                        format!("процесс {}: отказ «{reason}», повтор {retry}", key.pid)
+                    }
+                    other => {
+                        v.push(format!("{pass}: итог процесса open {other:?}"));
+                        String::new()
+                    }
+                }
+            }
+        };
+        evidence.push(format!("{pass}: {response}, владельцев {counts:?}"));
+    }
+    violation(&mut v, passes.len() == Pass::ALL.len(), || {
+        format!("проходов {}, ждали {}", passes.len(), Pass::ALL.len())
+    });
+    Verdict::of(v, evidence.join("; "))
 }
 
 fn part(name: &str, stimulus: &str, oracle: &str, verdict: Verdict, artifacts: &[String]) -> Cell {
@@ -1291,6 +1406,7 @@ pub fn descriptors_verdict(all: &[PassFacts]) -> Verdict {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::results::Status;
 
     /// Расписание, которое обходит сценарий, покрывает каждый барьер C1 каждым видом запуска.
     #[test]
@@ -1366,6 +1482,105 @@ mod tests {
             uptime_ns: pid as u64,
             detail,
         }
+    }
+
+    fn plain(launch: Launch, pid: Option<i32>, report: Option<AppReport>) -> Stimulus {
+        Stimulus {
+            kind: Kind::Open,
+            token: "c1-x-open-n1".to_owned(),
+            name: "open".to_owned(),
+            open_exit: Some(0),
+            open_stderr: String::new(),
+            launch,
+            instances_before: Vec::new(),
+            launched_ns: 0,
+            key: pid.map(key),
+            landed: true,
+            reports: report.into_iter().collect(),
+            exited: true,
+            notes: Vec::new(),
+        }
+    }
+
+    fn forwarded(pid: i32, owner: i32) -> AppReport {
+        AppReport::Forwarded {
+            key: key(pid),
+            receipt: 2,
+            owner: key(owner),
+            yielded: None,
+            launched_installed: false,
+        }
+    }
+
+    #[test]
+    fn plain_open_never_makes_a_second_owner() {
+        let activated = plain(Launch::Activated, None, None);
+        let waited = plain(Launch::Spawned, Some(30), Some(forwarded(30, 20)));
+        let owner_dead = plain(Launch::Spawned, Some(40), None);
+        let view = |pass: Pass, owners: [Vec<i32>; 3], stimulus, final_owner: i32| PlainOpen {
+            pass,
+            owners,
+            stimulus,
+            final_owner: key(final_owner),
+        };
+        let passes = |dead_owners: [Vec<i32>; 3], dead_stimulus| {
+            vec![
+                view(
+                    Pass::BeforeExit,
+                    [vec![10], vec![10], vec![20]],
+                    Some(&activated),
+                    20,
+                ),
+                view(
+                    Pass::HelperLock,
+                    [vec![10], vec![], vec![20]],
+                    Some(&waited),
+                    20,
+                ),
+                view(
+                    Pass::Launched,
+                    [vec![10], vec![], vec![20]],
+                    Some(&activated),
+                    20,
+                ),
+                view(
+                    Pass::Bound,
+                    [vec![10], vec![20], vec![20]],
+                    Some(&activated),
+                    20,
+                ),
+                view(Pass::OwnerDead, dead_owners, dead_stimulus, 40),
+            ]
+        };
+        let mut owner = owner_dead.clone();
+        owner.reports = vec![forwarded(40, 40)];
+        let verdict = plain_open_verdict(&passes([vec![20], vec![40], vec![40]], Some(&owner)));
+        assert_eq!(verdict.status, Status::Pass, "{}", verdict.reason);
+
+        let verdict = plain_open_verdict(&passes([vec![20], vec![20, 40], vec![40]], Some(&owner)));
+        assert_eq!(verdict.status, Status::Fail);
+        let verdict = plain_open_verdict(&passes([vec![20], vec![40], vec![40]], None));
+        assert_eq!(verdict.status, Status::Fail);
+        let verdict =
+            plain_open_verdict(&passes([vec![20], vec![40], vec![40]], Some(&owner_dead)));
+        assert_eq!(
+            verdict.status,
+            Status::Fail,
+            "итог процесса open обязателен"
+        );
+
+        let mut helper_owner = passes([vec![20], vec![40], vec![40]], Some(&owner));
+        helper_owner[1].owners[2] = vec![30];
+        helper_owner[1].final_owner = key(30);
+        let verdict = plain_open_verdict(&helper_owner);
+        assert_eq!(
+            verdict.status,
+            Status::Fail,
+            "владельцем стал процесс open не в owner-dead"
+        );
+        let verdict =
+            plain_open_verdict(&passes([vec![20], vec![40], vec![40]], Some(&owner))[..4]);
+        assert_eq!(verdict.status, Status::Fail);
     }
 
     #[test]

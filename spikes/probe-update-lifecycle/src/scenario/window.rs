@@ -14,6 +14,16 @@
 //!
 //! Невыполненный оракул — `fail` части. Нет доверия Accessibility или права посылать события,
 //! нечитаемая доступность, сломанный стенд — ошибка исполнения: клетка обязательная.
+//!
+//! Дополнительные наблюдения приёмочного прохода (второй план, задача 2) — части-наблюдения H
+//! после квитанции ввода, до уборки: они не меняют ни стимулов, ни выводов частей 1–4.
+//!
+//! 5. `acceptance-window` — квитанция окна N+1 и его снимок `screencapture -l`: та же сессия,
+//!    строки без пропуска по номерам;
+//! 6. `acceptance-input` — квитанция нагрузки на ввод с клавиатуры в хвосте независимого
+//!    `attach`, стенограмма сохраняется.
+//!
+//! Снимок, который не получен, — `not_run` части 5 с причиной, а не ошибка исполнения.
 
 use std::fs;
 use std::path::Path;
@@ -38,12 +48,17 @@ use crate::window::{self, AxRead, Receipt, Wait};
 use crate::{launch, spawn};
 
 use super::owner_basic::{Guard, ask, reports};
+use super::smoke::{WindowEntry, window_list};
+use super::snapshot::{self, Shot};
 use super::update_flow::{self, Stand};
-use super::{PartSpec, Verdict, required_cell};
+use super::{PartSpec, Verdict, observation_cell, required_cell};
 
 pub const DEADLINE: Duration = Duration::from_secs(240);
 pub const DIR: &str = "window";
 pub const STEPS_ARTIFACT: &str = "window/steps.json";
+pub const SNAPSHOT_ARTIFACT: &str = "window/next-window.png";
+pub const ACCEPTANCE_ARTIFACT: &str = "window/acceptance.json";
+pub const INDEPENDENT_ARTIFACT: &str = "window/independent-attach.json";
 pub const CELL: &str = "H";
 const OPEN: &str = "/usr/bin/open";
 /// Строк, которые нагрузка выводит без клиента.
@@ -76,6 +91,18 @@ pub const INPUT: PartSpec = PartSpec {
     stimulus: "нажатия «emit 2» и Return в очередь процесса N+1 (CGEventPostToPid)",
     oracle: "окно отправило ровно один ввод «emit 2» со своим номером; его квитанция ack и две строки emit — в квитанции окна после последней строки до ввода, без пропуска; та же квитанция в хвосте независимого attach",
 };
+
+pub const ACCEPT_WINDOW: PartSpec = PartSpec {
+    name: "acceptance-window",
+    stimulus: "приёмочный проход: после квитанции ввода — снимок окна N+1 screencapture -l по номеру окна из квитанции",
+    oracle: "квитанция окна N+1 после ввода — строки с 1 подряд без пропуска и повтора, окно подключено к h1 протоколом 1 с байта 0, в тексте квитанция ack 1 ping, введённая при окне N до обновления; снимок окна N+1 разобран, не меньше рамки окна в списке WindowServer и не одного цвета; снимок не получен — not_run с причиной",
+};
+pub const ACCEPT_INPUT: PartSpec = PartSpec {
+    name: "acceptance-input",
+    stimulus: "приёмочный проход: нажатия «emit 2» и Return в очередь процесса N+1 (CGEventPostToPid) с меткой стенда",
+    oracle: "квитанция нагрузки ack <номер ввода окна N+1> emit 2 в хвосте независимого attach к h1 после двух строк emit, стенограмма attach без разрыва, пропуска и повтора; номер ввода — первый номер окна поколения 2",
+};
+const ACCEPT_COMPLETION: &str = "снимок в срок screencapture (10 с), квитанция и attach в срок шага (30 с); не полученный снимок — not_run части";
 
 fn violation(violations: &mut Vec<String>, ok: bool, what: impl FnOnce() -> String) {
     if !ok {
@@ -373,7 +400,7 @@ fn walk(
         name: "input",
         receipt: receipt_input.clone(),
     });
-    let independent = receipt_input.sent.first().map(|sent| {
+    let tail = receipt_input.sent.first().map(|sent| {
         let hello = attach::hello(Purpose::Attach, ATTACH_VERSIONS, 0, Winsize::cells(0, 0));
         match attach::connect(Path::new(&record.socket), &hello, update_flow::STEP) {
             Ok(Connected::Welcome(client)) => {
@@ -384,12 +411,36 @@ fn walk(
                     })
                     .is_ok();
                 let _ = tail.detach(Instant::now() + update_flow::STEP);
-                (found, tail.transcript.problems.clone())
+                (
+                    (found, tail.transcript.problems.clone()),
+                    Some(tail.transcript),
+                )
             }
-            Ok(Connected::Refused(reason)) => (false, vec![reason]),
-            Err(reason) => (false, vec![reason]),
+            Ok(Connected::Refused(reason)) => ((false, vec![reason]), None),
+            Err(reason) => ((false, vec![reason]), None),
         }
     });
+    let independent = tail.as_ref().map(|(seen, _)| seen.clone());
+    let transcript = tail.and_then(|(_, transcript)| transcript);
+    crate::results::write_json(out, "independent-attach.json", &transcript)?;
+
+    // Приёмочный проход: снимок окна N+1 и системные запросы на экране.
+    let windows = window_list();
+    let frame = windows
+        .iter()
+        .find(|entry| entry.number == receipt_input.window_number as i64)
+        .cloned();
+    let shot = snapshot::capture(
+        receipt_input.window_number as i64,
+        out.parent().unwrap_or(out),
+        SNAPSHOT_ARTIFACT,
+    );
+    let dialogs = snapshot::dialogs(&windows);
+    crate::results::write_json(
+        out,
+        "acceptance.json",
+        &json!({ "frame": frame, "shot": shot, "dialogs": dialogs }),
+    )?;
     let journal = stand.store.read().map_err(|err| err.to_string())?;
     let same = update_flow::same_processes(&record)?;
     steps.push(json!({
@@ -436,11 +487,153 @@ fn walk(
             &INPUT,
             input_verdict(&receipt_input, before_input, independent.as_ref()),
         ),
+        acceptance_part(
+            &ACCEPT_WINDOW,
+            acceptance_window_verdict(&receipt_input, &record, frame.as_ref(), &shot),
+            &shot,
+        ),
+        acceptance_part(
+            &ACCEPT_INPUT,
+            acceptance_input_verdict(&receipt_input, transcript.as_ref()),
+            &shot,
+        ),
     ];
 
     let finished = update_flow::finish(&stand, guard, next.key)?;
     steps.push(json!({ "name": "finish", "facts": finished }));
     Ok(cells)
+}
+
+fn acceptance_part(spec: &PartSpec, verdict: Verdict, shot: &Shot) -> Cell {
+    let mut artifacts = vec![
+        "window/receipts.json".to_owned(),
+        ACCEPTANCE_ARTIFACT.to_owned(),
+    ];
+    if spec.name == ACCEPT_WINDOW.name && shot.taken() {
+        artifacts.push(SNAPSHOT_ARTIFACT.to_owned());
+    }
+    if spec.name == ACCEPT_INPUT.name {
+        artifacts.push(INDEPENDENT_ARTIFACT.to_owned());
+    }
+    observation_cell(CELL, spec, ACCEPT_COMPLETION, verdict, &artifacts)
+}
+
+/// Квитанция окна N+1 — та же сессия без пропуска, снимок окна получен и показывает окно.
+pub fn acceptance_window_verdict(
+    receipt: &Receipt,
+    record: &SessionRecord,
+    frame: Option<&WindowEntry>,
+    shot: &Shot,
+) -> Verdict {
+    let mut violations = Vec::new();
+    let read = window::read_text(&receipt.text);
+    violation(&mut violations, read.problems.is_empty(), || {
+        format!("квитанция окна: {:?}", read.problems)
+    });
+    violation(
+        &mut violations,
+        read.lines.first().is_some_and(|line| line.number == 1),
+        || "квитанция окна не с первой строки".to_owned(),
+    );
+    violation(
+        &mut violations,
+        receipt.attachment.as_ref().is_some_and(|attachment| {
+            attachment.session == record.session && attachment.version == 1 && attachment.start == 0
+        }),
+        || format!("окно подключено как {:?}", receipt.attachment),
+    );
+    let before_update = fixture::receipt(1, "ping");
+    violation(&mut violations, read.find(&before_update).is_some(), || {
+        format!("в окне N+1 нет «{before_update}», введённой при окне N")
+    });
+    if !shot.taken() {
+        if violations.is_empty() {
+            return Verdict {
+                status: crate::results::Status::NotRun,
+                reason: format!(
+                    "снимок окна {} не получен: {}; квитанция окна — строки 1..{} без нарушений",
+                    shot.window,
+                    shot.error.as_deref().unwrap_or("нет размера"),
+                    read.last_number().unwrap_or(0)
+                ),
+            };
+        }
+        violations.push(format!("снимок не получен: {:?}", shot.error));
+    } else {
+        match frame {
+            Some(frame) => violation(&mut violations, shot.covers(frame.bounds), || {
+                format!(
+                    "снимок {:?} меньше рамки окна {:?}",
+                    shot.pixels, frame.bounds
+                )
+            }),
+            None => violations.push(format!("окна {} нет в списке WindowServer", shot.window)),
+        }
+        violation(&mut violations, shot.distinct >= 2, || {
+            format!("снимок одного цвета: {} цветов в сетке", shot.distinct)
+        });
+    }
+    Verdict::of(
+        violations,
+        format!(
+            "окно N+1 {}: строки 1..{} подряд из h1, «{before_update}» из времени окна N на месте; снимок {:?} пикселей, {} цветов в сетке",
+            receipt.window_number,
+            read.last_number().unwrap_or(0),
+            shot.pixels,
+            shot.distinct
+        ),
+    )
+}
+
+/// Квитанция нагрузки на ввод окна N+1 в хвосте независимого `attach`.
+pub fn acceptance_input_verdict(
+    receipt: &Receipt,
+    transcript: Option<&crate::attach::Transcript>,
+) -> Verdict {
+    let mut violations = Vec::new();
+    let expected_seq = window::SEQ_BASE + 1000 * u64::from(receipt.generation) + 1;
+    let sent = receipt.sent.first();
+    violation(
+        &mut violations,
+        receipt.generation == 2
+            && sent.is_some_and(|sent| sent.seq == expected_seq && sent.command == TYPED),
+        || {
+            format!(
+                "окно поколения {} отправило {:?}, ждали {expected_seq} {TYPED}",
+                receipt.generation, receipt.sent
+            )
+        },
+    );
+    let ack = match (sent, transcript) {
+        (Some(sent), Some(transcript)) => {
+            violation(&mut violations, transcript.problems.is_empty(), || {
+                format!("стенограмма attach: {:?}", transcript.problems)
+            });
+            let ack = transcript
+                .receipt(sent.seq, &sent.command)
+                .map(|line| line.number);
+            let emitted = (1..=2).all(|index| {
+                transcript
+                    .lines
+                    .iter()
+                    .any(|line| line.text == format!("emit {} {index}/2", sent.seq))
+            });
+            violation(&mut violations, ack.is_some() && emitted, || {
+                format!("в хвосте attach нет квитанции {} или строк emit", sent.seq)
+            });
+            ack
+        }
+        _ => {
+            violations.push("независимого attach нет".to_owned());
+            None
+        }
+    };
+    Verdict::of(
+        violations,
+        format!(
+            "квитанция нагрузки ack {expected_seq} {TYPED} в строке {ack:?} хвоста независимого attach"
+        ),
+    )
 }
 
 /// Факты части `launch-services`.
@@ -649,4 +842,136 @@ pub fn input_verdict(
             receipt.sent.first()
         ),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::observer::ProcessKey;
+    use crate::proto::Versions;
+    use crate::results::Status;
+    use crate::window::{Attachment, Sent};
+
+    const TEXT: &str =
+        "1 ready\n2 ack 1 ping\n3 emit 902001 1/2\n4 emit 902001 2/2\n5 ack 902001 emit 2\n";
+
+    fn record() -> SessionRecord {
+        SessionRecord {
+            session: "h1".to_owned(),
+            host: ProcessKey {
+                pid: 10,
+                start_us: 1,
+            },
+            executable: "/t/runtime/1/probe-update-host".to_owned(),
+            workload: ProcessKey {
+                pid: 11,
+                start_us: 2,
+            },
+            workload_pgid: 11,
+            workload_sid: Some(11),
+            tty: "/dev/ttys009".to_owned(),
+            versions: Versions { min: 1, max: 1 },
+            generation: 1,
+            socket: "/t/s/h1.sock".to_owned(),
+        }
+    }
+
+    fn receipt() -> Receipt {
+        Receipt {
+            pid: 20,
+            generation: 2,
+            attachment: Some(Attachment {
+                session: "h1".to_owned(),
+                version: 1,
+                start: 0,
+                closed: None,
+            }),
+            attach_error: None,
+            window_number: 77,
+            visible: true,
+            key: true,
+            active: true,
+            text: TEXT.to_owned(),
+            field: String::new(),
+            sent: vec![Sent {
+                seq: 902_001,
+                command: TYPED.to_owned(),
+            }],
+            foreign_keys: 0,
+            wait: Wait::SentAcked { count: 1 },
+            satisfied: true,
+            readbacks: 1,
+        }
+    }
+
+    fn frame() -> WindowEntry {
+        WindowEntry {
+            number: 77,
+            pid: 20,
+            layer: 0,
+            owner: "probe-update-app".to_owned(),
+            bounds: [100.0, 100.0, 640.0, 480.0],
+        }
+    }
+
+    fn shot() -> Shot {
+        Shot {
+            command: String::new(),
+            window: 77,
+            artifact: SNAPSHOT_ARTIFACT.to_owned(),
+            pixels: Some((1280, 960)),
+            distinct: 12,
+            error: None,
+        }
+    }
+
+    #[test]
+    fn acceptance_window_needs_same_session_and_a_real_snapshot() {
+        let verdict = acceptance_window_verdict(&receipt(), &record(), Some(&frame()), &shot());
+        assert_eq!(verdict.status, Status::Pass, "{}", verdict.reason);
+
+        let mut missing = shot();
+        missing.pixels = None;
+        missing.error = Some("screencapture: код 1".to_owned());
+        let verdict = acceptance_window_verdict(&receipt(), &record(), Some(&frame()), &missing);
+        assert_eq!(verdict.status, Status::NotRun, "{}", verdict.reason);
+
+        let mut flat = shot();
+        flat.distinct = 1;
+        let verdict = acceptance_window_verdict(&receipt(), &record(), Some(&frame()), &flat);
+        assert_eq!(verdict.status, Status::Fail);
+        let verdict = acceptance_window_verdict(&receipt(), &record(), None, &shot());
+        assert_eq!(verdict.status, Status::Fail);
+
+        let mut gap = receipt();
+        gap.text = TEXT.replace("3 emit", "4 emit");
+        let verdict = acceptance_window_verdict(&gap, &record(), Some(&frame()), &missing);
+        assert_eq!(verdict.status, Status::Fail, "{}", verdict.reason);
+        let mut other = receipt();
+        other.text = TEXT.replace("ack 1 ping", "ack 1 pong");
+        let verdict = acceptance_window_verdict(&other, &record(), Some(&frame()), &shot());
+        assert_eq!(verdict.status, Status::Fail);
+    }
+
+    #[test]
+    fn acceptance_input_needs_the_workload_receipt_in_an_independent_tail() {
+        let tail = window::read_text(TEXT);
+        let verdict = acceptance_input_verdict(&receipt(), Some(&tail));
+        assert_eq!(verdict.status, Status::Pass, "{}", verdict.reason);
+        assert_eq!(
+            acceptance_input_verdict(&receipt(), None).status,
+            Status::Fail
+        );
+        let short = window::read_text(&TEXT.replace("5 ack 902001 emit 2\n", ""));
+        assert_eq!(
+            acceptance_input_verdict(&receipt(), Some(&short)).status,
+            Status::Fail
+        );
+        let mut first_generation = receipt();
+        first_generation.generation = 1;
+        assert_eq!(
+            acceptance_input_verdict(&first_generation, Some(&tail)).status,
+            Status::Fail
+        );
+    }
 }

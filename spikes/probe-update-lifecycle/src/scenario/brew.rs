@@ -14,6 +14,8 @@
 //!   `file://` копии поколения 1, `--appdir` во временных каталогах.
 //!
 //! Части — наблюдения клетки G: `staged-quarantine`, `installed-clean`, `launch`, `control`.
+//! Наблюдение приёмочного прохода `acceptance-dialog` (второй план, задача 2) — снимок окна
+//! Gatekeeper контроля до его закрытия и запись закрытия; на выводы остальных частей не влияет.
 //! Ошибка исполнения — только сломанный стенд: шаг не вышел в срок, шаг `preflight_steps` не
 //! записал наблюдение, бандл не там, где сказал `brew`, изменился настоящий Homebrew, окно
 //! Gatekeeper осталось на экране. Отказ изоляции или установки — `not_run` частей с выводом `brew`.
@@ -37,6 +39,7 @@ use crate::window::{self, AxDialog};
 
 use super::reject::install;
 use super::smoke::{WindowEntry, window_list};
+use super::snapshot::{self, Shot};
 use super::{PartSpec, bundles, stand_inputs};
 
 pub const DEADLINE: Duration = Duration::from_secs(600);
@@ -90,6 +93,12 @@ pub const CONTROL: PartSpec = PartSpec {
     name: "control",
     stimulus: "brew install --cask probe-update-control (тот же архив без снятия), open -n -W контроля с --report; окно Gatekeeper закрывается AXPress кнопки «Готово»",
     oracle: "карантин на корне контроля, квитанции нет, окно CoreServicesUIAgent закрыто «Готово» стендом, контроль остался в --appdir, syspolicyd: Prompt shown или denial breadcrumb с идентификатором пробы и Terminating process due to Gatekeeper rejection с PID процесса контроля",
+};
+
+pub const ACCEPT_DIALOG: PartSpec = PartSpec {
+    name: "acceptance-dialog",
+    stimulus: "приёмочный проход: окно Gatekeeper контроля — снимок screencapture -l по номеру окна CoreServicesUIAgent до нажатия, затем AXPress кнопки закрытия (стимул части control)",
+    oracle: "снимок окна разобран, не меньше рамки окна в списке WindowServer и не одного цвета; окно закрыто нажатием стенда (open вышел в срок после нажатия), после закрытия окон CoreServicesUIAgent нет; окна не было или снимок не получен — not_run с причиной",
 };
 
 fn cell(spec: &PartSpec, status: Status, reason: String, artifacts: &[String]) -> Cell {
@@ -688,6 +697,8 @@ pub struct OpenRun {
     pub killed: Vec<ProcessRecord>,
     pub after_close: Vec<WindowEntry>,
     pub elapsed_ms: u64,
+    /// Снимок окна Gatekeeper до нажатия.
+    pub snapshot: Option<Shot>,
 }
 
 fn open_app(stand: &mut Stand, name: &str, app: &Path, wait: Duration) -> Result<OpenRun, String> {
@@ -731,6 +742,7 @@ fn open_app(stand: &mut Stand, name: &str, app: &Path, wait: Duration) -> Result
         killed: Vec::new(),
         after_close: Vec::new(),
         elapsed_ms: 0,
+        snapshot: None,
     };
     let exit = match exit {
         Some(exit) => Some(exit),
@@ -741,6 +753,11 @@ fn open_app(stand: &mut Stand, name: &str, app: &Path, wait: Duration) -> Result
                 .map(|process| process.pid)
                 .collect();
             if let Some(dialog) = run.dialogs.first() {
+                run.snapshot = Some(snapshot::capture(
+                    dialog.number,
+                    &stand.out,
+                    &format!("{DIR}/{name}-dialog.png"),
+                ));
                 let ax = window::ax_dialog(dialog.pid as i32);
                 match brew::dismiss_button(&ax.buttons) {
                     Ok(button) => {
@@ -928,6 +945,77 @@ pub struct ControlFacts {
     pub gatekeeper: Gatekeeper,
     /// Что стенд сделал с контролем в Корзине, если он туда попал.
     pub trash: Option<String>,
+}
+
+/// Снимок окна Gatekeeper контроля и запись его закрытия.
+pub fn dialog_verdict(open: Option<&OpenRun>) -> (Status, String) {
+    let Some(open) = open else {
+        return (
+            Status::NotRun,
+            "контроль без карантина: open контроля не запускался, окна Gatekeeper не было"
+                .to_owned(),
+        );
+    };
+    let Some(dialog) = open.dialogs.first() else {
+        return (
+            Status::NotRun,
+            format!(
+                "окна {DIALOG_OWNER} не было: open {}",
+                open.open_exit.as_deref().unwrap_or("не вышел")
+            ),
+        );
+    };
+    let Some(shot) = open.snapshot.as_ref().filter(|shot| shot.taken()) else {
+        return (
+            Status::NotRun,
+            format!(
+                "снимок окна {} не получен: {}",
+                dialog.number,
+                open.snapshot
+                    .as_ref()
+                    .and_then(|shot| shot.error.as_deref())
+                    .unwrap_or("снимка нет")
+            ),
+        );
+    };
+    let mut violations = Vec::new();
+    if !shot.covers(dialog.bounds) {
+        violations.push(format!(
+            "снимок {:?} меньше рамки окна {:?}",
+            shot.pixels, dialog.bounds
+        ));
+    }
+    if shot.distinct < 2 {
+        violations.push(format!("снимок одного цвета: {} цветов", shot.distinct));
+    }
+    if !open.closed_by_press {
+        violations.push(format!(
+            "окно не закрыто нажатием: нажата {:?}, отказ {:?}",
+            open.pressed, open.press_error
+        ));
+    }
+    if !open.after_close.is_empty() {
+        violations.push(format!(
+            "после закрытия на экране: {}",
+            describe_windows(&open.after_close)
+        ));
+    }
+    if violations.is_empty() {
+        (
+            Status::Pass,
+            format!(
+                "окно {DIALOG_OWNER} {} (pid {}) снято: {:?} пикселей, {} цветов; закрыто нажатием {}, open вышел {}, окон {DIALOG_OWNER} после закрытия нет",
+                dialog.number,
+                dialog.pid,
+                shot.pixels,
+                shot.distinct,
+                open.pressed.as_deref().unwrap_or("?"),
+                open.open_exit.as_deref().unwrap_or("?")
+            ),
+        )
+    } else {
+        (Status::Fail, violations.join("; "))
+    }
 }
 
 pub fn control_verdict(facts: &ControlFacts) -> (Status, String) {
@@ -1340,13 +1428,35 @@ fn walk(stand: &mut Stand, layout: &Layout, home: &Path) -> Result<Walked, Strin
             artifacts.push(format!("{DIR}/syspolicyd.txt"));
         }
         cells.push(cell(&CONTROL, status, reason, &artifacts));
+        let (status, reason) = dialog_verdict(facts.open.as_ref());
+        let mut artifacts = with_steps(&[]);
+        if let Some(shot) = facts
+            .open
+            .as_ref()
+            .and_then(|open| open.snapshot.as_ref())
+            .filter(|shot| shot.taken())
+        {
+            artifacts.push(shot.artifact.clone());
+        }
+        cells.push(cell(&ACCEPT_DIALOG, status, reason, &artifacts));
     } else {
         let reason = format!(
             "brew отказался ставить cask {}: {}",
             brew::CONTROL_CASK,
             control_refusal.as_deref().unwrap_or("?")
         );
-        cells.push(cell(&CONTROL, Status::NotRun, reason, &with_steps(&[])));
+        cells.push(cell(
+            &CONTROL,
+            Status::NotRun,
+            reason.clone(),
+            &with_steps(&[]),
+        ));
+        cells.push(cell(
+            &ACCEPT_DIALOG,
+            Status::NotRun,
+            reason,
+            &with_steps(&[]),
+        ));
     }
     notes.push(format!(
         "от начала изоляции до последней части {} мс; вызовов команд {}",
@@ -1484,6 +1594,14 @@ mod tests {
             killed: Vec::new(),
             after_close: Vec::new(),
             elapsed_ms: 10500,
+            snapshot: Some(Shot {
+                command: String::new(),
+                window: 7,
+                artifact: "brew/control-dialog.png".to_owned(),
+                pixels: Some((520, 640)),
+                distinct: 41,
+                error: None,
+            }),
         }
     }
 
@@ -1513,6 +1631,35 @@ mod tests {
             "executable": executable,
         }))
         .unwrap()
+    }
+
+    #[test]
+    fn dialog_part_needs_snapshot_and_closure() {
+        let mut open = open_run();
+        open.dialogs[0].bounds = [1128.0, 304.0, 260.0, 316.0];
+        let (status, reason) = dialog_verdict(Some(&open));
+        assert_eq!(status, Status::Pass, "{reason}");
+
+        assert_eq!(dialog_verdict(None).0, Status::NotRun);
+        let mut no_window = open.clone();
+        no_window.dialogs.clear();
+        assert_eq!(dialog_verdict(Some(&no_window)).0, Status::NotRun);
+        let mut failed = open.clone();
+        failed.snapshot.as_mut().unwrap().error = Some("screencapture: код 1".to_owned());
+        assert_eq!(dialog_verdict(Some(&failed)).0, Status::NotRun);
+
+        let mut flat = open.clone();
+        flat.snapshot.as_mut().unwrap().distinct = 1;
+        assert_eq!(dialog_verdict(Some(&flat)).0, Status::Fail);
+        let mut small = open.clone();
+        small.dialogs[0].bounds[2] = 900.0;
+        assert_eq!(dialog_verdict(Some(&small)).0, Status::Fail);
+        let mut open_left = open.clone();
+        open_left.closed_by_press = false;
+        assert_eq!(dialog_verdict(Some(&open_left)).0, Status::Fail);
+        let mut still = open;
+        still.after_close = still.dialogs.clone();
+        assert_eq!(dialog_verdict(Some(&still)).0, Status::Fail);
     }
 
     #[test]

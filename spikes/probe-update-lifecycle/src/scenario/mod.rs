@@ -21,6 +21,7 @@ pub mod reject;
 pub mod reject_live;
 pub mod runtimes;
 pub mod smoke;
+pub mod snapshot;
 pub mod swap;
 pub mod tcc;
 pub mod update_flow;
@@ -340,6 +341,22 @@ pub fn required_cell(
             .iter()
             .map(|artifact| (*artifact).to_owned())
             .collect(),
+    }
+}
+
+/// Часть-наблюдение клетки `id`: дополнительное наблюдение приёмочного прохода или наблюдение
+/// обязательной клетки; `not_run` с причиной допустим.
+pub fn observation_cell(
+    id: &str,
+    spec: &PartSpec,
+    completion: &str,
+    verdict: Verdict,
+    artifacts: &[String],
+) -> results::Cell {
+    results::Cell {
+        requirement: results::Requirement::Observation,
+        artifacts: artifacts.to_vec(),
+        ..required_cell(id, spec, completion, verdict, &[])
     }
 }
 
