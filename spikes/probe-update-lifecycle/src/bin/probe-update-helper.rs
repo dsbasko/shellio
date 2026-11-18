@@ -1,13 +1,14 @@
-//! Заглушка помощника замены (задача 4): сообщает поколение сборки, см.
-//! [`probe_update_lifecycle::generation::stub_main`]. Помощника добавляет задача 8.
+//! Помощник замены (задача 8): ждёт выхода GUI N, меняет бандлы местами, запускает N+1 и
+//! сторожит попытку; `--report` — заглушка задачи 4. См.
+//! [`probe_update_lifecycle::update::helper_main`].
 
 use std::process::ExitCode;
 
-use probe_update_lifecycle::generation::{HELPER_BIN, stub_main};
+use probe_update_lifecycle::generation::HELPER_BIN;
 
 fn main() -> ExitCode {
     match probe_update_lifecycle::helper_args(HELPER_BIN) {
-        Ok(args) => stub_main(HELPER_BIN, &args),
+        Ok(args) => probe_update_lifecycle::update::helper_main(&args),
         Err(code) => code,
     }
 }

@@ -1,14 +1,20 @@
 //! Сценарии пробы и процесс сценария: предусловие окружения, сценарий, `result.json` в `--out`.
 //! Сценарии добавляют задачи плана; задача 2 — сценарий стенда `smoke`, задача 3 — `host`,
 //! задача 4 — `identity` (A1) и `reject-verify` (A2), задача 6 — `owner-basic`, задача 7 —
-//! `incompatible` (D2 до активации).
+//! `incompatible` (D2 до активации), задача 8 — `swap` (B1), `identity-live` (A1), `reject` (A2)
+//! и `incompatible-activate` (D2, активация).
 
 pub mod host;
 pub mod identity;
+pub mod identity_live;
 pub mod incompatible;
+pub mod incompatible_activate;
 pub mod owner_basic;
 pub mod reject;
+pub mod reject_live;
 pub mod smoke;
+pub mod swap;
+pub mod update_flow;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -38,16 +44,28 @@ pub enum Scenario {
     OwnerBasic,
     /// D2 до активации: заморозка, проверка совместимости и отсрочка.
     Incompatible,
+    /// B1: успешная замена.
+    Swap,
+    /// Динамическая часть A1: GUI N+1 сообщает номер, путь и CDHash процесса.
+    IdentityLive,
+    /// Интеграционная часть A2: отказ кандидатов живым GUI N.
+    Reject,
+    /// D2: активация отложенного кандидата после остановки сессии.
+    IncompatibleActivate,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 6] = [
+    pub const ALL: [Scenario; 10] = [
         Scenario::Smoke,
         Scenario::Host,
         Scenario::Identity,
         Scenario::RejectVerify,
         Scenario::OwnerBasic,
         Scenario::Incompatible,
+        Scenario::Swap,
+        Scenario::IdentityLive,
+        Scenario::Reject,
+        Scenario::IncompatibleActivate,
     ];
 
     pub fn name(self) -> &'static str {
@@ -58,6 +76,10 @@ impl Scenario {
             Scenario::RejectVerify => "reject-verify",
             Scenario::OwnerBasic => "owner-basic",
             Scenario::Incompatible => "incompatible",
+            Scenario::Swap => "swap",
+            Scenario::IdentityLive => "identity-live",
+            Scenario::Reject => "reject",
+            Scenario::IncompatibleActivate => "incompatible-activate",
         }
     }
 
@@ -76,6 +98,10 @@ impl Scenario {
             Scenario::RejectVerify => reject::DEADLINE,
             Scenario::OwnerBasic => owner_basic::DEADLINE,
             Scenario::Incompatible => incompatible::DEADLINE,
+            Scenario::Swap => swap::DEADLINE,
+            Scenario::IdentityLive => identity_live::DEADLINE,
+            Scenario::Reject => reject_live::DEADLINE,
+            Scenario::IncompatibleActivate => incompatible_activate::DEADLINE,
         }
     }
 }
@@ -151,7 +177,28 @@ fn run(target: &Target, environment: &Environment) -> Result<Report, String> {
         Scenario::RejectVerify => reject::run(&target.out, environment),
         Scenario::OwnerBasic => owner_basic::run(&target.out, environment),
         Scenario::Incompatible => incompatible::run(&target.out, environment),
+        Scenario::Swap => swap::run(&target.out, environment),
+        Scenario::IdentityLive => identity_live::run(&target.out, environment),
+        Scenario::Reject => reject_live::run(&target.out, environment),
+        Scenario::IncompatibleActivate => incompatible_activate::run(&target.out, environment),
     }
+}
+
+/// Каталог состояния, nonce и раскладка бандлов стенда.
+pub fn stand_inputs(environment: &Environment) -> Result<(PathBuf, String, Layout), String> {
+    let nonce = environment
+        .process
+        .nonce
+        .clone()
+        .ok_or("предусловие: нет nonce")?;
+    let state = environment
+        .process
+        .state_dir
+        .as_deref()
+        .map(PathBuf::from)
+        .ok_or_else(|| format!("предусловие: нет {}", launch::STATE_DIR))?;
+    let (_, layout) = bundles(environment)?;
+    Ok((state, nonce, layout))
 }
 
 /// Каталог бандлов стенда из окружения процесса и его `bundles.json`. Без них сценарий не
@@ -350,7 +397,7 @@ mod tests {
             assert_eq!(Scenario::from_name(scenario.name()), Some(scenario));
             assert!(!scenario.deadline().is_zero());
         }
-        assert_eq!(Scenario::from_name("swap"), None);
+        assert_eq!(Scenario::from_name("kill"), None);
     }
 
     #[test]

@@ -13,6 +13,11 @@
 //! ([`decide`]) тотально: отказ живой сессии откладывает активацию, живая сессия без ответа или
 //! неразобранная запись дают «совместимость не установлена» — попытка тогда не начинается
 //! (повторная — не продвигается). Сессия с мёртвым хостом не проверяется: её больше нет.
+//!
+//! Совместимый кандидат ставится в `staged` (задача 8): под той же заморозкой помощник
+//! установленного бандла копируется в `<state>/update/helper/<attempt>/` и проверяется требованием
+//! своей части ([`update::stage_helper`]), и только затем пишется журнал. То же на пути
+//! `staged-deferred → staged`.
 
 use std::fs;
 use std::os::unix::fs::MetadataExt;
@@ -27,7 +32,7 @@ use crate::owner::{self, Entry, Probe};
 use crate::proto::{Hello, Purpose, Versions};
 use crate::pty::Winsize;
 use crate::recover::{Checker, Codesign, Seen};
-use crate::sys;
+use crate::{sys, update};
 
 const DITTO: &str = "/usr/bin/ditto";
 
@@ -53,6 +58,11 @@ impl Gate {
 
     pub fn frozen(&self) -> Option<&str> {
         self.frozen.as_deref()
+    }
+
+    /// Снять оставленную заморозку: попытка, ради которой она держалась, прервана.
+    pub fn thaw(&mut self) {
+        self.frozen = None;
     }
 }
 
@@ -336,9 +346,25 @@ fn verify_candidate(
     Ok((accepted, manifest))
 }
 
-/// `idle → staged-deferred`: копия кандидата `source` в `.shellio-update-<attempt>/` на томе
-/// установки, его проверка и проверка живых сессий под заморозкой. Совместимый кандидат здесь
-/// не ставится: `idle → staged` с копией помощника — задача 8.
+/// Копия помощника попытки под заморозкой; при отказе каталог помощника удаляется.
+fn stage_helper(install: &Install, attempt: &str) -> Result<(), Refusal> {
+    update::stage_helper(
+        install.state,
+        install.installed,
+        install.identifier,
+        install.leaf,
+        attempt,
+    )
+    .map(|_| ())
+    .map_err(|reason| {
+        let _ = fs::remove_dir_all(update::helper_dir(install.state, attempt));
+        Refusal::final_(reason)
+    })
+}
+
+/// `idle → staged-deferred` или `idle → staged`: копия кандидата `source` в
+/// `.shellio-update-<attempt>/` на томе установки, его проверка и проверка живых сессий под
+/// заморозкой. Совместимый кандидат ставится с копией помощника, заморозка остаётся до выхода GUI.
 pub fn stage(install: &Install, gate: &Mutex<Gate>, source: &Path) -> Result<Staging, Refusal> {
     let store = Store::new(install.state);
     match store.read() {
@@ -398,9 +424,23 @@ pub fn stage(install: &Install, gate: &Mutex<Gate>, source: &Path) -> Result<Sta
             })
         }
         Decision::Unverified { reason } => Err(Refusal::temporary(reason)),
-        Decision::Compatible { checked } => Err(Refusal::final_(format!(
-            "кандидат совместим с {checked} живыми сессиями: idle → staged с копией помощника — задача 8"
-        ))),
+        Decision::Compatible { .. } => {
+            stage_helper(install, &attempt)?;
+            let next = Journal::begin(
+                &attempt,
+                State::Staged,
+                (crate::GENERATION, &from_cdhash),
+                (accepted.generation, &accepted.cdhash),
+                install.installed,
+            );
+            if let Err(err) = store.begin(&next) {
+                let _ = fs::remove_dir_all(update::helper_dir(install.state, &attempt));
+                return Err(Refusal::final_(err.to_string()));
+            }
+            candidate.kept = true;
+            freeze.keep();
+            Ok(Staging::Staged { attempt, checked })
+        }
     }
 }
 
@@ -446,6 +486,7 @@ pub fn restage(install: &Install, gate: &Mutex<Gate>) -> Result<Staging, Refusal
     let checked = check_sessions(install.state, &manifest);
     match checked.decision.clone() {
         Decision::Compatible { .. } => {
+            stage_helper(install, &journal.attempt)?;
             store
                 .advance(&journal.attempt, &[State::StagedDeferred], |next| {
                     next.state = State::Staged;

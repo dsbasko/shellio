@@ -18,6 +18,16 @@
 //! Создание сессий идёт под мьютексом заморозки ([`compat::Gate`]): проверка совместимости
 //! обновления (задача 7) замораживает создание, и запрос под заморозкой получает временный отказ.
 //!
+//! Обновление (задача 8). `activate` после `staged` этого процесса пишет `intent` (срок health,
+//! аргументы режима, снимок живых сессий, ключ GUI N), запускает копию помощника и выходит. N+1,
+//! запущенный помощником с `--update-attempt`, до первой попытки взять блокировку сообщает о себе
+//! ([`update::report_started`]). Взяв блокировку при `launched` своей попытки с ключом владельца,
+//! он готовит `runtime/<N+1>/`, публикует сокет неготовым, выполняет health ([`health`]),
+//! проверяет срок под блокировкой непосредственно перед записью `committed`, убирает прежний N
+//! (`cleaning`, `idle`) и только тогда становится готовым. Процесс, которому восстановление
+//! вернуло `swapped`, выполняет `swapped → launched` как помощник ([`update::launch_next`]) и
+//! передаёт аргументы владельцу.
+//!
 //! Протокол управляющего сокета — одна строка JSON запроса и одна строка ответа на соединение.
 //! Клиент пробы при ошибке `connect` сокет не удаляет: `ENOENT` и `ECONNREFUSED` — явный
 //! временный отказ «владелец запускается или перезапускается» с признаком повтора. «Недоступен»
@@ -26,7 +36,7 @@
 
 use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, Read, Write};
-use std::os::fd::{AsFd, AsRawFd, FromRawFd, OwnedFd};
+use std::os::fd::{AsFd, AsRawFd, OwnedFd};
 use std::os::unix::fs::{FileTypeExt, MetadataExt, OpenOptionsExt};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
@@ -39,16 +49,19 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::attach::{self, Connected};
+use crate::barrier::{self, Point};
 use crate::compat::{self, Gate, Install, Staging};
 use crate::generation::{self, APP_BIN, BUNDLE_ID, Manifest, Part, StubMode};
+use crate::health;
 use crate::host::{self, SessionRecord};
-use crate::journal::{self, Journal, State};
+use crate::journal::{self, Journal, SessionKeys, State};
 use crate::observer::{self, ProcessKey};
 use crate::proto::{ATTACH_VERSIONS, Hello, Purpose};
 use crate::pty::Winsize;
 use crate::recover::{self, Actor, Checker, Next, Seen};
 use crate::runtime::{self, Prepared};
-use crate::{EXIT_USAGE, launch, say, spawn, sys};
+use crate::update::{self, Launched};
+use crate::{EXIT_USAGE, kq, launch, say, spawn, sys};
 
 pub const LOCK_FILE: &str = "shellio.lock";
 pub const SOCKET_FILE: &str = "shellio.sock";
@@ -345,6 +358,9 @@ pub enum Request {
     },
     /// Повторить отложенную попытку из журнала: `staged-deferred → staged`.
     Retry,
+    /// Активировать попытку, поставленную этим процессом: `staged → intent`, запуск помощника и
+    /// выход.
+    Activate,
     /// Владелец убирает свой сокет и выходит; сессии живут.
     Quit,
 }
@@ -380,6 +396,21 @@ pub struct OwnerInfo {
     pub window: bool,
     pub ready: bool,
     pub received: Vec<Forwarded>,
+    /// Подтверждение обновления этим процессом (N+1).
+    #[serde(default)]
+    pub update: Option<Confirmed>,
+}
+
+/// Подтверждение обновления N+1.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Confirmed {
+    pub attempt: String,
+    pub deadline_ms: u64,
+    pub health: health::Facts,
+    /// Время записи `committed`, мс от эпохи Unix.
+    pub committed_ms: u64,
+    /// Шаги уборки после `committed`.
+    pub cleanup: Vec<String>,
 }
 
 /// Как сессия ответила на `probe`.
@@ -418,6 +449,11 @@ pub enum Reply {
     },
     /// Итог постановки или повторной проверки обновления.
     Staging(Box<Staging>),
+    /// `intent` записан, помощник запущен, GUI N выходит.
+    Activating {
+        attempt: String,
+        helper: ProcessKey,
+    },
     Done,
     Refused {
         reason: String,
@@ -531,155 +567,9 @@ pub fn request(state: &Path, request: &Request, timeout: Duration) -> Result<Ans
     }
 }
 
-// --- ожидание событий каталога ---
-
-const USER_EVENT: usize = 1;
-
-/// `kqueue` с `EVFILT_VNODE` (`NOTE_WRITE`) на каталог и `EVFILT_USER` для пробуждения из
-/// другого потока.
-struct DirWatch {
-    queue: Arc<OwnedFd>,
-    _dir: File,
-}
-
-/// Событие пробуждения ожидания; держит очередь открытой, пока жив.
-struct Trigger(Arc<OwnedFd>);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Event {
-    Changed,
-    Fired,
-    TimedOut,
-}
-
-fn kevent_entry(ident: usize, filter: i16, flags: u16, fflags: u32) -> libc::kevent {
-    libc::kevent {
-        ident,
-        filter,
-        flags,
-        fflags,
-        data: 0,
-        udata: std::ptr::null_mut(),
-    }
-}
-
-fn kevent_change(queue: &OwnedFd, change: &libc::kevent) -> io::Result<()> {
-    // SAFETY: одно изменение на стеке, список событий не передаётся.
-    let status = unsafe {
-        libc::kevent(
-            queue.as_raw_fd(),
-            change,
-            1,
-            std::ptr::null_mut(),
-            0,
-            std::ptr::null(),
-        )
-    };
-    if status < 0 {
-        Err(io::Error::last_os_error())
-    } else {
-        Ok(())
-    }
-}
-
-impl DirWatch {
-    fn new(dir: &Path) -> Result<DirWatch, String> {
-        // SAFETY: вызов без аргументов возвращает дескриптор или -1.
-        let raw = unsafe { libc::kqueue() };
-        if raw < 0 {
-            return Err(format!("kqueue: {}", io::Error::last_os_error()));
-        }
-        // SAFETY: `raw` только что открыт и никому больше не принадлежит.
-        let queue = Arc::new(unsafe { OwnedFd::from_raw_fd(raw) });
-        let dir_file = File::options()
-            .read(true)
-            .custom_flags(libc::O_EVTONLY | libc::O_CLOEXEC)
-            .open(dir)
-            .map_err(|err| format!("{}: {err}", dir.display()))?;
-        kevent_change(
-            &queue,
-            &kevent_entry(
-                dir_file.as_raw_fd() as usize,
-                libc::EVFILT_VNODE,
-                libc::EV_ADD | libc::EV_CLEAR,
-                libc::NOTE_WRITE,
-            ),
-        )
-        .map_err(|err| format!("kevent каталога: {err}"))?;
-        kevent_change(
-            &queue,
-            &kevent_entry(
-                USER_EVENT,
-                libc::EVFILT_USER,
-                libc::EV_ADD | libc::EV_CLEAR,
-                0,
-            ),
-        )
-        .map_err(|err| format!("kevent EVFILT_USER: {err}"))?;
-        Ok(DirWatch {
-            queue,
-            _dir: dir_file,
-        })
-    }
-
-    fn trigger(&self) -> Trigger {
-        Trigger(Arc::clone(&self.queue))
-    }
-
-    fn wait(&self, deadline: Instant) -> Result<Event, String> {
-        loop {
-            let left = deadline.saturating_duration_since(Instant::now());
-            if left.is_zero() {
-                return Ok(Event::TimedOut);
-            }
-            let timeout = libc::timespec {
-                tv_sec: left.as_secs() as libc::time_t,
-                tv_nsec: libc::c_long::from(left.subsec_nanos()),
-            };
-            let mut event = kevent_entry(0, 0, 0, 0);
-            // SAFETY: одно событие на стеке и срок живут на время вызова.
-            let count = unsafe {
-                libc::kevent(
-                    self.queue.as_raw_fd(),
-                    std::ptr::null(),
-                    0,
-                    &mut event,
-                    1,
-                    &timeout,
-                )
-            };
-            match count {
-                0 => return Ok(Event::TimedOut),
-                n if n > 0 => {
-                    return Ok(if event.filter == libc::EVFILT_USER {
-                        Event::Fired
-                    } else {
-                        Event::Changed
-                    });
-                }
-                _ => {
-                    let err = io::Error::last_os_error();
-                    if err.kind() != io::ErrorKind::Interrupted {
-                        return Err(format!("kevent: {err}"));
-                    }
-                }
-            }
-        }
-    }
-}
-
-impl Trigger {
-    fn fire(&self) {
-        let _ = kevent_change(
-            &self.0,
-            &kevent_entry(USER_EVENT, libc::EVFILT_USER, 0, libc::NOTE_TRIGGER),
-        );
-    }
-}
-
 /// Ждёт, пока владелец опубликует сокет и будет готов, не позже `deadline`. Для сценариев.
 pub fn wait_for_owner(state: &Path, deadline: Instant) -> Result<OwnerInfo, String> {
-    let watch = DirWatch::new(state)?;
+    let watch = kq::Queue::on_dir(state)?;
     loop {
         let left = deadline.saturating_duration_since(Instant::now());
         let ping = Request::Ping {
@@ -693,7 +583,7 @@ pub fn wait_for_owner(state: &Path, deadline: Instant) -> Result<OwnerInfo, Stri
             }
             Answer::Unavailable(_) => {}
         }
-        if watch.wait(deadline)? == Event::TimedOut {
+        if watch.wait(deadline)? == kq::Event::TimedOut {
             return Err(format!(
                 "владелец не опубликовал сокет {} к сроку",
                 socket_path(state).display()
@@ -795,6 +685,19 @@ pub enum AppReport {
     Owner(Box<OwnerInfo>),
     /// Владелец вышел по `Quit`.
     Stopped { key: ProcessKey },
+    /// GUI N записал `intent`, запустил помощника и вышел.
+    Updated {
+        key: ProcessKey,
+        attempt: String,
+        helper: ProcessKey,
+    },
+    /// N+1 не подтвердился и вышел без `committed`.
+    Unconfirmed {
+        key: ProcessKey,
+        attempt: String,
+        reason: String,
+        health: Option<Box<health::Facts>>,
+    },
     Forwarded {
         key: ProcessKey,
         receipt: u64,
@@ -818,9 +721,11 @@ pub enum AppReport {
 impl AppReport {
     fn exit_code(&self) -> ExitCode {
         match self {
-            AppReport::Owner(_) | AppReport::Stopped { .. } | AppReport::Forwarded { .. } => {
-                ExitCode::SUCCESS
-            }
+            AppReport::Owner(_)
+            | AppReport::Stopped { .. }
+            | AppReport::Updated { .. }
+            | AppReport::Forwarded { .. } => ExitCode::SUCCESS,
+            AppReport::Unconfirmed { .. } => ExitCode::from(EXIT_ERROR),
             AppReport::Refused { .. } => ExitCode::from(EXIT_TEMPFAIL),
             AppReport::Error { .. } => ExitCode::from(EXIT_ERROR),
         }
@@ -845,6 +750,11 @@ pub fn app_main(args: &[String]) -> ExitCode {
         }
         Ok(AppMode::Stub(_)) => generation::stub_main(APP_BIN, args),
         Ok(AppMode::Run(options)) => {
+            barrier::set_role(if options.update_attempt.is_some() {
+                barrier::Role::Next
+            } else {
+                barrier::Role::Gui
+            });
             let report = run(&options);
             print_report(&report);
             report.exit_code()
@@ -860,8 +770,22 @@ fn now_ms() -> u64 {
 
 /// Чем закончилось владение блокировкой.
 enum Held {
-    Served,
+    Served(Served),
     Yielded { reason: String, launch: bool },
+}
+
+/// Чем закончилась работа владельцем.
+enum Served {
+    Stopped,
+    Handed {
+        attempt: String,
+        helper: ProcessKey,
+    },
+    Unconfirmed {
+        attempt: String,
+        reason: String,
+        health: Option<Box<health::Facts>>,
+    },
 }
 
 enum Waited {
@@ -886,6 +810,12 @@ fn run(options: &AppOptions) -> AppReport {
             None
         }
     };
+    if let Some(attempt) = &options.update_attempt {
+        if let Err(reason) = update::report_started(&options.state, attempt, me) {
+            return error(reason);
+        }
+        barrier::reach(&options.state, Point::Started);
+    }
     let lock_file = lock_path(&options.state);
     let mut may_lock = true;
     let mut yielded = None;
@@ -900,7 +830,26 @@ fn run(options: &AppOptions) -> AppReport {
         }
         if let Some(lock) = held.take() {
             match with_lock(options, me, own_cdhash.as_deref(), lock) {
-                Ok(Held::Served) => return AppReport::Stopped { key: me },
+                Ok(Held::Served(Served::Stopped)) => return AppReport::Stopped { key: me },
+                Ok(Held::Served(Served::Handed { attempt, helper })) => {
+                    return AppReport::Updated {
+                        key: me,
+                        attempt,
+                        helper,
+                    };
+                }
+                Ok(Held::Served(Served::Unconfirmed {
+                    attempt,
+                    reason,
+                    health,
+                })) => {
+                    return AppReport::Unconfirmed {
+                        key: me,
+                        attempt,
+                        reason,
+                        health,
+                    };
+                }
                 Ok(Held::Yielded { reason, launch }) => {
                     say(&format!("{APP_BIN}: без права владения: {reason}"));
                     may_lock = false;
@@ -993,18 +942,41 @@ fn with_lock(
             let (Some(own), Some(installed)) = (own_cdhash, installed) else {
                 return Err("право владения без CDHash".to_owned());
             };
-            serve(options, me, own, &installed, lock, recovery)?;
-            Ok(Held::Served)
+            let pending = after.filter(|journal| {
+                journal.state == State::Launched
+                    && journal.owner == Some(me)
+                    && options.update_attempt.as_deref() == Some(journal.attempt.as_str())
+            });
+            serve(options, me, own, &installed, lock, recovery, pending).map(Held::Served)
         }
         Role::Yield { launch, reason } => {
             drop(lock);
             Ok(Held::Yielded { reason, launch })
         }
         Role::Helper { attempt } => {
+            let Some(journal) = after
+                .filter(|journal| journal.attempt == attempt && journal.state == State::Swapped)
+            else {
+                drop(lock);
+                return Err(format!(
+                    "попытка {attempt}: восстановление вернуло swapped, журнал другой"
+                ));
+            };
+            let launched = update::launch_next(&store, &journal, me);
             drop(lock);
-            Err(format!(
-                "попытка {attempt} в swapped без помощника: запуск N+1 как помощник появится в задаче 8"
-            ))
+            match launched? {
+                Launched::Owner(key) => Ok(Held::Yielded {
+                    reason: format!(
+                        "swapped → launched выполнен как помощник, владелец {}",
+                        key.pid
+                    ),
+                    launch: false,
+                }),
+                Launched::RolledBack => Ok(Held::Yielded {
+                    reason: "N+1 не появился за срок запуска: попытка откачена".to_owned(),
+                    launch: true,
+                }),
+            }
         }
     }
 }
@@ -1040,7 +1012,7 @@ fn wait_and_forward(
     watch_lock: bool,
     deadline: Instant,
 ) -> Result<Waited, String> {
-    let watch = DirWatch::new(&options.state)?;
+    let watch = kq::Queue::on_dir(&options.state)?;
     let (sender, receiver) = mpsc::channel();
     if watch_lock {
         let trigger = watch.trigger();
@@ -1078,13 +1050,13 @@ fn wait_and_forward(
             Answer::Unavailable(_) => {}
         }
         match watch.wait(deadline)? {
-            Event::Changed => {}
-            Event::Fired => match receiver.try_recv() {
+            kq::Event::Changed | kq::Event::Exited(_) => {}
+            kq::Event::Fired => match receiver.try_recv() {
                 Ok(Ok(lock)) => return Ok(Waited::Lock(lock)),
                 Ok(Err(err)) => return Err(format!("ожидание блокировки: {err}")),
                 Err(_) => {}
             },
-            Event::TimedOut => {
+            kq::Event::TimedOut => {
                 return Ok(Waited::Refused {
                     reason: format!(
                         "{}: сокет не опубликован за {} с",
@@ -1155,10 +1127,16 @@ fn publish(state: &Path, socket: &Path) -> Result<(UnixListener, Published), Str
     ))
 }
 
+/// Почему N+1 не подтвердился, с фактами health, если они собраны.
+type Unhealthy = (String, Option<Box<health::Facts>>);
+
 struct ServerState {
     ready: bool,
     received: Vec<Forwarded>,
     quitting: bool,
+    /// `activate` записал `intent` и запустил помощника.
+    handing: Option<(String, ProcessKey)>,
+    update: Option<Confirmed>,
 }
 
 struct Server {
@@ -1179,7 +1157,8 @@ fn serve(
     installed_cdhash: &str,
     lock: Lock,
     recovery: Vec<String>,
-) -> Result<(), String> {
+    pending: Option<Journal>,
+) -> Result<Served, String> {
     let manifest = Manifest::read(&options.installed)?;
     if manifest.generation != crate::GENERATION {
         return Err(format!(
@@ -1197,6 +1176,7 @@ fn serve(
             leaf: options.leaf.clone(),
         },
     )?;
+    barrier::reach(&options.state, Point::BeforePublish);
     let socket = socket_path(&options.state);
     host::check_socket_path(&socket)?;
     let stale = remove_stale_socket(&socket)?;
@@ -1223,26 +1203,63 @@ fn serve(
             runtime: prepared,
             recovery,
             window: options.window,
-            ready: true,
+            ready: pending.is_none(),
             received: Vec::new(),
+            update: None,
         },
         state: Mutex::new(ServerState {
-            ready: true,
+            ready: pending.is_none(),
             received: Vec::new(),
             quitting: false,
+            handing: None,
+            update: None,
         }),
         changed: Condvar::new(),
         gate: Mutex::new(Gate::default()),
         update: Mutex::new(()),
     });
     server.record(me, options.forward.clone());
-    print_report(&AppReport::Owner(Box::new(server.snapshot())));
+    if pending.is_none() {
+        print_report(&AppReport::Owner(Box::new(server.snapshot())));
+    }
     let accepting = Arc::clone(&server);
     thread::Builder::new()
         .name("owner-accept".to_owned())
         .spawn(move || accepting.accept(listener))
         .map_err(|err| format!("поток приёма: {err}"))?;
-    {
+    barrier::reach(&options.state, Point::Published);
+    if let Some(journal) = pending {
+        match server.confirm(&journal) {
+            Ok(Some(confirmed)) => {
+                {
+                    let mut state = server.lock();
+                    state.update = Some(confirmed);
+                    state.ready = true;
+                }
+                server.changed.notify_all();
+                print_report(&AppReport::Owner(Box::new(server.snapshot())));
+            }
+            Ok(None) => {
+                published.unpublish();
+                drop(lock);
+                return Ok(Served::Unconfirmed {
+                    attempt: journal.attempt,
+                    reason: "владелец вышел по quit до подтверждения".to_owned(),
+                    health: None,
+                });
+            }
+            Err((reason, health)) => {
+                published.unpublish();
+                drop(lock);
+                return Ok(Served::Unconfirmed {
+                    attempt: journal.attempt,
+                    reason,
+                    health,
+                });
+            }
+        }
+    }
+    let handing = {
         let mut state = server.lock();
         while !state.quitting {
             state = server
@@ -1250,10 +1267,17 @@ fn serve(
                 .wait(state)
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
         }
+        state.handing.clone()
+    };
+    if handing.is_some() {
+        barrier::reach(&options.state, Point::HelperSpawned);
     }
     published.unpublish();
     drop(lock);
-    Ok(())
+    Ok(match handing {
+        Some((attempt, helper)) => Served::Handed { attempt, helper },
+        None => Served::Stopped,
+    })
 }
 
 impl Server {
@@ -1275,6 +1299,7 @@ impl Server {
         let mut info = self.info.clone();
         info.ready = state.ready;
         info.received = state.received.clone();
+        info.update = state.update.clone();
         info
     }
 
@@ -1323,7 +1348,7 @@ impl Server {
         let reply = self.handle(request);
         let _ = stream.set_write_timeout(Some(REQUEST_TIMEOUT));
         let _ = write_json_line(&mut stream, &reply);
-        if quit {
+        if quit || matches!(reply, Reply::Activating { .. }) {
             self.lock().quitting = true;
             self.changed.notify_all();
         }
@@ -1381,6 +1406,12 @@ impl Server {
                 }
                 self.staging(compat::restage)
             }
+            Request::Activate => {
+                if !self.wait_ready(0) {
+                    return Server::not_ready();
+                }
+                self.activate()
+            }
             Request::Sessions => {
                 let (entries, problems) = registry(&self.options.state);
                 let hosts: Vec<PathBuf> = entries
@@ -1430,6 +1461,178 @@ impl Server {
                 retry: refusal.retry,
             },
         }
+    }
+
+    /// `staged → intent` попытки, поставленной этим процессом (заморозка не снималась), и запуск
+    /// копии помощника. Помощник не запустился — попытка прерывается здесь же по таблице.
+    fn activate(&self) -> Reply {
+        let _one = self
+            .update
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let refused = |reason: String| Reply::Refused {
+            reason,
+            retry: false,
+        };
+        let frozen = self
+            .gate
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .frozen()
+            .map(str::to_owned);
+        if frozen.as_deref() != Some(compat::STAGED) {
+            return refused(format!(
+                "попытка не поставлена этим процессом: заморозка {frozen:?}"
+            ));
+        }
+        let state = &self.options.state;
+        let store = journal::Store::new(state);
+        let journal = match store.read() {
+            Ok(Some(journal)) if journal.state == State::Staged => journal,
+            other => return refused(format!("activate: журнал {other:?}")),
+        };
+        let (entries, problems) = registry(state);
+        if !problems.is_empty() {
+            return refused(format!(
+                "activate: записи сессий не разобраны: {problems:?}"
+            ));
+        }
+        let sessions: Vec<SessionKeys> = entries
+            .iter()
+            .filter(|entry| entry.host_alive)
+            .map(|entry| SessionKeys {
+                session: entry.record.session.clone(),
+                host: entry.record.host,
+                workload: entry.record.workload,
+            })
+            .collect();
+        let me = self.info.key;
+        let deadline = now_ms() + update::HEALTH_WINDOW.as_millis() as u64;
+        let launch = self.options.relaunch_args();
+        if let Err(err) = store.advance(&journal.attempt, &[State::Staged], |next| {
+            next.state = State::Intent;
+            next.deadline_ms = Some(deadline);
+            next.launch = launch;
+            next.sessions = sessions;
+            next.gui_from = Some(me);
+        }) {
+            return refused(err.to_string());
+        }
+        match self.spawn_helper(&journal.attempt) {
+            Ok(helper) => {
+                self.lock().handing = Some((journal.attempt.clone(), helper));
+                Reply::Activating {
+                    attempt: journal.attempt,
+                    helper,
+                }
+            }
+            Err(reason) => {
+                let aborted = update::recover_now(&store, &self.options, me);
+                self.gate
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .thaw();
+                refused(format!(
+                    "помощник не запущен: {reason}; восстановление: {aborted:?}"
+                ))
+            }
+        }
+    }
+
+    /// Копия помощника попытки в своей сессии; stdout и stderr — в каталог помощника.
+    fn spawn_helper(&self, attempt: &str) -> Result<ProcessKey, String> {
+        let state = &self.options.state;
+        let dir = update::helper_dir(state, attempt);
+        let output = |name: &str| {
+            File::create(dir.join(name))
+                .map(OwnedFd::from)
+                .map_err(|err| format!("{}: {err}", dir.join(name).display()))
+        };
+        let program = update::helper_copy(state, attempt);
+        let args = update::HelperArgs {
+            state: state.clone(),
+            attempt: attempt.to_owned(),
+            tag: Some(self.options.tag.clone()),
+        }
+        .to_args();
+        let pid = spawn::spawn(spawn::Spec {
+            program: &program,
+            args: &args,
+            env: None,
+            stdio: [
+                None,
+                Some(output(update::HELPER_STDOUT)?),
+                Some(output(update::HELPER_STDERR)?),
+            ],
+            setsid: true,
+        })
+        .map_err(|err| format!("запуск {}: {err}", program.display()))?;
+        Ok(observer::inspect(pid)?
+            .ok_or_else(|| format!("помощник {pid} не найден сразу после запуска"))?
+            .key)
+    }
+
+    /// Health, срок под блокировкой непосредственно перед записью, `committed` и уборка прежнего
+    /// N. `Ok(None)` — до подтверждения пришёл `quit`.
+    fn confirm(&self, journal: &Journal) -> Result<Option<Confirmed>, Unhealthy> {
+        let state = &self.options.state;
+        let me = self.info.key;
+        let deadline = journal
+            .deadline_ms
+            .ok_or_else(|| ("в launched нет срока".to_owned(), None))?;
+        let facts = health::gather(
+            state,
+            &self.options.installed,
+            journal,
+            me,
+            crate::GENERATION,
+        );
+        if self.lock().quitting {
+            return Ok(None);
+        }
+        let violations = health::judge(&facts);
+        if !violations.is_empty() {
+            return Err((
+                format!("health не выполнен: {}", violations.join("; ")),
+                Some(Box::new(facts)),
+            ));
+        }
+        let fail = |reason: String| (reason, Some(Box::new(facts.clone())));
+        let store = journal::Store::new(state);
+        match store.read() {
+            Ok(Some(current))
+                if current.attempt == journal.attempt
+                    && current.state == State::Launched
+                    && current.owner == Some(me) => {}
+            other => return Err(fail(format!("перед committed журнал {other:?}"))),
+        }
+        let now = now_ms();
+        if now >= deadline {
+            return Err(fail(format!(
+                "срок health истёк до подтверждения: {now} ≥ {deadline}"
+            )));
+        }
+        store
+            .advance(&journal.attempt, &[State::Launched], |next| {
+                next.state = State::Committed;
+            })
+            .map_err(|err| fail(err.to_string()))?;
+        let report = update::recover_now(&store, &self.options, me).map_err(fail)?;
+        match store.read() {
+            Ok(Some(done)) if update::committed(&done, &journal.attempt) => {}
+            other => return Err(fail(format!("после уборки журнал {other:?}"))),
+        }
+        Ok(Some(Confirmed {
+            attempt: journal.attempt.clone(),
+            deadline_ms: deadline,
+            health: facts,
+            committed_ms: now,
+            cleanup: report
+                .steps
+                .iter()
+                .map(|step| format!("{step:?}"))
+                .collect(),
+        }))
     }
 
     /// Сессия под мьютексом заморозки: под заморозкой — временный отказ без запуска.
@@ -1867,25 +2070,6 @@ mod tests {
     }
 
     #[test]
-    fn dir_watch_wakes_on_entries_and_triggers_without_polling() {
-        let dir = temp_dir("owner-watch");
-        let watch = DirWatch::new(&dir).unwrap();
-        File::create(dir.join("published")).unwrap();
-        assert_eq!(
-            watch.wait(Instant::now() + Duration::from_secs(5)).unwrap(),
-            Event::Changed
-        );
-        let trigger = watch.trigger();
-        thread::spawn(move || trigger.fire()).join().unwrap();
-        assert_eq!(
-            watch.wait(Instant::now() + Duration::from_secs(5)).unwrap(),
-            Event::Fired
-        );
-        assert_eq!(watch.wait(Instant::now()).unwrap(), Event::TimedOut);
-        fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
     fn stale_socket_is_removed_but_nothing_else() {
         let dir = socket_dir("os");
         let socket = socket_path(&dir);
@@ -1944,11 +2128,14 @@ mod tests {
                 window: false,
                 ready: true,
                 received: Vec::new(),
+                update: None,
             },
             state: Mutex::new(ServerState {
                 ready: true,
                 received: Vec::new(),
                 quitting: false,
+                handing: None,
+                update: None,
             }),
             changed: Condvar::new(),
             gate: Mutex::new(Gate::default()),

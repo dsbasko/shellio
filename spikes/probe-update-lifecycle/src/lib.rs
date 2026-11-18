@@ -7,11 +7,14 @@
 
 pub mod args;
 pub mod attach;
+pub mod barrier;
 pub mod compat;
 pub mod fixture;
 pub mod generation;
+pub mod health;
 pub mod host;
 pub mod journal;
+pub mod kq;
 pub mod launch;
 pub mod observer;
 pub mod owner;
@@ -23,6 +26,8 @@ pub mod runtime;
 pub mod scenario;
 pub mod spawn;
 pub mod sys;
+pub mod update;
+pub mod watchdog;
 
 use std::io::{self, Write};
 use std::path::Path;

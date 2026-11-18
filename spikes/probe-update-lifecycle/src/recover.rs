@@ -11,13 +11,15 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
+use crate::barrier::{self, Mutation, Point};
 use crate::generation::{self, Verify};
 use crate::journal::{Journal, JournalError, Outcome, STAGED_PREFIX, State, Store};
 use crate::observer::ProcessKey;
 use crate::sys;
 
 /// Что нашёл проверяльщик по пути.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(tag = "seen", rename_all = "kebab-case")]
 pub enum Seen {
     Absent,
     /// Подпись цела, требование выполнено; CDHash бандла.
@@ -372,6 +374,7 @@ pub fn recover(
 fn apply(store: &Store, journal: &Journal, step: Step, ctx: &Context) -> Result<(), RecoverError> {
     let io = |what: &str, err: io::Error| RecoverError::Io(format!("{what}: {err}"));
     let install_dir = journal.installed.parent().unwrap_or(Path::new("/"));
+    let state = store.state();
     match step {
         Step::Write(state, outcome) => {
             store.advance(&journal.attempt, &[journal.state], |next| {
@@ -385,23 +388,49 @@ fn apply(store: &Store, journal: &Journal, step: Step, ctx: &Context) -> Result<
                 next.owner = Some(ctx.actor.key);
             })?;
         }
-        Step::Remove => {
-            fs::remove_dir_all(journal.staged_dir())
+        Step::Remove => mutate(state, Mutation::Remove, || {
+            remove_bundle(state, &journal.staged_dir())
                 .map_err(|err| io("удаление кандидата", err))?;
-            sys::sync_dir(install_dir).map_err(|err| io("fsync каталога установки", err))?;
-        }
-        Step::Swap => {
+            sys::sync_dir(install_dir).map_err(|err| io("fsync каталога установки", err))
+        })?,
+        Step::Swap => mutate(state, Mutation::Swap, || {
             sys::swap_paths(&journal.installed, &journal.staged_dir())
                 .map_err(|err| io("обратный обмен", err))?;
-            sys::sync_dir(install_dir).map_err(|err| io("fsync каталога установки", err))?;
-        }
-        Step::Retire => {
+            sys::sync_dir(install_dir).map_err(|err| io("fsync каталога установки", err))
+        })?,
+        Step::Retire => mutate(state, Mutation::Retire, || {
             fs::rename(journal.staged_dir(), journal.failed_dir())
                 .map_err(|err| io("переименование отказавшего N+1", err))?;
-            sys::sync_dir(install_dir).map_err(|err| io("fsync каталога установки", err))?;
-        }
+            sys::sync_dir(install_dir).map_err(|err| io("fsync каталога установки", err))
+        })?,
     }
     Ok(())
+}
+
+/// Мутация диска между барьерами «до» и «после» (план P0.5, B2: «восстановление на каждой
+/// своей мутации»).
+fn mutate(
+    state: &Path,
+    mutation: Mutation,
+    work: impl FnOnce() -> Result<(), RecoverError>,
+) -> Result<(), RecoverError> {
+    let point = |done| Point::Step { mutation, done };
+    barrier::reach(state, point(false));
+    work()?;
+    barrier::reach(state, point(true));
+    Ok(())
+}
+
+/// Удаление бандла в два шага: сначала исполняемые файлы, затем остальное. Между шагами — барьер
+/// «посреди удаления»: каталог там уже частичный и проверку подписи не проходит.
+pub fn remove_bundle(state: &Path, bundle: &Path) -> io::Result<()> {
+    let gone = |result: io::Result<()>| match result {
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(()),
+        other => other,
+    };
+    gone(fs::remove_dir_all(bundle.join("Contents").join("MacOS")))?;
+    barrier::reach(state, Point::RemovePartial);
+    gone(fs::remove_dir_all(bundle))
 }
 
 #[cfg(test)]

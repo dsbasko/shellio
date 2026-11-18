@@ -3,6 +3,11 @@
 //! каталога. Перед каждой записью писатель перечитывает файл и сверяет номер попытки и
 //! состояние-предусловие с диском, а не со своей копией. Пишет только владелец `shellio.lock`;
 //! блокировку берёт вызывающий (задача 6).
+//!
+//! Каждая запись даёт две границы барьеров пробы — до и после `rename` временного файла
+//! ([`barrier::Point::Journal`]). После `rename` запись дописывается в историю
+//! `<state>/update-history.jsonl` — сырой артефакт стенда, по которому сценарии видят и короткие
+//! состояния. Дописывание лучшее из возможного: его отказ записи журнала не отменяет.
 
 use std::fs;
 use std::io::{self, Write};
@@ -10,6 +15,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::barrier::{self, Point};
 use crate::observer::ProcessKey;
 use crate::sys;
 
@@ -19,6 +25,8 @@ pub const JOURNAL_FILE: &str = "journal.json";
 pub const STAGED_PREFIX: &str = ".shellio-update-";
 /// Отказавший N+1 попытки: `.shellio-failed-<attempt>`.
 pub const FAILED_PREFIX: &str = ".shellio-failed-";
+/// История записей журнала стенда в каталоге состояния.
+pub const HISTORY_FILE: &str = "update-history.jsonl";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -98,8 +106,10 @@ pub enum Outcome {
     RolledBack,
 }
 
-/// Таблица переходов плана, строка в строку.
-pub const TRANSITIONS: [(State, State); 16] = [
+/// Таблица переходов плана, строка в строку. `swapped → rollback-intent` — из действия строки
+/// `swapped → launched` («если такой процесс не появился за срок запуска — `rollback-intent`»),
+/// которой в таблице плана своей строки не было (⚠️ задача 8).
+pub const TRANSITIONS: [(State, State); 17] = [
     (State::Idle, State::StagedDeferred),
     (State::Idle, State::Staged),
     (State::Staged, State::Intent),
@@ -109,6 +119,7 @@ pub const TRANSITIONS: [(State, State); 16] = [
     (State::Aborting, State::Idle),
     (State::Intent, State::Swapped),
     (State::Swapped, State::Launched),
+    (State::Swapped, State::RollbackIntent),
     (State::Launched, State::Committed),
     (State::Committed, State::Cleaning),
     (State::Cleaning, State::Idle),
@@ -120,6 +131,15 @@ pub const TRANSITIONS: [(State, State); 16] = [
 
 pub fn allowed(from: State, to: State) -> bool {
     TRANSITIONS.contains(&(from, to))
+}
+
+/// Сессия в снимке `intent`: процессы, которые health N+1 сверяет.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionKeys {
+    pub session: String,
+    pub host: ProcessKey,
+    pub workload: ProcessKey,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -144,6 +164,13 @@ pub struct Journal {
     pub outcome: Option<Outcome>,
     /// Причина отсрочки или прерывания.
     pub reason: Option<String>,
+    /// Аргументы режима GUI N для запуска N+1 и повторного запуска N (`--state`, `--installed`,
+    /// `--leaf`, `--identifier`, `--tag`, `--window`). Задаются один раз, в `staged → intent`.
+    #[serde(default)]
+    pub launch: Vec<String>,
+    /// Живые сессии под заморозкой в `staged → intent`: опора health N+1.
+    #[serde(default)]
+    pub sessions: Vec<SessionKeys>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -204,6 +231,8 @@ impl Journal {
             owner: None,
             outcome: None,
             reason: None,
+            launch: Vec::new(),
+            sessions: Vec::new(),
         }
     }
 
@@ -226,6 +255,17 @@ impl Journal {
         }
         if self.state.has_deadline() && self.deadline_ms.is_none() {
             return Err(format!("{}: нет срока health", self.state.name()));
+        }
+        if self.state.has_deadline() && self.launch.is_empty() {
+            return Err(format!("{}: нет аргументов режима", self.state.name()));
+        }
+        if matches!(self.state, State::Staged | State::StagedDeferred)
+            && (!self.launch.is_empty() || !self.sessions.is_empty())
+        {
+            return Err(format!(
+                "{}: аргументы режима или снимок сессий до intent",
+                self.state.name()
+            ));
         }
         if matches!(self.state, State::Staged | State::StagedDeferred) && self.deadline_ms.is_some()
         {
@@ -289,6 +329,11 @@ fn check_change(old: &Journal, new: &Journal) -> Result<(), String> {
     if old.deadline_ms != new.deadline_ms && !(sets_deadline && old.deadline_ms.is_none()) {
         return Err("срок health задаётся один раз в intent и не продлевается".to_owned());
     }
+    if (old.launch != new.launch || old.sessions != new.sessions)
+        && !(sets_deadline && old.launch.is_empty() && old.sessions.is_empty())
+    {
+        return Err("аргументы режима и снимок сессий задаются один раз в intent".to_owned());
+    }
     if old.owner != new.owner && !(new.state == State::Launched && old.owner.is_none()) {
         return Err("ключ владельца задаётся один раз в launched".to_owned());
     }
@@ -310,6 +355,15 @@ impl Store {
 
     pub fn path(&self) -> PathBuf {
         self.dir.join(JOURNAL_FILE)
+    }
+
+    /// Каталог состояния.
+    pub fn state(&self) -> &Path {
+        self.dir.parent().unwrap_or(Path::new("/"))
+    }
+
+    pub fn history_path(&self) -> PathBuf {
+        self.state().join(HISTORY_FILE)
     }
 
     /// `None` — журнала нет, это `idle` без попыток. Пустой или битый файл — ошибка.
@@ -382,7 +436,7 @@ impl Store {
 
     /// Временный файл, `fsync`, `rename`, `fsync` каталога. При отказе временный файл
     /// удаляется, если можно, и прежний журнал остаётся как был.
-    fn write(&self, journal: &Journal) -> Result<(), JournalError> {
+    pub(crate) fn write(&self, journal: &Journal) -> Result<(), JournalError> {
         let io = |what: &str, err: io::Error| JournalError::Io(format!("{what}: {err}"));
         fs::create_dir_all(&self.dir).map_err(|err| io("каталог журнала", err))?;
         let tmp = self
@@ -397,14 +451,78 @@ impl Store {
                 .map_err(|err| io("запись временного файла", err))?;
             file.sync_all()
                 .map_err(|err| io("fsync временного файла", err))?;
+            barrier::reach(
+                self.state(),
+                Point::Journal {
+                    state: journal.state,
+                    renamed: false,
+                },
+            );
             fs::rename(&tmp, self.path()).map_err(|err| io("rename журнала", err))
         })();
         if let Err(err) = written {
             let _ = fs::remove_file(&tmp);
             return Err(err);
         }
-        sys::sync_dir(&self.dir).map_err(|err| io("fsync каталога журнала", err))
+        sys::sync_dir(&self.dir).map_err(|err| io("fsync каталога журнала", err))?;
+        self.append_history(journal);
+        barrier::reach(
+            self.state(),
+            Point::Journal {
+                state: journal.state,
+                renamed: true,
+            },
+        );
+        Ok(())
     }
+
+    /// История записей: строка JSON на запись. Отказ дописывания запись журнала не отменяет.
+    fn append_history(&self, journal: &Journal) {
+        let Ok(mut line) = serde_json::to_vec(&History {
+            uptime_ns: sys::uptime_ns(),
+            pid: std::process::id(),
+            journal,
+        }) else {
+            return;
+        };
+        line.push(b'\n');
+        let _ = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.history_path())
+            .and_then(|mut file| file.write_all(&line));
+    }
+
+    /// История записей стенда; нет файла — пусто.
+    pub fn history(&self) -> Result<Vec<HistoryEntry>, String> {
+        let path = self.history_path();
+        let text = match fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(err) => return Err(format!("{}: {err}", path.display())),
+        };
+        text.lines()
+            .filter(|line| !line.trim().is_empty())
+            .map(|line| {
+                serde_json::from_str(line).map_err(|err| format!("{}: {err}", path.display()))
+            })
+            .collect()
+    }
+}
+
+#[derive(Serialize)]
+struct History<'a> {
+    uptime_ns: u64,
+    pid: u32,
+    journal: &'a Journal,
+}
+
+/// Строка истории записей журнала.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HistoryEntry {
+    pub uptime_ns: u64,
+    pub pid: u32,
+    pub journal: Journal,
 }
 
 #[cfg(test)]
@@ -438,6 +556,7 @@ pub(crate) mod tests {
         journal.state = state;
         if state.has_deadline() {
             journal.deadline_ms = Some(DEADLINE);
+            journal.launch = launch_args();
         }
         if matches!(
             state,
@@ -454,6 +573,13 @@ pub(crate) mod tests {
             journal.outcome = Some(Outcome::Aborted);
         }
         journal
+    }
+
+    pub fn launch_args() -> Vec<String> {
+        ["--state", "/s", "--tag", "t"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect()
     }
 
     pub fn put(store: &Store, journal: &Journal) {
@@ -495,7 +621,7 @@ pub(crate) mod tests {
                 continue;
             }
             let mut start = journal_in(from, &installed(&dir));
-            if from == State::Swapped {
+            if from == State::Swapped || (from == State::Staged && to == State::Intent) {
                 start.owner = None;
             }
             put(&store, &start);
@@ -504,6 +630,7 @@ pub(crate) mod tests {
                     journal.state = to;
                     if to == State::Intent {
                         journal.deadline_ms = Some(DEADLINE);
+                        journal.launch = launch_args();
                     }
                     if to == State::Launched {
                         journal.owner = Some(OWNER);

@@ -23,7 +23,12 @@ pub struct Spec<'a> {
     pub env: Option<&'a [(String, String)]>,
     /// stdin, stdout и stderr; `None` — `/dev/null`. Дескрипторы закрываются после запуска.
     pub stdio: [Option<OwnedFd>; 3],
+    /// Новая сессия (`POSIX_SPAWN_SETSID`): потомок не делит группу и сессию с вызывающим.
+    pub setsid: bool,
 }
+
+/// `POSIX_SPAWN_SETSID` из `spawn.h`: в `libc` для Apple его нет.
+const POSIX_SPAWN_SETSID: libc::c_int = 0x0400;
 
 /// Итог процесса.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -163,9 +168,12 @@ pub fn spawn(spec: Spec<'_>) -> io::Result<i32> {
                 attr.as_mut_ptr(),
                 defaults.as_ptr(),
             ))?;
-            let flags = libc::POSIX_SPAWN_CLOEXEC_DEFAULT
+            let mut flags = libc::POSIX_SPAWN_CLOEXEC_DEFAULT
                 | libc::POSIX_SPAWN_SETSIGMASK
                 | libc::POSIX_SPAWN_SETSIGDEF;
+            if spec.setsid {
+                flags |= POSIX_SPAWN_SETSID;
+            }
             check(libc::posix_spawnattr_setflags(
                 attr.as_mut_ptr(),
                 flags as libc::c_short,
@@ -233,6 +241,7 @@ pub fn output(program: &Path, args: &[String]) -> io::Result<Output> {
         args,
         env: None,
         stdio: [None, Some(out_write), Some(err_write)],
+        setsid: false,
     })?;
     let stderr = thread::Builder::new()
         .name("spawn-stderr".to_owned())
@@ -295,6 +304,7 @@ mod tests {
             args: &[],
             env: Some(&env),
             stdio: [None, Some(write), None],
+            setsid: true,
         })
         .unwrap();
         let text = read_all(read).unwrap();

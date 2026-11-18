@@ -88,6 +88,9 @@ pub(super) struct Guard {
     pub(super) state: PathBuf,
     pub(super) apps: Vec<Child>,
     pub(super) sessions: Vec<SessionRecord>,
+    /// Метка запуска: процессы стенда вне дерева сценария (помощник, N+1 через `open`) снимаются
+    /// по ней.
+    pub(super) nonce: Option<String>,
     pub(super) armed: bool,
 }
 
@@ -108,6 +111,13 @@ impl Drop for Guard {
                     unsafe { libc::kill(key.pid, libc::SIGKILL) };
                     pids.push(key.pid);
                 }
+            }
+        }
+        if let Some(nonce) = &self.nonce {
+            for record in launch::find_by_token(nonce) {
+                // SAFETY: сигнал процессу стенда с меткой запуска в аргументах.
+                unsafe { libc::kill(record.pid, libc::SIGKILL) };
+                pids.push(record.pid);
             }
         }
         launch::wait_exit(&pids, STEP);
@@ -162,7 +172,7 @@ pub(super) fn reports(out: &Path, name: &str) -> Result<Vec<AppReport>, String> 
     let path = out.join(format!("{name}.stdout"));
     let text = fs::read_to_string(&path).map_err(|err| format!("{}: {err}", path.display()))?;
     text.lines()
-        .filter(|line| !line.trim().is_empty())
+        .filter(|line| !line.trim().is_empty() && !line.starts_with("{\"event\""))
         .map(|line| {
             serde_json::from_str(line).map_err(|err| format!("{name}.stdout «{line}»: {err}"))
         })
@@ -283,6 +293,7 @@ pub fn run(out: &Path, environment: &Environment) -> Result<Report, String> {
         state: state.clone(),
         apps: Vec::new(),
         sessions: Vec::new(),
+        nonce: Some(nonce.to_owned()),
         armed: true,
     };
     let mut evidence = Evidence::default();

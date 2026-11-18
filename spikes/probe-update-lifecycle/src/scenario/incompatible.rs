@@ -211,6 +211,7 @@ pub fn run(out: &Path, environment: &Environment) -> Result<Report, String> {
         state: state.clone(),
         apps: Vec::new(),
         sessions: Vec::new(),
+        nonce: Some(nonce.to_owned()),
         armed: true,
     };
     let mut evidence = Evidence::default();

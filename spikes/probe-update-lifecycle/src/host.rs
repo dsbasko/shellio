@@ -956,6 +956,7 @@ pub fn launch(binary: &Path, options: &Options, stderr: File) -> Result<SessionR
         args: &options.to_args(),
         env: None,
         stdio: [None, Some(write), Some(OwnedFd::from(stderr))],
+        setsid: false,
     })
     .map_err(|err| format!("запуск {}: {err}", binary.display()))?;
     let (sender, receiver) = mpsc::channel();
