@@ -9,14 +9,14 @@ use std::time::{Duration, Instant};
 
 use objc2::AnyThread;
 use objc2::rc::autoreleasepool;
-use objc2_app_kit::{NSBitmapImageRep, NSColorSpace};
+use objc2_app_kit::NSBitmapImageRep;
 use objc2_foundation::NSData;
 use serde::Serialize;
 
 use crate::kq::{Event, Queue};
 use crate::spawn;
 
-use super::smoke::WindowEntry;
+use super::smoke::{Rgb, WindowEntry, srgb_at};
 
 const SCREENCAPTURE: &str = "/usr/sbin/screencapture";
 /// Срок одного запуска `screencapture`.
@@ -159,21 +159,9 @@ fn examine(path: &Path) -> Result<((isize, isize), usize), String> {
         let rep = NSBitmapImageRep::initWithData(NSBitmapImageRep::alloc(), &data)
             .ok_or_else(|| format!("{}: PNG не разобран", path.display()))?;
         let pixels = (rep.pixelsWide(), rep.pixelsHigh());
-        let srgb = NSColorSpace::sRGBColorSpace();
-        let channel = |value: f64| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
         let colours: BTreeSet<(u8, u8, u8)> = grid_points(pixels)
             .into_iter()
-            .filter_map(|(x, y)| {
-                rep.colorAtX_y(x, y)
-                    .and_then(|color| color.colorUsingColorSpace(&srgb))
-                    .map(|color| {
-                        (
-                            channel(color.redComponent()),
-                            channel(color.greenComponent()),
-                            channel(color.blueComponent()),
-                        )
-                    })
-            })
+            .filter_map(|(x, y)| srgb_at(&rep, x, y).map(|Rgb(r, g, b)| (r, g, b)))
             .collect();
         Ok((pixels, colours.len()))
     })

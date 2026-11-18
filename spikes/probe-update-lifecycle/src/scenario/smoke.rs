@@ -16,6 +16,7 @@
 
 use std::path::Path;
 use std::process::{Child, Command, ExitStatus, Stdio};
+use std::ptr::NonNull;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -466,28 +467,45 @@ fn screencapture(app: &NSApplication, args: &[&str], path: &Path) -> Result<Exit
 
 /// Размер снимка и пиксели в точках выборки, в sRGB. Источник —
 /// `spikes/probe-ghostty-surface/src/scenario/snapshot.rs`.
-fn read_samples(path: &Path) -> Result<Samples, String> {
+pub fn read_samples(path: &Path) -> Result<Samples, String> {
     let bytes = std::fs::read(path).map_err(|err| format!("{}: {err}", path.display()))?;
     autoreleasepool(|_| {
         let data = NSData::with_bytes(&bytes);
         let rep = NSBitmapImageRep::initWithData(NSBitmapImageRep::alloc(), &data)
             .ok_or_else(|| format!("{}: PNG не разобран", path.display()))?;
         let pixels = (rep.pixelsWide(), rep.pixelsHigh());
-        let srgb = NSColorSpace::sRGBColorSpace();
-        let channel = |value: f64| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
-        let samples = sample_points(pixels).map(|(x, y)| {
-            rep.colorAtX_y(x, y)
-                .and_then(|color| color.colorUsingColorSpace(&srgb))
-                .map(|color| {
-                    Rgb(
-                        channel(color.redComponent()),
-                        channel(color.greenComponent()),
-                        channel(color.blueComponent()),
-                    )
-                })
-        });
+        let samples = sample_points(pixels).map(|(x, y)| srgb_at(&rep, x, y));
         Ok((pixels, samples))
     })
+}
+
+/// Пиксель снимка в sRGB. `colorAtX:y:` отдаёт компоненты пространства bitmap, но помечает их
+/// Generic RGB: перевод такого цвета в sRGB искажает снимок с профилем дисплея, например
+/// Display P3. Поэтому компоненты переводятся из пространства bitmap. Тот же приём —
+/// `spikes/probe-appkit-shell/src/scenario/snapshot.rs`.
+pub fn srgb_at(rep: &NSBitmapImageRep, x: isize, y: isize) -> Option<Rgb> {
+    let color = rep.colorAtX_y(x, y)?;
+    let mut components = [
+        color.redComponent(),
+        color.greenComponent(),
+        color.blueComponent(),
+        1.0,
+    ];
+    // SAFETY: четыре компонента — RGB пространства bitmap и альфа, массив живёт на время вызова.
+    let color = unsafe {
+        NSColor::colorWithColorSpace_components_count(
+            &rep.colorSpace(),
+            NonNull::from(&mut components).cast(),
+            4,
+        )
+    };
+    let srgb = color.colorUsingColorSpace(&NSColorSpace::sRGBColorSpace())?;
+    let channel = |value: f64| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
+    Some(Rgb(
+        channel(srgb.redComponent()),
+        channel(srgb.greenComponent()),
+        channel(srgb.blueComponent()),
+    ))
 }
 
 fn number_of(dict: &CFDictionary<CFString, CFType>, key: &CFString) -> Option<f64> {
@@ -615,6 +633,22 @@ mod tests {
         assert!(!shows_window([None, None]));
         assert_eq!(distance(LEFT, RIGHT), 191);
         assert!(distance(LEFT, RIGHT) > 2 * TOLERANCE);
+    }
+
+    #[test]
+    fn snapshots_are_read_in_srgb_from_any_display_profile() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/testdata/snapshot");
+        // Снимки окна smoke: на внешнем мониторе (профиль близок к sRGB) и на встроенном
+        // дисплее с профилем Display P3, где чтение без перевода давало (211, 84, 155).
+        for name in ["smoke-window-external.png", "smoke-window-display-p3.png"] {
+            let (pixels, samples) = read_samples(&dir.join(name)).unwrap();
+            assert_eq!(pixels, (480, 320), "{name}");
+            for (sample, expected) in samples.iter().zip([LEFT, RIGHT]) {
+                let sample = sample.unwrap();
+                assert!(distance(sample, expected) <= 2, "{name}: {sample:?}");
+            }
+            assert!(shows_window(samples), "{name}");
+        }
     }
 
     #[test]
