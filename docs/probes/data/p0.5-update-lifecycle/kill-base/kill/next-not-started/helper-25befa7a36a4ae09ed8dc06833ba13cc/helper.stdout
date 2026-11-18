@@ -1,0 +1,10 @@
+{"detail":{"attempt":"25befa7a36a4ae09ed8dc06833ba13cc","gui":{"pid":8830,"start_us":1795015625608286},"key":{"pid":8851,"start_us":1795015626353187}},"event":"started","pid":8851,"uptime_ns":642394227061125}
+{"detail":{"gui":{"pid":8830,"start_us":1795015625608286}},"event":"gui-exited","pid":8851,"uptime_ns":642394227126458}
+{"detail":{"inode":{"dev":16777231,"ino":303172175}},"event":"locked","pid":8851,"uptime_ns":642394227205541}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":8851,"uptime_ns":642394298580041}
+{"detail":{},"event":"swapped","pid":8851,"uptime_ns":642394304693458}
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-next-not-started/probe-update.app"},"event":"opened","pid":8851,"uptime_ns":642394383528083}
+{"detail":{"candidates":[],"owner":null,"reused":false},"event":"identified","pid":8851,"uptime_ns":642414384726958}
+{"detail":{"steps":"[Swap, Write(RolledBack, None), Retire, Write(Retired, None), Write(Idle, Some(RolledBack))]"},"event":"rolled-back","pid":8851,"uptime_ns":642414661350333}
+{"detail":{"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-next-not-started/probe-update.app"},"event":"relaunched","pid":8851,"uptime_ns":642414723105500}
+{"detail":{"outcome":"N+1 не появился: попытка откачена, N запущен"},"event":"done","pid":8851,"uptime_ns":642414723131208}

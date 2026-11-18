@@ -1,0 +1,180 @@
+{
+  "schema": 1,
+  "scenario": "env-faults",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "94514132ba68",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "versions": {
+      "homebrew": "Homebrew 7.0.14-26-gb63354c"
+    },
+    "generations": {
+      "denied": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+      "denied-2": "48f26b5d5eed2c5fa8a71e16923ce6773f253b88",
+      "foreign": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+      "gen-1": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "gen-2": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "incompatible": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "tampered": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "wrong-id": "acd96c2187aace3a2a7e15fd17949d1efae13cac"
+    },
+    "process": {
+      "pid": 11184,
+      "nonce": "269347df98b6b685",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685",
+      "env": {
+        "HOME": "/Users/u",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_BUNDLES": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle",
+        "SHELLIO_PROBE_COMMIT": "94514132ba68",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_VERSION_HOMEBREW": "Homebrew 7.0.14-26-gb63354c",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "cells": [
+    {
+      "id": "B3",
+      "part": "enospc-candidate",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "том заполнен физической записью до ENOSPC, затем освобождено 2 МиБ; `update` поколением 2 у живого GUI N; после освобождения тома — `quit` и отдельный запуск восстановления",
+      "oracle": "`update` — окончательный отказ с ENOSPC от `ditto`; журнала нет, `.shellio-update-*` нет, установлен N, GUI N отвечает, `h1` прежняя с хвостом и квитанцией; после освобождения — восстановление без шагов, владелец N, `h1` прежняя, второе восстановление ничего не меняет",
+      "completion": "ответ владельца, барьер, выход процесса или готовность владельца в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "update: «ditto: ditto: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685/v1/s/install/.shellio-update-830fe4e3856f5d97207db9882b2417c8/Contents/MacOS/probe-update-app: No space left on device\nditto: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685/v1/s/install/.shellio-update-830fe4e3856f5d97207db9882b2417c8/Contents/MacOS/probe-update-helper: No space left on device» (ENOSPC, ditto: системный вызов внутри ditto не наблюдается); запас 2097152 байт, том полон по пробе; во время: журнала нет, установлен N, кандидат нет, каталоги попытки []; GUI N 11210 отвечает; h1 — хвост 3 строк и квитанция; после освобождения: владелец N 11225 без шагов восстановления, журнала нет, установлен N, кандидат нет, каталоги попытки []",
+      "artifacts": [
+        "env-faults/steps.json",
+        "env-faults/enospc-candidate"
+      ]
+    },
+    {
+      "id": "B3",
+      "part": "enospc-journal",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "`update` поколением 2 (`staged`); том заполнен до ENOSPC; `activate`; `quit` GUI N и запуск восстановления на полном томе; освобождение, запуск восстановления",
+      "oracle": "`activate` — отказ с ENOSPC записи временного файла журнала; журнал байт в байт прежний (`staged`), временного файла нет, помощник не запущен, GUI N отвечает, `h1` прежняя; восстановление на полном томе выходит с ошибкой ENOSPC, ничего не переставив; после освобождения — `aborting`, удаление кандидата, `idle` «прервана», владелец N, второе восстановление ничего не меняет",
+      "completion": "ответ владельца, барьер, выход процесса или готовность владельца в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "activate: «журнал: временный файл: No space left on device (os error 28)» (open(2) O_CREAT временного файла журнала); во время: журнал staged, установлен N, кандидат N+1, каталоги попытки [\".shellio-update-90ee18210b2da68ab5c21af068d0a021\"], временного файла нет, помощник не запущен, GUI N отвечает, h1 прежняя; восстановление на полном томе: код Some(1), «восстановление: журнал: временный файл: No space left on device (os error 28)»; после освобождения: история [\"staged\", \"aborting\", \"idle\"], владелец N 11349, журнал idle Aborted, установлен N, кандидат нет, каталоги попытки []",
+      "artifacts": [
+        "env-faults/steps.json",
+        "env-faults/enospc-journal"
+      ]
+    },
+    {
+      "id": "B3",
+      "part": "enospc-runtime",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "`update`, `activate`; N+1 на барьере `next.runtime-partial` (хост уже в `runtime/.prep-2`); том заполнен до ENOSPC, барьер снят; запуск восстановления на полном томе; освобождение, запуск восстановления",
+      "oracle": "N+1 выходит с ошибкой ENOSPC копии в `runtime/.prep-2`, сокета не публикует; помощник видит выход владельца, запись `rollback-intent` отказывает ENOSPC, он выходит с ошибкой, ничего не переставив: журнал `launched`, установлен N+1, кандидат — N, владельца нет, `h1` прежняя; восстановление на полном томе выходит с ошибкой ENOSPC; после освобождения — откат до `idle` «откачена», владелец N, N+1 в `.shellio-failed-<attempt>`, второе восстановление ничего не меняет",
+      "completion": "ответ владельца, барьер, выход процесса или готовность владельца в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "N+1 11428 на барьере (в .prep-2 [\"probe-update-host\"]), после заполнения: «копия /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685/v3/s/install/probe-update.app/Contents/MacOS/probe-update-attach в /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685/v3/s/runtime/.prep-2/probe-update-attach: No space left on device (os error 28)» (fs::copy (fclonefileat(2), иначе fcopyfile(3)) в каталог подготовки рантайма); помощник: «восстановление: журнал: временный файл: No space left on device (os error 28)»; во время: журнал launched, установлен N+1, кандидат N, каталоги попытки [\".shellio-update-93b08bb543dcd057c2180ebeec03a68a\"], владельца нет («владелец запускается или перезапускается»), h1 прежняя; восстановление на полном томе — код Some(1); после освобождения: история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], владелец N 11527, журнал idle RolledBack, установлен N, кандидат нет, каталоги попытки [\".shellio-failed-93b08bb543dcd057c2180ebeec03a68a\"]",
+      "artifacts": [
+        "env-faults/steps.json",
+        "env-faults/enospc-runtime"
+      ]
+    },
+    {
+      "id": "B3",
+      "part": "exdev-swap",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "после `staged` кандидат заменён томом только для чтения с тем же подписанным бандлом (тот же CDHash) в точке `.shellio-update-<attempt>`; `activate`; на барьере `helper.journal-aborting-after` том кандидата отключён, барьер снят",
+      "oracle": "`renamex_np(RENAME_SWAP)` помощника — EXDEV, журнал `aborting` с этой причиной, установлен N; после снятия барьера помощник удаляет кандидата, пишет `idle` «прервана» и запускает N через `open -n`; владелец N, `h1` прежняя, второе восстановление ничего не меняет",
+      "completion": "ответ владельца, барьер, выход процесса или готовность владельца в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "кандидат на отдельном томе (тот же CDHash 0aafd23b10f21b8085484e6630ad710a3fee337f); помощник 11635: renamex_np — «renamex_np(RENAME_SWAP): Cross-device link (os error 18)» (errno Some(18)); на барьере: журнал aborting, установлен N, кандидат N+1, каталоги попытки [\".shellio-update-b40712de4798e7e746e1b0581d547160\"]; после отключения тома: история [\"staged\", \"intent\", \"aborting\", \"idle\"], N запущен помощником (владелец 11690), журнал idle Aborted, установлен N, кандидат нет, каталоги попытки []",
+      "artifacts": [
+        "env-faults/steps.json",
+        "env-faults/exdev-swap"
+      ]
+    },
+    {
+      "id": "B3",
+      "part": "eacces-stage",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "каталог установки `chmod 0555`; `update` поколением 2 у живого GUI N; права возвращены, `quit` и запуск восстановления",
+      "oracle": "`update` — окончательный отказ с EACCES от `ditto`; журнала нет, кандидата нет, установлен N, GUI N отвечает, `h1` прежняя; восстановление без шагов, владелец N, второе восстановление ничего не меняет",
+      "completion": "ответ владельца, барьер, выход процесса или готовность владельца в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "update: «ditto: ditto: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685/v5/s/install/.shellio-update-0b9c248f9cd2ed5992ca5e95e54a2f55: Permission denied» (ditto: системный вызов внутри ditto не наблюдается); во время: журнала нет, установлен N, кандидат нет, каталоги попытки [], GUI N отвечает, h1 прежняя; после возврата прав: владелец N 11744 без шагов восстановления, журнала нет, установлен N, кандидат нет, каталоги попытки []",
+      "artifacts": [
+        "env-faults/steps.json",
+        "env-faults/eacces-stage"
+      ]
+    },
+    {
+      "id": "B3",
+      "part": "eacces-swap",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "`update` (`staged`); каталог установки `chmod 0555`; `activate`; запуск восстановления без права записи; права возвращены, запуск восстановления",
+      "oracle": "`renamex_np(RENAME_SWAP)` помощника — EACCES, журнал `aborting`; удаление кандидата отказывает EACCES на каталоге установки, помощник выходит с ошибкой, N не запускает; установлен N, владельца нет, `h1` прежняя; восстановление без права записи выходит с ошибкой EACCES, журнал прежний; после возврата прав — удаление, `idle` «прервана», владелец N, второе восстановление ничего не меняет",
+      "completion": "ответ владельца, барьер, выход процесса или готовность владельца в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "помощник 11818: renamex_np — «renamex_np(RENAME_SWAP): Permission denied (os error 13)»; удаление кандидата — «восстановление: удаление кандидата: Permission denied (os error 13)», N не запущен; во время: журнал aborting, установлен N, кандидат частичный, каталоги попытки [\".shellio-update-695bf0da93cb3b05e54caa53088ff3fc\"], владельца нет, h1 прежняя; восстановление без прав — код Some(1), «восстановление: удаление кандидата: Permission denied (os error 13)»; после возврата прав: история [\"staged\", \"intent\", \"aborting\", \"idle\"], владелец N 11867, журнал idle Aborted, установлен N, кандидат нет, каталоги попытки []",
+      "artifacts": [
+        "env-faults/steps.json",
+        "env-faults/eacces-swap"
+      ]
+    },
+    {
+      "id": "B3",
+      "part": "injected-journal-rename",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "injected: EIO вместо `rename(2)` временного файла журнала у помощника на записи `swapped` (после настоящего `renamex_np`); `update`, `activate`; запуск восстановления",
+      "oracle": "инъекция сработала у помощника; он выходит с ошибкой EIO без `open`, журнал `intent`, временного файла нет, установлен N+1, кандидат — N, владельца нет, `h1` прежняя; восстановление по строке «`intent`, N+1 / N» пишет `swapped` и запускает N+1, тот подтверждается: `idle` «подтверждена», установлен N+1, второе восстановление ничего не меняет",
+      "completion": "ответ владельца, барьер, выход процесса или готовность владельца в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "injected: помощник 11934 получил errno 5 на helper.journal-swapped-before; ошибка «журнал: rename журнала (injected): Input/output error (os error 5)»; во время: журнал intent, установлен N+1, кандидат N, каталоги попытки [\".shellio-update-9f70aee15ff08020c99584fd36fc81ea\"], временного файла нет, владельца нет, h1 прежняя; восстановление: история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], владелец N+1 11955, журнал idle Committed, установлен N+1, кандидат нет, каталоги попытки []",
+      "artifacts": [
+        "env-faults/steps.json",
+        "env-faults/injected-journal-rename"
+      ]
+    },
+    {
+      "id": "B3",
+      "part": "injected-reverse-swap",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "injected: EIO вместо обратного `renamex_np(RENAME_SWAP)` у помощника; `update`, `activate`; N+1 снят `SIGKILL` на `next.before-publish`; запуск восстановления",
+      "oracle": "инъекция сработала у помощника; он записал `rollback-intent` и выходит с ошибкой EIO: журнал `rollback-intent`, установлен N+1, кандидат — N, владельца нет, `h1` прежняя; восстановление делает обратный обмен, `rolled-back`, `retired`, `idle` «откачена», владелец N, N+1 в `.shellio-failed-<attempt>`, второе восстановление ничего не меняет",
+      "completion": "ответ владельца, барьер, выход процесса или готовность владельца в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "injected: N+1 12080 снят на next.before-publish, помощник 12074 получил errno 5 на helper.step-swap-before; ошибка «восстановление: обратный обмен (injected): Input/output error (os error 5)»; во время: журнал rollback-intent, установлен N+1, кандидат N, каталоги попытки [\".shellio-update-9c82e33d79b578af56e2c1e5095e346f\"], владельца нет, h1 прежняя; восстановление: история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], владелец N 12126, журнал idle RolledBack, установлен N, кандидат нет, каталоги попытки [\".shellio-failed-9c82e33d79b578af56e2c1e5095e346f\"]",
+      "artifacts": [
+        "env-faults/steps.json",
+        "env-faults/injected-reverse-swap"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "notes": [
+      "частей 8; том установки 64 МиБ APFS без таблицы разделов, том кандидата EXDEV 32 МиБ; запас части enospc-candidate 2097152 байт; «полон» — файл в 1500 байт не создаётся с ENOSPC (до 3 заполнений); errno инъекций 5 (EIO); срок шага стенда 30 с"
+    ]
+  }
+}

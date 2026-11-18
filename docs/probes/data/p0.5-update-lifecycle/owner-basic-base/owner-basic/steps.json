@@ -1,0 +1,747 @@
+{
+  "steps": [
+    {
+      "name": "owner",
+      "facts": {
+        "csops_cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+        "info": {
+          "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+          "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/install/probe-update.app/Contents/MacOS/probe-update-app",
+          "generation": 1,
+          "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/install/probe-update.app",
+          "installed_cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+          "key": {
+            "pid": 4407,
+            "start_us": 1795015435229627
+          },
+          "lock_inode": {
+            "dev": 16777231,
+            "ino": 303166564
+          },
+          "ready": true,
+          "received": [
+            {
+              "args": [
+                "first"
+              ],
+              "from": {
+                "pid": 4407,
+                "start_us": 1795015435229627
+              },
+              "seq": 1
+            }
+          ],
+          "recovery": [],
+          "runtime": {
+            "dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/runtime/1",
+            "outcome": "created",
+            "recovered": null
+          },
+          "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/shellio.sock",
+          "socket_inode": {
+            "dev": 16777231,
+            "ino": 303166570
+          },
+          "stale_socket": null,
+          "update": null,
+          "window": false
+        },
+        "installed_details": {
+          "adhoc": false,
+          "authorities": [
+            "Shellio Dev"
+          ],
+          "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+          "format": "app bundle with Mach-O thin (arm64)",
+          "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle",
+          "team": null
+        },
+        "lock_inode": {
+          "dev": 16777231,
+          "ino": 303166564
+        },
+        "proc_pidpath": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/install/probe-update.app/Contents/MacOS/probe-update-app",
+        "reports": [
+          {
+            "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/install/probe-update.app/Contents/MacOS/probe-update-app",
+            "generation": 1,
+            "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/install/probe-update.app",
+            "installed_cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "key": {
+              "pid": 4407,
+              "start_us": 1795015435229627
+            },
+            "lock_inode": {
+              "dev": 16777231,
+              "ino": 303166564
+            },
+            "ready": true,
+            "received": [
+              {
+                "args": [
+                  "first"
+                ],
+                "from": {
+                  "pid": 4407,
+                  "start_us": 1795015435229627
+                },
+                "seq": 1
+              }
+            ],
+            "recovery": [],
+            "role": "owner",
+            "runtime": {
+              "dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/runtime/1",
+              "outcome": "created",
+              "recovered": null
+            },
+            "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/shellio.sock",
+            "socket_inode": {
+              "dev": 16777231,
+              "ino": 303166570
+            },
+            "stale_socket": null,
+            "update": null,
+            "window": false
+          }
+        ],
+        "socket_inode": {
+          "dev": 16777231,
+          "ino": 303166570
+        }
+      }
+    },
+    {
+      "name": "session",
+      "facts": {
+        "acks": [
+          [
+            1,
+            {
+              "ack": "accepted"
+            }
+          ]
+        ],
+        "cleanup": [],
+        "copies": [
+          {
+            "part": "host",
+            "same_bytes": true,
+            "verify": {
+              "outcome": "satisfied"
+            }
+          },
+          {
+            "part": "attach",
+            "same_bytes": true,
+            "verify": {
+              "outcome": "satisfied"
+            }
+          },
+          {
+            "part": "fixture",
+            "same_bytes": true,
+            "verify": {
+              "outcome": "satisfied"
+            }
+          }
+        ],
+        "host": {
+          "comm": "probe-update-ho",
+          "exiting": false,
+          "key": {
+            "pid": 4421,
+            "start_us": 1795015435631976
+          },
+          "pgid": 4420,
+          "ppid": 1,
+          "sid": 4420,
+          "state": "running",
+          "tpgid": null,
+          "tty": null
+        },
+        "host_path": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/runtime/1/probe-update-host",
+        "problems": [],
+        "record": {
+          "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/runtime/1/probe-update-host",
+          "generation": 1,
+          "host": {
+            "pid": 4421,
+            "start_us": 1795015435631976
+          },
+          "session": "h1",
+          "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/s/h1.sock",
+          "tty": "/dev/ttys003",
+          "versions": {
+            "max": 1,
+            "min": 1
+          },
+          "workload": {
+            "pid": 4422,
+            "start_us": 1795015435636296
+          },
+          "workload_pgid": 4422,
+          "workload_sid": 4422
+        },
+        "registry": [
+          {
+            "host_alive": true,
+            "probe": {
+              "probe": "welcome",
+              "version": 1
+            },
+            "record": {
+              "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/runtime/1/probe-update-host",
+              "generation": 1,
+              "host": {
+                "pid": 4421,
+                "start_us": 1795015435631976
+              },
+              "session": "h1",
+              "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/s/h1.sock",
+              "tty": "/dev/ttys003",
+              "versions": {
+                "max": 1,
+                "min": 1
+              },
+              "workload": {
+                "pid": 4422,
+                "start_us": 1795015435636296
+              },
+              "workload_pgid": 4422,
+              "workload_sid": 4422
+            },
+            "workload_alive": true
+          }
+        ],
+        "runtime_files": [
+          "probe-update-attach",
+          "probe-update-fixture",
+          "probe-update-host"
+        ],
+        "transcript": {
+          "expect_first": 1,
+          "lines": [
+            {
+              "number": 1,
+              "offset": 0,
+              "text": "ready pid=4422 generation=1"
+            },
+            {
+              "number": 2,
+              "offset": 35,
+              "text": "ack 1 ping"
+            }
+          ],
+          "next": 53,
+          "partial": [],
+          "problems": [],
+          "start": 0
+        },
+        "workload": {
+          "comm": "probe-update-fi",
+          "exiting": false,
+          "key": {
+            "pid": 4422,
+            "start_us": 1795015435636296
+          },
+          "pgid": 4422,
+          "ppid": 4421,
+          "sid": 4422,
+          "state": "running",
+          "tpgid": 4422,
+          "tty": 268435459
+        },
+        "workload_path": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/runtime/1/probe-update-fixture"
+      }
+    },
+    {
+      "name": "forward",
+      "facts": {
+        "exit": 0,
+        "owner": {
+          "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+          "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/install/probe-update.app/Contents/MacOS/probe-update-app",
+          "generation": 1,
+          "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/install/probe-update.app",
+          "installed_cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+          "key": {
+            "pid": 4407,
+            "start_us": 1795015435229627
+          },
+          "lock_inode": {
+            "dev": 16777231,
+            "ino": 303166564
+          },
+          "ready": true,
+          "received": [
+            {
+              "args": [
+                "first"
+              ],
+              "from": {
+                "pid": 4407,
+                "start_us": 1795015435229627
+              },
+              "seq": 1
+            },
+            {
+              "args": [
+                "second",
+                "132bb7a23a122a0d"
+              ],
+              "from": {
+                "pid": 4430,
+                "start_us": 1795015435782453
+              },
+              "seq": 2
+            }
+          ],
+          "recovery": [],
+          "runtime": {
+            "dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/runtime/1",
+            "outcome": "created",
+            "recovered": null
+          },
+          "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/shellio.sock",
+          "socket_inode": {
+            "dev": 16777231,
+            "ino": 303166570
+          },
+          "stale_socket": null,
+          "update": null,
+          "window": false
+        },
+        "pid": 4430,
+        "reports": [
+          {
+            "key": {
+              "pid": 4430,
+              "start_us": 1795015435782453
+            },
+            "launched_installed": false,
+            "owner": {
+              "pid": 4407,
+              "start_us": 1795015435229627
+            },
+            "receipt": 2,
+            "role": "forwarded",
+            "yielded": null
+          }
+        ],
+        "socket_inode": {
+          "dev": 16777231,
+          "ino": 303166570
+        }
+      }
+    },
+    {
+      "name": "restart",
+      "facts": {
+        "acks": [
+          [
+            2,
+            {
+              "ack": "accepted"
+            }
+          ]
+        ],
+        "client_refusal": "Unavailable(Restarting)",
+        "info": {
+          "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+          "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/install/probe-update.app/Contents/MacOS/probe-update-app",
+          "generation": 1,
+          "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/install/probe-update.app",
+          "installed_cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+          "key": {
+            "pid": 4431,
+            "start_us": 1795015435790622
+          },
+          "lock_inode": {
+            "dev": 16777231,
+            "ino": 303166564
+          },
+          "ready": true,
+          "received": [
+            {
+              "args": [
+                "third"
+              ],
+              "from": {
+                "pid": 4431,
+                "start_us": 1795015435790622
+              },
+              "seq": 1
+            }
+          ],
+          "recovery": [],
+          "runtime": {
+            "dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/runtime/1",
+            "outcome": "reused",
+            "recovered": null
+          },
+          "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/shellio.sock",
+          "socket_inode": {
+            "dev": 16777231,
+            "ino": 303166578
+          },
+          "stale_socket": {
+            "dev": 16777231,
+            "ino": 303166570
+          },
+          "update": null,
+          "window": false
+        },
+        "killed": {
+          "code": null,
+          "signal": 9
+        },
+        "problems": [],
+        "registry": [
+          {
+            "host_alive": true,
+            "probe": {
+              "probe": "welcome",
+              "version": 1
+            },
+            "record": {
+              "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/runtime/1/probe-update-host",
+              "generation": 1,
+              "host": {
+                "pid": 4421,
+                "start_us": 1795015435631976
+              },
+              "session": "h1",
+              "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/s/h1.sock",
+              "tty": "/dev/ttys003",
+              "versions": {
+                "max": 1,
+                "min": 1
+              },
+              "workload": {
+                "pid": 4422,
+                "start_us": 1795015435636296
+              },
+              "workload_pgid": 4422,
+              "workload_sid": 4422
+            },
+            "workload_alive": true
+          }
+        ],
+        "sessions_alive": [
+          true,
+          true
+        ],
+        "socket_inode": {
+          "dev": 16777231,
+          "ino": 303166578
+        },
+        "stale_is_socket": true,
+        "stale_socket": {
+          "dev": 16777231,
+          "ino": 303166570
+        },
+        "transcript": {
+          "expect_first": 3,
+          "lines": [
+            {
+              "number": 3,
+              "offset": 53,
+              "text": "ack 2 ping"
+            }
+          ],
+          "next": 71,
+          "partial": [],
+          "problems": [],
+          "start": 53
+        }
+      }
+    },
+    {
+      "name": "descriptors",
+      "facts": {
+        "leaks": [],
+        "listener_handle": "0x256e1f510491fc19",
+        "owner": [
+          {
+            "dev": 903836569,
+            "fd": 0,
+            "ino": 339,
+            "kind": "vnode",
+            "path": "/dev/null"
+          },
+          {
+            "dev": 16777231,
+            "fd": 1,
+            "ino": 303166576,
+            "kind": "vnode",
+            "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/owner-basic-base/owner-basic/owner-c.stdout"
+          },
+          {
+            "dev": 16777231,
+            "fd": 2,
+            "ino": 303166577,
+            "kind": "vnode",
+            "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/owner-basic-base/owner-basic/owner-c.stderr"
+          },
+          {
+            "dev": 16777231,
+            "fd": 3,
+            "ino": 303166564,
+            "kind": "vnode",
+            "path": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/shellio.lock"
+          },
+          {
+            "family": 1,
+            "fd": 4,
+            "handle": 2697127659670993945,
+            "kind": "socket",
+            "local": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/.sock.4431",
+            "peer": null
+          }
+        ],
+        "scanned": [
+          {
+            "descriptors": [
+              {
+                "dev": 903836569,
+                "fd": 0,
+                "ino": 339,
+                "kind": "vnode",
+                "path": "/dev/null"
+              },
+              {
+                "dev": 903836569,
+                "fd": 1,
+                "ino": 339,
+                "kind": "vnode",
+                "path": "/dev/null"
+              },
+              {
+                "dev": 16777231,
+                "fd": 2,
+                "ino": 303166563,
+                "kind": "vnode",
+                "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/owner-basic-base/owner-basic/owner-a.stderr"
+              },
+              {
+                "family": 1,
+                "fd": 3,
+                "handle": 934575716828813612,
+                "kind": "socket",
+                "local": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/s/h1.sock",
+                "peer": null
+              },
+              {
+                "dev": 903836569,
+                "fd": 4,
+                "ino": 608,
+                "kind": "vnode",
+                "path": "/dev/ptmx"
+              },
+              {
+                "dev": 903836569,
+                "fd": 5,
+                "ino": 608,
+                "kind": "vnode",
+                "path": "/dev/ptmx"
+              },
+              {
+                "dev": 903836569,
+                "fd": 6,
+                "ino": 608,
+                "kind": "vnode",
+                "path": "/dev/ptmx"
+              }
+            ],
+            "pid": 4421,
+            "role": "host",
+            "session": "h1"
+          },
+          {
+            "descriptors": [
+              {
+                "dev": 903836569,
+                "fd": 0,
+                "ino": 36869,
+                "kind": "vnode",
+                "path": "/dev/ttys003"
+              },
+              {
+                "dev": 903836569,
+                "fd": 1,
+                "ino": 36869,
+                "kind": "vnode",
+                "path": "/dev/ttys003"
+              },
+              {
+                "dev": 903836569,
+                "fd": 2,
+                "ino": 36869,
+                "kind": "vnode",
+                "path": "/dev/ttys003"
+              }
+            ],
+            "pid": 4422,
+            "role": "workload",
+            "session": "h1"
+          },
+          {
+            "descriptors": [
+              {
+                "dev": 903836569,
+                "fd": 0,
+                "ino": 339,
+                "kind": "vnode",
+                "path": "/dev/null"
+              },
+              {
+                "dev": 903836569,
+                "fd": 1,
+                "ino": 339,
+                "kind": "vnode",
+                "path": "/dev/null"
+              },
+              {
+                "dev": 16777231,
+                "fd": 2,
+                "ino": 303166577,
+                "kind": "vnode",
+                "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/owner-basic-base/owner-basic/owner-c.stderr"
+              },
+              {
+                "family": 1,
+                "fd": 3,
+                "handle": 9752504291492412446,
+                "kind": "socket",
+                "local": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/s/h2.sock",
+                "peer": null
+              },
+              {
+                "dev": 903836569,
+                "fd": 4,
+                "ino": 608,
+                "kind": "vnode",
+                "path": "/dev/ptmx"
+              },
+              {
+                "dev": 903836569,
+                "fd": 5,
+                "ino": 608,
+                "kind": "vnode",
+                "path": "/dev/ptmx"
+              },
+              {
+                "dev": 903836569,
+                "fd": 6,
+                "ino": 608,
+                "kind": "vnode",
+                "path": "/dev/ptmx"
+              }
+            ],
+            "pid": 4439,
+            "role": "host",
+            "session": "h2"
+          },
+          {
+            "descriptors": [
+              {
+                "dev": 903836569,
+                "fd": 0,
+                "ino": 36871,
+                "kind": "vnode",
+                "path": "/dev/ttys004"
+              },
+              {
+                "dev": 903836569,
+                "fd": 1,
+                "ino": 36871,
+                "kind": "vnode",
+                "path": "/dev/ttys004"
+              },
+              {
+                "dev": 903836569,
+                "fd": 2,
+                "ino": 36871,
+                "kind": "vnode",
+                "path": "/dev/ttys004"
+              }
+            ],
+            "pid": 4440,
+            "role": "workload",
+            "session": "h2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "quit",
+      "facts": {
+        "exit": 0,
+        "lock_inode": {
+          "dev": 16777231,
+          "ino": 303166564
+        },
+        "reply": "Done",
+        "reports": [
+          {
+            "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/install/probe-update.app/Contents/MacOS/probe-update-app",
+            "generation": 1,
+            "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/install/probe-update.app",
+            "installed_cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "key": {
+              "pid": 4431,
+              "start_us": 1795015435790622
+            },
+            "lock_inode": {
+              "dev": 16777231,
+              "ino": 303166564
+            },
+            "ready": true,
+            "received": [
+              {
+                "args": [
+                  "third"
+                ],
+                "from": {
+                  "pid": 4431,
+                  "start_us": 1795015435790622
+                },
+                "seq": 1
+              }
+            ],
+            "recovery": [],
+            "role": "owner",
+            "runtime": {
+              "dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/runtime/1",
+              "outcome": "reused",
+              "recovered": null
+            },
+            "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/shellio.sock",
+            "socket_inode": {
+              "dev": 16777231,
+              "ino": 303166578
+            },
+            "stale_socket": {
+              "dev": 16777231,
+              "ino": 303166570
+            },
+            "update": null,
+            "window": false
+          },
+          {
+            "key": {
+              "pid": 4431,
+              "start_us": 1795015435790622
+            },
+            "role": "stopped"
+          }
+        ],
+        "sessions_alive_after_stop": [],
+        "socket_left": false
+      }
+    }
+  ]
+}

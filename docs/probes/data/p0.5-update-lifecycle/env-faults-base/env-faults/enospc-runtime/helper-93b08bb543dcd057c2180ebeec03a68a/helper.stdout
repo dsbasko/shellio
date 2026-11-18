@@ -1,0 +1,11 @@
+{"detail":{"attempt":"93b08bb543dcd057c2180ebeec03a68a","gui":{"pid":11400,"start_us":1795015848755809},"key":{"pid":11422,"start_us":1795015849597284}},"event":"started","pid":11422,"uptime_ns":642617483588083}
+{"detail":{"gui":{"pid":11400,"start_us":1795015848755809}},"event":"gui-exited","pid":11422,"uptime_ns":642617483750000}
+{"detail":{"inode":{"dev":16777242,"ino":35}},"event":"locked","pid":11422,"uptime_ns":642617483924291}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":11422,"uptime_ns":642617568967166}
+{"detail":{},"event":"swapped","pid":11422,"uptime_ns":642617582976458}
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685/v3/s/install/probe-update.app"},"event":"opened","pid":11422,"uptime_ns":642617651698208}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":11428,"start_us":1795015849907021},"reason":"признан"}],"owner":{"pid":11428,"start_us":1795015849907021},"reused":false},"event":"identified","pid":11422,"uptime_ns":642617817189750}
+{"detail":{"owner":{"pid":11428,"start_us":1795015849907021}},"event":"launched","pid":11422,"uptime_ns":642617834951333}
+{"detail":{"owner":{"pid":11428,"start_us":1795015849907021}},"event":"released","pid":11422,"uptime_ns":642617834967125}
+{"detail":{"owner":{"pid":11428,"start_us":1795015849907021}},"event":"watch-owner-exited","pid":11422,"uptime_ns":642619109004541}
+{"detail":{"reason":"восстановление: журнал: временный файл: No space left on device (os error 28)"},"event":"error","pid":11422,"uptime_ns":642619181465416}

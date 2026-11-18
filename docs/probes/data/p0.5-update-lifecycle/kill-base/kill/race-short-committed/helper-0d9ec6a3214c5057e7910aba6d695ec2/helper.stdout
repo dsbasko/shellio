@@ -1,0 +1,11 @@
+{"detail":{"attempt":"0d9ec6a3214c5057e7910aba6d695ec2","gui":{"pid":10986,"start_us":1795015836134880},"key":{"pid":11007,"start_us":1795015836906285}},"event":"started","pid":11007,"uptime_ns":642604791543625}
+{"detail":{"gui":{"pid":10986,"start_us":1795015836134880}},"event":"gui-exited","pid":11007,"uptime_ns":642604791674583}
+{"detail":{"inode":{"dev":16777231,"ino":303173268}},"event":"locked","pid":11007,"uptime_ns":642604791869250}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":11007,"uptime_ns":642604864629708}
+{"detail":{},"event":"swapped","pid":11007,"uptime_ns":642604869325875}
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-race-short-committed/probe-update.app"},"event":"opened","pid":11007,"uptime_ns":642604953817750}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":11013,"start_us":1795015837210143},"reason":"признан"}],"owner":{"pid":11013,"start_us":1795015837210143},"reused":false},"event":"identified","pid":11007,"uptime_ns":642605151311333}
+{"detail":{"owner":{"pid":11013,"start_us":1795015837210143}},"event":"launched","pid":11007,"uptime_ns":642605161089000}
+{"detail":{"owner":{"pid":11013,"start_us":1795015837210143}},"event":"released","pid":11007,"uptime_ns":642605161147083}
+{"detail":{"why":"попытка в idle"},"event":"watch-finished","pid":11007,"uptime_ns":642605444257000}
+{"detail":{"outcome":"попытка закончена без сторожа: попытка в idle"},"event":"done","pid":11007,"uptime_ns":642605444380791}

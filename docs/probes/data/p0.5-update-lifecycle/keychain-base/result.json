@@ -1,0 +1,144 @@
+{
+  "schema": 1,
+  "scenario": "keychain",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "94514132ba68",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "versions": {
+      "homebrew": "Homebrew 7.0.14-26-gb63354c"
+    },
+    "generations": {
+      "denied": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+      "denied-2": "48f26b5d5eed2c5fa8a71e16923ce6773f253b88",
+      "foreign": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+      "gen-1": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "gen-2": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "incompatible": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "tampered": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "wrong-id": "acd96c2187aace3a2a7e15fd17949d1efae13cac"
+    },
+    "process": {
+      "pid": 12147,
+      "nonce": "e7a832d4b994d4d8",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8",
+      "env": {
+        "HOME": "/Users/u",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_BUNDLES": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle",
+        "SHELLIO_PROBE_COMMIT": "94514132ba68",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_VERSION_HOMEBREW": "Homebrew 7.0.14-26-gb63354c",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "cells": [
+    {
+      "id": "F",
+      "part": "own-read",
+      "requirement": "observation",
+      "status": "pass",
+      "stimulus": "GUI N (поколение 1 на установленном пути) через open -n с --window: SecItemAdd item n с доступом только для своего кода во временную keychain (kSecUseKeychain), затем чтение им же с запрещённым взаимодействием (kSecMatchSearchList)",
+      "oracle": "запись errSecSuccess; чтение: атрибуты и данные errSecSuccess, SHA-256 значения совпадает, окна запроса нет; операции выполнил код поколения 1 (CDHash процесса из ядра)",
+      "completion": "итог операции в срок 30 с; иначе окно запроса по списку окон, SIGKILL операции и запасной Escape",
+      "reason": "N записал и прочитал свой item без окна способом process-flag",
+      "artifacts": [
+        "keychain/steps.json",
+        "keychain/ops/n-add.json",
+        "keychain/ops/n-read.json"
+      ]
+    },
+    {
+      "id": "F",
+      "part": "interaction-control",
+      "requirement": "observation",
+      "status": "pass",
+      "stimulus": "бандл .denied через open -n создаёт item denied с доступом только для своего кода; GUI N читает его с запрещённым взаимодействием: сначала process-flag (SecKeychainSetUserInteractionAllowed(false)), при неудаче query-fail (kSecUseAuthenticationUIFail)",
+      "oracle": "item виден в поиске (атрибуты errSecSuccess), данные — отказ доступа (errSecInteractionNotAllowed или другой отказ), окна запроса нет; первый такой способ — способ чтений N+1 и foreign",
+      "completion": "итог операции в срок 30 с; иначе окно запроса по списку окон, SIGKILL операции и запасной Escape",
+      "reason": "способ запрета взаимодействия — process-flag: чтение item .denied процессом N отказано без окна (process-flag: отказ errSecAuthFailed)",
+      "artifacts": [
+        "keychain/steps.json",
+        "keychain/ops/denied-add.json",
+        "keychain/ops/control-process-flag.json"
+      ]
+    },
+    {
+      "id": "F",
+      "part": "next-read",
+      "requirement": "observation",
+      "status": "fail",
+      "stimulus": "установленный путь обменян RENAME_SWAP на копию поколения 2; N+1 через open -n с --window читает item n способом контроля",
+      "oracle": "атрибуты и данные errSecSuccess, SHA-256 значения совпадает, окна запроса нет, операцию выполнил код поколения 2 на установленном пути; keychain версии 512, у item n есть partition list",
+      "completion": "итог операции в срок 30 с; иначе окно запроса по списку окон, SIGKILL операции и запасной Escape",
+      "reason": "N+1 не прочитал секрет N молча: отказ errSecAuthFailed; partition list [cdhash:ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c]: cdhash N ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c — есть, cdhash N+1 0aafd23b10f21b8085484e6630ad710a3fee337f — нет; N+1 против требования ACL «identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"»: satisfied",
+      "artifacts": [
+        "keychain/steps.json",
+        "keychain/ops/next-read.json"
+      ]
+    },
+    {
+      "id": "F",
+      "part": "foreign-read",
+      "requirement": "observation",
+      "status": "pass",
+      "stimulus": "установленный путь обменян RENAME_SWAP на копию foreign (тот же код поколения 2, другой сертификат); чтение item n способом контроля",
+      "oracle": "item виден в поиске (атрибуты errSecSuccess), данные не прочитаны молча: отказ доступа или окно запроса",
+      "completion": "итог операции в срок 30 с; иначе окно запроса по списку окон, SIGKILL операции и запасной Escape",
+      "reason": "foreign не прочитал item n молча: отказ errSecAuthFailed",
+      "artifacts": [
+        "keychain/steps.json",
+        "keychain/ops/foreign-read.json"
+      ]
+    },
+    {
+      "id": "F",
+      "part": "item-unchanged",
+      "requirement": "observation",
+      "status": "pass",
+      "stimulus": "security dump-keychain -a временной keychain после записи, после базового чтения N, после чтения N+1 и после чтения foreign",
+      "oracle": "item n во всех снимках с теми же атрибутами, ACL и partition list; partition list есть",
+      "completion": "итог операции в срок 30 с; иначе окно запроса по списку окон, SIGKILL операции и запасной Escape",
+      "reason": "item n одинаков в 4 снимках: записей ACL 5, partition list [cdhash:ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c], keychain версии Some(512); отметки проверки пути приложения ACL: after-add [OK]; before-next [OK]; after-next [OK]; after-foreign [status -2147415734]",
+      "artifacts": [
+        "keychain/steps.json",
+        "keychain/dumps/after-add.txt",
+        "keychain/dumps/before-next.txt",
+        "keychain/dumps/after-next.txt",
+        "keychain/dumps/after-foreign.txt"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "notes": [
+      "временная keychain /Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db (версия Some(512)); способ запрета взаимодействия — process-flag",
+      "операций 6, от первой записи до последнего снимка 2496 мс; срок операции 30 с"
+    ]
+  }
+}

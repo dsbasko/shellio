@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "scenario": "incompatible-activate",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "94514132ba68",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "versions": {
+      "homebrew": "Homebrew 7.0.14-26-gb63354c"
+    },
+    "generations": {
+      "denied": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+      "denied-2": "48f26b5d5eed2c5fa8a71e16923ce6773f253b88",
+      "foreign": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+      "gen-1": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "gen-2": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "incompatible": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "tampered": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "wrong-id": "acd96c2187aace3a2a7e15fd17949d1efae13cac"
+    },
+    "process": {
+      "pid": 4706,
+      "nonce": "e3db36ed20e3d429",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e3db36ed20e3d429",
+      "env": {
+        "HOME": "/Users/u",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_BUNDLES": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle",
+        "SHELLIO_PROBE_COMMIT": "94514132ba68",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_VERSION_HOMEBREW": "Homebrew 7.0.14-26-gb63354c",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e3db36ed20e3d429",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "cells": [
+    {
+      "id": "D2",
+      "part": "activation",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "отсрочка incompatible при живой h1, остановка h1, retry, activate",
+      "oracle": "N+1 поколения 3 готов, CDHash процесса — кандидата, установлен кандидат; история попытки staged-deferred → staged → intent → swapped → launched → committed → cleaning → idle «подтверждена»; health без нарушений, снимок сессий пуст; runtime/3 подготовлен, новая сессия h2 — хост из runtime/3 с протоколом 2..2",
+      "completion": "ответ владельца или готовность N+1 в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "попытка 8538d560c98911de6eca18adeda6236c: staged-deferred → staged → intent → swapped → launched → committed → cleaning → idle; N+1 4756 поколения 3 (CDHash 3bdcb641), h2 из /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e3db36ed20e3d429/runtime/3",
+      "artifacts": [
+        "incompatible-activate/steps.json",
+        "incompatible-activate/helper-8538d560c98911de6eca18adeda6236c"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "notes": []
+  }
+}

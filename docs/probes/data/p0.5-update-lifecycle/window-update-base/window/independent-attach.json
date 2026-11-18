@@ -1,0 +1,174 @@
+{
+  "start": 0,
+  "next": 679,
+  "expect_first": 1,
+  "lines": [
+    {
+      "number": 1,
+      "text": "ready pid=4801 generation=1",
+      "offset": 0
+    },
+    {
+      "number": 2,
+      "text": "ack 1 ping",
+      "offset": 35
+    },
+    {
+      "number": 3,
+      "text": "emit 2 1/20",
+      "offset": 53
+    },
+    {
+      "number": 4,
+      "text": "emit 2 2/20",
+      "offset": 72
+    },
+    {
+      "number": 5,
+      "text": "emit 2 3/20",
+      "offset": 91
+    },
+    {
+      "number": 6,
+      "text": "emit 2 4/20",
+      "offset": 110
+    },
+    {
+      "number": 7,
+      "text": "emit 2 5/20",
+      "offset": 129
+    },
+    {
+      "number": 8,
+      "text": "emit 2 6/20",
+      "offset": 148
+    },
+    {
+      "number": 9,
+      "text": "emit 2 7/20",
+      "offset": 167
+    },
+    {
+      "number": 10,
+      "text": "emit 2 8/20",
+      "offset": 186
+    },
+    {
+      "number": 11,
+      "text": "emit 2 9/20",
+      "offset": 205
+    },
+    {
+      "number": 12,
+      "text": "emit 2 10/20",
+      "offset": 224
+    },
+    {
+      "number": 13,
+      "text": "emit 2 11/20",
+      "offset": 244
+    },
+    {
+      "number": 14,
+      "text": "emit 2 12/20",
+      "offset": 264
+    },
+    {
+      "number": 15,
+      "text": "emit 2 13/20",
+      "offset": 284
+    },
+    {
+      "number": 16,
+      "text": "emit 2 14/20",
+      "offset": 304
+    },
+    {
+      "number": 17,
+      "text": "emit 2 15/20",
+      "offset": 324
+    },
+    {
+      "number": 18,
+      "text": "emit 2 16/20",
+      "offset": 344
+    },
+    {
+      "number": 19,
+      "text": "emit 2 17/20",
+      "offset": 364
+    },
+    {
+      "number": 20,
+      "text": "emit 2 18/20",
+      "offset": 384
+    },
+    {
+      "number": 21,
+      "text": "emit 2 19/20",
+      "offset": 404
+    },
+    {
+      "number": 22,
+      "text": "emit 2 20/20",
+      "offset": 424
+    },
+    {
+      "number": 23,
+      "text": "ack 2 emit 20",
+      "offset": 444
+    },
+    {
+      "number": 24,
+      "text": "ack 1795015444035954 ping",
+      "offset": 465
+    },
+    {
+      "number": 25,
+      "text": "emit 3 1/5",
+      "offset": 498
+    },
+    {
+      "number": 26,
+      "text": "emit 3 2/5",
+      "offset": 516
+    },
+    {
+      "number": 27,
+      "text": "emit 3 3/5",
+      "offset": 534
+    },
+    {
+      "number": 28,
+      "text": "emit 3 4/5",
+      "offset": 552
+    },
+    {
+      "number": 29,
+      "text": "emit 3 5/5",
+      "offset": 570
+    },
+    {
+      "number": 30,
+      "text": "ack 3 emit 5",
+      "offset": 588
+    },
+    {
+      "number": 31,
+      "text": "emit 902001 1/2",
+      "offset": 608
+    },
+    {
+      "number": 32,
+      "text": "emit 902001 2/2",
+      "offset": 631
+    },
+    {
+      "number": 33,
+      "text": "ack 902001 emit 2",
+      "offset": 654
+    }
+  ],
+  "partial": [],
+  "problems": []
+}

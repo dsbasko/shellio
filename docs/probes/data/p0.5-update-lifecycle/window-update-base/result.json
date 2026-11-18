@@ -1,0 +1,158 @@
+{
+  "schema": 1,
+  "scenario": "window-update",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "94514132ba68",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "versions": {
+      "homebrew": "Homebrew 7.0.14-26-gb63354c"
+    },
+    "generations": {
+      "denied": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+      "denied-2": "48f26b5d5eed2c5fa8a71e16923ce6773f253b88",
+      "foreign": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+      "gen-1": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "gen-2": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "incompatible": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "tampered": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "wrong-id": "acd96c2187aace3a2a7e15fd17949d1efae13cac"
+    },
+    "process": {
+      "pid": 4786,
+      "nonce": "85ee0282e2a579e2",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.85ee0282e2a579e2",
+      "env": {
+        "HOME": "/Users/u",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_BUNDLES": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle",
+        "SHELLIO_PROBE_COMMIT": "94514132ba68",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_VERSION_HOMEBREW": "Homebrew 7.0.14-26-gb63354c",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.85ee0282e2a579e2",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "cells": [
+    {
+      "id": "H",
+      "part": "launch-services",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "GUI N через open с --window, сессия h1, update поколением 2 и activate; N+1 запускает помощник через open -n",
+      "oracle": "GUI N и N+1 — дети launchd (ppid 1), исполняемый файл каждого — установленный бандл, у обоих окно; N — поколение 1, N+1 — 2; GUI N вышел со строкой updated; журнал idle «подтверждена»; хост h1 из runtime/1/ с прежними PID и временем старта",
+      "completion": "квитанция окна, ответ владельца, барьер или выход процесса в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "GUI N 4789 и N+1 4854 запущены LaunchServices с окном, попытка ef078bfb56e19009da50cf06102c0dba подтверждена, h1 из runtime/1/",
+      "artifacts": [
+        "window/steps.json",
+        "window/owner-n.stdout",
+        "window/receipts.json"
+      ]
+    },
+    {
+      "id": "H",
+      "part": "tail",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "на барьере N+1 перед публикацией сокета (клиентов у h1 нет) — emit 20 через управляющее соединение; после подтверждения — emit 5 при открытом окне N+1",
+      "oracle": "квитанция окна N+1 — текст, прочитанный обратно из NSTextView после отрисовки: строки с 1 подряд без пропуска и повтора; в ней все 20 строк вывода без клиента и квитанция health, затем 5 строк живого вывода с квитанцией; окно подключено к h1 протоколом 1",
+      "completion": "квитанция окна, ответ владельца, барьер или выход процесса в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "окно N+1: строки 1..30 подряд, вывод без клиента до строки Some(23), живой до Some(30)",
+      "artifacts": [
+        "window/steps.json",
+        "window/owner-n.stdout",
+        "window/receipts.json"
+      ]
+    },
+    {
+      "id": "H",
+      "part": "ax-matches-receipt",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "чтение AXValue текстовой области окна N+1 через доступность из процесса сценария между двумя квитанциями окна",
+      "oracle": "квитанции до и после чтения совпадают; у окна N+1 ровно одна AXTextArea, её строки с номерами совпадают с квитанцией окна построчно",
+      "completion": "квитанция окна, ответ владельца, барьер или выход процесса в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "AXValue совпал с квитанцией окна: 30 строк",
+      "artifacts": [
+        "window/steps.json",
+        "window/owner-n.stdout",
+        "window/receipts.json"
+      ]
+    },
+    {
+      "id": "H",
+      "part": "synthetic-input",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "нажатия «emit 2» и Return в очередь процесса N+1 (CGEventPostToPid)",
+      "oracle": "окно отправило ровно один ввод «emit 2» со своим номером; его квитанция ack и две строки emit — в квитанции окна после последней строки до ввода, без пропуска; та же квитанция в хвосте независимого attach",
+      "completion": "квитанция окна, ответ владельца, барьер или выход процесса в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "ввод Some(Sent { seq: 902001, command: \"emit 2\" }) дошёл до нагрузки, квитанция в окне и в хвосте attach",
+      "artifacts": [
+        "window/steps.json",
+        "window/owner-n.stdout",
+        "window/receipts.json"
+      ]
+    },
+    {
+      "id": "H",
+      "part": "acceptance-window",
+      "requirement": "observation",
+      "status": "pass",
+      "stimulus": "приёмочный проход: после квитанции ввода — снимок окна N+1 screencapture -l по номеру окна из квитанции",
+      "oracle": "квитанция окна N+1 после ввода — строки с 1 подряд без пропуска и повтора, окно подключено к h1 протоколом 1 с байта 0, в тексте квитанция ack 1 ping, введённая при окне N до обновления; снимок окна N+1 разобран, не меньше рамки окна в списке WindowServer и не одного цвета; снимок не получен — not_run с причиной",
+      "completion": "снимок в срок screencapture (10 с), квитанция и attach в срок шага (30 с); не полученный снимок — not_run части",
+      "reason": "окно N+1 80845: строки 1..33 подряд из h1, «ack 1 ping» из времени окна N на месте; снимок Some((1440, 1024)) пикселей, 68 цветов в сетке",
+      "artifacts": [
+        "window/receipts.json",
+        "window/acceptance.json",
+        "window/next-window.png"
+      ]
+    },
+    {
+      "id": "H",
+      "part": "acceptance-input",
+      "requirement": "observation",
+      "status": "pass",
+      "stimulus": "приёмочный проход: нажатия «emit 2» и Return в очередь процесса N+1 (CGEventPostToPid) с меткой стенда",
+      "oracle": "квитанция нагрузки ack <номер ввода окна N+1> emit 2 в хвосте независимого attach к h1 после двух строк emit, стенограмма attach без разрыва, пропуска и повтора; номер ввода — первый номер окна поколения 2",
+      "completion": "снимок в срок screencapture (10 с), квитанция и attach в срок шага (30 с); не полученный снимок — not_run части",
+      "reason": "квитанция нагрузки ack 902001 emit 2 в строке Some(33) хвоста независимого attach",
+      "artifacts": [
+        "window/receipts.json",
+        "window/acceptance.json",
+        "window/independent-attach.json"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "notes": [
+      "срок health 60 с от intent, срок шага стенда 30 с; вывод без клиента — 20 строк, живой — 5"
+    ]
+  }
+}

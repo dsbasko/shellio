@@ -1,0 +1,1 @@
+{"event":"start","role":"gui","process":{"pid":10840,"start_us":1795015833063926},"seq":1,"uptime_ns":642600789214166,"detail":{"attempt":null,"cdhash":"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c","forward":["b2-handoff-helper-49ce188b6014ab78"],"generation":1}}

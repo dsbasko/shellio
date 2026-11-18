@@ -1,0 +1,194 @@
+{
+  "schema": 1,
+  "scenario": "host",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "94514132ba68",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "versions": {
+      "homebrew": "Homebrew 7.0.14-26-gb63354c"
+    },
+    "generations": {
+      "denied": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+      "denied-2": "48f26b5d5eed2c5fa8a71e16923ce6773f253b88",
+      "foreign": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+      "gen-1": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "gen-2": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "incompatible": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "tampered": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "wrong-id": "acd96c2187aace3a2a7e15fd17949d1efae13cac"
+    },
+    "process": {
+      "pid": 4208,
+      "nonce": "e98a812380648a0c",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e98a812380648a0c",
+      "env": {
+        "HOME": "/Users/u",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_BUNDLES": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle",
+        "SHELLIO_PROBE_COMMIT": "94514132ba68",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_VERSION_HOMEBREW": "Homebrew 7.0.14-26-gb63354c",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e98a812380648a0c",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "cells": [
+    {
+      "id": "host",
+      "part": "create",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "probe-update-host serve с нагрузкой probe-update-fixture",
+      "oracle": "хост вне дерева (PPID 1), не лидер сессии и без терминала; нагрузка — его потомок, лидер своей сессии и группы переднего плана с PTY; запись сессии равна строке запуска; сокет на месте",
+      "completion": "ответ хоста или выход процесса в срок шага; иначе ошибка исполнения",
+      "reason": "хост 4226 (PPID 1, сессия 4225, без терминала), нагрузка 4227 — лидер сессии на /dev/ttys003; протокол 1..1, поколение 1",
+      "artifacts": [
+        "host/steps.json",
+        "host/host.stderr"
+      ]
+    },
+    {
+      "id": "host",
+      "part": "attach-input",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "attach с начала с размером 30x100, затем ввод «1 emit 3»",
+      "oracle": "Welcome с общей наибольшей версией, началом 0 и лидером 1; клиент один, лидер, размер 30x100; строки 1–5: ready, три emit, квитанция «ack 1 emit 3»; ответ хоста Accepted",
+      "completion": "ответ хоста или выход процесса в срок шага; иначе ошибка исполнения",
+      "reason": "версия 1, строки [1, 2, 3, 4, 5], квитанция в строке 5",
+      "artifacts": [
+        "host/steps.json",
+        "host/host.stderr"
+      ]
+    },
+    {
+      "id": "host",
+      "part": "refused",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "probe (отдельный процесс probe-update-attach) и attach с размером 50x200 с диапазоном за пределом хоста",
+      "oracle": "оба получают Refused с причиной, называющей диапазон клиента; клиенты, номер лидера, лидер и размер прежние",
+      "completion": "ответ хоста или выход процесса в срок шага; иначе ошибка исполнения",
+      "reason": "диапазон 2..2 против 1..1: «несовместимые версии протокола: клиент 2..2, хост 1..1»; сессия: клиентов 1, номер лидера 1 (подключён), размер 30x100",
+      "artifacts": [
+        "host/steps.json",
+        "host/host.stderr"
+      ]
+    },
+    {
+      "id": "host",
+      "part": "probe",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "probe (отдельный процесс probe-update-attach) с диапазоном шире хоста",
+      "oracle": "Welcome с наибольшей версией хоста; номер лидера, клиенты и размер прежние",
+      "completion": "ответ хоста или выход процесса в срок шага; иначе ошибка исполнения",
+      "reason": "диапазон 1..2 против 1..1: версия 1, сессия: клиентов 1, номер лидера 1 (подключён), размер 30x100",
+      "artifacts": [
+        "host/steps.json",
+        "host/host.stderr"
+      ]
+    },
+    {
+      "id": "host",
+      "part": "detach",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "Detach первого attach",
+      "oracle": "Done от хоста; клиентов 0, лидера нет, номер лидера прежний",
+      "completion": "ответ хоста или выход процесса в срок шага; иначе ошибка исполнения",
+      "reason": "клиентов 0, продолжение с байта 109 и строки 6",
+      "artifacts": [
+        "host/steps.json",
+        "host/host.stderr"
+      ]
+    },
+    {
+      "id": "host",
+      "part": "output-without-client",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "ввод «2 emit 50» через управляющее соединение без attach-клиентов",
+      "oracle": "ответ хоста Accepted; AwaitLines на хосте дожидается 51 новой строки при нуле клиентов",
+      "completion": "ответ хоста или выход процесса в срок шага; иначе ошибка исполнения",
+      "reason": "строк 5 → 56, байтов 109 → 1121, клиентов 0",
+      "artifacts": [
+        "host/steps.json",
+        "host/host.stderr"
+      ]
+    },
+    {
+      "id": "host",
+      "part": "reattach",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "отдельный процесс probe-update-attach attach --from <байт> --expect <строка> --input ping",
+      "oracle": "хвост с запрошенного байта: строки с ожидаемого номера без пропуска и повтора, 50 emit и квитанция 2 в хвосте; квитанция «ack 3 ping» в живом выводе; ответ хоста Accepted",
+      "completion": "ответ хоста или выход процесса в срок шага; иначе ошибка исполнения",
+      "reason": "строки 6–57, квитанция 2 в байте 1100 < 1121 ≤ квитанция 3 в байте 1121",
+      "artifacts": [
+        "host/steps.json",
+        "host/host.stderr"
+      ]
+    },
+    {
+      "id": "host",
+      "part": "processes",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "сверка ключей процессов после отрыва, вывода без клиента и повторного attach",
+      "oracle": "хост и нагрузка — те же процессы по PID и времени старта, группа и сессия нагрузки прежние",
+      "completion": "ответ хоста или выход процесса в срок шага; иначе ошибка исполнения",
+      "reason": "хост 4226 (старт 1795015433237657 мкс), нагрузка 4227 (старт 1795015433242229 мкс) — те же",
+      "artifacts": [
+        "host/steps.json",
+        "host/host.stderr"
+      ]
+    },
+    {
+      "id": "host",
+      "part": "stop",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "Stop через управляющее соединение",
+      "oracle": "хост и нагрузка вышли по ключам процессов (kqueue NOTE_EXIT), сокет и запись сессии убраны хостом",
+      "completion": "ответ хоста или выход процесса в срок шага; иначе ошибка исполнения",
+      "reason": "хост: процесса нет, нагрузка: процесса нет; каталог сессий пуст",
+      "artifacts": [
+        "host/steps.json",
+        "host/host.stderr"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "notes": [
+      "протокол хоста 1..1, attach 1..1, поколение 1"
+    ]
+  }
+}

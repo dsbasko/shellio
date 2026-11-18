@@ -1,0 +1,2 @@
+{"detail":{"attempt":"507860fa1427d8322bbd0281b6eaac4e","gui":{"pid":5451,"start_us":1795015458150810},"key":{"pid":5473,"start_us":1795015458877899}},"event":"started","pid":5473,"uptime_ns":642226747461083}
+{"detail":{"gui":{"pid":5451,"start_us":1795015458150810}},"event":"gui-exited","pid":5473,"uptime_ns":642226747582416}

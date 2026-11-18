@@ -1,0 +1,104 @@
+[
+  {
+    "answer": "Ok(Reply(Refused { reason: \"кандидат отвергнут проверкой (integrity): Integrity { reason: \\\"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.7610d1fb7748dbfb/install/.shellio-update-172009a4a632babb163e240188b4ac8b: a sealed resource is missing or invalid\\\" }\", retry: false }))",
+    "exchange": "Ok(())",
+    "name": "tampered",
+    "verdict": "Verdict { status: Pass, reason: \"tampered отвергнут до intent: «кандидат отвергнут проверкой (integrity): Integrity { reason: \\\"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.7610d1fb7748dbfb/install/.shellio-update-172009a4a632babb163e240188b4ac8b: a sealed resource is missing or invalid\\\" }»; журнала нет\" }"
+  },
+  {
+    "answer": "Ok(Reply(Refused { reason: \"кандидат отвергнут проверкой (requirement): Requirement { identifier: Some(\\\"io.github.dsbasko.shellio.probe.update-lifecycle\\\"), leaf: Some(\\\"0016a40e0a10def6f72c909b366c3aa0b2fde80e\\\"), mismatch: [Signer] }\", retry: false }))",
+    "exchange": "Ok(())",
+    "name": "foreign",
+    "verdict": "Verdict { status: Pass, reason: \"foreign отвергнут до intent: «кандидат отвергнут проверкой (requirement): Requirement { identifier: Some(\\\"io.github.dsbasko.shellio.probe.update-lifecycle\\\"), leaf: Some(\\\"0016a40e0a10def6f72c909b366c3aa0b2fde80e\\\"), mismatch: [Signer] }»; журнала нет\" }"
+  },
+  {
+    "answer": "Ok(Reply(Refused { reason: \"кандидат отвергнут проверкой (requirement): Requirement { identifier: Some(\\\"io.github.dsbasko.shellio.probe.update-lifecycle.wrong-id\\\"), leaf: Some(\\\"406f897fd84d95069d9a50abd81ab09b7afb7e55\\\"), mismatch: [Identifier] }\", retry: false }))",
+    "exchange": "Ok(())",
+    "name": "wrong-id",
+    "verdict": "Verdict { status: Pass, reason: \"wrong-id отвергнут до intent: «кандидат отвергнут проверкой (requirement): Requirement { identifier: Some(\\\"io.github.dsbasko.shellio.probe.update-lifecycle.wrong-id\\\"), leaf: Some(\\\"406f897fd84d95069d9a50abd81ab09b7afb7e55\\\"), mismatch: [Identifier] }»; журнала нет\" }"
+  },
+  {
+    "acks": [
+      [
+        1,
+        {
+          "ack": "accepted"
+        }
+      ],
+      [
+        2,
+        {
+          "ack": "accepted"
+        }
+      ],
+      [
+        3,
+        {
+          "ack": "accepted"
+        }
+      ],
+      [
+        4,
+        {
+          "ack": "accepted"
+        }
+      ]
+    ],
+    "installed": {
+      "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "seen": "valid"
+    },
+    "name": "after",
+    "ping": "Ok(OwnerInfo { generation: 1, key: ProcessKey { pid: 4657, start_us: 1795015440181527 }, executable: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.7610d1fb7748dbfb/install/probe-update.app/Contents/MacOS/probe-update-app\", cdhash: \"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\", installed: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.7610d1fb7748dbfb/install/probe-update.app\", installed_cdhash: \"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\", socket: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.7610d1fb7748dbfb/shellio.sock\", socket_inode: Inode { dev: 16777231, ino: 303166889 }, lock_inode: Inode { dev: 16777231, ino: 303166883 }, stale_socket: None, runtime: Prepared { dir: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.7610d1fb7748dbfb/runtime/1\", outcome: Created, recovered: None }, recovery: [], window: false, ready: true, received: [Forwarded { seq: 1, from: ProcessKey { pid: 4657, start_us: 1795015440181527 }, args: [] }], update: None })",
+    "same_processes": true,
+    "transcript": {
+      "expect_first": 1,
+      "lines": [
+        {
+          "number": 1,
+          "offset": 0,
+          "text": "ready pid=4667 generation=1"
+        },
+        {
+          "number": 2,
+          "offset": 35,
+          "text": "ack 1 ping"
+        },
+        {
+          "number": 3,
+          "offset": 53,
+          "text": "ack 2 ping"
+        },
+        {
+          "number": 4,
+          "offset": 71,
+          "text": "ack 3 ping"
+        },
+        {
+          "number": 5,
+          "offset": 89,
+          "text": "ack 4 ping"
+        }
+      ],
+      "next": 107,
+      "partial": [],
+      "problems": [],
+      "start": 0
+    }
+  },
+  {
+    "answer": "Ok(Reply(Staging(Deferred { attempt: \"172d2fbfa42e5e2f308510c8ecbc7ef0\", reason: \"активация отложена: живые сессии несовместимы с кандидатом — h1: несовместимые версии протокола: клиент 2..2, хост 1..1\", written: true, checked: Checked { versions: Versions { min: 2, max: 2 }, entries: [Entry { record: SessionRecord { session: \"h1\", host: ProcessKey { pid: 4666, start_us: 1795015440630662 }, executable: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.7610d1fb7748dbfb/runtime/1/probe-update-host\", workload: ProcessKey { pid: 4667, start_us: 1795015440632544 }, workload_pgid: 4667, workload_sid: Some(4667), tty: \"/dev/ttys003\", versions: Versions { min: 1, max: 1 }, generation: 1, socket: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.7610d1fb7748dbfb/s/h1.sock\" }, host_alive: true, workload_alive: true, probe: Refused { reason: \"несовместимые версии протокола: клиент 2..2, хост 1..1\" } }], problems: [], decision: Deferred { reason: \"активация отложена: живые сессии несовместимы с кандидатом — h1: несовместимые версии протокола: клиент 2..2, хост 1..1\" } } })))",
+    "journal": "Ok(Some(Journal { attempt: \"172d2fbfa42e5e2f308510c8ecbc7ef0\", state: StagedDeferred, from: 1, to: 3, cdhash_from: \"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\", cdhash_to: \"3bdcb64113d537944b55c28d8a5e97f0654b9c26\", installed: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.7610d1fb7748dbfb/install/probe-update.app\", deadline_ms: None, gui_from: None, helper: None, owner: None, outcome: None, reason: Some(\"активация отложена: живые сессии несовместимы с кандидатом — h1: несовместимые версии протокола: клиент 2..2, хост 1..1\"), launch: [], sessions: [] }))",
+    "name": "control"
+  },
+  {
+    "facts": {
+      "owner": {
+        "pid": 4657,
+        "start_us": 1795015440181527
+      },
+      "quit": "Done"
+    },
+    "name": "finish"
+  }
+]

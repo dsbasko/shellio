@@ -1,0 +1,586 @@
+{
+  "schema": 1,
+  "scenario": "kill",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "94514132ba68",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "versions": {
+      "homebrew": "Homebrew 7.0.14-26-gb63354c"
+    },
+    "generations": {
+      "denied": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+      "denied-2": "48f26b5d5eed2c5fa8a71e16923ce6773f253b88",
+      "foreign": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+      "gen-1": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "gen-2": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "incompatible": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "tampered": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "wrong-id": "acd96c2187aace3a2a7e15fd17949d1efae13cac"
+    },
+    "process": {
+      "pid": 5353,
+      "nonce": "49ce188b6014ab78",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78",
+      "env": {
+        "HOME": "/Users/u",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_BUNDLES": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle",
+        "SHELLIO_PROBE_COMMIT": "94514132ba68",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_VERSION_HOMEBREW": "Homebrew 7.0.14-26-gb63354c",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "cells": [
+    {
+      "id": "B2",
+      "part": "gui-after-staged",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «GUI N после staged»: барьеры gui.journal-staged-after; SIGKILL на gui.journal-staged-after; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «прервана», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "gui-after-staged: убито 5355@gui.journal-staged-after, запусков восстановления 1, владелец 5379 поколения 1, история [\"staged\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/gui-after-staged"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "gui-after-intent",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «GUI N после intent, до запуска помощника»: барьеры gui.journal-intent-after; SIGKILL на gui.journal-intent-after; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «прервана», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "gui-after-intent: убито 5402@gui.journal-intent-after, запусков восстановления 1, владелец 5428 поколения 1, история [\"staged\", \"intent\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/gui-after-intent"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "helper-gui-exited",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «помощник после выхода GUI N, до взятия блокировки»: барьеры helper.gui-exited; SIGKILL на helper.gui-exited; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «прервана», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "helper-gui-exited: убито 5473@helper.gui-exited, запусков восстановления 1, владелец 5476 поколения 1, история [\"staged\", \"intent\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/helper-gui-exited"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "helper-locked",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «помощник после взятия блокировки, до обмена»: барьеры helper.locked; SIGKILL на helper.locked; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «прервана», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "helper-locked: убито 5520@helper.locked, запусков восстановления 1, владелец 5523 поколения 1, история [\"staged\", \"intent\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/helper-locked"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "helper-exchanged",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «помощник между renamex_np и записью swapped»: барьеры helper.exchanged; SIGKILL на helper.exchanged; ход Kill",
+      "oracle": "установлен N+1 (CDHash поколения 2, codesign), журнал idle «подтверждена», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "helper-exchanged: убито 5609@helper.exchanged, запусков восстановления 1, владелец 5628 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/helper-exchanged"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "helper-after-swapped",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «помощник после swapped, до open»: барьеры helper.journal-swapped-after; SIGKILL на helper.journal-swapped-after; ход Kill",
+      "oracle": "установлен N+1 (CDHash поколения 2, codesign), журнал idle «подтверждена», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "helper-after-swapped: убито 5679@helper.journal-swapped-after, запусков восстановления 1, владелец 5694 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/helper-after-swapped"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "helper-opened",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «помощник после open, до записи launched»: барьеры helper.opened, next.started; SIGKILL на helper.opened; ход Opened",
+      "oracle": "установлен N+1 (CDHash поколения 2, codesign), журнал idle «подтверждена», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "helper-opened: убито 5742@helper.opened, запусков восстановления 2, владелец 5752 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/helper-opened"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "helper-released",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «помощник после launched и освобождения блокировки, N+1 здоров»: барьеры helper.released; SIGKILL на helper.released; ход Kill",
+      "oracle": "установлен N+1 (CDHash поколения 2, codesign), журнал idle «подтверждена», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "helper-released: убито 5872@helper.released, запусков восстановления 1, владелец 5878 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/helper-released"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "helper-released-next-hung",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «помощник после launched, N+1 завис»: барьеры helper.released, next.published; SIGKILL на helper.released, next.published; ход Hung",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «откачена», отказавший N+1 в .shellio-failed-<attempt> проходит проверку как поколение 2; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "helper-released-next-hung: убито 5929@helper.released, 5935@next.published, запусков восстановления 1, владелец 6416 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/helper-released-next-hung"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "next-before-publish",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «GUI N+1 до публикации сокета»: барьеры next.before-publish; SIGKILL на next.before-publish; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «откачена», отказавший N+1 в .shellio-failed-<attempt> проходит проверку как поколение 2; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "next-before-publish: убито 6506@next.before-publish, запусков восстановления 1, владелец 6550 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/next-before-publish"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "next-published",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «GUI N+1 после публикации сокета, до committed»: барьеры next.published; SIGKILL на next.published; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «откачена», отказавший N+1 в .shellio-failed-<attempt> проходит проверку как поколение 2; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "next-published: убито 6597@next.published, запусков восстановления 1, владелец 6634 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/next-published"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "next-after-committed",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «GUI N+1 после committed»: барьеры next.journal-committed-after; SIGKILL на next.journal-committed-after; ход Kill",
+      "oracle": "установлен N+1 (CDHash поколения 2, codesign), журнал idle «подтверждена», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "next-after-committed: убито 6678@next.journal-committed-after, запусков восстановления 1, владелец 6690 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/next-after-committed"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "next-cleaning",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «GUI N+1 во время cleaning»: барьеры next.remove-partial; SIGKILL на next.remove-partial; ход Kill",
+      "oracle": "установлен N+1 (CDHash поколения 2, codesign), журнал idle «подтверждена», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "next-cleaning: убито 6782@next.remove-partial, запусков восстановления 1, владелец 6803 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/next-cleaning"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "next-unconfirmed",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «GUI N+1 живой, но не подтверждается до срока»: барьеры next.published; SIGKILL на —; ход WatchdogKill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «откачена», отказавший N+1 в .shellio-failed-<attempt> проходит проверку как поколение 2; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "next-unconfirmed: убито , запусков восстановления 1, владелец 7424 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/next-unconfirmed"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "helper-after-rollback-intent",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «помощник после rollback-intent, до обратного обмена»: барьеры next.before-publish, helper.journal-rollback-intent-after; SIGKILL на next.before-publish, helper.journal-rollback-intent-after; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «откачена», отказавший N+1 в .shellio-failed-<attempt> проходит проверку как поколение 2; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "helper-after-rollback-intent: убито 7498@next.before-publish, 7492@helper.journal-rollback-intent-after, запусков восстановления 1, владелец 7562 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/helper-after-rollback-intent"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "helper-reverse-swapped",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «помощник между обратным обменом и rolled-back»: барьеры next.before-publish, helper.step-swap-after; SIGKILL на next.before-publish, helper.step-swap-after; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «откачена», отказавший N+1 в .shellio-failed-<attempt> проходит проверку как поколение 2; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "helper-reverse-swapped: убито 7609@next.before-publish, 7603@helper.step-swap-after, запусков восстановления 1, владелец 7631 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/helper-reverse-swapped"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "recovery-remove-partial",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «восстановление посреди удаления кандидата в aborting»: барьеры gui.journal-intent-after; SIGKILL на gui.journal-intent-after, gui.remove-partial; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «прервана», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "recovery-remove-partial: убито 7681@gui.journal-intent-after, 7704@gui.remove-partial, запусков восстановления 2, владелец 7715 поколения 1, история [\"staged\", \"intent\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/recovery-remove-partial"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "recovery-retired-gap",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «восстановление или помощник между переименованием в .shellio-failed-<attempt>/ и записью retired»: барьеры helper.released, next.published; SIGKILL на helper.released, next.published, gui.step-retire-after; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «откачена», отказавший N+1 в .shellio-failed-<attempt> проходит проверку как поколение 2; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "recovery-retired-gap: убито 7774@helper.released, 7802@next.published, 7816@gui.step-retire-after, запусков восстановления 2, владелец 7835 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/recovery-retired-gap"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "helper-retired-gap",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «восстановление или помощник между переименованием в .shellio-failed-<attempt>/ и записью retired»: барьеры next.before-publish, helper.step-retire-after; SIGKILL на next.before-publish, helper.step-retire-after; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «откачена», отказавший N+1 в .shellio-failed-<attempt> проходит проверку как поколение 2; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "helper-retired-gap: убито 7898@next.before-publish, 7892@helper.step-retire-after, запусков восстановления 1, владелец 7928 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/helper-retired-gap"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "next-quit-unconfirmed",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «GUI N+1 с ключом владельца вышел штатно до срока без подтверждения»: барьеры next.published; SIGKILL на —; ход Quit",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «откачена», отказавший N+1 в .shellio-failed-<attempt> проходит проверку как поколение 2; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "next-quit-unconfirmed: убито , запусков восстановления 1, владелец 8014 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/next-quit-unconfirmed"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "chain-abort",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «восстановление на каждой остальной своей мутации (до и после каждой записи и обмена)»: барьеры gui.journal-intent-after; SIGKILL на gui.journal-intent-after, gui.journal-aborting-before, gui.journal-aborting-after, gui.step-remove-before, gui.step-remove-after, gui.journal-idle-before, gui.journal-idle-after; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «прервана», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "chain-abort: убито 8030@gui.journal-intent-after, 8095@gui.journal-aborting-before, 8102@gui.journal-aborting-after, 8110@gui.step-remove-before, 8117@gui.step-remove-after, 8124@gui.journal-idle-before, 8129@gui.journal-idle-after, запусков восстановления 7, владелец 8134 поколения 1, история [\"staged\", \"intent\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/chain-abort"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "chain-rollback",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «восстановление на каждой остальной своей мутации (до и после каждой записи и обмена)»: барьеры helper.released, next.published; SIGKILL на helper.released, next.published, gui.journal-rollback-intent-before, gui.journal-rollback-intent-after, gui.step-swap-before, gui.step-swap-after, gui.journal-rolled-back-before, gui.journal-rolled-back-after, gui.step-retire-before, gui.journal-retired-before, gui.journal-retired-after; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «откачена», отказавший N+1 в .shellio-failed-<attempt> проходит проверку как поколение 2; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "chain-rollback: убито 8168@helper.released, 8174@next.published, 8188@gui.journal-rollback-intent-before, 8195@gui.journal-rollback-intent-after, 8202@gui.step-swap-before, 8209@gui.step-swap-after, 8216@gui.journal-rolled-back-before, 8223@gui.journal-rolled-back-after, 8230@gui.step-retire-before, 8237@gui.journal-retired-before, 8248@gui.journal-retired-after, запусков восстановления 10, владелец 8255 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/chain-rollback"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "chain-swapped",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «восстановление на каждой остальной своей мутации (до и после каждой записи и обмена)»: барьеры helper.exchanged; SIGKILL на helper.exchanged, gui.journal-swapped-before, gui.journal-swapped-after; ход Kill",
+      "oracle": "установлен N+1 (CDHash поколения 2, codesign), журнал idle «подтверждена», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "chain-swapped: убито 8296@helper.exchanged, 8322@gui.journal-swapped-before, 8329@gui.journal-swapped-after, запусков восстановления 3, владелец 8344 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/chain-swapped"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "chain-cleaning",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "строка B2 «восстановление на каждой остальной своей мутации (до и после каждой записи и обмена)»: барьеры next.journal-committed-after; SIGKILL на next.journal-committed-after, gui.journal-cleaning-before, gui.journal-cleaning-after; ход Kill",
+      "oracle": "установлен N+1 (CDHash поколения 2, codesign), журнал idle «подтверждена», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "chain-cleaning: убито 8440@next.journal-committed-after, 8452@gui.journal-cleaning-before, 8459@gui.journal-cleaning-after, запусков восстановления 3, владелец 8466 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/chain-cleaning"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "gui-before-staged",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "дополнительная часть перечня записей журнала: барьеры gui.journal-staged-before; SIGKILL на gui.journal-staged-before; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнала нет, каталог кандидата без записи журнала остаётся; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "gui-before-staged: убито 8485@gui.journal-staged-before, запусков восстановления 1, владелец 8530 поколения 1, история [], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/gui-before-staged"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "gui-before-intent",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "дополнительная часть перечня записей журнала: барьеры gui.journal-intent-before; SIGKILL на gui.journal-intent-before; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «прервана», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "gui-before-intent: убито 8543@gui.journal-intent-before, запусков восстановления 1, владелец 8566 поколения 1, история [\"staged\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/gui-before-intent"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "helper-before-launched",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "дополнительная часть перечня записей журнала: барьеры helper.journal-launched-before; SIGKILL на helper.journal-launched-before; ход Kill",
+      "oracle": "установлен N+1 (CDHash поколения 2, codesign), журнал idle «подтверждена», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "helper-before-launched: убито 8611@helper.journal-launched-before, запусков восстановления 1, владелец 8617 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/helper-before-launched"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "helper-after-launched",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "дополнительная часть перечня записей журнала: барьеры helper.journal-launched-after; SIGKILL на helper.journal-launched-after; ход Kill",
+      "oracle": "установлен N+1 (CDHash поколения 2, codesign), журнал idle «подтверждена», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "helper-after-launched: убито 8714@helper.journal-launched-after, запусков восстановления 1, владелец 8720 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/helper-after-launched"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "next-before-committed",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "дополнительная часть перечня записей журнала: барьеры next.journal-committed-before; SIGKILL на next.journal-committed-before; ход Kill",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «откачена», отказавший N+1 в .shellio-failed-<attempt> проходит проверку как поколение 2; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "next-before-committed: убито 8777@next.journal-committed-before, запусков восстановления 1, владелец 8814 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/next-before-committed"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "next-not-started",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "дополнительная часть перечня записей журнала: барьеры next.launching; SIGKILL на —; ход NotStarted",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «откачена», отказавший N+1 в .shellio-failed-<attempt> проходит проверку как поколение 2; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "next-not-started: убито 8857@next.launching, запусков восстановления 1, владелец 9107 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/next-not-started"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "race-deadline-commit-first",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "управляемая гонка B2: барьеры next.journal-committed-before; SIGKILL на —; ход CommitFirst",
+      "oracle": "установлен N+1 (CDHash поколения 2, codesign), журнал idle «подтверждена», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "race-deadline-commit-first: убито , запусков восстановления 1, владелец 9152 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/race-deadline-commit-first"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "race-deadline-watchdog-first",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "управляемая гонка B2: барьеры next.journal-committed-before; SIGKILL на —; ход WatchdogFirst",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «откачена», отказавший N+1 в .shellio-failed-<attempt> проходит проверку как поколение 2; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "race-deadline-watchdog-first: убито , запусков восстановления 1, владелец 10111 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/race-deadline-watchdog-first"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "race-deadline-next-checks",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "управляемая гонка B2: барьеры helper.released, next.published; SIGKILL на helper.released; ход NextChecks",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «откачена», отказавший N+1 в .shellio-failed-<attempt> проходит проверку как поколение 2; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "race-deadline-next-checks: убито 10219@helper.released, запусков восстановления 1, владелец 10740 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/race-deadline-next-checks"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "race-handoff-gui-to-helper",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "управляемая гонка B2: барьеры helper.gui-exited; SIGKILL на —; ход HandoffGui",
+      "oracle": "установлен N (CDHash поколения 1), журнал idle «прервана», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "race-handoff-gui-to-helper: убито , запусков восстановления 1, владелец 10787 поколения 1, история [\"staged\", \"intent\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/race-handoff-gui-to-helper"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "race-handoff-helper-to-next",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "управляемая гонка B2: барьеры helper.locked; SIGKILL на —; ход HandoffHelper",
+      "oracle": "установлен N+1 (CDHash поколения 2, codesign), журнал idle «подтверждена», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "race-handoff-helper-to-next: убито , запусков восстановления 1, владелец 10846 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/race-handoff-helper-to-next"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "race-two-next",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "управляемая гонка B2: барьеры next.started; SIGKILL на —; ход TwoNext",
+      "oracle": "установлен N+1 (CDHash поколения 2, codesign), журнал idle «подтверждена», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "race-two-next: убито , запусков восстановления 1, владелец 10950 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/race-two-next"
+      ]
+    },
+    {
+      "id": "B2",
+      "part": "race-short-committed",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "управляемая гонка B2: барьеры helper.released; SIGKILL на —; ход ShortCommitted",
+      "oracle": "установлен N+1 (CDHash поколения 2, codesign), журнал idle «подтверждена», каталога попытки нет; владелец единственный, его поколение — установленное; h1 с прежними процессами, хвост без пропуска, квитанция ack 2 ping; история попытки проходит переходы части; звенья: журнал до rename прежний, после — новый; второе восстановление под блокировкой не меняет журнал, историю и раскладку; ход части — раздел отчёта «Ожидания B2»",
+      "completion": "барьер, выход процесса, готовность владельца или запись журнала в срок шага (30 с), срок health (60 с от intent) и срок запуска N+1 (20 с) у частей со сроком; иначе ошибка исполнения",
+      "reason": "race-short-committed: убито , запусков восстановления 1, владелец 11013 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов",
+      "artifacts": [
+        "kill/steps.json",
+        "kill/race-short-committed"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "notes": [
+      "частей 37, срок health 60 с от intent, срок запуска N+1 20 с, срок шага стенда 30 с; барьер committed в гонке «подтверждение первым» снят за 2000 мс до срока, N+1 в гонке «N+1 сам видит срок» отпущен через 1000 мс после срока"
+    ]
+  }
+}

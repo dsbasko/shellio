@@ -1,0 +1,167 @@
+[
+  {
+    "command": [
+      "/usr/bin/shasum",
+      "-a",
+      "256",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/.prep-1/probe-update-host"
+    ],
+    "code": 0,
+    "stdout": "75ba24de0e64bf64605ec3ed400d1e5bae1e7dcd40b3217df1e660204e1d9cfc  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/.prep-1/probe-update-host\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/usr/bin/shasum",
+      "-a",
+      "256",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/.prep-1/probe-update-host"
+    ],
+    "code": 0,
+    "stdout": "75ba24de0e64bf64605ec3ed400d1e5bae1e7dcd40b3217df1e660204e1d9cfc  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/.prep-1/probe-update-host\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/usr/bin/shasum",
+      "-a",
+      "256",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-attach",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-fixture",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-host"
+    ],
+    "code": 0,
+    "stdout": "f5c30d2b6b6713dd11066dd4c173cfbcf50ed5c61910d3b8ac60d93e3d1be342  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-attach\nd784404a4f6e9b5de7eea8de91e774befc2038453f1d543c66a624667666ba33  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-fixture\n75ba24de0e64bf64605ec3ed400d1e5bae1e7dcd40b3217df1e660204e1d9cfc  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-host\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/usr/bin/codesign",
+      "--verify",
+      "--strict",
+      "--deep",
+      "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.host\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-host"
+    ],
+    "code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/usr/bin/codesign",
+      "--verify",
+      "--strict",
+      "--deep",
+      "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.attach\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-attach"
+    ],
+    "code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/usr/bin/codesign",
+      "--verify",
+      "--strict",
+      "--deep",
+      "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.fixture\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-fixture"
+    ],
+    "code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/usr/bin/shasum",
+      "-a",
+      "256",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-attach",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-fixture",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-host"
+    ],
+    "code": 0,
+    "stdout": "f5c30d2b6b6713dd11066dd4c173cfbcf50ed5c61910d3b8ac60d93e3d1be342  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-attach\nd784404a4f6e9b5de7eea8de91e774befc2038453f1d543c66a624667666ba33  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-fixture\n75ba24de0e64bf64605ec3ed400d1e5bae1e7dcd40b3217df1e660204e1d9cfc  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-host\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/usr/bin/shasum",
+      "-a",
+      "256",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-attach",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-fixture",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-host"
+    ],
+    "code": 0,
+    "stdout": "f5c30d2b6b6713dd11066dd4c173cfbcf50ed5c61910d3b8ac60d93e3d1be342  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-attach\nd784404a4f6e9b5de7eea8de91e774befc2038453f1d543c66a624667666ba33  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-fixture\n75ba24de0e64bf64605ec3ed400d1e5bae1e7dcd40b3217df1e660204e1d9cfc  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-host\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/usr/bin/shasum",
+      "-a",
+      "256",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-attach",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-fixture",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-host"
+    ],
+    "code": 0,
+    "stdout": "f5c30d2b6b6713dd11066dd4c173cfbcf50ed5c61910d3b8ac60d93e3d1be342  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-attach\nd784404a4f6e9b5de7eea8de91e774befc2038453f1d543c66a624667666ba33  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-fixture\n75ba24de0e64bf64605ec3ed400d1e5bae1e7dcd40b3217df1e660204e1d9cfc  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/1/probe-update-host\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/usr/bin/shasum",
+      "-a",
+      "256",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-attach",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-fixture",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-host"
+    ],
+    "code": 0,
+    "stdout": "c152810835ed0aee7450df99dbfcf12e8bc650aa2add5868a8fc139001d6d3a3  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-attach\nfa1412eae185520d5ba4c7ce619f8af86178f8b2f1913626b7c478dcd1206862  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-fixture\n72c02c6be806f95ef743efb548a3733d6d726fcc5813e93a4adf472c363b2a11  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-host\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/usr/bin/shasum",
+      "-a",
+      "256",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-attach",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-fixture",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-host"
+    ],
+    "code": 0,
+    "stdout": "c152810835ed0aee7450df99dbfcf12e8bc650aa2add5868a8fc139001d6d3a3  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-attach\nfa1412eae185520d5ba4c7ce619f8af86178f8b2f1913626b7c478dcd1206862  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-fixture\n72c02c6be806f95ef743efb548a3733d6d726fcc5813e93a4adf472c363b2a11  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-host\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/usr/bin/shasum",
+      "-a",
+      "256",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-attach",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-fixture",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-host"
+    ],
+    "code": 0,
+    "stdout": "0bce05063bce347dc5fafbd44d29e38c84ea63dcfb6313f3618352f0aa8c6e4c  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-attach\nfa1412eae185520d5ba4c7ce619f8af86178f8b2f1913626b7c478dcd1206862  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-fixture\n72c02c6be806f95ef743efb548a3733d6d726fcc5813e93a4adf472c363b2a11  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-host\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/usr/bin/shasum",
+      "-a",
+      "256",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-attach",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-fixture",
+      "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-host"
+    ],
+    "code": 0,
+    "stdout": "0bce05063bce347dc5fafbd44d29e38c84ea63dcfb6313f3618352f0aa8c6e4c  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-attach\nfa1412eae185520d5ba4c7ce619f8af86178f8b2f1913626b7c478dcd1206862  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-fixture\n72c02c6be806f95ef743efb548a3733d6d726fcc5813e93a4adf472c363b2a11  /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e/runtime/2/probe-update-host\n",
+    "stderr": ""
+  }
+]

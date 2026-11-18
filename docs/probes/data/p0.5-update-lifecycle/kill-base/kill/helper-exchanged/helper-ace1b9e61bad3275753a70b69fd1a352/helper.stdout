@@ -1,0 +1,4 @@
+{"detail":{"attempt":"ace1b9e61bad3275753a70b69fd1a352","gui":{"pid":5562,"start_us":1795015460740847},"key":{"pid":5609,"start_us":1795015461412737}},"event":"started","pid":5609,"uptime_ns":642229292802541}
+{"detail":{"gui":{"pid":5562,"start_us":1795015460740847}},"event":"gui-exited","pid":5609,"uptime_ns":642229292897541}
+{"detail":{"inode":{"dev":16777231,"ino":303168607}},"event":"locked","pid":5609,"uptime_ns":642229293014250}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":5609,"uptime_ns":642229379732125}

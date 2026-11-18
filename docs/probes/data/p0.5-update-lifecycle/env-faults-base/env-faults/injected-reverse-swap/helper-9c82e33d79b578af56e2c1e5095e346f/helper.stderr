@@ -1,0 +1,2 @@
+инъекция helper.step-swap-before: процесс 12074 получает errno 5
+probe-update-helper: восстановление: обратный обмен (injected): Input/output error (os error 5)

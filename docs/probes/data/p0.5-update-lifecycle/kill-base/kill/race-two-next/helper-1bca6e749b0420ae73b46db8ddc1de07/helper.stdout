@@ -1,0 +1,11 @@
+{"detail":{"attempt":"1bca6e749b0420ae73b46db8ddc1de07","gui":{"pid":10922,"start_us":1795015834220803},"key":{"pid":10944,"start_us":1795015834980259}},"event":"started","pid":10944,"uptime_ns":642602855876708}
+{"detail":{"gui":{"pid":10922,"start_us":1795015834220803}},"event":"gui-exited","pid":10944,"uptime_ns":642602855986583}
+{"detail":{"inode":{"dev":16777231,"ino":303173133}},"event":"locked","pid":10944,"uptime_ns":642602856132958}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":10944,"uptime_ns":642602928414708}
+{"detail":{},"event":"swapped","pid":10944,"uptime_ns":642602934585625}
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-race-two-next/probe-update.app"},"event":"opened","pid":10944,"uptime_ns":642603017382958}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":10950,"start_us":1795015835270706},"reason":"признан"}],"owner":{"pid":10950,"start_us":1795015835270706},"reused":false},"event":"identified","pid":10944,"uptime_ns":642603223625916}
+{"detail":{"owner":{"pid":10950,"start_us":1795015835270706}},"event":"launched","pid":10944,"uptime_ns":642603232810208}
+{"detail":{"owner":{"pid":10950,"start_us":1795015835270706}},"event":"released","pid":10944,"uptime_ns":642603232873708}
+{"detail":{"why":"попытка в committed"},"event":"watch-finished","pid":10944,"uptime_ns":642603596649041}
+{"detail":{"outcome":"попытка закончена без сторожа: попытка в committed"},"event":"done","pid":10944,"uptime_ns":642603596807458}

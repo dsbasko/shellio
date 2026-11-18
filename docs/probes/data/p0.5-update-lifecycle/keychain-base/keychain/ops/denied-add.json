@@ -1,0 +1,22 @@
+{
+  "op": "add",
+  "account": "denied",
+  "no_ui": "process-flag",
+  "pid": 12160,
+  "generation": 1,
+  "cdhash": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+  "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/denied/probe-update-denied.app/Contents/MacOS/probe-update-app",
+  "window": true,
+  "interaction_before": true,
+  "interaction_after": false,
+  "set_interaction_status": 0,
+  "open_status": 0,
+  "keychain_status": 7,
+  "add_status": 0,
+  "attributes_status": null,
+  "data_status": null,
+  "value_sha256": "6b81133e6a216974febd7aece9269dd242da6b43653bb9a9746d61e5dbcab6a9",
+  "value_len": 64,
+  "elapsed_ms": 13,
+  "error": null
+}

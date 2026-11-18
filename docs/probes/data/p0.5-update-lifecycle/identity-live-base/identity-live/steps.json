@@ -1,0 +1,898 @@
+[
+  {
+    "activating": {
+      "attempt": "021852682dc6326b4f138e0a933df9ca",
+      "helper": {
+        "pid": 4625,
+        "start_us": 1795015439347793
+      }
+    },
+    "helper_copy": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/update/helper/021852682dc6326b4f138e0a933df9ca/probe-update-helper",
+    "helper_copy_exists": true,
+    "name": "prepare",
+    "owner_n": {
+      "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app/Contents/MacOS/probe-update-app",
+      "generation": 1,
+      "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+      "installed_cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "key": {
+        "pid": 4604,
+        "start_us": 1795015438571198
+      },
+      "lock_inode": {
+        "dev": 16777231,
+        "ino": 303166782
+      },
+      "ready": true,
+      "received": [
+        {
+          "args": [],
+          "from": {
+            "pid": 4604,
+            "start_us": 1795015438571198
+          },
+          "seq": 1
+        }
+      ],
+      "recovery": [],
+      "runtime": {
+        "dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/runtime/1",
+        "outcome": "created",
+        "recovered": null
+      },
+      "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/shellio.sock",
+      "socket_inode": {
+        "dev": 16777231,
+        "ino": 303166788
+      },
+      "stale_socket": null,
+      "update": null,
+      "window": false
+    },
+    "record": {
+      "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/runtime/1/probe-update-host",
+      "generation": 1,
+      "host": {
+        "pid": 4612,
+        "start_us": 1795015439031345
+      },
+      "session": "h1",
+      "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/s/h1.sock",
+      "tty": "/dev/ttys003",
+      "versions": {
+        "max": 1,
+        "min": 1
+      },
+      "workload": {
+        "pid": 4613,
+        "start_us": 1795015439033951
+      },
+      "workload_pgid": 4613,
+      "workload_sid": 4613
+    },
+    "staged": {
+      "attempt": "021852682dc6326b4f138e0a933df9ca",
+      "checked": {
+        "decision": {
+          "checked": 1,
+          "decision": "compatible"
+        },
+        "entries": [
+          {
+            "host_alive": true,
+            "probe": {
+              "probe": "welcome",
+              "version": 1
+            },
+            "record": {
+              "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/runtime/1/probe-update-host",
+              "generation": 1,
+              "host": {
+                "pid": 4612,
+                "start_us": 1795015439031345
+              },
+              "session": "h1",
+              "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/s/h1.sock",
+              "tty": "/dev/ttys003",
+              "versions": {
+                "max": 1,
+                "min": 1
+              },
+              "workload": {
+                "pid": 4613,
+                "start_us": 1795015439033951
+              },
+              "workload_pgid": 4613,
+              "workload_sid": 4613
+            },
+            "workload_alive": true
+          }
+        ],
+        "problems": [],
+        "versions": {
+          "max": 2,
+          "min": 1
+        }
+      }
+    },
+    "transcript": {
+      "expect_first": 1,
+      "lines": [
+        {
+          "number": 1,
+          "offset": 0,
+          "text": "ready pid=4613 generation=1"
+        },
+        {
+          "number": 2,
+          "offset": 35,
+          "text": "ack 1 ping"
+        }
+      ],
+      "next": 53,
+      "partial": [],
+      "problems": [],
+      "start": 0
+    }
+  },
+  {
+    "expected_bin": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app/Contents/MacOS/probe-update-app",
+    "facts": {
+      "attempt": "021852682dc6326b4f138e0a933df9ca",
+      "gui": {
+        "pid": 4604,
+        "start_us": 1795015438571198
+      },
+      "gui_exit": 0,
+      "gui_reports": [
+        {
+          "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+          "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app/Contents/MacOS/probe-update-app",
+          "generation": 1,
+          "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+          "installed_cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+          "key": {
+            "pid": 4604,
+            "start_us": 1795015438571198
+          },
+          "lock_inode": {
+            "dev": 16777231,
+            "ino": 303166782
+          },
+          "ready": true,
+          "received": [
+            {
+              "args": [],
+              "from": {
+                "pid": 4604,
+                "start_us": 1795015438571198
+              },
+              "seq": 1
+            }
+          ],
+          "recovery": [],
+          "role": "owner",
+          "runtime": {
+            "dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/runtime/1",
+            "outcome": "created",
+            "recovered": null
+          },
+          "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/shellio.sock",
+          "socket_inode": {
+            "dev": 16777231,
+            "ino": 303166788
+          },
+          "stale_socket": null,
+          "update": null,
+          "window": false
+        },
+        {
+          "attempt": "021852682dc6326b4f138e0a933df9ca",
+          "helper": {
+            "pid": 4625,
+            "start_us": 1795015439347793
+          },
+          "key": {
+            "pid": 4604,
+            "start_us": 1795015438571198
+          },
+          "role": "updated"
+        }
+      ],
+      "helper": {
+        "pid": 4625,
+        "start_us": 1795015439347793
+      },
+      "helper_events": [
+        {
+          "detail": {
+            "attempt": "021852682dc6326b4f138e0a933df9ca",
+            "gui": {
+              "pid": 4604,
+              "start_us": 1795015438571198
+            },
+            "key": {
+              "pid": 4625,
+              "start_us": 1795015439347793
+            }
+          },
+          "event": "started",
+          "pid": 4625,
+          "uptime_ns": 642207229491916
+        },
+        {
+          "detail": {
+            "gui": {
+              "pid": 4604,
+              "start_us": 1795015438571198
+            }
+          },
+          "event": "gui-exited",
+          "pid": 4625,
+          "uptime_ns": 642207229616125
+        },
+        {
+          "detail": {
+            "inode": {
+              "dev": 16777231,
+              "ino": 303166782
+            }
+          },
+          "event": "locked",
+          "pid": 4625,
+          "uptime_ns": 642207229711208
+        },
+        {
+          "detail": {
+            "gui_alive": false
+          },
+          "event": "exchanged",
+          "pid": 4625,
+          "uptime_ns": 642207302872875
+        },
+        {
+          "detail": {},
+          "event": "swapped",
+          "pid": 4625,
+          "uptime_ns": 642207309839083
+        },
+        {
+          "detail": {
+            "candidates": [],
+            "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app"
+          },
+          "event": "opened",
+          "pid": 4625,
+          "uptime_ns": 642207384754625
+        },
+        {
+          "detail": {
+            "candidates": [
+              {
+                "accepted": true,
+                "key": {
+                  "pid": 4631,
+                  "start_us": 1795015439639451
+                },
+                "reason": "признан"
+              }
+            ],
+            "owner": {
+              "pid": 4631,
+              "start_us": 1795015439639451
+            },
+            "reused": false
+          },
+          "event": "identified",
+          "pid": 4625,
+          "uptime_ns": 642207551013250
+        },
+        {
+          "detail": {
+            "owner": {
+              "pid": 4631,
+              "start_us": 1795015439639451
+            }
+          },
+          "event": "launched",
+          "pid": 4625,
+          "uptime_ns": 642207556172666
+        },
+        {
+          "detail": {
+            "owner": {
+              "pid": 4631,
+              "start_us": 1795015439639451
+            }
+          },
+          "event": "released",
+          "pid": 4625,
+          "uptime_ns": 642207556194375
+        },
+        {
+          "detail": {
+            "why": "попытка в committed"
+          },
+          "event": "watch-finished",
+          "pid": 4625,
+          "uptime_ns": 642207710262583
+        },
+        {
+          "detail": {
+            "outcome": "попытка закончена без сторожа: попытка в committed"
+          },
+          "event": "done",
+          "pid": 4625,
+          "uptime_ns": 642207710415625
+        }
+      ],
+      "helper_exited": true,
+      "history": [
+        {
+          "journal": {
+            "attempt": "021852682dc6326b4f138e0a933df9ca",
+            "cdhash_from": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "cdhash_to": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+            "deadline_ms": null,
+            "from": 1,
+            "gui_from": null,
+            "helper": null,
+            "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+            "launch": [],
+            "outcome": null,
+            "owner": null,
+            "reason": null,
+            "sessions": [],
+            "state": "staged",
+            "to": 2
+          },
+          "pid": 4604,
+          "uptime_ns": 642207061789833
+        },
+        {
+          "journal": {
+            "attempt": "021852682dc6326b4f138e0a933df9ca",
+            "cdhash_from": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "cdhash_to": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+            "deadline_ms": 1795015499342,
+            "from": 1,
+            "gui_from": {
+              "pid": 4604,
+              "start_us": 1795015438571198
+            },
+            "helper": null,
+            "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+            "launch": [
+              "--state",
+              "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8",
+              "--installed",
+              "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+              "--leaf",
+              "406f897fd84d95069d9a50abd81ab09b7afb7e55",
+              "--identifier",
+              "io.github.dsbasko.shellio.probe.update-lifecycle",
+              "--tag",
+              "ca208711a319b1f8"
+            ],
+            "outcome": null,
+            "owner": null,
+            "reason": null,
+            "sessions": [
+              {
+                "host": {
+                  "pid": 4612,
+                  "start_us": 1795015439031345
+                },
+                "session": "h1",
+                "workload": {
+                  "pid": 4613,
+                  "start_us": 1795015439033951
+                }
+              }
+            ],
+            "state": "intent",
+            "to": 2
+          },
+          "pid": 4604,
+          "uptime_ns": 642207067800125
+        },
+        {
+          "journal": {
+            "attempt": "021852682dc6326b4f138e0a933df9ca",
+            "cdhash_from": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "cdhash_to": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+            "deadline_ms": 1795015499342,
+            "from": 1,
+            "gui_from": {
+              "pid": 4604,
+              "start_us": 1795015438571198
+            },
+            "helper": {
+              "pid": 4625,
+              "start_us": 1795015439347793
+            },
+            "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+            "launch": [
+              "--state",
+              "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8",
+              "--installed",
+              "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+              "--leaf",
+              "406f897fd84d95069d9a50abd81ab09b7afb7e55",
+              "--identifier",
+              "io.github.dsbasko.shellio.probe.update-lifecycle",
+              "--tag",
+              "ca208711a319b1f8"
+            ],
+            "outcome": null,
+            "owner": null,
+            "reason": null,
+            "sessions": [
+              {
+                "host": {
+                  "pid": 4612,
+                  "start_us": 1795015439031345
+                },
+                "session": "h1",
+                "workload": {
+                  "pid": 4613,
+                  "start_us": 1795015439033951
+                }
+              }
+            ],
+            "state": "swapped",
+            "to": 2
+          },
+          "pid": 4625,
+          "uptime_ns": 642207309775958
+        },
+        {
+          "journal": {
+            "attempt": "021852682dc6326b4f138e0a933df9ca",
+            "cdhash_from": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "cdhash_to": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+            "deadline_ms": 1795015499342,
+            "from": 1,
+            "gui_from": {
+              "pid": 4604,
+              "start_us": 1795015438571198
+            },
+            "helper": {
+              "pid": 4625,
+              "start_us": 1795015439347793
+            },
+            "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+            "launch": [
+              "--state",
+              "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8",
+              "--installed",
+              "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+              "--leaf",
+              "406f897fd84d95069d9a50abd81ab09b7afb7e55",
+              "--identifier",
+              "io.github.dsbasko.shellio.probe.update-lifecycle",
+              "--tag",
+              "ca208711a319b1f8"
+            ],
+            "outcome": null,
+            "owner": {
+              "pid": 4631,
+              "start_us": 1795015439639451
+            },
+            "reason": null,
+            "sessions": [
+              {
+                "host": {
+                  "pid": 4612,
+                  "start_us": 1795015439031345
+                },
+                "session": "h1",
+                "workload": {
+                  "pid": 4613,
+                  "start_us": 1795015439033951
+                }
+              }
+            ],
+            "state": "launched",
+            "to": 2
+          },
+          "pid": 4625,
+          "uptime_ns": 642207556078791
+        },
+        {
+          "journal": {
+            "attempt": "021852682dc6326b4f138e0a933df9ca",
+            "cdhash_from": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "cdhash_to": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+            "deadline_ms": 1795015499342,
+            "from": 1,
+            "gui_from": {
+              "pid": 4604,
+              "start_us": 1795015438571198
+            },
+            "helper": {
+              "pid": 4625,
+              "start_us": 1795015439347793
+            },
+            "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+            "launch": [
+              "--state",
+              "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8",
+              "--installed",
+              "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+              "--leaf",
+              "406f897fd84d95069d9a50abd81ab09b7afb7e55",
+              "--identifier",
+              "io.github.dsbasko.shellio.probe.update-lifecycle",
+              "--tag",
+              "ca208711a319b1f8"
+            ],
+            "outcome": null,
+            "owner": {
+              "pid": 4631,
+              "start_us": 1795015439639451
+            },
+            "reason": null,
+            "sessions": [
+              {
+                "host": {
+                  "pid": 4612,
+                  "start_us": 1795015439031345
+                },
+                "session": "h1",
+                "workload": {
+                  "pid": 4613,
+                  "start_us": 1795015439033951
+                }
+              }
+            ],
+            "state": "committed",
+            "to": 2
+          },
+          "pid": 4631,
+          "uptime_ns": 642207711799500
+        },
+        {
+          "journal": {
+            "attempt": "021852682dc6326b4f138e0a933df9ca",
+            "cdhash_from": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "cdhash_to": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+            "deadline_ms": 1795015499342,
+            "from": 1,
+            "gui_from": {
+              "pid": 4604,
+              "start_us": 1795015438571198
+            },
+            "helper": {
+              "pid": 4625,
+              "start_us": 1795015439347793
+            },
+            "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+            "launch": [
+              "--state",
+              "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8",
+              "--installed",
+              "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+              "--leaf",
+              "406f897fd84d95069d9a50abd81ab09b7afb7e55",
+              "--identifier",
+              "io.github.dsbasko.shellio.probe.update-lifecycle",
+              "--tag",
+              "ca208711a319b1f8"
+            ],
+            "outcome": null,
+            "owner": {
+              "pid": 4631,
+              "start_us": 1795015439639451
+            },
+            "reason": null,
+            "sessions": [
+              {
+                "host": {
+                  "pid": 4612,
+                  "start_us": 1795015439031345
+                },
+                "session": "h1",
+                "workload": {
+                  "pid": 4613,
+                  "start_us": 1795015439033951
+                }
+              }
+            ],
+            "state": "cleaning",
+            "to": 2
+          },
+          "pid": 4631,
+          "uptime_ns": 642207763020250
+        },
+        {
+          "journal": {
+            "attempt": "021852682dc6326b4f138e0a933df9ca",
+            "cdhash_from": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "cdhash_to": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+            "deadline_ms": 1795015499342,
+            "from": 1,
+            "gui_from": {
+              "pid": 4604,
+              "start_us": 1795015438571198
+            },
+            "helper": {
+              "pid": 4625,
+              "start_us": 1795015439347793
+            },
+            "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+            "launch": [
+              "--state",
+              "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8",
+              "--installed",
+              "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+              "--leaf",
+              "406f897fd84d95069d9a50abd81ab09b7afb7e55",
+              "--identifier",
+              "io.github.dsbasko.shellio.probe.update-lifecycle",
+              "--tag",
+              "ca208711a319b1f8"
+            ],
+            "outcome": "committed",
+            "owner": {
+              "pid": 4631,
+              "start_us": 1795015439639451
+            },
+            "reason": null,
+            "sessions": [
+              {
+                "host": {
+                  "pid": 4612,
+                  "start_us": 1795015439031345
+                },
+                "session": "h1",
+                "workload": {
+                  "pid": 4613,
+                  "start_us": 1795015439033951
+                }
+              }
+            ],
+            "state": "idle",
+            "to": 2
+          },
+          "pid": 4631,
+          "uptime_ns": 642207835949541
+        }
+      ],
+      "journal": {
+        "attempt": "021852682dc6326b4f138e0a933df9ca",
+        "cdhash_from": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+        "cdhash_to": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+        "deadline_ms": 1795015499342,
+        "from": 1,
+        "gui_from": {
+          "pid": 4604,
+          "start_us": 1795015438571198
+        },
+        "helper": {
+          "pid": 4625,
+          "start_us": 1795015439347793
+        },
+        "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+        "launch": [
+          "--state",
+          "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8",
+          "--installed",
+          "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+          "--leaf",
+          "406f897fd84d95069d9a50abd81ab09b7afb7e55",
+          "--identifier",
+          "io.github.dsbasko.shellio.probe.update-lifecycle",
+          "--tag",
+          "ca208711a319b1f8"
+        ],
+        "outcome": "committed",
+        "owner": {
+          "pid": 4631,
+          "start_us": 1795015439639451
+        },
+        "reason": null,
+        "sessions": [
+          {
+            "host": {
+              "pid": 4612,
+              "start_us": 1795015439031345
+            },
+            "session": "h1",
+            "workload": {
+              "pid": 4613,
+              "start_us": 1795015439033951
+            }
+          }
+        ],
+        "state": "idle",
+        "to": 2
+      },
+      "next": {
+        "cdhash": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+        "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app/Contents/MacOS/probe-update-app",
+        "generation": 2,
+        "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+        "installed_cdhash": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+        "key": {
+          "pid": 4631,
+          "start_us": 1795015439639451
+        },
+        "lock_inode": {
+          "dev": 16777231,
+          "ino": 303166782
+        },
+        "ready": true,
+        "received": [
+          {
+            "args": [],
+            "from": {
+              "pid": 4631,
+              "start_us": 1795015439639451
+            },
+            "seq": 1
+          }
+        ],
+        "recovery": [],
+        "runtime": {
+          "dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/runtime/2",
+          "outcome": "created",
+          "recovered": null
+        },
+        "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/shellio.sock",
+        "socket_inode": {
+          "dev": 16777231,
+          "ino": 303166832
+        },
+        "stale_socket": null,
+        "update": {
+          "attempt": "021852682dc6326b4f138e0a933df9ca",
+          "cleanup": [
+            "Write(Cleaning, None)",
+            "Remove",
+            "Write(Idle, Some(Committed))"
+          ],
+          "committed_ms": 1795015439987,
+          "deadline_ms": 1795015499342,
+          "health": {
+            "cdhash": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+            "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app/Contents/MacOS/probe-update-app",
+            "expected_cdhash": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+            "expected_executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app/Contents/MacOS/probe-update-app",
+            "generation": 2,
+            "input_seq": 1795015439639451,
+            "lock_held": true,
+            "ping_generation": 2,
+            "sessions": [
+              {
+                "error": null,
+                "expected": {
+                  "host": {
+                    "pid": 4612,
+                    "start_us": 1795015439031345
+                  },
+                  "session": "h1",
+                  "workload": {
+                    "pid": 4613,
+                    "start_us": 1795015439033951
+                  }
+                },
+                "found": true,
+                "gaps": [],
+                "lines": 3,
+                "receipt": true,
+                "same_processes": true,
+                "version": 1
+              }
+            ],
+            "unexpected": []
+          }
+        },
+        "window": false
+      },
+      "next_reports": [
+        {
+          "cdhash": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+          "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app/Contents/MacOS/probe-update-app",
+          "generation": 2,
+          "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app",
+          "installed_cdhash": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+          "key": {
+            "pid": 4631,
+            "start_us": 1795015439639451
+          },
+          "lock_inode": {
+            "dev": 16777231,
+            "ino": 303166782
+          },
+          "ready": true,
+          "received": [
+            {
+              "args": [],
+              "from": {
+                "pid": 4631,
+                "start_us": 1795015439639451
+              },
+              "seq": 1
+            }
+          ],
+          "recovery": [],
+          "role": "owner",
+          "runtime": {
+            "dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/runtime/2",
+            "outcome": "created",
+            "recovered": null
+          },
+          "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/shellio.sock",
+          "socket_inode": {
+            "dev": 16777231,
+            "ino": 303166832
+          },
+          "stale_socket": null,
+          "update": {
+            "attempt": "021852682dc6326b4f138e0a933df9ca",
+            "cleanup": [
+              "Write(Cleaning, None)",
+              "Remove",
+              "Write(Idle, Some(Committed))"
+            ],
+            "committed_ms": 1795015439987,
+            "deadline_ms": 1795015499342,
+            "health": {
+              "cdhash": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+              "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app/Contents/MacOS/probe-update-app",
+              "expected_cdhash": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+              "expected_executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app/Contents/MacOS/probe-update-app",
+              "generation": 2,
+              "input_seq": 1795015439639451,
+              "lock_held": true,
+              "ping_generation": 2,
+              "sessions": [
+                {
+                  "error": null,
+                  "expected": {
+                    "host": {
+                      "pid": 4612,
+                      "start_us": 1795015439031345
+                    },
+                    "session": "h1",
+                    "workload": {
+                      "pid": 4613,
+                      "start_us": 1795015439033951
+                    }
+                  },
+                  "found": true,
+                  "gaps": [],
+                  "lines": 3,
+                  "receipt": true,
+                  "same_processes": true,
+                  "version": 1
+                }
+              ],
+              "unexpected": []
+            }
+          },
+          "window": false
+        }
+      ],
+      "paused": null,
+      "staged_after": {
+        "seen": "absent"
+      }
+    },
+    "kernel_cdhash": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+    "kernel_path": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app/Contents/MacOS/probe-update-app",
+    "name": "follow"
+  },
+  {
+    "facts": {
+      "owner": {
+        "pid": 4631,
+        "start_us": 1795015439639451
+      },
+      "quit": "Done"
+    },
+    "name": "finish"
+  }
+]

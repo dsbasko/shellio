@@ -1,0 +1,1564 @@
+{
+  "schema": 1,
+  "run_dir": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355",
+  "totals": {
+    "processes": 19,
+    "execution_ok": 19,
+    "execution_errors": 0,
+    "cells": {
+      "pass": 13,
+      "fail": 1,
+      "not_run": 1
+    },
+    "required": {
+      "pass": 9,
+      "fail": 0,
+      "not_run": 0
+    }
+  },
+  "processes": [
+    {
+      "dir": "brew-base",
+      "scenario": "brew",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 5
+    },
+    {
+      "dir": "env-faults-base",
+      "scenario": "env-faults",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 8
+    },
+    {
+      "dir": "host-base",
+      "scenario": "host",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 9
+    },
+    {
+      "dir": "identity-base",
+      "scenario": "identity",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 4
+    },
+    {
+      "dir": "identity-live-base",
+      "scenario": "identity-live",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 2
+    },
+    {
+      "dir": "incompatible-activate-base",
+      "scenario": "incompatible-activate",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 1
+    },
+    {
+      "dir": "incompatible-base",
+      "scenario": "incompatible",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 6
+    },
+    {
+      "dir": "keychain-base",
+      "scenario": "keychain",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 5
+    },
+    {
+      "dir": "kill-base",
+      "scenario": "kill",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 37
+    },
+    {
+      "dir": "owner-base",
+      "scenario": "owner",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 22
+    },
+    {
+      "dir": "owner-basic-base",
+      "scenario": "owner-basic",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 5
+    },
+    {
+      "dir": "reject-base",
+      "scenario": "reject",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 6
+    },
+    {
+      "dir": "reject-verify-base",
+      "scenario": "reject-verify",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 5
+    },
+    {
+      "dir": "runtimes-base",
+      "scenario": "runtimes",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 6
+    },
+    {
+      "dir": "smoke-base",
+      "scenario": "smoke",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 1
+    },
+    {
+      "dir": "swap-base",
+      "scenario": "swap",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 4
+    },
+    {
+      "dir": "tcc-disclaim",
+      "scenario": "tcc",
+      "variant": "disclaim",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 24
+    },
+    {
+      "dir": "tcc-plain",
+      "scenario": "tcc",
+      "variant": "plain",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 24
+    },
+    {
+      "dir": "window-update-base",
+      "scenario": "window-update",
+      "variant": "base",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": 6
+    }
+  ],
+  "cells": [
+    {
+      "id": "A1",
+      "kind": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "identity-base",
+          "part": "signatures",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "12 подписей двух поколений: код 0 со своим требованием, не ad-hoc, Authority Shellio Dev, лист 406f897fd84d95069d9a50abd81ab09b7afb7e55"
+        },
+        {
+          "dir": "identity-base",
+          "part": "distinct-code",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "CDHash бандлов ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c и 0aafd23b10f21b8085484e6630ad710a3fee337f; SHA-256 и CDHash probe-update-app и probe-update-host различны; остальные бинари тоже различаются"
+        },
+        {
+          "dir": "identity-base",
+          "part": "stable-requirement",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "6 частей: идентификатор и designated requirement одинаковы в поколениях 1 и 2 и равны «identifier \"<идентификатор части>\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"»"
+        },
+        {
+          "dir": "identity-base",
+          "part": "generation-reports",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "манифест, CFBundleVersion и обе заглушки согласны — gen-1: поколение 1, хост 1..1, attach 1..1; gen-2: поколение 2, хост 1..2, attach 1..2"
+        },
+        {
+          "dir": "identity-live-base",
+          "part": "live-generation",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "N+1 4631: поколение 2, CDHash процесса 0aafd23b = gen-2, путь /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app/Contents/MacOS/probe-update-app"
+        },
+        {
+          "dir": "identity-live-base",
+          "part": "live-same-path-new-code",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "путь /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.ca208711a319b1f8/install/probe-update.app/Contents/MacOS/probe-update-app: GUI N 4604 — поколение 1 (ad8d8e4f), N+1 4631 — поколение 2 (0aafd23b)"
+        }
+      ]
+    },
+    {
+      "id": "A2",
+      "kind": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "reject-base",
+          "part": "live-tampered",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "tampered отвергнут до intent: «кандидат отвергнут проверкой (integrity): Integrity { reason: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.7610d1fb7748dbfb/install/.shellio-update-172009a4a632babb163e240188b4ac8b: a sealed resource is missing or invalid\" }»; журнала нет"
+        },
+        {
+          "dir": "reject-base",
+          "part": "live-foreign",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "foreign отвергнут до intent: «кандидат отвергнут проверкой (requirement): Requirement { identifier: Some(\"io.github.dsbasko.shellio.probe.update-lifecycle\"), leaf: Some(\"0016a40e0a10def6f72c909b366c3aa0b2fde80e\"), mismatch: [Signer] }»; журнала нет"
+        },
+        {
+          "dir": "reject-base",
+          "part": "live-wrong-id",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "wrong-id отвергнут до intent: «кандидат отвергнут проверкой (requirement): Requirement { identifier: Some(\"io.github.dsbasko.shellio.probe.update-lifecycle.wrong-id\"), leaf: Some(\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"), mismatch: [Identifier] }»; журнала нет"
+        },
+        {
+          "dir": "reject-base",
+          "part": "live-installed-untouched",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "установленный бандл проходит codesign с CDHash ad8d8e4f до и после, GUI N 4657 отвечает"
+        },
+        {
+          "dir": "reject-base",
+          "part": "live-session",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "h1: хост 4666 и нагрузка 4667 прежние, квитанции ack 2..4 ping без пропуска"
+        },
+        {
+          "dir": "reject-base",
+          "part": "live-accept-control",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "incompatible прошёл проверку и записан в staged-deferred попытки 172d2fbfa42e5e2f308510c8ecbc7ef0"
+        },
+        {
+          "dir": "reject-verify-base",
+          "part": "accept-control",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "gen-2 принят: поколение 2, CDHash 0aafd23b10f21b8085484e6630ad710a3fee337f; incompatible принят: поколение 3, CDHash 3bdcb64113d537944b55c28d8a5e97f0654b9c26"
+        },
+        {
+          "dir": "reject-verify-base",
+          "part": "tampered",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "отказ по целостности, код 1: «/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/tampered/probe-update.app: a sealed resource is missing or invalid»; Contents/Resources/generation.json: SHA-256 428786cce8d7a4c2eb4c8fff99dfe43f7843566ffb9bfd3f58ac58320512ba6f → 4d27d837fbd60008f747b78daa22211912945b2c27b8a237ea616c7fab060950; CDHash кандидата Some(\"0aafd23b10f21b8085484e6630ad710a3fee337f\") равен CDHash поколения 2 — CDHash без проверки целостности поколение не определяет"
+        },
+        {
+          "dir": "reject-verify-base",
+          "part": "foreign",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "отказ по требованию, код 3: идентификатор io.github.dsbasko.shellio.probe.update-lifecycle, Authority Shellio Dev, лист 0016a40e0a10def6f72c909b366c3aa0b2fde80e вместо 406f897fd84d95069d9a50abd81ab09b7afb7e55; requirement.txt, список поиска (1 keychain) и keychain по умолчанию прежние во время подписи и после удаления временной keychain"
+        },
+        {
+          "dir": "reject-verify-base",
+          "part": "wrong-id",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "отказ по требованию, код 3: лист 406f897fd84d95069d9a50abd81ab09b7afb7e55 закреплённый, идентификатор io.github.dsbasko.shellio.probe.update-lifecycle.wrong-id"
+        },
+        {
+          "dir": "reject-verify-base",
+          "part": "installed-untouched",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "установленный N проходит проверку до и после, CDHash Some(\"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\"), SHA-256 8 файлов прежние, <state>/update/ нет"
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "kind": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "swap-base",
+          "part": "sequence",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "попытка c446c213b4b5f040cb66076272eb2382: staged → intent → swapped → launched → committed → cleaning → idle — GUI N 4507, помощник 4546, N+1 4557"
+        },
+        {
+          "dir": "swap-base",
+          "part": "gui-exit-first",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "GUI N 4507 вышел (код 0, updated); помощник: выход GUI N 642205527608250 нс → блокировка 642205527708750 нс → обмен 642205592356625 нс, GUI N при обмене не жив"
+        },
+        {
+          "dir": "swap-base",
+          "part": "n-kept-until-commit",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "на барьере N+1 4557 перед committed: каталог попытки проходит codesign с CDHash ad8d8e4f, установлен 0aafd23b; после — каталога нет"
+        },
+        {
+          "dir": "swap-base",
+          "part": "health",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "N+1 4557 готов: health без нарушений, исполняемый файл /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.11cb7ababe39f40c/install/probe-update.app/Contents/MacOS/probe-update-app, CDHash 0aafd23b, h1 версия 1 с квитанцией"
+        }
+      ]
+    },
+    {
+      "id": "B2",
+      "kind": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "kill-base",
+          "part": "gui-after-staged",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "gui-after-staged: убито 5355@gui.journal-staged-after, запусков восстановления 1, владелец 5379 поколения 1, история [\"staged\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "gui-after-intent",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "gui-after-intent: убито 5402@gui.journal-intent-after, запусков восстановления 1, владелец 5428 поколения 1, история [\"staged\", \"intent\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "helper-gui-exited",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "helper-gui-exited: убито 5473@helper.gui-exited, запусков восстановления 1, владелец 5476 поколения 1, история [\"staged\", \"intent\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "helper-locked",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "helper-locked: убито 5520@helper.locked, запусков восстановления 1, владелец 5523 поколения 1, история [\"staged\", \"intent\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "helper-exchanged",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "helper-exchanged: убито 5609@helper.exchanged, запусков восстановления 1, владелец 5628 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "helper-after-swapped",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "helper-after-swapped: убито 5679@helper.journal-swapped-after, запусков восстановления 1, владелец 5694 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "helper-opened",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "helper-opened: убито 5742@helper.opened, запусков восстановления 2, владелец 5752 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "helper-released",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "helper-released: убито 5872@helper.released, запусков восстановления 1, владелец 5878 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "helper-released-next-hung",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "helper-released-next-hung: убито 5929@helper.released, 5935@next.published, запусков восстановления 1, владелец 6416 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "next-before-publish",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "next-before-publish: убито 6506@next.before-publish, запусков восстановления 1, владелец 6550 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "next-published",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "next-published: убито 6597@next.published, запусков восстановления 1, владелец 6634 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "next-after-committed",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "next-after-committed: убито 6678@next.journal-committed-after, запусков восстановления 1, владелец 6690 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "next-cleaning",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "next-cleaning: убито 6782@next.remove-partial, запусков восстановления 1, владелец 6803 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "next-unconfirmed",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "next-unconfirmed: убито , запусков восстановления 1, владелец 7424 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "helper-after-rollback-intent",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "helper-after-rollback-intent: убито 7498@next.before-publish, 7492@helper.journal-rollback-intent-after, запусков восстановления 1, владелец 7562 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "helper-reverse-swapped",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "helper-reverse-swapped: убито 7609@next.before-publish, 7603@helper.step-swap-after, запусков восстановления 1, владелец 7631 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "recovery-remove-partial",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "recovery-remove-partial: убито 7681@gui.journal-intent-after, 7704@gui.remove-partial, запусков восстановления 2, владелец 7715 поколения 1, история [\"staged\", \"intent\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "recovery-retired-gap",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "recovery-retired-gap: убито 7774@helper.released, 7802@next.published, 7816@gui.step-retire-after, запусков восстановления 2, владелец 7835 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "helper-retired-gap",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "helper-retired-gap: убито 7898@next.before-publish, 7892@helper.step-retire-after, запусков восстановления 1, владелец 7928 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "next-quit-unconfirmed",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "next-quit-unconfirmed: убито , запусков восстановления 1, владелец 8014 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "chain-abort",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "chain-abort: убито 8030@gui.journal-intent-after, 8095@gui.journal-aborting-before, 8102@gui.journal-aborting-after, 8110@gui.step-remove-before, 8117@gui.step-remove-after, 8124@gui.journal-idle-before, 8129@gui.journal-idle-after, запусков восстановления 7, владелец 8134 поколения 1, история [\"staged\", \"intent\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "chain-rollback",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "chain-rollback: убито 8168@helper.released, 8174@next.published, 8188@gui.journal-rollback-intent-before, 8195@gui.journal-rollback-intent-after, 8202@gui.step-swap-before, 8209@gui.step-swap-after, 8216@gui.journal-rolled-back-before, 8223@gui.journal-rolled-back-after, 8230@gui.step-retire-before, 8237@gui.journal-retired-before, 8248@gui.journal-retired-after, запусков восстановления 10, владелец 8255 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "chain-swapped",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "chain-swapped: убито 8296@helper.exchanged, 8322@gui.journal-swapped-before, 8329@gui.journal-swapped-after, запусков восстановления 3, владелец 8344 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "chain-cleaning",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "chain-cleaning: убито 8440@next.journal-committed-after, 8452@gui.journal-cleaning-before, 8459@gui.journal-cleaning-after, запусков восстановления 3, владелец 8466 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "gui-before-staged",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "gui-before-staged: убито 8485@gui.journal-staged-before, запусков восстановления 1, владелец 8530 поколения 1, история [], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "gui-before-intent",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "gui-before-intent: убито 8543@gui.journal-intent-before, запусков восстановления 1, владелец 8566 поколения 1, история [\"staged\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "helper-before-launched",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "helper-before-launched: убито 8611@helper.journal-launched-before, запусков восстановления 1, владелец 8617 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "helper-after-launched",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "helper-after-launched: убито 8714@helper.journal-launched-after, запусков восстановления 1, владелец 8720 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "next-before-committed",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "next-before-committed: убито 8777@next.journal-committed-before, запусков восстановления 1, владелец 8814 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "next-not-started",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "next-not-started: убито 8857@next.launching, запусков восстановления 1, владелец 9107 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "race-deadline-commit-first",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "race-deadline-commit-first: убито , запусков восстановления 1, владелец 9152 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "race-deadline-watchdog-first",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "race-deadline-watchdog-first: убито , запусков восстановления 1, владелец 10111 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "race-deadline-next-checks",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "race-deadline-next-checks: убито 10219@helper.released, запусков восстановления 1, владелец 10740 поколения 1, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "race-handoff-gui-to-helper",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "race-handoff-gui-to-helper: убито , запусков восстановления 1, владелец 10787 поколения 1, история [\"staged\", \"intent\", \"aborting\", \"idle\"], h1 прежняя (3 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "race-handoff-helper-to-next",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "race-handoff-helper-to-next: убито , запусков восстановления 1, владелец 10846 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "race-two-next",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "race-two-next: убито , запусков восстановления 1, владелец 10950 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        },
+        {
+          "dir": "kill-base",
+          "part": "race-short-committed",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "race-short-committed: убито , запусков восстановления 1, владелец 11013 поколения 2, история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], h1 прежняя (4 строк, ack 2), второе восстановление без шагов"
+        }
+      ]
+    },
+    {
+      "id": "B3",
+      "kind": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "env-faults-base",
+          "part": "enospc-candidate",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "update: «ditto: ditto: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685/v1/s/install/.shellio-update-830fe4e3856f5d97207db9882b2417c8/Contents/MacOS/probe-update-app: No space left on device\nditto: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685/v1/s/install/.shellio-update-830fe4e3856f5d97207db9882b2417c8/Contents/MacOS/probe-update-helper: No space left on device» (ENOSPC, ditto: системный вызов внутри ditto не наблюдается); запас 2097152 байт, том полон по пробе; во время: журнала нет, установлен N, кандидат нет, каталоги попытки []; GUI N 11210 отвечает; h1 — хвост 3 строк и квитанция; после освобождения: владелец N 11225 без шагов восстановления, журнала нет, установлен N, кандидат нет, каталоги попытки []"
+        },
+        {
+          "dir": "env-faults-base",
+          "part": "enospc-journal",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "activate: «журнал: временный файл: No space left on device (os error 28)» (open(2) O_CREAT временного файла журнала); во время: журнал staged, установлен N, кандидат N+1, каталоги попытки [\".shellio-update-90ee18210b2da68ab5c21af068d0a021\"], временного файла нет, помощник не запущен, GUI N отвечает, h1 прежняя; восстановление на полном томе: код Some(1), «восстановление: журнал: временный файл: No space left on device (os error 28)»; после освобождения: история [\"staged\", \"aborting\", \"idle\"], владелец N 11349, журнал idle Aborted, установлен N, кандидат нет, каталоги попытки []"
+        },
+        {
+          "dir": "env-faults-base",
+          "part": "enospc-runtime",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "N+1 11428 на барьере (в .prep-2 [\"probe-update-host\"]), после заполнения: «копия /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685/v3/s/install/probe-update.app/Contents/MacOS/probe-update-attach в /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685/v3/s/runtime/.prep-2/probe-update-attach: No space left on device (os error 28)» (fs::copy (fclonefileat(2), иначе fcopyfile(3)) в каталог подготовки рантайма); помощник: «восстановление: журнал: временный файл: No space left on device (os error 28)»; во время: журнал launched, установлен N+1, кандидат N, каталоги попытки [\".shellio-update-93b08bb543dcd057c2180ebeec03a68a\"], владельца нет («владелец запускается или перезапускается»), h1 прежняя; восстановление на полном томе — код Some(1); после освобождения: история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], владелец N 11527, журнал idle RolledBack, установлен N, кандидат нет, каталоги попытки [\".shellio-failed-93b08bb543dcd057c2180ebeec03a68a\"]"
+        },
+        {
+          "dir": "env-faults-base",
+          "part": "exdev-swap",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "кандидат на отдельном томе (тот же CDHash 0aafd23b10f21b8085484e6630ad710a3fee337f); помощник 11635: renamex_np — «renamex_np(RENAME_SWAP): Cross-device link (os error 18)» (errno Some(18)); на барьере: журнал aborting, установлен N, кандидат N+1, каталоги попытки [\".shellio-update-b40712de4798e7e746e1b0581d547160\"]; после отключения тома: история [\"staged\", \"intent\", \"aborting\", \"idle\"], N запущен помощником (владелец 11690), журнал idle Aborted, установлен N, кандидат нет, каталоги попытки []"
+        },
+        {
+          "dir": "env-faults-base",
+          "part": "eacces-stage",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "update: «ditto: ditto: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685/v5/s/install/.shellio-update-0b9c248f9cd2ed5992ca5e95e54a2f55: Permission denied» (ditto: системный вызов внутри ditto не наблюдается); во время: журнала нет, установлен N, кандидат нет, каталоги попытки [], GUI N отвечает, h1 прежняя; после возврата прав: владелец N 11744 без шагов восстановления, журнала нет, установлен N, кандидат нет, каталоги попытки []"
+        },
+        {
+          "dir": "env-faults-base",
+          "part": "eacces-swap",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "помощник 11818: renamex_np — «renamex_np(RENAME_SWAP): Permission denied (os error 13)»; удаление кандидата — «восстановление: удаление кандидата: Permission denied (os error 13)», N не запущен; во время: журнал aborting, установлен N, кандидат частичный, каталоги попытки [\".shellio-update-695bf0da93cb3b05e54caa53088ff3fc\"], владельца нет, h1 прежняя; восстановление без прав — код Some(1), «восстановление: удаление кандидата: Permission denied (os error 13)»; после возврата прав: история [\"staged\", \"intent\", \"aborting\", \"idle\"], владелец N 11867, журнал idle Aborted, установлен N, кандидат нет, каталоги попытки []"
+        },
+        {
+          "dir": "env-faults-base",
+          "part": "injected-journal-rename",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "injected: помощник 11934 получил errno 5 на helper.journal-swapped-before; ошибка «журнал: rename журнала (injected): Input/output error (os error 5)»; во время: журнал intent, установлен N+1, кандидат N, каталоги попытки [\".shellio-update-9f70aee15ff08020c99584fd36fc81ea\"], временного файла нет, владельца нет, h1 прежняя; восстановление: история [\"staged\", \"intent\", \"swapped\", \"launched\", \"committed\", \"cleaning\", \"idle\"], владелец N+1 11955, журнал idle Committed, установлен N+1, кандидат нет, каталоги попытки []"
+        },
+        {
+          "dir": "env-faults-base",
+          "part": "injected-reverse-swap",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "injected: N+1 12080 снят на next.before-publish, помощник 12074 получил errno 5 на helper.step-swap-before; ошибка «восстановление: обратный обмен (injected): Input/output error (os error 5)»; во время: журнал rollback-intent, установлен N+1, кандидат N, каталоги попытки [\".shellio-update-9c82e33d79b578af56e2c1e5095e346f\"], владельца нет, h1 прежняя; восстановление: история [\"staged\", \"intent\", \"swapped\", \"launched\", \"rollback-intent\", \"rolled-back\", \"retired\", \"idle\"], владелец N 12126, журнал idle RolledBack, установлен N, кандидат нет, каталоги попытки [\".shellio-failed-9c82e33d79b578af56e2c1e5095e346f\"]"
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "kind": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "owner-base",
+          "part": "before-exit/open",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "LaunchServices: «was already running», нового процесса нет, аргументы не доставлены; экземпляры роли GUI перед запуском: [4894]"
+        },
+        {
+          "dir": "owner-base",
+          "part": "before-exit/open-n",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "процесс 4922 получил явный временный отказ «владелец запускается или перезапускается» с признаком повтора; уступил блокировку: нет"
+        },
+        {
+          "dir": "owner-base",
+          "part": "before-exit/direct",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "процесс 4923 получил явный временный отказ «владелец запускается или перезапускается» с признаком повтора; уступил блокировку: нет"
+        },
+        {
+          "dir": "owner-base",
+          "part": "before-exit/single-owner",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "владелец до стимулов: 4894, на границе: 4894, в конце: 4929 (поколение 2); inode блокировки 303167361 весь проход; история попытки: staged → intent → swapped → launched → committed → cleaning → idle"
+        },
+        {
+          "dir": "owner-base",
+          "part": "helper-lock/open",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "процесс 4982 получил квитанцию 4 от владельца 4991 (поколение 2), она записана у него; уступил блокировку: попытка в launched: владелец с ключом жив, срок не истёк; запускал установленный: false"
+        },
+        {
+          "dir": "owner-base",
+          "part": "helper-lock/open-n",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "процесс 4984 получил квитанцию 3 от владельца 4991 (поколение 2), она записана у него; уступил блокировку: попытка в launched: владелец с ключом жив, срок не истёк; запускал установленный: false"
+        },
+        {
+          "dir": "owner-base",
+          "part": "helper-lock/direct",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "процесс 4985 получил квитанцию 2 от владельца 4991 (поколение 2), она записана у него; уступил блокировку: попытка в launched: владелец с ключом жив, срок не истёк; запускал установленный: false"
+        },
+        {
+          "dir": "owner-base",
+          "part": "helper-lock/single-owner",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "владелец до стимулов: нет, на границе: нет, в конце: 4991 (поколение 2); inode блокировки 303167530 весь проход; история попытки: staged → intent → swapped → launched → committed → cleaning → idle"
+        },
+        {
+          "dir": "owner-base",
+          "part": "launched/open",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "LaunchServices: «was already running», нового процесса нет, аргументы не доставлены; экземпляры роли GUI перед запуском: [5105]"
+        },
+        {
+          "dir": "owner-base",
+          "part": "launched/open-n",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "процесс 5108 получил квитанцию 3 от владельца 5105 (поколение 2), она записана у него; уступил блокировку: попытка в launched: владелец с ключом жив, срок не истёк; запускал установленный: false"
+        },
+        {
+          "dir": "owner-base",
+          "part": "launched/direct",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "процесс 5110 получил квитанцию 2 от владельца 5105 (поколение 2), она записана у него; уступил блокировку: попытка в launched: владелец с ключом жив, срок не истёк; запускал установленный: false"
+        },
+        {
+          "dir": "owner-base",
+          "part": "launched/single-owner",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "владелец до стимулов: нет, на границе: нет, в конце: 5105 (поколение 2); inode блокировки 303167748 весь проход; история попытки: staged → intent → swapped → launched → committed → cleaning → idle"
+        },
+        {
+          "dir": "owner-base",
+          "part": "bound/open",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "LaunchServices: «was already running», нового процесса нет, аргументы не доставлены; экземпляры роли GUI перед запуском: [5196]"
+        },
+        {
+          "dir": "owner-base",
+          "part": "bound/open-n",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "процесс 5208 получил квитанцию 3 от владельца 5196 (поколение 2), она записана у него; уступил блокировку: нет; запускал установленный: false"
+        },
+        {
+          "dir": "owner-base",
+          "part": "bound/direct",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "процесс 5209 получил квитанцию 2 от владельца 5196 (поколение 2), она записана у него; уступил блокировку: нет; запускал установленный: false"
+        },
+        {
+          "dir": "owner-base",
+          "part": "bound/single-owner",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "владелец до стимулов: 5196, на границе: 5196, в конце: 5196 (поколение 2); inode блокировки 303167944 весь проход; история попытки: staged → intent → swapped → launched → committed → cleaning → idle"
+        },
+        {
+          "dir": "owner-base",
+          "part": "owner-dead/open",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "процесс 5336 стал владельцем (поколение 2), он же владелец в конце"
+        },
+        {
+          "dir": "owner-base",
+          "part": "owner-dead/open-n",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "процесс 5340 получил квитанцию 3 от владельца 5336 (поколение 2), она записана у него; уступил блокировку: нет; запускал установленный: false"
+        },
+        {
+          "dir": "owner-base",
+          "part": "owner-dead/direct",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "процесс 5343 получил квитанцию 2 от владельца 5336 (поколение 2), она записана у него; уступил блокировку: нет; запускал установленный: false"
+        },
+        {
+          "dir": "owner-base",
+          "part": "owner-dead/single-owner",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "владелец до стимулов: нет, на границе: нет, в конце: 5336 (поколение 2); inode блокировки 303168119 весь проход; история попытки: staged → intent → swapped → launched → committed → cleaning → idle"
+        },
+        {
+          "dir": "owner-base",
+          "part": "descriptors",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "проходов 5, просканировано процессов 23: дескрипторов блокировки и сокета владельца нет; положительный контроль у GUI N и владельца каждого прохода выполнен"
+        },
+        {
+          "dir": "owner-base",
+          "part": "acceptance-plain-open",
+          "requirement": "observation",
+          "status": "pass",
+          "reason": "before-exit: «was already running», нового процесса нет, владельцев [1, 1, 1]; helper-lock: процесс 4982: квитанция 4 от владельца 4991, владельцев [0, 0, 1]; launched: «was already running», нового процесса нет, владельцев [0, 0, 1]; bound: «was already running», нового процесса нет, владельцев [1, 1, 1]; owner-dead: процесс 5336 — единственный владелец в конце, владельцев [0, 0, 1]"
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "kind": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "runtimes-base",
+          "part": "interrupted-preparation",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "GUI N 11046 убит на gui.runtime-partial с .prep-1 [probe-update-host]; владелец 11056 удалил .prep-1 и создал runtime/1: три копии байт в байт и codesign своих частей"
+        },
+        {
+          "dir": "runtimes-base",
+          "part": "old-host-kept",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "попытка 68c90e67c4ef155938fc33fa0044a842 подтверждена, N+1 11096; h1 и h1b с прежними процессами из runtime/1, runtime/1 тот же (inode каталога Some(303173409))"
+        },
+        {
+          "dir": "runtimes-base",
+          "part": "next-attaches-v1",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "health N+1 11096: h1 и h1b — версия 1, хвост без пропуска, квитанция; probe у N+1 — версия 1; attach из runtime/2 — версия 1, 4 строк без пропуска, ack 2 ping"
+        },
+        {
+          "dir": "runtimes-base",
+          "part": "new-session-runtime-2",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "N+1 создал runtime/2; h2 — хост 11162 и нагрузка из runtime/2, протокол Versions { min: 1, max: 2 }, attach версии 2 с ack 1 ping"
+        },
+        {
+          "dir": "runtimes-base",
+          "part": "cleanup-candidate",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "N: h1 и h1b живы → []; N+1: h1 и h1b живы → []; N+1: h1, h1b и h2 живы → []; N+1: h1b остановлена → []; N+1: h1 и h1b остановлены → [1]"
+        },
+        {
+          "dir": "runtimes-base",
+          "part": "no-overwrite",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "перезапуск 11167 переиспользовал runtime/2 с теми же inode; после правки probe-update-attach запуск вышел с кодом Some(1) («перезапись запрещена»), владельца нет (владелец запускается или перезапускается), runtime/2 не тронут, h2 жива"
+        }
+      ]
+    },
+    {
+      "id": "D2",
+      "kind": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "incompatible-activate-base",
+          "part": "activation",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "попытка 8538d560c98911de6eca18adeda6236c: staged-deferred → staged → intent → swapped → launched → committed → cleaning → idle; N+1 4756 поколения 3 (CDHash 3bdcb641), h2 из /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e3db36ed20e3d429/runtime/3"
+        },
+        {
+          "dir": "incompatible-base",
+          "part": "deferral",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "журнал staged-deferred попытки 66fa2e1f54de92294a7cdc44e375d5d0, кандидат проходит codesign (CDHash 3bdcb641), GUI N 4447 отвечает, h2 создана после отсрочки"
+        },
+        {
+          "dir": "incompatible-base",
+          "part": "session-untouched",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "хост 4460 и нагрузка 4461 прежние, lead 1, клиентов 1, размер 30x100, квитанция «ack 2 ping» в строке 3"
+        },
+        {
+          "dir": "incompatible-base",
+          "part": "message",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "клиент получил: «активация отложена: живые сессии несовместимы с кандидатом — h1: несовместимые версии протокола: клиент 2..2, хост 1..1»"
+        },
+        {
+          "dir": "incompatible-base",
+          "part": "retry-while-live",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "retry снова отложил без записи, байты журнала и лидерство прежние"
+        },
+        {
+          "dir": "incompatible-base",
+          "part": "after-kill",
+          "requirement": "observation",
+          "status": "pass",
+          "reason": "GUI N 4447 убит, новый владелец 4487: журнал и кандидат прежние, h1 жива с прежним лидерством"
+        },
+        {
+          "dir": "incompatible-base",
+          "part": "restage",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "после остановки h1 журнал попытки 66fa2e1f54de92294a7cdc44e375d5d0 в staged, create-session получил «создание сессий заморожено: обновление поставлено, GUI перезапускается»"
+        }
+      ]
+    },
+    {
+      "id": "H",
+      "kind": "required",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "window-update-base",
+          "part": "launch-services",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "GUI N 4789 и N+1 4854 запущены LaunchServices с окном, попытка ef078bfb56e19009da50cf06102c0dba подтверждена, h1 из runtime/1/"
+        },
+        {
+          "dir": "window-update-base",
+          "part": "tail",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "окно N+1: строки 1..30 подряд, вывод без клиента до строки Some(23), живой до Some(30)"
+        },
+        {
+          "dir": "window-update-base",
+          "part": "ax-matches-receipt",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "AXValue совпал с квитанцией окна: 30 строк"
+        },
+        {
+          "dir": "window-update-base",
+          "part": "synthetic-input",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "ввод Some(Sent { seq: 902001, command: \"emit 2\" }) дошёл до нагрузки, квитанция в окне и в хвосте attach"
+        },
+        {
+          "dir": "window-update-base",
+          "part": "acceptance-window",
+          "requirement": "observation",
+          "status": "pass",
+          "reason": "окно N+1 80845: строки 1..33 подряд из h1, «ack 1 ping» из времени окна N на месте; снимок Some((1440, 1024)) пикселей, 68 цветов в сетке"
+        },
+        {
+          "dir": "window-update-base",
+          "part": "acceptance-input",
+          "requirement": "observation",
+          "status": "pass",
+          "reason": "квитанция нагрузки ack 902001 emit 2 в строке Some(33) хвоста независимого attach"
+        }
+      ]
+    },
+    {
+      "id": "E",
+      "kind": "observation",
+      "status": "not_run",
+      "parts": [
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-allowed-gui-n-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-allowed-gui-n-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-allowed-host-n-live-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-allowed-host-n-live-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-allowed-host-n-after-gui-exit-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-allowed-host-n-after-gui-exit-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-allowed-host-n-after-activation-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-allowed-host-n-after-activation-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-allowed-gui-n1-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-allowed-gui-n1-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-allowed-host-n1-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-allowed-host-n1-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-denied-gui-n-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-denied-gui-n-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-denied-host-n-live-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-denied-host-n-live-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-denied-host-n-after-gui-exit-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-denied-host-n-after-gui-exit-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-denied-host-n-after-activation-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-denied-host-n-after-activation-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-denied-gui-n1-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-denied-gui-n1-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-denied-host-n1-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-disclaim",
+          "part": "disclaim-denied-host-n1-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-allowed-gui-n-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-allowed-gui-n-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-allowed-host-n-live-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-allowed-host-n-live-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-allowed-host-n-after-gui-exit-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-allowed-host-n-after-gui-exit-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-allowed-host-n-after-activation-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-allowed-host-n-after-activation-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-allowed-gui-n1-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-allowed-gui-n1-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-allowed-host-n1-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-allowed-host-n1-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-denied-gui-n-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-denied-gui-n-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-denied-host-n-live-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-denied-host-n-live-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-denied-host-n-after-gui-exit-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-denied-host-n-after-gui-exit-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-denied-host-n-after-activation-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-denied-host-n-after-activation-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-denied-gui-n1-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-denied-gui-n1-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-denied-host-n1-read",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        },
+        {
+          "dir": "tcc-plain",
+          "part": "plain-denied-host-n1-attribution",
+          "requirement": "observation",
+          "status": "not_run",
+          "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json"
+        }
+      ]
+    },
+    {
+      "id": "F",
+      "kind": "observation",
+      "status": "fail",
+      "parts": [
+        {
+          "dir": "keychain-base",
+          "part": "own-read",
+          "requirement": "observation",
+          "status": "pass",
+          "reason": "N записал и прочитал свой item без окна способом process-flag"
+        },
+        {
+          "dir": "keychain-base",
+          "part": "interaction-control",
+          "requirement": "observation",
+          "status": "pass",
+          "reason": "способ запрета взаимодействия — process-flag: чтение item .denied процессом N отказано без окна (process-flag: отказ errSecAuthFailed)"
+        },
+        {
+          "dir": "keychain-base",
+          "part": "next-read",
+          "requirement": "observation",
+          "status": "fail",
+          "reason": "N+1 не прочитал секрет N молча: отказ errSecAuthFailed; partition list [cdhash:ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c]: cdhash N ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c — есть, cdhash N+1 0aafd23b10f21b8085484e6630ad710a3fee337f — нет; N+1 против требования ACL «identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"»: satisfied"
+        },
+        {
+          "dir": "keychain-base",
+          "part": "foreign-read",
+          "requirement": "observation",
+          "status": "pass",
+          "reason": "foreign не прочитал item n молча: отказ errSecAuthFailed"
+        },
+        {
+          "dir": "keychain-base",
+          "part": "item-unchanged",
+          "requirement": "observation",
+          "status": "pass",
+          "reason": "item n одинаков в 4 снимках: записей ACL 5, partition list [cdhash:ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c], keychain версии Some(512); отметки проверки пути приложения ACL: after-add [OK]; before-next [OK]; after-next [OK]; after-foreign [status -2147415734]"
+        }
+      ]
+    },
+    {
+      "id": "G",
+      "kind": "observation",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "brew-base",
+          "part": "staged-quarantine",
+          "requirement": "observation",
+          "status": "pass",
+          "reason": "до снятия в шаге com.apple.quarantine «0181;6afdc4c4;;9959CACA-49D5-4707-A30A-69D34DEDE4B7» на 13 из 13 путей staged-копии, корень и Contents/MacOS/probe-update-app среди них"
+        },
+        {
+          "dir": "brew-base",
+          "part": "installed-clean",
+          "requirement": "observation",
+          "status": "pass",
+          "reason": "карантина нет ни на одном из 13 путей с атрибутами установленного бандла и в записи шага после снятия; в --appdir бандл поколения 1 (CDHash ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c)"
+        },
+        {
+          "dir": "brew-base",
+          "part": "launch",
+          "requirement": "observation",
+          "status": "pass",
+          "reason": "open вышел (код 0) за 246 мс, квитанция probe-update-app поколения 1 из /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps/probe-update.app/Contents/MacOS/probe-update-app, окна Gatekeeper нет"
+        },
+        {
+          "dir": "brew-base",
+          "part": "control",
+          "requirement": "observation",
+          "status": "pass",
+          "reason": "карантин «0181;6afdc4c4;;9959CACA-49D5-4707-A30A-69D34DEDE4B7» на контроле, квитанции нет; окно CoreServicesUIAgent закрыто кнопкой action-button--997 «Готово», контроль на месте; syspolicyd: Prompt shown true, denial breadcrumb true, Terminating [12543] (процессы контроля [12543])"
+        },
+        {
+          "dir": "brew-base",
+          "part": "acceptance-dialog",
+          "requirement": "observation",
+          "status": "pass",
+          "reason": "окно CoreServicesUIAgent 80899 (pid 83446) снято: Some((608, 632)) пикселей, 224 цветов; закрыто нажатием action-button--997, open вышел код 0, окон CoreServicesUIAgent после закрытия нет"
+        }
+      ]
+    },
+    {
+      "id": "smoke",
+      "kind": "stand",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "smoke-base",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "AXIsProcessTrusted = true; CGPreflightScreenCaptureAccess = true; снимок окна (попыток 1) и снимок экрана (попыток 1) показывают окно пробы; macOS 27.0.1 (26A434), временный SHELLIO_STATE_DIR /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.d1c8a7a6ca86d4e5"
+        }
+      ]
+    },
+    {
+      "id": "host",
+      "kind": "stand",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "host-base",
+          "part": "create",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "хост 4226 (PPID 1, сессия 4225, без терминала), нагрузка 4227 — лидер сессии на /dev/ttys003; протокол 1..1, поколение 1"
+        },
+        {
+          "dir": "host-base",
+          "part": "attach-input",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "версия 1, строки [1, 2, 3, 4, 5], квитанция в строке 5"
+        },
+        {
+          "dir": "host-base",
+          "part": "refused",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "диапазон 2..2 против 1..1: «несовместимые версии протокола: клиент 2..2, хост 1..1»; сессия: клиентов 1, номер лидера 1 (подключён), размер 30x100"
+        },
+        {
+          "dir": "host-base",
+          "part": "probe",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "диапазон 1..2 против 1..1: версия 1, сессия: клиентов 1, номер лидера 1 (подключён), размер 30x100"
+        },
+        {
+          "dir": "host-base",
+          "part": "detach",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "клиентов 0, продолжение с байта 109 и строки 6"
+        },
+        {
+          "dir": "host-base",
+          "part": "output-without-client",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "строк 5 → 56, байтов 109 → 1121, клиентов 0"
+        },
+        {
+          "dir": "host-base",
+          "part": "reattach",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "строки 6–57, квитанция 2 в байте 1100 < 1121 ≤ квитанция 3 в байте 1121"
+        },
+        {
+          "dir": "host-base",
+          "part": "processes",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "хост 4226 (старт 1795015433237657 мкс), нагрузка 4227 (старт 1795015433242229 мкс) — те же"
+        },
+        {
+          "dir": "host-base",
+          "part": "stop",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "хост: процесса нет, нагрузка: процесса нет; каталог сессий пуст"
+        }
+      ]
+    },
+    {
+      "id": "owner-basic",
+      "kind": "stand",
+      "status": "pass",
+      "parts": [
+        {
+          "dir": "owner-basic-base",
+          "part": "owner",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "владелец 4407 (CDHash ad8d8e4f), сокет inode 303166570, блокировка inode 303166564, рантайм /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/runtime/1"
+        },
+        {
+          "dir": "owner-basic-base",
+          "part": "session",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "хост 4421 из /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/runtime/1/probe-update-host, квитанция «ack 1 ping» в строке 2, реестр: 1 сессия"
+        },
+        {
+          "dir": "owner-basic-base",
+          "part": "forward",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "второй запуск 4430 получил квитанцию 2 от владельца 4407, вышел: exit status: 0"
+        },
+        {
+          "dir": "owner-basic-base",
+          "part": "restart",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "сокет inode 303166570 → 303166578, блокировка inode 303166564, владелец 4407 → 4431, h1: строки с 3, квитанция 2"
+        },
+        {
+          "dir": "owner-basic-base",
+          "part": "descriptors",
+          "requirement": "required",
+          "status": "pass",
+          "reason": "проверено 4 процесса, дескрипторов владельца нет; у владельца блокировка inode 303166564 и слушающий сокет 0x256e1f510491fc19"
+        }
+      ]
+    }
+  ],
+  "outcome": {
+    "verdict": "not_confirmed",
+    "failed": [
+      "F/next-read"
+    ]
+  }
+}

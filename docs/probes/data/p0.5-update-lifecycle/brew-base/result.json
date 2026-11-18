@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "scenario": "brew",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "94514132ba68",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "versions": {
+      "homebrew": "Homebrew 7.0.14-26-gb63354c"
+    },
+    "generations": {
+      "denied": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+      "denied-2": "48f26b5d5eed2c5fa8a71e16923ce6773f253b88",
+      "foreign": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+      "gen-1": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "gen-2": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "incompatible": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "tampered": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "wrong-id": "acd96c2187aace3a2a7e15fd17949d1efae13cac"
+    },
+    "process": {
+      "pid": 12192,
+      "nonce": "330104713bebb126",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126",
+      "env": {
+        "HOME": "/Users/u",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_BUNDLES": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle",
+        "SHELLIO_PROBE_COMMIT": "94514132ba68",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_VERSION_HOMEBREW": "Homebrew 7.0.14-26-gb63354c",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "cells": [
+    {
+      "id": "G",
+      "part": "staged-quarantine",
+      "requirement": "observation",
+      "status": "pass",
+      "stimulus": "brew install --cask probe-update из локального tap изолированного префикса: шаг preflight_steps записывает xattr -lr staged-копии в Caskroom до снятия карантина",
+      "oracle": "в записи шага до снятия com.apple.quarantine есть на корне бандла и на Contents/MacOS/probe-update-app",
+      "completion": "каждый вызов brew и git в срок 180 с; open без карантина в срок 30 с; open контроля ждётся 10 с, затем окно Gatekeeper по списку окон, AXPress «Готово» и выход в срок 10 с",
+      "reason": "до снятия в шаге com.apple.quarantine «0181;6afdc4c4;;9959CACA-49D5-4707-A30A-69D34DEDE4B7» на 13 из 13 путей staged-копии, корень и Contents/MacOS/probe-update-app среди них",
+      "artifacts": [
+        "brew/steps.json",
+        "brew/real-homebrew.json",
+        "brew/step-xattr-before.txt"
+      ]
+    },
+    {
+      "id": "G",
+      "part": "installed-clean",
+      "requirement": "observation",
+      "status": "pass",
+      "stimulus": "xattr -lr установленного бандла в --appdir после brew install; запись шага после xattr -dr",
+      "oracle": "com.apple.quarantine нет ни на одном файле установленного бандла и в записи шага после снятия; в --appdir бандл поколения 1 (CDHash из bundles.json)",
+      "completion": "каждый вызов brew и git в срок 180 с; open без карантина в срок 30 с; open контроля ждётся 10 с, затем окно Gatekeeper по списку окон, AXPress «Готово» и выход в срок 10 с",
+      "reason": "карантина нет ни на одном из 13 путей с атрибутами установленного бандла и в записи шага после снятия; в --appdir бандл поколения 1 (CDHash ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c)",
+      "artifacts": [
+        "brew/steps.json",
+        "brew/real-homebrew.json",
+        "brew/step-xattr-after.txt",
+        "brew/xattr-installed.txt"
+      ]
+    },
+    {
+      "id": "G",
+      "part": "launch",
+      "requirement": "observation",
+      "status": "pass",
+      "stimulus": "open -n -W установленного бандла с --args --report --tag <метка>",
+      "oracle": "open вышел в срок, квитанция probe-update-app поколения 1 с исполняемым файлом установленного бандла, окна Gatekeeper нет",
+      "completion": "каждый вызов brew и git в срок 180 с; open без карантина в срок 30 с; open контроля ждётся 10 с, затем окно Gatekeeper по списку окон, AXPress «Готово» и выход в срок 10 с",
+      "reason": "open вышел (код 0) за 246 мс, квитанция probe-update-app поколения 1 из /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps/probe-update.app/Contents/MacOS/probe-update-app, окна Gatekeeper нет",
+      "artifacts": [
+        "brew/steps.json",
+        "brew/real-homebrew.json",
+        "brew/launch.app.stdout"
+      ]
+    },
+    {
+      "id": "G",
+      "part": "control",
+      "requirement": "observation",
+      "status": "pass",
+      "stimulus": "brew install --cask probe-update-control (тот же архив без снятия), open -n -W контроля с --report; окно Gatekeeper закрывается AXPress кнопки «Готово»",
+      "oracle": "карантин на корне контроля, квитанции нет, окно CoreServicesUIAgent закрыто «Готово» стендом, контроль остался в --appdir, syspolicyd: Prompt shown или denial breadcrumb с идентификатором пробы и Terminating process due to Gatekeeper rejection с PID процесса контроля",
+      "completion": "каждый вызов brew и git в срок 180 с; open без карантина в срок 30 с; open контроля ждётся 10 с, затем окно Gatekeeper по списку окон, AXPress «Готово» и выход в срок 10 с",
+      "reason": "карантин «0181;6afdc4c4;;9959CACA-49D5-4707-A30A-69D34DEDE4B7» на контроле, квитанции нет; окно CoreServicesUIAgent закрыто кнопкой action-button--997 «Готово», контроль на месте; syspolicyd: Prompt shown true, denial breadcrumb true, Terminating [12543] (процессы контроля [12543])",
+      "artifacts": [
+        "brew/steps.json",
+        "brew/real-homebrew.json",
+        "brew/xattr-control.txt",
+        "brew/syspolicyd.txt"
+      ]
+    },
+    {
+      "id": "G",
+      "part": "acceptance-dialog",
+      "requirement": "observation",
+      "status": "pass",
+      "stimulus": "приёмочный проход: окно Gatekeeper контроля — снимок screencapture -l по номеру окна CoreServicesUIAgent до нажатия, затем AXPress кнопки закрытия (стимул части control)",
+      "oracle": "снимок окна разобран, не меньше рамки окна в списке WindowServer и не одного цвета; окно закрыто нажатием стенда (open вышел в срок после нажатия), после закрытия окон CoreServicesUIAgent нет; окна не было или снимок не получен — not_run с причиной",
+      "completion": "каждый вызов brew и git в срок 180 с; open без карантина в срок 30 с; open контроля ждётся 10 с, затем окно Gatekeeper по списку окон, AXPress «Готово» и выход в срок 10 с",
+      "reason": "окно CoreServicesUIAgent 80899 (pid 83446) снято: Some((608, 632)) пикселей, 224 цветов; закрыто нажатием action-button--997, open вышел код 0, окон CoreServicesUIAgent после закрытия нет",
+      "artifacts": [
+        "brew/steps.json",
+        "brew/real-homebrew.json",
+        "brew/control-dialog.png"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "notes": [
+      "изоляция: удалась за 1285 мс; префикс /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/brew/prefix, Homebrew 7.0.14-26-gb63354c, portable-ruby 4.0.9",
+      "spctl --assess установленного бандла без карантина: код Some(3), /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps/probe-update.app: rejected | origin=Shellio Dev",
+      "spctl --assess контроля с карантином: код Some(3), /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps-control/probe-update.app: rejected | origin=Shellio Dev",
+      "от начала изоляции до последней части 19252 мс; вызовов команд 16"
+    ]
+  }
+}

@@ -1,0 +1,2 @@
+инъекция helper.journal-swapped-before: процесс 11934 получает errno 5
+probe-update-helper: журнал: rename журнала (injected): Input/output error (os error 5)

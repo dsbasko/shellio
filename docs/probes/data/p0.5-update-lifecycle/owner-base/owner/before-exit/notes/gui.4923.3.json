@@ -1,0 +1,1 @@
+{"event":"answer","role":"gui","process":{"pid":4923,"start_us":1795015446139143},"seq":3,"uptime_ns":642213865252750,"detail":{"answer":"refused","reason":"владелец запускается или перезапускается","retry":true}}

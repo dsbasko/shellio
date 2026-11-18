@@ -1,0 +1,96 @@
+keychain: "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db"
+version: 512
+class: "genp"
+attributes:
+    0x00000007 <blob>="io.github.dsbasko.shellio.probe.update-lifecycle.f denied"
+    0x00000008 <blob>=<NULL>
+    "acct"<blob>="denied"
+    "cdat"<timedate>=0x32303236313131383135333131305A00  "20261118153110Z\000"
+    "crtr"<uint32>=<NULL>
+    "cusi"<sint32>=<NULL>
+    "desc"<blob>=<NULL>
+    "gena"<blob>=<NULL>
+    "icmt"<blob>=<NULL>
+    "invi"<sint32>=<NULL>
+    "mdat"<timedate>=0x32303236313131383135333131305A00  "20261118153110Z\000"
+    "nega"<sint32>=<NULL>
+    "prot"<blob>=<NULL>
+    "scrp"<sint32>=<NULL>
+    "svce"<blob>="io.github.dsbasko.shellio.probe.update-lifecycle.f"
+    "type"<uint32>=<NULL>
+access: 5 entries
+    entry 0:
+        authorizations (1): encrypt
+        don't-require-password
+        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied
+        applications: <null>
+    entry 1:
+        authorizations (6): decrypt derive export_clear export_wrapped mac sign
+        don't-require-password
+        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied
+        applications (1):
+            0: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/denied/probe-update-denied.app (OK)
+                requirement: identifier "io.github.dsbasko.shellio.probe.update-lifecycle.denied" and certificate leaf = H"406f897fd84d95069d9a50abd81ab09b7afb7e55"
+    entry 2:
+        authorizations (1): integrity
+        don't-require-password
+        description: 72557250597076e58e5b3c400362aab59c20671790de016d003f6367327b92bb
+        applications: <null>
+    entry 3:
+        authorizations (1): partition_id
+        don't-require-password
+        description: cdhash:d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f
+        applications: <null>
+    entry 4:
+        authorizations (1): change_acl
+        don't-require-password
+        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied
+        applications (0):
+keychain: "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db"
+version: 512
+class: "genp"
+attributes:
+    0x00000007 <blob>="io.github.dsbasko.shellio.probe.update-lifecycle.f n"
+    0x00000008 <blob>=<NULL>
+    "acct"<blob>="n"
+    "cdat"<timedate>=0x32303236313131383135333131315A00  "20261118153111Z\000"
+    "crtr"<uint32>=<NULL>
+    "cusi"<sint32>=<NULL>
+    "desc"<blob>=<NULL>
+    "gena"<blob>=<NULL>
+    "icmt"<blob>=<NULL>
+    "invi"<sint32>=<NULL>
+    "mdat"<timedate>=0x32303236313131383135333131315A00  "20261118153111Z\000"
+    "nega"<sint32>=<NULL>
+    "prot"<blob>=<NULL>
+    "scrp"<sint32>=<NULL>
+    "svce"<blob>="io.github.dsbasko.shellio.probe.update-lifecycle.f"
+    "type"<uint32>=<NULL>
+access: 5 entries
+    entry 0:
+        authorizations (1): encrypt
+        don't-require-password
+        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n
+        applications: <null>
+    entry 1:
+        authorizations (6): decrypt derive export_clear export_wrapped mac sign
+        don't-require-password
+        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n
+        applications (1):
+            0: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app (OK)
+                requirement: identifier "io.github.dsbasko.shellio.probe.update-lifecycle" and certificate leaf = H"406f897fd84d95069d9a50abd81ab09b7afb7e55"
+    entry 2:
+        authorizations (1): integrity
+        don't-require-password
+        description: 70ec7835a158f588789b95e9df2d1b288cdd748eaee27032daaaf38a5579cbb6
+        applications: <null>
+    entry 3:
+        authorizations (1): partition_id
+        don't-require-password
+        description: cdhash:ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c
+        applications: <null>
+    entry 4:
+        authorizations (1): change_acl
+        don't-require-password
+        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n
+        applications (0):

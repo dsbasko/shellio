@@ -1,0 +1,12 @@
+{
+  "leaf": "0016a40e0a10def6f72c909b366c3aa0b2fde80e",
+  "requirement_sha256_before": "fca64dc68ed5336cadc1315e9dc60e43b969d597a513cbb9bfb885991363c1e3",
+  "requirement_sha256_during": "fca64dc68ed5336cadc1315e9dc60e43b969d597a513cbb9bfb885991363c1e3",
+  "requirement_sha256_after": "fca64dc68ed5336cadc1315e9dc60e43b969d597a513cbb9bfb885991363c1e3",
+  "search_list_before": ["/Users/u/Library/Keychains/login.keychain-db"],
+  "search_list_during": ["/Users/u/Library/Keychains/login.keychain-db"],
+  "search_list_after": ["/Users/u/Library/Keychains/login.keychain-db"],
+  "default_keychain_before": "/Users/u/Library/Keychains/login.keychain-db",
+  "default_keychain_during": "/Users/u/Library/Keychains/login.keychain-db",
+  "default_keychain_after": "/Users/u/Library/Keychains/login.keychain-db"
+}

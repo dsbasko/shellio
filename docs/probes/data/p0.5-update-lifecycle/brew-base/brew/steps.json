@@ -1,0 +1,500 @@
+{
+  "commands": [
+    {
+      "command": [
+        "/usr/bin/git",
+        "-C",
+        "/opt/homebrew",
+        "--no-optional-locks",
+        "rev-parse",
+        "HEAD"
+      ],
+      "elapsed_ms": 10,
+      "exit": "код 0",
+      "stderr": "brew/cmd/01-real-head.stderr",
+      "stdout": "brew/cmd/01-real-head.stdout"
+    },
+    {
+      "command": [
+        "/usr/bin/git",
+        "-C",
+        "/opt/homebrew",
+        "--no-optional-locks",
+        "status",
+        "--porcelain"
+      ],
+      "elapsed_ms": 71,
+      "exit": "код 0",
+      "stderr": "brew/cmd/02-real-status.stderr",
+      "stdout": "brew/cmd/02-real-status.stdout"
+    },
+    {
+      "command": [
+        "/usr/bin/git",
+        "-c",
+        "protocol.allow=never",
+        "-c",
+        "protocol.file.allow=always",
+        "clone",
+        "--quiet",
+        "--no-hardlinks",
+        "/opt/homebrew",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/brew/prefix"
+      ],
+      "elapsed_ms": 580,
+      "exit": "код 0",
+      "stderr": "brew/cmd/03-clone.stderr",
+      "stdout": "brew/cmd/03-clone.stdout"
+    },
+    {
+      "command": [
+        "/bin/cp",
+        "-cR",
+        "/opt/homebrew/Library/Homebrew/vendor/portable-ruby/4.0.9",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/brew/prefix/Library/Homebrew/vendor/portable-ruby/"
+      ],
+      "elapsed_ms": 306,
+      "exit": "код 0",
+      "stderr": "brew/cmd/04-portable-ruby.stderr",
+      "stdout": "brew/cmd/04-portable-ruby.stdout"
+    },
+    {
+      "command": [
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/brew/prefix/bin/brew",
+        "--version"
+      ],
+      "elapsed_ms": 372,
+      "exit": "код 0",
+      "stderr": "brew/cmd/05-brew-version.stderr",
+      "stdout": "brew/cmd/05-brew-version.stdout"
+    },
+    {
+      "command": [
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/brew/prefix/bin/brew",
+        "--prefix"
+      ],
+      "elapsed_ms": 12,
+      "exit": "код 0",
+      "stderr": "brew/cmd/06-brew--prefix.stderr",
+      "stdout": "brew/cmd/06-brew--prefix.stdout"
+    },
+    {
+      "command": [
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/brew/prefix/bin/brew",
+        "--repository"
+      ],
+      "elapsed_ms": 13,
+      "exit": "код 0",
+      "stderr": "brew/cmd/07-brew--repository.stderr",
+      "stdout": "brew/cmd/07-brew--repository.stdout"
+    },
+    {
+      "command": [
+        "/usr/bin/ditto",
+        "-c",
+        "-k",
+        "--norsrc",
+        "--noextattr",
+        "--noacl",
+        "--keepParent",
+        "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/src/probe-update.app",
+        "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/zip/probe-update.zip"
+      ],
+      "elapsed_ms": 117,
+      "exit": "код 0",
+      "stderr": "brew/cmd/08-zip.stderr",
+      "stdout": "brew/cmd/08-zip.stdout"
+    },
+    {
+      "command": [
+        "/usr/bin/xattr",
+        "-l",
+        "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/zip/probe-update.zip"
+      ],
+      "elapsed_ms": 1,
+      "exit": "код 0",
+      "stderr": "brew/cmd/09-zip-xattr.stderr",
+      "stdout": "brew/cmd/09-zip-xattr.stdout"
+    },
+    {
+      "command": [
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/brew/prefix/bin/brew",
+        "install",
+        "--cask",
+        "--appdir=/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps",
+        "shellio-probe/probe/probe-update"
+      ],
+      "elapsed_ms": 3755,
+      "exit": "код 0",
+      "stderr": "brew/cmd/10-install-probe-update.stderr",
+      "stdout": "brew/cmd/10-install-probe-update.stdout"
+    },
+    {
+      "command": [
+        "/usr/bin/xattr",
+        "-lr",
+        "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps/probe-update.app"
+      ],
+      "elapsed_ms": 2,
+      "exit": "код 0",
+      "stderr": "brew/cmd/11-xattr-installed.stderr",
+      "stdout": "brew/cmd/11-xattr-installed.stdout"
+    },
+    {
+      "command": [
+        "/usr/sbin/spctl",
+        "--assess",
+        "--type",
+        "execute",
+        "-vv",
+        "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps/probe-update.app"
+      ],
+      "elapsed_ms": 255,
+      "exit": "код 3",
+      "stderr": "brew/cmd/12-spctl-installed.stderr",
+      "stdout": "brew/cmd/12-spctl-installed.stdout"
+    },
+    {
+      "command": [
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/brew/prefix/bin/brew",
+        "install",
+        "--cask",
+        "--appdir=/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps-control",
+        "shellio-probe/probe/probe-update-control"
+      ],
+      "elapsed_ms": 1495,
+      "exit": "код 0",
+      "stderr": "brew/cmd/13-install-probe-update-control.stderr",
+      "stdout": "brew/cmd/13-install-probe-update-control.stdout"
+    },
+    {
+      "command": [
+        "/usr/bin/xattr",
+        "-lr",
+        "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps-control/probe-update.app"
+      ],
+      "elapsed_ms": 2,
+      "exit": "код 0",
+      "stderr": "brew/cmd/14-xattr-control.stderr",
+      "stdout": "brew/cmd/14-xattr-control.stdout"
+    },
+    {
+      "command": [
+        "/usr/sbin/spctl",
+        "--assess",
+        "--type",
+        "execute",
+        "-vv",
+        "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps-control/probe-update.app"
+      ],
+      "elapsed_ms": 233,
+      "exit": "код 3",
+      "stderr": "brew/cmd/15-spctl-control.stderr",
+      "stdout": "brew/cmd/15-spctl-control.stdout"
+    },
+    {
+      "command": [
+        "/usr/bin/log",
+        "show",
+        "--style",
+        "compact",
+        "--last",
+        "15s",
+        "--predicate",
+        "process == \"syspolicyd\""
+      ],
+      "elapsed_ms": 1542,
+      "exit": "код 0",
+      "stderr": "brew/cmd/16-syspolicyd.stderr",
+      "stdout": "brew/cmd/16-syspolicyd.stdout"
+    },
+    {
+      "command": [
+        "/usr/bin/git",
+        "-C",
+        "/opt/homebrew",
+        "--no-optional-locks",
+        "rev-parse",
+        "HEAD"
+      ],
+      "elapsed_ms": 8,
+      "exit": "код 0",
+      "stderr": "brew/cmd/17-real-head.stderr",
+      "stdout": "brew/cmd/17-real-head.stdout"
+    },
+    {
+      "command": [
+        "/usr/bin/git",
+        "-C",
+        "/opt/homebrew",
+        "--no-optional-locks",
+        "status",
+        "--porcelain"
+      ],
+      "elapsed_ms": 36,
+      "exit": "код 0",
+      "stderr": "brew/cmd/18-real-status.stderr",
+      "stdout": "brew/cmd/18-real-status.stdout"
+    }
+  ],
+  "facts": {
+    "archive": {
+      "bytes": 1818652,
+      "sha256": "7bbe34b6897a5e3f9d310d50f4ca8307912746b1cd255bd406588ad3783ffb0f",
+      "url": "file:///private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/zip/probe-update.zip",
+      "zip": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/zip/probe-update.zip"
+    },
+    "control": {
+      "gatekeeper": {
+        "breadcrumb": true,
+        "lines": [
+          "2026-11-18 20:31:18.681 Df syspolicyd[510:4e79449] [com.apple.syspolicy.exec:default] GK evaluateScanResult: 2, PST: (path: e8f7b355afb3ca72), (team: (null)), (id: io.github.dsbasko.shellio.probe.update-lifecycle), (bundle_id: io.github.dsbasko.shellio.probe.update-lifecycle), 0, 0, 1, 0, 0, 0, 0",
+          "2026-11-18 20:31:20.924 Df syspolicyd[510:4e7beea] [com.apple.syspolicy.exec:default] GK evaluateScanResult: 0, PST: (path: 2718ca3ecfa2ee6d), (team: (null)), (id: io.github.dsbasko.shellio.probe.update-lifecycle), (bundle_id: io.github.dsbasko.shellio.probe.update-lifecycle), 1, 0, 1, 0, 0, 0, 0",
+          "2026-11-18 20:31:20.924 Df syspolicyd[510:4e7beea] [com.apple.syspolicy.exec:default] Prompt shown (6, 0), waiting for response: PST: (path: 2718ca3ecfa2ee6d), (team: (null)), (id: io.github.dsbasko.shellio.probe.update-lifecycle), (bundle_id: io.github.dsbasko.shellio.probe.update-lifecycle)",
+          "2026-11-18 20:31:30.676 Df syspolicyd[510:4e7beea] [com.apple.syspolicy.exec:default] Adding Gatekeeper denial breadcrumb (open): PST: (path: 2718ca3ecfa2ee6d), (team: (null)), (id: io.github.dsbasko.shellio.probe.update-lifecycle), (bundle_id: io.github.dsbasko.shellio.probe.update-lifecycle)",
+          "2026-11-18 20:31:30.707 E  syspolicyd[510:4e7beec] [com.apple.syspolicy.exec:default] Terminating process due to Gatekeeper rejection: 12543, <private>"
+        ],
+        "prompt": true,
+        "terminated": [
+          12543
+        ],
+        "trash": false
+      },
+      "kept": true,
+      "open": {
+        "after_close": [],
+        "app": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps-control/probe-update.app",
+        "app_pids": [
+          12543
+        ],
+        "ax": {
+          "buttons": [
+            {
+              "default": false,
+              "identifier": "_NS:30",
+              "title": null
+            },
+            {
+              "default": true,
+              "identifier": "action-button--992",
+              "title": "Переместить в Корзину"
+            },
+            {
+              "default": false,
+              "identifier": "action-button--997",
+              "title": "Готово"
+            }
+          ],
+          "subroles": [
+            "AXSystemDialog"
+          ],
+          "texts": [
+            "Файл «probe-update.app» не был открыт",
+            "Apple не удалось подтвердить, что файл «probe-update.app» не содержит вредоносного ПО, которое может нанести вред Вашему Mac или конфиденциальности Ваших данных."
+          ],
+          "trusted": true,
+          "windows": 1,
+          "windows_error": null
+        },
+        "closed_by_press": true,
+        "dialogs": [
+          {
+            "bounds": [
+              604.0,
+              192.0,
+              304.0,
+              316.0
+            ],
+            "layer": 8,
+            "number": 80899,
+            "owner": "CoreServicesUIAgent",
+            "pid": 83446
+          }
+        ],
+        "elapsed_ms": 10291,
+        "exited_in_wait": false,
+        "killed": [],
+        "name": "control",
+        "open_exit": "код 0",
+        "press_error": null,
+        "pressed": "action-button--997",
+        "receipt": null,
+        "receipt_error": null,
+        "snapshot": {
+          "artifact": "brew/control-dialog.png",
+          "command": "/usr/sbin/screencapture -x -o -l 80899 /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/brew-base/brew/control-dialog.png",
+          "distinct": 224,
+          "error": null,
+          "pixels": [
+            608,
+            632
+          ],
+          "window": 80899
+        },
+        "tag": "330104713bebb126.brew-control"
+      },
+      "quarantine_value": "0181;6afdc4c4;;9959CACA-49D5-4707-A30A-69D34DEDE4B7",
+      "quarantined": true,
+      "trash": null
+    },
+    "install-probe-update": {
+      "install": {
+        "errors": [],
+        "installed": true,
+        "moved": [
+          [
+            "probe-update.app",
+            "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps/probe-update.app"
+          ]
+        ],
+        "warnings": [
+          "Your Homebrew's prefix is not /opt/homebrew."
+        ]
+      },
+      "refusal": null
+    },
+    "install-probe-update-control": {
+      "install": {
+        "errors": [],
+        "installed": true,
+        "moved": [
+          [
+            "probe-update.app",
+            "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps-control/probe-update.app"
+          ]
+        ],
+        "warnings": [
+          "Your Homebrew's prefix is not /opt/homebrew."
+        ]
+      },
+      "refusal": null
+    },
+    "installed-codesign": [
+      {
+        "code": 0,
+        "command": [
+          "/usr/bin/codesign",
+          "-d",
+          "--verbose=4",
+          "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps/probe-update.app"
+        ],
+        "stderr": "Executable=/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps/probe-update.app/Contents/MacOS/probe-update-app\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=4329 flags=0x0(none) hashes=128+3 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\nCandidateCDHashFull sha256=ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c355dca7dace7b1a41cbcb141\nHash choices=sha256\nCMSDigest=ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c355dca7dace7b1a41cbcb141\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=1441792\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:47\nInfo.plist entries=10\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=5\nInternal requirements count=1 size=124\nTotal signatures=1\nChosen signature=1\n",
+        "stdout": ""
+      }
+    ],
+    "isolation": {
+      "elapsed_ms": 1285,
+      "ok": true,
+      "portable_ruby": "4.0.9",
+      "prefix": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/brew/prefix",
+      "reason": null,
+      "version": "7.0.14-26-gb63354c"
+    },
+    "open-control": {
+      "after_close": [],
+      "app": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps-control/probe-update.app",
+      "app_pids": [
+        12543
+      ],
+      "ax": {
+        "buttons": [
+          {
+            "default": false,
+            "identifier": "_NS:30",
+            "title": null
+          },
+          {
+            "default": true,
+            "identifier": "action-button--992",
+            "title": "Переместить в Корзину"
+          },
+          {
+            "default": false,
+            "identifier": "action-button--997",
+            "title": "Готово"
+          }
+        ],
+        "subroles": [
+          "AXSystemDialog"
+        ],
+        "texts": [
+          "Файл «probe-update.app» не был открыт",
+          "Apple не удалось подтвердить, что файл «probe-update.app» не содержит вредоносного ПО, которое может нанести вред Вашему Mac или конфиденциальности Ваших данных."
+        ],
+        "trusted": true,
+        "windows": 1,
+        "windows_error": null
+      },
+      "closed_by_press": true,
+      "dialogs": [
+        {
+          "bounds": [
+            604.0,
+            192.0,
+            304.0,
+            316.0
+          ],
+          "layer": 8,
+          "number": 80899,
+          "owner": "CoreServicesUIAgent",
+          "pid": 83446
+        }
+      ],
+      "elapsed_ms": 10291,
+      "exited_in_wait": false,
+      "killed": [],
+      "name": "control",
+      "open_exit": "код 0",
+      "press_error": null,
+      "pressed": "action-button--997",
+      "receipt": null,
+      "receipt_error": null,
+      "snapshot": {
+        "artifact": "brew/control-dialog.png",
+        "command": "/usr/sbin/screencapture -x -o -l 80899 /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/brew-base/brew/control-dialog.png",
+        "distinct": 224,
+        "error": null,
+        "pixels": [
+          608,
+          632
+        ],
+        "window": 80899
+      },
+      "tag": "330104713bebb126.brew-control"
+    },
+    "open-launch": {
+      "after_close": [],
+      "app": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps/probe-update.app",
+      "app_pids": [],
+      "ax": null,
+      "closed_by_press": false,
+      "dialogs": [],
+      "elapsed_ms": 246,
+      "exited_in_wait": true,
+      "killed": [],
+      "name": "launch",
+      "open_exit": "код 0",
+      "press_error": null,
+      "pressed": null,
+      "receipt": {
+        "attach_versions": {
+          "max": 1,
+          "min": 1
+        },
+        "binary": "probe-update-app",
+        "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.330104713bebb126/brew/apps/probe-update.app/Contents/MacOS/probe-update-app",
+        "generation": 1,
+        "host_versions": {
+          "max": 1,
+          "min": 1
+        }
+      },
+      "receipt_error": null,
+      "snapshot": null,
+      "tag": "330104713bebb126.brew-launch"
+    }
+  },
+  "lingering_dialogs": [],
+  "removed_errors": [],
+  "walk_error": null
+}

@@ -1,0 +1,146 @@
+{
+  "schema": 1,
+  "scenario": "incompatible",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "94514132ba68",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "versions": {
+      "homebrew": "Homebrew 7.0.14-26-gb63354c"
+    },
+    "generations": {
+      "denied": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+      "denied-2": "48f26b5d5eed2c5fa8a71e16923ce6773f253b88",
+      "foreign": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+      "gen-1": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "gen-2": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "incompatible": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "tampered": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "wrong-id": "acd96c2187aace3a2a7e15fd17949d1efae13cac"
+    },
+    "process": {
+      "pid": 4445,
+      "nonce": "8dc904e5498889fc",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc",
+      "env": {
+        "HOME": "/Users/u",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_BUNDLES": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle",
+        "SHELLIO_PROBE_COMMIT": "94514132ba68",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_VERSION_HOMEBREW": "Homebrew 7.0.14-26-gb63354c",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "cells": [
+    {
+      "id": "D2",
+      "part": "deferral",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "update кандидатом incompatible (поколение 3, attach 2..2) при живой h1 от хоста 1 (1..1)",
+      "oracle": "ответ staged-deferred, журнал записан этим запросом: staged-deferred той же попытки, поколения 1 → 3, CDHash «из» — установленного, «в» — кандидата, причина равна ответу, срока и итога нет; проверка шла диапазоном 2..2 и h1 ответила Refused; кандидат в .shellio-update-<attempt>/ проходит codesign с CDHash кандидата; GUI N отвечает тем же ключом; заморозка снята — create-session h2 создаёт сессию",
+      "completion": "ответ владельца, хоста или выход процесса в срок шага (20 с); иначе ошибка исполнения",
+      "reason": "журнал staged-deferred попытки 66fa2e1f54de92294a7cdc44e375d5d0, кандидат проходит codesign (CDHash 3bdcb641), GUI N 4447 отвечает, h2 создана после отсрочки",
+      "artifacts": [
+        "incompatible/steps.json"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "session-untouched",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "та же отсрочка; Status h1 по управляющему соединению до и после, ввод «2 ping» лидером",
+      "oracle": "хост и нагрузка h1 живы с прежними PID и временем старта; lead, leader, clients и размер 30x100 прежние; лидер получает квитанцию «ack 2 ping» без пропуска строк; реестр проверки называет h1 с теми же процессами",
+      "completion": "ответ владельца, хоста или выход процесса в срок шага (20 с); иначе ошибка исполнения",
+      "reason": "хост 4460 и нагрузка 4461 прежние, lead 1, клиентов 1, размер 30x100, квитанция «ack 2 ping» в строке 3",
+      "artifacts": [
+        "incompatible/steps.json"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "message",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "ответ владельца на update",
+      "oracle": "причина отсрочки называет h1, несовместимость и оба диапазона: кандидат 2..2, хост 1..1",
+      "completion": "ответ владельца, хоста или выход процесса в срок шага (20 с); иначе ошибка исполнения",
+      "reason": "клиент получил: «активация отложена: живые сессии несовместимы с кандидатом — h1: несовместимые версии протокола: клиент 2..2, хост 1..1»",
+      "artifacts": [
+        "incompatible/steps.json"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "retry-while-live",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "retry при живой h1",
+      "oracle": "ответ staged-deferred той же попытки без записи журнала; байты журнала прежние; лидерство и размер h1 прежние",
+      "completion": "ответ владельца, хоста или выход процесса в срок шага (20 с); иначе ошибка исполнения",
+      "reason": "retry снова отложил без записи, байты журнала и лидерство прежние",
+      "artifacts": [
+        "incompatible/steps.json"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "after-kill",
+      "requirement": "observation",
+      "status": "pass",
+      "stimulus": "SIGKILL GUI N в staged-deferred, затем обычный прямой запуск N",
+      "oracle": "новый процесс — владелец (ping с его ключом, поколение 1, шагов восстановления нет); байты журнала прежние; кандидат проходит codesign с прежним CDHash; реестр находит h1 с теми же процессами; лидерство и размер h1 прежние",
+      "completion": "ответ владельца, хоста или выход процесса в срок шага (20 с); иначе ошибка исполнения",
+      "reason": "GUI N 4447 убит, новый владелец 4487: журнал и кандидат прежние, h1 жива с прежним лидерством",
+      "artifacts": [
+        "incompatible/steps.json"
+      ]
+    },
+    {
+      "id": "D2",
+      "part": "restage",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "остановка h1 и retry новым владельцем",
+      "oracle": "ответ staged той же попытки, проверка совместимости — ни одной живой сессии; журнал: staged той же попытки, причины и срока нет, поколения и CDHash прежние; кандидат проходит codesign; заморозка оставлена — create-session h3 получает временный отказ «обновление поставлено», записи h3 нет; владелец прежний",
+      "completion": "ответ владельца, хоста или выход процесса в срок шага (20 с); иначе ошибка исполнения",
+      "reason": "после остановки h1 журнал попытки 66fa2e1f54de92294a7cdc44e375d5d0 в staged, create-session получил «создание сессий заморожено: обновление поставлено, GUI перезапускается»",
+      "artifacts": [
+        "incompatible/steps.json"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "notes": [
+      "срок шага 20 с, срок рукопожатия probe 5 с на сессию"
+    ]
+  }
+}

@@ -1,0 +1,290 @@
+{
+  "steps": [
+    {
+      "facts": {
+        "candidate": {
+          "app": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/incompatible/probe-update.app",
+          "cdhash": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+          "generation": 3,
+          "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle",
+          "name": "incompatible",
+          "signer_leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+        },
+        "leader_welcome": {
+          "end": 0,
+          "generation": 1,
+          "host": "probe-update-host 1",
+          "lead": 1,
+          "session": "h1",
+          "start": 0,
+          "version": 1
+        },
+        "leadership": {
+          "clients": 1,
+          "cols": 100,
+          "host": {
+            "pid": 4460,
+            "start_us": 1795015436364286
+          },
+          "lead": 1,
+          "leader": true,
+          "rows": 30,
+          "workload": {
+            "pid": 4461,
+            "start_us": 1795015436367938
+          }
+        },
+        "owner": {
+          "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+          "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/install/probe-update.app/Contents/MacOS/probe-update-app",
+          "generation": 1,
+          "installed": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/install/probe-update.app",
+          "installed_cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+          "key": {
+            "pid": 4447,
+            "start_us": 1795015435926346
+          },
+          "lock_inode": {
+            "dev": 16777231,
+            "ino": 303166605
+          },
+          "ready": true,
+          "received": [
+            {
+              "args": [],
+              "from": {
+                "pid": 4447,
+                "start_us": 1795015435926346
+              },
+              "seq": 1
+            }
+          ],
+          "recovery": [],
+          "runtime": {
+            "dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/runtime/1",
+            "outcome": "created",
+            "recovered": null
+          },
+          "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/shellio.sock",
+          "socket_inode": {
+            "dev": 16777231,
+            "ino": 303166611
+          },
+          "stale_socket": null,
+          "update": null,
+          "window": false
+        },
+        "record": {
+          "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/runtime/1/probe-update-host",
+          "generation": 1,
+          "host": {
+            "pid": 4460,
+            "start_us": 1795015436364286
+          },
+          "session": "h1",
+          "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/s/h1.sock",
+          "tty": "/dev/ttys003",
+          "versions": {
+            "max": 1,
+            "min": 1
+          },
+          "workload": {
+            "pid": 4461,
+            "start_us": 1795015436367938
+          },
+          "workload_pgid": 4461,
+          "workload_sid": 4461
+        }
+      },
+      "name": "setup"
+    },
+    {
+      "facts": {
+        "acks": [
+          [
+            1,
+            {
+              "ack": "accepted"
+            }
+          ],
+          [
+            2,
+            {
+              "ack": "accepted"
+            }
+          ]
+        ],
+        "answer": "Ok(Reply(Staging(Deferred { attempt: \"66fa2e1f54de92294a7cdc44e375d5d0\", reason: \"активация отложена: живые сессии несовместимы с кандидатом — h1: несовместимые версии протокола: клиент 2..2, хост 1..1\", written: true, checked: Checked { versions: Versions { min: 2, max: 2 }, entries: [Entry { record: SessionRecord { session: \"h1\", host: ProcessKey { pid: 4460, start_us: 1795015436364286 }, executable: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/runtime/1/probe-update-host\", workload: ProcessKey { pid: 4461, start_us: 1795015436367938 }, workload_pgid: 4461, workload_sid: Some(4461), tty: \"/dev/ttys003\", versions: Versions { min: 1, max: 1 }, generation: 1, socket: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/s/h1.sock\" }, host_alive: true, workload_alive: true, probe: Refused { reason: \"несовместимые версии протокола: клиент 2..2, хост 1..1\" } }], problems: [], decision: Deferred { reason: \"активация отложена: живые сессии несовместимы с кандидатом — h1: несовместимые версии протокола: клиент 2..2, хост 1..1\" } } })))",
+        "create_h2": "Ok(Session(SessionRecord { session: \"h2\", host: ProcessKey { pid: 4483, start_us: 1795015436726190 }, executable: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/runtime/1/probe-update-host\", workload: ProcessKey { pid: 4484, start_us: 1795015436727906 }, workload_pgid: 4484, workload_sid: Some(4484), tty: \"/dev/ttys004\", versions: Versions { min: 1, max: 1 }, generation: 1, socket: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/s/h2.sock\" }))",
+        "exchange": "Ok(())",
+        "journal": "Ok(Some(Journal { attempt: \"66fa2e1f54de92294a7cdc44e375d5d0\", state: StagedDeferred, from: 1, to: 3, cdhash_from: \"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\", cdhash_to: \"3bdcb64113d537944b55c28d8a5e97f0654b9c26\", installed: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/install/probe-update.app\", deadline_ms: None, gui_from: None, helper: None, owner: None, outcome: None, reason: Some(\"активация отложена: живые сессии несовместимы с кандидатом — h1: несовместимые версии протокола: клиент 2..2, хост 1..1\"), launch: [], sessions: [] }))",
+        "leadership": "Ok(Leadership { lead: 1, leader: true, clients: 1, rows: 30, cols: 100, host: ProcessKey { pid: 4460, start_us: 1795015436364286 }, workload: ProcessKey { pid: 4461, start_us: 1795015436367938 } })",
+        "ping": "Ok(OwnerInfo { generation: 1, key: ProcessKey { pid: 4447, start_us: 1795015435926346 }, executable: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/install/probe-update.app/Contents/MacOS/probe-update-app\", cdhash: \"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\", installed: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/install/probe-update.app\", installed_cdhash: \"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\", socket: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/shellio.sock\", socket_inode: Inode { dev: 16777231, ino: 303166611 }, lock_inode: Inode { dev: 16777231, ino: 303166605 }, stale_socket: None, runtime: Prepared { dir: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/runtime/1\", outcome: Created, recovered: None }, recovery: [], window: false, ready: true, received: [Forwarded { seq: 1, from: ProcessKey { pid: 4447, start_us: 1795015435926346 }, args: [] }], update: None })",
+        "processes_alive": [
+          true,
+          true
+        ],
+        "staged_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/install/.shellio-update-66fa2e1f54de92294a7cdc44e375d5d0",
+        "staged_seen": "Some(Valid { cdhash: \"3bdcb64113d537944b55c28d8a5e97f0654b9c26\" })",
+        "staging": {
+          "attempt": "66fa2e1f54de92294a7cdc44e375d5d0",
+          "checked": {
+            "decision": {
+              "decision": "deferred",
+              "reason": "активация отложена: живые сессии несовместимы с кандидатом — h1: несовместимые версии протокола: клиент 2..2, хост 1..1"
+            },
+            "entries": [
+              {
+                "host_alive": true,
+                "probe": {
+                  "probe": "refused",
+                  "reason": "несовместимые версии протокола: клиент 2..2, хост 1..1"
+                },
+                "record": {
+                  "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/runtime/1/probe-update-host",
+                  "generation": 1,
+                  "host": {
+                    "pid": 4460,
+                    "start_us": 1795015436364286
+                  },
+                  "session": "h1",
+                  "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/s/h1.sock",
+                  "tty": "/dev/ttys003",
+                  "versions": {
+                    "max": 1,
+                    "min": 1
+                  },
+                  "workload": {
+                    "pid": 4461,
+                    "start_us": 1795015436367938
+                  },
+                  "workload_pgid": 4461,
+                  "workload_sid": 4461
+                },
+                "workload_alive": true
+              }
+            ],
+            "problems": [],
+            "versions": {
+              "max": 2,
+              "min": 2
+            }
+          },
+          "reason": "активация отложена: живые сессии несовместимы с кандидатом — h1: несовместимые версии протокола: клиент 2..2, хост 1..1",
+          "staging": "deferred",
+          "written": true
+        },
+        "transcript": {
+          "expect_first": 1,
+          "lines": [
+            {
+              "number": 1,
+              "offset": 0,
+              "text": "ready pid=4461 generation=1"
+            },
+            {
+              "number": 2,
+              "offset": 35,
+              "text": "ack 1 ping"
+            },
+            {
+              "number": 3,
+              "offset": 53,
+              "text": "ack 2 ping"
+            }
+          ],
+          "next": 71,
+          "partial": [],
+          "problems": [],
+          "start": 0
+        }
+      },
+      "name": "update"
+    },
+    {
+      "facts": {
+        "answer": "Ok(Reply(Staging(Deferred { attempt: \"66fa2e1f54de92294a7cdc44e375d5d0\", reason: \"активация отложена: живые сессии несовместимы с кандидатом — h1: несовместимые версии протокола: клиент 2..2, хост 1..1\", written: false, checked: Checked { versions: Versions { min: 2, max: 2 }, entries: [Entry { record: SessionRecord { session: \"h1\", host: ProcessKey { pid: 4460, start_us: 1795015436364286 }, executable: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/runtime/1/probe-update-host\", workload: ProcessKey { pid: 4461, start_us: 1795015436367938 }, workload_pgid: 4461, workload_sid: Some(4461), tty: \"/dev/ttys003\", versions: Versions { min: 1, max: 1 }, generation: 1, socket: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/s/h1.sock\" }, host_alive: true, workload_alive: true, probe: Refused { reason: \"несовместимые версии протокола: клиент 2..2, хост 1..1\" } }], problems: [], decision: Deferred { reason: \"активация отложена: живые сессии несовместимы с кандидатом — h1: несовместимые версии протокола: клиент 2..2, хост 1..1\" } } })))",
+        "journal_unchanged": true,
+        "leadership": "Ok(Leadership { lead: 1, leader: true, clients: 1, rows: 30, cols: 100, host: ProcessKey { pid: 4460, start_us: 1795015436364286 }, workload: ProcessKey { pid: 4461, start_us: 1795015436367938 } })"
+      },
+      "name": "retry-while-live"
+    },
+    {
+      "facts": {
+        "journal_unchanged": true,
+        "killed": "signal: 9 (SIGKILL)",
+        "leadership": "Ok(Leadership { lead: 1, leader: true, clients: 1, rows: 30, cols: 100, host: ProcessKey { pid: 4460, start_us: 1795015436364286 }, workload: ProcessKey { pid: 4461, start_us: 1795015436367938 } })",
+        "owner": "Ok(OwnerInfo { generation: 1, key: ProcessKey { pid: 4487, start_us: 1795015436765449 }, executable: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/install/probe-update.app/Contents/MacOS/probe-update-app\", cdhash: \"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\", installed: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/install/probe-update.app\", installed_cdhash: \"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\", socket: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/shellio.sock\", socket_inode: Inode { dev: 16777231, ino: 303166639 }, lock_inode: Inode { dev: 16777231, ino: 303166605 }, stale_socket: Some(Inode { dev: 16777231, ino: 303166611 }), runtime: Prepared { dir: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/runtime/1\", outcome: Reused, recovered: None }, recovery: [], window: false, ready: true, received: [Forwarded { seq: 1, from: ProcessKey { pid: 4487, start_us: 1795015436765449 }, args: [] }], update: None })",
+        "owner_b_pid": 4487,
+        "registry": [
+          {
+            "host_alive": true,
+            "probe": {
+              "probe": "welcome",
+              "version": 1
+            },
+            "record": {
+              "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/runtime/1/probe-update-host",
+              "generation": 1,
+              "host": {
+                "pid": 4460,
+                "start_us": 1795015436364286
+              },
+              "session": "h1",
+              "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/s/h1.sock",
+              "tty": "/dev/ttys003",
+              "versions": {
+                "max": 1,
+                "min": 1
+              },
+              "workload": {
+                "pid": 4461,
+                "start_us": 1795015436367938
+              },
+              "workload_pgid": 4461,
+              "workload_sid": 4461
+            },
+            "workload_alive": true
+          }
+        ],
+        "registry_error": null,
+        "staged_seen": "Some(Valid { cdhash: \"3bdcb64113d537944b55c28d8a5e97f0654b9c26\" })"
+      },
+      "name": "after-kill"
+    },
+    {
+      "facts": {
+        "answer": "Ok(Reply(Staging(Staged { attempt: \"66fa2e1f54de92294a7cdc44e375d5d0\", checked: Checked { versions: Versions { min: 2, max: 2 }, entries: [], problems: [], decision: Compatible { checked: 0 } } })))",
+        "create_h3": "Ok(Refused { reason: \"создание сессий заморожено: обновление поставлено, GUI перезапускается\", retry: true })",
+        "h3_recorded": false,
+        "journal": "Ok(Some(Journal { attempt: \"66fa2e1f54de92294a7cdc44e375d5d0\", state: Staged, from: 1, to: 3, cdhash_from: \"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\", cdhash_to: \"3bdcb64113d537944b55c28d8a5e97f0654b9c26\", installed: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/install/probe-update.app\", deadline_ms: None, gui_from: None, helper: None, owner: None, outcome: None, reason: None, launch: [], sessions: [] }))",
+        "ping": "Ok(OwnerInfo { generation: 1, key: ProcessKey { pid: 4487, start_us: 1795015436765449 }, executable: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/install/probe-update.app/Contents/MacOS/probe-update-app\", cdhash: \"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\", installed: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/install/probe-update.app\", installed_cdhash: \"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\", socket: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/shellio.sock\", socket_inode: Inode { dev: 16777231, ino: 303166639 }, lock_inode: Inode { dev: 16777231, ino: 303166605 }, stale_socket: Some(Inode { dev: 16777231, ino: 303166611 }), runtime: Prepared { dir: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.8dc904e5498889fc/runtime/1\", outcome: Reused, recovered: None }, recovery: [], window: false, ready: true, received: [Forwarded { seq: 1, from: ProcessKey { pid: 4487, start_us: 1795015436765449 }, args: [] }], update: None })",
+        "staged_seen": "Some(Valid { cdhash: \"3bdcb64113d537944b55c28d8a5e97f0654b9c26\" })",
+        "staging": {
+          "attempt": "66fa2e1f54de92294a7cdc44e375d5d0",
+          "checked": {
+            "decision": {
+              "checked": 0,
+              "decision": "compatible"
+            },
+            "entries": [],
+            "problems": [],
+            "versions": {
+              "max": 2,
+              "min": 2
+            }
+          },
+          "staging": "staged"
+        }
+      },
+      "name": "restage"
+    },
+    {
+      "facts": {
+        "exit": 0,
+        "reply": "Done"
+      },
+      "name": "quit"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "dialogs": [],
+  "frame": {
+    "bounds": [
+      396.0,
+      143.0,
+      720.0,
+      512.0
+    ],
+    "layer": 0,
+    "number": 80845,
+    "owner": "probe-update-app",
+    "pid": 4854
+  },
+  "shot": {
+    "artifact": "window/next-window.png",
+    "command": "/usr/sbin/screencapture -x -o -l 80845 /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/window-update-base/window/next-window.png",
+    "distinct": 68,
+    "error": null,
+    "pixels": [
+      1440,
+      1024
+    ],
+    "window": 80845
+  }
+}

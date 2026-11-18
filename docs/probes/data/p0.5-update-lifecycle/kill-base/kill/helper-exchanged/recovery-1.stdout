@@ -1,0 +1,4 @@
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-helper-exchanged/probe-update.app"},"event":"opened","pid":5616,"uptime_ns":642229860975416}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":5628,"start_us":1795015462120022},"reason":"признан"}],"owner":{"pid":5628,"start_us":1795015462120022},"reused":false},"event":"identified","pid":5616,"uptime_ns":642229861185958}
+{"detail":{"owner":{"pid":5628,"start_us":1795015462120022}},"event":"launched","pid":5616,"uptime_ns":642229868999833}
+{"role":"forwarded","key":{"pid":5616,"start_us":1795015461698438},"receipt":2,"owner":{"pid":5628,"start_us":1795015462120022},"yielded":"swapped → launched выполнен как помощник, владелец 5628","launched_installed":false}

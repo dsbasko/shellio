@@ -1,0 +1,11 @@
+{"detail":{"attempt":"9c82e33d79b578af56e2c1e5095e346f","gui":{"pid":12013,"start_us":1795015867594248},"key":{"pid":12074,"start_us":1795015868334820}},"event":"started","pid":12074,"uptime_ns":642636214376583}
+{"detail":{"gui":{"pid":12013,"start_us":1795015867594248}},"event":"gui-exited","pid":12074,"uptime_ns":642636214459625}
+{"detail":{"inode":{"dev":16777242,"ino":35}},"event":"locked","pid":12074,"uptime_ns":642636214556666}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":12074,"uptime_ns":642636285012500}
+{"detail":{},"event":"swapped","pid":12074,"uptime_ns":642636298008500}
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685/v8/s/install/probe-update.app"},"event":"opened","pid":12074,"uptime_ns":642636391865583}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":12080,"start_us":1795015868656272},"reason":"признан"}],"owner":{"pid":12080,"start_us":1795015868656272},"reused":false},"event":"identified","pid":12074,"uptime_ns":642636581913416}
+{"detail":{"owner":{"pid":12080,"start_us":1795015868656272}},"event":"launched","pid":12074,"uptime_ns":642636602459750}
+{"detail":{"owner":{"pid":12080,"start_us":1795015868656272}},"event":"released","pid":12074,"uptime_ns":642636602511333}
+{"detail":{"owner":{"pid":12080,"start_us":1795015868656272}},"event":"watch-owner-exited","pid":12074,"uptime_ns":642636822907000}
+{"detail":{"reason":"восстановление: обратный обмен (injected): Input/output error (os error 5)"},"event":"error","pid":12074,"uptime_ns":642636982284541}

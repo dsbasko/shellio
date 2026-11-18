@@ -1,0 +1,11 @@
+{"detail":{"attempt":"0dc26d607208e299ba5856aa609b8e4f","gui":{"pid":8379,"start_us":1795015616564380},"key":{"pid":8434,"start_us":1795015617257791}},"event":"started","pid":8434,"uptime_ns":642385147826916}
+{"detail":{"gui":{"pid":8379,"start_us":1795015616564380}},"event":"gui-exited","pid":8434,"uptime_ns":642385147958041}
+{"detail":{"inode":{"dev":16777231,"ino":303171446}},"event":"locked","pid":8434,"uptime_ns":642385148114875}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":8434,"uptime_ns":642385219147750}
+{"detail":{},"event":"swapped","pid":8434,"uptime_ns":642385224877416}
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-chain-cleaning/probe-update.app"},"event":"opened","pid":8434,"uptime_ns":642385302026375}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":8440,"start_us":1795015617556673},"reason":"признан"}],"owner":{"pid":8440,"start_us":1795015617556673},"reused":false},"event":"identified","pid":8434,"uptime_ns":642385471153791}
+{"detail":{"owner":{"pid":8440,"start_us":1795015617556673}},"event":"launched","pid":8434,"uptime_ns":642385477444041}
+{"detail":{"owner":{"pid":8440,"start_us":1795015617556673}},"event":"released","pid":8434,"uptime_ns":642385477480333}
+{"detail":{"why":"попытка в committed"},"event":"watch-finished","pid":8434,"uptime_ns":642385632984916}
+{"detail":{"outcome":"попытка закончена без сторожа: попытка в committed"},"event":"done","pid":8434,"uptime_ns":642385633068208}

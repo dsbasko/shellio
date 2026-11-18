@@ -1,0 +1,1 @@
+{"event":"role","role":"gui","process":{"pid":5616,"start_us":1795015461698438},"seq":3,"uptime_ns":642229781798250,"detail":{"recovery":["Write(Swapped, None)"],"role":{"attempt":"ace1b9e61bad3275753a70b69fd1a352","role":"helper"}}}

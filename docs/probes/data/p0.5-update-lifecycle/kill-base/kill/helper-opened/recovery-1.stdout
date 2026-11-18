@@ -1,0 +1,3 @@
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":5752,"start_us":1795015465380143},"reason":"признан"}],"owner":{"pid":5752,"start_us":1795015465380143},"reused":true},"event":"identified","pid":5755,"uptime_ns":642233398753291}
+{"detail":{"owner":{"pid":5752,"start_us":1795015465380143}},"event":"launched","pid":5755,"uptime_ns":642233404950083}
+{"role":"forwarded","key":{"pid":5755,"start_us":1795015465601857},"receipt":3,"owner":{"pid":5752,"start_us":1795015465380143},"yielded":"swapped → launched выполнен как помощник, владелец 5752","launched_installed":false}

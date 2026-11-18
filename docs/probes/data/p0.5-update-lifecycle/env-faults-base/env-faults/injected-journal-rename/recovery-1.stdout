@@ -1,0 +1,4 @@
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685/v7/s/install/probe-update.app"},"event":"opened","pid":11943,"uptime_ns":642633342451000}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":11955,"start_us":1795015865604691},"reason":"признан"}],"owner":{"pid":11955,"start_us":1795015865604691},"reused":false},"event":"identified","pid":11943,"uptime_ns":642633345694791}
+{"detail":{"owner":{"pid":11955,"start_us":1795015865604691}},"event":"launched","pid":11943,"uptime_ns":642633361860625}
+{"role":"forwarded","key":{"pid":11943,"start_us":1795015865203684},"receipt":2,"owner":{"pid":11955,"start_us":1795015865604691},"yielded":"swapped → launched выполнен как помощник, владелец 11955","launched_installed":false}

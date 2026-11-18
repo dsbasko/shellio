@@ -1,0 +1,1 @@
+{"event":"start","role":"gui","process":{"pid":4923,"start_us":1795015446139143},"seq":1,"uptime_ns":642213864060708,"detail":{"attempt":null,"cdhash":"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c","forward":["c1-before-exit-direct-9aa8838d79e08ec3"],"generation":1}}

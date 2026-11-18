@@ -1,0 +1,11 @@
+{"detail":{"attempt":"f1556071455a4f9a389154315998e22d","gui":{"pid":9125,"start_us":1795015647178209},"key":{"pid":9146,"start_us":1795015647968063}},"event":"started","pid":9146,"uptime_ns":642415847315041}
+{"detail":{"gui":{"pid":9125,"start_us":1795015647178209}},"event":"gui-exited","pid":9146,"uptime_ns":642415847428416}
+{"detail":{"inode":{"dev":16777231,"ino":303172351}},"event":"locked","pid":9146,"uptime_ns":642415847582458}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":9146,"uptime_ns":642415922371416}
+{"detail":{},"event":"swapped","pid":9146,"uptime_ns":642415927471291}
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-race-deadline-commit-first/probe-update.app"},"event":"opened","pid":9146,"uptime_ns":642416008631041}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":9152,"start_us":1795015648261389},"reason":"признан"}],"owner":{"pid":9152,"start_us":1795015648261389},"reused":false},"event":"identified","pid":9146,"uptime_ns":642416193818416}
+{"detail":{"owner":{"pid":9152,"start_us":1795015648261389}},"event":"launched","pid":9146,"uptime_ns":642416203329083}
+{"detail":{"owner":{"pid":9152,"start_us":1795015648261389}},"event":"released","pid":9146,"uptime_ns":642416203380500}
+{"detail":{"why":"попытка в committed"},"event":"watch-finished","pid":9146,"uptime_ns":642473683738541}
+{"detail":{"outcome":"попытка закончена без сторожа: попытка в committed"},"event":"done","pid":9146,"uptime_ns":642473685085833}

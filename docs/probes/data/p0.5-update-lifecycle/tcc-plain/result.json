@@ -1,0 +1,380 @@
+{
+  "schema": 1,
+  "scenario": "tcc",
+  "variant": "plain",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "94514132ba68",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "versions": {
+      "homebrew": "Homebrew 7.0.14-26-gb63354c"
+    },
+    "generations": {
+      "denied": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+      "denied-2": "48f26b5d5eed2c5fa8a71e16923ce6773f253b88",
+      "foreign": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+      "gen-1": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "gen-2": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "incompatible": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "tampered": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "wrong-id": "acd96c2187aace3a2a7e15fd17949d1efae13cac"
+    },
+    "process": {
+      "pid": 12648,
+      "nonce": "9e8eb692b5811a95",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.9e8eb692b5811a95",
+      "env": {
+        "HOME": "/Users/u",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_BUNDLES": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle",
+        "SHELLIO_PROBE_COMMIT": "94514132ba68",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_VERSION_HOMEBREW": "Homebrew 7.0.14-26-gb63354c",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.9e8eb692b5811a95",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "cells": [
+    {
+      "id": "E",
+      "part": "plain-allowed-gui-n-read",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "GUI N через open с --window --tcc-fixture читает фикстуру при старте; хост — обычный posix_spawn",
+      "oracle": "чтение удалось, содержимое — текст фикстуры",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-allowed-gui-n-attribution",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "GUI N через open с --window --tcc-fixture читает фикстуру при старте; хост — обычный posix_spawn",
+      "oracle": "ответственный PID (responsibility_get_pid_responsible_for_pid) и его идентичность записаны; успешное чтение атрибуцию не подтверждает",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-allowed-host-n-live-read",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "нагрузка хоста N при живом GUI N: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "чтение удалось, содержимое — текст фикстуры",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-allowed-host-n-live-attribution",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "нагрузка хоста N при живом GUI N: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "ответственный PID (responsibility_get_pid_responsible_for_pid) и его идентичность записаны; успешное чтение атрибуцию не подтверждает",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-allowed-host-n-after-gui-exit-read",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "та же нагрузка после выхода GUI N: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "чтение удалось, содержимое — текст фикстуры",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-allowed-host-n-after-gui-exit-attribution",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "та же нагрузка после выхода GUI N: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "ответственный PID (responsibility_get_pid_responsible_for_pid) и его идентичность записаны; успешное чтение атрибуцию не подтверждает",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-allowed-host-n-after-activation-read",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "та же нагрузка после активации N+1: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "чтение удалось, содержимое — текст фикстуры",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-allowed-host-n-after-activation-attribution",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "та же нагрузка после активации N+1: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "ответственный PID (responsibility_get_pid_responsible_for_pid) и его идентичность записаны; успешное чтение атрибуцию не подтверждает",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-allowed-gui-n1-read",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "GUI N+1, запущенный помощником с аргументами режима N, читает фикстуру при старте; хост — обычный posix_spawn",
+      "oracle": "чтение удалось, содержимое — текст фикстуры",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-allowed-gui-n1-attribution",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "GUI N+1, запущенный помощником с аргументами режима N, читает фикстуру при старте; хост — обычный posix_spawn",
+      "oracle": "ответственный PID (responsibility_get_pid_responsible_for_pid) и его идентичность записаны; успешное чтение атрибуцию не подтверждает",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-allowed-host-n1-read",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "нагрузка нового хоста N+1: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "чтение удалось, содержимое — текст фикстуры",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-allowed-host-n1-attribution",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "нагрузка нового хоста N+1: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "ответственный PID (responsibility_get_pid_responsible_for_pid) и его идентичность записаны; успешное чтение атрибуцию не подтверждает",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-denied-gui-n-read",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "GUI N через open с --window --tcc-fixture читает фикстуру при старте; хост — обычный posix_spawn",
+      "oracle": "EPERM; доступ отрицательного графа портит часть обоих графов (not_run)",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-denied-gui-n-attribution",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "GUI N через open с --window --tcc-fixture читает фикстуру при старте; хост — обычный posix_spawn",
+      "oracle": "ответственный PID (responsibility_get_pid_responsible_for_pid) и его идентичность записаны; успешное чтение атрибуцию не подтверждает",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-denied-host-n-live-read",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "нагрузка хоста N при живом GUI N: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "EPERM; доступ отрицательного графа портит часть обоих графов (not_run)",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-denied-host-n-live-attribution",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "нагрузка хоста N при живом GUI N: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "ответственный PID (responsibility_get_pid_responsible_for_pid) и его идентичность записаны; успешное чтение атрибуцию не подтверждает",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-denied-host-n-after-gui-exit-read",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "та же нагрузка после выхода GUI N: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "EPERM; доступ отрицательного графа портит часть обоих графов (not_run)",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-denied-host-n-after-gui-exit-attribution",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "та же нагрузка после выхода GUI N: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "ответственный PID (responsibility_get_pid_responsible_for_pid) и его идентичность записаны; успешное чтение атрибуцию не подтверждает",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-denied-host-n-after-activation-read",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "та же нагрузка после активации N+1: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "EPERM; доступ отрицательного графа портит часть обоих графов (not_run)",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-denied-host-n-after-activation-attribution",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "та же нагрузка после активации N+1: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "ответственный PID (responsibility_get_pid_responsible_for_pid) и его идентичность записаны; успешное чтение атрибуцию не подтверждает",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-denied-gui-n1-read",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "GUI N+1, запущенный помощником с аргументами режима N, читает фикстуру при старте; хост — обычный posix_spawn",
+      "oracle": "EPERM; доступ отрицательного графа портит часть обоих графов (not_run)",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-denied-gui-n1-attribution",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "GUI N+1, запущенный помощником с аргументами режима N, читает фикстуру при старте; хост — обычный posix_spawn",
+      "oracle": "ответственный PID (responsibility_get_pid_responsible_for_pid) и его идентичность записаны; успешное чтение атрибуцию не подтверждает",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-denied-host-n1-read",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "нагрузка нового хоста N+1: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "EPERM; доступ отрицательного графа портит часть обоих графов (not_run)",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    },
+    {
+      "id": "E",
+      "part": "plain-denied-host-n1-attribution",
+      "requirement": "observation",
+      "status": "not_run",
+      "stimulus": "нагрузка нового хоста N+1: read <фикстура>; хост — обычный posix_spawn",
+      "oracle": "ответственный PID (responsibility_get_pid_responsible_for_pid) и его идентичность записаны; успешное чтение атрибуцию не подтверждает",
+      "completion": "проверка выдачи, базовая проверка и части обоих графов записаны",
+      "reason": "выдача владельца не выполнена или устарела: нет tcc-grant.json",
+      "artifacts": [
+        "tcc/gate.json"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "notes": [
+      "E plain: выдача владельца не выполнена или устарела: нет tcc-grant.json; responsibility_get_pid_responsible_for_pid есть, responsibility_spawnattrs_setdisclaim есть"
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+{"detail":{"attempt":"25b59c1f69b4c2458f2e7466412de69f","gui":{"pid":10755,"start_us":1795015830462373},"key":{"pid":10786,"start_us":1795015831699782}},"event":"started","pid":10786,"uptime_ns":642599589164416}
+{"detail":{"gui":{"pid":10755,"start_us":1795015830462373}},"event":"gui-exited","pid":10786,"uptime_ns":642599589285958}
+{"detail":{"inode":{"dev":16777231,"ino":303172907}},"event":"locked","pid":10786,"uptime_ns":642599830929958}
+{"detail":{"attempt":"25b59c1f69b4c2458f2e7466412de69f","state":"idle"},"event":"foreign-state","pid":10786,"uptime_ns":642599831018375}
+{"detail":{"outcome":"под блокировкой попытка уже не в intent: помощник ничего не делает"},"event":"done","pid":10786,"uptime_ns":642599831027916}

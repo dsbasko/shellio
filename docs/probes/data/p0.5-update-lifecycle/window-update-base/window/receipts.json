@@ -1,0 +1,146 @@
+[
+  {
+    "name": "n",
+    "receipt": {
+      "pid": 4789,
+      "generation": 1,
+      "attachment": {
+        "session": "h1",
+        "version": 1,
+        "start": 0,
+        "closed": null
+      },
+      "attach_error": null,
+      "window_number": 80833,
+      "visible": true,
+      "key": true,
+      "active": true,
+      "text": "000001 ready pid=4801 generation=1\n000002 ack 1 ping\n",
+      "field": "",
+      "sent": [],
+      "foreign_keys": 0,
+      "wait": {
+        "wait": "line",
+        "text": "ack 1 ping"
+      },
+      "satisfied": true,
+      "readbacks": 1
+    }
+  },
+  {
+    "name": "offline",
+    "receipt": {
+      "pid": 4854,
+      "generation": 2,
+      "attachment": {
+        "session": "h1",
+        "version": 1,
+        "start": 0,
+        "closed": null
+      },
+      "attach_error": null,
+      "window_number": 80845,
+      "visible": true,
+      "key": true,
+      "active": true,
+      "text": "000001 ready pid=4801 generation=1\n000002 ack 1 ping\n000003 emit 2 1/20\n000004 emit 2 2/20\n000005 emit 2 3/20\n000006 emit 2 4/20\n000007 emit 2 5/20\n000008 emit 2 6/20\n000009 emit 2 7/20\n000010 emit 2 8/20\n000011 emit 2 9/20\n000012 emit 2 10/20\n000013 emit 2 11/20\n000014 emit 2 12/20\n000015 emit 2 13/20\n000016 emit 2 14/20\n000017 emit 2 15/20\n000018 emit 2 16/20\n000019 emit 2 17/20\n000020 emit 2 18/20\n000021 emit 2 19/20\n000022 emit 2 20/20\n000023 ack 2 emit 20\n000024 ack 1795015444035954 ping\n",
+      "field": "",
+      "sent": [],
+      "foreign_keys": 0,
+      "wait": {
+        "wait": "line",
+        "text": "ack 2 emit 20"
+      },
+      "satisfied": true,
+      "readbacks": 1
+    }
+  },
+  {
+    "name": "live",
+    "receipt": {
+      "pid": 4854,
+      "generation": 2,
+      "attachment": {
+        "session": "h1",
+        "version": 1,
+        "start": 0,
+        "closed": null
+      },
+      "attach_error": null,
+      "window_number": 80845,
+      "visible": true,
+      "key": true,
+      "active": true,
+      "text": "000001 ready pid=4801 generation=1\n000002 ack 1 ping\n000003 emit 2 1/20\n000004 emit 2 2/20\n000005 emit 2 3/20\n000006 emit 2 4/20\n000007 emit 2 5/20\n000008 emit 2 6/20\n000009 emit 2 7/20\n000010 emit 2 8/20\n000011 emit 2 9/20\n000012 emit 2 10/20\n000013 emit 2 11/20\n000014 emit 2 12/20\n000015 emit 2 13/20\n000016 emit 2 14/20\n000017 emit 2 15/20\n000018 emit 2 16/20\n000019 emit 2 17/20\n000020 emit 2 18/20\n000021 emit 2 19/20\n000022 emit 2 20/20\n000023 ack 2 emit 20\n000024 ack 1795015444035954 ping\n000025 emit 3 1/5\n000026 emit 3 2/5\n000027 emit 3 3/5\n000028 emit 3 4/5\n000029 emit 3 5/5\n000030 ack 3 emit 5\n",
+      "field": "",
+      "sent": [],
+      "foreign_keys": 0,
+      "wait": {
+        "wait": "line",
+        "text": "ack 3 emit 5"
+      },
+      "satisfied": true,
+      "readbacks": 1
+    }
+  },
+  {
+    "name": "after-ax",
+    "receipt": {
+      "pid": 4854,
+      "generation": 2,
+      "attachment": {
+        "session": "h1",
+        "version": 1,
+        "start": 0,
+        "closed": null
+      },
+      "attach_error": null,
+      "window_number": 80845,
+      "visible": true,
+      "key": true,
+      "active": true,
+      "text": "000001 ready pid=4801 generation=1\n000002 ack 1 ping\n000003 emit 2 1/20\n000004 emit 2 2/20\n000005 emit 2 3/20\n000006 emit 2 4/20\n000007 emit 2 5/20\n000008 emit 2 6/20\n000009 emit 2 7/20\n000010 emit 2 8/20\n000011 emit 2 9/20\n000012 emit 2 10/20\n000013 emit 2 11/20\n000014 emit 2 12/20\n000015 emit 2 13/20\n000016 emit 2 14/20\n000017 emit 2 15/20\n000018 emit 2 16/20\n000019 emit 2 17/20\n000020 emit 2 18/20\n000021 emit 2 19/20\n000022 emit 2 20/20\n000023 ack 2 emit 20\n000024 ack 1795015444035954 ping\n000025 emit 3 1/5\n000026 emit 3 2/5\n000027 emit 3 3/5\n000028 emit 3 4/5\n000029 emit 3 5/5\n000030 ack 3 emit 5\n",
+      "field": "",
+      "sent": [],
+      "foreign_keys": 0,
+      "wait": {
+        "wait": "now"
+      },
+      "satisfied": true,
+      "readbacks": 1
+    }
+  },
+  {
+    "name": "input",
+    "receipt": {
+      "pid": 4854,
+      "generation": 2,
+      "attachment": {
+        "session": "h1",
+        "version": 1,
+        "start": 0,
+        "closed": null
+      },
+      "attach_error": null,
+      "window_number": 80845,
+      "visible": true,
+      "key": true,
+      "active": true,
+      "text": "000001 ready pid=4801 generation=1\n000002 ack 1 ping\n000003 emit 2 1/20\n000004 emit 2 2/20\n000005 emit 2 3/20\n000006 emit 2 4/20\n000007 emit 2 5/20\n000008 emit 2 6/20\n000009 emit 2 7/20\n000010 emit 2 8/20\n000011 emit 2 9/20\n000012 emit 2 10/20\n000013 emit 2 11/20\n000014 emit 2 12/20\n000015 emit 2 13/20\n000016 emit 2 14/20\n000017 emit 2 15/20\n000018 emit 2 16/20\n000019 emit 2 17/20\n000020 emit 2 18/20\n000021 emit 2 19/20\n000022 emit 2 20/20\n000023 ack 2 emit 20\n000024 ack 1795015444035954 ping\n000025 emit 3 1/5\n000026 emit 3 2/5\n000027 emit 3 3/5\n000028 emit 3 4/5\n000029 emit 3 5/5\n000030 ack 3 emit 5\n000031 emit 902001 1/2\n000032 emit 902001 2/2\n000033 ack 902001 emit 2\n",
+      "field": "",
+      "sent": [
+        {
+          "seq": 902001,
+          "command": "emit 2"
+        }
+      ],
+      "foreign_keys": 0,
+      "wait": {
+        "wait": "sent-acked",
+        "count": 1
+      },
+      "satisfied": true,
+      "readbacks": 3
+    }
+  }
+]

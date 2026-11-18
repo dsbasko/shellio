@@ -1,0 +1,1 @@
+{"event":"role","role":"gui","process":{"pid":6690,"start_us":1795015535781834},"seq":3,"uptime_ns":642303664754458,"detail":{"recovery":["Write(Cleaning, None)","Remove","Write(Idle, Some(Committed))"],"role":{"role":"owner"}}}

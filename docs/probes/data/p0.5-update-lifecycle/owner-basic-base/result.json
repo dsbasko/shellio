@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "scenario": "owner-basic",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "94514132ba68",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "versions": {
+      "homebrew": "Homebrew 7.0.14-26-gb63354c"
+    },
+    "generations": {
+      "denied": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+      "denied-2": "48f26b5d5eed2c5fa8a71e16923ce6773f253b88",
+      "foreign": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+      "gen-1": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "gen-2": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "incompatible": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "tampered": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "wrong-id": "acd96c2187aace3a2a7e15fd17949d1efae13cac"
+    },
+    "process": {
+      "pid": 4404,
+      "nonce": "132bb7a23a122a0d",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d",
+      "env": {
+        "HOME": "/Users/u",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_BUNDLES": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle",
+        "SHELLIO_PROBE_COMMIT": "94514132ba68",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_VERSION_HOMEBREW": "Homebrew 7.0.14-26-gb63354c",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "cells": [
+    {
+      "id": "owner-basic",
+      "part": "owner",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "прямой запуск probe-update-app установленного поколения 1 с --state, --installed, --leaf, --tag",
+      "oracle": "ping: поколение 1, ключ процесса; CDHash процесса из ядра (csops) = сообщённый = CDHash установленного бандла по codesign; proc_pidpath — установленный бандл; сокет на месте и слушает, inode блокировки и сокета равны сообщённым; оставшегося сокета и шагов восстановления нет; runtime/1 подготовлен; свои аргументы приняты первым запросом",
+      "completion": "ответ владельца, хоста или выход процесса в срок шага; иначе ошибка исполнения",
+      "reason": "владелец 4407 (CDHash ad8d8e4f), сокет inode 303166570, блокировка inode 303166564, рантайм /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/runtime/1",
+      "artifacts": [
+        "owner-basic/steps.json",
+        "owner-basic/owner-a.stdout",
+        "owner-basic/owner-a.stderr"
+      ]
+    },
+    {
+      "id": "owner-basic",
+      "part": "session",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "CreateSession h1 через управляющий сокет, attach с начала и ввод «1 ping», затем Sessions",
+      "oracle": "proc_pidpath хоста — runtime/1/probe-update-host, нагрузки — runtime/1/probe-update-fixture; хост вне дерева (PPID 1), нагрузка — его потомок; в runtime/1 ровно host, attach, fixture, каждый байт в байт равен бинарю бандла и проходит codesign со своим требованием; квитанция «ack 1 ping» без пропуска строк; реестр: h1 жива, probe отвечает версией 1; кандидатов на уборку нет",
+      "completion": "ответ владельца, хоста или выход процесса в срок шага; иначе ошибка исполнения",
+      "reason": "хост 4421 из /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.132bb7a23a122a0d/runtime/1/probe-update-host, квитанция «ack 1 ping» в строке 2, реестр: 1 сессия",
+      "artifacts": [
+        "owner-basic/steps.json"
+      ]
+    },
+    {
+      "id": "owner-basic",
+      "part": "forward",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "второй прямой запуск того же бинаря с аргументами «second <nonce>» при живом владельце",
+      "oracle": "блокировку не получил и не держал (yielded нет), передал аргументы и вышел с кодом 0 со строкой forwarded и квитанцией; владелец прежний, принял аргументы под этим номером от этого процесса; inode сокета и блокировки прежние",
+      "completion": "ответ владельца, хоста или выход процесса в срок шага; иначе ошибка исполнения",
+      "reason": "второй запуск 4430 получил квитанцию 2 от владельца 4407, вышел: exit status: 0",
+      "artifacts": [
+        "owner-basic/steps.json",
+        "owner-basic/second.stdout",
+        "owner-basic/second.stderr"
+      ]
+    },
+    {
+      "id": "owner-basic",
+      "part": "restart",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "SIGKILL владельцу, ping клиента пробы без владельца, затем новый прямой запуск",
+      "oracle": "после SIGKILL путь сокета остаётся тем же узлом; клиент пробы получает явный временный отказ «владелец запускается или перезапускается» с признаком повтора; хост и нагрузка живы; новый владелец сообщает удалённый оставшийся путь (inode прежнего), публикует новый узел сокета, inode блокировки прежний, рантайм переиспользован без перезаписи; реестр с диска находит h1 с теми же процессами; хвост с прежнего байта без пропуска и квитанция «ack 2 ping»",
+      "completion": "ответ владельца, хоста или выход процесса в срок шага; иначе ошибка исполнения",
+      "reason": "сокет inode 303166570 → 303166578, блокировка inode 303166564, владелец 4407 → 4431, h1: строки с 3, квитанция 2",
+      "artifacts": [
+        "owner-basic/steps.json",
+        "owner-basic/owner-c.stdout",
+        "owner-basic/owner-c.stderr"
+      ]
+    },
+    {
+      "id": "owner-basic",
+      "part": "descriptors",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "proc_pidfdinfo у хоста и нагрузки h1 (запущены прежним владельцем) и h2 (запущены новым)",
+      "oracle": "положительный контроль: у владельца есть дескриптор блокировки (dev и inode) и слушающий сокет с адресом bind, у каждого хоста — свой сокет сессии; у хостов и нагрузок нет ни дескриптора блокировки, ни сокета с адресом сокета владельца, ни дескриптора того же сокета ядра, что слушающий у владельца",
+      "completion": "ответ владельца, хоста или выход процесса в срок шага; иначе ошибка исполнения",
+      "reason": "проверено 4 процесса, дескрипторов владельца нет; у владельца блокировка inode 303166564 и слушающий сокет 0x256e1f510491fc19",
+      "artifacts": [
+        "owner-basic/steps.json"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "notes": [
+      "ожидание сокета вторым запуском 10 с, срок ответа владельца 10 с"
+    ]
+  }
+}

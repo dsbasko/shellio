@@ -1,0 +1,11 @@
+{"detail":{"attempt":"d052263fc6c5dd40d1e6f95f6dc56c87","gui":{"pid":10811,"start_us":1795015832167427},"key":{"pid":10832,"start_us":1795015832891044}},"event":"started","pid":10832,"uptime_ns":642600782838708}
+{"detail":{"gui":{"pid":10811,"start_us":1795015832167427}},"event":"gui-exited","pid":10832,"uptime_ns":642600782927166}
+{"detail":{"inode":{"dev":16777231,"ino":303172993}},"event":"locked","pid":10832,"uptime_ns":642600783034166}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":10832,"uptime_ns":642600854495916}
+{"detail":{},"event":"swapped","pid":10832,"uptime_ns":642600860528291}
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-race-handoff-helper-to-next/probe-update.app"},"event":"opened","pid":10832,"uptime_ns":642600946585000}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":10846,"start_us":1795015833202264},"reason":"признан"}],"owner":{"pid":10846,"start_us":1795015833202264},"reused":false},"event":"identified","pid":10832,"uptime_ns":642601476506750}
+{"detail":{"owner":{"pid":10846,"start_us":1795015833202264}},"event":"launched","pid":10832,"uptime_ns":642601486798833}
+{"detail":{"owner":{"pid":10846,"start_us":1795015833202264}},"event":"released","pid":10832,"uptime_ns":642601486877375}
+{"detail":{"why":"попытка в committed"},"event":"watch-finished","pid":10832,"uptime_ns":642601710231583}
+{"detail":{"outcome":"попытка закончена без сторожа: попытка в committed"},"event":"done","pid":10832,"uptime_ns":642601710298375}

@@ -1,0 +1,4 @@
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-helper-after-swapped/probe-update.app"},"event":"opened","pid":5686,"uptime_ns":642231681956583}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":5694,"start_us":1795015463941277},"reason":"признан"}],"owner":{"pid":5694,"start_us":1795015463941277},"reused":false},"event":"identified","pid":5686,"uptime_ns":642231682218083}
+{"detail":{"owner":{"pid":5694,"start_us":1795015463941277}},"event":"launched","pid":5686,"uptime_ns":642231687900708}
+{"role":"forwarded","key":{"pid":5686,"start_us":1795015463590714},"receipt":2,"owner":{"pid":5694,"start_us":1795015463941277},"yielded":"swapped → launched выполнен как помощник, владелец 5694","launched_installed":false}

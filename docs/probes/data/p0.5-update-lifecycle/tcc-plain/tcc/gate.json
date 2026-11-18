@@ -1,0 +1,46 @@
+{
+  "variant": "plain",
+  "grant_file": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/tcc-grant.json",
+  "grant_present": false,
+  "grant_error": null,
+  "current": [
+    [
+      "allowed",
+      "io.github.dsbasko.shellio.probe.update-lifecycle",
+      "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    ],
+    [
+      "denied",
+      "io.github.dsbasko.shellio.probe.update-lifecycle.denied",
+      "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.denied\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+    ]
+  ],
+  "valid": null,
+  "responsibility_available": true,
+  "disclaim_available": true,
+  "baseline": [],
+  "runs": [
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/denied/probe-update-denied.app"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.denied\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/denied/probe-update-denied.app/Contents/MacOS/probe-update-app\n"
+    }
+  ]
+}

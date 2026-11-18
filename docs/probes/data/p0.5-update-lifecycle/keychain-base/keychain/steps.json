@@ -1,0 +1,1197 @@
+{
+  "dumps": [
+    {
+      "denied": {
+        "access": [
+          {
+            "applications": null,
+            "authorizations": [
+              "encrypt"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f denied",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 0
+          },
+          {
+            "applications": [
+              {
+                "mark": "OK",
+                "path": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/denied/probe-update-denied.app",
+                "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.denied\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+              }
+            ],
+            "authorizations": [
+              "decrypt",
+              "derive",
+              "export_clear",
+              "export_wrapped",
+              "mac",
+              "sign"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f denied",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 1
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "integrity"
+            ],
+            "description": "72557250597076e58e5b3c400362aab59c20671790de016d003f6367327b92bb",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 2
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "partition_id"
+            ],
+            "description": "cdhash:d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 3
+          },
+          {
+            "applications": [],
+            "authorizations": [
+              "change_acl"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f denied",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 4
+          }
+        ],
+        "attributes": {
+          "acct": "<blob>=\"denied\"",
+          "cdat": "<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"",
+          "crtr": "<uint32>=<NULL>",
+          "cusi": "<sint32>=<NULL>",
+          "desc": "<blob>=<NULL>",
+          "gena": "<blob>=<NULL>",
+          "icmt": "<blob>=<NULL>",
+          "invi": "<sint32>=<NULL>",
+          "mdat": "<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"",
+          "nega": "<sint32>=<NULL>",
+          "prot": "<blob>=<NULL>",
+          "scrp": "<sint32>=<NULL>",
+          "svce": "<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"",
+          "type": "<uint32>=<NULL>"
+        },
+        "class": "genp",
+        "keychain": "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+        "unparsed": [],
+        "version": 512
+      },
+      "items": 2,
+      "n": {
+        "access": [
+          {
+            "applications": null,
+            "authorizations": [
+              "encrypt"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f n",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 0
+          },
+          {
+            "applications": [
+              {
+                "mark": "OK",
+                "path": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app",
+                "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+              }
+            ],
+            "authorizations": [
+              "decrypt",
+              "derive",
+              "export_clear",
+              "export_wrapped",
+              "mac",
+              "sign"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f n",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 1
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "integrity"
+            ],
+            "description": "70ec7835a158f588789b95e9df2d1b288cdd748eaee27032daaaf38a5579cbb6",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 2
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "partition_id"
+            ],
+            "description": "cdhash:ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 3
+          },
+          {
+            "applications": [],
+            "authorizations": [
+              "change_acl"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f n",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 4
+          }
+        ],
+        "attributes": {
+          "acct": "<blob>=\"n\"",
+          "cdat": "<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"",
+          "crtr": "<uint32>=<NULL>",
+          "cusi": "<sint32>=<NULL>",
+          "desc": "<blob>=<NULL>",
+          "gena": "<blob>=<NULL>",
+          "icmt": "<blob>=<NULL>",
+          "invi": "<sint32>=<NULL>",
+          "mdat": "<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"",
+          "nega": "<sint32>=<NULL>",
+          "prot": "<blob>=<NULL>",
+          "scrp": "<sint32>=<NULL>",
+          "svce": "<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"",
+          "type": "<uint32>=<NULL>"
+        },
+        "class": "genp",
+        "keychain": "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+        "unparsed": [],
+        "version": 512
+      },
+      "name": "after-add"
+    },
+    {
+      "denied": {
+        "access": [
+          {
+            "applications": null,
+            "authorizations": [
+              "encrypt"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f denied",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 0
+          },
+          {
+            "applications": [
+              {
+                "mark": "OK",
+                "path": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/denied/probe-update-denied.app",
+                "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.denied\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+              }
+            ],
+            "authorizations": [
+              "decrypt",
+              "derive",
+              "export_clear",
+              "export_wrapped",
+              "mac",
+              "sign"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f denied",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 1
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "integrity"
+            ],
+            "description": "72557250597076e58e5b3c400362aab59c20671790de016d003f6367327b92bb",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 2
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "partition_id"
+            ],
+            "description": "cdhash:d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 3
+          },
+          {
+            "applications": [],
+            "authorizations": [
+              "change_acl"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f denied",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 4
+          }
+        ],
+        "attributes": {
+          "acct": "<blob>=\"denied\"",
+          "cdat": "<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"",
+          "crtr": "<uint32>=<NULL>",
+          "cusi": "<sint32>=<NULL>",
+          "desc": "<blob>=<NULL>",
+          "gena": "<blob>=<NULL>",
+          "icmt": "<blob>=<NULL>",
+          "invi": "<sint32>=<NULL>",
+          "mdat": "<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"",
+          "nega": "<sint32>=<NULL>",
+          "prot": "<blob>=<NULL>",
+          "scrp": "<sint32>=<NULL>",
+          "svce": "<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"",
+          "type": "<uint32>=<NULL>"
+        },
+        "class": "genp",
+        "keychain": "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+        "unparsed": [],
+        "version": 512
+      },
+      "items": 2,
+      "n": {
+        "access": [
+          {
+            "applications": null,
+            "authorizations": [
+              "encrypt"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f n",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 0
+          },
+          {
+            "applications": [
+              {
+                "mark": "OK",
+                "path": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app",
+                "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+              }
+            ],
+            "authorizations": [
+              "decrypt",
+              "derive",
+              "export_clear",
+              "export_wrapped",
+              "mac",
+              "sign"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f n",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 1
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "integrity"
+            ],
+            "description": "70ec7835a158f588789b95e9df2d1b288cdd748eaee27032daaaf38a5579cbb6",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 2
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "partition_id"
+            ],
+            "description": "cdhash:ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 3
+          },
+          {
+            "applications": [],
+            "authorizations": [
+              "change_acl"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f n",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 4
+          }
+        ],
+        "attributes": {
+          "acct": "<blob>=\"n\"",
+          "cdat": "<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"",
+          "crtr": "<uint32>=<NULL>",
+          "cusi": "<sint32>=<NULL>",
+          "desc": "<blob>=<NULL>",
+          "gena": "<blob>=<NULL>",
+          "icmt": "<blob>=<NULL>",
+          "invi": "<sint32>=<NULL>",
+          "mdat": "<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"",
+          "nega": "<sint32>=<NULL>",
+          "prot": "<blob>=<NULL>",
+          "scrp": "<sint32>=<NULL>",
+          "svce": "<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"",
+          "type": "<uint32>=<NULL>"
+        },
+        "class": "genp",
+        "keychain": "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+        "unparsed": [],
+        "version": 512
+      },
+      "name": "before-next"
+    },
+    {
+      "denied": {
+        "access": [
+          {
+            "applications": null,
+            "authorizations": [
+              "encrypt"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f denied",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 0
+          },
+          {
+            "applications": [
+              {
+                "mark": "OK",
+                "path": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/denied/probe-update-denied.app",
+                "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.denied\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+              }
+            ],
+            "authorizations": [
+              "decrypt",
+              "derive",
+              "export_clear",
+              "export_wrapped",
+              "mac",
+              "sign"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f denied",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 1
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "integrity"
+            ],
+            "description": "72557250597076e58e5b3c400362aab59c20671790de016d003f6367327b92bb",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 2
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "partition_id"
+            ],
+            "description": "cdhash:d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 3
+          },
+          {
+            "applications": [],
+            "authorizations": [
+              "change_acl"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f denied",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 4
+          }
+        ],
+        "attributes": {
+          "acct": "<blob>=\"denied\"",
+          "cdat": "<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"",
+          "crtr": "<uint32>=<NULL>",
+          "cusi": "<sint32>=<NULL>",
+          "desc": "<blob>=<NULL>",
+          "gena": "<blob>=<NULL>",
+          "icmt": "<blob>=<NULL>",
+          "invi": "<sint32>=<NULL>",
+          "mdat": "<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"",
+          "nega": "<sint32>=<NULL>",
+          "prot": "<blob>=<NULL>",
+          "scrp": "<sint32>=<NULL>",
+          "svce": "<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"",
+          "type": "<uint32>=<NULL>"
+        },
+        "class": "genp",
+        "keychain": "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+        "unparsed": [],
+        "version": 512
+      },
+      "items": 2,
+      "n": {
+        "access": [
+          {
+            "applications": null,
+            "authorizations": [
+              "encrypt"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f n",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 0
+          },
+          {
+            "applications": [
+              {
+                "mark": "OK",
+                "path": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app",
+                "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+              }
+            ],
+            "authorizations": [
+              "decrypt",
+              "derive",
+              "export_clear",
+              "export_wrapped",
+              "mac",
+              "sign"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f n",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 1
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "integrity"
+            ],
+            "description": "70ec7835a158f588789b95e9df2d1b288cdd748eaee27032daaaf38a5579cbb6",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 2
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "partition_id"
+            ],
+            "description": "cdhash:ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 3
+          },
+          {
+            "applications": [],
+            "authorizations": [
+              "change_acl"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f n",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 4
+          }
+        ],
+        "attributes": {
+          "acct": "<blob>=\"n\"",
+          "cdat": "<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"",
+          "crtr": "<uint32>=<NULL>",
+          "cusi": "<sint32>=<NULL>",
+          "desc": "<blob>=<NULL>",
+          "gena": "<blob>=<NULL>",
+          "icmt": "<blob>=<NULL>",
+          "invi": "<sint32>=<NULL>",
+          "mdat": "<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"",
+          "nega": "<sint32>=<NULL>",
+          "prot": "<blob>=<NULL>",
+          "scrp": "<sint32>=<NULL>",
+          "svce": "<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"",
+          "type": "<uint32>=<NULL>"
+        },
+        "class": "genp",
+        "keychain": "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+        "unparsed": [],
+        "version": 512
+      },
+      "name": "after-next"
+    },
+    {
+      "denied": {
+        "access": [
+          {
+            "applications": null,
+            "authorizations": [
+              "encrypt"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f denied",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 0
+          },
+          {
+            "applications": [
+              {
+                "mark": "OK",
+                "path": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/denied/probe-update-denied.app",
+                "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.denied\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+              }
+            ],
+            "authorizations": [
+              "decrypt",
+              "derive",
+              "export_clear",
+              "export_wrapped",
+              "mac",
+              "sign"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f denied",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 1
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "integrity"
+            ],
+            "description": "72557250597076e58e5b3c400362aab59c20671790de016d003f6367327b92bb",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 2
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "partition_id"
+            ],
+            "description": "cdhash:d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 3
+          },
+          {
+            "applications": [],
+            "authorizations": [
+              "change_acl"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f denied",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 4
+          }
+        ],
+        "attributes": {
+          "acct": "<blob>=\"denied\"",
+          "cdat": "<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"",
+          "crtr": "<uint32>=<NULL>",
+          "cusi": "<sint32>=<NULL>",
+          "desc": "<blob>=<NULL>",
+          "gena": "<blob>=<NULL>",
+          "icmt": "<blob>=<NULL>",
+          "invi": "<sint32>=<NULL>",
+          "mdat": "<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"",
+          "nega": "<sint32>=<NULL>",
+          "prot": "<blob>=<NULL>",
+          "scrp": "<sint32>=<NULL>",
+          "svce": "<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"",
+          "type": "<uint32>=<NULL>"
+        },
+        "class": "genp",
+        "keychain": "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+        "unparsed": [],
+        "version": 512
+      },
+      "items": 2,
+      "n": {
+        "access": [
+          {
+            "applications": null,
+            "authorizations": [
+              "encrypt"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f n",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 0
+          },
+          {
+            "applications": [
+              {
+                "mark": "status -2147415734",
+                "path": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app",
+                "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\""
+              }
+            ],
+            "authorizations": [
+              "decrypt",
+              "derive",
+              "export_clear",
+              "export_wrapped",
+              "mac",
+              "sign"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f n",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 1
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "integrity"
+            ],
+            "description": "70ec7835a158f588789b95e9df2d1b288cdd748eaee27032daaaf38a5579cbb6",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 2
+          },
+          {
+            "applications": null,
+            "authorizations": [
+              "partition_id"
+            ],
+            "description": "cdhash:ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 3
+          },
+          {
+            "applications": [],
+            "authorizations": [
+              "change_acl"
+            ],
+            "description": "io.github.dsbasko.shellio.probe.update-lifecycle.f n",
+            "flags": [
+              "don't-require-password"
+            ],
+            "index": 4
+          }
+        ],
+        "attributes": {
+          "acct": "<blob>=\"n\"",
+          "cdat": "<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"",
+          "crtr": "<uint32>=<NULL>",
+          "cusi": "<sint32>=<NULL>",
+          "desc": "<blob>=<NULL>",
+          "gena": "<blob>=<NULL>",
+          "icmt": "<blob>=<NULL>",
+          "invi": "<sint32>=<NULL>",
+          "mdat": "<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"",
+          "nega": "<sint32>=<NULL>",
+          "prot": "<blob>=<NULL>",
+          "scrp": "<sint32>=<NULL>",
+          "svce": "<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"",
+          "type": "<uint32>=<NULL>"
+        },
+        "class": "genp",
+        "keychain": "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+        "unparsed": [],
+        "version": 512
+      },
+      "name": "after-foreign"
+    }
+  ],
+  "keychain": "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+  "lingering_dialogs": [],
+  "ops": [
+    {
+      "app": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/denied/probe-update-denied.app",
+      "args": [
+        "--keychain",
+        "add",
+        "--keychain-path",
+        "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+        "--account",
+        "denied",
+        "--no-ui",
+        "process-flag",
+        "--keychain-out",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/keychain-base/keychain/ops/denied-add.json",
+        "--tag",
+        "e7a832d4b994d4d8.kc-denied-add",
+        "--secret-file",
+        "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/secret-denied",
+        "--window"
+      ],
+      "bundle": "denied",
+      "dialog": null,
+      "elapsed_ms": 502,
+      "name": "denied-add",
+      "open_exit": "код 0",
+      "report": {
+        "account": "denied",
+        "add_status": 0,
+        "attributes_status": null,
+        "cdhash": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+        "data_status": null,
+        "elapsed_ms": 13,
+        "error": null,
+        "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/denied/probe-update-denied.app/Contents/MacOS/probe-update-app",
+        "generation": 1,
+        "interaction_after": false,
+        "interaction_before": true,
+        "keychain_status": 7,
+        "no_ui": "process-flag",
+        "op": "add",
+        "open_status": 0,
+        "pid": 12160,
+        "set_interaction_status": 0,
+        "value_len": 64,
+        "value_sha256": "6b81133e6a216974febd7aece9269dd242da6b43653bb9a9746d61e5dbcab6a9",
+        "window": true
+      },
+      "skipped": null
+    },
+    {
+      "app": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app",
+      "args": [
+        "--keychain",
+        "add",
+        "--keychain-path",
+        "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+        "--account",
+        "n",
+        "--no-ui",
+        "process-flag",
+        "--keychain-out",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/keychain-base/keychain/ops/n-add.json",
+        "--tag",
+        "e7a832d4b994d4d8.kc-n-add",
+        "--secret-file",
+        "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/secret-n",
+        "--window"
+      ],
+      "bundle": "gen-1",
+      "dialog": null,
+      "elapsed_ms": 448,
+      "name": "n-add",
+      "open_exit": "код 0",
+      "report": {
+        "account": "n",
+        "add_status": 0,
+        "attributes_status": null,
+        "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+        "data_status": null,
+        "elapsed_ms": 14,
+        "error": null,
+        "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app/Contents/MacOS/probe-update-app",
+        "generation": 1,
+        "interaction_after": false,
+        "interaction_before": true,
+        "keychain_status": 7,
+        "no_ui": "process-flag",
+        "op": "add",
+        "open_status": 0,
+        "pid": 12164,
+        "set_interaction_status": 0,
+        "value_len": 64,
+        "value_sha256": "18ac795be36136d25a153ef0b11db41239fb3ad6c504d1e29c348567ed600f14",
+        "window": true
+      },
+      "skipped": null
+    },
+    {
+      "app": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app",
+      "args": [
+        "--keychain",
+        "read",
+        "--keychain-path",
+        "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+        "--account",
+        "denied",
+        "--no-ui",
+        "process-flag",
+        "--keychain-out",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/keychain-base/keychain/ops/control-process-flag.json",
+        "--tag",
+        "e7a832d4b994d4d8.kc-control-process-flag",
+        "--window"
+      ],
+      "bundle": "gen-1",
+      "dialog": null,
+      "elapsed_ms": 227,
+      "name": "control-process-flag",
+      "open_exit": "код 0",
+      "report": {
+        "account": "denied",
+        "add_status": null,
+        "attributes_status": 0,
+        "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+        "data_status": -25293,
+        "elapsed_ms": 7,
+        "error": null,
+        "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app/Contents/MacOS/probe-update-app",
+        "generation": 1,
+        "interaction_after": false,
+        "interaction_before": true,
+        "keychain_status": 7,
+        "no_ui": "process-flag",
+        "op": "read",
+        "open_status": 0,
+        "pid": 12169,
+        "set_interaction_status": 0,
+        "value_len": null,
+        "value_sha256": null,
+        "window": true
+      },
+      "skipped": null
+    },
+    {
+      "app": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app",
+      "args": [
+        "--keychain",
+        "read",
+        "--keychain-path",
+        "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+        "--account",
+        "n",
+        "--no-ui",
+        "process-flag",
+        "--keychain-out",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/keychain-base/keychain/ops/n-read.json",
+        "--tag",
+        "e7a832d4b994d4d8.kc-n-read",
+        "--window"
+      ],
+      "bundle": "gen-1",
+      "dialog": null,
+      "elapsed_ms": 217,
+      "name": "n-read",
+      "open_exit": "код 0",
+      "report": {
+        "account": "n",
+        "add_status": null,
+        "attributes_status": 0,
+        "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+        "data_status": 0,
+        "elapsed_ms": 9,
+        "error": null,
+        "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app/Contents/MacOS/probe-update-app",
+        "generation": 1,
+        "interaction_after": false,
+        "interaction_before": true,
+        "keychain_status": 7,
+        "no_ui": "process-flag",
+        "op": "read",
+        "open_status": 0,
+        "pid": 12172,
+        "set_interaction_status": 0,
+        "value_len": 64,
+        "value_sha256": "18ac795be36136d25a153ef0b11db41239fb3ad6c504d1e29c348567ed600f14",
+        "window": true
+      },
+      "skipped": null
+    },
+    {
+      "app": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app",
+      "args": [
+        "--keychain",
+        "read",
+        "--keychain-path",
+        "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+        "--account",
+        "n",
+        "--no-ui",
+        "process-flag",
+        "--keychain-out",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/keychain-base/keychain/ops/next-read.json",
+        "--tag",
+        "e7a832d4b994d4d8.kc-next-read",
+        "--window"
+      ],
+      "bundle": "gen-2",
+      "dialog": null,
+      "elapsed_ms": 428,
+      "name": "next-read",
+      "open_exit": "код 0",
+      "report": {
+        "account": "n",
+        "add_status": null,
+        "attributes_status": 0,
+        "cdhash": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+        "data_status": -25293,
+        "elapsed_ms": 11,
+        "error": null,
+        "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app/Contents/MacOS/probe-update-app",
+        "generation": 2,
+        "interaction_after": false,
+        "interaction_before": true,
+        "keychain_status": 7,
+        "no_ui": "process-flag",
+        "op": "read",
+        "open_status": 0,
+        "pid": 12176,
+        "set_interaction_status": 0,
+        "value_len": null,
+        "value_sha256": null,
+        "window": true
+      },
+      "skipped": null
+    },
+    {
+      "app": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app",
+      "args": [
+        "--keychain",
+        "read",
+        "--keychain-path",
+        "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db",
+        "--account",
+        "n",
+        "--no-ui",
+        "process-flag",
+        "--keychain-out",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/keychain-base/keychain/ops/foreign-read.json",
+        "--tag",
+        "e7a832d4b994d4d8.kc-foreign-read",
+        "--window"
+      ],
+      "bundle": "foreign",
+      "dialog": null,
+      "elapsed_ms": 557,
+      "name": "foreign-read",
+      "open_exit": "код 0",
+      "report": {
+        "account": "n",
+        "add_status": null,
+        "attributes_status": 0,
+        "cdhash": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+        "data_status": -25293,
+        "elapsed_ms": 10,
+        "error": null,
+        "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app/Contents/MacOS/probe-update-app",
+        "generation": 2,
+        "interaction_after": false,
+        "interaction_before": true,
+        "keychain_status": 7,
+        "no_ui": "process-flag",
+        "op": "read",
+        "open_status": 0,
+        "pid": 12181,
+        "set_interaction_status": 0,
+        "value_len": null,
+        "value_sha256": null,
+        "window": true
+      },
+      "skipped": null
+    }
+  ],
+  "removed": {
+    "Ok": null
+  },
+  "security": [
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/security",
+        "list-keychains",
+        "-d",
+        "user"
+      ],
+      "stderr": "",
+      "stdout": "    \"/Users/u/Library/Keychains/login.keychain-db\"\n"
+    },
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/security",
+        "default-keychain",
+        "-d",
+        "user"
+      ],
+      "stderr": "",
+      "stdout": "    \"/Users/u/Library/Keychains/login.keychain-db\"\n"
+    },
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/security",
+        "create-keychain",
+        "-p",
+        "<пароль>",
+        "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db"
+      ],
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/security",
+        "unlock-keychain",
+        "-p",
+        "<пароль>",
+        "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db"
+      ],
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/security",
+        "set-keychain-settings",
+        "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db"
+      ],
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/security",
+        "list-keychains",
+        "-d",
+        "user"
+      ],
+      "stderr": "",
+      "stdout": "    \"/Users/u/Library/Keychains/login.keychain-db\"\n"
+    },
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/security",
+        "default-keychain",
+        "-d",
+        "user"
+      ],
+      "stderr": "",
+      "stdout": "    \"/Users/u/Library/Keychains/login.keychain-db\"\n"
+    },
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/security",
+        "dump-keychain",
+        "-a",
+        "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db"
+      ],
+      "stderr": "",
+      "stdout": "keychain: \"/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db\"\nversion: 512\nclass: \"genp\"\nattributes:\n    0x00000007 <blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f denied\"\n    0x00000008 <blob>=<NULL>\n    \"acct\"<blob>=\"denied\"\n    \"cdat\"<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"\n    \"crtr\"<uint32>=<NULL>\n    \"cusi\"<sint32>=<NULL>\n    \"desc\"<blob>=<NULL>\n    \"gena\"<blob>=<NULL>\n    \"icmt\"<blob>=<NULL>\n    \"invi\"<sint32>=<NULL>\n    \"mdat\"<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"\n    \"nega\"<sint32>=<NULL>\n    \"prot\"<blob>=<NULL>\n    \"scrp\"<sint32>=<NULL>\n    \"svce\"<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"\n    \"type\"<uint32>=<NULL>\naccess: 5 entries\n    entry 0:\n        authorizations (1): encrypt\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied\n        applications: <null>\n    entry 1:\n        authorizations (6): decrypt derive export_clear export_wrapped mac sign\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied\n        applications (1):\n            0: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/denied/probe-update-denied.app (OK)\n                requirement: identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.denied\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n    entry 2:\n        authorizations (1): integrity\n        don't-require-password\n        description: 72557250597076e58e5b3c400362aab59c20671790de016d003f6367327b92bb\n        applications: <null>\n    entry 3:\n        authorizations (1): partition_id\n        don't-require-password\n        description: cdhash:d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f\n        applications: <null>\n    entry 4:\n        authorizations (1): change_acl\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied\n        applications (0):\nkeychain: \"/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db\"\nversion: 512\nclass: \"genp\"\nattributes:\n    0x00000007 <blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f n\"\n    0x00000008 <blob>=<NULL>\n    \"acct\"<blob>=\"n\"\n    \"cdat\"<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"\n    \"crtr\"<uint32>=<NULL>\n    \"cusi\"<sint32>=<NULL>\n    \"desc\"<blob>=<NULL>\n    \"gena\"<blob>=<NULL>\n    \"icmt\"<blob>=<NULL>\n    \"invi\"<sint32>=<NULL>\n    \"mdat\"<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"\n    \"nega\"<sint32>=<NULL>\n    \"prot\"<blob>=<NULL>\n    \"scrp\"<sint32>=<NULL>\n    \"svce\"<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"\n    \"type\"<uint32>=<NULL>\naccess: 5 entries\n    entry 0:\n        authorizations (1): encrypt\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n\n        applications: <null>\n    entry 1:\n        authorizations (6): decrypt derive export_clear export_wrapped mac sign\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n\n        applications (1):\n            0: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app (OK)\n                requirement: identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n    entry 2:\n        authorizations (1): integrity\n        don't-require-password\n        description: 70ec7835a158f588789b95e9df2d1b288cdd748eaee27032daaaf38a5579cbb6\n        applications: <null>\n    entry 3:\n        authorizations (1): partition_id\n        don't-require-password\n        description: cdhash:ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\n        applications: <null>\n    entry 4:\n        authorizations (1): change_acl\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n\n        applications (0):\n"
+    },
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/security",
+        "dump-keychain",
+        "-a",
+        "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db"
+      ],
+      "stderr": "",
+      "stdout": "keychain: \"/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db\"\nversion: 512\nclass: \"genp\"\nattributes:\n    0x00000007 <blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f denied\"\n    0x00000008 <blob>=<NULL>\n    \"acct\"<blob>=\"denied\"\n    \"cdat\"<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"\n    \"crtr\"<uint32>=<NULL>\n    \"cusi\"<sint32>=<NULL>\n    \"desc\"<blob>=<NULL>\n    \"gena\"<blob>=<NULL>\n    \"icmt\"<blob>=<NULL>\n    \"invi\"<sint32>=<NULL>\n    \"mdat\"<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"\n    \"nega\"<sint32>=<NULL>\n    \"prot\"<blob>=<NULL>\n    \"scrp\"<sint32>=<NULL>\n    \"svce\"<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"\n    \"type\"<uint32>=<NULL>\naccess: 5 entries\n    entry 0:\n        authorizations (1): encrypt\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied\n        applications: <null>\n    entry 1:\n        authorizations (6): decrypt derive export_clear export_wrapped mac sign\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied\n        applications (1):\n            0: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/denied/probe-update-denied.app (OK)\n                requirement: identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.denied\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n    entry 2:\n        authorizations (1): integrity\n        don't-require-password\n        description: 72557250597076e58e5b3c400362aab59c20671790de016d003f6367327b92bb\n        applications: <null>\n    entry 3:\n        authorizations (1): partition_id\n        don't-require-password\n        description: cdhash:d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f\n        applications: <null>\n    entry 4:\n        authorizations (1): change_acl\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied\n        applications (0):\nkeychain: \"/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db\"\nversion: 512\nclass: \"genp\"\nattributes:\n    0x00000007 <blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f n\"\n    0x00000008 <blob>=<NULL>\n    \"acct\"<blob>=\"n\"\n    \"cdat\"<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"\n    \"crtr\"<uint32>=<NULL>\n    \"cusi\"<sint32>=<NULL>\n    \"desc\"<blob>=<NULL>\n    \"gena\"<blob>=<NULL>\n    \"icmt\"<blob>=<NULL>\n    \"invi\"<sint32>=<NULL>\n    \"mdat\"<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"\n    \"nega\"<sint32>=<NULL>\n    \"prot\"<blob>=<NULL>\n    \"scrp\"<sint32>=<NULL>\n    \"svce\"<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"\n    \"type\"<uint32>=<NULL>\naccess: 5 entries\n    entry 0:\n        authorizations (1): encrypt\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n\n        applications: <null>\n    entry 1:\n        authorizations (6): decrypt derive export_clear export_wrapped mac sign\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n\n        applications (1):\n            0: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app (OK)\n                requirement: identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n    entry 2:\n        authorizations (1): integrity\n        don't-require-password\n        description: 70ec7835a158f588789b95e9df2d1b288cdd748eaee27032daaaf38a5579cbb6\n        applications: <null>\n    entry 3:\n        authorizations (1): partition_id\n        don't-require-password\n        description: cdhash:ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\n        applications: <null>\n    entry 4:\n        authorizations (1): change_acl\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n\n        applications (0):\n"
+    },
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/security",
+        "dump-keychain",
+        "-a",
+        "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db"
+      ],
+      "stderr": "",
+      "stdout": "keychain: \"/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db\"\nversion: 512\nclass: \"genp\"\nattributes:\n    0x00000007 <blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f denied\"\n    0x00000008 <blob>=<NULL>\n    \"acct\"<blob>=\"denied\"\n    \"cdat\"<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"\n    \"crtr\"<uint32>=<NULL>\n    \"cusi\"<sint32>=<NULL>\n    \"desc\"<blob>=<NULL>\n    \"gena\"<blob>=<NULL>\n    \"icmt\"<blob>=<NULL>\n    \"invi\"<sint32>=<NULL>\n    \"mdat\"<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"\n    \"nega\"<sint32>=<NULL>\n    \"prot\"<blob>=<NULL>\n    \"scrp\"<sint32>=<NULL>\n    \"svce\"<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"\n    \"type\"<uint32>=<NULL>\naccess: 5 entries\n    entry 0:\n        authorizations (1): encrypt\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied\n        applications: <null>\n    entry 1:\n        authorizations (6): decrypt derive export_clear export_wrapped mac sign\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied\n        applications (1):\n            0: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/denied/probe-update-denied.app (OK)\n                requirement: identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.denied\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n    entry 2:\n        authorizations (1): integrity\n        don't-require-password\n        description: 72557250597076e58e5b3c400362aab59c20671790de016d003f6367327b92bb\n        applications: <null>\n    entry 3:\n        authorizations (1): partition_id\n        don't-require-password\n        description: cdhash:d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f\n        applications: <null>\n    entry 4:\n        authorizations (1): change_acl\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied\n        applications (0):\nkeychain: \"/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db\"\nversion: 512\nclass: \"genp\"\nattributes:\n    0x00000007 <blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f n\"\n    0x00000008 <blob>=<NULL>\n    \"acct\"<blob>=\"n\"\n    \"cdat\"<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"\n    \"crtr\"<uint32>=<NULL>\n    \"cusi\"<sint32>=<NULL>\n    \"desc\"<blob>=<NULL>\n    \"gena\"<blob>=<NULL>\n    \"icmt\"<blob>=<NULL>\n    \"invi\"<sint32>=<NULL>\n    \"mdat\"<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"\n    \"nega\"<sint32>=<NULL>\n    \"prot\"<blob>=<NULL>\n    \"scrp\"<sint32>=<NULL>\n    \"svce\"<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"\n    \"type\"<uint32>=<NULL>\naccess: 5 entries\n    entry 0:\n        authorizations (1): encrypt\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n\n        applications: <null>\n    entry 1:\n        authorizations (6): decrypt derive export_clear export_wrapped mac sign\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n\n        applications (1):\n            0: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app (OK)\n                requirement: identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n    entry 2:\n        authorizations (1): integrity\n        don't-require-password\n        description: 70ec7835a158f588789b95e9df2d1b288cdd748eaee27032daaaf38a5579cbb6\n        applications: <null>\n    entry 3:\n        authorizations (1): partition_id\n        don't-require-password\n        description: cdhash:ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\n        applications: <null>\n    entry 4:\n        authorizations (1): change_acl\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n\n        applications (0):\n"
+    },
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/security",
+        "dump-keychain",
+        "-a",
+        "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db"
+      ],
+      "stderr": "",
+      "stdout": "keychain: \"/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db\"\nversion: 512\nclass: \"genp\"\nattributes:\n    0x00000007 <blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f denied\"\n    0x00000008 <blob>=<NULL>\n    \"acct\"<blob>=\"denied\"\n    \"cdat\"<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"\n    \"crtr\"<uint32>=<NULL>\n    \"cusi\"<sint32>=<NULL>\n    \"desc\"<blob>=<NULL>\n    \"gena\"<blob>=<NULL>\n    \"icmt\"<blob>=<NULL>\n    \"invi\"<sint32>=<NULL>\n    \"mdat\"<timedate>=0x32303236313131383135333131305A00  \"20261118153110Z\\000\"\n    \"nega\"<sint32>=<NULL>\n    \"prot\"<blob>=<NULL>\n    \"scrp\"<sint32>=<NULL>\n    \"svce\"<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"\n    \"type\"<uint32>=<NULL>\naccess: 5 entries\n    entry 0:\n        authorizations (1): encrypt\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied\n        applications: <null>\n    entry 1:\n        authorizations (6): decrypt derive export_clear export_wrapped mac sign\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied\n        applications (1):\n            0: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/denied/probe-update-denied.app (OK)\n                requirement: identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.denied\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n    entry 2:\n        authorizations (1): integrity\n        don't-require-password\n        description: 72557250597076e58e5b3c400362aab59c20671790de016d003f6367327b92bb\n        applications: <null>\n    entry 3:\n        authorizations (1): partition_id\n        don't-require-password\n        description: cdhash:d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f\n        applications: <null>\n    entry 4:\n        authorizations (1): change_acl\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f denied\n        applications (0):\nkeychain: \"/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db\"\nversion: 512\nclass: \"genp\"\nattributes:\n    0x00000007 <blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f n\"\n    0x00000008 <blob>=<NULL>\n    \"acct\"<blob>=\"n\"\n    \"cdat\"<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"\n    \"crtr\"<uint32>=<NULL>\n    \"cusi\"<sint32>=<NULL>\n    \"desc\"<blob>=<NULL>\n    \"gena\"<blob>=<NULL>\n    \"icmt\"<blob>=<NULL>\n    \"invi\"<sint32>=<NULL>\n    \"mdat\"<timedate>=0x32303236313131383135333131315A00  \"20261118153111Z\\000\"\n    \"nega\"<sint32>=<NULL>\n    \"prot\"<blob>=<NULL>\n    \"scrp\"<sint32>=<NULL>\n    \"svce\"<blob>=\"io.github.dsbasko.shellio.probe.update-lifecycle.f\"\n    \"type\"<uint32>=<NULL>\naccess: 5 entries\n    entry 0:\n        authorizations (1): encrypt\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n\n        applications: <null>\n    entry 1:\n        authorizations (6): decrypt derive export_clear export_wrapped mac sign\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n\n        applications (1):\n            0: /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app (status -2147415734)\n                requirement: identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n    entry 2:\n        authorizations (1): integrity\n        don't-require-password\n        description: 70ec7835a158f588789b95e9df2d1b288cdd748eaee27032daaaf38a5579cbb6\n        applications: <null>\n    entry 3:\n        authorizations (1): partition_id\n        don't-require-password\n        description: cdhash:ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\n        applications: <null>\n    entry 4:\n        authorizations (1): change_acl\n        don't-require-password\n        description: io.github.dsbasko.shellio.probe.update-lifecycle.f n\n        applications (0):\n"
+    },
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app"
+      ],
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/security",
+        "delete-keychain",
+        "/Users/u/Library/Keychains/psu-f-e7a832d4b994d4d8.keychain-db"
+      ],
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/security",
+        "list-keychains",
+        "-d",
+        "user"
+      ],
+      "stderr": "",
+      "stdout": "    \"/Users/u/Library/Keychains/login.keychain-db\"\n"
+    },
+    {
+      "code": 0,
+      "command": [
+        "/usr/bin/security",
+        "default-keychain",
+        "-d",
+        "user"
+      ],
+      "stderr": "",
+      "stdout": "    \"/Users/u/Library/Keychains/login.keychain-db\"\n"
+    }
+  ],
+  "walk_error": null
+}

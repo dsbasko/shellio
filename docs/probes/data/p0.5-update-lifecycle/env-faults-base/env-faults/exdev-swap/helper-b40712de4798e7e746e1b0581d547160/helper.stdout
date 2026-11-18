@@ -1,0 +1,7 @@
+{"detail":{"attempt":"b40712de4798e7e746e1b0581d547160","gui":{"pid":11570,"start_us":1795015853744982},"key":{"pid":11635,"start_us":1795015856353962}},"event":"started","pid":11635,"uptime_ns":642624231983500}
+{"detail":{"gui":{"pid":11570,"start_us":1795015853744982}},"event":"gui-exited","pid":11635,"uptime_ns":642624232212000}
+{"detail":{"inode":{"dev":16777242,"ino":35}},"event":"locked","pid":11635,"uptime_ns":642624232518333}
+{"detail":{"errno":18,"error":"Cross-device link (os error 18)"},"event":"swap-failed","pid":11635,"uptime_ns":642624290371083}
+{"detail":{"steps":"[Remove, Write(Idle, Some(Aborted))]"},"event":"aborted","pid":11635,"uptime_ns":642624658914708}
+{"detail":{"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.269347df98b6b685/v4/s/install/probe-update.app"},"event":"relaunched","pid":11635,"uptime_ns":642624717924625}
+{"detail":{"outcome":"обмен не выполнен (Cross-device link (os error 18)): попытка прервана, N запущен"},"event":"done","pid":11635,"uptime_ns":642624717959250}

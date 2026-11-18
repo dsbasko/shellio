@@ -1,0 +1,1425 @@
+{
+  "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55",
+  "generations": [
+    {
+      "name": "gen-1",
+      "app": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app",
+      "bundle": {
+        "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app",
+        "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle",
+        "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "verify": {
+          "outcome": "satisfied"
+        },
+        "details": {
+          "Ok": {
+            "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle",
+            "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+            "authorities": [
+              "Shellio Dev"
+            ],
+            "adhoc": false,
+            "team": null,
+            "format": "app bundle with Mach-O thin (arm64)"
+          }
+        },
+        "designated": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+      },
+      "parts": [
+        {
+          "part": "app",
+          "signed": {
+            "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app",
+            "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle",
+            "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "verify": {
+              "outcome": "satisfied"
+            },
+            "details": {
+              "Ok": {
+                "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle",
+                "cdhash": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+                "authorities": [
+                  "Shellio Dev"
+                ],
+                "adhoc": false,
+                "team": null,
+                "format": "app bundle with Mach-O thin (arm64)"
+              }
+            },
+            "designated": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+          },
+          "sha256": "d2d027d74a08dada0c031a760511866d2ce77b4328fbb8376c3a9f68ce297cd4"
+        },
+        {
+          "part": "helper",
+          "signed": {
+            "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-helper",
+            "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.helper",
+            "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.helper\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "verify": {
+              "outcome": "satisfied"
+            },
+            "details": {
+              "Ok": {
+                "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.helper",
+                "cdhash": "722640290fc78b4c5df52cfbc7a03b460176506a",
+                "authorities": [
+                  "Shellio Dev"
+                ],
+                "adhoc": false,
+                "team": null,
+                "format": "Mach-O thin (arm64)"
+              }
+            },
+            "designated": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.helper\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+          },
+          "sha256": "e4ea16fd20315b07a55f43fddcafe958f25b4d762b4187c04a4e83e47812a6a5"
+        },
+        {
+          "part": "host",
+          "signed": {
+            "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-host",
+            "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.host",
+            "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.host\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "verify": {
+              "outcome": "satisfied"
+            },
+            "details": {
+              "Ok": {
+                "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.host",
+                "cdhash": "6d61cda18340b73137e16ba65fcedc9f08feed03",
+                "authorities": [
+                  "Shellio Dev"
+                ],
+                "adhoc": false,
+                "team": null,
+                "format": "Mach-O thin (arm64)"
+              }
+            },
+            "designated": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.host\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+          },
+          "sha256": "75ba24de0e64bf64605ec3ed400d1e5bae1e7dcd40b3217df1e660204e1d9cfc"
+        },
+        {
+          "part": "attach",
+          "signed": {
+            "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-attach",
+            "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.attach",
+            "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.attach\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "verify": {
+              "outcome": "satisfied"
+            },
+            "details": {
+              "Ok": {
+                "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.attach",
+                "cdhash": "efe8c89e51952f5e0f16a8c49d731eb2ab4a9499",
+                "authorities": [
+                  "Shellio Dev"
+                ],
+                "adhoc": false,
+                "team": null,
+                "format": "Mach-O thin (arm64)"
+              }
+            },
+            "designated": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.attach\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+          },
+          "sha256": "f5c30d2b6b6713dd11066dd4c173cfbcf50ed5c61910d3b8ac60d93e3d1be342"
+        },
+        {
+          "part": "fixture",
+          "signed": {
+            "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-fixture",
+            "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.fixture",
+            "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.fixture\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "verify": {
+              "outcome": "satisfied"
+            },
+            "details": {
+              "Ok": {
+                "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.fixture",
+                "cdhash": "3fb576fa287f3832117ac8c5f68eb83ebeb96076",
+                "authorities": [
+                  "Shellio Dev"
+                ],
+                "adhoc": false,
+                "team": null,
+                "format": "Mach-O thin (arm64)"
+              }
+            },
+            "designated": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.fixture\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+          },
+          "sha256": "d784404a4f6e9b5de7eea8de91e774befc2038453f1d543c66a624667666ba33"
+        }
+      ],
+      "manifest": {
+        "Ok": {
+          "generation": 1,
+          "host_versions": {
+            "min": 1,
+            "max": 1
+          },
+          "attach_versions": {
+            "min": 1,
+            "max": 1
+          },
+          "runtime": [
+            "Contents/MacOS/probe-update-host",
+            "Contents/MacOS/probe-update-attach",
+            "Contents/MacOS/probe-update-fixture"
+          ]
+        }
+      },
+      "bundle_version": 1,
+      "reports": [
+        {
+          "part": "app",
+          "report": {
+            "Ok": {
+              "binary": "probe-update-app",
+              "generation": 1,
+              "host_versions": {
+                "min": 1,
+                "max": 1
+              },
+              "attach_versions": {
+                "min": 1,
+                "max": 1
+              },
+              "executable": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app"
+            }
+          }
+        },
+        {
+          "part": "helper",
+          "report": {
+            "Ok": {
+              "binary": "probe-update-helper",
+              "generation": 1,
+              "host_versions": {
+                "min": 1,
+                "max": 1
+              },
+              "attach_versions": {
+                "min": 1,
+                "max": 1
+              },
+              "executable": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-helper"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "gen-2",
+      "app": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app",
+      "bundle": {
+        "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app",
+        "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle",
+        "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "verify": {
+          "outcome": "satisfied"
+        },
+        "details": {
+          "Ok": {
+            "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle",
+            "cdhash": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+            "authorities": [
+              "Shellio Dev"
+            ],
+            "adhoc": false,
+            "team": null,
+            "format": "app bundle with Mach-O thin (arm64)"
+          }
+        },
+        "designated": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+      },
+      "parts": [
+        {
+          "part": "app",
+          "signed": {
+            "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app",
+            "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle",
+            "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "verify": {
+              "outcome": "satisfied"
+            },
+            "details": {
+              "Ok": {
+                "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle",
+                "cdhash": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+                "authorities": [
+                  "Shellio Dev"
+                ],
+                "adhoc": false,
+                "team": null,
+                "format": "app bundle with Mach-O thin (arm64)"
+              }
+            },
+            "designated": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+          },
+          "sha256": "70d182dab68434290882df8cbbf7dfe7dd5beda46f112dcce44fdbad0402477b"
+        },
+        {
+          "part": "helper",
+          "signed": {
+            "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-helper",
+            "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.helper",
+            "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.helper\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "verify": {
+              "outcome": "satisfied"
+            },
+            "details": {
+              "Ok": {
+                "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.helper",
+                "cdhash": "a74865e3012e556717dd8c29424ac9e893ecd641",
+                "authorities": [
+                  "Shellio Dev"
+                ],
+                "adhoc": false,
+                "team": null,
+                "format": "Mach-O thin (arm64)"
+              }
+            },
+            "designated": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.helper\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+          },
+          "sha256": "e0a982184bf98e105f440219b9affba210b70115356df0c24e1cc563bef1691a"
+        },
+        {
+          "part": "host",
+          "signed": {
+            "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-host",
+            "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.host",
+            "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.host\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "verify": {
+              "outcome": "satisfied"
+            },
+            "details": {
+              "Ok": {
+                "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.host",
+                "cdhash": "88393ec7fb2671fdacb13f651806a439c2b3852c",
+                "authorities": [
+                  "Shellio Dev"
+                ],
+                "adhoc": false,
+                "team": null,
+                "format": "Mach-O thin (arm64)"
+              }
+            },
+            "designated": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.host\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+          },
+          "sha256": "72c02c6be806f95ef743efb548a3733d6d726fcc5813e93a4adf472c363b2a11"
+        },
+        {
+          "part": "attach",
+          "signed": {
+            "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-attach",
+            "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.attach",
+            "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.attach\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "verify": {
+              "outcome": "satisfied"
+            },
+            "details": {
+              "Ok": {
+                "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.attach",
+                "cdhash": "88d6bf8e90a60ea05134f26c0be2517902b80f3f",
+                "authorities": [
+                  "Shellio Dev"
+                ],
+                "adhoc": false,
+                "team": null,
+                "format": "Mach-O thin (arm64)"
+              }
+            },
+            "designated": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.attach\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+          },
+          "sha256": "c152810835ed0aee7450df99dbfcf12e8bc650aa2add5868a8fc139001d6d3a3"
+        },
+        {
+          "part": "fixture",
+          "signed": {
+            "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-fixture",
+            "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.fixture",
+            "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.fixture\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "verify": {
+              "outcome": "satisfied"
+            },
+            "details": {
+              "Ok": {
+                "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.fixture",
+                "cdhash": "1e01df5e2378233356b1afc7c369cf8219a0cbeb",
+                "authorities": [
+                  "Shellio Dev"
+                ],
+                "adhoc": false,
+                "team": null,
+                "format": "Mach-O thin (arm64)"
+              }
+            },
+            "designated": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.fixture\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+            "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+          },
+          "sha256": "fa1412eae185520d5ba4c7ce619f8af86178f8b2f1913626b7c478dcd1206862"
+        }
+      ],
+      "manifest": {
+        "Ok": {
+          "generation": 2,
+          "host_versions": {
+            "min": 1,
+            "max": 2
+          },
+          "attach_versions": {
+            "min": 1,
+            "max": 2
+          },
+          "runtime": [
+            "Contents/MacOS/probe-update-host",
+            "Contents/MacOS/probe-update-attach",
+            "Contents/MacOS/probe-update-fixture"
+          ]
+        }
+      },
+      "bundle_version": 2,
+      "reports": [
+        {
+          "part": "app",
+          "report": {
+            "Ok": {
+              "binary": "probe-update-app",
+              "generation": 2,
+              "host_versions": {
+                "min": 1,
+                "max": 2
+              },
+              "attach_versions": {
+                "min": 1,
+                "max": 2
+              },
+              "executable": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app"
+            }
+          }
+        },
+        {
+          "part": "helper",
+          "report": {
+            "Ok": {
+              "binary": "probe-update-helper",
+              "generation": 2,
+              "host_versions": {
+                "min": 1,
+                "max": 2
+              },
+              "attach_versions": {
+                "min": 1,
+                "max": 2
+              },
+              "executable": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-helper"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "stand": [
+    [
+      "incompatible",
+      {
+        "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/incompatible/probe-update.app",
+        "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle",
+        "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "verify": {
+          "outcome": "satisfied"
+        },
+        "details": {
+          "Ok": {
+            "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle",
+            "cdhash": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+            "authorities": [
+              "Shellio Dev"
+            ],
+            "adhoc": false,
+            "team": null,
+            "format": "app bundle with Mach-O thin (arm64)"
+          }
+        },
+        "designated": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+      },
+      {
+        "Ok": {
+          "generation": 3,
+          "host_versions": {
+            "min": 2,
+            "max": 2
+          },
+          "attach_versions": {
+            "min": 2,
+            "max": 2
+          },
+          "runtime": [
+            "Contents/MacOS/probe-update-host",
+            "Contents/MacOS/probe-update-attach",
+            "Contents/MacOS/probe-update-fixture"
+          ]
+        }
+      }
+    ],
+    [
+      "denied",
+      {
+        "path": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/denied/probe-update-denied.app",
+        "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.denied",
+        "requirement": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.denied\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "verify": {
+          "outcome": "satisfied"
+        },
+        "details": {
+          "Ok": {
+            "identifier": "io.github.dsbasko.shellio.probe.update-lifecycle.denied",
+            "cdhash": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+            "authorities": [
+              "Shellio Dev"
+            ],
+            "adhoc": false,
+            "team": null,
+            "format": "app bundle with Mach-O thin (arm64)"
+          }
+        },
+        "designated": "identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.denied\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "leaf": "406f897fd84d95069d9a50abd81ab09b7afb7e55"
+      },
+      {
+        "Ok": {
+          "generation": 1,
+          "host_versions": {
+            "min": 1,
+            "max": 1
+          },
+          "attach_versions": {
+            "min": 1,
+            "max": 1
+          },
+          "runtime": [
+            "Contents/MacOS/probe-update-host",
+            "Contents/MacOS/probe-update-attach",
+            "Contents/MacOS/probe-update-fixture"
+          ]
+        }
+      }
+    ]
+  ],
+  "runs": [
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--verbose=4",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=4329 flags=0x0(none) hashes=128+3 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\nCandidateCDHashFull sha256=ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c355dca7dace7b1a41cbcb141\nHash choices=sha256\nCMSDigest=ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c355dca7dace7b1a41cbcb141\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=1441792\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:47\nInfo.plist entries=10\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=5\nInternal requirements count=1 size=124\nTotal signatures=1\nChosen signature=1\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--extract-certificates=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-bundle-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app\n"
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "1",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-bundle-0"
+      ],
+      "code": 0,
+      "stdout": "406f897fd84d95069d9a50abd81ab09b7afb7e55  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-bundle-0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "256",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-helper",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-host",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-attach",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-fixture"
+      ],
+      "code": 0,
+      "stdout": "d2d027d74a08dada0c031a760511866d2ce77b4328fbb8376c3a9f68ce297cd4  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app\ne4ea16fd20315b07a55f43fddcafe958f25b4d762b4187c04a4e83e47812a6a5  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-helper\n75ba24de0e64bf64605ec3ed400d1e5bae1e7dcd40b3217df1e660204e1d9cfc  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-host\nf5c30d2b6b6713dd11066dd4c173cfbcf50ed5c61910d3b8ac60d93e3d1be342  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-attach\nd784404a4f6e9b5de7eea8de91e774befc2038453f1d543c66a624667666ba33  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-fixture\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--verbose=4",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=4329 flags=0x0(none) hashes=128+3 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\nCandidateCDHashFull sha256=ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c355dca7dace7b1a41cbcb141\nHash choices=sha256\nCMSDigest=ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c355dca7dace7b1a41cbcb141\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=1441792\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:47\nInfo.plist entries=10\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=5\nInternal requirements count=1 size=124\nTotal signatures=1\nChosen signature=1\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--extract-certificates=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-app-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app\n"
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "1",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-app-0"
+      ],
+      "code": 0,
+      "stdout": "406f897fd84d95069d9a50abd81ab09b7afb7e55  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-app-0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.helper\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-helper"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--verbose=4",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-helper"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-helper\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle.helper\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=2224 flags=0x0(none) hashes=63+2 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=722640290fc78b4c5df52cfbc7a03b460176506a\nCandidateCDHashFull sha256=722640290fc78b4c5df52cfbc7a03b460176506a78e1d534ffc1d644866b38c5\nHash choices=sha256\nCMSDigest=722640290fc78b4c5df52cfbc7a03b460176506a78e1d534ffc1d644866b38c5\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=704512\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=722640290fc78b4c5df52cfbc7a03b460176506a\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:46\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=1 size=132\nTotal signatures=1\nChosen signature=1\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-helper"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.helper\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-helper\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--extract-certificates=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-helper-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-helper"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-helper\n"
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "1",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-helper-0"
+      ],
+      "code": 0,
+      "stdout": "406f897fd84d95069d9a50abd81ab09b7afb7e55  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-helper-0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.host\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-host"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--verbose=4",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-host"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-host\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle.host\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=1614 flags=0x0(none) hashes=44+2 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=6d61cda18340b73137e16ba65fcedc9f08feed03\nCandidateCDHashFull sha256=6d61cda18340b73137e16ba65fcedc9f08feed0394cf10fc36b8e20a16eddae6\nHash choices=sha256\nCMSDigest=6d61cda18340b73137e16ba65fcedc9f08feed0394cf10fc36b8e20a16eddae6\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=475136\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=6d61cda18340b73137e16ba65fcedc9f08feed03\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:46\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=1 size=132\nTotal signatures=1\nChosen signature=1\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-host"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.host\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-host\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--extract-certificates=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-host-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-host"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-host\n"
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "1",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-host-0"
+      ],
+      "code": 0,
+      "stdout": "406f897fd84d95069d9a50abd81ab09b7afb7e55  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-host-0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.attach\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-attach"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--verbose=4",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-attach"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-attach\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle.attach\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=1296 flags=0x0(none) hashes=34+2 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=efe8c89e51952f5e0f16a8c49d731eb2ab4a9499\nCandidateCDHashFull sha256=efe8c89e51952f5e0f16a8c49d731eb2ab4a9499a8eb86e02213defcdb3fa081\nHash choices=sha256\nCMSDigest=efe8c89e51952f5e0f16a8c49d731eb2ab4a9499a8eb86e02213defcdb3fa081\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=360448\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=efe8c89e51952f5e0f16a8c49d731eb2ab4a9499\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:46\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=1 size=132\nTotal signatures=1\nChosen signature=1\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-attach"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.attach\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-attach\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--extract-certificates=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-attach-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-attach"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-attach\n"
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "1",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-attach-0"
+      ],
+      "code": 0,
+      "stdout": "406f897fd84d95069d9a50abd81ab09b7afb7e55  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-attach-0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.fixture\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-fixture"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--verbose=4",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-fixture"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-fixture\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle.fixture\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=1169 flags=0x0(none) hashes=30+2 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=3fb576fa287f3832117ac8c5f68eb83ebeb96076\nCandidateCDHashFull sha256=3fb576fa287f3832117ac8c5f68eb83ebeb960766bea93005d015411c19306e7\nHash choices=sha256\nCMSDigest=3fb576fa287f3832117ac8c5f68eb83ebeb960766bea93005d015411c19306e7\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=311296\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=3fb576fa287f3832117ac8c5f68eb83ebeb96076\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:47\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=1 size=132\nTotal signatures=1\nChosen signature=1\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-fixture"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.fixture\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-fixture\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--extract-certificates=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-fixture-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-fixture"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-fixture\n"
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "1",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-fixture-0"
+      ],
+      "code": 0,
+      "stdout": "406f897fd84d95069d9a50abd81ab09b7afb7e55  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-1-fixture-0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app",
+        "--report",
+        "--tag",
+        "d96a4f9ce523c988"
+      ],
+      "code": 0,
+      "stdout": "{\"binary\":\"probe-update-app\",\"generation\":1,\"host_versions\":{\"min\":1,\"max\":1},\"attach_versions\":{\"min\":1,\"max\":1},\"executable\":\"/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-app\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-helper",
+        "--report",
+        "--tag",
+        "d96a4f9ce523c988"
+      ],
+      "code": 0,
+      "stdout": "{\"binary\":\"probe-update-helper\",\"generation\":1,\"host_versions\":{\"min\":1,\"max\":1},\"attach_versions\":{\"min\":1,\"max\":1},\"executable\":\"/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/MacOS/probe-update-helper\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/plutil",
+        "-extract",
+        "CFBundleVersion",
+        "raw",
+        "-o",
+        "-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-1/probe-update.app/Contents/Info.plist"
+      ],
+      "code": 0,
+      "stdout": "1\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--verbose=4",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=4329 flags=0x0(none) hashes=128+3 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=0aafd23b10f21b8085484e6630ad710a3fee337f\nCandidateCDHashFull sha256=0aafd23b10f21b8085484e6630ad710a3fee337f6d4718ca19a1b48c58e5edb2\nHash choices=sha256\nCMSDigest=0aafd23b10f21b8085484e6630ad710a3fee337f6d4718ca19a1b48c58e5edb2\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=1441792\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=0aafd23b10f21b8085484e6630ad710a3fee337f\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:47\nInfo.plist entries=10\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=5\nInternal requirements count=1 size=124\nTotal signatures=1\nChosen signature=1\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--extract-certificates=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-bundle-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app\n"
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "1",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-bundle-0"
+      ],
+      "code": 0,
+      "stdout": "406f897fd84d95069d9a50abd81ab09b7afb7e55  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-bundle-0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "256",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-helper",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-host",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-attach",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-fixture"
+      ],
+      "code": 0,
+      "stdout": "70d182dab68434290882df8cbbf7dfe7dd5beda46f112dcce44fdbad0402477b  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app\ne0a982184bf98e105f440219b9affba210b70115356df0c24e1cc563bef1691a  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-helper\n72c02c6be806f95ef743efb548a3733d6d726fcc5813e93a4adf472c363b2a11  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-host\nc152810835ed0aee7450df99dbfcf12e8bc650aa2add5868a8fc139001d6d3a3  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-attach\nfa1412eae185520d5ba4c7ce619f8af86178f8b2f1913626b7c478dcd1206862  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-fixture\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--verbose=4",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=4329 flags=0x0(none) hashes=128+3 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=0aafd23b10f21b8085484e6630ad710a3fee337f\nCandidateCDHashFull sha256=0aafd23b10f21b8085484e6630ad710a3fee337f6d4718ca19a1b48c58e5edb2\nHash choices=sha256\nCMSDigest=0aafd23b10f21b8085484e6630ad710a3fee337f6d4718ca19a1b48c58e5edb2\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=1441792\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=0aafd23b10f21b8085484e6630ad710a3fee337f\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:47\nInfo.plist entries=10\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=5\nInternal requirements count=1 size=124\nTotal signatures=1\nChosen signature=1\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--extract-certificates=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-app-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app\n"
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "1",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-app-0"
+      ],
+      "code": 0,
+      "stdout": "406f897fd84d95069d9a50abd81ab09b7afb7e55  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-app-0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.helper\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-helper"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--verbose=4",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-helper"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-helper\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle.helper\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=2224 flags=0x0(none) hashes=63+2 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=a74865e3012e556717dd8c29424ac9e893ecd641\nCandidateCDHashFull sha256=a74865e3012e556717dd8c29424ac9e893ecd64154510c2180d558a58a94b0a8\nHash choices=sha256\nCMSDigest=a74865e3012e556717dd8c29424ac9e893ecd64154510c2180d558a58a94b0a8\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=704512\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=a74865e3012e556717dd8c29424ac9e893ecd641\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:47\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=1 size=132\nTotal signatures=1\nChosen signature=1\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-helper"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.helper\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-helper\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--extract-certificates=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-helper-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-helper"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-helper\n"
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "1",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-helper-0"
+      ],
+      "code": 0,
+      "stdout": "406f897fd84d95069d9a50abd81ab09b7afb7e55  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-helper-0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.host\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-host"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--verbose=4",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-host"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-host\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle.host\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=1614 flags=0x0(none) hashes=44+2 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=88393ec7fb2671fdacb13f651806a439c2b3852c\nCandidateCDHashFull sha256=88393ec7fb2671fdacb13f651806a439c2b3852ccda1e89880763f4a06639548\nHash choices=sha256\nCMSDigest=88393ec7fb2671fdacb13f651806a439c2b3852ccda1e89880763f4a06639548\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=475136\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=88393ec7fb2671fdacb13f651806a439c2b3852c\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:47\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=1 size=132\nTotal signatures=1\nChosen signature=1\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-host"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.host\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-host\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--extract-certificates=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-host-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-host"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-host\n"
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "1",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-host-0"
+      ],
+      "code": 0,
+      "stdout": "406f897fd84d95069d9a50abd81ab09b7afb7e55  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-host-0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.attach\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-attach"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--verbose=4",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-attach"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-attach\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle.attach\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=1296 flags=0x0(none) hashes=34+2 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=88d6bf8e90a60ea05134f26c0be2517902b80f3f\nCandidateCDHashFull sha256=88d6bf8e90a60ea05134f26c0be2517902b80f3ff67d4c4911005aafb4185b91\nHash choices=sha256\nCMSDigest=88d6bf8e90a60ea05134f26c0be2517902b80f3ff67d4c4911005aafb4185b91\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=360448\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=88d6bf8e90a60ea05134f26c0be2517902b80f3f\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:47\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=1 size=132\nTotal signatures=1\nChosen signature=1\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-attach"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.attach\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-attach\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--extract-certificates=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-attach-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-attach"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-attach\n"
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "1",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-attach-0"
+      ],
+      "code": 0,
+      "stdout": "406f897fd84d95069d9a50abd81ab09b7afb7e55  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-attach-0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.fixture\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-fixture"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--verbose=4",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-fixture"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-fixture\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle.fixture\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20400 size=1169 flags=0x0(none) hashes=30+2 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=1e01df5e2378233356b1afc7c369cf8219a0cbeb\nCandidateCDHashFull sha256=1e01df5e2378233356b1afc7c369cf8219a0cbeb458edddcf6db8356a96e8c94\nHash choices=sha256\nCMSDigest=1e01df5e2378233356b1afc7c369cf8219a0cbeb458edddcf6db8356a96e8c94\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=311296\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=1e01df5e2378233356b1afc7c369cf8219a0cbeb\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:47\nInfo.plist=not bound\nTeamIdentifier=not set\nSealed Resources=none\nInternal requirements count=1 size=132\nTotal signatures=1\nChosen signature=1\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-fixture"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.fixture\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-fixture\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--extract-certificates=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-fixture-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-fixture"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-fixture\n"
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "1",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-fixture-0"
+      ],
+      "code": 0,
+      "stdout": "406f897fd84d95069d9a50abd81ab09b7afb7e55  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/gen-2-fixture-0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app",
+        "--report",
+        "--tag",
+        "d96a4f9ce523c988"
+      ],
+      "code": 0,
+      "stdout": "{\"binary\":\"probe-update-app\",\"generation\":2,\"host_versions\":{\"min\":1,\"max\":2},\"attach_versions\":{\"min\":1,\"max\":2},\"executable\":\"/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-app\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-helper",
+        "--report",
+        "--tag",
+        "d96a4f9ce523c988"
+      ],
+      "code": 0,
+      "stdout": "{\"binary\":\"probe-update-helper\",\"generation\":2,\"host_versions\":{\"min\":1,\"max\":2},\"attach_versions\":{\"min\":1,\"max\":2},\"executable\":\"/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/MacOS/probe-update-helper\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/plutil",
+        "-extract",
+        "CFBundleVersion",
+        "raw",
+        "-o",
+        "-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/gen-2/probe-update.app/Contents/Info.plist"
+      ],
+      "code": 0,
+      "stdout": "2\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/incompatible/probe-update.app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--verbose=4",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/incompatible/probe-update.app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/incompatible/probe-update.app/Contents/MacOS/probe-update-app\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=4329 flags=0x0(none) hashes=128+3 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=3bdcb64113d537944b55c28d8a5e97f0654b9c26\nCandidateCDHashFull sha256=3bdcb64113d537944b55c28d8a5e97f0654b9c2674f1f14a7a966f8524e5c935\nHash choices=sha256\nCMSDigest=3bdcb64113d537944b55c28d8a5e97f0654b9c2674f1f14a7a966f8524e5c935\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=1441792\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=3bdcb64113d537944b55c28d8a5e97f0654b9c26\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:48\nInfo.plist entries=10\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=5\nInternal requirements count=1 size=124\nTotal signatures=1\nChosen signature=1\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/incompatible/probe-update.app"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/incompatible/probe-update.app/Contents/MacOS/probe-update-app\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--extract-certificates=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/incompatible-bundle-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/incompatible/probe-update.app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/incompatible/probe-update.app/Contents/MacOS/probe-update-app\n"
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "1",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/incompatible-bundle-0"
+      ],
+      "code": 0,
+      "stdout": "406f897fd84d95069d9a50abd81ab09b7afb7e55  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/incompatible-bundle-0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "--verify",
+        "--strict",
+        "--deep",
+        "-R=identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.denied\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/denied/probe-update-denied.app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--verbose=4",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/denied/probe-update-denied.app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/denied/probe-update-denied.app/Contents/MacOS/probe-update-app\nIdentifier=io.github.dsbasko.shellio.probe.update-lifecycle.denied\nFormat=app bundle with Mach-O thin (arm64)\nCodeDirectory v=20400 size=4336 flags=0x0(none) hashes=128+3 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f\nCandidateCDHashFull sha256=d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f838b1c5d874e96f4b1eaef6e\nHash choices=sha256\nCMSDigest=d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f838b1c5d874e96f4b1eaef6e\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=1441792\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f\nSignature size=2056\nAuthority=Shellio Dev\nSigned Time=18 Nov 2026 at 20:23:49\nInfo.plist entries=10\nTeamIdentifier=not set\nSealed Resources version=2 rules=13 files=5\nInternal requirements count=1 size=132\nTotal signatures=1\nChosen signature=1\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "-r-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/denied/probe-update-denied.app"
+      ],
+      "code": 0,
+      "stdout": "designated => identifier \"io.github.dsbasko.shellio.probe.update-lifecycle.denied\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"\n",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/denied/probe-update-denied.app/Contents/MacOS/probe-update-app\n"
+    },
+    {
+      "command": [
+        "/usr/bin/codesign",
+        "-d",
+        "--extract-certificates=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/denied-bundle-",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/denied/probe-update-denied.app"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": "Executable=/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/denied/probe-update-denied.app/Contents/MacOS/probe-update-app\n"
+    },
+    {
+      "command": [
+        "/usr/bin/shasum",
+        "-a",
+        "1",
+        "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/denied-bundle-0"
+      ],
+      "code": 0,
+      "stdout": "406f897fd84d95069d9a50abd81ab09b7afb7e55  /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/identity-base/identity/certs/denied-bundle-0\n",
+      "stderr": ""
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{"detail":{"attempt":"e87b15448b8bdab0f097484584c4d72c","gui":{"pid":7440,"start_us":1795015599142175},"key":{"pid":7492,"start_us":1795015600229814}},"event":"started","pid":7492,"uptime_ns":642368229214458}
+{"detail":{"gui":{"pid":7440,"start_us":1795015599142175}},"event":"gui-exited","pid":7492,"uptime_ns":642368229329166}
+{"detail":{"inode":{"dev":16777231,"ino":303170141}},"event":"locked","pid":7492,"uptime_ns":642368229496708}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":7492,"uptime_ns":642368304625583}
+{"detail":{},"event":"swapped","pid":7492,"uptime_ns":642368310622791}
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-helper-after-rollback-intent/probe-update.app"},"event":"opened","pid":7492,"uptime_ns":642368392515416}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":7498,"start_us":1795015600648490},"reason":"признан"}],"owner":{"pid":7498,"start_us":1795015600648490},"reused":false},"event":"identified","pid":7492,"uptime_ns":642368675153333}
+{"detail":{"owner":{"pid":7498,"start_us":1795015600648490}},"event":"launched","pid":7492,"uptime_ns":642368683529875}
+{"detail":{"owner":{"pid":7498,"start_us":1795015600648490}},"event":"released","pid":7492,"uptime_ns":642368683544833}
+{"detail":{"owner":{"pid":7498,"start_us":1795015600648490}},"event":"watch-owner-exited","pid":7492,"uptime_ns":642368877212833}

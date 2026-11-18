@@ -1,0 +1,4 @@
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-chain-swapped/probe-update.app"},"event":"opened","pid":8336,"uptime_ns":642383902635666}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":8344,"start_us":1795015616161763},"reason":"признан"}],"owner":{"pid":8344,"start_us":1795015616161763},"reused":false},"event":"identified","pid":8336,"uptime_ns":642383902953125}
+{"detail":{"owner":{"pid":8344,"start_us":1795015616161763}},"event":"launched","pid":8336,"uptime_ns":642383909662791}
+{"role":"forwarded","key":{"pid":8336,"start_us":1795015616041316},"receipt":2,"owner":{"pid":8344,"start_us":1795015616161763},"yielded":"swapped → launched выполнен как помощник, владелец 8344","launched_installed":false}

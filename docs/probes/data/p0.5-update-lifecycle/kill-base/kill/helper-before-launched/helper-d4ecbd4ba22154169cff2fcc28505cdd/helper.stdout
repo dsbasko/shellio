@@ -1,0 +1,7 @@
+{"detail":{"attempt":"d4ecbd4ba22154169cff2fcc28505cdd","gui":{"pid":8589,"start_us":1795015620248019},"key":{"pid":8611,"start_us":1795015620955896}},"event":"started","pid":8611,"uptime_ns":642388835777583}
+{"detail":{"gui":{"pid":8589,"start_us":1795015620248019}},"event":"gui-exited","pid":8611,"uptime_ns":642388835865000}
+{"detail":{"inode":{"dev":16777231,"ino":303171757}},"event":"locked","pid":8611,"uptime_ns":642388836014083}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":8611,"uptime_ns":642388906876541}
+{"detail":{},"event":"swapped","pid":8611,"uptime_ns":642388911911125}
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-helper-before-launched/probe-update.app"},"event":"opened","pid":8611,"uptime_ns":642388993975541}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":8617,"start_us":1795015621249010},"reason":"признан"}],"owner":{"pid":8617,"start_us":1795015621249010},"reused":false},"event":"identified","pid":8611,"uptime_ns":642389166999875}

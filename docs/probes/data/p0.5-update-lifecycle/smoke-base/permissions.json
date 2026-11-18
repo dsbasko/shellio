@@ -1,0 +1,64 @@
+{
+  "accessibility_trusted": true,
+  "screen_capture_preflight": true,
+  "window_number": 80824,
+  "occlusion_visible": true,
+  "expected": [
+    [
+      217,
+      38,
+      140
+    ],
+    [
+      26,
+      179,
+      77
+    ]
+  ],
+  "tolerance": 48,
+  "window_capture": {
+    "command": "/usr/sbin/screencapture -x -o -l 80824 /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/smoke-base/smoke-window.png",
+    "attempts": 1,
+    "pixels": [
+      480,
+      320
+    ],
+    "samples": [
+      [
+        216,
+        39,
+        139
+      ],
+      [
+        27,
+        179,
+        77
+      ]
+    ],
+    "shows_window": true,
+    "error": null
+  },
+  "screen_capture": {
+    "command": "/usr/sbin/screencapture -x -R 636,231,240,160 /Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/20261118-202351-3355/smoke-base/smoke-screen.png",
+    "attempts": 1,
+    "pixels": [
+      480,
+      320
+    ],
+    "samples": [
+      [
+        216,
+        39,
+        139
+      ],
+      [
+        27,
+        179,
+        77
+      ]
+    ],
+    "shows_window": true,
+    "error": null
+  },
+  "covering": []
+}

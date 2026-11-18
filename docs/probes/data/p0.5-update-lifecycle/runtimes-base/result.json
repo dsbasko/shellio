@@ -1,0 +1,163 @@
+{
+  "schema": 1,
+  "scenario": "runtimes",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "94514132ba68",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "versions": {
+      "homebrew": "Homebrew 7.0.14-26-gb63354c"
+    },
+    "generations": {
+      "denied": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+      "denied-2": "48f26b5d5eed2c5fa8a71e16923ce6773f253b88",
+      "foreign": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+      "gen-1": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "gen-2": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "incompatible": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "tampered": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "wrong-id": "acd96c2187aace3a2a7e15fd17949d1efae13cac"
+    },
+    "process": {
+      "pid": 11044,
+      "nonce": "af10d37e569b296e",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e",
+      "env": {
+        "HOME": "/Users/u",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_BUNDLES": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle",
+        "SHELLIO_PROBE_COMMIT": "94514132ba68",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_VERSION_HOMEBREW": "Homebrew 7.0.14-26-gb63354c",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.af10d37e569b296e",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "cells": [
+    {
+      "id": "D1",
+      "part": "interrupted-preparation",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "барьер gui.runtime-partial: GUI N убит SIGKILL посреди подготовки runtime/1 (скопирован только хост), затем новый прямой запуск",
+      "oracle": "на барьере стоит запущенный GUI N; в runtime/.prep-1 только probe-update-host, runtime/1 нет, сокета нет; GUI N завершён сигналом 9, каталог подготовки после убийства прежний; новый владелец сообщает runtime/1 «создан» с удалённым .prep-1; .prep-1 нет; в runtime/1 ровно host, attach, fixture, каждый байт в байт равен бинарю бандла N и проходит codesign требованием своей части",
+      "completion": "ответ владельца или хоста, барьер, выход процесса или готовность N+1 в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "GUI N 11046 убит на gui.runtime-partial с .prep-1 [probe-update-host]; владелец 11056 удалил .prep-1 и создал runtime/1: три копии байт в байт и codesign своих частей",
+      "artifacts": [
+        "runtimes/steps.json",
+        "runtimes/runs.json",
+        "runtimes/owner-killed.stdout",
+        "runtimes/owner-killed.stderr",
+        "runtimes/owner-n.stdout"
+      ]
+    },
+    {
+      "id": "D1",
+      "part": "old-host-kept",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "h1 и h1b от хоста 1 с квитанцией ack 1 ping, update поколением 2, activate, N+1 подтверждён",
+      "oracle": "попытка idle «подтверждена», владелец — N+1 поколения 2; хост и нагрузка h1 и h1b живы с прежними PID и временем старта; proc_pidpath хоста — runtime/1/probe-update-host, нагрузки — runtime/1/probe-update-fixture до и после; runtime/1 после обновления — тот же каталог с теми же inode и SHA-256 файлов",
+      "completion": "ответ владельца или хоста, барьер, выход процесса или готовность N+1 в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "попытка 68c90e67c4ef155938fc33fa0044a842 подтверждена, N+1 11096; h1 и h1b с прежними процессами из runtime/1, runtime/1 тот же (inode каталога Some(303173409))",
+      "artifacts": [
+        "runtimes/steps.json",
+        "runtimes/runs.json",
+        "runtimes/owner-n.stdout",
+        "runtimes/helper-68c90e67c4ef155938fc33fa0044a842"
+      ]
+    },
+    {
+      "id": "D1",
+      "part": "next-attaches-v1",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "health N+1; sessions у N+1; отдельный процесс runtime/2/probe-update-attach (attach 1..2) — attach h1 с байта 0 и ввод 2 ping",
+      "oracle": "правило health без нарушений, в нём h1 и h1b найдены с прежними процессами, версия 1, хвост без пропуска, квитанция; sessions у N+1: probe h1 и h1b — Welcome версии 1; attach из runtime/2 (байт в байт равен attach бандла N+1): Welcome версии 1 от хоста поколения 1, хвост с первой строки без пропуска, квитанция ack 2 ping и ответ хоста",
+      "completion": "ответ владельца или хоста, барьер, выход процесса или готовность N+1 в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "health N+1 11096: h1 и h1b — версия 1, хвост без пропуска, квитанция; probe у N+1 — версия 1; attach из runtime/2 — версия 1, 4 строк без пропуска, ack 2 ping",
+      "artifacts": [
+        "runtimes/steps.json",
+        "runtimes/runs.json",
+        "runtimes/attach-h1.stdout",
+        "runtimes/helper-68c90e67c4ef155938fc33fa0044a842"
+      ]
+    },
+    {
+      "id": "D1",
+      "part": "new-session-runtime-2",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "create-session h2 у N+1, строка ready нагрузки, затем attach из runtime/2 и ввод 1 ping",
+      "oracle": "N+1 сообщает runtime/2 «создан» без прерванной подготовки; запись h2 — поколение 2, протокол хоста из манифеста поколения 2, исполняемый файл runtime/2/probe-update-host; proc_pidpath хоста — runtime/2/probe-update-host, нагрузки — runtime/2/probe-update-fixture; attach: Welcome версии 2, хвост без пропуска, квитанция ack 1 ping",
+      "completion": "ответ владельца или хоста, барьер, выход процесса или готовность N+1 в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "N+1 создал runtime/2; h2 — хост 11162 и нагрузка из runtime/2, протокол Versions { min: 1, max: 2 }, attach версии 2 с ack 1 ping",
+      "artifacts": [
+        "runtimes/steps.json",
+        "runtimes/runs.json",
+        "runtimes/attach-h2.stdout"
+      ]
+    },
+    {
+      "id": "D1",
+      "part": "cleanup-candidate",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "sessions у N до обновления и у N+1: при живых h1 и h1b; с h2; после остановки h1b; после остановки h1",
+      "oracle": "кандидатов на уборку нет, пока жив хотя бы один хост из runtime/1 (у N — своё поколение); после остановки последней сессии runtime/1 кандидат — ровно [1]; runtime/2 кандидатом не бывает; живые сессии реестра на каждом шаге — ожидаемые; runtime/1 существует на каждом шаге, после остановки — те же inode и SHA-256 файлов, что до обновления",
+      "completion": "ответ владельца или хоста, барьер, выход процесса или готовность N+1 в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "N: h1 и h1b живы → []; N+1: h1 и h1b живы → []; N+1: h1, h1b и h2 живы → []; N+1: h1b остановлена → []; N+1: h1 и h1b остановлены → [1]",
+      "artifacts": [
+        "runtimes/steps.json",
+        "runtimes/runs.json"
+      ]
+    },
+    {
+      "id": "D1",
+      "part": "no-overwrite",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "quit N+1 и прямой запуск поколения 2; quit; к runtime/2/probe-update-attach дописаны байты; прямой запуск поколения 2",
+      "oracle": "перезапуск: runtime/2 «переиспользован» без прерванной подготовки, inode и SHA-256 файлов прежние, h2 в реестре; несовпадающий runtime/2: запуск выходит с кодом 1 и строкой error «… перезапись запрещена …», владельца нет (клиент пробы получает временный отказ), каталог и файлы runtime/2 — те же inode и SHA-256, что после правки, .prep-2 нет; h2 жива с прежними процессами",
+      "completion": "ответ владельца или хоста, барьер, выход процесса или готовность N+1 в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "перезапуск 11167 переиспользовал runtime/2 с теми же inode; после правки probe-update-attach запуск вышел с кодом Some(1) («перезапись запрещена»), владельца нет (владелец запускается или перезапускается), runtime/2 не тронут, h2 жива",
+      "artifacts": [
+        "runtimes/steps.json",
+        "runtimes/runs.json",
+        "runtimes/owner-reuse.stdout",
+        "runtimes/owner-differs.stdout",
+        "runtimes/owner-differs.stderr"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "notes": [
+      "срок шага стенда 30 с; барьер gui.runtime-partial; к runtime/2/probe-update-attach дописано 46 байт"
+    ]
+  }
+}

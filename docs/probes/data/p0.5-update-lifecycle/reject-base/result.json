@@ -1,0 +1,144 @@
+{
+  "schema": 1,
+  "scenario": "reject",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "94514132ba68",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "versions": {
+      "homebrew": "Homebrew 7.0.14-26-gb63354c"
+    },
+    "generations": {
+      "denied": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+      "denied-2": "48f26b5d5eed2c5fa8a71e16923ce6773f253b88",
+      "foreign": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+      "gen-1": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "gen-2": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "incompatible": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "tampered": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "wrong-id": "acd96c2187aace3a2a7e15fd17949d1efae13cac"
+    },
+    "process": {
+      "pid": 4655,
+      "nonce": "7610d1fb7748dbfb",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.7610d1fb7748dbfb",
+      "env": {
+        "HOME": "/Users/u",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_BUNDLES": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle",
+        "SHELLIO_PROBE_COMMIT": "94514132ba68",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_VERSION_HOMEBREW": "Homebrew 7.0.14-26-gb63354c",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.7610d1fb7748dbfb",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "cells": [
+    {
+      "id": "A2",
+      "part": "live-tampered",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "update кандидатом tampered живому GUI N поколения 1 с сессией h1",
+      "oracle": "refused без повтора, причина называет вид integrity; журнала, истории, каталогов .shellio-* и каталога помощника нет",
+      "completion": "ответ владельца или хоста в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "tampered отвергнут до intent: «кандидат отвергнут проверкой (integrity): Integrity { reason: \"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.7610d1fb7748dbfb/install/.shellio-update-172009a4a632babb163e240188b4ac8b: a sealed resource is missing or invalid\" }»; журнала нет",
+      "artifacts": [
+        "reject/steps.json"
+      ]
+    },
+    {
+      "id": "A2",
+      "part": "live-foreign",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "update кандидатом foreign тому же GUI N",
+      "oracle": "refused без повтора, причина называет вид requirement и несовпадение листа (Signer); журнала, истории, каталогов .shellio-* и каталога помощника нет",
+      "completion": "ответ владельца или хоста в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "foreign отвергнут до intent: «кандидат отвергнут проверкой (requirement): Requirement { identifier: Some(\"io.github.dsbasko.shellio.probe.update-lifecycle\"), leaf: Some(\"0016a40e0a10def6f72c909b366c3aa0b2fde80e\"), mismatch: [Signer] }»; журнала нет",
+      "artifacts": [
+        "reject/steps.json"
+      ]
+    },
+    {
+      "id": "A2",
+      "part": "live-wrong-id",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "update кандидатом wrong-id тому же GUI N",
+      "oracle": "refused без повтора, причина называет вид requirement и несовпадение идентификатора (Identifier); журнала, истории, каталогов .shellio-* и каталога помощника нет",
+      "completion": "ответ владельца или хоста в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "wrong-id отвергнут до intent: «кандидат отвергнут проверкой (requirement): Requirement { identifier: Some(\"io.github.dsbasko.shellio.probe.update-lifecycle.wrong-id\"), leaf: Some(\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"), mismatch: [Identifier] }»; журнала нет",
+      "artifacts": [
+        "reject/steps.json"
+      ]
+    },
+    {
+      "id": "A2",
+      "part": "live-installed-untouched",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "три отказа подряд",
+      "oracle": "установленный бандл проходит codesign с CDHash поколения 1 до и после; GUI N отвечает тем же ключом и поколением 1",
+      "completion": "ответ владельца или хоста в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "установленный бандл проходит codesign с CDHash ad8d8e4f до и после, GUI N 4657 отвечает",
+      "artifacts": [
+        "reject/steps.json"
+      ]
+    },
+    {
+      "id": "A2",
+      "part": "live-session",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "три отказа подряд при подключённом лидере h1",
+      "oracle": "хост и нагрузка h1 с прежними PID и временем старта; лидер получает квитанции ack 2..4 ping после каждого отказа без пропуска строк",
+      "completion": "ответ владельца или хоста в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "h1: хост 4666 и нагрузка 4667 прежние, квитанции ack 2..4 ping без пропуска",
+      "artifacts": [
+        "reject/steps.json"
+      ]
+    },
+    {
+      "id": "A2",
+      "part": "live-accept-control",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "update кандидатом incompatible тому же GUI N после отказов",
+      "oracle": "кандидат проходит проверку и доходит до записи журнала: ответ staged-deferred с записью, журнал staged-deferred этой попытки",
+      "completion": "ответ владельца или хоста в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "incompatible прошёл проверку и записан в staged-deferred попытки 172d2fbfa42e5e2f308510c8ecbc7ef0",
+      "artifacts": [
+        "reject/steps.json"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "notes": []
+  }
+}

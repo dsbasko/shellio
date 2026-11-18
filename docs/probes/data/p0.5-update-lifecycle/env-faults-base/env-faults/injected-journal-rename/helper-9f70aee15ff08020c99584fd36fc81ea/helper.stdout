@@ -1,0 +1,5 @@
+{"detail":{"attempt":"9f70aee15ff08020c99584fd36fc81ea","gui":{"pid":11913,"start_us":1795015864049335},"key":{"pid":11934,"start_us":1795015864852687}},"event":"started","pid":11934,"uptime_ns":642632751723208}
+{"detail":{"gui":{"pid":11913,"start_us":1795015864049335}},"event":"gui-exited","pid":11934,"uptime_ns":642632751876125}
+{"detail":{"inode":{"dev":16777242,"ino":35}},"event":"locked","pid":11934,"uptime_ns":642632752059833}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":11934,"uptime_ns":642632829080166}
+{"detail":{"reason":"журнал: rename журнала (injected): Input/output error (os error 5)"},"event":"error","pid":11934,"uptime_ns":642632835158333}

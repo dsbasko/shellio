@@ -1,0 +1,5 @@
+{"detail":{"attempt":"695bf0da93cb3b05e54caa53088ff3fc","gui":{"pid":11785,"start_us":1795015861314338},"key":{"pid":11818,"start_us":1795015862085343}},"event":"started","pid":11818,"uptime_ns":642629959796833}
+{"detail":{"gui":{"pid":11785,"start_us":1795015861314338}},"event":"gui-exited","pid":11818,"uptime_ns":642629959852291}
+{"detail":{"inode":{"dev":16777242,"ino":35}},"event":"locked","pid":11818,"uptime_ns":642629959918083}
+{"detail":{"errno":13,"error":"Permission denied (os error 13)"},"event":"swap-failed","pid":11818,"uptime_ns":642630010466791}
+{"detail":{"reason":"восстановление: удаление кандидата: Permission denied (os error 13)"},"event":"error","pid":11818,"uptime_ns":642630086357958}

@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "scenario": "reject-verify",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "94514132ba68",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "versions": {
+      "homebrew": "Homebrew 7.0.14-26-gb63354c"
+    },
+    "generations": {
+      "denied": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+      "denied-2": "48f26b5d5eed2c5fa8a71e16923ce6773f253b88",
+      "foreign": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+      "gen-1": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "gen-2": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "incompatible": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "tampered": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "wrong-id": "acd96c2187aace3a2a7e15fd17949d1efae13cac"
+    },
+    "process": {
+      "pid": 4353,
+      "nonce": "093aaf770e289c07",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.093aaf770e289c07",
+      "env": {
+        "HOME": "/Users/u",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_BUNDLES": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle",
+        "SHELLIO_PROBE_COMMIT": "94514132ba68",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_VERSION_HOMEBREW": "Homebrew 7.0.14-26-gb63354c",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.093aaf770e289c07",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "cells": [
+    {
+      "id": "A2",
+      "part": "accept-control",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "проверка кандидатов поколения 2 и incompatible при установленном поколении 1",
+      "oracle": "оба приняты: код 0, поколения 2 и 3, CDHash равен измеренному при сборке бандла",
+      "completion": "все вызовы codesign, shasum и plutil завершились; иначе ошибка исполнения",
+      "reason": "gen-2 принят: поколение 2, CDHash 0aafd23b10f21b8085484e6630ad710a3fee337f; incompatible принят: поколение 3, CDHash 3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "artifacts": [
+        "reject-verify/evidence.json",
+        "reject-verify/bundles.json",
+        "reject-verify/foreign-identity.json"
+      ]
+    },
+    {
+      "id": "A2",
+      "part": "tampered",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "проверка кандидата tampered",
+      "oracle": "отказ по целостности: код 1, причина codesign называет запечатанный ресурс",
+      "completion": "все вызовы codesign, shasum и plutil завершились; иначе ошибка исполнения",
+      "reason": "отказ по целостности, код 1: «/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle/tampered/probe-update.app: a sealed resource is missing or invalid»; Contents/Resources/generation.json: SHA-256 428786cce8d7a4c2eb4c8fff99dfe43f7843566ffb9bfd3f58ac58320512ba6f → 4d27d837fbd60008f747b78daa22211912945b2c27b8a237ea616c7fab060950; CDHash кандидата Some(\"0aafd23b10f21b8085484e6630ad710a3fee337f\") равен CDHash поколения 2 — CDHash без проверки целостности поколение не определяет",
+      "artifacts": [
+        "reject-verify/evidence.json",
+        "reject-verify/bundles.json",
+        "reject-verify/foreign-identity.json"
+      ]
+    },
+    {
+      "id": "A2",
+      "part": "foreign",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "проверка кандидата foreign",
+      "oracle": "отказ по требованию: код 3, идентификатор прежний, первый Authority — Shellio Dev, извлечённый лист не закреплённый; requirement.txt, список поиска и keychain по умолчанию не изменились",
+      "completion": "все вызовы codesign, shasum и plutil завершились; иначе ошибка исполнения",
+      "reason": "отказ по требованию, код 3: идентификатор io.github.dsbasko.shellio.probe.update-lifecycle, Authority Shellio Dev, лист 0016a40e0a10def6f72c909b366c3aa0b2fde80e вместо 406f897fd84d95069d9a50abd81ab09b7afb7e55; requirement.txt, список поиска (1 keychain) и keychain по умолчанию прежние во время подписи и после удаления временной keychain",
+      "artifacts": [
+        "reject-verify/evidence.json",
+        "reject-verify/bundles.json",
+        "reject-verify/foreign-identity.json"
+      ]
+    },
+    {
+      "id": "A2",
+      "part": "wrong-id",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "проверка кандидата wrong-id",
+      "oracle": "отказ по требованию: код 3, лист закреплённый, идентификатор <id>.wrong-id",
+      "completion": "все вызовы codesign, shasum и plutil завершились; иначе ошибка исполнения",
+      "reason": "отказ по требованию, код 3: лист 406f897fd84d95069d9a50abd81ab09b7afb7e55 закреплённый, идентификатор io.github.dsbasko.shellio.probe.update-lifecycle.wrong-id",
+      "artifacts": [
+        "reject-verify/evidence.json",
+        "reject-verify/bundles.json",
+        "reject-verify/foreign-identity.json"
+      ]
+    },
+    {
+      "id": "A2",
+      "part": "installed-untouched",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "установленный N после всех проверок",
+      "oracle": "проходит проверку, CDHash и SHA-256 всех файлов прежние, каталога <state>/update/ нет",
+      "completion": "все вызовы codesign, shasum и plutil завершились; иначе ошибка исполнения",
+      "reason": "установленный N проходит проверку до и после, CDHash Some(\"ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c\"), SHA-256 8 файлов прежние, <state>/update/ нет",
+      "artifacts": [
+        "reject-verify/evidence.json",
+        "reject-verify/bundles.json",
+        "reject-verify/foreign-identity.json"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "notes": [
+      "требование кандидата: identifier \"io.github.dsbasko.shellio.probe.update-lifecycle\" and certificate leaf = H\"406f897fd84d95069d9a50abd81ab09b7afb7e55\"; установленный N — копия поколения 1 в <state>/install/"
+    ]
+  }
+}

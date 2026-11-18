@@ -1,0 +1,9 @@
+{"detail":{"attempt":"af8d32e9c6589c6ea01c11cf23794555","gui":{"pid":8147,"start_us":1795015612292589},"key":{"pid":8168,"start_us":1795015613001884}},"event":"started","pid":8168,"uptime_ns":642380887333708}
+{"detail":{"gui":{"pid":8147,"start_us":1795015612292589}},"event":"gui-exited","pid":8168,"uptime_ns":642380887463458}
+{"detail":{"inode":{"dev":16777231,"ino":303171093}},"event":"locked","pid":8168,"uptime_ns":642380887629125}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":8168,"uptime_ns":642380975752875}
+{"detail":{},"event":"swapped","pid":8168,"uptime_ns":642380982741916}
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-chain-rollback/probe-update.app"},"event":"opened","pid":8168,"uptime_ns":642381082861375}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":8174,"start_us":1795015613332140},"reason":"признан"}],"owner":{"pid":8174,"start_us":1795015613332140},"reused":false},"event":"identified","pid":8168,"uptime_ns":642381264122083}
+{"detail":{"owner":{"pid":8174,"start_us":1795015613332140}},"event":"launched","pid":8168,"uptime_ns":642381273081791}
+{"detail":{"owner":{"pid":8174,"start_us":1795015613332140}},"event":"released","pid":8168,"uptime_ns":642381273122916}

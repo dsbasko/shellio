@@ -1,0 +1,13 @@
+{"detail":{"attempt":"69dc3a6ff31091cf5a121294e120dd1f","gui":{"pid":6821,"start_us":1795015537774257},"key":{"pid":6842,"start_us":1795015538519044}},"event":"started","pid":6842,"uptime_ns":642306717522500}
+{"detail":{"gui":{"pid":6821,"start_us":1795015537774257}},"event":"gui-exited","pid":6842,"uptime_ns":642306717753666}
+{"detail":{"inode":{"dev":16777231,"ino":303169942}},"event":"locked","pid":6842,"uptime_ns":642306718034875}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":6842,"uptime_ns":642306795552708}
+{"detail":{},"event":"swapped","pid":6842,"uptime_ns":642306800182208}
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-next-unconfirmed/probe-update.app"},"event":"opened","pid":6842,"uptime_ns":642306883619083}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":6848,"start_us":1795015539139564},"reason":"признан"}],"owner":{"pid":6848,"start_us":1795015539139564},"reused":false},"event":"identified","pid":6842,"uptime_ns":642307081340833}
+{"detail":{"owner":{"pid":6848,"start_us":1795015539139564}},"event":"launched","pid":6842,"uptime_ns":642307088917000}
+{"detail":{"owner":{"pid":6848,"start_us":1795015539139564}},"event":"released","pid":6842,"uptime_ns":642307088962375}
+{"detail":{"owner":{"pid":6848,"start_us":1795015539139564}},"event":"watch-kill","pid":6842,"uptime_ns":642366233003791}
+{"detail":{"steps":"[Write(RollbackIntent, None), Swap, Write(RolledBack, None), Retire, Write(Retired, None), Write(Idle, Some(RolledBack))]","why":"срок истёк, владелец снят"},"event":"watch-rolled-back","pid":6842,"uptime_ns":642366614338041}
+{"detail":{"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-next-unconfirmed/probe-update.app"},"event":"relaunched","pid":6842,"uptime_ns":642366676970250}
+{"detail":{"outcome":"срок истёк, владелец снят: откат [Write(RollbackIntent, None), Swap, Write(RolledBack, None), Retire, Write(Retired, None), Write(Idle, Some(RolledBack))]"},"event":"done","pid":6842,"uptime_ns":642366676994750}

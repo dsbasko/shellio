@@ -1,0 +1,9 @@
+{"detail":{"attempt":"edeca18fa45303a7f870bedae7b12e20","gui":{"pid":7733,"start_us":1795015604839207},"key":{"pid":7774,"start_us":1795015605555233}},"event":"started","pid":7774,"uptime_ns":642373425046000}
+{"detail":{"gui":{"pid":7733,"start_us":1795015604839207}},"event":"gui-exited","pid":7774,"uptime_ns":642373425109041}
+{"detail":{"inode":{"dev":16777231,"ino":303170539}},"event":"locked","pid":7774,"uptime_ns":642373425173291}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":7774,"uptime_ns":642373480714583}
+{"detail":{},"event":"swapped","pid":7774,"uptime_ns":642373486828041}
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-recovery-retired-gap/probe-update.app"},"event":"opened","pid":7774,"uptime_ns":642373567083416}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":7802,"start_us":1795015605819335},"reason":"признан"}],"owner":{"pid":7802,"start_us":1795015605819335},"reused":false},"event":"identified","pid":7774,"uptime_ns":642373748724583}
+{"detail":{"owner":{"pid":7802,"start_us":1795015605819335}},"event":"launched","pid":7774,"uptime_ns":642373756714166}
+{"detail":{"owner":{"pid":7802,"start_us":1795015605819335}},"event":"released","pid":7774,"uptime_ns":642373756732375}

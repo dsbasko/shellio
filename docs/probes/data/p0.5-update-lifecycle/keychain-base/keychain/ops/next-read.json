@@ -1,0 +1,22 @@
+{
+  "op": "read",
+  "account": "n",
+  "no_ui": "process-flag",
+  "pid": 12176,
+  "generation": 2,
+  "cdhash": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+  "executable": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e7a832d4b994d4d8/kc/install/probe-update.app/Contents/MacOS/probe-update-app",
+  "window": true,
+  "interaction_before": true,
+  "interaction_after": false,
+  "set_interaction_status": 0,
+  "open_status": 0,
+  "keychain_status": 7,
+  "add_status": null,
+  "attributes_status": 0,
+  "data_status": -25293,
+  "value_sha256": null,
+  "value_len": null,
+  "elapsed_ms": 11,
+  "error": null
+}

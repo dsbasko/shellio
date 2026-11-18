@@ -1,0 +1,1 @@
+{"event":"role","role":"gui","process":{"pid":4985,"start_us":1795015448178324},"seq":4,"uptime_ns":642216571616125,"detail":{"recovery":[],"role":{"launch":false,"reason":"попытка в launched: владелец с ключом жив, срок не истёк","role":"yield"}}}

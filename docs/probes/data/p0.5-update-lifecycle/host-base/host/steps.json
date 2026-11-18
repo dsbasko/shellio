@@ -1,0 +1,761 @@
+{
+  "steps": [
+    {
+      "name": "create",
+      "facts": {
+        "host": {
+          "comm": "probe-update-ho",
+          "exiting": false,
+          "key": {
+            "pid": 4226,
+            "start_us": 1795015433237657
+          },
+          "pgid": 4225,
+          "ppid": 1,
+          "sid": 4225,
+          "state": "running",
+          "tpgid": null,
+          "tty": null
+        },
+        "record": {
+          "executable": "/Users/u/Develop/dsbasko/shellio/target/release/probe-update-host",
+          "generation": 1,
+          "host": {
+            "pid": 4226,
+            "start_us": 1795015433237657
+          },
+          "session": "h1",
+          "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e98a812380648a0c/s/h1.sock",
+          "tty": "/dev/ttys003",
+          "versions": {
+            "max": 1,
+            "min": 1
+          },
+          "workload": {
+            "pid": 4227,
+            "start_us": 1795015433242229
+          },
+          "workload_pgid": 4227,
+          "workload_sid": 4227
+        },
+        "record_on_disk": {
+          "executable": "/Users/u/Develop/dsbasko/shellio/target/release/probe-update-host",
+          "generation": 1,
+          "host": {
+            "pid": 4226,
+            "start_us": 1795015433237657
+          },
+          "session": "h1",
+          "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e98a812380648a0c/s/h1.sock",
+          "tty": "/dev/ttys003",
+          "versions": {
+            "max": 1,
+            "min": 1
+          },
+          "workload": {
+            "pid": 4227,
+            "start_us": 1795015433242229
+          },
+          "workload_pgid": 4227,
+          "workload_sid": 4227
+        },
+        "socket": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.e98a812380648a0c/s/h1.sock",
+        "socket_is_socket": true,
+        "workload": {
+          "comm": "probe-update-fi",
+          "exiting": false,
+          "key": {
+            "pid": 4227,
+            "start_us": 1795015433242229
+          },
+          "pgid": 4227,
+          "ppid": 4226,
+          "sid": 4227,
+          "state": "running",
+          "tpgid": 4227,
+          "tty": 268435459
+        }
+      }
+    },
+    {
+      "name": "attach-input",
+      "facts": {
+        "acks": [
+          [
+            1,
+            {
+              "ack": "accepted"
+            }
+          ]
+        ],
+        "status": {
+          "clients": 1,
+          "end": 35,
+          "exited": false,
+          "generation": 1,
+          "host": {
+            "pid": 4226,
+            "start_us": 1795015433237657
+          },
+          "lead": 1,
+          "leader": true,
+          "lines": 1,
+          "session": "h1",
+          "size": {
+            "cols": 100,
+            "rows": 30,
+            "xpixel": 0,
+            "ypixel": 0
+          },
+          "start": 0,
+          "versions": {
+            "max": 1,
+            "min": 1
+          },
+          "workload": {
+            "pid": 4227,
+            "start_us": 1795015433242229
+          },
+          "workload_pgid": 4227,
+          "workload_sid": 4227
+        },
+        "transcript": {
+          "expect_first": 1,
+          "lines": [
+            {
+              "number": 1,
+              "offset": 0,
+              "text": "ready pid=4227 generation=1"
+            },
+            {
+              "number": 2,
+              "offset": 35,
+              "text": "emit 1 1/3"
+            },
+            {
+              "number": 3,
+              "offset": 53,
+              "text": "emit 1 2/3"
+            },
+            {
+              "number": 4,
+              "offset": 71,
+              "text": "emit 1 3/3"
+            },
+            {
+              "number": 5,
+              "offset": 89,
+              "text": "ack 1 emit 3"
+            }
+          ],
+          "next": 109,
+          "partial": [],
+          "problems": [],
+          "start": 0
+        },
+        "welcome": {
+          "end": 0,
+          "generation": 1,
+          "host": "probe-update-host 1",
+          "lead": 1,
+          "session": "h1",
+          "start": 0,
+          "version": 1
+        }
+      }
+    },
+    {
+      "name": "refused",
+      "facts": {
+        "after": {
+          "clients": 1,
+          "end": 109,
+          "exited": false,
+          "generation": 1,
+          "host": {
+            "pid": 4226,
+            "start_us": 1795015433237657
+          },
+          "lead": 1,
+          "leader": true,
+          "lines": 5,
+          "session": "h1",
+          "size": {
+            "cols": 100,
+            "rows": 30,
+            "xpixel": 0,
+            "ypixel": 0
+          },
+          "start": 0,
+          "versions": {
+            "max": 1,
+            "min": 1
+          },
+          "workload": {
+            "pid": 4227,
+            "start_us": 1795015433242229
+          },
+          "workload_pgid": 4227,
+          "workload_sid": 4227
+        },
+        "attach_refused": "несовместимые версии протокола: клиент 2..2, хост 1..1",
+        "before": {
+          "clients": 1,
+          "end": 109,
+          "exited": false,
+          "generation": 1,
+          "host": {
+            "pid": 4226,
+            "start_us": 1795015433237657
+          },
+          "lead": 1,
+          "leader": true,
+          "lines": 5,
+          "session": "h1",
+          "size": {
+            "cols": 100,
+            "rows": 30,
+            "xpixel": 0,
+            "ypixel": 0
+          },
+          "start": 0,
+          "versions": {
+            "max": 1,
+            "min": 1
+          },
+          "workload": {
+            "pid": 4227,
+            "start_us": 1795015433242229
+          },
+          "workload_pgid": 4227,
+          "workload_sid": 4227
+        },
+        "probe": {
+          "acks": [],
+          "outcome": "refused",
+          "purpose": "probe",
+          "refused": "несовместимые версии протокола: клиент 2..2, хост 1..1",
+          "transcript": null,
+          "versions": {
+            "max": 2,
+            "min": 2
+          },
+          "welcome": null
+        }
+      }
+    },
+    {
+      "name": "probe",
+      "facts": {
+        "after": {
+          "clients": 1,
+          "end": 109,
+          "exited": false,
+          "generation": 1,
+          "host": {
+            "pid": 4226,
+            "start_us": 1795015433237657
+          },
+          "lead": 1,
+          "leader": true,
+          "lines": 5,
+          "session": "h1",
+          "size": {
+            "cols": 100,
+            "rows": 30,
+            "xpixel": 0,
+            "ypixel": 0
+          },
+          "start": 0,
+          "versions": {
+            "max": 1,
+            "min": 1
+          },
+          "workload": {
+            "pid": 4227,
+            "start_us": 1795015433242229
+          },
+          "workload_pgid": 4227,
+          "workload_sid": 4227
+        },
+        "probe": {
+          "acks": [],
+          "outcome": "welcome",
+          "purpose": "probe",
+          "refused": null,
+          "transcript": null,
+          "versions": {
+            "max": 2,
+            "min": 1
+          },
+          "welcome": {
+            "end": 109,
+            "generation": 1,
+            "host": "probe-update-host 1",
+            "lead": 1,
+            "session": "h1",
+            "start": 109,
+            "version": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "detach",
+      "facts": {
+        "next_number": 6,
+        "resume": 109,
+        "status": {
+          "clients": 0,
+          "end": 109,
+          "exited": false,
+          "generation": 1,
+          "host": {
+            "pid": 4226,
+            "start_us": 1795015433237657
+          },
+          "lead": 1,
+          "leader": false,
+          "lines": 5,
+          "session": "h1",
+          "size": {
+            "cols": 100,
+            "rows": 30,
+            "xpixel": 0,
+            "ypixel": 0
+          },
+          "start": 0,
+          "versions": {
+            "max": 1,
+            "min": 1
+          },
+          "workload": {
+            "pid": 4227,
+            "start_us": 1795015433242229
+          },
+          "workload_pgid": 4227,
+          "workload_sid": 4227
+        }
+      }
+    },
+    {
+      "name": "output-without-client",
+      "facts": {
+        "ack": {
+          "ack": "accepted"
+        },
+        "status": {
+          "clients": 0,
+          "end": 1121,
+          "exited": false,
+          "generation": 1,
+          "host": {
+            "pid": 4226,
+            "start_us": 1795015433237657
+          },
+          "lead": 1,
+          "leader": false,
+          "lines": 56,
+          "session": "h1",
+          "size": {
+            "cols": 100,
+            "rows": 30,
+            "xpixel": 0,
+            "ypixel": 0
+          },
+          "start": 0,
+          "versions": {
+            "max": 1,
+            "min": 1
+          },
+          "workload": {
+            "pid": 4227,
+            "start_us": 1795015433242229
+          },
+          "workload_pgid": 4227,
+          "workload_sid": 4227
+        },
+        "target_lines": 56
+      }
+    },
+    {
+      "name": "reattach",
+      "facts": {
+        "after": {
+          "clients": 0,
+          "end": 1139,
+          "exited": false,
+          "generation": 1,
+          "host": {
+            "pid": 4226,
+            "start_us": 1795015433237657
+          },
+          "lead": 2,
+          "leader": false,
+          "lines": 57,
+          "session": "h1",
+          "size": {
+            "cols": 100,
+            "rows": 30,
+            "xpixel": 0,
+            "ypixel": 0
+          },
+          "start": 0,
+          "versions": {
+            "max": 1,
+            "min": 1
+          },
+          "workload": {
+            "pid": 4227,
+            "start_us": 1795015433242229
+          },
+          "workload_pgid": 4227,
+          "workload_sid": 4227
+        },
+        "attach": {
+          "acks": [
+            [
+              3,
+              {
+                "ack": "accepted"
+              }
+            ]
+          ],
+          "outcome": "welcome",
+          "purpose": "attach",
+          "refused": null,
+          "transcript": {
+            "expect_first": 6,
+            "lines": [
+              {
+                "number": 6,
+                "offset": 109,
+                "text": "emit 2 1/50"
+              },
+              {
+                "number": 7,
+                "offset": 128,
+                "text": "emit 2 2/50"
+              },
+              {
+                "number": 8,
+                "offset": 147,
+                "text": "emit 2 3/50"
+              },
+              {
+                "number": 9,
+                "offset": 166,
+                "text": "emit 2 4/50"
+              },
+              {
+                "number": 10,
+                "offset": 185,
+                "text": "emit 2 5/50"
+              },
+              {
+                "number": 11,
+                "offset": 204,
+                "text": "emit 2 6/50"
+              },
+              {
+                "number": 12,
+                "offset": 223,
+                "text": "emit 2 7/50"
+              },
+              {
+                "number": 13,
+                "offset": 242,
+                "text": "emit 2 8/50"
+              },
+              {
+                "number": 14,
+                "offset": 261,
+                "text": "emit 2 9/50"
+              },
+              {
+                "number": 15,
+                "offset": 280,
+                "text": "emit 2 10/50"
+              },
+              {
+                "number": 16,
+                "offset": 300,
+                "text": "emit 2 11/50"
+              },
+              {
+                "number": 17,
+                "offset": 320,
+                "text": "emit 2 12/50"
+              },
+              {
+                "number": 18,
+                "offset": 340,
+                "text": "emit 2 13/50"
+              },
+              {
+                "number": 19,
+                "offset": 360,
+                "text": "emit 2 14/50"
+              },
+              {
+                "number": 20,
+                "offset": 380,
+                "text": "emit 2 15/50"
+              },
+              {
+                "number": 21,
+                "offset": 400,
+                "text": "emit 2 16/50"
+              },
+              {
+                "number": 22,
+                "offset": 420,
+                "text": "emit 2 17/50"
+              },
+              {
+                "number": 23,
+                "offset": 440,
+                "text": "emit 2 18/50"
+              },
+              {
+                "number": 24,
+                "offset": 460,
+                "text": "emit 2 19/50"
+              },
+              {
+                "number": 25,
+                "offset": 480,
+                "text": "emit 2 20/50"
+              },
+              {
+                "number": 26,
+                "offset": 500,
+                "text": "emit 2 21/50"
+              },
+              {
+                "number": 27,
+                "offset": 520,
+                "text": "emit 2 22/50"
+              },
+              {
+                "number": 28,
+                "offset": 540,
+                "text": "emit 2 23/50"
+              },
+              {
+                "number": 29,
+                "offset": 560,
+                "text": "emit 2 24/50"
+              },
+              {
+                "number": 30,
+                "offset": 580,
+                "text": "emit 2 25/50"
+              },
+              {
+                "number": 31,
+                "offset": 600,
+                "text": "emit 2 26/50"
+              },
+              {
+                "number": 32,
+                "offset": 620,
+                "text": "emit 2 27/50"
+              },
+              {
+                "number": 33,
+                "offset": 640,
+                "text": "emit 2 28/50"
+              },
+              {
+                "number": 34,
+                "offset": 660,
+                "text": "emit 2 29/50"
+              },
+              {
+                "number": 35,
+                "offset": 680,
+                "text": "emit 2 30/50"
+              },
+              {
+                "number": 36,
+                "offset": 700,
+                "text": "emit 2 31/50"
+              },
+              {
+                "number": 37,
+                "offset": 720,
+                "text": "emit 2 32/50"
+              },
+              {
+                "number": 38,
+                "offset": 740,
+                "text": "emit 2 33/50"
+              },
+              {
+                "number": 39,
+                "offset": 760,
+                "text": "emit 2 34/50"
+              },
+              {
+                "number": 40,
+                "offset": 780,
+                "text": "emit 2 35/50"
+              },
+              {
+                "number": 41,
+                "offset": 800,
+                "text": "emit 2 36/50"
+              },
+              {
+                "number": 42,
+                "offset": 820,
+                "text": "emit 2 37/50"
+              },
+              {
+                "number": 43,
+                "offset": 840,
+                "text": "emit 2 38/50"
+              },
+              {
+                "number": 44,
+                "offset": 860,
+                "text": "emit 2 39/50"
+              },
+              {
+                "number": 45,
+                "offset": 880,
+                "text": "emit 2 40/50"
+              },
+              {
+                "number": 46,
+                "offset": 900,
+                "text": "emit 2 41/50"
+              },
+              {
+                "number": 47,
+                "offset": 920,
+                "text": "emit 2 42/50"
+              },
+              {
+                "number": 48,
+                "offset": 940,
+                "text": "emit 2 43/50"
+              },
+              {
+                "number": 49,
+                "offset": 960,
+                "text": "emit 2 44/50"
+              },
+              {
+                "number": 50,
+                "offset": 980,
+                "text": "emit 2 45/50"
+              },
+              {
+                "number": 51,
+                "offset": 1000,
+                "text": "emit 2 46/50"
+              },
+              {
+                "number": 52,
+                "offset": 1020,
+                "text": "emit 2 47/50"
+              },
+              {
+                "number": 53,
+                "offset": 1040,
+                "text": "emit 2 48/50"
+              },
+              {
+                "number": 54,
+                "offset": 1060,
+                "text": "emit 2 49/50"
+              },
+              {
+                "number": 55,
+                "offset": 1080,
+                "text": "emit 2 50/50"
+              },
+              {
+                "number": 56,
+                "offset": 1100,
+                "text": "ack 2 emit 50"
+              },
+              {
+                "number": 57,
+                "offset": 1121,
+                "text": "ack 3 ping"
+              }
+            ],
+            "next": 1139,
+            "partial": [],
+            "problems": [],
+            "start": 109
+          },
+          "versions": {
+            "max": 1,
+            "min": 1
+          },
+          "welcome": {
+            "end": 1121,
+            "generation": 1,
+            "host": "probe-update-host 1",
+            "lead": 2,
+            "session": "h1",
+            "start": 109,
+            "version": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "processes",
+      "facts": {
+        "host": {
+          "comm": "probe-update-ho",
+          "exiting": false,
+          "key": {
+            "pid": 4226,
+            "start_us": 1795015433237657
+          },
+          "kind": "same",
+          "pgid": 4225,
+          "ppid": 1,
+          "sid": 4225,
+          "state": "running",
+          "tpgid": null,
+          "tty": null
+        },
+        "workload": {
+          "comm": "probe-update-fi",
+          "exiting": false,
+          "key": {
+            "pid": 4227,
+            "start_us": 1795015433242229
+          },
+          "kind": "same",
+          "pgid": 4227,
+          "ppid": 4226,
+          "sid": 4227,
+          "state": "running",
+          "tpgid": 4227,
+          "tty": 268435459
+        }
+      }
+    },
+    {
+      "name": "stop",
+      "facts": {
+        "alive": [],
+        "host": {
+          "kind": "gone"
+        },
+        "leftovers": [],
+        "workload": {
+          "kind": "gone"
+        }
+      }
+    }
+  ]
+}

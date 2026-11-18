@@ -1,0 +1,11 @@
+{"detail":{"attempt":"fb6118a178a06a8df7ec78fa286fc27c","gui":{"pid":6713,"start_us":1795015536056622},"key":{"pid":6759,"start_us":1795015536758416}},"event":"started","pid":6759,"uptime_ns":642304626657208}
+{"detail":{"gui":{"pid":6713,"start_us":1795015536056622}},"event":"gui-exited","pid":6759,"uptime_ns":642304626733708}
+{"detail":{"inode":{"dev":16777231,"ino":303169806}},"event":"locked","pid":6759,"uptime_ns":642304626796291}
+{"detail":{"gui_alive":false},"event":"exchanged","pid":6759,"uptime_ns":642304684311208}
+{"detail":{},"event":"swapped","pid":6759,"uptime_ns":642304689655208}
+{"detail":{"candidates":[],"installed":"/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.49ce188b6014ab78/install-next-cleaning/probe-update.app"},"event":"opened","pid":6759,"uptime_ns":642304774488875}
+{"detail":{"candidates":[{"accepted":true,"key":{"pid":6782,"start_us":1795015537029407},"reason":"признан"}],"owner":{"pid":6782,"start_us":1795015537029407},"reused":false},"event":"identified","pid":6759,"uptime_ns":642304959516916}
+{"detail":{"owner":{"pid":6782,"start_us":1795015537029407}},"event":"launched","pid":6759,"uptime_ns":642304967812541}
+{"detail":{"owner":{"pid":6782,"start_us":1795015537029407}},"event":"released","pid":6759,"uptime_ns":642304967854833}
+{"detail":{"why":"попытка в committed"},"event":"watch-finished","pid":6759,"uptime_ns":642305129373791}
+{"detail":{"outcome":"попытка закончена без сторожа: попытка в committed"},"event":"done","pid":6759,"uptime_ns":642305129459041}

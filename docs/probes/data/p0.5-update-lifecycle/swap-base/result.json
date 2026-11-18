@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "scenario": "swap",
+  "variant": "base",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "94514132ba68",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "versions": {
+      "homebrew": "Homebrew 7.0.14-26-gb63354c"
+    },
+    "generations": {
+      "denied": "d8bbc24efa4e12c5dcdb9c0fce81a3f4be19142f",
+      "denied-2": "48f26b5d5eed2c5fa8a71e16923ce6773f253b88",
+      "foreign": "d0361290d9f5308a4b5c081dc1caedab51115c4a",
+      "gen-1": "ad8d8e4f75f7221132eef9c9e8ede561ad7ce41c",
+      "gen-2": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "incompatible": "3bdcb64113d537944b55c28d8a5e97f0654b9c26",
+      "tampered": "0aafd23b10f21b8085484e6630ad710a3fee337f",
+      "wrong-id": "acd96c2187aace3a2a7e15fd17949d1efae13cac"
+    },
+    "process": {
+      "pid": 4505,
+      "nonce": "11cb7ababe39f40c",
+      "state_dir": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.11cb7ababe39f40c",
+      "env": {
+        "HOME": "/Users/u",
+        "LANG": "en_US.UTF-8",
+        "LOGNAME": "dsbasko",
+        "PATH": "<скрыто>",
+        "SHELL": "/bin/zsh",
+        "SHELLIO_PROBE_BUNDLES": "/Users/u/Develop/dsbasko/shellio/target/probes/update-lifecycle/bundle",
+        "SHELLIO_PROBE_COMMIT": "94514132ba68",
+        "SHELLIO_PROBE_RUSTC": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "SHELLIO_PROBE_VERSION_HOMEBREW": "Homebrew 7.0.14-26-gb63354c",
+        "SHELLIO_STATE_DIR": "/private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.11cb7ababe39f40c",
+        "TMPDIR": "/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/",
+        "USER": "dsbasko",
+        "__CF_USER_TEXT_ENCODING": "0x1F5:0x7:0x31"
+      },
+      "env_extra": [
+        "__CF_USER_TEXT_ENCODING"
+      ]
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "cells": [
+    {
+      "id": "B1",
+      "part": "sequence",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "update поколением 2 при живой h1, затем activate",
+      "oracle": "история журнала попытки — ровно staged, intent, swapped, launched, committed, cleaning, idle с итогом «подтверждена»; staged и intent пишет GUI N, swapped и launched — помощник, committed, cleaning и idle — N+1",
+      "completion": "ответ владельца, барьер, выход процесса или готовность N+1 в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "попытка c446c213b4b5f040cb66076272eb2382: staged → intent → swapped → launched → committed → cleaning → idle — GUI N 4507, помощник 4546, N+1 4557",
+      "artifacts": [
+        "swap/steps.json",
+        "swap/helper-c446c213b4b5f040cb66076272eb2382",
+        "swap/owner-n.stdout"
+      ]
+    },
+    {
+      "id": "B1",
+      "part": "gui-exit-first",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "тот же проход",
+      "oracle": "GUI N вышел с кодом 0 и строкой updated; помощник записал событие выхода GUI N раньше взятия блокировки и обмена; при обмене GUI N не жив; первая мутация (обмен, запись swapped) позже выхода GUI N",
+      "completion": "ответ владельца, барьер, выход процесса или готовность N+1 в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "GUI N 4507 вышел (код 0, updated); помощник: выход GUI N 642205527608250 нс → блокировка 642205527708750 нс → обмен 642205592356625 нс, GUI N при обмене не жив",
+      "artifacts": [
+        "swap/steps.json",
+        "swap/helper-c446c213b4b5f040cb66076272eb2382",
+        "swap/owner-n.stdout"
+      ]
+    },
+    {
+      "id": "B1",
+      "part": "n-kept-until-commit",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "барьер N+1 перед rename записи committed",
+      "oracle": "на барьере: журнал launched этой попытки с ключом N+1, каталог попытки проходит codesign с CDHash поколения 1, установлен бандл с CDHash поколения 2; после: журнал idle «подтверждена», каталога попытки нет",
+      "completion": "ответ владельца, барьер, выход процесса или готовность N+1 в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "на барьере N+1 4557 перед committed: каталог попытки проходит codesign с CDHash ad8d8e4f, установлен 0aafd23b; после — каталога нет",
+      "artifacts": [
+        "swap/steps.json",
+        "swap/helper-c446c213b4b5f040cb66076272eb2382",
+        "swap/owner-n.stdout"
+      ]
+    },
+    {
+      "id": "B1",
+      "part": "health",
+      "requirement": "required",
+      "status": "pass",
+      "stimulus": "тот же проход",
+      "oracle": "N+1 готов, его отчёт подтверждения: правило health без нарушений — исполняемый файл установленного бандла, CDHash поколения 2, единственный владелец, ping поколения 2, h1 найдена с теми же процессами, версия 1, хвост без пропуска, квитанция; стенд видит h1 с прежними процессами и квитанцию health в её хвосте",
+      "completion": "ответ владельца, барьер, выход процесса или готовность N+1 в срок шага (30 с); иначе ошибка исполнения",
+      "reason": "N+1 4557 готов: health без нарушений, исполняемый файл /private/var/folders/rl/_mvmrgj56fggb_hgzjmx7fm40000gn/T/psu.11cb7ababe39f40c/install/probe-update.app/Contents/MacOS/probe-update-app, CDHash 0aafd23b, h1 версия 1 с квитанцией",
+      "artifacts": [
+        "swap/steps.json",
+        "swap/helper-c446c213b4b5f040cb66076272eb2382",
+        "swap/owner-n.stdout"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "notes": [
+      "срок health 60 с от intent, срок запуска N+1 20 с, срок шага стенда 30 с"
+    ]
+  }
+}
