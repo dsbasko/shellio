@@ -5,9 +5,11 @@
 //! байт. Адреса строк начинаются с 1, как в git и в якоре ADR-0015, и живут внутри файла.
 
 pub mod heights;
+pub mod layout;
 pub mod parse;
 pub mod rows;
 pub mod state;
+pub mod threads;
 pub mod wrap;
 
 use std::io;

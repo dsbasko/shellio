@@ -20,3 +20,11 @@ publish = false
 [workspace.lints.clippy]
 unwrap_used = "deny"
 expect_used = "deny"
+
+# Разбор tree-sitter в тестах пробы P0.6 идёт по 100 000 строк: C-код грамматики и библиотеки
+# в тестовом профиле собирается с оптимизацией, остальной код — как обычно.
+[profile.dev.package.tree-sitter]
+opt-level = 3
+
+[profile.dev.package.tree-sitter-rust]
+opt-level = 3
