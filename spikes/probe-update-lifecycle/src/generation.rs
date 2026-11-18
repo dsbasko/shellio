@@ -568,17 +568,23 @@ impl Layout {
     }
 }
 
-/// `foreign-identity.json`: сверка окружения подписи до и после временной идентичности.
+/// `foreign-identity.json`: сверка окружения подписи до создания временной идентичности, во
+/// время подписи (временная keychain ещё жива) и после её удаления. Снимок во время подписи
+/// нужен потому, что `security delete-keychain` убирает keychain и из списка поиска: сверка
+/// только до и после не увидела бы keychain, добавленную в список на время подписи.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ForeignIdentity {
     /// SHA-1 листа временной идентичности, строчными.
     pub leaf: String,
     pub requirement_sha256_before: String,
+    pub requirement_sha256_during: String,
     pub requirement_sha256_after: String,
     pub search_list_before: Vec<String>,
+    pub search_list_during: Vec<String>,
     pub search_list_after: Vec<String>,
     pub default_keychain_before: String,
+    pub default_keychain_during: String,
     pub default_keychain_after: String,
 }
 
@@ -587,17 +593,32 @@ impl ForeignIdentity {
         serde_json::from_str(text).map_err(|err| format!("{FOREIGN_FILE}: {err}"))
     }
 
-    /// Что изменилось; пусто — окружение подписи прежнее.
-    pub fn changes(&self) -> Vec<&'static str> {
+    /// Что изменилось во время подписи или после; пусто — окружение подписи прежнее.
+    pub fn changes(&self) -> Vec<String> {
         let mut changes = Vec::new();
-        if self.requirement_sha256_before != self.requirement_sha256_after {
-            changes.push("scripts/signing/requirement.txt");
-        }
-        if self.search_list_before != self.search_list_after {
-            changes.push("список поиска keychain");
-        }
-        if self.default_keychain_before != self.default_keychain_after {
-            changes.push("keychain по умолчанию");
+        for (when, requirement, list, default) in [
+            (
+                "во время подписи",
+                &self.requirement_sha256_during,
+                &self.search_list_during,
+                &self.default_keychain_during,
+            ),
+            (
+                "после удаления keychain",
+                &self.requirement_sha256_after,
+                &self.search_list_after,
+                &self.default_keychain_after,
+            ),
+        ] {
+            if requirement != &self.requirement_sha256_before {
+                changes.push(format!("scripts/signing/requirement.txt {when}"));
+            }
+            if list != &self.search_list_before {
+                changes.push(format!("список поиска keychain {when}"));
+            }
+            if default != &self.default_keychain_before {
+                changes.push(format!("keychain по умолчанию {when}"));
+            }
         }
         changes
     }
@@ -1336,10 +1357,13 @@ pub(crate) mod tests {
         ForeignIdentity {
             leaf: FOREIGN_LEAF.to_owned(),
             requirement_sha256_before: "a".repeat(64),
+            requirement_sha256_during: "a".repeat(64),
             requirement_sha256_after: "a".repeat(64),
             search_list_before: vec!["/k/login.keychain-db".to_owned()],
+            search_list_during: vec!["/k/login.keychain-db".to_owned()],
             search_list_after: vec!["/k/login.keychain-db".to_owned()],
             default_keychain_before: "/k/login.keychain-db".to_owned(),
+            default_keychain_during: "/k/login.keychain-db".to_owned(),
             default_keychain_after: "/k/login.keychain-db".to_owned(),
         }
     }
@@ -1350,13 +1374,23 @@ pub(crate) mod tests {
         assert!(same.changes().is_empty());
         let text = serde_json::to_string(&same).unwrap();
         assert_eq!(ForeignIdentity::parse(&text), Ok(same.clone()));
-        let mut changed = same;
+        let mut changed = same.clone();
         changed.requirement_sha256_after = "b".repeat(64);
         changed
             .search_list_after
             .push("/t/foreign.keychain-db".to_owned());
         changed.default_keychain_after = "/t/foreign.keychain-db".to_owned();
         assert_eq!(changed.changes().len(), 3);
+        // Keychain в списке поиска только на время подписи: delete-keychain убрал бы её и из
+        // списка, сверка до и после её не увидела бы.
+        let mut during = same;
+        during
+            .search_list_during
+            .push("/t/foreign.keychain-db".to_owned());
+        assert_eq!(
+            during.changes(),
+            ["список поиска keychain во время подписи"]
+        );
     }
 
     #[test]

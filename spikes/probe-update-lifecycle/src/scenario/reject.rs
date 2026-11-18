@@ -261,7 +261,7 @@ pub fn judge_foreign(
     Verdict::of(
         problems,
         format!(
-            "отказ по требованию, код 3: идентификатор {BUNDLE_ID}, Authority {SIGNER_CN}, лист {} вместо {leaf}; requirement.txt, список поиска ({} keychain) и keychain по умолчанию прежние",
+            "отказ по требованию, код 3: идентификатор {BUNDLE_ID}, Authority {SIGNER_CN}, лист {} вместо {leaf}; requirement.txt, список поиска ({} keychain) и keychain по умолчанию прежние во время подписи и после удаления временной keychain",
             identity.leaf,
             identity.search_list_after.len()
         ),
@@ -707,7 +707,7 @@ mod tests {
         // Изменённое окружение подписи роняет часть foreign.
         let mut changed = foreign_identity();
         changed
-            .search_list_after
+            .search_list_during
             .push("/t/foreign.keychain-db".to_owned());
         assert_eq!(judge_foreign(&facts, PINNED, &changed).status, Status::Fail);
         // Код 3 без причины целостности у tampered — не та проверка.

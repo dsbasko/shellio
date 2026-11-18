@@ -211,12 +211,14 @@ json_lines() {
 # Кандидат foreign: поколение 2 с теми же идентификаторами, подписанное временной идентичностью с
 # тем же CN Shellio Dev и другим сертификатом. Идентичность создаёт scripts/signing/create-identity.sh
 # во временной keychain с временными --requirement и --export вне репозитория; после подписи keychain
-# удаляется. До и после сверяются requirement.txt продукта, список поиска и keychain по умолчанию:
-# расхождение — ошибка исполнения. «foreign_bundle <каталог бандлов> <рабочий каталог> <SHA-1
+# удаляется. requirement.txt продукта, список поиска и keychain по умолчанию снимаются до создания,
+# во время подписи (временная keychain ещё жива: delete-keychain убрал бы её и из списка поиска) и
+# после удаления; расхождение с первым снимком — ошибка исполнения. «foreign_bundle <каталог бандлов> <рабочий каталог> <SHA-1
 # закреплённой идентичности>»; SHA-1 временной идентичности — в FOREIGN_SHA1.
 foreign_bundle() {
     local staging="$1" work="$2" pinned="$3" tmp keychain log kc_password p12_password sha1
-    local req_before list_before default_before req_after list_after default_after
+    local req_before list_before default_before req_during list_during default_during
+    local req_after list_after default_after
     req_before="$(file_sha256 "$REQUIREMENT")"
     list_before="$(keychain_search_list)"
     default_before="$(default_keychain)"
@@ -239,6 +241,9 @@ foreign_bundle() {
     [ "$sha1" != "$pinned" ] || die "временная идентичность совпала с закреплённой"
     require_identity "$sha1" "$keychain"
     assemble 2 "$BUNDLE_ID" probe-update-app "$staging/foreign/$APP_NAME" "$work" "$sha1" "$keychain"
+    req_during="$(file_sha256 "$REQUIREMENT")"
+    list_during="$(keychain_search_list)"
+    default_during="$(default_keychain)"
     security delete-keychain "$keychain" || die "временная keychain не удалена"
     rm -rf "$tmp"
     req_after="$(file_sha256 "$REQUIREMENT")"
@@ -248,16 +253,22 @@ foreign_bundle() {
         printf '{\n'
         printf '  "leaf": "%s",\n' "$(lower "$sha1")"
         printf '  "requirement_sha256_before": "%s",\n' "$req_before"
+        printf '  "requirement_sha256_during": "%s",\n' "$req_during"
         printf '  "requirement_sha256_after": "%s",\n' "$req_after"
         printf '  "search_list_before": %s,\n' "$(json_lines "$list_before")"
+        printf '  "search_list_during": %s,\n' "$(json_lines "$list_during")"
         printf '  "search_list_after": %s,\n' "$(json_lines "$list_after")"
         printf '  "default_keychain_before": %s,\n' "$(json_string "$default_before")"
+        printf '  "default_keychain_during": %s,\n' "$(json_string "$default_during")"
         printf '  "default_keychain_after": %s\n' "$(json_string "$default_after")"
         printf '}\n'
     } >"$staging/foreign-identity.json"
-    [ "$req_before" = "$req_after" ] || die "временная идентичность изменила $REQUIREMENT"
-    [ "$list_before" = "$list_after" ] || die "временная идентичность изменила список поиска keychain"
-    [ "$default_before" = "$default_after" ] || die "временная идентичность изменила keychain по умолчанию"
+    [ "$req_before" = "$req_during" ] && [ "$req_before" = "$req_after" ] ||
+        die "временная идентичность изменила $REQUIREMENT"
+    [ "$list_before" = "$list_during" ] && [ "$list_before" = "$list_after" ] ||
+        die "временная идентичность изменила список поиска keychain"
+    [ "$default_before" = "$default_during" ] && [ "$default_before" = "$default_after" ] ||
+        die "временная идентичность изменила keychain по умолчанию"
     FOREIGN_SHA1="$sha1"
 }
 
