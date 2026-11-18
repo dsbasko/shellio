@@ -203,6 +203,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "probe-update-lifecycle"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-foundation",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"

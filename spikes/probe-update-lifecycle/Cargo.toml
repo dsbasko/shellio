@@ -1,0 +1,63 @@
+[package]
+name = "probe-update-lifecycle"
+description = "Проба P0.5: жизненный цикл обновления, замена бандла, владение и рантаймы"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+# Каждый бинарь объявляется в задаче плана, где появляется его файл.
+autobins = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "probe-update"
+path = "src/bin/probe-update.rs"
+
+[dependencies]
+libc = "0.2.191"
+objc2 = "0.6.5"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "objc2-core-foundation",
+    "objc2-core-graphics",
+    "NSApplication",
+    "NSBitmapImageRep",
+    "NSBox",
+    "NSColor",
+    "NSColorSpace",
+    "NSEvent",
+    "NSGraphics",
+    "NSImageRep",
+    "NSResponder",
+    "NSRunningApplication",
+    "NSScreen",
+    "NSView",
+    "NSWindow",
+] }
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "CFArray",
+    "CFDictionary",
+    "CFNumber",
+    "CFString",
+] }
+objc2-core-graphics = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "CGWindow",
+] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "NSData",
+    "NSDate",
+    "NSGeometry",
+    "NSObjCRuntime",
+    "NSRunLoop",
+    "NSString",
+] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[lints]
+workspace = true

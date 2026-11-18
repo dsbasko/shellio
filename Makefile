@@ -21,13 +21,14 @@ TEST_BUNDLE := scripts/test-bundle.sh
 PROBE_APPKIT := spikes/probe-appkit-shell/run.sh
 PROBE_GHOSTTY := spikes/probe-ghostty-surface/run.sh
 PROBE_SESSION := spikes/probe-session-survival/run.sh
+PROBE_UPDATE := spikes/probe-update-lifecycle/run.sh
 
 # Цели, читающие vendor/ghostty/, выполняют весь рецепт под одной блокировкой набора: рецепт цели X
 # лежит во внутренней цели locked-X и запускается вложенным make. Вторая такая цель сразу получает отказ.
 LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run test-bundle \
 	probe-ghostty probe-ghostty-demo probe-session-surface
 
-.PHONY: setup test-scripts probe-appkit probe-appkit-demo probe-session $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
+.PHONY: setup test-scripts probe-appkit probe-appkit-demo probe-session probe-update $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
 
 # Под make -j цели одного вызова иначе столкнулись бы на собственной блокировке.
 .NOTPARALLEL:
@@ -129,3 +130,9 @@ probe-session:
 # surface идут здесь (ADR-0034, ADR-0035).
 locked-probe-session-surface:
 	CARGO=$(CARGO) $(PROBE_SESSION) surface $(SCENARIOS)
+
+# Проба P0.5 probe-update набор ghostty не читает и идёт без блокировки: run.sh собирает только её
+# пакет. Сценарий smoke проверяет разрешения Accessibility и Screen Recording терминала, из которого
+# идёт make (ADR-0034).
+probe-update:
+	CARGO=$(CARGO) $(PROBE_UPDATE) scenarios $(SCENARIOS)

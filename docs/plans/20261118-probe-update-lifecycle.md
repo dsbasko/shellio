@@ -605,16 +605,19 @@ N+1 подтверждается, только когда выполнено в�
 - Create: `spikes/probe-update-lifecycle/src/lib.rs`
 - Create: `spikes/probe-update-lifecycle/src/results.rs`
 - Create: `spikes/probe-update-lifecycle/src/bin/probe-update.rs`
+- ➕ Create: `spikes/probe-update-lifecycle/src/args.rs`, `src/launch.rs` (запуск и внешний сторож), `src/sys.rs` — копии из P0.4 с пометкой источника
+- ➕ Create: `spikes/probe-update-lifecycle/src/scenario/mod.rs`, `src/scenario/smoke.rs`
 - Modify: `Cargo.toml`
+- Modify: `Cargo.lock`
 - Modify: `Makefile`
 - Create: `docs/probes/p0.5-update-lifecycle.md`
 
-- [ ] crate пробы в workspace с `publish = false` и `[lints] workspace = true`; раннер с `--scenario`, `--out`, сторожем и агрегированием
-- [ ] цель `probe-update` в `Makefile` вне `LOCKED_TARGETS`
-- [ ] сценарий `smoke` проверяет разрешения терминала исполнителя: Accessibility (`AXIsProcessTrusted`) и Screen Recording (снимок собственного окна — не щит); без них — ошибка исполнения с понятным сообщением
-- [ ] каркас отчёта: окружение, команды, схема результатов, места для ожиданий
-- [ ] тесты модели результатов
-- [ ] `make check` и `make probe-update SCENARIOS="smoke"` проходят
+- [x] crate пробы в workspace с `publish = false` и `[lints] workspace = true`; раннер с `--scenario`, `--out`, сторожем и агрегированием
+- [x] цель `probe-update` в `Makefile` вне `LOCKED_TARGETS`
+- [x] сценарий `smoke` проверяет разрешения терминала исполнителя: Accessibility (`AXIsProcessTrusted`) и Screen Recording (снимок собственного окна — не щит); без них — ошибка исполнения с понятным сообщением. Снимков два: `screencapture -l` (окно, оракул разрешения) и `screencapture -R` (экран в прямоугольнике окна, оракул «не щит»)
+- [x] каркас отчёта: окружение, команды, схема результатов, места для ожиданий
+- [x] тесты модели результатов
+- [x] `make check` и `make probe-update SCENARIOS="smoke"` проходят
 
 ### Task 3: Минимальный хост, attach и фикстура
 
