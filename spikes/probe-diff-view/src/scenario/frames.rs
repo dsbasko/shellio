@@ -438,6 +438,131 @@ pub fn confirm_rate(vsyncs: &[Vsync], display: &str, expected_period_ns: u64) ->
     }
 }
 
+/// Строка `xctrace record`, после которой запись идёт.
+pub const RECORDING_STARTED: &str = "Ctrl-C to stop the recording";
+
+/// Таблицы выгрузки, нужные калибровке и кадрам.
+pub const TABLES: [&str; 3] = [
+    "display-vsyncs-interval",
+    "displayed-surfaces-interval",
+    "time-info",
+];
+
+/// Идущая запись `xctrace record`. Останавливается `SIGINT`, как Ctrl-C, и ждёт сохранения
+/// трассы: у Xcode 27 сохранение записи на 2 с длится около 30 с.
+pub struct Recorder {
+    child: std::process::Child,
+    output: std::path::PathBuf,
+    log: std::thread::JoinHandle<Vec<String>>,
+}
+
+/// Команда записи шаблона Animation Hitches с присоединением к процессу `pid`.
+pub fn record_command(pid: u32, output: &std::path::Path) -> std::process::Command {
+    let mut command = std::process::Command::new("xcrun");
+    command
+        .args([
+            "xctrace",
+            "record",
+            "--template",
+            "Animation Hitches",
+            "--attach",
+        ])
+        .arg(pid.to_string())
+        .arg("--output")
+        .arg(output)
+        .arg("--no-prompt");
+    command
+}
+
+impl Recorder {
+    /// Запускает команду записи и блокирует вызывающий поток до строки [`RECORDING_STARTED`].
+    /// Вызывается не с главного потока.
+    pub fn start(
+        mut command: std::process::Command,
+        output: std::path::PathBuf,
+    ) -> Result<Recorder, String> {
+        use std::io::BufRead;
+        let mut child = command
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::inherit())
+            .spawn()
+            .map_err(|error| format!("xctrace record: {error}"))?;
+        let stdout = child.stdout.take().ok_or("xctrace record без stdout")?;
+        let (started, wait) = std::sync::mpsc::channel();
+        let log = std::thread::spawn(move || {
+            let mut lines = Vec::new();
+            let mut started = Some(started);
+            for line in std::io::BufReader::new(stdout)
+                .lines()
+                .map_while(Result::ok)
+            {
+                if line.contains(RECORDING_STARTED)
+                    && let Some(started) = started.take()
+                {
+                    let _ = started.send(());
+                }
+                lines.push(line);
+            }
+            lines
+        });
+        if wait.recv().is_err() {
+            let _ = child.wait();
+            let lines = log.join().unwrap_or_default();
+            return Err(format!(
+                "xctrace record не начал запись: {}",
+                lines.join(" | ")
+            ));
+        }
+        Ok(Recorder { child, output, log })
+    }
+
+    /// Останавливает запись и ждёт сохранения трассы. Возвращает журнал `xctrace`.
+    pub fn stop(mut self) -> Result<Vec<String>, String> {
+        // SAFETY: `kill` посылает сигнал дочернему процессу по его pid, память не затрагивается.
+        if unsafe { libc::kill(self.child.id() as libc::pid_t, libc::SIGINT) } != 0 {
+            return Err(format!(
+                "SIGINT xctrace: {}",
+                std::io::Error::last_os_error()
+            ));
+        }
+        drop(self.child.stdin.take());
+        let status = self
+            .child
+            .wait()
+            .map_err(|error| format!("ожидание xctrace: {error}"))?;
+        let lines = self.log.join().map_err(|_| "поток журнала xctrace упал")?;
+        if !status.success() {
+            return Err(format!("xctrace record: {status}, {}", lines.join(" | ")));
+        }
+        if !self.output.exists() {
+            return Err(format!("трасса {} не записана", self.output.display()));
+        }
+        Ok(lines)
+    }
+}
+
+/// Выгружает таблицу схемы `schema` первого прогона трассы.
+pub fn export_table(trace: &std::path::Path, schema: &str) -> Result<String, String> {
+    let output = std::process::Command::new("xcrun")
+        .args(["xctrace", "export", "--input"])
+        .arg(trace)
+        .arg("--xpath")
+        .arg(format!(
+            "/trace-toc/run[@number=\"1\"]/data/table[@schema=\"{schema}\"]"
+        ))
+        .output()
+        .map_err(|error| format!("xctrace export: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "xctrace export {schema}: {}, {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    String::from_utf8(output.stdout).map_err(|_| format!("выгрузка {schema} не UTF-8"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -543,5 +668,31 @@ mod tests {
         let clock = Clock::from_table(&parse_table(&read("xctrace-attach-time-info.xml")).unwrap())
             .unwrap();
         assert_eq!((clock.numer, clock.denom), (125, 3));
+    }
+    #[test]
+    fn recorder_waits_for_start_and_stops_on_sigint() {
+        let dir = std::env::temp_dir().join(format!("probe-diff-recorder-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let output = dir.join("fake.trace");
+        let mut command = std::process::Command::new("/bin/sh");
+        command.arg("-c").arg(format!(
+            "trap 'touch {out}; exit 0' INT; echo 'Starting'; echo '{RECORDING_STARTED}'; read line; read line",
+            out = output.display()
+        ));
+        let recorder = Recorder::start(command, output.clone()).unwrap();
+        let lines = recorder.stop().unwrap();
+        assert_eq!(
+            lines,
+            vec!["Starting".to_string(), RECORDING_STARTED.to_string()]
+        );
+        assert!(output.exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+
+        let mut silent = std::process::Command::new("/bin/sh");
+        silent.arg("-c").arg("echo 'no permission'; exit 1");
+        let error = Recorder::start(silent, dir.join("none.trace"))
+            .err()
+            .unwrap();
+        assert!(error.contains("no permission"), "{error}");
     }
 }
