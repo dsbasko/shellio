@@ -162,7 +162,8 @@ impl RealFixture {
         hash.finish()
     }
 
-    /// Фикстура вида с активным файлом `index`: стороны этого файла, тредов нет.
+    /// Фикстура вида с активным файлом `index`: стороны этого файла и всех файлов diff для
+    /// перехода между ними, тредов нет.
     pub fn fixture(&self, index: usize) -> Option<Fixture> {
         let file = self.files.get(index)?;
         Some(Fixture {
@@ -172,6 +173,7 @@ impl RealFixture {
             old: Arc::clone(&file.old),
             new: Arc::clone(&file.new),
             threads: Vec::new(),
+            files: self.files.clone(),
         })
     }
 
@@ -259,6 +261,7 @@ mod tests {
         let fixture = real.fixture(1).unwrap();
         assert_eq!(fixture.path, "src/b.rs");
         assert_eq!(&*fixture.new, b"new b");
+        assert_eq!(fixture.files, real.files);
         assert!(real.fixture(2).is_none());
         assert_eq!(real.bytes(), 4 + 5 + 5 + 5);
         let mut changed = real.clone();

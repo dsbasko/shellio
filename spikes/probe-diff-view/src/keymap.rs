@@ -13,6 +13,10 @@ pub enum Action {
     Open,
     /// `c`: черновик комментария на выделении или строке курсора.
     Draft,
+    /// `]f`: следующий файл diff в том же виде, без перехода по кругу.
+    NextFile,
+    /// `[f`: предыдущий файл diff.
+    PrevFile,
 }
 
 /// Клавиша: `charactersIgnoringModifiers` и модификаторы.
@@ -80,6 +84,8 @@ impl Decoder {
             (Some(Prefix::LeftBracket), "c") => {
                 return Some(Action::Command(Command::PrevChange));
             }
+            (Some(Prefix::RightBracket), "f") => return Some(Action::NextFile),
+            (Some(Prefix::LeftBracket), "f") => return Some(Action::PrevFile),
             _ => {}
         }
         match chars {
@@ -164,6 +170,16 @@ mod tests {
             feed(&mut decoder, &[KeyInput::plain("["), KeyInput::plain("c")]),
             vec![None, Some(Action::Command(Command::PrevChange))]
         );
+        assert_eq!(
+            feed(&mut decoder, &[KeyInput::plain("]"), KeyInput::plain("f")]),
+            vec![None, Some(Action::NextFile)]
+        );
+        assert_eq!(
+            feed(&mut decoder, &[KeyInput::plain("["), KeyInput::plain("f")]),
+            vec![None, Some(Action::PrevFile)]
+        );
+        // `f` без префикса не команда.
+        assert_eq!(decoder.feed(&KeyInput::plain("f")), None);
         assert!(!decoder.is_pending());
     }
 

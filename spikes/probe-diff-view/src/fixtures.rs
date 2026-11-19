@@ -20,6 +20,7 @@ use std::sync::Arc;
 use crate::model::state::ThreadId;
 use crate::model::threads::{Comment, Thread, ThreadAnchor};
 use crate::model::{LineAddr, Side};
+use crate::real::RealFile;
 
 /// Строк контекста ханка.
 pub const CONTEXT: usize = 3;
@@ -102,6 +103,9 @@ pub struct Fixture {
     pub old: Arc<[u8]>,
     pub new: Arc<[u8]>,
     pub threads: Vec<Thread>,
+    /// Стороны всех файлов многофайлового diff в порядке diff (`real`): по ним вид переходит
+    /// между файлами. Пусто — diff из одного файла со сторонами `old` и `new`.
+    pub files: Vec<RealFile>,
 }
 
 impl Fixture {
@@ -127,6 +131,12 @@ impl Fixture {
                 hash.write(&[0]);
                 hash.write(comment.body.as_bytes());
                 hash.write(&[0]);
+            }
+        }
+        for file in &self.files {
+            for part in [file.path.as_bytes(), &file.old, &file.new] {
+                hash.write(&(part.len() as u64).to_le_bytes());
+                hash.write(part);
             }
         }
         hash.finish()
@@ -170,6 +180,7 @@ pub fn generate(name: FixtureName) -> Fixture {
         old: Arc::from(old.text),
         new: Arc::from(new.text),
         threads,
+        files: Vec::new(),
     }
 }
 

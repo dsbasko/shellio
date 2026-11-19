@@ -807,6 +807,8 @@ impl Scene {
         let generation = {
             let mut model = self.model.borrow_mut();
             model.diff = None;
+            // Стороны фикстуры — первого файла diff.
+            model.file = 0;
             model.geometry = None;
             model.metrics = None;
             model.heights = None;
@@ -842,6 +844,121 @@ impl Scene {
         self.changed(generation, None);
         if let Some(surface) = self.surface() {
             surface.reload(0.0);
+        }
+    }
+
+    /// `]f` и `[f`: соседний файл открытого diff, без перехода по кругу.
+    fn step_file(&self, forward: bool) {
+        let target = {
+            let model = self.model.borrow();
+            let Some(diff) = model.diff.as_ref() else {
+                return;
+            };
+            if forward {
+                diff.diff.next_file(model.file)
+            } else {
+                diff.diff.prev_file(model.file)
+            }
+        };
+        if let Some(file) = target {
+            self.switch_file(file);
+        }
+    }
+
+    /// Переход к файлу `file` открытого diff в том же виде. Разбор не повторяется: стороны файла
+    /// уходят в подсветку, индекс высот строится заново. Треды и раскрытые треды остаются, их
+    /// якорь содержит путь; черновик, выделение и возвраты сбрасываются.
+    pub fn switch_file(&self, file: usize) {
+        let now = now_ns();
+        let switched = {
+            let mut model = self.model.borrow_mut();
+            match model.diff.clone() {
+                None => Err("переход к файлу до разбора diff".to_owned()),
+                Some(diff) => match diff.diff.file(file) {
+                    None => Err(format!("в diff нет файла {file}")),
+                    Some(entry) => match self.sides_of(file, entry.path()) {
+                        Err(reason) => Err(reason),
+                        Ok(sides) => {
+                            let _ = model.threads.cancel_draft();
+                            model.file = file;
+                            model.geometry = None;
+                            model.metrics = None;
+                            model.heights = None;
+                            model.pending = None;
+                            model.state = model
+                                .state
+                                .take()
+                                .map(|state| state.to_file(&diff.diff, file));
+                            model.last_visible = None;
+                            model.layout = ThreadLayout::default();
+                            model.generation += 1;
+                            Ok((model.generation, sides))
+                        }
+                    },
+                },
+            }
+        };
+        let (generation, sides) = match switched {
+            Ok(switched) => switched,
+            Err(reason) => {
+                self.fail(reason);
+                return;
+            }
+        };
+        self.heights.cancel();
+        self.hide_draft();
+        *self.timeline.borrow_mut() = Timeline {
+            open_ns: Some(now),
+            parsed_ns: Some(now),
+            ..Timeline::default()
+        };
+        if let Some(kept) = self.kept.borrow_mut().as_mut() {
+            kept.clear();
+        }
+        match self.highlight.open(sides, Sides::default()) {
+            Ok((document, _)) => self.model.borrow_mut().styles.reset(document),
+            Err(stopped) => self.fail(format!("подсветка не принята: {stopped:?}")),
+        }
+        self.changed(generation, None);
+        if let Some(surface) = self.surface() {
+            surface.reload(0.0);
+        }
+        let visible = self.viewport();
+        let target = {
+            let model = self.model.borrow();
+            model
+                .diff
+                .as_ref()
+                .and_then(|diff| diff.diff.file(model.file))
+                .and_then(|file| file.text())
+                .map(|body| Target::of(body, model.font, model.requested, visible, model.zone))
+        };
+        match target {
+            Some(Some(target)) => self.relayout_to(target),
+            Some(None) => self.fail(format!(
+                "часть зоны {} × {} ниже min_size",
+                visible.width, visible.height
+            )),
+            None => self.fail(format!("у файла {file} нет текста")),
+        }
+    }
+
+    /// Стороны файла `file` фикстуры. Путь сверяется с путём файла в разобранном diff.
+    fn sides_of(&self, file: usize, path: &str) -> Result<Sides<Arc<[u8]>>, String> {
+        match self.fixture.files.get(file) {
+            Some(sides) if sides.path == path => Ok(Sides {
+                old: Arc::clone(&sides.old),
+                new: Arc::clone(&sides.new),
+            }),
+            Some(sides) => Err(format!(
+                "файл {file} фикстуры — {}, а в diff — {path}",
+                sides.path
+            )),
+            None if file == 0 && self.fixture.files.is_empty() => Ok(Sides {
+                old: Arc::clone(&self.fixture.old),
+                new: Arc::clone(&self.fixture.new),
+            }),
+            None => Err(format!("у фикстуры нет сторон файла {file} ({path})")),
         }
     }
 
@@ -1456,6 +1573,14 @@ impl Scene {
             }
             Some(Action::Draft) => {
                 self.open_draft();
+                true
+            }
+            Some(Action::NextFile) => {
+                self.step_file(true);
+                true
+            }
+            Some(Action::PrevFile) => {
+                self.step_file(false);
                 true
             }
             None => self.decoder.borrow().is_pending(),

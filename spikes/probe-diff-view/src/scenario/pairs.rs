@@ -259,6 +259,7 @@ pub fn pair31() -> Fixture {
         old: Arc::from(old.into_bytes()),
         new: Arc::from(new.into_bytes()),
         threads: Vec::new(),
+        files: Vec::new(),
     }
 }
 

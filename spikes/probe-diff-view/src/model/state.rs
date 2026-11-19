@@ -317,6 +317,12 @@ impl ViewState {
         }
     }
 
+    /// Файл `file` по его номеру в diff, по тем же правилам, что [`ViewState::next_file`]:
+    /// вид сверху, раскрытые треды остаются, выделение и возвраты сбрасываются.
+    pub fn to_file(self, diff: &Diff, file: usize) -> Self {
+        self.switch_file(diff, file)
+    }
+
     fn switch_file(self, diff: &Diff, file: usize) -> Self {
         ViewState {
             expanded: self.expanded,
@@ -1059,7 +1065,13 @@ mod tests {
         assert_eq!(last.anchor().unwrap().addr, LineAddr::old(5));
         assert_eq!(last.cursor().unwrap().addr, LineAddr::old(5));
         assert_eq!(last.clone().next_file(&diff), last);
-        assert_eq!(last.prev_file(&diff).prev_file(&diff).file(), 0);
+        assert_eq!(last.clone().prev_file(&diff).prev_file(&diff).file(), 0);
+
+        let jumped = last.to_file(&diff, 0);
+        assert_eq!(
+            jumped,
+            ViewState::open(&diff, 0, Mode::Unified).toggle_thread(ThreadId(7))
+        );
     }
 
     /// Ханки размеров `sizes`: `size` строк контекста и пара удаления и вставки. Строк unified у

@@ -313,6 +313,7 @@ impl Key {
     pub const V: Key = Key::plain("v", 9);
     pub const C: Key = Key::plain("c", 8);
     pub const G: Key = Key::plain("g", 5);
+    pub const F: Key = Key::plain("f", 3);
     pub const RIGHT_BRACKET: Key = Key::plain("]", 30);
     pub const LEFT_BRACKET: Key = Key::plain("[", 33);
     /// `charactersIgnoringModifiers` сохраняет Shift, поэтому у `G` обе строки заглавные.
@@ -390,6 +391,8 @@ pub fn sequence(name: &str) -> Option<&'static [Key]> {
     const GG: [Key; 2] = [Key::G, Key::G];
     const NEXT_CHANGE: [Key; 2] = [Key::RIGHT_BRACKET, Key::C];
     const PREVIOUS_CHANGE: [Key; 2] = [Key::LEFT_BRACKET, Key::C];
+    const NEXT_FILE: [Key; 2] = [Key::RIGHT_BRACKET, Key::F];
+    const PREVIOUS_FILE: [Key; 2] = [Key::LEFT_BRACKET, Key::F];
     Some(match name {
         "j" => &[Key::J],
         "k" => &[Key::K],
@@ -399,6 +402,8 @@ pub fn sequence(name: &str) -> Option<&'static [Key]> {
         "gg" => &GG,
         "]c" => &NEXT_CHANGE,
         "[c" => &PREVIOUS_CHANGE,
+        "]f" => &NEXT_FILE,
+        "[f" => &PREVIOUS_FILE,
         "Ctrl-d" => &[Key::CTRL_D],
         "Ctrl-u" => &[Key::CTRL_U],
         "Ctrl-o" => &[Key::CTRL_O],
@@ -1428,6 +1433,8 @@ mod tests {
         assert_eq!(codes("gg"), Some(vec![5, 5]));
         assert_eq!(codes("]c"), Some(vec![30, 8]));
         assert_eq!(codes("[c"), Some(vec![33, 8]));
+        assert_eq!(codes("]f"), Some(vec![30, 3]));
+        assert_eq!(codes("[f"), Some(vec![33, 3]));
         assert_eq!(sequence("G"), Some(&[Key::SHIFT_G][..]));
         assert_eq!(sequence("Ctrl-d"), Some(&[Key::CTRL_D][..]));
         assert_eq!(sequence("Cmd-Enter"), Some(&[Key::CMD_RETURN][..]));
@@ -1438,7 +1445,8 @@ mod tests {
         assert!(Key::CTRL_O.flags.contains(NSEventModifierFlags::Control));
         assert!(!Key::OPEN.flags.contains(NSEventModifierFlags::Control));
         for name in [
-            "j", "k", "v", "c", "G", "gg", "]c", "[c", "Ctrl-d", "Ctrl-u", "Ctrl-o", "Escape",
+            "j", "k", "v", "c", "G", "gg", "]c", "[c", "]f", "[f", "Ctrl-d", "Ctrl-u", "Ctrl-o",
+            "Escape",
         ] {
             let keys = sequence(name).unwrap_or_default();
             assert!(!keys.is_empty(), "{name}");
