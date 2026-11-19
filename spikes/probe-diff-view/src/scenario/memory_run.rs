@@ -335,7 +335,8 @@ impl MemoryRun {
                 Err(reason) => return Some(Err(self.fail(reason))),
             }
         }
-        if let Some(stage) = self.stage.borrow().clone()
+        let stage = self.stage.borrow().clone();
+        if let Some(stage) = stage
             && let Err(reason) = super::frames_run::stage_errors(&stage)
         {
             return Some(Err(self.fail(reason)));

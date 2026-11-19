@@ -238,7 +238,8 @@ impl KeysRun {
     }
 
     pub fn poll(&self) -> Option<Result<Report, Failed>> {
-        if let Some(stage) = self.stage.borrow().clone()
+        let stage = self.stage.borrow().clone();
+        if let Some(stage) = stage
             && let Err(reason) = super::frames_run::stage_errors(&stage)
         {
             return Some(Err(self.fail(reason)));
