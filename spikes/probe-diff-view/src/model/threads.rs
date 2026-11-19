@@ -757,6 +757,16 @@ mod tests {
             .map(|line| &line.text[line.segment.clone()])
             .collect();
         assert_eq!(tail, [&long[..20], &long[20..40], &long[40..]]);
+        // Пустая строка и пустой текст — по визуальной строке, как в высоте блока.
+        let blank = thread(
+            1,
+            ThreadAnchor::at("f.rs", LineAddr::new(1)),
+            &["a\n\nb", ""],
+        );
+        assert_eq!(
+            metrics.thread_lines(&blank, true).len() as u32 * LINE,
+            metrics.thread_height(&blank, true)
+        );
         let collapsed = BlockMetrics {
             collapsed_lines: 2,
             ..metrics

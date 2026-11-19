@@ -57,9 +57,9 @@ const SMOKE_TIMEOUT: Duration = Duration::from_secs(10);
 /// Срок сторожа `smoke` из отчёта, раздел «Сроки и размеры»: окно, два ожидания отметки по 2 с и
 /// снимок до 10 с.
 const SMOKE_DEADLINE: Duration = Duration::from_secs(60);
-/// Срок сторожа `open-smoke` из отчёта, раздел «Сроки и размеры»: окно, генерация фикстуры,
-/// открытие до 5 с и три шага по 2 с.
-const OPEN_SMOKE_DEADLINE: Duration = Duration::from_secs(60);
+/// Срок сторожа `open-smoke` из отчёта, раздел «Сроки и размеры»: окно, генерация фикстуры и
+/// сроки всех шагов вместе.
+const OPEN_SMOKE_DEADLINE: Duration = Duration::from_secs(90);
 /// Частота встроенного дисплея, которую подтверждает `calibrate` (предусловие плана).
 const REQUIRED_FPS: isize = 120;
 /// Срок сторожа `calibrate` из отчёта, раздел «Сроки и размеры»: четыре записи по 5 с, у каждой

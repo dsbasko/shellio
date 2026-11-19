@@ -161,8 +161,19 @@ enum ThreadCheck {
         row: u32,
         anchor: Option<Anchor>,
     },
-    /// `c` без выделения: черновик на строке курсора в том же поле.
-    Reopened { at: LineAddr },
+    /// `c` без выделения: черновик на строке курсора в том же поле. `thread` — тред и его строка
+    /// для смены ширины.
+    Reopened {
+        at: LineAddr,
+        thread: (ThreadId, u32),
+    },
+    /// Смена ширины при свёрнутом треде и открытом черновике: установлен индекс новой ширины,
+    /// блок треда в нём той же высоты, поле над блоком черновика, якорь прежний.
+    Resized {
+        from_width: f64,
+        thread: (ThreadId, u32),
+        anchor: Option<Anchor>,
+    },
     /// `Escape` в поле: черновика нет, тредов прежнее число, фокус у документа.
     Cancelled { threads: usize },
 }
@@ -170,7 +181,7 @@ enum ThreadCheck {
 /// Текст черновика, набранный клавишами стенда.
 const DRAFT_TEXT: &str = "jk";
 /// Шагов тредов и черновика.
-const THREAD_STEPS: usize = 6;
+const THREAD_STEPS: usize = 8;
 
 /// Условие шага выделения.
 #[derive(Clone, Copy, Debug)]
@@ -745,8 +756,7 @@ impl OpenSmoke {
                     });
                 }
                 Err(format!(
-                    "шаг черновика {name} не выполнен за {} мс: ожидалось {check:?}; {detail}; покрыты {}, sendEvent вернулся {}",
-                    STEP_DEADLINE.as_millis(),
+                    "шаг черновика {name} не выполнен в срок: ожидалось {check:?}; {detail}; покрыты {}, sendEvent вернулся {}",
                     self.covered_now(),
                     returned(&posted)
                 ))
@@ -766,6 +776,22 @@ impl OpenSmoke {
             }
             _ => false,
         }
+    }
+
+    /// Блоки строки `row` в установленном индексе равны блокам раскладки, свёрнутый тред `id`
+    /// среди них своей высоты. Черновик на последней строке якоря треда стоит в той же строке.
+    fn blocks_installed(&self, id: ThreadId, row: u32) -> bool {
+        let frames = self.scene.block_frames(row);
+        let sum: f64 = frames.iter().map(|frame| frame.height).sum();
+        let thread = frames.iter().find(|frame| {
+            frame.entry.item == probe_diff_view::model::threads::BlockItem::Thread(id)
+        });
+        self.scene
+            .block_height(row)
+            .is_some_and(|height| f64::from(height) == sum)
+            && thread.is_some_and(|frame| {
+                self.scene.thread_height(id, false) == Some(frame.height as u32)
+            })
     }
 
     /// Выполнено ли условие шага тредов и черновика, и что видно сейчас.
@@ -825,7 +851,21 @@ impl OpenSmoke {
                     && self.scene.block_height(*row) == self.scene.thread_height(*id, false)
                     && self.scene.anchor() == *anchor
             }
-            ThreadCheck::Reopened { at } => draft.as_ref().is_some_and(|draft| {
+            ThreadCheck::Resized {
+                from_width,
+                thread: (id, row),
+                anchor,
+            } => {
+                self.scene
+                    .geometry()
+                    .is_some_and(|geometry| (geometry.width() - from_width).abs() >= 0.5)
+                    && !self.scene.relayout_pending()
+                    && self.blocks_installed(*id, *row)
+                    && draft.is_some()
+                    && self.field_over_draft()
+                    && self.scene.anchor() == *anchor
+            }
+            ThreadCheck::Reopened { at, .. } => draft.as_ref().is_some_and(|draft| {
                 draft.anchor.side == at.side
                     && draft.anchor.start_line == at.line
                     && draft.anchor.line == at.line
@@ -851,13 +891,52 @@ impl OpenSmoke {
         posted: Vec<u64>,
         posted_ns: u64,
     ) -> Step {
+        let deadline = match check {
+            ThreadCheck::Resized { .. } => OPEN_DEADLINE,
+            _ => STEP_DEADLINE,
+        };
         Step::Thread {
             name,
             check,
             posted,
             posted_ns,
-            deadline: Instant::now() + STEP_DEADLINE,
+            deadline: Instant::now() + deadline,
         }
+    }
+
+    /// Смена ширины окна на [`RESIZE_DELTA`] при открытом черновике и свёрнутом треде.
+    fn resize_with_blocks(
+        &self,
+        name: &'static str,
+        narrow: bool,
+        thread: (ThreadId, u32),
+    ) -> Result<Step, String> {
+        let from = self
+            .scene
+            .geometry()
+            .ok_or_else(|| format!("нет геометрии до {name}"))?;
+        let anchor = self.scene.anchor();
+        let frame = self.window.frame();
+        let width = if narrow {
+            frame.size.width - RESIZE_DELTA
+        } else {
+            frame.size.width + RESIZE_DELTA
+        };
+        let posted_ns = now_ns();
+        self.window.setFrame_display(
+            NSRect::new(frame.origin, NSSize::new(width, frame.size.height)),
+            true,
+        );
+        Ok(self.thread_step(
+            name,
+            ThreadCheck::Resized {
+                from_width: from.width(),
+                thread,
+                anchor,
+            },
+            Vec::new(),
+            posted_ns,
+        ))
     }
 
     /// `v j c` от курсора: черновик на диапазоне из двух строк.
@@ -959,7 +1038,7 @@ impl OpenSmoke {
                     posted_ns,
                 ))
             }
-            ("thread_toggle", _) => {
+            ("thread_toggle", ThreadCheck::Toggled { id, row, .. }) => {
                 let at = self
                     .scene
                     .cursor()
@@ -968,12 +1047,21 @@ impl OpenSmoke {
                 let posted = events::press(Key::C)?;
                 Ok(self.thread_step(
                     "draft_reopen",
-                    ThreadCheck::Reopened { at },
+                    ThreadCheck::Reopened {
+                        at,
+                        thread: (*id, *row),
+                    },
                     posted,
                     posted_ns,
                 ))
             }
-            ("draft_reopen", _) => {
+            ("draft_reopen", ThreadCheck::Reopened { thread, .. }) => {
+                self.resize_with_blocks("blocks_narrow", true, *thread)
+            }
+            ("blocks_narrow", ThreadCheck::Resized { thread, .. }) => {
+                self.resize_with_blocks("blocks_restore", false, *thread)
+            }
+            ("blocks_restore", _) => {
                 let posted_ns = now_ns();
                 let posted = events::press(Key::ESCAPE)?;
                 Ok(self.thread_step(

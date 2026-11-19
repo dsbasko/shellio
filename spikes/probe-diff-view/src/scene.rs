@@ -1227,7 +1227,8 @@ impl Scene {
             let Some(hit) = shown.heights.row_at((y.max(0.0) as u64).min(last)) else {
                 return;
             };
-            if hit.in_block {
+            // Протяжка и `Shift`-щелчок по блоку продолжают выделение, тред не переключают.
+            if hit.in_block && !extend {
                 let item = model
                     .place()
                     .and_then(|place| place.frame_at(hit.row, y))
