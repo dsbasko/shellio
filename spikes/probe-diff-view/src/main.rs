@@ -65,6 +65,11 @@ const OPEN_SMOKE_DEADLINE: Duration = Duration::from_secs(90);
 /// Срок сторожа `ax` из отчёта, раздел «Сроки и размеры»: окно, генерация фикстуры, готовность
 /// клиента, открытие, четыре шага и пять снимков.
 const AX_DEADLINE: Duration = Duration::from_secs(150);
+/// Срок сторожа `open` из отчёта, раздел «Сроки и размеры»: окно до 10 с, загрузка до 30 с,
+/// готовность до 10 с, открытие до 30 с.
+const OPEN_DEADLINE: Duration = Duration::from_secs(120);
+/// Срок сторожа `open-warm`: окно, загрузка и готовность, как у `open`, и 20 открытий до 30 с.
+const OPEN_WARM_DEADLINE: Duration = Duration::from_secs(11 * 60);
 /// Частота встроенного дисплея, которую подтверждает `calibrate` (предусловие плана).
 const REQUIRED_FPS: isize = 120;
 /// Срок сторожа `calibrate` из отчёта, раздел «Сроки и размеры»: четыре записи по 5 с, у каждой
@@ -95,7 +100,7 @@ fn main() -> ExitCode {
         Command::Reference { dir } => reference(&dir),
         Command::Neighbor => neighbor(),
         Command::AxClient { pid } => ax_client(pid),
-        Command::Demo(view) => match run_app(None, view, None, Default::default()) {
+        Command::Demo(view) => match run_app(None, view, None, None, Default::default()) {
             None => ExitCode::SUCCESS,
             Some(outcome) => print_outcome(&outcome),
         },
@@ -279,6 +284,8 @@ fn run_scenario(
         Scenario::Smoke => Some(("smoke", SMOKE_DEADLINE)),
         Scenario::OpenSmoke => Some(("open-smoke", OPEN_SMOKE_DEADLINE)),
         Scenario::Ax => Some(("ax", AX_DEADLINE)),
+        Scenario::Open => Some(("open", OPEN_DEADLINE)),
+        Scenario::OpenWarm => Some(("open-warm", OPEN_WARM_DEADLINE)),
         Scenario::Highlight => None,
     };
     let _watchdog = match deadline {
@@ -298,7 +305,7 @@ fn run_scenario(
     };
     let mut outcome = match scenario {
         Scenario::Smoke | Scenario::Calibrate | Scenario::OpenSmoke | Scenario::Ax => {
-            run_app(Some(scenario), view, Some(out.clone()), trace).unwrap_or_else(|| {
+            run_app(Some(scenario), view, Some(out.clone()), None, trace).unwrap_or_else(|| {
                 Outcome::error(
                     "основной цикл завершился без итога сценария",
                     None,
@@ -307,6 +314,31 @@ fn run_scenario(
             })
         }
         Scenario::Highlight => run_headless(fixtures),
+        Scenario::Open | Scenario::OpenWarm => {
+            match fixtures.and_then(|dir| scenario::open::not_run_reason(view, dir)) {
+                Some(reason) => {
+                    let mut outcome = Outcome::ok(scenario::open::not_run_report(&reason));
+                    if let Some(mtm) = MainThreadMarker::new() {
+                        outcome.report.displays = display_infos(mtm);
+                    }
+                    outcome
+                }
+                None => run_app(
+                    Some(scenario),
+                    view,
+                    Some(out.clone()),
+                    fixtures.map(Path::to_path_buf),
+                    trace,
+                )
+                .unwrap_or_else(|| {
+                    Outcome::error(
+                        "основной цикл завершился без итога сценария",
+                        None,
+                        Report::default(),
+                    )
+                }),
+            }
+        }
     };
     if outcome.execution.is_ok() {
         match grammar {
@@ -339,6 +371,7 @@ fn run_scenario(
         scenario.name(),
         view.variant,
         view.mode,
+        view.fixture,
         environment,
         outcome.execution,
         outcome.report,
@@ -412,6 +445,7 @@ fn run_app(
     scenario: Option<Scenario>,
     view: ViewOptions,
     out: Option<PathBuf>,
+    fixtures: Option<PathBuf>,
     trace: scenario::watchdog::SharedTrace,
 ) -> Option<Outcome> {
     let Some(mtm) = MainThreadMarker::new() else {
@@ -442,7 +476,7 @@ fn run_app(
     app.setMainMenu(Some(&main_menu(mtm)));
 
     let slot = Rc::new(RefCell::new(None));
-    let delegate = AppDelegate::new(mtm, scenario, view, out, trace, Rc::clone(&slot));
+    let delegate = AppDelegate::new(mtm, scenario, view, out, fixtures, trace, Rc::clone(&slot));
     app.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
     app.run();
     app.setDelegate(None);
@@ -604,6 +638,8 @@ struct DelegateIvars {
     view: ViewOptions,
     /// Каталог процесса сценария: в нём `calibrate` пишет трассы отрезков.
     out: Option<PathBuf>,
+    /// Каталог фикстур с эталонами подсветки сценариев открытия.
+    fixtures: Option<PathBuf>,
     slot: Rc<RefCell<Option<Outcome>>>,
     window: OnceCell<Retained<NSWindow>>,
     timer: RefCell<Option<Retained<NSTimer>>>,
@@ -678,6 +714,7 @@ impl AppDelegate {
         scenario: Option<Scenario>,
         view: ViewOptions,
         out: Option<PathBuf>,
+        fixtures: Option<PathBuf>,
         trace: scenario::watchdog::SharedTrace,
         slot: Rc<RefCell<Option<Outcome>>>,
     ) -> Retained<AppDelegate> {
@@ -685,6 +722,7 @@ impl AppDelegate {
             scenario,
             view,
             out,
+            fixtures,
             slot,
             window: OnceCell::new(),
             timer: RefCell::new(None),
@@ -844,6 +882,20 @@ impl AppDelegate {
                     Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
                     Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
                 },
+                Some(scenario @ (Scenario::Open | Scenario::OpenWarm)) => {
+                    match scenario::open::Open::start(
+                        self.mtm(),
+                        window,
+                        report,
+                        ivars.trace.clone(),
+                        ivars.view,
+                        ivars.fixtures.as_deref(),
+                        scenario == Scenario::OpenWarm,
+                    ) {
+                        Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
+                        Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
+                    }
+                }
                 Some(Scenario::Highlight) | None => self.finish(Outcome::ok(report)),
             }
         } else if waited >= SMOKE_TIMEOUT {
@@ -1081,6 +1133,7 @@ mod tests {
             demo_title(ViewOptions {
                 variant: Some(Variant::B),
                 mode: Some(ViewMode::Side),
+                fixture: None,
             }),
             "probe-diff-view — вариант b, side (каркас)"
         );

@@ -330,6 +330,22 @@ impl ViewState {
         ViewState { mode, ..self }
     }
 
+    /// Открытие на последнем ханке: курсор на первой строке показа последнего ханка, верхний
+    /// край на её начале, прижатом к пределу прокрутки. Переходом не считается, `Ctrl-o` его не
+    /// возвращает.
+    pub fn at_last_hunk(self, view: &Viewport<'_>) -> Self {
+        let Some(position) = self.position else {
+            return self;
+        };
+        let start = (0..view.rows())
+            .rev()
+            .find(|&row| view.body.starts_hunk(self.mode, row));
+        match start.and_then(|row| Some((row, view.heights.top(row)?))) {
+            Some((row, top)) => self.go(view, top, row, position.cursor.side, false),
+            None => self,
+        }
+    }
+
     /// Раскрыть или свернуть тред. Высоту его блока в индексе правит вызывающий, якорь от этого
     /// не меняется.
     pub fn toggle_thread(mut self, thread: ThreadId) -> Self {
@@ -1044,5 +1060,54 @@ mod tests {
         assert_eq!(last.cursor().unwrap().addr, LineAddr::old(5));
         assert_eq!(last.clone().next_file(&diff), last);
         assert_eq!(last.prev_file(&diff).prev_file(&diff).file(), 0);
+    }
+
+    /// Ханки размеров `sizes`: `size` строк контекста и пара удаления и вставки. Строк unified у
+    /// ханка `size + 2`, «Рядом» — `size + 1`.
+    fn hunks_diff(sizes: &[u32]) -> Diff {
+        let mut text = String::from("diff --git a/f b/f\n--- a/f\n+++ b/f\n");
+        for (i, &size) in sizes.iter().enumerate() {
+            let start = 1000 * i as u32 + 1;
+            text += &format!("@@ -{start},{n} +{start},{n} @@\n", n = size + 1);
+            for k in 0..size {
+                text += &format!(" h{i}l{k}\n");
+            }
+            text += &format!("-old{i}\n+new{i}\n");
+        }
+        parse_text(&text)
+    }
+
+    #[test]
+    fn open_at_last_hunk_clamps_to_the_scroll_limit() {
+        let diff = hunks_diff(&[5, 5, 3]);
+        let heights = index(&diff, Mode::Unified, 80);
+        let view = view(&diff, &heights);
+        let state = ViewState::open(&diff, 0, Mode::Unified).at_last_hunk(&view);
+        // Последний ханк с 14-й строки показа короче экрана: верх на пределе прокрутки 90.
+        assert_eq!(shown(&state, &view).0, 90);
+        assert_eq!(state.cursor_row(&view), Some(14));
+        assert_eq!(state.cursor().unwrap().addr, LineAddr::new(2001));
+        // Переходом открытие не считается: возвращаться некуда.
+        assert_eq!(state.clone().apply(Command::JumpBack, &view), state);
+
+        let heights = index(&diff, Mode::SideBySide, 80);
+        let view_side = Viewport {
+            body: diff.files()[0].text().unwrap(),
+            heights: &heights,
+            height: SCREEN,
+        };
+        let side = ViewState::open(&diff, 0, Mode::SideBySide).at_last_hunk(&view_side);
+        assert_eq!(shown(&side, &view_side).0, 60);
+        assert_eq!(side.cursor_row(&view_side), Some(12));
+    }
+
+    #[test]
+    fn open_at_long_last_hunk_puts_its_start_on_top() {
+        let diff = hunks_diff(&[5, 30]);
+        let heights = index(&diff, Mode::Unified, 80);
+        let view = view(&diff, &heights);
+        let state = ViewState::open(&diff, 0, Mode::Unified).at_last_hunk(&view);
+        assert_eq!(shown(&state, &view), (70, 7, 0));
+        assert_eq!(state.cursor_row(&view), Some(7));
     }
 }

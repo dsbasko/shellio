@@ -95,7 +95,8 @@ impl FixtureName {
 /// Сырые байты фикстуры: текст diff и полные стороны, у `added` старая сторона пуста.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Fixture {
-    pub name: FixtureName,
+    /// Имя фикстуры: синтетической или `real`.
+    pub name: &'static str,
     pub path: String,
     pub diff: Arc<[u8]>,
     pub old: Arc<[u8]>,
@@ -163,7 +164,7 @@ pub fn generate(name: FixtureName) -> Fixture {
         }
     };
     Fixture {
-        name,
+        name: name.as_str(),
         path,
         diff: Arc::from(diff),
         old: Arc::from(old.text),

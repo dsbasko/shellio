@@ -307,6 +307,7 @@ impl OpenSmoke {
                 )));
             }
         };
+        let fixture = super::stage::generate(&mut report, name);
         let stage = match super::stage::prepare(
             mtm,
             window,
@@ -314,7 +315,7 @@ impl OpenSmoke {
             trace,
             variant,
             mode,
-            name,
+            fixture,
             "open-smoke",
         ) {
             Ok(stage) => stage,

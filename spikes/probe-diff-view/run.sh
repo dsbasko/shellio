@@ -5,8 +5,12 @@
 #                                   target/probes/diff-view/<время>-<pid>/, затем --aggregate
 #                                   пишет summary.json и сводку выводов
 #   run.sh demo [аргументы пробы …]  демонстрация для ручной работы
-# VARIANTS (по умолчанию «a b») и MODES («unified side») сужают оси сценариев вида.
-# Перед сценариями с эталоном подсветки отдельный процесс --reference пишет эталоны фикстур в
+# VARIANTS (по умолчанию «a b») и MODES («unified side») сужают оси сценариев вида, FIXTURES
+# («added modified sparse wrap real») — ось фикстур сценариев открытия.
+# Перед сценариями открытия с фикстурой real run.sh готовит её через git без сети в
+# target/probes/diff-view/fixtures/real/ (status.txt, diff.patch, manifest.tsv, blobs/) и пишет
+# время чтения из git. Без закреплённых коммитов фикстура получает status=not_run с причиной.
+# Затем отдельный процесс --reference пишет эталоны фикстур в
 # target/probes/diff-view/fixtures/<имя>/reference.json, вне измеряемых процессов.
 # Набор ghostty проба не читает, поэтому блокировка vendor/ghostty.lock не нужна.
 set -euo pipefail
@@ -16,9 +20,16 @@ CARGO="${CARGO:-cargo}"
 BIN="$ROOT/target/release/probe-diff-view"
 OUT_BASE="$ROOT/target/probes/diff-view"
 FIXTURES_DIR="$OUT_BASE/fixtures"
-ALL_SCENARIOS="smoke highlight calibrate open-smoke ax"
+ALL_SCENARIOS="smoke highlight calibrate open-smoke ax open open-warm"
 ALL_VARIANTS="a b"
 ALL_MODES="unified side"
+ALL_FIXTURES="added modified sparse wrap real"
+# Свежих процессов open на фикстуру, вариант и режим, как open::RUNS.
+OPEN_RUNS=11
+# Фикстура real: настоящий diff проекта между закреплёнными коммитами.
+REAL_OLD=d6893dcc4b973671a8fc79d320db868010e7c604
+REAL_NEW=cc81b21e03bb3d7b0707a1cf14d9a8b30551181b
+REAL_PATHSPEC=spikes/probe-appkit-shell/src/
 
 STATE_DIR=""
 
@@ -104,11 +115,12 @@ check_state_dir() {
 }
 
 # Оси сценария, как Scenario::axes в args.rs: «stand» — один процесс без варианта и режима,
-# «view» — процесс на каждую пару варианта и режима.
+# «view» — процесс на каждую пару варианта и режима, «open» — также на каждую фикстуру.
 axes_of() {
     case "$1" in
         smoke | highlight | calibrate) echo stand ;;
         open-smoke | ax) echo view ;;
+        open | open-warm) echo open ;;
         *) die "неизвестный сценарий «${1}», известны: $ALL_SCENARIOS" ;;
     esac
 }
@@ -116,9 +128,78 @@ axes_of() {
 # Сценарии с эталоном подсветки, как Scenario::needs_fixtures в args.rs.
 needs_fixtures() {
     case "$1" in
-        highlight) return 0 ;;
+        highlight | open | open-warm) return 0 ;;
         *) return 1 ;;
     esac
+}
+
+# Миллисекунды настенных часов: у /bin/bash 3.2 нет EPOCHREALTIME, у date в macOS нет %N.
+now_ms() {
+    perl -MTime::HiRes=time -e 'printf("%.3f\n", time() * 1000)'
+}
+
+# Фикстура real через git без сети: diff с параметрами синтетических фикстур, список файлов и
+# blob обеих сторон. Чтение из git — работа P3.1, его время пишется в status.txt без вердикта.
+prepare_real() {
+    local dir="$FIXTURES_DIR/real" commit started finished calls=0 count=0
+    local line meta path old_sha new_sha status sha
+    rm -rf "$dir"
+    mkdir -p "$dir/blobs"
+    for commit in "$REAL_OLD" "$REAL_NEW"; do
+        if ! git -C "$ROOT" cat-file -e "$commit^{commit}" 2>/dev/null; then
+            printf 'status=not_run\nreason=нет закреплённых коммитов: %s нет в git-копии\n' \
+                "$commit" >"$dir/status.txt"
+            echo "real: not_run, нет коммита $commit"
+            return 0
+        fi
+    done
+    started="$(now_ms)"
+    git -C "$ROOT" diff -U3 --inter-hunk-context=0 --no-ext-diff --no-textconv --no-color \
+        "$REAL_OLD" "$REAL_NEW" -- "$REAL_PATHSPEC" >"$dir/diff.patch"
+    git -C "$ROOT" diff --raw --no-abbrev --no-ext-diff --no-textconv \
+        "$REAL_OLD" "$REAL_NEW" -- "$REAL_PATHSPEC" >"$dir/raw.txt"
+    calls=2
+    : >"$dir/manifest.tsv"
+    while IFS= read -r line; do
+        meta="${line%%$'\t'*}"
+        path="${line#*$'\t'}"
+        case "$path" in
+            *$'\t'* | \"*) die "real: путь не поддержан: $path" ;;
+        esac
+        # shellcheck disable=SC2086
+        set -- $meta
+        old_sha="$3"
+        new_sha="$4"
+        status="$5"
+        case "$status" in
+            M* | A* | D* | T*) ;;
+            *) die "real: состояние «${status}» файла $path не поддержано" ;;
+        esac
+        for sha in "$old_sha" "$new_sha"; do
+            case "$sha" in
+                *[!0]*)
+                    git -C "$ROOT" cat-file blob "$sha" >"$dir/blobs/$sha"
+                    calls=$((calls + 1))
+                    ;;
+            esac
+        done
+        case "$old_sha" in *[!0]*) ;; *) old_sha=- ;; esac
+        case "$new_sha" in *[!0]*) ;; *) new_sha=- ;; esac
+        printf '%s\t%s\t%s\n' "$old_sha" "$new_sha" "$path" >>"$dir/manifest.tsv"
+        count=$((count + 1))
+    done <"$dir/raw.txt"
+    finished="$(now_ms)"
+    [ "$count" -gt 0 ] || die "real: в diff нет файлов"
+    {
+        echo "status=prepared"
+        echo "old=$REAL_OLD"
+        echo "new=$REAL_NEW"
+        echo "pathspec=$REAL_PATHSPEC"
+        echo "files=$count"
+        echo "git_calls=$calls"
+        perl -e 'printf("git_read_ms=%.1f\n", $ARGV[1] - $ARGV[0])' "$started" "$finished"
+    } >"$dir/status.txt"
+    echo "real: $count файлов, $(grep '^git_read_ms=' "$dir/status.txt")"
 }
 
 # Эталоны подсветки отдельным процессом пробы до сценариев, журнал — reference.txt прогона.
@@ -132,9 +213,19 @@ write_references() {
     tail -n 1 "$run_dir/reference.txt"
 }
 
-# Номера повторных запусков: «_» — один запуск без номера.
+# Номера повторных запусков: «_» — один запуск без номера. Номер двузначный, как
+# ProcessKey::dir_name.
 runs_of() {
-    echo _
+    case "$1" in
+        open)
+            local index
+            for index in $(seq 1 "$OPEN_RUNS"); do
+                printf '%02d ' "$index"
+            done
+            echo
+            ;;
+        *) echo _ ;;
+    esac
 }
 
 # Код возврата — код процесса пробы; непустой SHELLIO_STATE_DIR тоже ошибка исполнения.
@@ -154,11 +245,12 @@ run_process() {
 # Ненулевой код только при ошибке исполнения хотя бы одного процесса или агрегирования;
 # fail и not_run на код не влияют, их показывает сводка выводов.
 cmd_scenarios() {
-    local scenarios variants modes
+    local scenarios variants modes fixtures
     scenarios="$(pick SCENARIOS "$ALL_SCENARIOS" "$*")"
     variants="$(pick VARIANTS "$ALL_VARIANTS" "${VARIANTS:-}")"
     modes="$(pick MODES "$ALL_MODES" "${MODES:-}")"
-    local scenario axes variant mode index name out code total=0 failed=0 aggregate=0 run_dir
+    fixtures="$(pick FIXTURES "$ALL_FIXTURES" "${FIXTURES:-}")"
+    local scenario axes variant mode fixture index name out code total=0 failed=0 aggregate=0 run_dir
     for scenario in $scenarios; do
         axes_of "$scenario" >/dev/null
     done
@@ -168,6 +260,12 @@ cmd_scenarios() {
     run_dir="$OUT_BASE/$(date +%Y%m%d-%H%M%S)-$$"
     mkdir "$run_dir"
     for scenario in $scenarios; do
+        if [ "$(axes_of "$scenario")" = open ] && [[ " $fixtures " == *" real "* ]]; then
+            prepare_real
+            break
+        fi
+    done
+    for scenario in $scenarios; do
         if needs_fixtures "$scenario"; then
             write_references "$run_dir"
             break
@@ -175,19 +273,25 @@ cmd_scenarios() {
     done
     for scenario in $scenarios; do
         axes="$(axes_of "$scenario")"
-        local cells
+        local cells cell_fixtures
+        cell_fixtures="-"
+        [ "$axes" = open ] && cell_fixtures="$fixtures"
         if [ "$axes" = stand ]; then
-            cells="-:-"
+            cells="-:-:-"
         else
             cells=""
-            for variant in $variants; do
-                for mode in $modes; do
-                    cells="$cells $variant:$mode"
+            for fixture in $cell_fixtures; do
+                for variant in $variants; do
+                    for mode in $modes; do
+                        cells="$cells $fixture:$variant:$mode"
+                    done
                 done
             done
         fi
         for cell in $cells; do
-            variant="${cell%%:*}"
+            fixture="${cell%%:*}"
+            variant="${cell#*:}"
+            variant="${variant%%:*}"
             mode="${cell##*:}"
             for index in $(runs_of "$scenario"); do
                 [ "$index" = _ ] && index=""
@@ -195,6 +299,10 @@ cmd_scenarios() {
                 local flags=(--scenario "$scenario")
                 if needs_fixtures "$scenario"; then
                     flags+=(--fixtures "$FIXTURES_DIR")
+                fi
+                if [ "$fixture" != - ]; then
+                    name="$name-$fixture"
+                    flags+=(--fixture "$fixture")
                 fi
                 if [ "$variant" != - ]; then
                     name="$name-$variant"

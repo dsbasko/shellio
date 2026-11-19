@@ -191,6 +191,7 @@ impl Ax {
                 )));
             }
         };
+        let fixture = super::stage::generate(&mut report, FixtureName::Modified);
         let stage = match super::stage::prepare(
             mtm,
             window,
@@ -198,7 +199,7 @@ impl Ax {
             trace,
             variant,
             mode,
-            FixtureName::Modified,
+            fixture,
             "ax",
         ) {
             Ok(stage) => stage,

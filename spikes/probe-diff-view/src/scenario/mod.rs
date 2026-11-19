@@ -20,6 +20,7 @@ pub mod frames;
 pub mod highlight;
 pub mod marker;
 pub mod neighbor;
+pub mod open;
 pub mod open_smoke;
 #[allow(dead_code)]
 pub mod sampler;

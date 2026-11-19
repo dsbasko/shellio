@@ -16,13 +16,15 @@ use serde::{Deserialize, Serialize};
 use super::{LineIndex, LineSet, Run, SideStyles, Sides, Styler, TokenClass, language, parse_full};
 use crate::fixtures::{self, FixtureName, Fnv};
 use crate::model::{Side, TextBody, parse};
+use crate::real::{self, RealFixture, RealSource};
 use crate::worker::Cancel;
 
 pub const SCHEMA: u32 = 1;
 pub const FILE: &str = "reference.json";
 /// Строк diff с начала и с конца файла, которые покрывает эталон.
 pub const EDGE_DIFF_LINES: usize = 200;
-/// Синтетические фикстуры, которые открывают сценарии. Эталон `real` добавляет задача 11.
+/// Синтетические фикстуры, которые открывают сценарии. Эталон `real` пишется, если `run.sh`
+/// подготовил её каталог.
 pub const FIXTURES: [FixtureName; 4] = [
     FixtureName::Added,
     FixtureName::Modified,
@@ -223,6 +225,42 @@ pub fn synthetic(styler: &mut Styler, name: FixtureName) -> Result<Reference, St
     })
 }
 
+/// Эталон фикстуры `real`: каждый текстовый файл diff по строкам у его первых и последних
+/// [`EDGE_DIFF_LINES`] строк diff. Файл diff без пары сторон в манифесте — ошибка.
+pub fn real(styler: &mut Styler, fixture: &RealFixture) -> Result<Reference, String> {
+    let diff = parse::parse(fixture.diff.clone(), &Cancel::never())
+        .map_err(|err| format!("real: diff не разобран: {err:?}"))?;
+    let mut files = Vec::new();
+    for file in diff.files() {
+        let Some(body) = file.text() else {
+            continue;
+        };
+        let pair = fixture
+            .file(file.path())
+            .ok_or_else(|| format!("real: в манифесте нет файла {}", file.path()))?;
+        let texts = Sides {
+            old: Arc::clone(&pair.old),
+            new: Arc::clone(&pair.new),
+        };
+        files.push(build_file(
+            styler,
+            file.path(),
+            &texts,
+            &edge_lines(body, EDGE_DIFF_LINES),
+        )?);
+    }
+    if files.is_empty() {
+        return Err("real: нет текстовых файлов".to_owned());
+    }
+    Ok(Reference {
+        schema: SCHEMA,
+        fixture: real::NAME.to_owned(),
+        digest: digest_string(fixture.digest()),
+        grammar: grammar_fingerprint(),
+        files,
+    })
+}
+
 pub fn path(dir: &Path, fixture: &str) -> PathBuf {
     dir.join(fixture).join(FILE)
 }
@@ -251,13 +289,17 @@ pub fn read(dir: &Path, fixture: &str) -> Result<Reference, String> {
         .map_err(|err| format!("эталон {} повреждён: {err}", path.display()))
 }
 
-/// Эталоны всех фикстур [`FIXTURES`] в `dir`.
+/// Эталоны всех фикстур [`FIXTURES`] в `dir` и фикстуры `real`, если её каталог подготовлен.
 pub fn write_all(dir: &Path) -> Result<Vec<PathBuf>, String> {
     let mut styler = Styler::new()?;
-    FIXTURES
+    let mut written = FIXTURES
         .into_iter()
         .map(|name| write(dir, &synthetic(&mut styler, name)?))
-        .collect()
+        .collect::<Result<Vec<_>, String>>()?;
+    if let Some(RealSource::Prepared(fixture)) = real::load(&real::dir(dir))? {
+        written.push(write(dir, &real(&mut styler, &fixture)?)?);
+    }
+    Ok(written)
 }
 
 #[cfg(test)]

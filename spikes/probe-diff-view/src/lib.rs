@@ -7,5 +7,7 @@ pub mod fixtures;
 pub mod highlight;
 pub mod keymap;
 pub mod model;
+pub mod open;
+pub mod real;
 pub mod tokens;
 pub mod worker;

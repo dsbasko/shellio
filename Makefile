@@ -145,9 +145,10 @@ probe-update-tcc-grant:
 	CARGO=$(CARGO) $(PROBE_UPDATE) tcc-grant
 
 # Проба P0.6 probe-diff набор ghostty не читает и идёт без блокировки vendor/ghostty.lock. VARIANTS
-# («a b») и MODES («unified side») сужают оси сценариев вида, пусто — все (ADR-0034).
+# («a b») и MODES («unified side») сужают оси сценариев вида, FIXTURES («added modified sparse wrap
+# real») — ось фикстур сценариев открытия, пусто — все (ADR-0034).
 probe-diff:
-	CARGO=$(CARGO) VARIANTS="$(VARIANTS)" MODES="$(MODES)" $(PROBE_DIFF) scenarios $(SCENARIOS)
+	CARGO=$(CARGO) VARIANTS="$(VARIANTS)" MODES="$(MODES)" FIXTURES="$(FIXTURES)" $(PROBE_DIFF) scenarios $(SCENARIOS)
 
 probe-diff-demo:
 	CARGO=$(CARGO) $(PROBE_DIFF) demo $(ARGS)

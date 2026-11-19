@@ -17,6 +17,8 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use probe_diff_view::open::{self, OpenFixture, OpenMarks};
+
 use crate::args::{Variant, ViewMode};
 use crate::stats::{self, Summary};
 
@@ -225,12 +227,13 @@ impl Environment {
     }
 }
 
-/// Кто процесс: сценарий, вариант, режим и номер повторного запуска. Каталог процесса внутри
-/// прогона называется `<сценарий>[-<вариант>][-<режим>][-<NN>]`, так его строит `run.sh`.
-/// По имени каталога процесс опознаётся и без `result.json`.
+/// Кто процесс: сценарий, фикстура открытия, вариант, режим и номер повторного запуска. Каталог
+/// процесса внутри прогона называется `<сценарий>[-<фикстура>][-<вариант>][-<режим>][-<NN>]`,
+/// так его строит `run.sh`. По имени каталога процесс опознаётся и без `result.json`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProcessKey {
     pub scenario: String,
+    pub fixture: Option<OpenFixture>,
     pub variant: Option<Variant>,
     pub mode: Option<ViewMode>,
     pub run: Option<u32>,
@@ -239,6 +242,9 @@ pub struct ProcessKey {
 impl ProcessKey {
     pub fn dir_name(&self) -> String {
         let mut name = self.scenario.clone();
+        if let Some(fixture) = self.fixture {
+            let _ = write!(name, "-{}", fixture.name());
+        }
         if let Some(variant) = self.variant {
             let _ = write!(name, "-{}", variant.name());
         }
@@ -251,8 +257,9 @@ impl ProcessKey {
         name
     }
 
-    /// Разбирает имя каталога с конца: номер, режим, вариант, остаток — сценарий. Имена
-    /// сценариев не оканчиваются на `-<вариант>`, `-<режим>` или `-<число>`, это проверяет тест.
+    /// Разбирает имя каталога с конца: номер, режим, вариант, фикстура, остаток — сценарий.
+    /// Имена сценариев не оканчиваются на `-<фикстура>`, `-<вариант>`, `-<режим>` или
+    /// `-<число>`, это проверяет тест.
     pub fn parse(name: &str) -> Option<ProcessKey> {
         let mut parts: Vec<&str> = name.split('-').collect();
         if parts.iter().any(|part| part.is_empty()) {
@@ -268,8 +275,10 @@ impl ProcessKey {
             .ok()?;
         let mode = take(&|part| ViewMode::from_name(part).is_some()).and_then(ViewMode::from_name);
         let variant = take(&|part| Variant::from_name(part).is_some()).and_then(Variant::from_name);
+        let fixture = take(&|part| OpenFixture::parse(part).is_some()).and_then(OpenFixture::parse);
         Some(ProcessKey {
             scenario: parts.join("-"),
+            fixture,
             variant,
             mode,
             run,
@@ -278,6 +287,7 @@ impl ProcessKey {
 
     fn same_process(&self, result: &ResultFile) -> bool {
         self.scenario == result.scenario
+            && self.fixture == result.fixture
             && self.variant == result.variant
             && self.mode == result.mode
     }
@@ -291,12 +301,18 @@ pub struct ResultFile {
     pub variant: Option<Variant>,
     #[serde(default)]
     pub mode: Option<ViewMode>,
+    /// Фикстура сценария открытия.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixture: Option<OpenFixture>,
     pub environment: Environment,
     pub execution: Execution,
     pub percentile_method: String,
     pub observations: Vec<Observation>,
     pub metrics: Vec<Metric>,
     pub findings: Vec<Finding>,
+    /// Отметки открытий сценариев `open` и `open-warm` по порядку.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub opens: Vec<OpenMarks>,
 }
 
 /// Итог сценария, который собирают стенд и сценарий.
@@ -307,6 +323,7 @@ pub struct Report {
     pub metrics: Vec<Metric>,
     pub displays: Vec<DisplayInfo>,
     pub window: Option<WindowInfo>,
+    pub opens: Vec<OpenMarks>,
 }
 
 impl Report {
@@ -336,6 +353,7 @@ impl ResultFile {
         scenario: &str,
         variant: Option<Variant>,
         mode: Option<ViewMode>,
+        fixture: Option<OpenFixture>,
         mut environment: Environment,
         execution: Execution,
         report: Report,
@@ -349,12 +367,14 @@ impl ResultFile {
             scenario: scenario.to_owned(),
             variant,
             mode,
+            fixture,
             environment,
             execution,
             percentile_method: stats::METHOD.to_owned(),
             observations: report.observations,
             metrics: report.metrics,
             findings: report.findings,
+            opens: report.opens,
         }
     }
 
@@ -434,18 +454,26 @@ pub struct ProcessSummary {
     /// Каталог процесса внутри прогона, он же `--out` процесса.
     pub dir: String,
     pub scenario: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixture: Option<OpenFixture>,
     pub variant: Option<Variant>,
     pub mode: Option<ViewMode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run: Option<u32>,
     pub execution: Execution,
     /// Выводы процесса; при ошибке исполнения они сохраняются для разбора, но в итоги не входят.
     pub findings: Vec<Finding>,
     pub metrics: Vec<MetricSummary>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub opens: Vec<OpenMarks>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RunFinding {
     pub dir: String,
     pub scenario: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixture: Option<OpenFixture>,
     pub variant: Option<Variant>,
     pub mode: Option<ViewMode>,
     pub name: String,
@@ -460,8 +488,275 @@ pub struct SummaryFile {
     pub percentile_method: String,
     pub totals: Totals,
     pub processes: Vec<ProcessSummary>,
-    /// Выводы процессов без ошибки исполнения, отдельно от исполнения.
+    /// Выводы процессов без ошибки исполнения и вердикты групп открытия, отдельно от исполнения.
     pub findings: Vec<RunFinding>,
+    /// Группы открытия: процессы `open` одной фикстуры, варианта и режима или процесс `open-warm`.
+    #[serde(default)]
+    pub open: Vec<OpenGroup>,
+    /// Ошибки исполнения сверх процессов: группа открытия без полного набора процессов.
+    #[serde(default)]
+    pub errors: Vec<String>,
+}
+
+pub const OPEN_SCENARIO: &str = "open";
+pub const OPEN_WARM_SCENARIO: &str = "open-warm";
+/// Вывод процесса `open` без фикстуры: `not_run` с причиной из `run.sh`.
+pub const OPEN_FIXTURE_FINDING: &str = "open_fixture";
+/// Вердикт группы `open` обязательной фикстуры против бюджета.
+pub const OPEN_BUDGET_FINDING: &str = "open_budget";
+
+/// Сводка группы открытия. У `open` в агрегаты идут процессы 2–11, первый пишется отдельно, у
+/// `open-warm` — открытия 2–20, первое отдельно.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct OpenGroup {
+    /// Имя группы — имя каталога процесса без номера.
+    pub dir: String,
+    pub scenario: String,
+    pub fixture: OpenFixture,
+    pub variant: Option<Variant>,
+    pub mode: Option<ViewMode>,
+    pub processes: usize,
+    pub execution_errors: usize,
+    /// Открытие вне агрегатов.
+    pub first: Option<OpenMarks>,
+    /// Открытий в агрегатах.
+    pub aggregated: usize,
+    pub model_ms: Option<Summary>,
+    pub first_text_ms: Option<Summary>,
+    pub preliminary_ms: Option<Summary>,
+    pub correction_ms: Option<Summary>,
+    pub end_ms: Option<Summary>,
+    /// Открытий в агрегатах, где предварительная подсветка разошлась с эталоном.
+    pub preliminary_mismatched: usize,
+    /// Открытий в агрегатах, где отметка вердикта — предварительная подсветка.
+    pub end_preliminary: usize,
+    /// Открытий в агрегатах без первого экрана с правильной подсветкой.
+    pub end_missing: usize,
+    /// `None` — наблюдение без вердикта или неполная группа.
+    pub verdict: Option<Verdict>,
+    pub reason: String,
+}
+
+fn mark_summary(marks: &[&OpenMarks], pick: impl Fn(&OpenMarks) -> Option<f64>) -> Option<Summary> {
+    let values: Vec<f64> = marks.iter().filter_map(|marks| pick(marks)).collect();
+    stats::summarize(&values).ok()
+}
+
+/// Открытие вне агрегатов и открытия в агрегатах группы. Ошибка — набор неполон.
+fn open_split<'a>(
+    scenario: &str,
+    members: &[&'a ProcessSummary],
+) -> Result<(&'a OpenMarks, Vec<&'a OpenMarks>), String> {
+    if let Some(failed) = members.iter().find(|member| !member.execution.is_ok()) {
+        return Err(format!("процесс {} с ошибкой исполнения", failed.dir));
+    }
+    match scenario {
+        OPEN_SCENARIO => {
+            let mut by_run: Vec<Option<&OpenMarks>> = vec![None; open::RUNS as usize];
+            for member in members {
+                let index = member
+                    .run
+                    .filter(|run| (1..=open::RUNS).contains(run))
+                    .ok_or_else(|| format!("процесс {} вне номеров 1–{}", member.dir, open::RUNS))?
+                    as usize
+                    - 1;
+                let [marks] = member.opens.as_slice() else {
+                    return Err(format!(
+                        "процесс {}: открытий {} вместо 1",
+                        member.dir,
+                        member.opens.len()
+                    ));
+                };
+                if by_run[index].replace(marks).is_some() {
+                    return Err(format!("номер {} повторён", index + 1));
+                }
+            }
+            let missing: Vec<usize> = by_run
+                .iter()
+                .enumerate()
+                .filter(|(_, marks)| marks.is_none())
+                .map(|(index, _)| index + 1)
+                .collect();
+            if !missing.is_empty() {
+                return Err(format!("нет процессов {missing:?} из 1–{}", open::RUNS));
+            }
+            let all: Vec<&OpenMarks> = by_run.into_iter().flatten().collect();
+            Ok((all[0], all[1..].to_vec()))
+        }
+        _ => {
+            let [member] = members else {
+                return Err(format!("процессов {} вместо 1", members.len()));
+            };
+            if member.opens.len() != open::WARM_OPENS {
+                return Err(format!(
+                    "процесс {}: открытий {} вместо {}",
+                    member.dir,
+                    member.opens.len(),
+                    open::WARM_OPENS
+                ));
+            }
+            Ok((&member.opens[0], member.opens[1..].iter().collect()))
+        }
+    }
+}
+
+fn describe_ms(value: Option<f64>) -> String {
+    value.map_or_else(|| "нет".to_owned(), |ms| format!("{ms:.1} мс"))
+}
+
+/// Сводка группы открытия и ошибка исполнения, если набор процессов неполон.
+fn open_group(
+    key: &ProcessKey,
+    fixture: OpenFixture,
+    members: &[&ProcessSummary],
+) -> (OpenGroup, Option<String>) {
+    let mut group = OpenGroup {
+        dir: key.dir_name(),
+        scenario: key.scenario.clone(),
+        fixture,
+        variant: key.variant,
+        mode: key.mode,
+        processes: members.len(),
+        execution_errors: members
+            .iter()
+            .filter(|member| !member.execution.is_ok())
+            .count(),
+        first: None,
+        aggregated: 0,
+        model_ms: None,
+        first_text_ms: None,
+        preliminary_ms: None,
+        correction_ms: None,
+        end_ms: None,
+        preliminary_mismatched: 0,
+        end_preliminary: 0,
+        end_missing: 0,
+        verdict: None,
+        reason: String::new(),
+    };
+    let not_run: Vec<&Finding> = members
+        .iter()
+        .filter(|member| member.execution.is_ok() && member.opens.is_empty())
+        .filter_map(|member| {
+            member.findings.iter().find(|finding| {
+                finding.name == OPEN_FIXTURE_FINDING && finding.verdict == Verdict::NotRun
+            })
+        })
+        .collect();
+    if !members.is_empty() && not_run.len() == members.len() {
+        group.verdict = Some(Verdict::NotRun);
+        group.reason = not_run[0].reason.clone();
+        return (group, None);
+    }
+    let (first, warm) = match open_split(&key.scenario, members) {
+        Ok(split) => split,
+        Err(reason) => {
+            group.reason = format!("нет вердикта: {reason}");
+            let error = format!("группа {}: {reason}", group.dir);
+            return (group, Some(error));
+        }
+    };
+    group.first = Some(first.clone());
+    group.aggregated = warm.len();
+    group.model_ms = mark_summary(&warm, |marks| marks.model_ms);
+    group.first_text_ms = mark_summary(&warm, |marks| marks.first_text_ms);
+    group.preliminary_ms = mark_summary(&warm, |marks| marks.preliminary_ms);
+    group.correction_ms = mark_summary(&warm, |marks| marks.correction_ms);
+    group.end_ms = mark_summary(&warm, |marks| marks.end_ms);
+    group.preliminary_mismatched = warm
+        .iter()
+        .filter(|marks| marks.preliminary_mismatched.is_some_and(|lines| lines > 0))
+        .count();
+    group.end_preliminary = warm
+        .iter()
+        .filter(|marks| marks.end == Some(open::EndMark::Preliminary))
+        .count();
+    group.end_missing = warm.iter().filter(|marks| marks.end_ms.is_none()).count();
+    let unit = match key.scenario.as_str() {
+        OPEN_SCENARIO => "прогретых процессов",
+        _ => "открытий после первого",
+    };
+    let measured = match group.end_ms {
+        Some(end) => format!(
+            "максимум {} {unit} {:.1} мс, p50 {:.1} мс; вне агрегатов {}; отметка — предварительная подсветка в {} из {}, расхождений предварительной {}",
+            group.aggregated,
+            end.max,
+            end.p50,
+            describe_ms(first.end_ms),
+            group.end_preliminary,
+            group.aggregated,
+            group.preliminary_mismatched
+        ),
+        None => format!(
+            "правильной подсветки нет ни в одном из {} {unit}",
+            group.aggregated
+        ),
+    };
+    if key.scenario == OPEN_SCENARIO && fixture.mandatory() {
+        let (verdict, reason) = match group.end_ms {
+            _ if group.end_missing > 0 => (
+                Verdict::Fail,
+                format!(
+                    "первый экран с правильной подсветкой не достигнут в {} из {}; {measured}",
+                    group.end_missing, group.aggregated
+                ),
+            ),
+            Some(end) if end.max <= open::BUDGET_MS => (
+                Verdict::Pass,
+                format!("{measured}; бюджет {} мс", open::BUDGET_MS),
+            ),
+            _ => (
+                Verdict::Fail,
+                format!("{measured}; бюджет {} мс превышен", open::BUDGET_MS),
+            ),
+        };
+        group.verdict = Some(verdict);
+        group.reason = reason;
+    } else {
+        group.reason = format!("наблюдение без вердикта: {measured}");
+    }
+    (group, None)
+}
+
+/// Группы открытия прогона по фикстуре, варианту и режиму.
+fn open_groups(processes: &[ProcessSummary]) -> (Vec<OpenGroup>, Vec<String>) {
+    let mut keys: Vec<(String, ProcessKey, OpenFixture)> = Vec::new();
+    let mut members: Vec<Vec<&ProcessSummary>> = Vec::new();
+    for process in processes {
+        let Some(fixture) = process.fixture else {
+            continue;
+        };
+        if !matches!(
+            process.scenario.as_str(),
+            OPEN_SCENARIO | OPEN_WARM_SCENARIO
+        ) {
+            continue;
+        }
+        let key = ProcessKey {
+            scenario: process.scenario.clone(),
+            fixture: Some(fixture),
+            variant: process.variant,
+            mode: process.mode,
+            run: None,
+        };
+        let name = key.dir_name();
+        match keys.iter().position(|(known, _, _)| *known == name) {
+            Some(index) => members[index].push(process),
+            None => {
+                keys.push((name, key, fixture));
+                members.push(vec![process]);
+            }
+        }
+    }
+    let mut groups = Vec::new();
+    let mut errors = Vec::new();
+    for ((_, key, fixture), members) in keys.iter().zip(&members) {
+        let (group, error) = open_group(key, *fixture, members);
+        groups.push(group);
+        errors.extend(error);
+    }
+    groups.sort_by(|a, b| a.dir.cmp(&b.dir));
+    (groups, errors)
 }
 
 /// Причина из следа сторожа, если процесс завершил он.
@@ -481,11 +776,14 @@ fn process_summary(dir: &Path, name: String) -> ProcessSummary {
         scenario: key
             .as_ref()
             .map_or_else(|| name.clone(), |key| key.scenario.clone()),
+        fixture: key.as_ref().and_then(|key| key.fixture),
         variant: key.as_ref().and_then(|key| key.variant),
         mode: key.as_ref().and_then(|key| key.mode),
+        run: key.as_ref().and_then(|key| key.run),
         execution: Execution::error(reason),
         findings: Vec::new(),
         metrics: Vec::new(),
+        opens: Vec::new(),
     };
     let Some(key) = key.clone() else {
         return error(format!("имя каталога «{name}» не по схеме процесса"));
@@ -505,6 +803,7 @@ fn process_summary(dir: &Path, name: String) -> ProcessSummary {
     let execution = if !key.same_process(&result) {
         let written = ProcessKey {
             scenario: result.scenario.clone(),
+            fixture: result.fixture,
             variant: result.variant,
             mode: result.mode,
             run: key.run,
@@ -524,8 +823,10 @@ fn process_summary(dir: &Path, name: String) -> ProcessSummary {
     ProcessSummary {
         dir: name.clone(),
         scenario: key.scenario,
+        fixture: key.fixture,
         variant: key.variant,
         mode: key.mode,
+        run: key.run,
         execution,
         findings: result.findings,
         metrics: result
@@ -537,6 +838,7 @@ fn process_summary(dir: &Path, name: String) -> ProcessSummary {
                 summary: metric.summary,
             })
             .collect(),
+        opens: result.opens,
     }
 }
 
@@ -572,6 +874,7 @@ pub fn aggregate(run_dir: &Path) -> Result<SummaryFile, String> {
                 findings.push(RunFinding {
                     dir: process.dir.clone(),
                     scenario: process.scenario.clone(),
+                    fixture: process.fixture,
                     variant: process.variant,
                     mode: process.mode,
                     name: finding.name.clone(),
@@ -584,6 +887,27 @@ pub fn aggregate(run_dir: &Path) -> Result<SummaryFile, String> {
         }
         processes.push(process);
     }
+    let (open, errors) = open_groups(&processes);
+    for group in &open {
+        if let (OPEN_SCENARIO, Some(verdict @ (Verdict::Pass | Verdict::Fail))) =
+            (group.scenario.as_str(), group.verdict)
+        {
+            match verdict {
+                Verdict::Pass => totals.pass += 1,
+                Verdict::Fail | Verdict::NotRun => totals.fail += 1,
+            }
+            findings.push(RunFinding {
+                dir: group.dir.clone(),
+                scenario: group.scenario.clone(),
+                fixture: Some(group.fixture),
+                variant: group.variant,
+                mode: group.mode,
+                name: OPEN_BUDGET_FINDING.to_owned(),
+                verdict,
+                reason: group.reason.clone(),
+            });
+        }
+    }
     Ok(SummaryFile {
         schema: SCHEMA,
         run_dir: run_dir.display().to_string(),
@@ -591,6 +915,8 @@ pub fn aggregate(run_dir: &Path) -> Result<SummaryFile, String> {
         totals,
         processes,
         findings,
+        open,
+        errors,
     })
 }
 
@@ -610,20 +936,56 @@ pub fn render_summary(summary: &SummaryFile) -> String {
             let _ = writeln!(text, "  ошибка  {}: {reason}", process.dir);
         }
     }
+    for error in &summary.errors {
+        let _ = writeln!(text, "  ошибка  {error}");
+    }
     let _ = writeln!(
         text,
         "выводы: pass {}, fail {}, not_run {}",
         totals.pass, totals.fail, totals.not_run
     );
+    // Выводы процессов открытия идут сотнями: по одному печатаются только `fail`, остальные —
+    // числом, причины `not_run` видны в группах открытия.
+    let mut folded = (0, 0);
     for finding in &summary.findings {
+        let process = matches!(
+            finding.scenario.as_str(),
+            OPEN_SCENARIO | OPEN_WARM_SCENARIO
+        ) && finding.fixture.is_some()
+            && finding.name != OPEN_BUDGET_FINDING;
+        match (process, finding.verdict) {
+            (true, Verdict::Pass) => folded.0 += 1,
+            (true, Verdict::NotRun) => folded.1 += 1,
+            _ => {
+                let _ = writeln!(
+                    text,
+                    "  {:<8} {} {}: {}",
+                    finding.verdict.name(),
+                    finding.dir,
+                    finding.name,
+                    finding.reason
+                );
+            }
+        }
+    }
+    if folded != (0, 0) {
         let _ = writeln!(
             text,
-            "  {:<8} {} {}: {}",
-            finding.verdict.name(),
-            finding.dir,
-            finding.name,
-            finding.reason
+            "  выводов процессов открытия не перечислено: pass {}, not_run {}",
+            folded.0, folded.1
         );
+    }
+    if !summary.open.is_empty() {
+        let _ = writeln!(text, "открытие, бюджет {} мс:", open::BUDGET_MS);
+        for group in &summary.open {
+            let _ = writeln!(
+                text,
+                "  {:<8} {}: {}",
+                group.verdict.map_or("—", Verdict::name),
+                group.dir,
+                group.reason
+            );
+        }
     }
     text
 }
@@ -687,7 +1049,15 @@ mod tests {
         execution: Execution,
         report: Report,
     ) -> ResultFile {
-        ResultFile::new(scenario, variant, mode, environment(), execution, report)
+        ResultFile::new(
+            scenario,
+            variant,
+            mode,
+            None,
+            environment(),
+            execution,
+            report,
+        )
     }
 
     fn ok_sample() -> ResultFile {
@@ -855,6 +1225,7 @@ mod tests {
     fn process_dir_names() {
         let key = |scenario: &str, variant, mode, run| ProcessKey {
             scenario: scenario.to_owned(),
+            fixture: None,
             variant,
             mode,
             run,
@@ -884,6 +1255,20 @@ mod tests {
                 key("zones", None, Some(ViewMode::Unified), None),
             ),
             ("highlight-03", key("highlight", None, None, Some(3))),
+            (
+                "open-sparse-b-side-07",
+                ProcessKey {
+                    fixture: Some(OpenFixture::Sparse),
+                    ..key("open", Some(Variant::B), Some(ViewMode::Side), Some(7))
+                },
+            ),
+            (
+                "open-warm-real-a-unified",
+                ProcessKey {
+                    fixture: Some(OpenFixture::Real),
+                    ..key("open-warm", Some(Variant::A), Some(ViewMode::Unified), None)
+                },
+            ),
         ] {
             assert_eq!(ProcessKey::parse(name).as_ref(), Some(&expected), "{name}");
             assert_eq!(expected.dir_name(), name);
@@ -902,17 +1287,21 @@ mod tests {
     /// Имя сценария с любыми осями разбирается обратно в то же имя.
     #[test]
     fn scenario_names_survive_dir_parsing() {
+        let fixtures = std::iter::once(None).chain(OpenFixture::ALL.into_iter().map(Some));
         for scenario in Scenario::ALL {
-            for variant in [None, Some(Variant::A), Some(Variant::B)] {
-                for mode in [None, Some(ViewMode::Unified), Some(ViewMode::Side)] {
-                    for run in [None, Some(1), Some(11)] {
-                        let key = ProcessKey {
-                            scenario: scenario.name().to_owned(),
-                            variant,
-                            mode,
-                            run,
-                        };
-                        assert_eq!(ProcessKey::parse(&key.dir_name()), Some(key));
+            for fixture in fixtures.clone() {
+                for variant in [None, Some(Variant::A), Some(Variant::B)] {
+                    for mode in [None, Some(ViewMode::Unified), Some(ViewMode::Side)] {
+                        for run in [None, Some(1), Some(11)] {
+                            let key = ProcessKey {
+                                scenario: scenario.name().to_owned(),
+                                fixture,
+                                variant,
+                                mode,
+                                run,
+                            };
+                            assert_eq!(ProcessKey::parse(&key.dir_name()), Some(key));
+                        }
                     }
                 }
             }
@@ -1057,6 +1446,264 @@ mod tests {
         assert!(text.contains("  not_run  open-b-side-02 frames_120hz: 120 Гц не подтверждены"));
         assert!(text.contains("  ошибка  open-a-side: "));
         fs::remove_dir_all(run).unwrap();
+    }
+
+    fn open_marks(end: Option<f64>, mark: open::EndMark) -> OpenMarks {
+        OpenMarks {
+            model_ms: Some(10.0),
+            first_text_ms: Some(20.0),
+            preliminary_ms: Some(30.0),
+            preliminary_mismatched: Some(match mark {
+                open::EndMark::Preliminary => 0,
+                open::EndMark::Correction => 3,
+            }),
+            correction_ms: Some(end.unwrap_or(400.0)),
+            correction_mismatched: Some(if end.is_some() { 0 } else { 2 }),
+            end: end.map(|_| mark),
+            end_ms: end,
+            visible_lines: 96,
+        }
+    }
+
+    fn open_sample(
+        scenario: &str,
+        fixture: OpenFixture,
+        variant: Variant,
+        mode: ViewMode,
+        opens: Vec<OpenMarks>,
+    ) -> ResultFile {
+        let report = Report {
+            opens,
+            ..Report::default()
+        };
+        ResultFile::new(
+            scenario,
+            Some(variant),
+            Some(mode),
+            Some(fixture),
+            environment(),
+            Execution::Ok,
+            report,
+        )
+    }
+
+    /// Одиннадцать процессов группы `open`: `end(run)` — отметка вердикта процесса `run`.
+    fn open_group_dirs(
+        run: &Path,
+        fixture: OpenFixture,
+        variant: Variant,
+        mode: ViewMode,
+        runs: impl IntoIterator<Item = u32>,
+        end: impl Fn(u32) -> (Option<f64>, open::EndMark),
+    ) {
+        for index in runs {
+            let key = ProcessKey {
+                scenario: OPEN_SCENARIO.to_owned(),
+                fixture: Some(fixture),
+                variant: Some(variant),
+                mode: Some(mode),
+                run: Some(index),
+            };
+            let dir = run.join(key.dir_name());
+            fs::create_dir_all(&dir).unwrap();
+            let (at, mark) = end(index);
+            let result = open_sample(
+                OPEN_SCENARIO,
+                fixture,
+                variant,
+                mode,
+                vec![open_marks(at, mark)],
+            );
+            write_result(&dir, &result).unwrap();
+        }
+    }
+
+    #[test]
+    fn open_groups_take_the_maximum_of_ten_warm_processes() {
+        use open::EndMark::{Correction, Preliminary};
+        let run = temp_dir("open");
+        let (a, unified) = (Variant::A, ViewMode::Unified);
+        // Первый процесс медленнее бюджета, но в агрегаты не входит.
+        open_group_dirs(
+            &run,
+            OpenFixture::Added,
+            a,
+            unified,
+            1..=11,
+            |index| match index {
+                1 => (Some(350.0), Correction),
+                _ => (Some(80.0 + 10.0 * f64::from(index)), Preliminary),
+            },
+        );
+        open_group_dirs(&run, OpenFixture::Sparse, a, unified, 1..=11, |index| {
+            (Some(if index == 7 { 230.0 } else { 180.0 }), Correction)
+        });
+        open_group_dirs(&run, OpenFixture::Modified, a, unified, 1..=11, |index| {
+            (if index == 5 { None } else { Some(120.0) }, Correction)
+        });
+        open_group_dirs(
+            &run,
+            OpenFixture::Modified,
+            Variant::B,
+            ViewMode::Side,
+            1..=10,
+            |_| (Some(120.0), Correction),
+        );
+        open_group_dirs(&run, OpenFixture::Wrap, a, unified, 1..=11, |_| {
+            (Some(420.0), Correction)
+        });
+        for index in 1..=open::RUNS {
+            let key = ProcessKey {
+                scenario: OPEN_SCENARIO.to_owned(),
+                fixture: Some(OpenFixture::Real),
+                variant: Some(a),
+                mode: Some(unified),
+                run: Some(index),
+            };
+            let dir = run.join(key.dir_name());
+            fs::create_dir_all(&dir).unwrap();
+            let mut result = open_sample(OPEN_SCENARIO, OpenFixture::Real, a, unified, Vec::new());
+            result.findings.push(Finding {
+                name: OPEN_FIXTURE_FINDING.to_owned(),
+                verdict: Verdict::NotRun,
+                reason: "нет закреплённых коммитов".to_owned(),
+            });
+            write_result(&dir, &result).unwrap();
+        }
+        let warm = run.join("open-warm-added-a-unified");
+        fs::create_dir_all(&warm).unwrap();
+        let opens = (0..open::WARM_OPENS)
+            .map(|index| open_marks(Some(if index == 0 { 300.0 } else { 90.0 }), Preliminary))
+            .collect();
+        write_result(
+            &warm,
+            &open_sample(OPEN_WARM_SCENARIO, OpenFixture::Added, a, unified, opens),
+        )
+        .unwrap();
+
+        let summary = aggregate(&run).unwrap();
+        let group = |dir: &str| summary.open.iter().find(|group| group.dir == dir).unwrap();
+        let added = group("open-added-a-unified");
+        assert_eq!(added.verdict, Some(Verdict::Pass), "{}", added.reason);
+        assert_eq!(added.aggregated, 10);
+        assert_eq!(added.first.as_ref().unwrap().end_ms, Some(350.0));
+        let end = added.end_ms.unwrap();
+        assert_eq!((end.max, end.p50), (190.0, 140.0));
+        assert_eq!(
+            (added.end_preliminary, added.preliminary_mismatched),
+            (10, 0)
+        );
+        assert_eq!(added.model_ms.unwrap().max, 10.0);
+
+        let sparse = group("open-sparse-a-unified");
+        assert_eq!(sparse.verdict, Some(Verdict::Fail));
+        assert!(sparse.reason.contains("230.0 мс"), "{}", sparse.reason);
+        assert!(sparse.reason.contains("превышен"), "{}", sparse.reason);
+        assert_eq!(sparse.preliminary_mismatched, 10);
+
+        let modified = group("open-modified-a-unified");
+        assert_eq!(modified.verdict, Some(Verdict::Fail));
+        assert_eq!(modified.end_missing, 1);
+        assert!(
+            modified.reason.contains("не достигнут в 1 из 10"),
+            "{}",
+            modified.reason
+        );
+
+        let incomplete = group("open-modified-b-side");
+        assert_eq!(incomplete.verdict, None);
+        assert!(incomplete.reason.starts_with("нет вердикта"));
+        assert_eq!(
+            summary.errors,
+            ["группа open-modified-b-side: нет процессов [11] из 1–11"]
+        );
+
+        let wrap = group("open-wrap-a-unified");
+        assert_eq!(wrap.verdict, None);
+        assert!(
+            wrap.reason.starts_with("наблюдение без вердикта"),
+            "{}",
+            wrap.reason
+        );
+
+        let real = group("open-real-a-unified");
+        assert_eq!(real.verdict, Some(Verdict::NotRun));
+        assert_eq!(real.reason, "нет закреплённых коммитов");
+
+        let warm = group("open-warm-added-a-unified");
+        assert_eq!(warm.verdict, None);
+        assert_eq!(warm.aggregated, open::WARM_OPENS - 1);
+        assert_eq!(warm.first.as_ref().unwrap().end_ms, Some(300.0));
+        assert_eq!(warm.end_ms.unwrap().max, 90.0);
+
+        let budgets: Vec<(&str, Verdict)> = summary
+            .findings
+            .iter()
+            .filter(|finding| finding.name == OPEN_BUDGET_FINDING)
+            .map(|finding| (finding.dir.as_str(), finding.verdict))
+            .collect();
+        assert_eq!(
+            budgets,
+            [
+                ("open-added-a-unified", Verdict::Pass),
+                ("open-modified-a-unified", Verdict::Fail),
+                ("open-sparse-a-unified", Verdict::Fail),
+            ]
+        );
+        assert_eq!(
+            (
+                summary.totals.pass,
+                summary.totals.fail,
+                summary.totals.not_run
+            ),
+            (1, 2, 11)
+        );
+        let text = render_summary(&summary);
+        assert!(text.contains("открытие, бюджет 200 мс:\n"), "{text}");
+        assert!(
+            text.contains("  pass     open-added-a-unified: максимум 10"),
+            "{text}"
+        );
+        assert!(
+            text.contains("  ошибка  группа open-modified-b-side"),
+            "{text}"
+        );
+        assert!(
+            text.contains("выводов процессов открытия не перечислено: pass 0, not_run 11"),
+            "{text}"
+        );
+        fs::remove_dir_all(run).unwrap();
+    }
+
+    #[test]
+    fn open_group_rejects_repeated_and_foreign_runs() {
+        let process = |run: Option<u32>, opens: usize| ProcessSummary {
+            dir: format!("open-added-a-unified-{run:?}"),
+            scenario: OPEN_SCENARIO.to_owned(),
+            fixture: Some(OpenFixture::Added),
+            variant: Some(Variant::A),
+            mode: Some(ViewMode::Unified),
+            run,
+            execution: Execution::Ok,
+            findings: Vec::new(),
+            metrics: Vec::new(),
+            opens: vec![open_marks(Some(100.0), open::EndMark::Preliminary); opens],
+        };
+        let mut members: Vec<ProcessSummary> = (1..=11).map(|run| process(Some(run), 1)).collect();
+        let split = |members: &[ProcessSummary]| {
+            let members: Vec<&ProcessSummary> = members.iter().collect();
+            open_split(OPEN_SCENARIO, &members).map(|(_, warm)| warm.len())
+        };
+        assert_eq!(split(&members), Ok(10));
+        members[3] = process(Some(3), 1);
+        assert!(split(&members).unwrap_err().contains("повторён"));
+        members[3] = process(Some(12), 1);
+        assert!(split(&members).unwrap_err().contains("вне номеров"));
+        members[3] = process(Some(4), 2);
+        assert!(split(&members).unwrap_err().contains("открытий 2"));
+        members[3] = process(Some(4), 1);
+        members[3].execution = Execution::error("сторож".to_owned());
+        assert!(split(&members).unwrap_err().contains("ошибкой исполнения"));
     }
 
     #[test]

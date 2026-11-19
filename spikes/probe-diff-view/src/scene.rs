@@ -17,8 +17,8 @@
 use std::cell::{Cell, RefCell};
 use std::ops::Range;
 use std::rc::{Rc, Weak};
-use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, OnceLock};
 
 use dispatch2::DispatchQueue;
 use serde::Serialize;
@@ -26,7 +26,9 @@ use serde::Serialize;
 use probe_diff_view::access::{RowAx, describe_row};
 use probe_diff_view::fixtures::Fixture;
 use probe_diff_view::highlight::store::{Changed, StyleStore};
-use probe_diff_view::highlight::{HighlightWorker, LineSet, Sides, Snapshot, Source};
+use probe_diff_view::highlight::{
+    Event, HighlightWorker, LineSet, Observer, SideStyles, Sides, Snapshot, Source,
+};
 use probe_diff_view::keymap::{Action, Decoder, KeyInput};
 use probe_diff_view::model::heights::{
     HeightIndex, HeightJob, HeightSnapshot, HeightWorker, Metrics,
@@ -153,6 +155,22 @@ pub struct Applied {
     pub generation: u64,
     pub changed_rows: usize,
     pub compute_ms: f64,
+}
+
+/// Применённый снимок вместе со стилями: сверка отметок открытия с эталоном.
+#[derive(Clone, Debug)]
+pub struct KeptSnapshot {
+    pub applied: Applied,
+    pub styles: Sides<SideStyles>,
+}
+
+/// Где встаёт верхний край открытого файла.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum OpenAt {
+    #[default]
+    Top,
+    /// Начало последнего ханка, прижатое к пределу прокрутки.
+    LastHunk,
 }
 
 /// Отметки открытия по `CLOCK_UPTIME_RAW`.
@@ -498,6 +516,11 @@ pub struct Scene {
     /// Идёт перезагрузка вида и прокрутка к якорю: уведомления о прокрутке якорь не меняют.
     reloading: Cell<bool>,
     drafts: Cell<DraftStats>,
+    open_at: Cell<OpenAt>,
+    /// Применённые снимки текущего открытия, если сценарий их держит.
+    kept: RefCell<Option<Vec<KeptSnapshot>>>,
+    /// Запрос подсветки скомпилирован на потоке запросов: время компиляции или отказ.
+    query: Arc<OnceLock<Result<f64, String>>>,
 }
 
 impl Scene {
@@ -515,9 +538,24 @@ impl Scene {
             HeightWorker::spawn(move |delivery| post(&tx, Msg::Heights(delivery)))
                 .map_err(|err| format!("worker индекса высот не запущен: {err}"))?
         };
-        let highlight =
-            HighlightWorker::spawn(move |snapshot| post(&tx, Msg::Styles(snapshot)), None)
-                .map_err(|err| format!("worker подсветки не запущен: {err}"))?;
+        let query = Arc::new(OnceLock::new());
+        let observer: Observer = {
+            let query = Arc::clone(&query);
+            Arc::new(move |event: &Event| match event {
+                Event::QueryCompiled { elapsed } => {
+                    let _ = query.set(Ok(elapsed.as_secs_f64() * 1e3));
+                }
+                Event::QueryFailed { reason } => {
+                    let _ = query.set(Err(reason.clone()));
+                }
+                _ => {}
+            })
+        };
+        let highlight = HighlightWorker::spawn(
+            move |snapshot| post(&tx, Msg::Styles(snapshot)),
+            Some(observer),
+        )
+        .map_err(|err| format!("worker подсветки не запущен: {err}"))?;
         let scene = Rc::new(Scene {
             model: RefCell::new(Model {
                 diff: None,
@@ -548,6 +586,9 @@ impl Scene {
             errors: RefCell::new(Vec::new()),
             reloading: Cell::new(false),
             drafts: Cell::new(DraftStats::default()),
+            open_at: Cell::new(OpenAt::Top),
+            kept: RefCell::new(None),
+            query,
         });
         CURRENT.with(|current| *current.borrow_mut() = Rc::downgrade(&scene));
         Ok(scene)
@@ -555,6 +596,41 @@ impl Scene {
 
     pub fn attach(&self, surface: Rc<dyn Surface>) {
         *self.surface.borrow_mut() = Some(surface);
+    }
+
+    /// Где встаёт верхний край следующих открытий.
+    pub fn set_open_at(&self, at: OpenAt) {
+        self.open_at.set(at);
+    }
+
+    /// Держать применённые снимки каждого открытия со стилями.
+    pub fn keep_snapshots(&self) {
+        *self.kept.borrow_mut() = Some(Vec::new());
+    }
+
+    /// Применённые снимки текущего открытия; пусто, если сценарий их не держит.
+    pub fn kept(&self) -> Vec<KeptSnapshot> {
+        self.kept.borrow().clone().unwrap_or_default()
+    }
+
+    /// Компиляция запроса подсветки: `None` — ещё идёт.
+    pub fn query_ready(&self) -> Option<Result<f64, String>> {
+        self.query.get().cloned()
+    }
+
+    /// Строки сторон видимых строк показа, как их запрашивает подсветка.
+    pub fn visible_lines(&self) -> Option<Sides<LineSet>> {
+        let rows = self.visible_rows();
+        let model = self.model.borrow();
+        let shown = model.shown()?;
+        Some(visible_lines(shown.body, model.mode, rows))
+    }
+
+    /// Путь активного файла открытого diff.
+    pub fn file_path(&self) -> Option<String> {
+        let model = self.model.borrow();
+        let diff = &model.diff.as_ref()?.diff;
+        Some(diff.file(model.file)?.path().to_owned())
     }
 
     pub fn model(&self) -> &RefCell<Model> {
@@ -725,6 +801,9 @@ impl Scene {
             open_ns: Some(now),
             ..Timeline::default()
         };
+        if let Some(kept) = self.kept.borrow_mut().as_mut() {
+            kept.clear();
+        }
         if let Err(stopped) = self.parse.submit(Arc::clone(&self.fixture.diff)) {
             self.fail(format!("разбор не принят: {stopped:?}"));
         }
@@ -898,6 +977,7 @@ impl Scene {
             return;
         }
         let snapshot = delivery.value;
+        let visible = self.viewport();
         let (generation, total) = {
             let mut model = self.model.borrow_mut();
             let Some(target) = model.pending.filter(|target| {
@@ -917,6 +997,7 @@ impl Scene {
                 return;
             };
             let reinstall = model.heights.is_some();
+            let opened = model.state.is_none();
             let switched = reinstall && model.mode != target.mode;
             // Треды могли раскрыться или черновик открыться, пока шла перестройка.
             let layout = model.thread_layout(target.metrics);
@@ -935,6 +1016,16 @@ impl Scene {
                 Some(state) if state.mode() != target.mode => state.with_mode(target.mode),
                 Some(state) => state,
             });
+            if opened
+                && self.open_at.get() == OpenAt::LastHunk
+                && let Some(state) = model.state.take()
+            {
+                let state = match model.viewport(visible.height) {
+                    Some(view) => state.at_last_hunk(&view),
+                    None => state,
+                };
+                model.state = Some(state);
+            }
             if reinstall {
                 model.relayout.installed += 1;
                 model.relayout.last_install_ns = Some(now_ns());
@@ -975,14 +1066,21 @@ impl Scene {
             (model.generation, rows)
         };
         let (generation, rows) = applied;
-        self.timeline.borrow_mut().snapshots.push(Applied {
+        let applied = Applied {
             source: snapshot.source,
             request: snapshot.request,
             at_ns: now_ns(),
             generation,
             changed_rows: rows.iter().map(|range| range.len()).sum(),
             compute_ms: snapshot.compute.as_secs_f64() * 1e3,
-        });
+        };
+        if let Some(kept) = self.kept.borrow_mut().as_mut() {
+            kept.push(KeptSnapshot {
+                applied: applied.clone(),
+                styles: snapshot.styles.clone(),
+            });
+        }
+        self.timeline.borrow_mut().snapshots.push(applied);
         if !rows.is_empty() {
             self.changed(generation, Some(rows));
         }

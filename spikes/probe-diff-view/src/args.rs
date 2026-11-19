@@ -9,12 +9,14 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use probe_diff_view::open::OpenFixture;
+
 pub const USAGE: &str = "\
 использование:
   probe-diff-view [--variant a|b] [--mode unified|side]
       демонстрация без стенда и result.json
   probe-diff-view --scenario <имя> --out <каталог> [--variant a|b] [--mode unified|side]
-                  [--fixtures <каталог фикстур>]
+                  [--fixture added|modified|sparse|wrap|real] [--fixtures <каталог фикстур>]
       сценарий стенда, итог в <каталог>/result.json
   probe-diff-view --aggregate <каталог прогона>
       сводка результатов прогона без окна
@@ -26,7 +28,8 @@ pub const USAGE: &str = "\
       внешний клиент доступности сценария ax: снимки дерева AX процесса <pid> по командам stdin
 
 у демонстрации по умолчанию --variant a --mode unified; сценарий стенда идёт без --variant и
---mode, сценарий вида требует обоих; --fixtures нужен ровно сценариям с эталоном подсветки";
+--mode, сценарий вида требует обоих, сценарий открытия также --fixture; --fixtures нужен ровно
+сценариям с эталоном подсветки";
 
 /// Вариант отрисовки: A — собственный `NSView` с Core Text, B — view-based `NSTableView`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,21 +80,30 @@ impl ViewMode {
 }
 
 /// По каким осям идёт сценарий. Сценарий стенда — один процесс без варианта и режима, сценарий
-/// вида — процесс на каждую пару варианта и режима. Таблица `run.sh` (`axes_of`) повторяет её.
+/// вида — процесс на каждую пару варианта и режима, сценарий открытия — также на каждую
+/// фикстуру. Таблица `run.sh` (`axes_of`) повторяет её.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Axes {
     pub variants: bool,
     pub modes: bool,
+    pub fixtures: bool,
 }
 
 impl Axes {
     pub const STAND: Axes = Axes {
         variants: false,
         modes: false,
+        fixtures: false,
     };
     pub const VIEW: Axes = Axes {
         variants: true,
         modes: true,
+        fixtures: false,
+    };
+    pub const OPEN: Axes = Axes {
+        variants: true,
+        modes: true,
+        fixtures: true,
     };
 }
 
@@ -107,15 +119,21 @@ pub enum Scenario {
     OpenSmoke,
     /// Доступность вида: внешний клиент читает строки, выбранность и фокус, стенд сверяет с моделью.
     Ax,
+    /// Открытие фикстуры в свежем процессе: отметки до первого экрана с правильной подсветкой.
+    Open,
+    /// 20 открытий фикстуры в одном процессе без вердикта.
+    OpenWarm,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 5] = [
+    pub const ALL: [Scenario; 7] = [
         Scenario::Smoke,
         Scenario::Highlight,
         Scenario::Calibrate,
         Scenario::OpenSmoke,
         Scenario::Ax,
+        Scenario::Open,
+        Scenario::OpenWarm,
     ];
 
     pub fn name(self) -> &'static str {
@@ -125,6 +143,8 @@ impl Scenario {
             Scenario::Calibrate => "calibrate",
             Scenario::OpenSmoke => "open-smoke",
             Scenario::Ax => "ax",
+            Scenario::Open => "open",
+            Scenario::OpenWarm => "open-warm",
         }
     }
 
@@ -138,6 +158,7 @@ impl Scenario {
         match self {
             Scenario::Smoke | Scenario::Highlight | Scenario::Calibrate => Axes::STAND,
             Scenario::OpenSmoke | Scenario::Ax => Axes::VIEW,
+            Scenario::Open | Scenario::OpenWarm => Axes::OPEN,
         }
     }
 
@@ -146,16 +167,17 @@ impl Scenario {
     pub fn needs_fixtures(self) -> bool {
         match self {
             Scenario::Smoke | Scenario::Calibrate | Scenario::OpenSmoke | Scenario::Ax => false,
-            Scenario::Highlight => true,
+            Scenario::Highlight | Scenario::Open | Scenario::OpenWarm => true,
         }
     }
 }
 
-/// Вариант и режим из командной строки; `None` — флаг не указан.
+/// Вариант, режим и фикстура открытия из командной строки; `None` — флаг не указан.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ViewOptions {
     pub variant: Option<Variant>,
     pub mode: Option<ViewMode>,
+    pub fixture: Option<OpenFixture>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -261,6 +283,7 @@ enum Flag {
     Scenario,
     Variant,
     Mode,
+    Fixture,
     Out,
     Fixtures,
     Aggregate,
@@ -268,10 +291,11 @@ enum Flag {
 }
 
 impl Flag {
-    const ALL: [Flag; 7] = [
+    const ALL: [Flag; 8] = [
         Flag::Scenario,
         Flag::Variant,
         Flag::Mode,
+        Flag::Fixture,
         Flag::Out,
         Flag::Fixtures,
         Flag::Aggregate,
@@ -283,6 +307,7 @@ impl Flag {
             Flag::Scenario => "--scenario",
             Flag::Variant => "--variant",
             Flag::Mode => "--mode",
+            Flag::Fixture => "--fixture",
             Flag::Out => "--out",
             Flag::Fixtures => "--fixtures",
             Flag::Aggregate => "--aggregate",
@@ -300,6 +325,7 @@ struct Raw {
     scenario: Option<Scenario>,
     variant: Option<Variant>,
     mode: Option<ViewMode>,
+    fixture: Option<OpenFixture>,
     out: Option<PathBuf>,
     fixtures: Option<PathBuf>,
     aggregate: Option<PathBuf>,
@@ -312,6 +338,7 @@ impl Raw {
             (Flag::Scenario, self.scenario.is_some()),
             (Flag::Variant, self.variant.is_some()),
             (Flag::Mode, self.mode.is_some()),
+            (Flag::Fixture, self.fixture.is_some()),
             (Flag::Out, self.out.is_some()),
             (Flag::Fixtures, self.fixtures.is_some()),
             (Flag::Aggregate, self.aggregate.is_some()),
@@ -381,6 +408,12 @@ pub fn parse(args: &[String]) -> Result<Command, ArgsError> {
                     .ok_or_else(|| invalid(flag, value, "unified или side"))?;
                 set(&mut raw.mode, flag, mode)?;
             }
+            Flag::Fixture => {
+                let fixture = OpenFixture::parse(value).ok_or_else(|| {
+                    invalid(flag, value, "added, modified, sparse, wrap или real")
+                })?;
+                set(&mut raw.fixture, flag, fixture)?;
+            }
             Flag::Out => set(&mut raw.out, flag, path(flag, value)?)?,
             Flag::Fixtures => set(&mut raw.fixtures, flag, path(flag, value)?)?,
             Flag::Aggregate => set(&mut raw.aggregate, flag, path(flag, value)?)?,
@@ -406,6 +439,7 @@ pub fn parse(args: &[String]) -> Result<Command, ArgsError> {
     let view = ViewOptions {
         variant: raw.variant,
         mode: raw.mode,
+        fixture: raw.fixture,
     };
     match (raw.scenario, raw.out) {
         (Some(scenario), Some(out)) => {
@@ -425,15 +459,20 @@ pub fn parse(args: &[String]) -> Result<Command, ArgsError> {
         (Some(_), None) => Err(ArgsError::ScenarioWithoutOut),
         (None, Some(_)) => Err(ArgsError::OutWithoutScenario),
         (None, None) if raw.fixtures.is_some() => Err(ArgsError::FixturesWithoutScenario),
+        (None, None) if raw.fixture.is_some() => Err(ArgsError::AxisNotAccepted {
+            scenario: "демонстрация",
+            flag: Flag::Fixture.name(),
+        }),
         (None, None) => Ok(Command::Demo(view)),
     }
 }
 
-/// Вариант и режим указаны ровно у сценариев, которые идут по этим осям.
+/// Вариант, режим и фикстура указаны ровно у сценариев, которые идут по этим осям.
 fn check_axes(scenario: &'static str, axes: Axes, view: ViewOptions) -> Result<(), ArgsError> {
     for (wanted, given, flag) in [
         (axes.variants, view.variant.is_some(), Flag::Variant),
         (axes.modes, view.mode.is_some(), Flag::Mode),
+        (axes.fixtures, view.fixture.is_some(), Flag::Fixture),
     ] {
         match (wanted, given) {
             (true, false) => {
@@ -498,6 +537,7 @@ mod tests {
             Ok(Command::Demo(ViewOptions {
                 variant: Some(Variant::B),
                 mode: Some(ViewMode::Side),
+                fixture: None,
             }))
         );
         assert_eq!(
@@ -505,6 +545,7 @@ mod tests {
             Ok(Command::Demo(ViewOptions {
                 variant: None,
                 mode: Some(ViewMode::Unified),
+                fixture: None,
             }))
         );
     }
@@ -613,6 +654,7 @@ mod tests {
                 view: ViewOptions {
                     variant: Some(Variant::B),
                     mode: Some(ViewMode::Side),
+                    fixture: None,
                 },
                 out: PathBuf::from("o"),
                 fixtures: None,
@@ -700,6 +742,7 @@ mod tests {
                 view: ViewOptions {
                     variant: Some(Variant::A),
                     mode: Some(ViewMode::Unified),
+                    fixture: None,
                 },
                 out: PathBuf::from("o"),
                 fixtures: None,
@@ -730,14 +773,112 @@ mod tests {
     }
 
     #[test]
-    fn view_axes_are_required_and_checked_one_by_one() {
-        let both = Axes {
-            variants: true,
-            modes: true,
+    fn open_needs_a_fixture_and_the_fixtures_dir() {
+        let open = |scenario: &'static str| {
+            parse_str(&[
+                "--scenario",
+                scenario,
+                "--out",
+                "o",
+                "--variant",
+                "b",
+                "--mode",
+                "side",
+                "--fixture",
+                "sparse",
+                "--fixtures",
+                "f",
+            ])
         };
+        for (name, scenario) in [("open", Scenario::Open), ("open-warm", Scenario::OpenWarm)] {
+            assert_eq!(
+                open(name),
+                Ok(Command::Scenario {
+                    scenario,
+                    view: ViewOptions {
+                        variant: Some(Variant::B),
+                        mode: Some(ViewMode::Side),
+                        fixture: Some(OpenFixture::Sparse),
+                    },
+                    out: PathBuf::from("o"),
+                    fixtures: Some(PathBuf::from("f")),
+                })
+            );
+        }
+        assert_eq!(
+            parse_str(&[
+                "--scenario",
+                "open",
+                "--out",
+                "o",
+                "--variant",
+                "a",
+                "--mode",
+                "unified",
+                "--fixtures",
+                "f",
+            ]),
+            Err(ArgsError::AxisRequired {
+                scenario: "open",
+                flag: "--fixture"
+            })
+        );
+        assert_eq!(
+            parse_str(&[
+                "--scenario",
+                "open",
+                "--out",
+                "o",
+                "--variant",
+                "a",
+                "--mode",
+                "unified",
+                "--fixture",
+                "real",
+            ]),
+            Err(ArgsError::FixturesRequired("open"))
+        );
+        assert_eq!(
+            parse_str(&[
+                "--scenario",
+                "ax",
+                "--out",
+                "o",
+                "--variant",
+                "a",
+                "--mode",
+                "unified",
+                "--fixture",
+                "added",
+            ]),
+            Err(ArgsError::AxisNotAccepted {
+                scenario: "ax",
+                flag: "--fixture"
+            })
+        );
+        assert_eq!(
+            parse_str(&["--fixture", "added"]),
+            Err(ArgsError::AxisNotAccepted {
+                scenario: "демонстрация",
+                flag: "--fixture"
+            })
+        );
+        assert!(matches!(
+            parse_str(&["--fixture", "threads"]),
+            Err(ArgsError::InvalidValue {
+                flag: "--fixture",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn view_axes_are_required_and_checked_one_by_one() {
+        let both = Axes::VIEW;
         let full = ViewOptions {
             variant: Some(Variant::A),
             mode: Some(ViewMode::Side),
+            fixture: None,
         };
         assert_eq!(check_axes("open", both, full), Ok(()));
         assert_eq!(
@@ -757,6 +898,7 @@ mod tests {
         let variants_only = Axes {
             variants: true,
             modes: false,
+            fixtures: false,
         };
         assert_eq!(
             check_axes(
@@ -764,7 +906,8 @@ mod tests {
                 variants_only,
                 ViewOptions {
                     variant: Some(Variant::B),
-                    mode: None
+                    mode: None,
+                    fixture: None,
                 }
             ),
             Ok(())

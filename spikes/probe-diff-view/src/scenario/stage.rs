@@ -10,7 +10,7 @@ use objc2_app_kit::{NSApplication, NSResponder, NSScrollView, NSWindow};
 use objc2_foundation::NSRect;
 use serde::Serialize;
 
-use probe_diff_view::fixtures::{self, FixtureName};
+use probe_diff_view::fixtures::{self, Fixture, FixtureName};
 use probe_diff_view::model::{Mode, Side};
 
 use super::drawmark::{self, Ledger};
@@ -156,9 +156,21 @@ pub struct Stage {
     pub coverage: Rc<RefCell<Vec<Coverage>>>,
 }
 
-/// Фикстура `name` в памяти, вид `variant` содержимым окна и first responder, стенд событий с
-/// кольцом следа, курсор мыши вне окон пробы, наблюдатели `drawmark` у учёта покрытия. Клавиша
-/// открытия не нажимается.
+/// Синтетическая фикстура `name` в памяти процесса, время генерации — в итог.
+pub fn generate(report: &mut Report, name: FixtureName) -> Fixture {
+    let generated = Instant::now();
+    let fixture = fixtures::generate(name);
+    report.metric(
+        "fixture_generate_ms",
+        "ms",
+        vec![generated.elapsed().as_secs_f64() * 1e3],
+    );
+    fixture
+}
+
+/// Фикстура в памяти, вид `variant` содержимым окна и first responder, стенд событий с кольцом
+/// следа, курсор мыши вне окон пробы, наблюдатели `drawmark` у учёта покрытия. Клавиша открытия
+/// не нажимается.
 #[allow(clippy::too_many_arguments)]
 pub fn prepare(
     mtm: MainThreadMarker,
@@ -167,19 +179,17 @@ pub fn prepare(
     trace: SharedTrace,
     variant: Variant,
     mode: Mode,
-    name: FixtureName,
+    fixture: Fixture,
     scenario: &str,
 ) -> Result<Stage, String> {
-    let generated = Instant::now();
-    let fixture = fixtures::generate(name);
-    report.metric(
-        "fixture_generate_ms",
-        "ms",
-        vec![generated.elapsed().as_secs_f64() * 1e3],
-    );
     report.push(
         "fixture",
-        format!("{}, отпечаток {:016x}", name.as_str(), fixture.digest()),
+        format!(
+            "{}, {}, отпечаток {:016x}",
+            fixture.name,
+            fixture.path,
+            fixture.digest()
+        ),
     );
     let app = NSApplication::sharedApplication(mtm);
     let theme = crate::text::current_theme(mtm);
