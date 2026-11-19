@@ -623,7 +623,6 @@ impl AcceptScript {
                             )
                             .is_some()
                         })
-                        && selection.head != selection.tail
                 });
                 checks.push(Check::new(
                     name,
