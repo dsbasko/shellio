@@ -1175,13 +1175,20 @@ impl Surface for ViewB {
         if loaded.diff != before.diff {
             self.table.reloadData();
             self.shared.count(|stats| stats.reload_data += 1);
-        } else if previous != next {
-            without_animation(|| self.table.noteNumberOfRowsChanged());
-            self.shared.count(|stats| stats.note_rows += 1);
-        } else if loaded.installed != before.installed {
-            let all = NSIndexSet::indexSetWithIndexesInRange(NSRange::new(0, next.len()));
-            without_animation(|| self.table.noteHeightOfRowsWithIndexesChanged(&all));
-            self.shared.count(|stats| stats.note_heights += 1);
+        } else {
+            // Смена режима меняет и число строк, и высоты: `noteNumberOfRowsChanged` запомненные
+            // высоты оставшихся строк не сбрасывает.
+            let rows = previous != next;
+            let heights = loaded.installed != before.installed;
+            if rows {
+                without_animation(|| self.table.noteNumberOfRowsChanged());
+                self.shared.count(|stats| stats.note_rows += 1);
+            }
+            if heights {
+                let all = NSIndexSet::indexSetWithIndexesInRange(NSRange::new(0, next.len()));
+                without_animation(|| self.table.noteHeightOfRowsWithIndexesChanged(&all));
+                self.shared.count(|stats| stats.note_heights += 1);
+            }
         }
         self.refresh_rows();
         self.settle("reload");

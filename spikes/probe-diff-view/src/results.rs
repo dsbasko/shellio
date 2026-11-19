@@ -1269,6 +1269,24 @@ mod tests {
                     ..key("open-warm", Some(Variant::A), Some(ViewMode::Unified), None)
                 },
             ),
+            (
+                "threads-a-unified",
+                key("threads", Some(Variant::A), Some(ViewMode::Unified), None),
+            ),
+            (
+                "frames-threads-b-side",
+                ProcessKey {
+                    fixture: Some(OpenFixture::Threads),
+                    ..key("frames", Some(Variant::B), Some(ViewMode::Side), None)
+                },
+            ),
+            (
+                "anchor-threads-a-side",
+                ProcessKey {
+                    fixture: Some(OpenFixture::Threads),
+                    ..key("anchor", Some(Variant::A), Some(ViewMode::Side), None)
+                },
+            ),
         ] {
             assert_eq!(ProcessKey::parse(name).as_ref(), Some(&expected), "{name}");
             assert_eq!(expected.dir_name(), name);

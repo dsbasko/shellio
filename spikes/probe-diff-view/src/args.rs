@@ -170,10 +170,20 @@ pub enum Scenario {
     Keys,
     /// CPU в простое: 10 с неподвижного `modified` после окончания подсветки.
     Idle,
+    /// Контракт: якорь при смене ширины, режима и раскрытии треда, переходы и возврат.
+    Anchor,
+    /// Контракт: выделение клавишами, протяжкой, `Shift`-щелчком и половиной «Рядом».
+    Selection,
+    /// Контракт: черновик на строке и диапазоне, блок треда, одно поле черновика.
+    Threads,
+    /// Контракт: пары «Рядом», номера гуттера, пара 3 и 1.
+    Pairs,
+    /// Контракт: ограниченность видов строк, кэша раскладки и счётчиков объектов.
+    Bounded,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 11] = [
+    pub const ALL: [Scenario; 16] = [
         Scenario::Smoke,
         Scenario::Highlight,
         Scenario::Calibrate,
@@ -185,6 +195,11 @@ impl Scenario {
         Scenario::Memory,
         Scenario::Keys,
         Scenario::Idle,
+        Scenario::Anchor,
+        Scenario::Selection,
+        Scenario::Threads,
+        Scenario::Pairs,
+        Scenario::Bounded,
     ];
 
     pub fn name(self) -> &'static str {
@@ -200,6 +215,11 @@ impl Scenario {
             Scenario::Memory => "memory",
             Scenario::Keys => "keys",
             Scenario::Idle => "idle",
+            Scenario::Anchor => "anchor",
+            Scenario::Selection => "selection",
+            Scenario::Threads => "threads",
+            Scenario::Pairs => "pairs",
+            Scenario::Bounded => "bounded",
         }
     }
 
@@ -212,8 +232,18 @@ impl Scenario {
     pub fn axes(self) -> Axes {
         match self {
             Scenario::Smoke | Scenario::Highlight | Scenario::Calibrate => Axes::STAND,
-            Scenario::OpenSmoke | Scenario::Ax | Scenario::Keys | Scenario::Idle => Axes::VIEW,
-            Scenario::Open | Scenario::OpenWarm | Scenario::Frames => Axes::OPEN,
+            Scenario::OpenSmoke
+            | Scenario::Ax
+            | Scenario::Keys
+            | Scenario::Idle
+            | Scenario::Selection
+            | Scenario::Threads
+            | Scenario::Bounded => Axes::VIEW,
+            Scenario::Open
+            | Scenario::OpenWarm
+            | Scenario::Frames
+            | Scenario::Anchor
+            | Scenario::Pairs => Axes::OPEN,
             Scenario::Memory => Axes::VARIANT,
         }
     }
@@ -229,7 +259,12 @@ impl Scenario {
             | Scenario::Ax
             | Scenario::Memory
             | Scenario::Keys
-            | Scenario::Idle => &[],
+            | Scenario::Idle
+            | Scenario::Selection
+            | Scenario::Threads
+            | Scenario::Bounded => &[],
+            Scenario::Anchor => &[OpenFixture::Threads, OpenFixture::Wrap],
+            Scenario::Pairs => &[OpenFixture::Modified, OpenFixture::Wrap],
             Scenario::Open | Scenario::OpenWarm => &[
                 OpenFixture::Added,
                 OpenFixture::Modified,
@@ -266,7 +301,12 @@ impl Scenario {
             | Scenario::Frames
             | Scenario::Memory
             | Scenario::Keys
-            | Scenario::Idle => false,
+            | Scenario::Idle
+            | Scenario::Anchor
+            | Scenario::Selection
+            | Scenario::Threads
+            | Scenario::Pairs
+            | Scenario::Bounded => false,
             Scenario::Highlight | Scenario::Open | Scenario::OpenWarm => true,
         }
     }

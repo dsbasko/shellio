@@ -82,6 +82,12 @@ const FRAMES_DEADLINE: Duration = Duration::from_secs(4 * 60);
 const MEMORY_DEADLINE: Duration = Duration::from_secs(5 * 60);
 const KEYS_DEADLINE: Duration = Duration::from_secs(10 * 60);
 const IDLE_DEADLINE: Duration = Duration::from_secs(2 * 60);
+/// Сроки сторожей сценариев контракта из строки отчёта «Сроки контракта».
+const ANCHOR_DEADLINE: Duration = Duration::from_secs(5 * 60);
+const SELECTION_DEADLINE: Duration = Duration::from_secs(3 * 60);
+const THREADS_DEADLINE: Duration = Duration::from_secs(10 * 60);
+const PAIRS_DEADLINE: Duration = Duration::from_secs(5 * 60);
+const BOUNDED_DEADLINE: Duration = Duration::from_secs(20 * 60);
 /// Период проверки готовности окна. Поток не засыпает: между проверками цикл обрабатывает события.
 const POLL_INTERVAL_S: f64 = 0.005;
 
@@ -308,6 +314,11 @@ fn run_scenario(
         Scenario::Memory => Some(("memory", MEMORY_DEADLINE)),
         Scenario::Keys => Some(("keys", KEYS_DEADLINE)),
         Scenario::Idle => Some(("idle", IDLE_DEADLINE)),
+        Scenario::Anchor => Some(("anchor", ANCHOR_DEADLINE)),
+        Scenario::Selection => Some(("selection", SELECTION_DEADLINE)),
+        Scenario::Threads => Some(("threads", THREADS_DEADLINE)),
+        Scenario::Pairs => Some(("pairs", PAIRS_DEADLINE)),
+        Scenario::Bounded => Some(("bounded", BOUNDED_DEADLINE)),
         Scenario::Highlight => None,
     };
     let _watchdog = match deadline {
@@ -332,7 +343,12 @@ fn run_scenario(
         | Scenario::Ax
         | Scenario::Keys
         | Scenario::Memory
-        | Scenario::Idle => run_app(Some(scenario), view, Some(out.clone()), None, trace)
+        | Scenario::Idle
+        | Scenario::Anchor
+        | Scenario::Selection
+        | Scenario::Threads
+        | Scenario::Pairs
+        | Scenario::Bounded => run_app(Some(scenario), view, Some(out.clone()), None, trace)
             .unwrap_or_else(|| {
                 Outcome::error(
                     "основной цикл завершился без итога сценария",
@@ -985,6 +1001,32 @@ impl AppDelegate {
                     Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
                     Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
                 },
+                Some(
+                    scenario @ (Scenario::Anchor
+                    | Scenario::Selection
+                    | Scenario::Threads
+                    | Scenario::Pairs
+                    | Scenario::Bounded),
+                ) => {
+                    let Some(part) = scenario::contract_run::Part::of(scenario) else {
+                        return self.finish(Outcome::error(
+                            format!("{} не часть контракта", scenario.name()),
+                            None,
+                            report,
+                        ));
+                    };
+                    match scenario::contract_run::ContractRun::start(
+                        self.mtm(),
+                        window,
+                        report,
+                        ivars.trace.clone(),
+                        ivars.view,
+                        part,
+                    ) {
+                        Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
+                        Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
+                    }
+                }
                 Some(Scenario::Highlight) | None => self.finish(Outcome::ok(report)),
             }
         } else if waited >= SMOKE_TIMEOUT {

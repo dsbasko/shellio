@@ -7,7 +7,8 @@
 #   run.sh demo [аргументы пробы …]  демонстрация для ручной работы
 # VARIANTS (по умолчанию «a b») и MODES («unified side») сужают оси сценариев вида, FIXTURES
 # («added modified sparse wrap real threads») — ось фикстур: у open и open-warm «added modified
-# sparse wrap real», у frames «added modified threads wrap» (wrap только в side). Сценарий берёт
+# sparse wrap real», у frames «added modified threads wrap» (wrap только в side), у anchor
+# «threads wrap», у pairs «modified wrap». Сценарий берёт
 # пересечение FIXTURES со своим списком, пустое пересечение — отказ. FRAMES_PATH (none,
 # xctrace, screencapturekit; по умолчанию none) — путь замера кадров frames.
 # Перед сценариями открытия с фикстурой real run.sh готовит её через git без сети в
@@ -23,7 +24,7 @@ CARGO="${CARGO:-cargo}"
 BIN="$ROOT/target/release/probe-diff-view"
 OUT_BASE="$ROOT/target/probes/diff-view"
 FIXTURES_DIR="$OUT_BASE/fixtures"
-ALL_SCENARIOS="smoke highlight calibrate open-smoke ax open open-warm frames memory keys idle"
+ALL_SCENARIOS="smoke highlight calibrate open-smoke ax open open-warm frames memory keys idle anchor selection threads pairs bounded"
 ALL_VARIANTS="a b"
 ALL_MODES="unified side"
 ALL_FIXTURES="added modified sparse wrap real threads"
@@ -124,8 +125,8 @@ check_state_dir() {
 axes_of() {
     case "$1" in
         smoke | highlight | calibrate) echo stand ;;
-        open-smoke | ax | keys | idle) echo view ;;
-        open | open-warm | frames) echo open ;;
+        open-smoke | ax | keys | idle | selection | threads | bounded) echo view ;;
+        open | open-warm | frames | anchor | pairs) echo open ;;
         memory) echo variant ;;
         *) die "неизвестный сценарий «${1}», известны: $ALL_SCENARIOS" ;;
     esac
@@ -136,6 +137,8 @@ fixtures_of() {
     case "$1" in
         open | open-warm) echo "added modified sparse wrap real" ;;
         frames) echo "added modified threads wrap" ;;
+        anchor) echo "threads wrap" ;;
+        pairs) echo "modified wrap" ;;
         *) echo "" ;;
     esac
 }

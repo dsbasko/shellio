@@ -4,10 +4,8 @@
 // Часть стенда задачи 6 нужна сценариям задач 7–16: ожидание покрытия, синтетические клавиши и
 // мышь, снимки окна, CPU простоя, наблюдение показов поверхностей. Разрешение снимается, когда их
 // подключат.
-// Оракулы контракта корректности задачи 14: GUI-части сценариев подключат их, тогда
-// разрешение снимается.
-#[allow(dead_code)]
 pub mod anchor;
+pub mod anchor_run;
 pub mod ax;
 pub mod ax_client;
 #[allow(dead_code)]
@@ -15,8 +13,12 @@ pub mod bounded;
 pub mod calibrate;
 pub mod calibrate_run;
 pub mod capture;
+// Оракулы `selection`, `threads`, `pairs` и `bounded` и части исполнителя для них (пересборка
+// стенда, щелчок по строке) подключат их сценарии, тогда разрешение снимается.
 #[allow(dead_code)]
 pub mod contract;
+#[allow(dead_code)]
+pub mod contract_run;
 #[allow(dead_code, unused_macros, unused_imports)]
 pub mod counters;
 #[allow(dead_code)]

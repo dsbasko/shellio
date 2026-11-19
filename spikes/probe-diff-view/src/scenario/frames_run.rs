@@ -953,8 +953,10 @@ pub fn stage_errors(stage: &Stage) -> Result<(), String> {
         let stats = view.stats();
         if stats.height_failures > 0 || stats.frame_mismatches > 0 {
             return Err(format!(
-                "таблица B: высот при занятой модели {}, расхождений высоты с индексом {}",
-                stats.height_failures, stats.frame_mismatches
+                "таблица B: высот при занятой модели {}, расхождений высоты с индексом {}: {}",
+                stats.height_failures,
+                stats.frame_mismatches,
+                view.mismatches().join("; ")
             ));
         }
     }

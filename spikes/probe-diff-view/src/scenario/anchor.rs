@@ -4,8 +4,10 @@
 
 use serde::Serialize;
 
-use probe_diff_view::model::LineAddr;
 use probe_diff_view::model::state::Anchor;
+use probe_diff_view::model::{LineAddr, Mode};
+
+use super::contract::{Check, Kind, Raw};
 
 /// Допуск смещения, точки.
 pub const TOLERANCE: f64 = 1.0;
@@ -90,6 +92,61 @@ pub fn moved(before_top: f64, after_top: f64) -> bool {
     (before_top - after_top).abs() > TOLERANCE
 }
 
+/// Адреса `a` и `b` принадлежат одной строке сырого diff: у контекстной строки их два.
+pub fn same_line(raw: &Raw, a: LineAddr, b: LineAddr) -> bool {
+    a == b
+        || raw.lines.iter().any(|line| {
+            let addrs = line.addrs();
+            addrs.contains(&a) && addrs.contains(&b)
+        })
+}
+
+/// Ожидаемый адрес строки показа `row` по сырому diff: адрес модели, если он среди адресов
+/// строки, иначе первый из них (строка отчёта «Якорь `anchor`»).
+pub fn expected_addr(raw: &Raw, mode: Mode, row: usize, model: LineAddr) -> Option<LineAddr> {
+    let addrs = raw.row_addrs(mode, row);
+    if addrs.contains(&model) {
+        Some(model)
+    } else {
+        addrs.first().copied()
+    }
+}
+
+/// Исходная строка якоря: первая контекстная строка показа не раньше середины, которую
+/// принимает `accept`.
+pub fn start_row(raw: &Raw, mode: Mode, accept: impl Fn(usize) -> bool) -> Option<usize> {
+    let rows = raw.rows(mode);
+    (rows / 2..rows).find(|&row| {
+        let lines = raw.row_lines(mode, row);
+        !lines.is_empty()
+            && lines
+                .iter()
+                .all(|&index| raw.lines[index].kind == Kind::Context)
+            && accept(row)
+    })
+}
+
+/// Сверка якоря на шаге как проверка контракта: сырые значения в подробностях.
+pub fn as_check(step: &str, checked: &AnchorCheck) -> Check {
+    let raw = serde_json::to_string(checked).unwrap_or_default();
+    let detail = if checked.ok {
+        raw
+    } else {
+        format!("{}; {raw}", checked.reason)
+    };
+    Check::new(step, checked.ok, detail)
+}
+
+/// Якорь модели сохранил строку и смещение исходного якоря.
+pub fn check_kept(step: &str, raw: &Raw, initial: Anchor, model: Anchor) -> Check {
+    let ok = same_line(raw, initial.addr, model.addr) && initial.offset == model.offset;
+    Check::new(
+        format!("{step} kept"),
+        ok,
+        format!("якорь модели {model:?}, исходный {initial:?}"),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -140,6 +197,62 @@ mod tests {
         let below = check(None, anchor(7, 31), 9, Some(drawn(9, 0.0)), 5, 31.0);
         assert!(!below.ok);
         assert!(below.reason.contains("вне строки"));
+    }
+
+    fn raw() -> Raw {
+        Raw::parse(b"--- a/f\n+++ b/f\n@@ -1,6 +1,6 @@\n a\n b\n-c\n+C\n d\n e\n f\n").unwrap()
+    }
+
+    #[test]
+    fn context_lines_share_both_addresses() {
+        let raw = raw();
+        assert!(same_line(&raw, LineAddr::old(4), LineAddr::new(4)));
+        assert!(!same_line(&raw, LineAddr::old(3), LineAddr::new(3)));
+        assert!(same_line(&raw, LineAddr::new(3), LineAddr::new(3)));
+    }
+
+    #[test]
+    fn expected_address_prefers_the_model_side_of_the_row() {
+        let raw = raw();
+        assert_eq!(
+            expected_addr(&raw, Mode::Unified, 0, LineAddr::old(1)),
+            Some(LineAddr::old(1))
+        );
+        assert_eq!(
+            expected_addr(&raw, Mode::Unified, 0, LineAddr::new(5)),
+            Some(LineAddr::old(1))
+        );
+        assert_eq!(
+            expected_addr(&raw, Mode::SideBySide, 2, LineAddr::new(3)),
+            Some(LineAddr::new(3))
+        );
+    }
+
+    #[test]
+    fn start_row_is_the_first_context_row_from_the_middle() {
+        let raw = raw();
+        // unified: a b -c +C d e f — 7 строк, середина 3 (+C), первая контекстная — 4 (d).
+        assert_eq!(start_row(&raw, Mode::Unified, |_| true), Some(4));
+        assert_eq!(start_row(&raw, Mode::Unified, |row| row > 4), Some(5));
+        // «Рядом»: a b c|C d e f — 6 строк, середина 3 (d).
+        assert_eq!(start_row(&raw, Mode::SideBySide, |_| true), Some(3));
+        assert_eq!(start_row(&raw, Mode::SideBySide, |_| false), None);
+    }
+
+    #[test]
+    fn kept_anchor_accepts_the_other_address_of_a_context_line() {
+        let raw = raw();
+        let initial = Anchor {
+            addr: LineAddr::new(4),
+            offset: 7,
+        };
+        let other = Anchor {
+            addr: LineAddr::old(4),
+            offset: 7,
+        };
+        assert!(check_kept("mode", &raw, initial, other).ok);
+        assert!(!check_kept("mode", &raw, initial, Anchor { offset: 8, ..other }).ok);
+        assert!(!check_kept("mode", &raw, initial, anchor(5, 7)).ok);
     }
 
     #[test]
