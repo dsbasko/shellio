@@ -745,11 +745,15 @@
 **Files:**
 - Create: `spikes/probe-diff-view/cost.sh`
 - Modify: `spikes/probe-diff-view/src/main.rs`
+- ➕ Create: `spikes/probe-diff-view/src/demo.rs` (загрузка фикстуры на рабочем потоке и вид без стенда)
+- ➕ Modify: `src/args.rs` (`Demo`, `--fixture` и `--fixtures` у демонстрации), `run.sh` (`cmd_demo` готовит `real`), `AGENTS.md` (строка `make probe-diff-demo`), отчёт («Команды», «Проверка демонстрации», «Инженерная стоимость»)
 
-- [ ] `cost.sh`: непустые строки, классы `define_class!`, блоки `unsafe {}`, `unsafe impl` и методы ObjC по модулям `model`, `highlight`, `view_a`, `view_b`, как в P0.2. Стоимость вариантов для правила выбора
-- [ ] демонстрация `make probe-diff-demo ARGS="--variant a|b --mode unified|side --fixture <имя>"` без стенда и `result.json`
-- [ ] тест разбора аргументов демонстрации
-- [ ] `make check` — без ошибок
+- [x] `cost.sh`: непустые строки, классы `define_class!`, блоки `unsafe {}`, `unsafe impl` и методы ObjC по модулям `model`, `highlight`, `view_a`, `view_b`, как в P0.2. Стоимость вариантов для правила выбора — `spikes/probe-diff-view/cost.sh`, отчёт, раздел «Инженерная стоимость»: на дереве задачи 16 `view_a` — 1 119 непустых строк, `view_b` — 1 522, задача 19 пересчитывает на итоговом коммите
+  - ⚠️ решение исполнителя: модуль — каталог `src/<модуль>/`, каждый файл обрезается на своей строке `#[cfg(test)]` в начале строки. Методами ObjC считаются и `method(…)`, и `method_id(…)`: виды отдают атрибуты доступности через `method_id`, а P0.2 их не имел. Общие модули обоих видов (`scene`, `paint`, `text`, `draft_field`, `blocks`) идут отдельными строками вне стоимости варианта, как строка `scene` у P0.2. Состав задан до первого счёта
+- [x] демонстрация `make probe-diff-demo ARGS="--variant a|b --mode unified|side --fixture <имя>"` без стенда и `result.json` — `src/demo.rs`, `main.rs`, `run.sh`. Проверена запуском A «Рядом» `sparse` и B unified `real` (отчёт, «Проверка демонстрации»): окно с подсветкой, код выхода 0, ошибок сцены нет, `result.json` не создан
+  - ⚠️ решение исполнителя: фикстура по умолчанию — `modified` (плотные пары «Рядом»), `sparse` открывается на последнем ханке, как в `open`. У `real` активный файл — первый в порядке diff, переход между файлами — задача 18. `--fixtures` у демонстрации допустим ровно с `--fixture real`, его передаёт `run.sh`, без закреплённых коммитов — отказ. Фикстура грузится на рабочем потоке, таймер опроса идёт только до её прихода. Журналы `drawmark` демонстрация не читает: наблюдатели очищают их перед каждой записью
+- [x] тест разбора аргументов демонстрации — `args::tests` (`no_arguments_is_demo_with_defaults`, `demo_accepts_variant_mode_and_fixture`, `demo_round_trips_through_view_options`, `demo_takes_the_fixtures_dir_only_for_real`, `demo_rejects_stand_flags_and_bad_values`), `demo::tests`, `tests::demo_title_names_axes_and_file`
+- [x] `make check` — без ошибок, 1423 теста
 
 ### Task 17: Полный прогон и черновик отчёта
 

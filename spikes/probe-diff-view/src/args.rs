@@ -14,6 +14,7 @@ use probe_diff_view::open::OpenFixture;
 pub const USAGE: &str = "\
 использование:
   probe-diff-view [--variant a|b] [--mode unified|side]
+                  [--fixture added|modified|sparse|wrap|real|threads] [--fixtures <каталог фикстур>]
       демонстрация без стенда и result.json
   probe-diff-view --scenario <имя> --out <каталог> [--variant a|b] [--mode unified|side]
                   [--fixture added|modified|sparse|wrap|real|threads] [--fixtures <каталог фикстур>]
@@ -28,7 +29,8 @@ pub const USAGE: &str = "\
   probe-diff-view --ax-client <pid>
       внешний клиент доступности сценария ax: снимки дерева AX процесса <pid> по командам stdin
 
-у демонстрации по умолчанию --variant a --mode unified; сценарий стенда идёт без --variant и
+у демонстрации по умолчанию --variant a --mode unified --fixture modified, --fixtures нужен ей
+только с --fixture real (run.sh demo готовит фикстуру сам); сценарий стенда идёт без --variant и
 --mode, сценарий вида требует обоих, сценарии открытия и кадров также --fixture; --fixtures нужен
 ровно сценариям с эталоном подсветки; --frames-path — только у frames, по умолчанию none";
 
@@ -334,10 +336,44 @@ pub struct ViewOptions {
     pub fixture: Option<OpenFixture>,
 }
 
+/// Демонстрация: вариант, режим и фикстура с умолчаниями. Каталог фикстур — ровно у `real`:
+/// её готовит `run.sh`, синтетические фикстуры генерируются в процессе.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Demo {
+    pub variant: Variant,
+    pub mode: ViewMode,
+    pub fixture: OpenFixture,
+    pub fixtures: Option<PathBuf>,
+}
+
+impl Demo {
+    /// Фикстура без `--fixture`: 100 тыс. строк с плотными парами «Рядом».
+    pub const DEFAULT_FIXTURE: OpenFixture = OpenFixture::Modified;
+
+    /// Демонстрация из флагов: неуказанные вариант, режим и фикстура получают умолчания.
+    pub fn from_view(view: ViewOptions, fixtures: Option<PathBuf>) -> Demo {
+        Demo {
+            variant: view.variant.unwrap_or(Variant::A),
+            mode: view.mode.unwrap_or(ViewMode::Unified),
+            fixture: view.fixture.unwrap_or(Demo::DEFAULT_FIXTURE),
+            fixtures,
+        }
+    }
+
+    /// Оси демонстрации флагами: все три указаны.
+    pub fn view(&self) -> ViewOptions {
+        ViewOptions {
+            variant: Some(self.variant),
+            mode: Some(self.mode),
+            fixture: Some(self.fixture),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Command {
     Help,
-    Demo(ViewOptions),
+    Demo(Demo),
     Scenario {
         scenario: Scenario,
         view: ViewOptions,
@@ -374,6 +410,8 @@ pub enum ArgsError {
     ScenarioWithoutOut,
     OutWithoutScenario,
     FixturesWithoutScenario,
+    /// Демонстрация `--fixture real` без каталога фикстур.
+    DemoFixturesRequired,
     /// Команда `--aggregate` или `--reference` идёт одна.
     Exclusive(&'static str),
     FixturesRequired(&'static str),
@@ -422,9 +460,14 @@ impl fmt::Display for ArgsError {
             }
             ArgsError::ScenarioWithoutOut => write!(f, "--scenario требует --out"),
             ArgsError::OutWithoutScenario => write!(f, "--out имеет смысл только с --scenario"),
-            ArgsError::FixturesWithoutScenario => {
-                write!(f, "--fixtures имеет смысл только с --scenario")
-            }
+            ArgsError::FixturesWithoutScenario => write!(
+                f,
+                "--fixtures имеет смысл только с --scenario или у демонстрации --fixture real"
+            ),
+            ArgsError::DemoFixturesRequired => write!(
+                f,
+                "демонстрация --fixture real требует --fixtures, run.sh demo готовит фикстуру сам"
+            ),
             ArgsError::Exclusive(flag) => write!(f, "{flag} не сочетается с другими флагами"),
             ArgsError::FixturesRequired(scenario) => {
                 write!(f, "сценарий {scenario} требует --fixtures")
@@ -660,15 +703,20 @@ pub fn parse(args: &[String]) -> Result<Command, ArgsError> {
         }
         (Some(_), None) => Err(ArgsError::ScenarioWithoutOut),
         (None, Some(_)) => Err(ArgsError::OutWithoutScenario),
-        (None, None) if raw.fixtures.is_some() => Err(ArgsError::FixturesWithoutScenario),
         (None, None) if raw.frames_path.is_some() => {
             Err(ArgsError::FramesPathNotAccepted("демонстрация"))
         }
-        (None, None) if raw.fixture.is_some() => Err(ArgsError::AxisNotAccepted {
-            scenario: "демонстрация",
-            flag: Flag::Fixture.name(),
-        }),
-        (None, None) => Ok(Command::Demo(view)),
+        (None, None) => demo(view, raw.fixtures),
+    }
+}
+
+/// Демонстрация с умолчаниями: каталог фикстур нужен ровно фикстуре `real`.
+fn demo(view: ViewOptions, fixtures: Option<PathBuf>) -> Result<Command, ArgsError> {
+    let demo = Demo::from_view(view, fixtures);
+    match (demo.fixture == OpenFixture::Real, demo.fixtures.is_some()) {
+        (true, false) => Err(ArgsError::DemoFixturesRequired),
+        (false, true) => Err(ArgsError::FixturesWithoutScenario),
+        (true, true) | (false, false) => Ok(Command::Demo(demo)),
     }
 }
 
@@ -730,29 +778,141 @@ mod tests {
         parse(&args)
     }
 
-    #[test]
-    fn no_arguments_is_demo_without_flags() {
-        assert_eq!(parse_str(&[]), Ok(Command::Demo(ViewOptions::default())));
+    fn demo(variant: Variant, mode: ViewMode, fixture: OpenFixture) -> Command {
+        Command::Demo(Demo {
+            variant,
+            mode,
+            fixture,
+            fixtures: None,
+        })
     }
 
     #[test]
-    fn demo_accepts_variant_and_mode() {
+    fn no_arguments_is_demo_with_defaults() {
+        assert_eq!(
+            parse_str(&[]),
+            Ok(demo(Variant::A, ViewMode::Unified, OpenFixture::Modified))
+        );
+    }
+
+    #[test]
+    fn demo_accepts_variant_mode_and_fixture() {
         assert_eq!(
             parse_str(&["--variant", "b", "--mode", "side"]),
-            Ok(Command::Demo(ViewOptions {
-                variant: Some(Variant::B),
-                mode: Some(ViewMode::Side),
-                fixture: None,
+            Ok(demo(Variant::B, ViewMode::Side, OpenFixture::Modified))
+        );
+        assert_eq!(
+            parse_str(&["--mode", "side"]),
+            Ok(demo(Variant::A, ViewMode::Side, OpenFixture::Modified))
+        );
+        assert_eq!(
+            parse_str(&["--fixture", "sparse", "--variant", "b"]),
+            Ok(demo(Variant::B, ViewMode::Unified, OpenFixture::Sparse))
+        );
+        for fixture in OpenFixture::ALL {
+            if fixture == OpenFixture::Real {
+                continue;
+            }
+            assert_eq!(
+                parse_str(&[
+                    "--variant",
+                    "a",
+                    "--mode",
+                    "unified",
+                    "--fixture",
+                    fixture.name()
+                ]),
+                Ok(demo(Variant::A, ViewMode::Unified, fixture)),
+                "{}",
+                fixture.name()
+            );
+        }
+    }
+
+    #[test]
+    fn demo_round_trips_through_view_options() {
+        let parsed = Demo {
+            variant: Variant::B,
+            mode: ViewMode::Side,
+            fixture: OpenFixture::Real,
+            fixtures: Some(PathBuf::from("f")),
+        };
+        assert_eq!(
+            Demo::from_view(parsed.view(), parsed.fixtures.clone()),
+            parsed
+        );
+        assert_eq!(
+            Demo::from_view(ViewOptions::default(), None).view(),
+            ViewOptions {
+                variant: Some(Variant::A),
+                mode: Some(ViewMode::Unified),
+                fixture: Some(OpenFixture::Modified),
+            }
+        );
+    }
+
+    #[test]
+    fn demo_takes_the_fixtures_dir_only_for_real() {
+        assert_eq!(
+            parse_str(&["--fixture", "real", "--fixtures", "f", "--mode", "side"]),
+            Ok(Command::Demo(Demo {
+                variant: Variant::A,
+                mode: ViewMode::Side,
+                fixture: OpenFixture::Real,
+                fixtures: Some(PathBuf::from("f")),
             }))
         );
         assert_eq!(
-            parse_str(&["--mode", "unified"]),
-            Ok(Command::Demo(ViewOptions {
-                variant: None,
-                mode: Some(ViewMode::Unified),
-                fixture: None,
-            }))
+            parse_str(&["--fixture", "real"]),
+            Err(ArgsError::DemoFixturesRequired)
         );
+        assert_eq!(
+            parse_str(&["--fixture", "added", "--fixtures", "f"]),
+            Err(ArgsError::FixturesWithoutScenario)
+        );
+        assert_eq!(
+            parse_str(&["--fixtures", "f"]),
+            Err(ArgsError::FixturesWithoutScenario)
+        );
+        assert_eq!(
+            parse_str(&["--fixture", "real", "--fixtures", ""]),
+            Err(ArgsError::InvalidValue {
+                flag: "--fixtures",
+                value: String::new(),
+                expected: "непустой путь",
+            })
+        );
+    }
+
+    #[test]
+    fn demo_rejects_stand_flags_and_bad_values() {
+        assert_eq!(
+            parse_str(&["--fixture", "added", "--frames-path", "none"]),
+            Err(ArgsError::FramesPathNotAccepted("демонстрация"))
+        );
+        assert_eq!(
+            parse_str(&["--fixture", "added", "--out", "o"]),
+            Err(ArgsError::OutWithoutScenario)
+        );
+        assert_eq!(
+            parse_str(&["--fixture", "added", "--fixture", "wrap"]),
+            Err(ArgsError::Repeated("--fixture"))
+        );
+        assert_eq!(
+            parse_str(&["--fixture"]),
+            Err(ArgsError::MissingValue("--fixture"))
+        );
+        assert!(matches!(
+            parse_str(&["--variant", "c"]),
+            Err(ArgsError::InvalidValue {
+                flag: "--variant",
+                ..
+            })
+        ));
+        assert!(matches!(
+            parse_str(&["--mode", "split"]),
+            Err(ArgsError::InvalidValue { flag: "--mode", .. })
+        ));
     }
 
     #[test]
@@ -1063,13 +1223,6 @@ mod tests {
             ]),
             Err(ArgsError::AxisNotAccepted {
                 scenario: "ax",
-                flag: "--fixture"
-            })
-        );
-        assert_eq!(
-            parse_str(&["--fixture", "added"]),
-            Err(ArgsError::AxisNotAccepted {
-                scenario: "демонстрация",
                 flag: "--fixture"
             })
         );

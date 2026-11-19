@@ -1,4 +1,4 @@
-//! Проба P0.6 `probe-diff-view` (ADR-0034). Без `--scenario` показывает демонстрацию, со
+//! Проба P0.6 `probe-diff-view` (ADR-0034). Без `--scenario` показывает демонстрацию фикстуры, со
 //! `--scenario` сценарий ведёт процесс изнутри, пишет `result.json` в `--out` и печатает итог.
 //! `--aggregate` сводит прогон, `--reference` пишет эталоны подсветки, оба без `NSApplication`.
 //!
@@ -7,6 +7,7 @@
 
 mod args;
 mod blocks;
+mod demo;
 mod draft_field;
 mod paint;
 mod results;
@@ -24,6 +25,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::rc::Rc;
+use std::sync::mpsc::{Receiver, TryRecvError};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -41,7 +43,8 @@ use objc2_foundation::{
     NSRunLoopCommonModes, NSSize, NSString, NSTimer,
 };
 
-use args::{Command, FramesPath, Scenario, USAGE, Variant, ViewMode, ViewOptions};
+use args::{Command, Demo, FramesPath, Scenario, USAGE, ViewOptions};
+use probe_diff_view::fixtures::Fixture;
 use results::{
     Build, DisplayInfo, Environment, Execution, Hardware, Rect, Report, ResultFile, Size, Verdict,
     WindowInfo,
@@ -117,7 +120,13 @@ fn main() -> ExitCode {
         Command::Reference { dir } => reference(&dir),
         Command::Neighbor => neighbor(),
         Command::AxClient { pid } => ax_client(pid),
-        Command::Demo(view) => match run_app(None, view, None, None, Default::default()) {
+        Command::Demo(demo) => match run_app(
+            None,
+            demo.view(),
+            None,
+            demo.fixtures.clone(),
+            Default::default(),
+        ) {
             None => ExitCode::SUCCESS,
             Some(outcome) => print_outcome(&outcome),
         },
@@ -688,11 +697,14 @@ fn main_window(mtm: MainThreadMarker, screen: &NSScreen, title: &str) -> Retaine
     window
 }
 
-fn demo_title(view: ViewOptions) -> String {
+/// Заголовок демонстрации: оси и путь активного файла, до загрузки — пометка загрузки.
+fn demo_title(demo: &Demo, path: Option<&str>) -> String {
     format!(
-        "{PROBE_NAME} — вариант {}, {} (каркас)",
-        view.variant.unwrap_or(Variant::A).name(),
-        view.mode.unwrap_or(ViewMode::Unified).name()
+        "{PROBE_NAME} — вариант {}, {}, фикстура {}: {}",
+        demo.variant.name(),
+        demo.mode.name(),
+        demo.fixture.name(),
+        path.unwrap_or("загрузка")
     )
 }
 
@@ -714,6 +726,10 @@ struct DelegateIvars {
     running: RefCell<Option<Box<dyn scenario::Running>>>,
     /// Кольцо следа сторожа процесса, его же получает стенд событий.
     trace: scenario::watchdog::SharedTrace,
+    /// Фикстура демонстрации на рабочем потоке; таймер опроса идёт, пока она грузится.
+    loading: RefCell<Option<Receiver<Result<Fixture, String>>>>,
+    /// Открытый diff демонстрации.
+    opened: RefCell<Option<demo::Opened>>,
 }
 
 define_class!(
@@ -740,6 +756,7 @@ define_class!(
         #[unsafe(method(applicationShouldTerminate:))]
         fn should_terminate(&self, _sender: &NSApplication) -> NSApplicationTerminateReply {
             if self.ivars().scenario.is_none() {
+                self.report_demo_errors();
                 return NSApplicationTerminateReply::TerminateNow;
             }
             // Внешнее завершение до итога сценария — ошибка исполнения.
@@ -755,6 +772,10 @@ define_class!(
     impl AppDelegate {
         #[unsafe(method(pollWindow:))]
         fn poll_window(&self, _timer: &NSTimer) {
+            if self.ivars().scenario.is_none() {
+                self.poll_demo();
+                return;
+            }
             let polled = self.ivars().running.borrow().as_ref().map(|run| run.poll());
             match polled {
                 None => self.check_window(),
@@ -803,6 +824,8 @@ impl AppDelegate {
             requested: OnceCell::new(),
             running: RefCell::new(None),
             trace,
+            loading: RefCell::new(None),
+            opened: RefCell::new(None),
         });
         // SAFETY: `init` у NSObject без аргументов.
         unsafe { msg_send![super(this), init] }
@@ -822,7 +845,7 @@ impl AppDelegate {
         };
         let title = match ivars.scenario {
             Some(scenario) => format!("{PROBE_NAME} — {}", scenario.name()),
-            None => demo_title(ivars.view),
+            None => demo_title(&self.demo(), None),
         };
         let window = main_window(mtm, &screen, &title);
         let _ = ivars.requested.set(global_rect(
@@ -836,9 +859,16 @@ impl AppDelegate {
         app.activateIgnoringOtherApps(true);
         let _ = ivars.window.set(window);
         if ivars.scenario.is_none() {
-            return;
+            match demo::load(&self.demo()) {
+                Ok(rx) => *ivars.loading.borrow_mut() = Some(rx),
+                Err(reason) => {
+                    self.finish(Outcome::error(reason, None, Report::default()));
+                    return;
+                }
+            }
+        } else {
+            let _ = ivars.shown_at.set(Instant::now());
         }
-        let _ = ivars.shown_at.set(Instant::now());
         // SAFETY: цель — этот делегат, он отвечает на `pollWindow:` с аргументом-таймером; таймер
         // держит делегат до `invalidate` в `finish`.
         let timer = unsafe {
@@ -853,6 +883,59 @@ impl AppDelegate {
         // SAFETY: `NSRunLoopCommonModes` — неизменяемая константа Foundation.
         unsafe { NSRunLoop::currentRunLoop().addTimer_forMode(&timer, NSRunLoopCommonModes) };
         *ivars.timer.borrow_mut() = Some(timer);
+    }
+
+    fn demo(&self) -> Demo {
+        let ivars = self.ivars();
+        Demo::from_view(ivars.view, ivars.fixtures.clone())
+    }
+
+    /// Фикстура демонстрации загружена: таймер опроса снимается, вид ставится в окно. Отказ
+    /// загрузки или вида — итог с ошибкой и ненулевой код выхода.
+    fn poll_demo(&self) {
+        let ivars = self.ivars();
+        let polled = match ivars.loading.borrow().as_ref() {
+            Some(rx) => rx.try_recv(),
+            None => return,
+        };
+        let fixture = match polled {
+            Err(TryRecvError::Empty) => return,
+            Err(TryRecvError::Disconnected) => Err("поток загрузки завершился без фикстуры".into()),
+            Ok(loaded) => loaded,
+        };
+        ivars.loading.borrow_mut().take();
+        if let Some(timer) = ivars.timer.borrow_mut().take() {
+            timer.invalidate();
+        }
+        let demo = self.demo();
+        let opened = fixture.and_then(|fixture| match ivars.window.get() {
+            Some(window) => demo::mount(self.mtm(), window, &demo, fixture),
+            None => Err("окна демонстрации нет".to_owned()),
+        });
+        match opened {
+            Ok(opened) => {
+                if let Some(window) = ivars.window.get() {
+                    window.setTitle(&NSString::from_str(&demo_title(&demo, Some(opened.path()))));
+                }
+                *ivars.opened.borrow_mut() = Some(opened);
+            }
+            Err(reason) => self.finish(Outcome::error(
+                format!("демонстрация: {reason}"),
+                None,
+                Report::default(),
+            )),
+        }
+    }
+
+    /// Ошибки сцены демонстрации в stderr при завершении: опроса у демонстрации нет.
+    fn report_demo_errors(&self) {
+        let Some(opened) = self.ivars().opened.borrow_mut().take() else {
+            return;
+        };
+        let mut stderr = io::stderr().lock();
+        for error in opened.errors() {
+            let _ = writeln!(stderr, "{PROBE_NAME}: демонстрация: {error}");
+        }
     }
 
     /// Окно готово, когда приложение активно, окно видимо и key и ничего не ждёт отображения.
@@ -1266,18 +1349,23 @@ mod tests {
     }
 
     #[test]
-    fn demo_title_uses_defaults() {
+    fn demo_title_names_axes_and_file() {
+        let defaults = Demo::from_view(ViewOptions::default(), None);
         assert_eq!(
-            demo_title(ViewOptions::default()),
-            "probe-diff-view — вариант a, unified (каркас)"
+            demo_title(&defaults, None),
+            "probe-diff-view — вариант a, unified, фикстура modified: загрузка"
+        );
+        let sparse = Demo::from_view(
+            ViewOptions {
+                variant: Some(args::Variant::B),
+                mode: Some(args::ViewMode::Side),
+                fixture: Some(probe_diff_view::open::OpenFixture::Sparse),
+            },
+            None,
         );
         assert_eq!(
-            demo_title(ViewOptions {
-                variant: Some(Variant::B),
-                mode: Some(ViewMode::Side),
-                fixture: None,
-            }),
-            "probe-diff-view — вариант b, side (каркас)"
+            demo_title(&sparse, Some("src/sparse.rs")),
+            "probe-diff-view — вариант b, side, фикстура sparse: src/sparse.rs"
         );
     }
 

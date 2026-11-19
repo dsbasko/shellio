@@ -4,7 +4,9 @@
 #   run.sh scenarios [сценарий …]   каждый процесс под caffeinate, выход в
 #                                   target/probes/diff-view/<время>-<pid>/, затем --aggregate
 #                                   пишет summary.json и сводку выводов
-#   run.sh demo [аргументы пробы …]  демонстрация для ручной работы
+#   run.sh demo [аргументы пробы …]  демонстрация без стенда и result.json: --variant, --mode и
+#                                   --fixture; с --fixture real run.sh готовит фикстуру, как
+#                                   перед сценариями, и передаёт пробе --fixtures
 # VARIANTS (по умолчанию «a b») и MODES («unified side») сужают оси сценариев вида, FIXTURES
 # («added modified sparse wrap real threads») — ось фикстур: у open и open-warm «added modified
 # sparse wrap real», у frames «added modified threads wrap» (wrap только в side), у anchor
@@ -392,8 +394,21 @@ cmd_scenarios() {
 }
 
 cmd_demo() {
-    local code=0
+    local code=0 arg previous="" real=0
+    for arg in "$@"; do
+        if [ "$previous" = --fixture ] && [ "$arg" = real ]; then
+            real=1
+        fi
+        previous="$arg"
+    done
     build
+    if [ "$real" -eq 1 ]; then
+        prepare_real
+        if grep -q '^status=not_run$' "$FIXTURES_DIR/real/status.txt"; then
+            die "демонстрация real: $(sed -n 's/^reason=//p' "$FIXTURES_DIR/real/status.txt")"
+        fi
+        set -- "$@" --fixtures "$FIXTURES_DIR"
+    fi
     new_state_dir
     SHELLIO_STATE_DIR="$STATE_DIR" "$BIN" "$@" || code=$?
     if ! check_state_dir && [ "$code" -eq 0 ]; then
