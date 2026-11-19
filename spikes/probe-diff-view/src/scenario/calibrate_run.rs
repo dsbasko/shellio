@@ -153,6 +153,36 @@ pub struct CaptureOutcome {
 enum Outcome {
     Xctrace(Box<SegmentOutcome>),
     Capture(Box<CaptureOutcome>),
+    /// Запись отрезка-наблюдения `stall` не разобрана: отметка пути, а не ошибка процесса.
+    Unanalyzed(String),
+}
+
+/// Неразобранный отрезок `stall` пути: причина и такты `displayLink`.
+pub struct Unanalyzed {
+    pub path: FramesPath,
+    pub reason: String,
+    pub ticks: Vec<Tick>,
+}
+
+/// Итог разбора записи отрезка. Ошибка разбора `stall` — наблюдение: путь из процесса не
+/// выбирается, его проверки всех отрезков получают `not_run` (отчёт, раздел «Ошибка разбора
+/// отрезка `stall`»). Ошибка разбора отрезка с вердиктом — ошибка исполнения.
+fn observed<T>(
+    stimulus: Stimulus,
+    analysis: Result<T, String>,
+) -> Result<Result<T, String>, String> {
+    match (stimulus, analysis) {
+        (_, Ok(segment)) => Ok(Ok(segment)),
+        (Stimulus::Stall, Err(reason)) => Ok(Err(reason)),
+        (Stimulus::Holds | Stimulus::Clean | Stimulus::Frozen, Err(reason)) => Err(reason),
+    }
+}
+
+fn unanalyzed_reason(unanalyzed: &[Unanalyzed], path: FramesPath) -> Option<&str> {
+    unanalyzed
+        .iter()
+        .find(|segment| segment.path == path)
+        .map(|segment| segment.reason.as_str())
 }
 
 enum FromWorker {
@@ -194,6 +224,7 @@ pub struct Calibration {
     phase: RefCell<Phase>,
     outcomes: RefCell<Vec<(Stimulus, SegmentOutcome, Vec<Tick>)>>,
     captures: RefCell<Vec<(Stimulus, CaptureOutcome, Vec<Tick>)>>,
+    unanalyzed: RefCell<Vec<Unanalyzed>>,
     /// Такты отрезка, который сохраняет рабочий поток.
     pending: RefCell<Vec<Tick>>,
     report: RefCell<Option<Report>>,
@@ -270,6 +301,7 @@ impl Calibration {
             phase: RefCell::new(Phase::Next(0)),
             outcomes: RefCell::new(Vec::new()),
             captures: RefCell::new(Vec::new()),
+            unanalyzed: RefCell::new(Vec::new()),
             pending: RefCell::new(Vec::new()),
             report: RefCell::new(Some(report)),
         })
@@ -357,13 +389,20 @@ impl Calibration {
                 Ok(FromWorker::Done(Ok(outcome))) => {
                     let _ = worker.handle.join();
                     let ticks = self.pending.take();
-                    let stimulus = self.runs[index].1;
+                    let (path, stimulus) = self.runs[index];
                     match outcome {
                         Outcome::Xctrace(outcome) => {
                             self.outcomes.borrow_mut().push((stimulus, *outcome, ticks))
                         }
                         Outcome::Capture(outcome) => {
                             self.captures.borrow_mut().push((stimulus, *outcome, ticks))
+                        }
+                        Outcome::Unanalyzed(reason) => {
+                            self.unanalyzed.borrow_mut().push(Unanalyzed {
+                                path,
+                                reason,
+                                ticks,
+                            })
                         }
                     }
                     Phase::Next(index + 1)
@@ -401,6 +440,7 @@ impl Calibration {
         let mut report = self.report.borrow_mut().take().unwrap_or_default();
         record_segments(&mut report, &self.outcomes.borrow());
         record_captures(&mut report, &self.captures.borrow());
+        record_unanalyzed(&mut report, &self.unanalyzed.borrow());
         Box::new((reason, report))
     }
 
@@ -409,19 +449,23 @@ impl Calibration {
         let mut report = self.report.borrow_mut().take().unwrap_or_default();
         let outcomes = self.outcomes.borrow();
         let captures = self.captures.borrow();
+        let unanalyzed = self.unanalyzed.borrow();
         record_segments(&mut report, &outcomes);
         record_captures(&mut report, &captures);
+        record_unanalyzed(&mut report, &unanalyzed);
         let paths: Vec<FramesPath> = {
             let mut paths: Vec<FramesPath> = self.runs.iter().map(|(path, _)| *path).collect();
             paths.dedup();
             paths
         };
-        let xctrace = paths
-            .contains(&FramesPath::Xctrace)
-            .then(|| judge(&mut report, &outcomes));
-        let screen = paths
-            .contains(&FramesPath::Capture)
-            .then(|| judge_capture(&mut report, &captures));
+        let xctrace = paths.contains(&FramesPath::Xctrace).then(|| {
+            let stall = unanalyzed_reason(&unanalyzed, FramesPath::Xctrace);
+            judge(&mut report, &outcomes, stall)
+        });
+        let screen = paths.contains(&FramesPath::Capture).then(|| {
+            let stall = unanalyzed_reason(&unanalyzed, FramesPath::Capture);
+            judge_capture(&mut report, &captures, stall)
+        });
         report.push("frames_path", frames_path(xctrace, screen));
         let changes = self.state.changes.take();
         let marks = drawmark::take();
@@ -534,6 +578,44 @@ fn record_segments(report: &mut Report, outcomes: &[(Stimulus, SegmentOutcome, V
     }
 }
 
+fn record_unanalyzed(report: &mut Report, unanalyzed: &[Unanalyzed]) {
+    for segment in unanalyzed {
+        let prefix = match segment.path {
+            FramesPath::Xctrace => "",
+            FramesPath::Capture => "sck_",
+        };
+        report.push(
+            &format!("{prefix}stall_unanalyzed"),
+            format!(
+                "{}; тактов displayLink {}",
+                segment.reason,
+                segment.ticks.len()
+            ),
+        );
+    }
+}
+
+/// Итог пути при неразобранном `stall`: путь не выбирается, проверки отдельных отрезков — в причине.
+fn path_verdict(checked: PathVerdict, stall: Option<&str>) -> PathVerdict {
+    match (stall, checked) {
+        (None, checked) => checked,
+        (Some(reason), Ok(())) => Err(format!("stall не разобран: {reason}")),
+        (Some(reason), Err(failed)) => Err(format!("stall не разобран: {reason}; {failed}")),
+    }
+}
+
+/// Вердикт проверки, которой нужны все четыре отрезка: `not_run`, если `stall` не разобран.
+fn across_segments(report: &mut Report, name: &str, ok: bool, detail: String, stall: Option<&str>) {
+    match stall {
+        None => report.finding(name, verdict(ok), detail),
+        Some(reason) => report.finding(
+            name,
+            Verdict::NotRun,
+            format!("stall не разобран: {reason}; {detail}"),
+        ),
+    }
+}
+
 fn outcome_of(
     outcomes: &[(Stimulus, SegmentOutcome, Vec<Tick>)],
     stimulus: Stimulus,
@@ -573,7 +655,11 @@ pub fn frames_path(xctrace: Option<PathVerdict>, screen: Option<PathVerdict>) ->
     }
 }
 
-fn judge(report: &mut Report, outcomes: &[(Stimulus, SegmentOutcome, Vec<Tick>)]) -> PathVerdict {
+fn judge(
+    report: &mut Report,
+    outcomes: &[(Stimulus, SegmentOutcome, Vec<Tick>)],
+    stall: Option<&str>,
+) -> PathVerdict {
     let expected_ms = PERIOD_NS as f64 / 1e6;
     let rates: Vec<String> = outcomes
         .iter()
@@ -594,15 +680,7 @@ fn judge(report: &mut Report, outcomes: &[(Stimulus, SegmentOutcome, Vec<Tick>)]
                     (ms - expected_ms).abs() / expected_ms <= frames::PERIOD_TOLERANCE
                 })
         });
-    report.finding(
-        "rate_confirmed",
-        if rate_ok {
-            Verdict::Pass
-        } else {
-            Verdict::Fail
-        },
-        rates.join("; "),
-    );
+    across_segments(report, "rate_confirmed", rate_ok, rates.join("; "), stall);
 
     let holds_ok = match outcome_of(outcomes, Stimulus::Holds) {
         Some((_, outcome, _)) => {
@@ -674,12 +752,20 @@ fn judge(report: &mut Report, outcomes: &[(Stimulus, SegmentOutcome, Vec<Tick>)]
             ),
         );
     }
-    failed(&[
-        ("rate_confirmed", rate_ok),
-        ("forward_holds", holds_ok),
-        ("forward_clean", clean_ok),
-        ("reverse", reverse_ok),
-    ])
+    let checked = match stall {
+        None => failed(&[
+            ("rate_confirmed", rate_ok),
+            ("forward_holds", holds_ok),
+            ("forward_clean", clean_ok),
+            ("reverse", reverse_ok),
+        ]),
+        Some(_) => failed(&[
+            ("forward_holds", holds_ok),
+            ("forward_clean", clean_ok),
+            ("reverse", reverse_ok),
+        ]),
+    };
+    path_verdict(checked, stall)
 }
 
 fn failed(checks: &[(&str, bool)]) -> PathVerdict {
@@ -764,6 +850,7 @@ fn verdict(ok: bool) -> Verdict {
 fn judge_capture(
     report: &mut Report,
     captures: &[(Stimulus, CaptureOutcome, Vec<Tick>)],
+    stall: Option<&str>,
 ) -> PathVerdict {
     let find = |stimulus: Stimulus| captures.iter().find(|(kind, _, _)| *kind == stimulus);
     let expected_ms = PERIOD_NS as f64 / 1e6;
@@ -775,9 +862,10 @@ fn judge_capture(
     let stream_ms = find(Stimulus::Clean)
         .map(|(_, outcome, _)| outcome.segment.frame_period_median_ns as f64 / 1e6);
     let rate_ok = link_ok && stream_ms.is_some_and(near);
-    report.finding(
+    across_segments(
+        report,
         "sck_rate_confirmed",
-        verdict(rate_ok),
+        rate_ok,
         format!(
             "displayLink {}; новые кадры потока в clean {:?} мс",
             captures
@@ -791,6 +879,7 @@ fn judge_capture(
                 .join(", "),
             stream_ms
         ),
+        stall,
     );
     let holds_ok = find(Stimulus::Holds).is_some_and(|(_, outcome, _)| {
         let forward = &outcome.segment.forward;
@@ -845,10 +934,12 @@ fn judge_capture(
         .max()
         .unwrap_or(0);
     let observer_ok = captures.len() == SEGMENTS.len() && handler_max < PERIOD_NS;
-    report.finding(
+    across_segments(
+        report,
         "sck_observer",
-        verdict(observer_ok),
+        observer_ok,
         format!("наибольший обработчик кадра {handler_max} нс, период {PERIOD_NS} нс"),
+        stall,
     );
     if let Some((_, outcome, _)) = find(Stimulus::Stall) {
         report.push(
@@ -860,13 +951,21 @@ fn judge_capture(
             ),
         );
     }
-    failed(&[
-        ("sck_rate_confirmed", rate_ok),
-        ("sck_forward_holds", holds_ok),
-        ("sck_forward_clean", clean_ok),
-        ("sck_reverse", reverse_ok),
-        ("sck_observer", observer_ok),
-    ])
+    let checked = match stall {
+        None => failed(&[
+            ("sck_rate_confirmed", rate_ok),
+            ("sck_forward_holds", holds_ok),
+            ("sck_forward_clean", clean_ok),
+            ("sck_reverse", reverse_ok),
+            ("sck_observer", observer_ok),
+        ]),
+        Some(_) => failed(&[
+            ("sck_forward_holds", holds_ok),
+            ("sck_forward_clean", clean_ok),
+            ("sck_reverse", reverse_ok),
+        ]),
+    };
+    path_verdict(checked, stall)
 }
 
 /// Самопроверка порядка: у каждого изменения первая отметка его или старшего поколения начата не
@@ -1015,10 +1114,8 @@ fn spawn_worker(
         ))
         .spawn(move || {
             let result = match path {
-                FramesPath::Xctrace => run_segment(stimulus, target.pid, &dir, &events, &stops)
-                    .map(|outcome| Outcome::Xctrace(Box::new(outcome))),
-                FramesPath::Capture => run_capture_segment(stimulus, target, &dir, &events, &stops)
-                    .map(|outcome| Outcome::Capture(Box::new(outcome))),
+                FramesPath::Xctrace => run_segment(stimulus, target.pid, &dir, &events, &stops),
+                FramesPath::Capture => run_capture_segment(stimulus, target, &dir, &events, &stops),
             };
             let _ = events.send(FromWorker::Done(result));
         })
@@ -1036,7 +1133,7 @@ fn run_segment(
     dir: &Path,
     events: &Sender<FromWorker>,
     stops: &Receiver<Stop>,
-) -> Result<SegmentOutcome, String> {
+) -> Result<Outcome, String> {
     std::fs::create_dir_all(dir).map_err(|err| format!("{}: {err}", dir.display()))?;
     let neighbor = match stimulus {
         Stimulus::Frozen => Some(Neighbor::spawn(dir)?),
@@ -1089,7 +1186,11 @@ fn run_segment(
         updates: frames::updates(&table("hitches-updates")?)?,
         lifetimes: frames::lifetimes(&table("hitches-frame-lifetimes")?)?,
     };
-    let segment = calibrate::analyze(&exported, pid, stop.window, &stop.held_targets_ns)?;
+    let analysis = calibrate::analyze(&exported, pid, stop.window, &stop.held_targets_ns);
+    let segment = match observed(stimulus, analysis)? {
+        Ok(segment) => segment,
+        Err(reason) => return Ok(Outcome::Unanalyzed(reason)),
+    };
     let reverse = neighbor.as_ref().map(|(_, targets)| {
         let in_trace: Vec<u64> = targets
             .iter()
@@ -1097,11 +1198,11 @@ fn run_segment(
             .collect();
         calibrate::reverse(&segment.probe_frames, &in_trace, segment.window)
     });
-    Ok(SegmentOutcome {
+    Ok(Outcome::Xctrace(Box::new(SegmentOutcome {
         segment,
         reverse,
         neighbor_ticks: neighbor.map(|(ticks, _)| ticks),
-    })
+    })))
 }
 
 /// Отрезок ScreenCaptureKit: поток окна пробы без записи `xctrace`, журнал доставки и разбор.
@@ -1111,7 +1212,7 @@ fn run_capture_segment(
     dir: &Path,
     events: &Sender<FromWorker>,
     stops: &Receiver<Stop>,
-) -> Result<CaptureOutcome, String> {
+) -> Result<Outcome, String> {
     std::fs::create_dir_all(dir).map_err(|err| format!("{}: {err}", dir.display()))?;
     let neighbor = match stimulus {
         Stimulus::Frozen => Some(Neighbor::spawn(dir)?),
@@ -1159,21 +1260,25 @@ fn run_capture_segment(
         .iter()
         .map(|tick| (tick.target_s * 1e9).round() as u64)
         .collect();
-    let segment = calibrate::analyze_capture(
+    let analysis = calibrate::analyze_capture(
         &samples,
         &targets,
         streamed,
         stop.window,
         &stop.held_targets_ns,
-    )?;
+    );
+    let segment = match observed(stimulus, analysis)? {
+        Ok(segment) => segment,
+        Err(reason) => return Ok(Outcome::Unanalyzed(reason)),
+    };
     let reverse = neighbor
         .as_ref()
         .map(|(_, targets)| calibrate::reverse(&segment.new_frames, targets, segment.window));
-    Ok(CaptureOutcome {
+    Ok(Outcome::Capture(Box::new(CaptureOutcome {
         segment,
         reverse,
         neighbor_ticks: neighbor.map(|(ticks, _)| ticks),
-    })
+    })))
 }
 
 #[cfg(test)]
@@ -1227,6 +1332,96 @@ mod tests {
         assert_eq!(checked, 1);
         assert_eq!(violations.len(), 1);
         assert_eq!(order_violations(&[change(5, 100)], &marks), (0, Vec::new()));
+    }
+
+    /// Отрезок `stall` прогона `20261119-142709-26543`: строка vsync встроенного дисплея лежит в
+    /// полупериоде от сетки во время задержки, сетка дисплея окна не строится.
+    #[test]
+    fn recorded_stall_is_an_observation() {
+        let dir = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/testdata/calibrate-stall-142709/"
+        );
+        let read = |name: &str| {
+            let xml = std::fs::read_to_string(format!("{dir}{name}.xml")).unwrap();
+            frames::parse_table(&xml).unwrap()
+        };
+        let exported = Exported {
+            clock: frames::Clock::from_table(&read("time-info")).unwrap(),
+            vsyncs: frames::vsyncs(&read("display-vsyncs-interval")).unwrap(),
+            updates: frames::updates(&read("hitches-updates")).unwrap(),
+            lifetimes: frames::lifetimes(&read("hitches-frame-lifetimes")).unwrap(),
+        };
+        #[derive(serde::Deserialize)]
+        struct Input {
+            pid: u32,
+            window: Window,
+            held_targets_ns: Vec<u64>,
+        }
+        let input: Input = serde_json::from_str(
+            &std::fs::read_to_string(format!("{dir}segment-input.json")).unwrap(),
+        )
+        .unwrap();
+        let analysis =
+            calibrate::analyze(&exported, input.pid, input.window, &input.held_targets_ns);
+        let reason = match &analysis {
+            Ok(_) => panic!("разбор stall прогона 142709 прошёл"),
+            Err(reason) => reason.clone(),
+        };
+        assert!(reason.contains("подходят 0 сеток"), "{reason}");
+        assert!(matches!(observed(Stimulus::Stall, analysis), Ok(Err(_))));
+        for stimulus in [Stimulus::Holds, Stimulus::Clean, Stimulus::Frozen] {
+            assert_eq!(
+                observed::<()>(stimulus, Err(reason.clone())),
+                Err(reason.clone())
+            );
+        }
+        assert_eq!(observed(Stimulus::Holds, Ok(7)), Ok(Ok(7)));
+    }
+
+    #[test]
+    fn unanalyzed_stall_makes_the_path_not_run() {
+        let verdict_of = |report: &Report, name: &str| {
+            report
+                .findings
+                .iter()
+                .find(|finding| finding.name == name)
+                .map(|finding| finding.verdict)
+        };
+        let mut report = Report::default();
+        let xctrace = judge(&mut report, &[], Some("сетка не строится"));
+        assert_eq!(verdict_of(&report, "rate_confirmed"), Some(Verdict::NotRun));
+        let reason = xctrace.clone().unwrap_err();
+        assert!(
+            reason.starts_with("stall не разобран: сетка не строится"),
+            "{reason}"
+        );
+        assert!(!reason.contains("rate_confirmed"), "{reason}");
+
+        let mut report = Report::default();
+        let screen = judge_capture(&mut report, &[], Some("маркер не прочитан"));
+        for name in ["sck_rate_confirmed", "sck_observer"] {
+            assert_eq!(verdict_of(&report, name), Some(Verdict::NotRun), "{name}");
+        }
+        let reason = screen.clone().unwrap_err();
+        assert!(!reason.contains("sck_observer"), "{reason}");
+        assert!(frames_path(Some(xctrace), Some(screen)).starts_with("not_run"));
+
+        // Без отметки те же недостающие отрезки — отказ проверок, как раньше.
+        let mut report = Report::default();
+        assert!(
+            judge(&mut report, &[], None)
+                .unwrap_err()
+                .contains("rate_confirmed")
+        );
+        assert_eq!(verdict_of(&report, "rate_confirmed"), Some(Verdict::Fail));
+        let mut report = Report::default();
+        assert!(
+            judge_capture(&mut report, &[], None)
+                .unwrap_err()
+                .contains("sck_observer")
+        );
+        assert_eq!(verdict_of(&report, "sck_observer"), Some(Verdict::Fail));
     }
 
     #[test]
