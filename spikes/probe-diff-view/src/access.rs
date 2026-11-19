@@ -835,8 +835,8 @@ mod tests {
 
     const A_UNIFIED_SELECT: &str = include_str!("../testdata/ax/a-unified-select.json");
     const A_SIDE_BOTTOM: &str = include_str!("../testdata/ax/a-side-bottom.json");
-    /// Образец до исправления B (прогон `20261119-125949-16160`): элемент жил в виде строки и
-    /// после переиспользования вида описывал другую строку.
+    /// Образец до исправления B (прогон `20261119-130028-16537`, шаг `scroll`): элемент жил в виде
+    /// строки и после переиспользования вида описывал другую строку.
     const B_UNIFIED_SCROLL: &str = include_str!("../testdata/ax/b-unified-scroll.json");
     /// Образец после исправления B (прогон `20261119-131049-29704`, файл шага `ax-reuse.json`):
     /// элементы по адресу строки показа.
