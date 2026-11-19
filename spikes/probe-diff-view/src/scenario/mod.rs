@@ -20,6 +20,7 @@ pub mod marker;
 pub mod neighbor;
 #[allow(dead_code)]
 pub mod sampler;
+pub mod smoke;
 #[allow(dead_code)]
 pub mod snapshot;
 pub mod stand;

@@ -49,6 +49,11 @@ const WINDOW_SIZE: NSSize = NSSize::new(1180.0, 720.0);
 const AEROSPACE_BUNDLE_ID: &str = "bobko.aerospace";
 /// Срок `smoke` от `applicationDidFinishLaunching` до готового окна.
 const SMOKE_TIMEOUT: Duration = Duration::from_secs(10);
+/// Срок сторожа `smoke` из отчёта, раздел «Сроки и размеры»: окно, два ожидания отметки по 2 с и
+/// снимок до 10 с.
+const SMOKE_DEADLINE: Duration = Duration::from_secs(60);
+/// Частота встроенного дисплея, которую подтверждает `calibrate` (предусловие плана).
+const REQUIRED_FPS: isize = 120;
 /// Срок сторожа `calibrate` из отчёта, раздел «Сроки и размеры»: четыре записи по 5 с, у каждой
 /// сохранение до 3 мин.
 const CALIBRATE_DEADLINE: Duration = Duration::from_secs(20 * 60);
@@ -76,7 +81,7 @@ fn main() -> ExitCode {
         Command::Aggregate { run_dir } => aggregate(&run_dir),
         Command::Reference { dir } => reference(&dir),
         Command::Neighbor => neighbor(),
-        Command::Demo(view) => match run_app(None, view, None) {
+        Command::Demo(view) => match run_app(None, view, None, Default::default()) {
             None => ExitCode::SUCCESS,
             Some(outcome) => print_outcome(&outcome),
         },
@@ -239,34 +244,39 @@ fn run_scenario(
     let environment = static_environment();
     // Грамматика проверяется до окна: разбор строки из одного выражения, без AppKit.
     let grammar = check_grammar();
-    // Вставший `displayLink` или запись `xctrace` иначе повесили бы процесс без итога.
-    let _watchdog = match scenario {
-        Scenario::Calibrate => match scenario::watchdog::arm(
-            "calibrate",
-            CALIBRATE_DEADLINE,
-            out.clone(),
-            scenario::watchdog::SharedTrace::default(),
-        ) {
-            Ok(watchdog) => Some(watchdog),
-            Err(err) => {
-                let _ = writeln!(
-                    io::stdout().lock(),
-                    "execution=error\nreason=сторож не взведён: {err}"
-                );
-                return ExitCode::from(EXIT_EXECUTION);
+    // Вставший `displayLink`, запись `xctrace` или потерянное событие иначе повесили бы процесс
+    // без итога. След стенда событий идёт в кольцо сторожа.
+    let trace = scenario::watchdog::SharedTrace::default();
+    let deadline = match scenario {
+        Scenario::Calibrate => Some(("calibrate", CALIBRATE_DEADLINE)),
+        Scenario::Smoke => Some(("smoke", SMOKE_DEADLINE)),
+        Scenario::Highlight => None,
+    };
+    let _watchdog = match deadline {
+        Some((name, deadline)) => {
+            match scenario::watchdog::arm(name, deadline, out.clone(), trace.clone()) {
+                Ok(watchdog) => Some(watchdog),
+                Err(err) => {
+                    let _ = writeln!(
+                        io::stdout().lock(),
+                        "execution=error\nreason=сторож не взведён: {err}"
+                    );
+                    return ExitCode::from(EXIT_EXECUTION);
+                }
             }
-        },
-        Scenario::Smoke | Scenario::Highlight => None,
+        }
+        None => None,
     };
     let mut outcome = match scenario {
-        Scenario::Smoke | Scenario::Calibrate => run_app(Some(scenario), view, Some(out.clone()))
-            .unwrap_or_else(|| {
+        Scenario::Smoke | Scenario::Calibrate => {
+            run_app(Some(scenario), view, Some(out.clone()), trace).unwrap_or_else(|| {
                 Outcome::error(
                     "основной цикл завершился без итога сценария",
                     None,
                     Report::default(),
                 )
-            }),
+            })
+        }
         Scenario::Highlight => run_headless(fixtures),
     };
     if outcome.execution.is_ok() {
@@ -369,7 +379,12 @@ fn check_grammar() -> Result<String, String> {
 }
 
 /// Крутит основной цикл. `None` — демонстрация закончилась без итога, как и должна.
-fn run_app(scenario: Option<Scenario>, view: ViewOptions, out: Option<PathBuf>) -> Option<Outcome> {
+fn run_app(
+    scenario: Option<Scenario>,
+    view: ViewOptions,
+    out: Option<PathBuf>,
+    trace: scenario::watchdog::SharedTrace,
+) -> Option<Outcome> {
     let Some(mtm) = MainThreadMarker::new() else {
         return Some(Outcome::error(
             "запуск не на главном потоке",
@@ -377,7 +392,15 @@ fn run_app(scenario: Option<Scenario>, view: ViewOptions, out: Option<PathBuf>) 
             Report::default(),
         ));
     };
-    let app = NSApplication::sharedApplication(mtm);
+    // Демонстрация работает без стенда, сценарий — с подклассом, отмечающим `sendEvent` (P0.2).
+    // Без установленного стенда событий подкласс пропускает события без отметок.
+    let app = match scenario {
+        Some(_) => match scenario::events::shared_application(mtm) {
+            Ok(app) => app,
+            Err(reason) => return Some(Outcome::error(reason, None, Report::default())),
+        },
+        None => NSApplication::sharedApplication(mtm),
+    };
     // У исполняемого файла без Info.plist исходная политика `prohibited`: такое окно не получит
     // ни активности, ни key-статуса.
     if !app.setActivationPolicy(NSApplicationActivationPolicy::Regular) {
@@ -390,7 +413,7 @@ fn run_app(scenario: Option<Scenario>, view: ViewOptions, out: Option<PathBuf>) 
     app.setMainMenu(Some(&main_menu(mtm)));
 
     let slot = Rc::new(RefCell::new(None));
-    let delegate = AppDelegate::new(mtm, scenario, view, out, Rc::clone(&slot));
+    let delegate = AppDelegate::new(mtm, scenario, view, out, trace, Rc::clone(&slot));
     app.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
     app.run();
     app.setDelegate(None);
@@ -487,6 +510,36 @@ fn precondition_violation(window: &NSWindow, requested: Option<NSRect>) -> Optio
     frame_mismatch(window.contentRectForFrameRect(window.frame()), requested)
 }
 
+/// Предусловие `calibrate` из плана: встроенный дисплей 120 Гц (ProMotion) подключён и включён, и
+/// окно стоит на нём. При закрытой крышке встроенного дисплея в списке нет, и окно уходит на
+/// главный дисплей.
+fn refresh_violation(displays: &[DisplayInfo], window: Option<&WindowInfo>) -> Option<String> {
+    let listed = displays
+        .iter()
+        .map(|display| format!("«{}» до {} Гц", display.name, display.max_fps))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let Some(builtin) = displays.iter().find(|display| display.builtin) else {
+        return Some(format!(
+            "предусловие: встроенный дисплей не подключён или выключен (крышка закрыта?), дисплеи: {listed}"
+        ));
+    };
+    if builtin.max_fps < REQUIRED_FPS {
+        return Some(format!(
+            "предусловие: встроенный дисплей «{}» до {} Гц, нужен {REQUIRED_FPS} Гц",
+            builtin.name, builtin.max_fps
+        ));
+    }
+    let on = window.and_then(|window| window.display_id);
+    if on != Some(builtin.id) {
+        return Some(format!(
+            "предусловие: окно на дисплее {on:?}, а не на встроенном {}",
+            builtin.id
+        ));
+    }
+    None
+}
+
 fn main_window(mtm: MainThreadMarker, screen: &NSScreen, title: &str) -> Retained<NSWindow> {
     let style = NSWindowStyleMask::Titled
         | NSWindowStyleMask::Closable
@@ -530,6 +583,9 @@ struct DelegateIvars {
     /// Запрошенная рамка содержимого окна в глобальных координатах AppKit.
     requested: OnceCell<NSRect>,
     calibration: RefCell<Option<scenario::calibrate_run::Calibration>>,
+    /// Кольцо следа сторожа процесса, его же получает стенд событий.
+    trace: scenario::watchdog::SharedTrace,
+    smoke: RefCell<Option<scenario::smoke::Smoke>>,
 }
 
 define_class!(
@@ -571,6 +627,19 @@ define_class!(
     impl AppDelegate {
         #[unsafe(method(pollWindow:))]
         fn poll_window(&self, _timer: &NSTimer) {
+            let smoke = self.ivars().smoke.borrow().as_ref().map(|run| run.poll());
+            match smoke {
+                None => {}
+                Some(None) => return,
+                Some(Some(result)) => {
+                    drop(self.ivars().smoke.borrow_mut().take());
+                    self.finish(match result {
+                        Ok(report) => Outcome::ok(report),
+                        Err(failed) => Outcome::error(failed.0, None, failed.1),
+                    });
+                    return;
+                }
+            }
             let polled = self.ivars().calibration.borrow().as_ref().map(|run| run.poll());
             match polled {
                 None => self.check_window(),
@@ -593,6 +662,7 @@ impl AppDelegate {
         scenario: Option<Scenario>,
         view: ViewOptions,
         out: Option<PathBuf>,
+        trace: scenario::watchdog::SharedTrace,
         slot: Rc<RefCell<Option<Outcome>>>,
     ) -> Retained<AppDelegate> {
         let this = AppDelegate::alloc(mtm).set_ivars(DelegateIvars {
@@ -605,6 +675,8 @@ impl AppDelegate {
             shown_at: OnceCell::new(),
             requested: OnceCell::new(),
             calibration: RefCell::new(None),
+            trace,
+            smoke: RefCell::new(None),
         });
         // SAFETY: `init` у NSObject без аргументов.
         unsafe { msg_send![super(this), init] }
@@ -704,17 +776,39 @@ impl AppDelegate {
                 self.finish(Outcome::error(reason, Some(state), report));
                 return;
             }
-            if ivars.scenario != Some(Scenario::Calibrate) {
-                self.finish(Outcome::ok(report));
-                return;
-            }
             let Some(out) = ivars.out.as_deref() else {
-                self.finish(Outcome::error("calibrate без --out", None, report));
+                self.finish(Outcome::error("сценарий без --out", None, report));
                 return;
             };
-            match scenario::calibrate_run::Calibration::start(self.mtm(), window, report, out) {
-                Ok(run) => *ivars.calibration.borrow_mut() = Some(run),
-                Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
+            match ivars.scenario {
+                Some(Scenario::Calibrate) => {
+                    if let Some(reason) =
+                        refresh_violation(&report.displays, report.window.as_ref())
+                    {
+                        self.finish(Outcome::error(reason, Some(state), report));
+                        return;
+                    }
+                    match scenario::calibrate_run::Calibration::start(
+                        self.mtm(),
+                        window,
+                        report,
+                        out,
+                    ) {
+                        Ok(run) => *ivars.calibration.borrow_mut() = Some(run),
+                        Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
+                    }
+                }
+                Some(Scenario::Smoke) => match scenario::smoke::Smoke::start(
+                    self.mtm(),
+                    window,
+                    report,
+                    out,
+                    ivars.trace.clone(),
+                ) {
+                    Ok(run) => *ivars.smoke.borrow_mut() = Some(run),
+                    Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
+                },
+                Some(Scenario::Highlight) | None => self.finish(Outcome::ok(report)),
             }
         } else if waited >= SMOKE_TIMEOUT {
             self.finish(Outcome::error(
@@ -885,6 +979,60 @@ mod tests {
         assert!(reason.contains("-1502,320 1180x720"), "{reason}");
         let shifted = NSRect::new(NSPoint::new(-1501.0, 320.0), WINDOW_SIZE);
         assert!(frame_mismatch(shifted, requested).is_some());
+    }
+
+    fn display(id: u32, name: &str, builtin: bool, max_fps: isize) -> DisplayInfo {
+        let rect = Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 1512.0,
+            height: 982.0,
+        };
+        DisplayInfo {
+            id,
+            name: name.to_owned(),
+            builtin,
+            frame: rect,
+            visible_frame: rect,
+            scale: 2.0,
+            max_fps,
+        }
+    }
+
+    fn window_on(display_id: u32) -> WindowInfo {
+        WindowInfo {
+            display_id: Some(display_id),
+            frame: Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 1180.0,
+                height: 752.0,
+            },
+            content_points: Size {
+                width: 1180.0,
+                height: 720.0,
+            },
+            backing_scale: 2.0,
+        }
+    }
+
+    #[test]
+    fn calibrate_needs_the_builtin_120_hz_display() {
+        let builtin = display(1, "Built-in Retina Display", true, 120);
+        let external = display(3, "Redmi 27 NU", false, 60);
+        assert_eq!(
+            refresh_violation(&[builtin.clone(), external.clone()], Some(&window_on(1))),
+            None
+        );
+        // Прогон 20261119-102151-33264: крышка закрыта, окно на внешнем дисплее 60 Гц.
+        let closed = refresh_violation(std::slice::from_ref(&external), Some(&window_on(3)))
+            .unwrap_or_default();
+        assert!(closed.starts_with("предусловие: "), "{closed}");
+        assert!(closed.contains("«Redmi 27 NU» до 60 Гц"), "{closed}");
+        let slow = display(1, "Built-in Retina Display", true, 60);
+        assert!(refresh_violation(&[slow], Some(&window_on(1))).is_some());
+        assert!(refresh_violation(&[builtin.clone(), external], Some(&window_on(3))).is_some());
+        assert!(refresh_violation(&[builtin], None).is_some());
     }
 
     #[test]
