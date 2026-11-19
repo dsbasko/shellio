@@ -206,6 +206,17 @@ impl Ctx<'_> {
         relayout.installed + relayout.geometry_only
     }
 
+    /// Высота видимой области документа.
+    pub fn viewport_height(&self) -> f64 {
+        self.stage
+            .view
+            .scroll_view()
+            .contentView()
+            .bounds()
+            .size
+            .height
+    }
+
     /// Ширина содержимого окна.
     pub fn content_width(&self) -> f64 {
         self.window
@@ -330,10 +341,11 @@ pub fn returned(posted: &[u64]) -> bool {
         .all(|number| events::record(*number).is_some_and(|record| record.send_return.is_some()))
 }
 
-fn script_of(part: Part, fixture: OpenFixture) -> Result<Box<dyn Script>, String> {
+fn script_of(part: Part, fixture: OpenFixture, mode: Mode) -> Result<Box<dyn Script>, String> {
     match part {
         Part::Anchor => Ok(Box::new(super::anchor_run::AnchorScript::new(fixture)?)),
-        Part::Selection | Part::Threads | Part::Pairs | Part::Bounded => {
+        Part::Selection => Ok(Box::new(super::selection_run::SelectionScript::new(mode))),
+        Part::Threads | Part::Pairs | Part::Bounded => {
             Err(format!("сценарий {} ещё не реализован", part.name()))
         }
     }
@@ -367,7 +379,11 @@ impl ContractRun {
                 report,
             )));
         };
-        let script = match script_of(part, fixture) {
+        let requested = match mode {
+            ViewMode::Unified => Mode::Unified,
+            ViewMode::Side => Mode::SideBySide,
+        };
+        let script = match script_of(part, fixture, requested) {
             Ok(script) => script,
             Err(reason) => return Err(Box::new((reason, report))),
         };
@@ -391,10 +407,7 @@ impl ContractRun {
             trace,
             part,
             variant,
-            mode: match mode {
-                ViewMode::Unified => Mode::Unified,
-                ViewMode::Side => Mode::SideBySide,
-            },
+            mode: requested,
             script: RefCell::new(script),
             stage: RefCell::new(None),
             fixture: RefCell::new(None),

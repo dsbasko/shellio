@@ -44,8 +44,8 @@ pub mod pairs;
 #[allow(dead_code)]
 pub mod sampler;
 pub mod scroll;
-#[allow(dead_code)]
 pub mod selection;
+pub mod selection_run;
 pub mod smoke;
 #[allow(dead_code)]
 pub mod snapshot;
