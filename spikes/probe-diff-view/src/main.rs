@@ -95,6 +95,8 @@ const BOUNDED_DEADLINE: Duration = Duration::from_secs(20 * 60);
 /// Сторожа `zones` и `theme` (отчёт, строка «Сроки `zones` и `theme`»).
 const ZONES_DEADLINE: Duration = Duration::from_secs(10 * 60);
 const THEME_DEADLINE: Duration = Duration::from_secs(6 * 60);
+/// Сторож `accept` (отчёт, строка «Сроки `accept`»).
+const ACCEPT_DEADLINE: Duration = Duration::from_secs(10 * 60);
 /// Период проверки готовности окна. Поток не засыпает: между проверками цикл обрабатывает события.
 const POLL_INTERVAL_S: f64 = 0.005;
 
@@ -334,6 +336,7 @@ fn run_scenario(
         Scenario::Bounded => Some(("bounded", BOUNDED_DEADLINE)),
         Scenario::Zones => Some(("zones", ZONES_DEADLINE)),
         Scenario::Theme => Some(("theme", THEME_DEADLINE)),
+        Scenario::Accept => Some(("accept", ACCEPT_DEADLINE)),
         Scenario::Highlight => None,
     };
     let _watchdog = match deadline {
@@ -374,6 +377,29 @@ fn run_scenario(
                 )
             }),
         Scenario::Highlight => run_headless(fixtures),
+        Scenario::Accept => match fixtures.and_then(scenario::accept_run::not_run_reason) {
+            Some(reason) => {
+                let mut outcome = Outcome::ok(scenario::accept_run::not_run_report(&reason));
+                if let Some(mtm) = MainThreadMarker::new() {
+                    outcome.report.displays = display_infos(mtm);
+                }
+                outcome
+            }
+            None => run_app(
+                Some(scenario),
+                view,
+                Some(out.clone()),
+                fixtures.map(Path::to_path_buf),
+                trace,
+            )
+            .unwrap_or_else(|| {
+                Outcome::error(
+                    "основной цикл завершился без итога сценария",
+                    None,
+                    Report::default(),
+                )
+            }),
+        },
         Scenario::Frames => match scenario::frames_run::unsupported_path(frames_path) {
             Some(reason) => Outcome::error(reason, None, Report::default()),
             None => {
@@ -1099,7 +1125,8 @@ impl AppDelegate {
                     | Scenario::Pairs
                     | Scenario::Bounded
                     | Scenario::Zones
-                    | Scenario::Theme),
+                    | Scenario::Theme
+                    | Scenario::Accept),
                 ) => {
                     let Some(part) = scenario::contract_run::Part::of(scenario) else {
                         return self.finish(Outcome::error(
@@ -1116,6 +1143,7 @@ impl AppDelegate {
                         ivars.view,
                         part,
                         out,
+                        ivars.fixtures.as_deref(),
                     ) {
                         Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
                         Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),

@@ -485,84 +485,8 @@ impl Ax {
         }
     }
 
-    /// Рамка строки показа в глобальных координатах доступности.
-    fn frame_of(&self, row: u32, primary_height: f64) -> Option<AxFrame> {
-        let area = self.view().row_rect(row)?;
-        let screen = self.window.convertRectToScreen(self.view().to_window(area));
-        Some(AxFrame {
-            x: screen.origin.x,
-            y: primary_height - (screen.origin.y + screen.size.height),
-            width: screen.size.width,
-            height: screen.size.height,
-        })
-    }
-
-    /// Что модель ждёт от снимка сейчас: видимые строки контейнера, их сообщения и рамки,
-    /// фокус.
     fn expectation(&self) -> Result<Expectation, String> {
-        let scene = &self.stage.scene;
-        let visible = scene.visible_rows();
-        let primary_height = NSScreen::screens(self.mtm)
-            .firstObject()
-            .map_or(0.0, |screen| screen.frame().size.height);
-        let (items, cursor_row): (Vec<(i64, Option<u32>)>, Option<u32>) = {
-            let model = scene
-                .model()
-                .try_borrow()
-                .map_err(|_| "модель занята при снимке")?;
-            let cursor_row = model.cursor_row();
-            let items = match self.view() {
-                View::A(_) => visible
-                    .clone()
-                    .map(|row| (i64::from(row), Some(row)))
-                    .collect(),
-                View::B(view) => {
-                    let map = view.map();
-                    view.visible_table_rows()
-                        .map(|index| {
-                            let row = match map.item(index) {
-                                Some(Item::Text(row)) => Some(row),
-                                Some(Item::Block(_)) | None => None,
-                            };
-                            (index as i64, row)
-                        })
-                        .collect()
-                }
-            };
-            (items, cursor_row)
-        };
-        let mut rows = Vec::with_capacity(items.len());
-        for (index, row) in items {
-            let (ax, frame) = match row {
-                Some(row) => {
-                    let ax = scene
-                        .model()
-                        .borrow()
-                        .row_ax(row)
-                        .ok_or_else(|| format!("нет описания строки {row}"))?;
-                    (Some(ax), self.frame_of(row, primary_height))
-                }
-                None => (None, None),
-            };
-            rows.push(ExpectedRow {
-                index,
-                row: ax,
-                frame,
-            });
-        }
-        let focus_index = cursor_row.and_then(|row| match self.view() {
-            View::A(_) => visible.contains(&row).then_some(i64::from(row)),
-            View::B(view) => {
-                let index = view.map().index(Item::Text(row))?;
-                view.visible_table_rows()
-                    .contains(&index)
-                    .then_some(index as i64)
-            }
-        });
-        Ok(Expectation {
-            rows,
-            focus: focus_index.map_or(ExpectedFocus::Table, ExpectedFocus::Row),
-        })
+        expectation(self.mtm, &self.window, &self.stage)
     }
 
     /// Снимок и ожидание шага в файл: без файла снимок не сохранён, это ошибка исполнения.
@@ -860,6 +784,90 @@ impl crate::scenario::Running for Ax {
     fn poll(&self) -> Option<Result<Report, Failed>> {
         Ax::poll(self)
     }
+}
+
+/// Рамка строки показа в глобальных координатах доступности.
+fn frame_of(window: &NSWindow, view: &View, row: u32, primary_height: f64) -> Option<AxFrame> {
+    let area = view.row_rect(row)?;
+    let screen = window.convertRectToScreen(view.to_window(area));
+    Some(AxFrame {
+        x: screen.origin.x,
+        y: primary_height - (screen.origin.y + screen.size.height),
+        width: screen.size.width,
+        height: screen.size.height,
+    })
+}
+
+/// Что модель ждёт от снимка сейчас: видимые строки контейнера, их сообщения и рамки, фокус.
+/// Ожидание снимается в момент запроса: пока клиент читает, ничего не меняется.
+pub fn expectation(
+    mtm: MainThreadMarker,
+    window: &NSWindow,
+    stage: &Stage,
+) -> Result<Expectation, String> {
+    let scene = &stage.scene;
+    let visible = scene.visible_rows();
+    let primary_height = NSScreen::screens(mtm)
+        .firstObject()
+        .map_or(0.0, |screen| screen.frame().size.height);
+    let (items, cursor_row): (Vec<(i64, Option<u32>)>, Option<u32>) = {
+        let model = scene
+            .model()
+            .try_borrow()
+            .map_err(|_| "модель занята при снимке")?;
+        let cursor_row = model.cursor_row();
+        let items = match &stage.view {
+            View::A(_) => visible
+                .clone()
+                .map(|row| (i64::from(row), Some(row)))
+                .collect(),
+            View::B(view) => {
+                let map = view.map();
+                view.visible_table_rows()
+                    .map(|index| {
+                        let row = match map.item(index) {
+                            Some(Item::Text(row)) => Some(row),
+                            Some(Item::Block(_)) | None => None,
+                        };
+                        (index as i64, row)
+                    })
+                    .collect()
+            }
+        };
+        (items, cursor_row)
+    };
+    let mut rows = Vec::with_capacity(items.len());
+    for (index, row) in items {
+        let (ax, frame) = match row {
+            Some(row) => {
+                let ax = scene
+                    .model()
+                    .borrow()
+                    .row_ax(row)
+                    .ok_or_else(|| format!("нет описания строки {row}"))?;
+                (Some(ax), frame_of(window, &stage.view, row, primary_height))
+            }
+            None => (None, None),
+        };
+        rows.push(ExpectedRow {
+            index,
+            row: ax,
+            frame,
+        });
+    }
+    let focus_index = cursor_row.and_then(|row| match &stage.view {
+        View::A(_) => visible.contains(&row).then_some(i64::from(row)),
+        View::B(view) => {
+            let index = view.map().index(Item::Text(row))?;
+            view.visible_table_rows()
+                .contains(&index)
+                .then_some(index as i64)
+        }
+    });
+    Ok(Expectation {
+        rows,
+        focus: focus_index.map_or(ExpectedFocus::Table, ExpectedFocus::Row),
+    })
 }
 
 #[cfg(test)]

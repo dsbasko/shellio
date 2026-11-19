@@ -57,6 +57,8 @@ pub enum Part {
     Bounded,
     Zones,
     Theme,
+    /// Приёмочный проход исполнителя по фикстуре `real` (задача 18).
+    Accept,
 }
 
 impl Part {
@@ -69,6 +71,7 @@ impl Part {
             Scenario::Bounded => Part::Bounded,
             Scenario::Zones => Part::Zones,
             Scenario::Theme => Part::Theme,
+            Scenario::Accept => Part::Accept,
             Scenario::Smoke
             | Scenario::Highlight
             | Scenario::Calibrate
@@ -92,6 +95,7 @@ impl Part {
             Part::Bounded => "bounded",
             Part::Zones => "zones",
             Part::Theme => "theme",
+            Part::Accept => "accept",
         }
     }
 
@@ -101,6 +105,7 @@ impl Part {
         let own = match self {
             Part::Selection | Part::Threads => OpenFixture::Threads,
             Part::Bounded | Part::Zones | Part::Theme => OpenFixture::Modified,
+            Part::Accept => OpenFixture::Real,
             Part::Anchor | Part::Pairs => {
                 return given.ok_or_else(|| format!("у {} нет оси фикстур", self.name()));
             }
@@ -281,7 +286,7 @@ pub trait Script {
 
 enum Step {
     Loading {
-        rx: Receiver<(Fixture, Result<Raw, String>)>,
+        rx: Receiver<Result<(Fixture, Raw), String>>,
         deadline: Instant,
     },
     Ready {
@@ -359,10 +364,12 @@ fn script_of(
         Part::Bounded => Ok(Box::new(super::bounded_run::BoundedScript::new())),
         Part::Zones => Ok(Box::new(super::zones_run::ZonesScript::new(mode))),
         Part::Theme => Ok(Box::new(super::theme_run::ThemeScript::new(out))),
+        Part::Accept => Ok(Box::new(super::accept_run::AcceptScript::new(mode, out)?)),
     }
 }
 
 impl ContractRun {
+    #[allow(clippy::too_many_arguments)]
     pub fn start(
         mtm: MainThreadMarker,
         window: &NSWindow,
@@ -371,6 +378,7 @@ impl ContractRun {
         view: ViewOptions,
         part: Part,
         out: &Path,
+        fixtures: Option<&Path>,
     ) -> Result<ContractRun, Failed> {
         let (variant, mode) = match (view.variant, view.mode) {
             (Some(variant), Some(mode)) => (variant, mode),
@@ -385,11 +393,27 @@ impl ContractRun {
             Ok(fixture) => fixture,
             Err(reason) => return Err(Box::new((reason, report))),
         };
-        let Some(name) = fixture.synthetic() else {
-            return Err(Box::new((
-                format!("фикстура {} не синтетическая", fixture.name()),
-                report,
-            )));
+        type Load = Box<dyn FnOnce() -> Result<(Fixture, Raw), String> + Send>;
+        let load: Load = match (fixture.synthetic(), part, fixtures) {
+            (Some(name), _, _) => Box::new(move || {
+                let fixture = probe_diff_view::fixtures::generate(name);
+                let raw = Raw::parse(&fixture.diff)
+                    .map_err(|reason| format!("сырой diff не разобран: {reason}"))?;
+                Ok((fixture, raw))
+            }),
+            (None, Part::Accept, Some(dir)) => {
+                let dir = dir.to_path_buf();
+                Box::new(move || super::accept_run::load(&dir))
+            }
+            (None, _, _) => {
+                return Err(Box::new((
+                    format!(
+                        "фикстура {} не синтетическая или нет --fixtures",
+                        fixture.name()
+                    ),
+                    report,
+                )));
+            }
         };
         let requested = match mode {
             ViewMode::Unified => Mode::Unified,
@@ -403,9 +427,7 @@ impl ContractRun {
         let spawned = thread::Builder::new()
             .name(format!("probe-diff-{}-load", part.name()))
             .spawn(move || {
-                let fixture = probe_diff_view::fixtures::generate(name);
-                let raw = Raw::parse(&fixture.diff);
-                let _ = tx.send((fixture, raw));
+                let _ = tx.send(load());
             });
         if let Err(err) = spawned {
             return Err(Box::new((
@@ -505,8 +527,8 @@ impl ContractRun {
     fn advance(&self, step: Step) -> Result<Step, String> {
         match step {
             Step::Loading { rx, deadline } => match rx.try_recv() {
-                Ok((fixture, raw)) => {
-                    let raw = raw.map_err(|reason| format!("сырой diff не разобран: {reason}"))?;
+                Ok(loaded) => {
+                    let (fixture, raw) = loaded?;
                     self.restage(fixture, Some(raw), false)
                 }
                 Err(TryRecvError::Empty) if Instant::now() < deadline => {

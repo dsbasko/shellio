@@ -26,7 +26,7 @@ CARGO="${CARGO:-cargo}"
 BIN="$ROOT/target/release/probe-diff-view"
 OUT_BASE="$ROOT/target/probes/diff-view"
 FIXTURES_DIR="$OUT_BASE/fixtures"
-ALL_SCENARIOS="smoke highlight calibrate open-smoke ax open open-warm frames memory keys idle anchor selection threads pairs bounded zones theme"
+ALL_SCENARIOS="smoke highlight calibrate open-smoke ax open open-warm frames memory keys idle anchor selection threads pairs bounded zones theme accept"
 ALL_VARIANTS="a b"
 ALL_MODES="unified side"
 ALL_FIXTURES="added modified sparse wrap real threads"
@@ -127,7 +127,7 @@ check_state_dir() {
 axes_of() {
     case "$1" in
         smoke | highlight | calibrate) echo stand ;;
-        open-smoke | ax | keys | idle | selection | threads | bounded | zones | theme) echo view ;;
+        open-smoke | ax | keys | idle | selection | threads | bounded | zones | theme | accept) echo view ;;
         open | open-warm | frames | anchor | pairs) echo open ;;
         memory) echo variant ;;
         *) die "неизвестный сценарий «${1}», известны: $ALL_SCENARIOS" ;;
@@ -162,10 +162,11 @@ scenario_fixtures() {
     echo "${picked# }"
 }
 
-# Сценарии с эталоном подсветки, как Scenario::needs_fixtures в args.rs.
+# Сценарии с эталоном подсветки и `accept` с фикстурой real, как Scenario::needs_fixtures в
+# args.rs.
 needs_fixtures() {
     case "$1" in
-        highlight | open | open-warm) return 0 ;;
+        highlight | open | open-warm | accept) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -304,8 +305,8 @@ cmd_scenarios() {
     run_dir="$OUT_BASE/$(date +%Y%m%d-%H%M%S)-$$"
     mkdir "$run_dir"
     for scenario in $scenarios; do
-        if [ "$(axes_of "$scenario")" = open ] \
-            && [[ " $(scenario_fixtures "$scenario" "$fixtures") " == *" real "* ]]; then
+        if [ "$scenario" = accept ] || { [ "$(axes_of "$scenario")" = open ] \
+            && [[ " $(scenario_fixtures "$scenario" "$fixtures") " == *" real "* ]]; }; then
             prepare_real
             break
         fi

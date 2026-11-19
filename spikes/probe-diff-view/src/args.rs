@@ -186,10 +186,13 @@ pub enum Scenario {
     Zones,
     /// Темы: светлая, тёмная и Increase Contrast, пиксельная проба фонов, снимок окна.
     Theme,
+    /// Приёмочный проход исполнителя: ход по фикстуре `real` с переходом между файлами,
+    /// снимками окна и внешним клиентом доступности после каждого шага.
+    Accept,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 18] = [
+    pub const ALL: [Scenario; 19] = [
         Scenario::Smoke,
         Scenario::Highlight,
         Scenario::Calibrate,
@@ -208,6 +211,7 @@ impl Scenario {
         Scenario::Bounded,
         Scenario::Zones,
         Scenario::Theme,
+        Scenario::Accept,
     ];
 
     pub fn name(self) -> &'static str {
@@ -230,6 +234,7 @@ impl Scenario {
             Scenario::Bounded => "bounded",
             Scenario::Zones => "zones",
             Scenario::Theme => "theme",
+            Scenario::Accept => "accept",
         }
     }
 
@@ -250,7 +255,8 @@ impl Scenario {
             | Scenario::Threads
             | Scenario::Bounded
             | Scenario::Zones
-            | Scenario::Theme => Axes::VIEW,
+            | Scenario::Theme
+            | Scenario::Accept => Axes::VIEW,
             Scenario::Open
             | Scenario::OpenWarm
             | Scenario::Frames
@@ -276,7 +282,8 @@ impl Scenario {
             | Scenario::Threads
             | Scenario::Bounded
             | Scenario::Zones
-            | Scenario::Theme => &[],
+            | Scenario::Theme
+            | Scenario::Accept => &[],
             Scenario::Anchor => &[OpenFixture::Threads, OpenFixture::Wrap],
             Scenario::Pairs => &[OpenFixture::Modified, OpenFixture::Wrap],
             Scenario::Open | Scenario::OpenWarm => &[
@@ -304,8 +311,8 @@ impl Scenario {
                 && mode == ViewMode::Unified)
     }
 
-    /// Сценарию нужен каталог фикстур с эталонами `--reference`. Таблица `run.sh`
-    /// (`needs_fixtures`) повторяет её.
+    /// Сценарию нужен каталог фикстур с эталонами `--reference`, у `accept` — с фикстурой
+    /// `real`. Таблица `run.sh` (`needs_fixtures`) повторяет её.
     pub fn needs_fixtures(self) -> bool {
         match self {
             Scenario::Smoke
@@ -323,7 +330,7 @@ impl Scenario {
             | Scenario::Bounded
             | Scenario::Zones
             | Scenario::Theme => false,
-            Scenario::Highlight | Scenario::Open | Scenario::OpenWarm => true,
+            Scenario::Highlight | Scenario::Open | Scenario::OpenWarm | Scenario::Accept => true,
         }
     }
 }
