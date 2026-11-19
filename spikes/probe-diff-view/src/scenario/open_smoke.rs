@@ -21,8 +21,8 @@ use serde::Serialize;
 
 use probe_diff_view::fixtures::{self, FixtureName};
 use probe_diff_view::highlight::Source;
-use probe_diff_view::model::state::Anchor;
-use probe_diff_view::model::{Mode, Side};
+use probe_diff_view::model::state::{Anchor, Selection};
+use probe_diff_view::model::{LineAddr, Mode, Side};
 
 use super::calibrate_run::Failed;
 use super::drawmark::{self, Ledger};
@@ -44,6 +44,8 @@ pub const CLICK_ROW: u32 = 5;
 const SCROLL_TOLERANCE: f64 = 1.0;
 /// Окно сужается на столько точек и возвращается обратно.
 const RESIZE_DELTA: f64 = 120.0;
+/// Шагов выделения: щелчок, `v j j`, `Shift`-щелчок, протяжка, `Escape`.
+const SELECT_STEPS: usize = 5;
 
 /// Покрытие видимых строк: поколение учёта и время отметки, которая его закрыла.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -119,7 +121,49 @@ enum Step {
         posted_ns: u64,
         deadline: Instant,
     },
+    Select {
+        name: &'static str,
+        expect: Expect,
+        posted: Vec<u64>,
+        posted_ns: u64,
+        deadline: Instant,
+    },
     Done,
+}
+
+/// Условие шага выделения.
+#[derive(Clone, Copy, Debug)]
+enum Expect {
+    /// Курсор на адресе, выделения нет.
+    Cursor(LineAddr),
+    /// Выделение стороны `side` от `tail`. `head` — точный конец, `None` — конец ниже `tail`.
+    /// `cursor` — где обязан стоять курсор.
+    Selection {
+        side: Side,
+        tail: u32,
+        head: Option<u32>,
+        cursor: Option<LineAddr>,
+    },
+    NoSelection,
+}
+
+/// Выполнено ли условие шага выделения при курсоре `cursor` и выделении `selection`.
+fn expect_met(expect: Expect, cursor: Option<LineAddr>, selection: Option<Selection>) -> bool {
+    match expect {
+        Expect::Cursor(addr) => cursor == Some(addr) && selection.is_none(),
+        Expect::Selection {
+            side,
+            tail,
+            head,
+            cursor: at,
+        } => selection.is_some_and(|selection| {
+            selection.side == side
+                && selection.tail == tail
+                && head.map_or(selection.head > tail, |head| selection.head == head)
+                && at.is_none_or(|at| cursor == Some(at))
+        }),
+        Expect::NoSelection => selection.is_none(),
+    }
 }
 
 /// Итог смены ширины: якорь до и после, верхний край против выведенного из якоря.
@@ -159,6 +203,7 @@ pub struct OpenSmoke {
     milestones: RefCell<Option<Milestones>>,
     steps: RefCell<Vec<StepResult>>,
     resizes: RefCell<Vec<ResizeResult>>,
+    selections: RefCell<Vec<StepResult>>,
     max_entries_seen: RefCell<(usize, usize)>,
     report: RefCell<Option<Report>>,
     mode: Mode,
@@ -305,6 +350,7 @@ impl OpenSmoke {
             milestones: RefCell::new(None),
             steps: RefCell::new(Vec::new()),
             resizes: RefCell::new(Vec::new()),
+            selections: RefCell::new(Vec::new()),
             max_entries_seen: RefCell::new((0, 0)),
             report: RefCell::new(Some(report)),
             mode,
@@ -561,7 +607,7 @@ impl OpenSmoke {
                     });
                     return match name {
                         "narrow" => self.resize("restore"),
-                        _ => Ok(Step::Done),
+                        _ => self.select_click(),
                     };
                 }
                 if Instant::now() < deadline {
@@ -582,7 +628,201 @@ impl OpenSmoke {
                     self.scene.relayout()
                 ))
             }
+            Step::Select {
+                name,
+                expect,
+                posted,
+                posted_ns,
+                deadline,
+            } => {
+                let cursor = self.scene.cursor();
+                let selection = self.scene.selection();
+                if returned(&posted) && expect_met(expect, cursor, selection) && self.covered_now()
+                {
+                    let at = self
+                        .coverage
+                        .borrow()
+                        .last()
+                        .map_or(now_ns(), |event| event.at_ns.max(posted_ns));
+                    self.selections.borrow_mut().push(StepResult {
+                        name,
+                        latency_ms: at.saturating_sub(posted_ns) as f64 / 1e6,
+                        scroll_y: self.view.viewport_y(),
+                        visible: self.scene.visible_rows(),
+                        detail: format!("курсор {cursor:?}, выделение {selection:?}"),
+                    });
+                    return self.after_select(name, selection);
+                }
+                if Instant::now() < deadline {
+                    return Ok(Step::Select {
+                        name,
+                        expect,
+                        posted,
+                        posted_ns,
+                        deadline,
+                    });
+                }
+                Err(format!(
+                    "шаг выделения {name} не выполнен за {} мс: ожидалось {expect:?}, курсор {cursor:?}, выделение {selection:?}, покрыты {}, sendEvent вернулся {}",
+                    STEP_DEADLINE.as_millis(),
+                    self.covered_now(),
+                    returned(&posted)
+                ))
+            }
             Step::Done => Ok(Step::Done),
+        }
+    }
+
+    /// Первая видимая строка с адресом новой стороны, начиная с `from`-й видимой (с 1) и ниже
+    /// строки `after`.
+    fn new_side_row(&self, from: u32, after: Option<u32>) -> Result<(u32, LineAddr), String> {
+        let visible = self.scene.visible_rows();
+        let start = (visible.start + from - 1).max(after.map_or(0, |row| row + 1));
+        (start..visible.end)
+            .find_map(|row| Some((row, self.scene.row_addr_at(row, Side::New)?)))
+            .ok_or_else(|| format!("нет видимой строки с новой стороной от {start} в {visible:?}"))
+    }
+
+    /// Точка экрана для щелчка по строке `row`: в «Рядом» центр новой половины, в unified центр
+    /// левых 400 точек строки.
+    fn new_side_point(&self, row: u32) -> Result<NSPoint, String> {
+        let area = match self.mode {
+            Mode::SideBySide => self.view.half_rect(row, Side::New),
+            Mode::Unified => self.view.row_rect(row).map(|area| {
+                NSRect::new(
+                    area.origin,
+                    NSSize::new(area.size.width.min(400.0), area.size.height),
+                )
+            }),
+        }
+        .ok_or_else(|| format!("нет прямоугольника строки {row}"))?;
+        let screen = self.window.convertRectToScreen(self.view.to_window(area));
+        Ok(events::center(screen))
+    }
+
+    fn select_step(
+        &self,
+        name: &'static str,
+        expect: Expect,
+        posted: Vec<u64>,
+        posted_ns: u64,
+    ) -> Step {
+        Step::Select {
+            name,
+            expect,
+            posted,
+            posted_ns,
+            deadline: Instant::now() + STEP_DEADLINE,
+        }
+    }
+
+    /// Щелчок без модификаторов по первой строке с новой стороной от 5-й видимой.
+    fn select_click(&self) -> Result<Step, String> {
+        let (row, addr) = self.new_side_row(CLICK_ROW, None)?;
+        let point = self.new_side_point(row)?;
+        let posted_ns = now_ns();
+        let gesture = events::mouse_down(
+            self.mtm,
+            point,
+            &self.window,
+            NSEventModifierFlags::empty(),
+            1,
+            "sel_click",
+        )?;
+        let posted = vec![gesture.down, gesture.up("sel_click")?];
+        Ok(self.select_step("sel_click", Expect::Cursor(addr), posted, posted_ns))
+    }
+
+    /// Следующий шаг выделения после `name`.
+    fn after_select(
+        &self,
+        name: &'static str,
+        selection: Option<Selection>,
+    ) -> Result<Step, String> {
+        match name {
+            "sel_click" => {
+                let cursor = self
+                    .scene
+                    .cursor()
+                    .ok_or_else(|| "нет курсора после щелчка".to_owned())?;
+                let posted_ns = now_ns();
+                let mut posted = events::press(Key::V)?;
+                posted.extend(events::press(Key::J)?);
+                posted.extend(events::press(Key::J)?);
+                Ok(self.select_step(
+                    "sel_visual",
+                    Expect::Selection {
+                        side: cursor.side,
+                        tail: cursor.line,
+                        head: None,
+                        cursor: None,
+                    },
+                    posted,
+                    posted_ns,
+                ))
+            }
+            "sel_visual" => {
+                let selection = selection.ok_or_else(|| "нет выделения после v j j".to_owned())?;
+                let (row, addr) = self.new_side_row(CLICK_ROW + 6, None)?;
+                let point = self.new_side_point(row)?;
+                let posted_ns = now_ns();
+                let gesture = events::mouse_down(
+                    self.mtm,
+                    point,
+                    &self.window,
+                    NSEventModifierFlags::Shift,
+                    1,
+                    "sel_shift_click",
+                )?;
+                let posted = vec![gesture.down, gesture.up("sel_shift_click")?];
+                Ok(self.select_step(
+                    "sel_shift_click",
+                    Expect::Selection {
+                        side: selection.side,
+                        tail: selection.tail,
+                        head: Some(addr.line),
+                        cursor: Some(addr),
+                    },
+                    posted,
+                    posted_ns,
+                ))
+            }
+            "sel_shift_click" => {
+                let (first, from) = self.new_side_row(CLICK_ROW + 2, None)?;
+                let (second, to) = self.new_side_row(1, Some(first + 3))?;
+                let (start, end) = (self.new_side_point(first)?, self.new_side_point(second)?);
+                let posted_ns = now_ns();
+                let gesture = events::mouse_down(
+                    self.mtm,
+                    start,
+                    &self.window,
+                    NSEventModifierFlags::empty(),
+                    1,
+                    "sel_drag",
+                )?;
+                let posted = vec![
+                    gesture.down,
+                    gesture.drag_to(end, "sel_drag")?,
+                    gesture.up("sel_drag")?,
+                ];
+                Ok(self.select_step(
+                    "sel_drag",
+                    Expect::Selection {
+                        side: Side::New,
+                        tail: from.line,
+                        head: Some(to.line),
+                        cursor: Some(to),
+                    },
+                    posted,
+                    posted_ns,
+                ))
+            }
+            "sel_drag" => {
+                let posted_ns = now_ns();
+                let posted = events::press(Key::ESCAPE)?;
+                Ok(self.select_step("sel_escape", Expect::NoSelection, posted, posted_ns))
+            }
+            _ => Ok(Step::Done),
         }
     }
 
@@ -728,6 +968,10 @@ impl OpenSmoke {
         report.push(
             "resizes",
             serde_json::to_string(&*self.resizes.borrow()).unwrap_or_default(),
+        );
+        report.push(
+            "selections",
+            serde_json::to_string(&*self.selections.borrow()).unwrap_or_default(),
         );
         report.push(
             "relayout",
@@ -895,6 +1139,25 @@ impl OpenSmoke {
                 .collect::<Vec<_>>()
                 .join("; "),
         );
+        let selections = self.selections.borrow();
+        report.finding(
+            "selection",
+            if selections.len() == SELECT_STEPS {
+                Verdict::Pass
+            } else {
+                Verdict::Fail
+            },
+            selections
+                .iter()
+                .map(|step| {
+                    format!(
+                        "{}: {}, покрыто за {:.1} мс",
+                        step.name, step.detail, step.latency_ms
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("; "),
+        );
         let bounded = counters.max_entries <= counters.max_capacity && counters.far_builds == 0;
         report.finding(
             "layout_cache_bounded",
@@ -980,6 +1243,56 @@ mod tests {
             cover(4, 195_000_000),
         ];
         assert_eq!(Milestones::of(0, &timeline, &coverage).full_ms, Some(195.0));
+    }
+
+    #[test]
+    fn selection_steps_check_side_ends_and_cursor() {
+        let at = |line| LineAddr {
+            side: Side::New,
+            line,
+        };
+        let selection = |tail, head| Selection {
+            side: Side::New,
+            tail,
+            head,
+        };
+        assert!(expect_met(Expect::Cursor(at(5)), Some(at(5)), None));
+        assert!(!expect_met(
+            Expect::Cursor(at(5)),
+            Some(at(5)),
+            Some(selection(5, 5))
+        ));
+        let below = Expect::Selection {
+            side: Side::New,
+            tail: 5,
+            head: None,
+            cursor: None,
+        };
+        assert!(expect_met(below, Some(at(7)), Some(selection(5, 7))));
+        assert!(!expect_met(below, Some(at(5)), Some(selection(5, 5))));
+        assert!(!expect_met(
+            below,
+            Some(at(7)),
+            Some(Selection {
+                side: Side::Old,
+                tail: 5,
+                head: 7
+            })
+        ));
+        let exact = Expect::Selection {
+            side: Side::New,
+            tail: 5,
+            head: Some(9),
+            cursor: Some(at(9)),
+        };
+        assert!(expect_met(exact, Some(at(9)), Some(selection(5, 9))));
+        assert!(!expect_met(exact, Some(at(8)), Some(selection(5, 9))));
+        assert!(expect_met(Expect::NoSelection, Some(at(1)), None));
+        assert!(!expect_met(
+            Expect::NoSelection,
+            Some(at(1)),
+            Some(selection(1, 2))
+        ));
     }
 
     #[test]

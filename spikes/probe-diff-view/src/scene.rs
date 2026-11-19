@@ -31,7 +31,7 @@ use probe_diff_view::model::heights::{
     HeightIndex, HeightJob, HeightSnapshot, HeightWorker, Metrics,
 };
 use probe_diff_view::model::layout::{DiffGeometry, DiffLayout, Geometry, TextMetrics, Zone};
-use probe_diff_view::model::state::{Anchor, Command, ViewState, Viewport};
+use probe_diff_view::model::state::{Anchor, Command, Selection, ViewState, Viewport};
 use probe_diff_view::model::{
     Diff, DiffSnapshot, LineAddr, LineKind, Mode, ParseOutcome, ParseWorker, Side, TextBody,
 };
@@ -516,6 +516,10 @@ impl Scene {
             .as_ref()?
             .cursor()
             .map(|cursor| cursor.addr)
+    }
+
+    pub fn selection(&self) -> Option<Selection> {
+        self.model.borrow().state.as_ref()?.selection()
     }
 
     /// Адрес строки показа для щелчка: unified — сторона строки, у контекстной новая.
