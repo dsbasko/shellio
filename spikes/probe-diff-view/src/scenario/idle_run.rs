@@ -1,7 +1,8 @@
 //! Сценарий `idle` с окном: фикстура `modified` генерируется на рабочем потоке, клавиша `o`
 //! открывает её в виде варианта и режима, после снимка полного разбора, покрытия видимых строк и
 //! без перестройки идёт окно простоя 10 с. Тело опроса в окне — одно сравнение времени: таймер
-//! стенда 5 мс работает и в окне и входит в CPU процесса (отчёт, строка «Окно `idle`»).
+//! стенда 5 мс работает и в окне и входит в CPU процесса (отчёт, строка «Окно `idle`»). До
+//! клавиши открытия идёт контрольное окно 10 с без diff — пол стенда (строка «Пол стенда `idle`»).
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -48,6 +49,11 @@ enum Step {
         posted_ns: u64,
         deadline: Instant,
     },
+    /// Контрольное окно до клавиши открытия: вид в окне, diff не открыт.
+    Floor {
+        start: Sample,
+        until_ns: u64,
+    },
     Idle {
         start: Sample,
         until_ns: u64,
@@ -64,6 +70,7 @@ pub struct IdleRun {
     stage: RefCell<Option<Rc<Stage>>>,
     step: RefCell<Step>,
     summary: RefCell<Option<idle::IdleSummary>>,
+    floor: RefCell<Option<idle::IdleSummary>>,
     report: RefCell<Option<Report>>,
     closed: Cell<bool>,
 }
@@ -123,6 +130,7 @@ impl IdleRun {
                 deadline: Instant::now() + LOAD_DEADLINE,
             }),
             summary: RefCell::new(None),
+            floor: RefCell::new(None),
             report: RefCell::new(Some(report)),
             closed: Cell::new(false),
         })
@@ -137,7 +145,7 @@ impl IdleRun {
 
     pub fn poll(&self) -> Option<Result<Report, Failed>> {
         // Окно простоя: только сравнение времени, без чтения сцены.
-        if let Step::Idle { until_ns, .. } = &*self.step.borrow()
+        if let Step::Idle { until_ns, .. } | Step::Floor { until_ns, .. } = &*self.step.borrow()
             && now_ns() < *until_ns
         {
             return None;
@@ -178,12 +186,11 @@ impl IdleRun {
                         Err(format!("запрос подсветки не скомпилирован: {reason}"))
                     }
                     Some(Ok(_)) if !self.window.viewsNeedDisplay() => {
-                        let posted_ns = now_ns();
-                        let posted = events::press(Key::OPEN)?;
-                        Ok(Step::Opening {
-                            posted,
-                            posted_ns,
-                            deadline: Instant::now() + OPEN_DEADLINE,
+                        drawmark::take();
+                        let start = sampler::sample()?;
+                        Ok(Step::Floor {
+                            start,
+                            until_ns: start.mono_ns + idle::WINDOW_NS,
                         })
                     }
                     _ if Instant::now() < deadline => Ok(Step::Ready { deadline }),
@@ -218,6 +225,18 @@ impl IdleRun {
                         OPEN_DEADLINE.as_secs()
                     ))
                 }
+            }
+            Step::Floor { start, .. } => {
+                let end = sampler::sample()?;
+                let passes = drawmark::take().len();
+                *self.floor.borrow_mut() = Some(idle::summarize(start, end, passes)?);
+                let posted_ns = now_ns();
+                let posted = events::press(Key::OPEN)?;
+                Ok(Step::Opening {
+                    posted,
+                    posted_ns,
+                    deadline: Instant::now() + OPEN_DEADLINE,
+                })
             }
             Step::Idle { start, .. } => {
                 let end = sampler::sample()?;
@@ -327,6 +346,18 @@ impl IdleRun {
         report.metric("idle_cpu_percent", "%", vec![summary.cpu_percent]);
         report.metric("idle_passes", "passes", vec![summary.passes as f64]);
         report.push("idle", serde_json::to_string(&summary).unwrap_or_default());
+        if let Some(floor) = *self.floor.borrow() {
+            report.metric("idle_stand_floor_percent", "%", vec![floor.cpu_percent]);
+            report.metric(
+                "idle_stand_floor_passes",
+                "passes",
+                vec![floor.passes as f64],
+            );
+            report.push(
+                "idle_stand_floor",
+                serde_json::to_string(&floor).unwrap_or_default(),
+            );
+        }
         Ok(report)
     }
 }
