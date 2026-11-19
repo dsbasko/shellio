@@ -28,7 +28,7 @@ use objc2_screen_capture_kit::{
     SCContentFilter, SCFrameStatus, SCShareableContent, SCStream, SCStreamConfiguration,
     SCStreamFrameInfoDisplayTime, SCStreamFrameInfoStatus, SCStreamOutput, SCStreamOutputType,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::marker;
 use super::sampler;
@@ -40,7 +40,7 @@ pub const STOP_TIMEOUT: Duration = Duration::from_secs(10);
 pub const QUEUE_DEPTH: isize = 8;
 
 /// Доставка одного кадра потока.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Sample {
     /// `SCFrameStatus`: 0 — кадр с новым содержимым, 1 — простой без изображения.
     pub status: isize,

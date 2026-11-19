@@ -145,24 +145,29 @@ pub fn draw_per_tick(entries_ns: &[u64], marks: &[(u64, u64)]) -> Vec<f64> {
 }
 
 /// Потери отрезка S1. Такт — vsync окна замера. Потерян такт, после которого нет нового кадра
-/// окна пробы (`missed`), или такт, на который пришёлся `targetTimestamp` с недорисованными
-/// видимыми строками (`undrawn`): кадр показан, но не соответствует положению S1 целиком.
+/// окна пробы (`missed`), или такт показа кадра, на `targetTimestamp` которого видимые строки
+/// не были дорисованы (`undrawn`): кадр показан, но не соответствует положению S1 целиком.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Losses {
     pub ticks: usize,
+    pub shift: usize,
     pub missed: Vec<usize>,
     pub undrawn: Vec<usize>,
     pub lost: usize,
 }
 
-/// Подсчёт потерь по рядам vsync и показам кадров окна пробы. `undrawn_targets_ns` —
-/// `targetTimestamp` тактов, видимые строки которых к следующему вызову не покрыты. Меньше
-/// [`MIN_TICKS`] тактов в окне — ошибка исполнения.
+/// Подсчёт потерь по тактам vsync и показам кадров окна пробы. Показы пути ScreenCaptureKit
+/// приходят уже сдвинутыми на фазу корзин ([`calibrate::aligned`]). `undrawn_targets_ns` —
+/// `targetTimestamp` тактов, видимые строки которых к следующему вызову не покрыты. Кадр такта T
+/// показан на такте T + `shift`, где `shift` — сдвиг `k` из итога калибровки: недорисованный
+/// такт T и такт T + k без нового кадра — одна потеря. Меньше [`MIN_TICKS`] тактов в окне —
+/// ошибка исполнения.
 pub fn count_losses(
     vsyncs_ns: &[u64],
     frames_ns: &[u64],
     window: Window,
     undrawn_targets_ns: &[u64],
+    shift: usize,
 ) -> Result<Losses, String> {
     let ticks = vsyncs_ns
         .iter()
@@ -177,6 +182,8 @@ pub fn count_losses(
     let undrawn: BTreeSet<usize> = undrawn_targets_ns
         .iter()
         .filter_map(|&at| calibrate::tick_of(vsyncs_ns, window, at))
+        .map(|tick| tick + shift)
+        .filter(|&tick| tick < ticks)
         .collect();
     let lost = missed
         .iter()
@@ -186,6 +193,7 @@ pub fn count_losses(
         .count();
     Ok(Losses {
         ticks,
+        shift,
         missed,
         undrawn: undrawn.into_iter().collect(),
         lost,
@@ -360,13 +368,13 @@ mod tests {
             .filter(|(index, _)| ![10, 11, 500].contains(index))
             .map(|(_, &at)| at + 1_000_000)
             .collect();
-        let losses = count_losses(&ticks, &frames, window(1100), &[]).unwrap();
+        let losses = count_losses(&ticks, &frames, window(1100), &[], 0).unwrap();
         assert_eq!(losses.ticks, 1100);
         assert_eq!(losses.missed, vec![10, 11, 500]);
         assert!(losses.undrawn.is_empty());
         assert_eq!(losses.lost, 3);
 
-        let clean = count_losses(&ticks, &ticks, window(1100), &[]).unwrap();
+        let clean = count_losses(&ticks, &ticks, window(1100), &[], 0).unwrap();
         assert_eq!(clean.lost, 0);
     }
 
@@ -381,19 +389,73 @@ mod tests {
             .collect();
         // Недорисованы такты 40 (он же без кадра) и 700, цель — с дрожью 2 мс до такта.
         let undrawn = [ticks[40] - 2_000_000, ticks[700] - 2_000_000];
-        let losses = count_losses(&ticks, &frames, window(1100), &undrawn).unwrap();
+        let losses = count_losses(&ticks, &frames, window(1100), &undrawn, 0).unwrap();
         assert_eq!(losses.missed, vec![40]);
         assert_eq!(losses.undrawn, vec![40, 700]);
         assert_eq!(losses.lost, 2);
     }
 
     #[test]
+    fn an_undrawn_tick_and_its_shifted_missing_frame_are_one_loss() {
+        let ticks = vsyncs(1100);
+        // Кадр такта T показан на T + 2: кадра такта 40 нет, на такте 42 нового показа нет.
+        let frames: Vec<u64> = ticks
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| *index != 42)
+            .map(|(_, &at)| at)
+            .collect();
+        let undrawn = [ticks[40] - 2_000_000, ticks[700], ticks[1099]];
+        let losses = count_losses(&ticks, &frames, window(1100), &undrawn, 2).unwrap();
+        assert_eq!(losses.missed, vec![42]);
+        assert_eq!(losses.undrawn, vec![42, 702]);
+        assert_eq!(losses.lost, 2);
+        let unshifted = count_losses(&ticks, &frames, window(1100), &undrawn, 0).unwrap();
+        assert_eq!(unshifted.lost, 4);
+    }
+
+    #[test]
+    fn edge_frames_are_counted_after_the_bucket_phase() {
+        let ticks = vsyncs(1100);
+        // Показы пути ScreenCaptureKit у края корзины: такт + P/2 − 600 мкс или + P/2.
+        let shown: Vec<u64> = ticks
+            .iter()
+            .enumerate()
+            .map(|(index, &at)| at + PERIOD_NS / 2 - 600_000 + (index as u64 % 2) * 600_000)
+            .collect();
+        assert!(
+            !count_losses(&ticks, &shown, window(1100), &[], 0)
+                .unwrap()
+                .missed
+                .is_empty()
+        );
+        let grid = super::super::frames::Grid {
+            origin_ns: ticks[0],
+            intercept_ns: 0.0,
+            period_ns: PERIOD_NS as f64,
+            rows: 60,
+            max_offset_ns: 0.0,
+        };
+        let phase = calibrate::bucket_phase(&grid, &shown[..60]).unwrap();
+        let frames: Vec<u64> = shown
+            .iter()
+            .map(|&at| calibrate::aligned(at, phase))
+            .collect();
+        assert_eq!(
+            count_losses(&ticks, &frames, window(1100), &[], 0)
+                .unwrap()
+                .lost,
+            0
+        );
+    }
+
+    #[test]
     fn too_few_ticks_are_an_execution_error() {
         let ticks = vsyncs(999);
-        assert!(count_losses(&ticks, &ticks, window(999), &[]).is_err());
+        assert!(count_losses(&ticks, &ticks, window(999), &[], 0).is_err());
         // Такты вне окна не считаются.
         let ticks = vsyncs(1200);
-        assert!(count_losses(&ticks, &ticks, window(900), &[]).is_err());
+        assert!(count_losses(&ticks, &ticks, window(900), &[], 0).is_err());
     }
 
     #[test]

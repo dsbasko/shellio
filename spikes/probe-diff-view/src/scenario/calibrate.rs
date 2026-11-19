@@ -410,23 +410,49 @@ pub struct CaptureSegment {
     pub complete: usize,
     /// Кадры `Complete` вне окна замера, маркер которых не прочитан.
     pub unread_outside: usize,
-    /// `displayTime` кадров с новым маркером в окне замера.
+    /// Фаза корзин [`bucket_phase`] по новым кадрам прогрева; `None` — в прогреве нет новых кадров.
+    pub phase_ns: Option<f64>,
+    pub phase_frames: usize,
+    /// `displayTime − φ` кадров с новым маркером в окне замера.
     pub new_frames: Vec<u64>,
     /// Поколения, которые маркер перескочил между соседними новыми кадрами окна.
     pub skipped_generations: u64,
     pub max_handler_ns: u64,
     /// `targetTimestamp` окна замера дальше допуска от сетки: у `stall` — следствие задержки.
     pub off_grid_targets: usize,
-    /// Отклонение `displayTime` новых кадров окна от сетки: медиана модуля и наибольший модуль.
-    pub offset_median_ns: f64,
-    pub offset_max_ns: f64,
+    /// Знаковый остаток отклонения сдвинутых новых кадров окна от сетки: наименьший, медиана и
+    /// наибольший.
+    pub residual_min_ns: f64,
+    pub residual_median_ns: f64,
+    pub residual_max_ns: f64,
     pub frame_period_median_ns: u64,
     pub forward: Forward,
 }
 
+/// Фаза корзин тактов по показам `frames_ns`: круговое среднее их отклонения от сетки, приведённое
+/// к `[0; P)`. Отклонение собрано у края ±P/2, где линейная медиана ложится между половинами
+/// скопления. `None` — показов нет.
+pub fn bucket_phase(grid: &Grid, frames_ns: &[u64]) -> Option<f64> {
+    if frames_ns.is_empty() {
+        return None;
+    }
+    let turn = std::f64::consts::TAU / grid.period_ns;
+    let (sin, cos) = frames_ns.iter().fold((0.0, 0.0), |(sin, cos), &at| {
+        let angle = grid.offset_ns(at) * turn;
+        (sin + angle.sin(), cos + angle.cos())
+    });
+    Some((f64::atan2(sin, cos) / turn).rem_euclid(grid.period_ns))
+}
+
+/// Показ, сдвинутый на фазу корзин: кадр такта T ложится в `[T − P/2; T + P/2)`.
+pub fn aligned(at_ns: u64, phase_ns: f64) -> u64 {
+    at_ns.saturating_sub(phase_ns.round() as u64)
+}
+
 /// Разбор журнала потока. `targets_ns` — `targetTimestamp` вызовов `displayLink` отрезка,
-/// `streamed` — от запуска до остановки потока. Ошибка — нарушение условий записи: поток не
-/// покрывает окно, сетка не строится, маркер кадра окна замера не прочитан.
+/// `streamed` — от запуска до остановки потока. `displayTime` сдвигается на фазу корзин по новым
+/// кадрам прогрева один раз, дальше разбор идёт по сдвинутому времени. Ошибка — нарушение условий
+/// записи: поток не покрывает окно, сетка не строится, маркер кадра окна замера не прочитан.
 pub fn analyze_capture(
     samples: &[Sample],
     targets_ns: &[u64],
@@ -451,51 +477,46 @@ pub fn analyze_capture(
         .filter(|&at| window.start_ns <= at && at < window.end_ns)
         .collect();
     let off_grid_targets = grid.off_grid(&in_window).len();
-    if streamed.start_ns > window.start_ns || streamed.end_ns < window.end_ns {
-        return Err(format!(
-            "поток {}–{} нс не покрывает окно замера {}–{} нс",
-            streamed.start_ns, streamed.end_ns, window.start_ns, window.end_ns
-        ));
-    }
-    let inside = |at: u64| window.start_ns <= at && at < window.end_ns;
     let mut complete: Vec<&Sample> = samples
         .iter()
         .filter(|sample| sample.status == COMPLETE)
         .collect();
     complete.sort_by_key(|sample| sample.display_ns);
+    let fresh = fresh_frames(&complete);
+    let lead: Vec<u64> = fresh
+        .iter()
+        .filter_map(|frame| frame.marker.ok().map(|_| frame.display_ns))
+        .filter(|&at| from <= at && at < window.start_ns)
+        .collect();
+    let phase_ns = bucket_phase(&grid, &lead);
+    let shift = phase_ns.unwrap_or(0.0);
+    let reach = window.end_ns + shift.round() as u64;
+    if streamed.start_ns > window.start_ns || streamed.end_ns < reach {
+        return Err(format!(
+            "поток {}–{} нс не покрывает окно замера {}–{} нс, сдвинутое на фазу {shift:.0} нс",
+            streamed.start_ns, streamed.end_ns, window.start_ns, reach
+        ));
+    }
+    let inside = |at: u64| window.start_ns <= at && at < window.end_ns;
     let mut unread_outside = 0;
-    let mut previous: Option<u16> = None;
     let mut new_frames = Vec::new();
     let mut skipped_generations = 0u64;
-    for sample in &complete {
-        let marker = match &sample.marker {
-            Some(Ok(marker)) => *marker,
-            Some(Err(err)) if inside(sample.display_ns) => {
-                return Err(format!("маркер кадра {} нс: {err}", sample.display_ns));
+    for frame in &fresh {
+        let at = aligned(frame.display_ns, shift);
+        match &frame.marker {
+            Err(err) if inside(at) => {
+                return Err(format!("маркер кадра {} нс: {err}", frame.display_ns));
             }
-            None if inside(sample.display_ns) => {
-                return Err(format!("кадр {} нс без маркера", sample.display_ns));
+            Err(_) => unread_outside += 1,
+            Ok(_) if inside(at) => {
+                new_frames.push(at);
+                skipped_generations += frame.skipped;
             }
-            _ => {
-                unread_outside += 1;
-                continue;
-            }
-        };
-        if previous != Some(marker) {
-            if inside(sample.display_ns) {
-                new_frames.push(sample.display_ns);
-                if let Some(before) = previous {
-                    skipped_generations += u64::from(marker.wrapping_sub(before).saturating_sub(1));
-                }
-            }
-            previous = Some(marker);
+            Ok(_) => {}
         }
     }
-    let mut offsets: Vec<f64> = new_frames
-        .iter()
-        .map(|&at| grid.offset_ns(at).abs())
-        .collect();
-    offsets.sort_by(f64::total_cmp);
+    let mut residuals: Vec<f64> = new_frames.iter().map(|&at| grid.offset_ns(at)).collect();
+    residuals.sort_by(f64::total_cmp);
     let ticks = grid.ticks(window.start_ns, window.end_ns);
     let forward = forward(&ticks, &new_frames, window, held_targets_ns);
     Ok(CaptureSegment {
@@ -505,6 +526,8 @@ pub fn analyze_capture(
         samples: samples.len(),
         complete: complete.len(),
         unread_outside,
+        phase_ns,
+        phase_frames: lead.len(),
         skipped_generations,
         max_handler_ns: samples
             .iter()
@@ -512,12 +535,55 @@ pub fn analyze_capture(
             .max()
             .unwrap_or(0),
         off_grid_targets,
-        offset_median_ns: offsets.get(offsets.len() / 2).copied().unwrap_or(0.0),
-        offset_max_ns: offsets.last().copied().unwrap_or(0.0),
+        residual_min_ns: residuals.first().copied().unwrap_or(0.0),
+        residual_median_ns: residuals.get(residuals.len() / 2).copied().unwrap_or(0.0),
+        residual_max_ns: residuals.last().copied().unwrap_or(0.0),
         frame_period_median_ns: median_period(&new_frames),
         new_frames,
         forward,
     })
+}
+
+/// Кадр потока со сменой маркера или с непрочитанным маркером. `skipped` — поколения, которые
+/// маркер перескочил после предыдущего нового кадра.
+struct Fresh<'a> {
+    display_ns: u64,
+    marker: Result<u16, &'a str>,
+    skipped: u64,
+}
+
+/// Новые кадры журнала по возрастанию `displayTime`: маркер сменился. Кадр с непрочитанным
+/// маркером идёт отдельной записью и предыдущий маркер не меняет.
+fn fresh_frames<'a>(complete: &[&'a Sample]) -> Vec<Fresh<'a>> {
+    let mut previous: Option<u16> = None;
+    let mut fresh = Vec::new();
+    for sample in complete {
+        match &sample.marker {
+            Some(Ok(marker)) if previous != Some(*marker) => {
+                let skipped = previous
+                    .map(|before| u64::from(marker.wrapping_sub(before).saturating_sub(1)))
+                    .unwrap_or(0);
+                fresh.push(Fresh {
+                    display_ns: sample.display_ns,
+                    marker: Ok(*marker),
+                    skipped,
+                });
+                previous = Some(*marker);
+            }
+            Some(Ok(_)) => {}
+            Some(Err(err)) => fresh.push(Fresh {
+                display_ns: sample.display_ns,
+                marker: Err(err),
+                skipped: 0,
+            }),
+            None => fresh.push(Fresh {
+                display_ns: sample.display_ns,
+                marker: Err("кадр без маркера"),
+                skipped: 0,
+            }),
+        }
+    }
+    fresh
 }
 
 /// Сетка пути ScreenCaptureKit строится по `targetTimestamp` последних 0,5 с прогрева, до окна
@@ -868,7 +934,13 @@ mod capture_tests {
         assert!(segment.forward.passed(), "{:?}", segment.forward);
         assert_eq!(segment.forward.missed.len(), 13);
         assert_eq!(segment.skipped_generations, 0);
-        assert!((segment.offset_median_ns - 400_000.0).abs() < 1.0);
+        assert_eq!(segment.phase_frames, 60);
+        assert!(
+            segment
+                .phase_ns
+                .is_some_and(|phase| (phase - 400_000.0).abs() < 1.0)
+        );
+        assert!(segment.residual_min_ns.abs() < 1.0 && segment.residual_max_ns.abs() < 1.0);
         assert_eq!(segment.frame_period_median_ns, PERIOD);
 
         let clean =
@@ -886,6 +958,7 @@ mod capture_tests {
         }
         let segment = analyze_capture(&frozen, &targets(700), streamed, window, &[]).unwrap();
         assert!(segment.new_frames.is_empty());
+        assert_eq!((segment.phase_ns, segment.phase_frames), (None, 0));
         let neighbor: Vec<u64> = targets(700);
         assert!(reverse(&segment.new_frames, &neighbor, segment.window).passed());
 
@@ -930,6 +1003,129 @@ mod capture_tests {
             end_ns: streamed.end_ns,
         };
         assert!(analyze_capture(&stream(700, &[], 0), &targets(700), late, window, &[]).is_err());
+    }
+
+    /// Кадр такта `k` показан в `k × P + P/2 − 300 мкс ± 600 мкс`: скопление у края корзины, без
+    /// фазы половина кадров уходит в соседний такт.
+    fn straddling(count: u64, held: &[u64], lost: &[u64]) -> Vec<Sample> {
+        let mut marker = 0u16;
+        (0..count)
+            .filter_map(|k| {
+                if !held.contains(&k) {
+                    marker = marker.wrapping_add(1);
+                }
+                let jitter = if k % 2 == 0 { 600_000 } else { 0 };
+                let at = START + k * PERIOD + PERIOD / 2 - 600_000 + jitter;
+                (!lost.contains(&k)).then_some(Sample {
+                    status: COMPLETE,
+                    display_ns: at,
+                    entry_ns: at + 500_000,
+                    handler_ns: 20_000,
+                    marker: Some(Ok(marker)),
+                })
+            })
+            .collect()
+    }
+
+    #[test]
+    fn bucket_phase_is_circular_across_the_half_period() {
+        let grid = Grid {
+            origin_ns: START,
+            intercept_ns: 0.0,
+            period_ns: PERIOD as f64,
+            rows: 60,
+            max_offset_ns: 0.0,
+        };
+        let edge = [
+            START + 10 * PERIOD + 4_000_000,
+            START + 11 * PERIOD - 4_000_000,
+            START + 12 * PERIOD + 4_100_000,
+            START + 13 * PERIOD - 4_100_000,
+        ];
+        let phase = bucket_phase(&grid, &edge).unwrap();
+        assert!((phase - PERIOD as f64 / 2.0).abs() < 50_000.0, "{phase}");
+        let early = [START + 10 * PERIOD - 200_000, START + 11 * PERIOD - 200_000];
+        let phase = bucket_phase(&grid, &early).unwrap();
+        assert!((phase - (PERIOD - 200_000) as f64).abs() < 1.0, "{phase}");
+        assert_eq!(bucket_phase(&grid, &[]), None);
+        assert_eq!(aligned(START + 4_000_000, 3_999_999.6), START);
+    }
+
+    #[test]
+    fn frames_at_the_bucket_edge_keep_to_their_ticks() {
+        let (streamed, window) = windows();
+        let unphased = missed_ticks(
+            &targets(700),
+            &straddling(700, &[], &[])
+                .iter()
+                .map(|sample| sample.display_ns)
+                .collect::<Vec<_>>(),
+            window,
+        );
+        assert!(!unphased.is_empty());
+
+        let clean = analyze_capture(
+            &straddling(700, &[], &[]),
+            &targets(700),
+            streamed,
+            window,
+            &[],
+        )
+        .unwrap();
+        assert!(clean.forward.missed.is_empty(), "{:?}", clean.forward);
+        assert_eq!(clean.new_frames.len(), 480);
+        let phase = clean.phase_ns.unwrap();
+        assert!(
+            (phase - (PERIOD / 2 - 300_000) as f64).abs() < 1_000.0,
+            "{phase}"
+        );
+        assert!(clean.residual_min_ns >= -300_001.0 && clean.residual_max_ns <= 300_001.0);
+
+        let held: Vec<u64> = (240..243).chain(420..430).collect();
+        let held_targets: Vec<u64> = held.iter().map(|&k| START + k * PERIOD).collect();
+        let holds = analyze_capture(
+            &straddling(700, &held, &[]),
+            &targets(700),
+            streamed,
+            window,
+            &held_targets,
+        )
+        .unwrap();
+        assert_eq!(holds.forward.shift, 0);
+        assert_eq!(holds.forward.missed.len(), 13);
+        assert!(holds.forward.passed(), "{:?}", holds.forward);
+
+        let lost = analyze_capture(
+            &straddling(700, &[], &[350]),
+            &targets(700),
+            streamed,
+            window,
+            &[],
+        )
+        .unwrap();
+        assert_eq!(lost.forward.unexpected, vec![230]);
+        assert_eq!(lost.skipped_generations, 1);
+    }
+
+    #[test]
+    fn the_stream_must_cover_the_window_shifted_by_the_phase() {
+        let (streamed, window) = windows();
+        // Окно привязано к сетке: конец — середина перед тактом 600.
+        let short = Window {
+            start_ns: streamed.start_ns,
+            end_ns: window.end_ns - PERIOD / 2 + 1_000_000,
+        };
+        assert!(
+            analyze_capture(
+                &straddling(700, &[], &[]),
+                &targets(700),
+                short,
+                window,
+                &[]
+            )
+            .is_err()
+        );
+        assert!(analyze_capture(&stream(700, &[], 0), &targets(700), short, window, &[]).is_ok());
     }
 }
 
@@ -979,5 +1175,75 @@ mod recorded {
                 .len()
                 == 13
         );
+    }
+}
+
+#[cfg(test)]
+mod recorded_capture {
+    use super::*;
+
+    /// Отрезок ScreenCaptureKit формального прогона `20261119-140449-92675`: журнал потока, такты
+    /// `displayLink` и вход разбора. Повторный разбор тех же данных, на которых найдена ошибка фазы.
+    fn replay(name: &str) -> CaptureSegment {
+        let dir = format!(
+            "{}/testdata/calibrate-sck-140449/{name}/",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let read = |file: &str| std::fs::read_to_string(format!("{dir}{file}")).unwrap();
+        let samples: Vec<Sample> = serde_json::from_str(&read("samples.json")).unwrap();
+        let ticks: Vec<serde_json::Value> = serde_json::from_str(&read("ticks.json")).unwrap();
+        let targets: Vec<u64> = ticks
+            .iter()
+            .map(|tick| (tick["target_s"].as_f64().unwrap() * 1e9).round() as u64)
+            .collect();
+        #[derive(Deserialize)]
+        struct Input {
+            streamed: Window,
+            window: Window,
+            held_targets_ns: Vec<u64>,
+        }
+        let input: Input = serde_json::from_str(&read("segment-input.json")).unwrap();
+        analyze_capture(
+            &samples,
+            &targets,
+            input.streamed,
+            input.window,
+            &input.held_targets_ns,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn clean_has_a_new_frame_on_every_tick() {
+        let segment = replay("clean");
+        assert_eq!(segment.ticks, 480);
+        assert_eq!(segment.new_frames.len(), 480);
+        assert_eq!(segment.skipped_generations, 0);
+        assert_eq!(segment.phase_frames, 60);
+        let phase = segment.phase_ns.unwrap();
+        assert!((3_900_000.0..3_960_000.0).contains(&phase), "{phase}");
+        assert!(segment.forward.missed.is_empty(), "{:?}", segment.forward);
+        assert!(segment.residual_max_ns < PERIOD_NS as f64 / 2.0);
+        // Без фазы те же кадры дают 17 тактов без кадра: два кадра в одной корзине.
+        let raw: Vec<u64> = segment
+            .new_frames
+            .iter()
+            .map(|&at| at + phase.round() as u64)
+            .collect();
+        let ticks = segment
+            .grid
+            .ticks(segment.window.start_ns, segment.window.end_ns);
+        assert_eq!(missed_ticks(&ticks, &raw, segment.window).len(), 17);
+    }
+
+    #[test]
+    fn holds_are_found_exactly() {
+        let segment = replay("holds");
+        assert_eq!(segment.new_frames.len(), 467);
+        let forward = &segment.forward;
+        assert_eq!(forward.shift, 0);
+        let expected: Vec<usize> = (120..123).chain(300..310).collect();
+        assert_eq!(forward.missed, expected);
+        assert!(forward.passed(), "{forward:?}");
     }
 }
