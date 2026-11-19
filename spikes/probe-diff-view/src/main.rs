@@ -78,6 +78,10 @@ const CALIBRATE_DEADLINE: Duration = Duration::from_secs(20 * 60);
 /// Срок сторожа `frames` при пути `none` из отчёта, раздел «Сроки и размеры»: окно, загрузка,
 /// готовность, открытие, раскрытие тредов, три отрезка S1 с ожиданием покрытия, S2 и S3.
 const FRAMES_DEADLINE: Duration = Duration::from_secs(4 * 60);
+/// Сторожа `memory`, `keys` и `idle` (отчёт, строка «Сроки `memory`, `keys`, `idle`»).
+const MEMORY_DEADLINE: Duration = Duration::from_secs(5 * 60);
+const KEYS_DEADLINE: Duration = Duration::from_secs(10 * 60);
+const IDLE_DEADLINE: Duration = Duration::from_secs(2 * 60);
 /// Период проверки готовности окна. Поток не засыпает: между проверками цикл обрабатывает события.
 const POLL_INTERVAL_S: f64 = 0.005;
 
@@ -298,6 +302,9 @@ fn run_scenario(
         Scenario::Open => Some(("open", OPEN_DEADLINE)),
         Scenario::OpenWarm => Some(("open-warm", OPEN_WARM_DEADLINE)),
         Scenario::Frames => Some(("frames", FRAMES_DEADLINE)),
+        Scenario::Memory => Some(("memory", MEMORY_DEADLINE)),
+        Scenario::Keys => Some(("keys", KEYS_DEADLINE)),
+        Scenario::Idle => Some(("idle", IDLE_DEADLINE)),
         Scenario::Highlight => None,
     };
     let _watchdog = match deadline {
@@ -316,15 +323,23 @@ fn run_scenario(
         None => None,
     };
     let mut outcome = match scenario {
-        Scenario::Smoke | Scenario::Calibrate | Scenario::OpenSmoke | Scenario::Ax => {
-            run_app(Some(scenario), view, Some(out.clone()), None, trace).unwrap_or_else(|| {
+        Scenario::Memory | Scenario::Keys => Outcome::error(
+            format!("сценарий {} ещё не реализован", scenario.name()),
+            None,
+            Report::default(),
+        ),
+        Scenario::Smoke
+        | Scenario::Calibrate
+        | Scenario::OpenSmoke
+        | Scenario::Ax
+        | Scenario::Idle => run_app(Some(scenario), view, Some(out.clone()), None, trace)
+            .unwrap_or_else(|| {
                 Outcome::error(
                     "основной цикл завершился без итога сценария",
                     None,
                     Report::default(),
                 )
-            })
-        }
+            }),
         Scenario::Highlight => run_headless(fixtures),
         Scenario::Frames => match scenario::frames_run::unsupported_path(frames_path) {
             Some(reason) => Outcome::error(reason, None, Report::default()),
@@ -930,7 +945,19 @@ impl AppDelegate {
                     Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
                     Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
                 },
-                Some(Scenario::Highlight) | None => self.finish(Outcome::ok(report)),
+                Some(Scenario::Idle) => match scenario::idle_run::IdleRun::start(
+                    self.mtm(),
+                    window,
+                    report,
+                    ivars.trace.clone(),
+                    ivars.view,
+                ) {
+                    Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
+                    Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
+                },
+                Some(Scenario::Highlight | Scenario::Memory | Scenario::Keys) | None => {
+                    self.finish(Outcome::ok(report))
+                }
             }
         } else if waited >= SMOKE_TIMEOUT {
             self.finish(Outcome::error(

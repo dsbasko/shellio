@@ -138,6 +138,12 @@ impl Axes {
         modes: true,
         fixtures: true,
     };
+    /// Процесс на вариант: режим меняется внутри процесса (`memory`).
+    pub const VARIANT: Axes = Axes {
+        variants: true,
+        modes: false,
+        fixtures: false,
+    };
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -158,10 +164,16 @@ pub enum Scenario {
     OpenWarm,
     /// Кадры прокрутки: отрезки S1, бросок S2 у `modified`, ресайз S3 у `wrap` в «Рядом».
     Frames,
+    /// Память процесса по фазам: `added`, «Рядом», `threads`, ресайз `wrap`, закрытие.
+    Memory,
+    /// Реакция на клавиши `j`, `k`, `Ctrl-d`, `]c`, `G`, `gg` на `modified`.
+    Keys,
+    /// CPU в простое: 10 с неподвижного `modified` после окончания подсветки.
+    Idle,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 8] = [
+    pub const ALL: [Scenario; 11] = [
         Scenario::Smoke,
         Scenario::Highlight,
         Scenario::Calibrate,
@@ -170,6 +182,9 @@ impl Scenario {
         Scenario::Open,
         Scenario::OpenWarm,
         Scenario::Frames,
+        Scenario::Memory,
+        Scenario::Keys,
+        Scenario::Idle,
     ];
 
     pub fn name(self) -> &'static str {
@@ -182,6 +197,9 @@ impl Scenario {
             Scenario::Open => "open",
             Scenario::OpenWarm => "open-warm",
             Scenario::Frames => "frames",
+            Scenario::Memory => "memory",
+            Scenario::Keys => "keys",
+            Scenario::Idle => "idle",
         }
     }
 
@@ -194,8 +212,9 @@ impl Scenario {
     pub fn axes(self) -> Axes {
         match self {
             Scenario::Smoke | Scenario::Highlight | Scenario::Calibrate => Axes::STAND,
-            Scenario::OpenSmoke | Scenario::Ax => Axes::VIEW,
+            Scenario::OpenSmoke | Scenario::Ax | Scenario::Keys | Scenario::Idle => Axes::VIEW,
             Scenario::Open | Scenario::OpenWarm | Scenario::Frames => Axes::OPEN,
+            Scenario::Memory => Axes::VARIANT,
         }
     }
 
@@ -207,7 +226,10 @@ impl Scenario {
             | Scenario::Highlight
             | Scenario::Calibrate
             | Scenario::OpenSmoke
-            | Scenario::Ax => &[],
+            | Scenario::Ax
+            | Scenario::Memory
+            | Scenario::Keys
+            | Scenario::Idle => &[],
             Scenario::Open | Scenario::OpenWarm => &[
                 OpenFixture::Added,
                 OpenFixture::Modified,
@@ -241,7 +263,10 @@ impl Scenario {
             | Scenario::Calibrate
             | Scenario::OpenSmoke
             | Scenario::Ax
-            | Scenario::Frames => false,
+            | Scenario::Frames
+            | Scenario::Memory
+            | Scenario::Keys
+            | Scenario::Idle => false,
             Scenario::Highlight | Scenario::Open | Scenario::OpenWarm => true,
         }
     }

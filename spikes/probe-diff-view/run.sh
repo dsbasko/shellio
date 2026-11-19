@@ -23,7 +23,7 @@ CARGO="${CARGO:-cargo}"
 BIN="$ROOT/target/release/probe-diff-view"
 OUT_BASE="$ROOT/target/probes/diff-view"
 FIXTURES_DIR="$OUT_BASE/fixtures"
-ALL_SCENARIOS="smoke highlight calibrate open-smoke ax open open-warm frames"
+ALL_SCENARIOS="smoke highlight calibrate open-smoke ax open open-warm frames memory keys idle"
 ALL_VARIANTS="a b"
 ALL_MODES="unified side"
 ALL_FIXTURES="added modified sparse wrap real threads"
@@ -119,12 +119,14 @@ check_state_dir() {
 }
 
 # Оси сценария, как Scenario::axes в args.rs: «stand» — один процесс без варианта и режима,
-# «view» — процесс на каждую пару варианта и режима, «open» — также на каждую фикстуру.
+# «view» — процесс на каждую пару варианта и режима, «open» — также на каждую фикстуру,
+# «variant» — процесс на вариант, режим меняется внутри процесса (memory).
 axes_of() {
     case "$1" in
         smoke | highlight | calibrate) echo stand ;;
-        open-smoke | ax) echo view ;;
+        open-smoke | ax | keys | idle) echo view ;;
         open | open-warm | frames) echo open ;;
+        memory) echo variant ;;
         *) die "неизвестный сценарий «${1}», известны: $ALL_SCENARIOS" ;;
     esac
 }
@@ -316,6 +318,11 @@ cmd_scenarios() {
         [ "$axes" = open ] && cell_fixtures="$(scenario_fixtures "$scenario" "$fixtures")"
         if [ "$axes" = stand ]; then
             cells="-:-:-"
+        elif [ "$axes" = variant ]; then
+            cells=""
+            for variant in $variants; do
+                cells="$cells -:$variant:-"
+            done
         else
             cells=""
             for fixture in $cell_fixtures; do

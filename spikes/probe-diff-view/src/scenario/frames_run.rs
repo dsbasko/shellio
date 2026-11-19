@@ -944,7 +944,7 @@ impl crate::scenario::Running for FramesRun {
 }
 
 /// Ошибки сцены и таблицы B — ошибка исполнения.
-fn stage_errors(stage: &Stage) -> Result<(), String> {
+pub fn stage_errors(stage: &Stage) -> Result<(), String> {
     let errors = stage.scene.errors();
     if !errors.is_empty() {
         return Err(format!("сцена: {}", errors.join("; ")));
