@@ -1,12 +1,12 @@
 //! Вариант A: один `NSView` — document view в `NSScrollView`, высота документа из индекса высот
 //! модели. `drawRect:` рисует только строки в грязном прямоугольнике, обрезанном до видимой
 //! области с запасом в экран: фон добавления и удаления, гуттер с номерами, курсор и выделение,
-//! текст Core Text по визуальным строкам модели. Раскладка строк живёт в ограниченном кэше
+//! текст Core Text по визуальным строкам модели, блоки тредов. Строку и блоки рисует общий с
+//! вариантом B модуль [`crate::paint`], раскладка живёт в ограниченном кэше вида
 //! ([`layout_cache`]). Доменного состояния вид не хранит: он читает модель сцены, клавиши и мышь
 //! отдаёт её обработчикам, прокрутку к якорю ведёт `scrollToPoint` у clip view.
 
 pub mod layout_cache;
-pub mod thread_block;
 
 use std::cell::{Cell, OnceCell, RefCell};
 use std::ops::Range;
@@ -19,45 +19,27 @@ use objc2_app_kit::{
     NSColor, NSEvent, NSEventModifierFlags, NSGraphicsContext, NSResponder, NSScrollView, NSView,
     NSViewBoundsDidChangeNotification, NSViewFrameDidChangeNotification,
 };
-use objc2_core_foundation::{CFRetained, CGAffineTransform};
-use objc2_core_graphics::CGContext;
-use objc2_core_text::CTLine;
 use objc2_foundation::{NSNotificationCenter, NSPoint, NSRect, NSSize, NSString};
 use serde::Serialize;
 
 use probe_diff_view::keymap::KeyInput;
-use probe_diff_view::model::layout::Gutter;
-use probe_diff_view::model::wrap;
-use probe_diff_view::model::{LineKind, Mode, Side};
-use probe_diff_view::tokens::{Rgb, Theme, ThemeKey};
+use probe_diff_view::model::{Mode, Side};
+use probe_diff_view::tokens::{Theme, ThemeKey};
 
-use self::layout_cache::{Counters, Half, LayoutCache};
-use self::thread_block::BlockLayout;
+use self::layout_cache::{Counters, LayoutCache};
 use crate::draft_field::DraftField;
+use crate::paint::{self, BlockLayout, Half, Painter, RowLayout, Store, fill, flip_text};
 use crate::results::Rect;
 use crate::scenario::counters::{Live, counter};
 use crate::scenario::drawmark::{self, Mark};
 use crate::scenario::sampler;
-use crate::scene::{DraftPlace, Model, Scene, Shown, Surface, Visible, drawn_side};
+use crate::scene::{DraftPlace, Scene, Surface, Visible};
 use crate::text::{ColorCache, Font};
 
 counter!(DOCUMENT_VIEW_A, "ProbeDiffDocumentViewA");
 
 /// Грязных прямоугольников в журнале наблюдения.
 const DIRTY_LOG: usize = 24;
-
-/// Раскладка одной строки показа: гуттер и визуальные строки текста.
-pub struct RowLayout {
-    gutter: CFRetained<CTLine>,
-    segments: Vec<CFRetained<CTLine>>,
-}
-
-/// Полоса текста строки показа в координатах документа.
-struct Band {
-    row: u32,
-    top: f64,
-    height: f64,
-}
 
 /// Грязный прямоугольник `drawRect:` и что вид нарисовал.
 #[derive(Clone, Debug, Serialize)]
@@ -101,12 +83,6 @@ fn rect(value: NSRect) -> Rect {
         width: value.size.width,
         height: value.size.height,
     }
-}
-
-fn fill(context: &CGContext, color: Rgb, area: NSRect) {
-    let [r, g, b, a] = color.components();
-    CGContext::set_rgb_fill_color(Some(context), r, g, b, a);
-    CGContext::fill_rect(Some(context), area);
 }
 
 /// Полоса `[y, y + height)` прямоугольника `area`, обрезанная до `bounds` по вертикали.
@@ -297,23 +273,42 @@ impl DocumentView {
                 };
                 let capacity =
                     layout_cache::capacity(visible.size.height, shown.metrics.line_height, halves);
-                self.ivars().cache.borrow_mut().set_capacity(capacity);
-                self.ivars().blocks.borrow_mut().set_capacity(capacity);
-                CGContext::set_text_matrix(
-                    Some(&context),
-                    CGAffineTransform {
-                        a: 1.0,
-                        b: 0.0,
-                        c: 0.0,
-                        d: -1.0,
-                        tx: 0.0,
-                        ty: 0.0,
-                    },
-                );
+                let ivars = self.ivars();
+                ivars.cache.borrow_mut().set_capacity(capacity);
+                ivars.blocks.borrow_mut().set_capacity(capacity);
+                flip_text(&context);
                 let width = visible.size.width.max(self.bounds().size.width);
+                let mut colors = ivars.colors.borrow_mut();
+                let mut painter = Painter {
+                    context: &context,
+                    theme,
+                    font: &ivars.font,
+                    colors: &mut colors,
+                    epoch: ivars.epoch.get(),
+                };
+                let mut cache = ivars.cache.borrow_mut();
+                let mut blocks = ivars.blocks.borrow_mut();
                 for row in rows.clone() {
-                    self.paint_row(&context, &model, row, &seen, width);
-                    self.paint_blocks(&context, &model, row, &seen, width);
+                    paint::paint_row(
+                        &mut painter,
+                        &model,
+                        row,
+                        width,
+                        &mut Cached {
+                            cache: &mut cache,
+                            seen: &seen,
+                        },
+                    );
+                    paint::paint_blocks(
+                        &mut painter,
+                        &model,
+                        row,
+                        width,
+                        &mut Cached {
+                            cache: &mut blocks,
+                            seen: &seen,
+                        },
+                    );
                 }
                 rows
             }
@@ -346,217 +341,6 @@ impl DocumentView {
         });
     }
 
-    /// Строка показа: в unified одна половина во всю ширину, в «Рядом» старая слева и новая
-    /// справа за разделителем, пустая половина залита фоном гуттера. Граница ханка — линия
-    /// поверх строки.
-    fn paint_row(
-        &self,
-        context: &CGContext,
-        model: &Model,
-        row: u32,
-        seen: &Range<u32>,
-        width: f64,
-    ) {
-        let Some(shown) = model.shown() else {
-            return;
-        };
-        let mode = model.mode;
-        let (Some(top), Some(text_height), Some(halves)) = (
-            shown.heights.top(row),
-            shown.heights.text_height(row),
-            shown.body.row(mode, row),
-        ) else {
-            return;
-        };
-        let theme = self.theme();
-        let band = Band {
-            row,
-            top: top as f64,
-            height: f64::from(text_height),
-        };
-        match mode {
-            Mode::Unified => {
-                if let Some(index) = halves.first() {
-                    self.paint_half(context, model, &shown, &band, index, None, 0.0, width, seen);
-                }
-            }
-            Mode::SideBySide => {
-                for side in Side::BOTH {
-                    let x = shown.geometry.half_origin(side);
-                    let half_width = match side {
-                        Side::Old => shown.geometry.half_width(),
-                        Side::New => (width - x).max(0.0),
-                    };
-                    match halves.half(side) {
-                        Some(index) => self.paint_half(
-                            context,
-                            model,
-                            &shown,
-                            &band,
-                            index,
-                            Some(side),
-                            x,
-                            half_width,
-                            seen,
-                        ),
-                        None => fill(
-                            context,
-                            theme.gutter_background,
-                            NSRect::new(
-                                NSPoint::new(x, band.top),
-                                NSSize::new(half_width, band.height),
-                            ),
-                        ),
-                    }
-                }
-                let (x, divider) = shown.geometry.divider();
-                fill(
-                    context,
-                    theme.separator,
-                    NSRect::new(NSPoint::new(x, band.top), NSSize::new(divider, band.height)),
-                );
-            }
-        }
-        if row > 0 && shown.body.starts_hunk(mode, row) {
-            fill(
-                context,
-                theme.separator,
-                NSRect::new(NSPoint::new(0.0, band.top), NSSize::new(width, 1.0)),
-            );
-        }
-    }
-
-    /// Половина строки показа от `x` шириной `width`: фон по виду строки, гуттер с номером и
-    /// знаком, визуальные строки текста. `side` — половина «Рядом», `None` — unified. Курсор
-    /// отмечен фоном гуттера, выделение — фоном текста половины своей стороны.
-    #[allow(clippy::too_many_arguments)]
-    fn paint_half(
-        &self,
-        context: &CGContext,
-        model: &Model,
-        shown: &Shown<'_>,
-        band: &Band,
-        index: u32,
-        side: Option<Side>,
-        x: f64,
-        width: f64,
-        seen: &Range<u32>,
-    ) {
-        let Some(line) = shown.body.line(index) else {
-            return;
-        };
-        let mode = model.mode;
-        let theme = self.theme();
-        let font = &self.ivars().font;
-        let gutter_cells = shown.geometry.gutter_cells(mode);
-        let gutter_width = f64::from(gutter_cells) * font.char_width;
-        let kind = line.kind();
-        let state = model.state.as_ref();
-        let cursor = state
-            .and_then(|state| state.cursor())
-            .is_some_and(|cursor| match side {
-                Some(side) => line.addr(side) == Some(cursor.addr),
-                None => shown
-                    .body
-                    .row_of_addr(mode, cursor.addr)
-                    .is_some_and(|located| located.index == band.row),
-            });
-        let selected = state
-            .and_then(|state| state.selection())
-            .is_some_and(|selection| {
-                side.is_none_or(|side| side == selection.side)
-                    && line
-                        .addr(selection.side)
-                        .is_some_and(|addr| selection.contains(addr))
-            });
-        let (text_fill, gutter_fill) = match kind {
-            LineKind::Context => (theme.background, theme.gutter_background),
-            LineKind::Added => (theme.added_background, theme.added_gutter),
-            LineKind::Removed => (theme.removed_background, theme.removed_gutter),
-        };
-        let text_fill = if selected {
-            theme.selection
-        } else if cursor && kind == LineKind::Context {
-            theme.cursor_line
-        } else {
-            text_fill
-        };
-        let gutter_fill = if cursor { theme.selection } else { gutter_fill };
-        fill(
-            context,
-            gutter_fill,
-            NSRect::new(
-                NSPoint::new(x, band.top),
-                NSSize::new(gutter_width.min(width), band.height),
-            ),
-        );
-        fill(
-            context,
-            text_fill,
-            NSRect::new(
-                NSPoint::new(x + gutter_width, band.top),
-                NSSize::new((width - gutter_width).max(0.0), band.height),
-            ),
-        );
-        let text = shown.diff.line_text(line);
-        let drawn = drawn_side(kind, mode, side.unwrap_or(Side::New));
-        let runs = line
-            .line(drawn)
-            .map_or(&[][..], |number| model.styles.runs(drawn, number));
-        let (gutter, numbers, half) = match side {
-            None => (
-                shown.geometry.gutter,
-                (line.line(Side::Old), line.line(Side::New)),
-                Half::Unified,
-            ),
-            Some(side) => (
-                Gutter::Single,
-                match side {
-                    Side::Old => (line.line(Side::Old), None),
-                    Side::New => (None, line.line(Side::New)),
-                },
-                Half::of(side),
-            ),
-        };
-        let epoch = self.ivars().epoch.get();
-        let mut cache = self.ivars().cache.borrow_mut();
-        let mut colors = self.ivars().colors.borrow_mut();
-        let layout = cache.get_or_build(band.row, half, epoch, seen, || {
-            let gutter = gutter_text(gutter, gutter_cells, numbers.0, numbers.1, kind);
-            let gutter_units: Vec<u16> = gutter.encode_utf16().collect();
-            RowLayout {
-                gutter: font.line(
-                    &gutter_units,
-                    &[(0..gutter_units.len(), theme.gutter_text)],
-                    &mut colors,
-                ),
-                segments: wrap::segments(text, shown.metrics.wrap)
-                    .into_iter()
-                    .map(|segment| {
-                        font.segment_line(
-                            text,
-                            segment,
-                            shown.metrics.wrap,
-                            runs,
-                            theme,
-                            &mut colors,
-                        )
-                    })
-                    .collect(),
-            }
-        });
-        let line_height = f64::from(shown.metrics.line_height);
-        let baseline = |visual: usize| band.top + visual as f64 * line_height + font.ascent;
-        CGContext::set_text_position(Some(context), x, baseline(0));
-        // SAFETY: строка Core Text и контекст живы на время вызова.
-        unsafe { layout.gutter.draw(context) };
-        for (visual, segment) in layout.segments.iter().enumerate() {
-            CGContext::set_text_position(Some(context), x + gutter_width, baseline(visual));
-            // SAFETY: строка Core Text и контекст живы на время вызова.
-            unsafe { segment.draw(context) };
-        }
-    }
-
     fn counters(&self) -> Counters {
         self.ivars().cache.borrow().counters()
     }
@@ -566,32 +350,25 @@ impl DocumentView {
     }
 }
 
-/// Текст гуттера unified: номера сторон по своим колонкам и знак. Колонок номеров — по
-/// [`Gutter`], ширина — `cells` клеток.
-pub fn gutter_text(
-    gutter: Gutter,
-    cells: u32,
-    old: Option<u32>,
-    new: Option<u32>,
-    kind: LineKind,
-) -> String {
-    let sign = match kind {
-        LineKind::Context => ' ',
-        LineKind::Added => '+',
-        LineKind::Removed => '-',
-    };
-    let numbers = match gutter {
-        Gutter::Both => 2,
-        Gutter::Single => 1,
-    };
-    // Клетки знака и пробела после него; остальное — колонки номеров с пробелом после каждой.
-    let digits = (cells.saturating_sub(2) / numbers).saturating_sub(1) as usize;
-    let number = |value: Option<u32>| {
-        value.map_or_else(|| " ".repeat(digits), |value| format!("{value:>digits$}"))
-    };
-    match gutter {
-        Gutter::Both => format!("{} {} {sign} ", number(old), number(new)),
-        Gutter::Single => format!("{} {sign} ", number(new.or(old))),
+/// Раскладки варианта A — записи ограниченного кэша вида.
+struct Cached<'a, V> {
+    cache: &'a mut LayoutCache<V>,
+    seen: &'a Range<u32>,
+}
+
+impl<V> Store<V> for Cached<'_, V> {
+    fn with(
+        &mut self,
+        row: u32,
+        half: Half,
+        version: u64,
+        build: &mut dyn FnMut() -> V,
+        draw: &mut dyn FnMut(&V),
+    ) {
+        draw(
+            self.cache
+                .get_or_build(row, half, version, self.seen, build),
+        );
     }
 }
 
@@ -874,20 +651,6 @@ impl Drop for ViewA {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn gutter_text_fills_its_cells() {
-        // 6 цифр: две колонки по 7 клеток и знак с пробелом — 16 клеток.
-        let text = gutter_text(Gutter::Both, 16, Some(12), Some(345_678), LineKind::Context);
-        assert_eq!(text, "    12 345678   ");
-        assert_eq!(text.chars().count(), 16);
-        let text = gutter_text(Gutter::Both, 16, None, Some(7), LineKind::Added);
-        assert_eq!(text, "            7 + ");
-        let text = gutter_text(Gutter::Both, 16, Some(9), None, LineKind::Removed);
-        assert_eq!(text, "     9        - ");
-        let text = gutter_text(Gutter::Single, 9, Some(9), None, LineKind::Removed);
-        assert_eq!(text, "     9 - ");
-    }
 
     #[test]
     fn vertical_clip_keeps_width() {

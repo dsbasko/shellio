@@ -12,30 +12,10 @@ use std::ops::Range;
 
 use serde::Serialize;
 
-use probe_diff_view::model::Side;
+pub use crate::paint::{FAR_SCREENS, Half, distance};
 
 /// Экранов в пределе кэша.
 pub const SCREENS: u32 = 3;
-/// Экранов от видимых строк, дальше которых раскладка не строится.
-pub const FAR_SCREENS: u32 = 2;
-
-/// Половина строки показа: в unified одна, в «Рядом» старая и новая.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Half {
-    Unified,
-    Old,
-    New,
-}
-
-impl Half {
-    /// Половина «Рядом» стороны `side`.
-    pub fn of(side: Side) -> Half {
-        match side {
-            Side::Old => Half::Old,
-            Side::New => Half::New,
-        }
-    }
-}
 
 /// Счётчики кэша для `result.json`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
@@ -71,17 +51,6 @@ pub struct LayoutCache<V> {
 pub fn capacity(view_height: f64, line_height: u32, halves: usize) -> usize {
     let per_screen = (view_height.max(0.0) / f64::from(line_height.max(1))).ceil() as usize + 1;
     SCREENS as usize * per_screen * halves.max(1)
-}
-
-/// Расстояние строки от видимых строк в строках показа: 0 внутри.
-pub fn distance(row: u32, visible: &Range<u32>) -> u32 {
-    if row < visible.start {
-        visible.start - row
-    } else if row >= visible.end {
-        row + 1 - visible.end.max(visible.start)
-    } else {
-        0
-    }
 }
 
 impl<V> LayoutCache<V> {

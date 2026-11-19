@@ -1,5 +1,6 @@
-//! Сценарий `open-smoke`: открытие фикстуры `added` в виде варианта и режима, первый экран
-//! нарисован, затем `G`, `gg`, щелчок по строке и смена ширины окна с проверкой якоря. Ожидания
+//! Сценарий `open-smoke`: открытие фикстуры `added` (в «Рядом» — `modified`) в виде варианта и
+//! режима, первый экран нарисован, затем `G`, `gg`, щелчок по строке, смена ширины окна с
+//! проверкой якоря, выделение, треды и черновик. Варианты A и B идут одними шагами. Ожидания
 //! и сроки записаны в отчёт до первого прогона. Бюджет открытия здесь не выносится: отметки открытия — наблюдение, вердикт по ним
 //! даёт сценарий `open` задачи 11.
 //!
@@ -15,7 +16,7 @@ use std::time::{Duration, Instant};
 
 use objc2::rc::Retained;
 use objc2::{MainThreadMarker, Message};
-use objc2_app_kit::{NSApplication, NSEventModifierFlags, NSResponder, NSWindow};
+use objc2_app_kit::{NSApplication, NSEventModifierFlags, NSResponder, NSScrollView, NSWindow};
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 use serde::Serialize;
 
@@ -32,8 +33,9 @@ use super::sampler;
 use super::watchdog::SharedTrace;
 use crate::args::{Variant, ViewMode, ViewOptions};
 use crate::results::{Report, Verdict};
-use crate::scene::{Scene, Surface, Timeline};
+use crate::scene::{FontMetrics, Scene, Surface, Timeline};
 use crate::view_a::ViewA;
+use crate::view_b::ViewB;
 
 /// Срок открытия: от `postEvent` клавиши до покрытия после снимка полного разбора.
 pub const OPEN_DEADLINE: Duration = Duration::from_secs(5);
@@ -244,10 +246,138 @@ struct StepResult {
     detail: String,
 }
 
+/// Вид варианта сценария: шаги общие, наблюдения вида свои.
+enum View {
+    A(Rc<ViewA>),
+    B(Rc<ViewB>),
+}
+
+impl View {
+    fn new(
+        variant: Variant,
+        mtm: MainThreadMarker,
+        bounds: NSRect,
+        theme: probe_diff_view::tokens::ThemeKey,
+    ) -> View {
+        match variant {
+            Variant::A => View::A(ViewA::new(mtm, bounds, theme)),
+            Variant::B => View::B(ViewB::new(mtm, bounds, theme)),
+        }
+    }
+
+    fn bind(&self, scene: &Rc<Scene>) {
+        match self {
+            View::A(view) => view.bind(scene),
+            View::B(view) => view.bind(scene),
+        }
+    }
+
+    fn surface(&self) -> Rc<dyn Surface> {
+        match self {
+            View::A(view) => Rc::clone(view) as Rc<dyn Surface>,
+            View::B(view) => Rc::clone(view) as Rc<dyn Surface>,
+        }
+    }
+
+    fn font(&self) -> FontMetrics {
+        match self {
+            View::A(view) => view.font(),
+            View::B(view) => view.font(),
+        }
+    }
+
+    fn scroll_view(&self) -> &NSScrollView {
+        match self {
+            View::A(view) => view.scroll_view(),
+            View::B(view) => view.scroll_view(),
+        }
+    }
+
+    fn responder(&self) -> &NSResponder {
+        match self {
+            View::A(view) => view.responder(),
+            View::B(view) => view.responder(),
+        }
+    }
+
+    fn viewport_y(&self) -> f64 {
+        match self {
+            View::A(view) => view.viewport_y(),
+            View::B(view) => view.viewport_y(),
+        }
+    }
+
+    fn draft_shown(&self) -> Option<NSRect> {
+        match self {
+            View::A(view) => view.draft_shown(),
+            View::B(view) => view.draft_shown(),
+        }
+    }
+
+    fn draft_focused(&self) -> bool {
+        match self {
+            View::A(view) => view.draft_focused(),
+            View::B(view) => view.draft_focused(),
+        }
+    }
+
+    fn document_focused(&self) -> bool {
+        match self {
+            View::A(view) => view.document_focused(),
+            View::B(view) => view.document_focused(),
+        }
+    }
+
+    fn to_window(&self, area: NSRect) -> NSRect {
+        match self {
+            View::A(view) => view.to_window(area),
+            View::B(view) => view.to_window(area),
+        }
+    }
+
+    fn row_rect(&self, row: u32) -> Option<NSRect> {
+        match self {
+            View::A(view) => view.row_rect(row),
+            View::B(view) => view.row_rect(row),
+        }
+    }
+
+    fn half_rect(&self, row: u32, side: Side) -> Option<NSRect> {
+        match self {
+            View::A(view) => view.half_rect(row, side),
+            View::B(view) => view.half_rect(row, side),
+        }
+    }
+
+    fn scroll_to(&self, y: f64) {
+        match self {
+            View::A(view) => view.scroll_to(y),
+            View::B(view) => view.scroll_to(y),
+        }
+    }
+
+    fn document_frame(&self) -> NSRect {
+        match self {
+            View::A(view) => view.document_frame(),
+            View::B(view) => view.document_frame(),
+        }
+    }
+}
+
+/// Наибольшее число видов строк B за сценарий и предел `2 × видимых + 10` в тот момент.
+#[derive(Clone, Copy, Debug, Default, Serialize)]
+struct RowViews {
+    views: usize,
+    limit: usize,
+    visible: usize,
+    /// Наблюдений, где видов было больше предела.
+    over: u64,
+}
+
 pub struct OpenSmoke {
     mtm: MainThreadMarker,
     window: Retained<NSWindow>,
-    view: Rc<ViewA>,
+    view: View,
     scene: Rc<Scene>,
     coverage: Rc<RefCell<Vec<Coverage>>>,
     ledger: Rc<RefCell<Ledger>>,
@@ -258,6 +388,9 @@ pub struct OpenSmoke {
     selections: RefCell<Vec<StepResult>>,
     thread_steps: RefCell<Vec<StepResult>>,
     max_entries_seen: RefCell<(usize, usize)>,
+    row_views: RefCell<RowViews>,
+    /// Расхождения строк таблицы B с индексом высот: где проверено, строк и расхождения.
+    geometry: RefCell<Vec<(String, usize, Vec<String>)>>,
     report: RefCell<Option<Report>>,
     mode: Mode,
 }
@@ -280,16 +413,20 @@ impl OpenSmoke {
         trace: SharedTrace,
         view: ViewOptions,
     ) -> Result<OpenSmoke, Failed> {
-        let (mode, name) = match (view.variant, view.mode) {
-            (Some(Variant::A), Some(ViewMode::Unified)) => (Mode::Unified, FixtureName::Added),
+        let (variant, mode, name) = match (view.variant, view.mode) {
+            (Some(variant), Some(ViewMode::Unified)) => {
+                (variant, Mode::Unified, FixtureName::Added)
+            }
             // У `added` старая половина пустая: «Рядом» открывает `modified`, где пары полные.
-            (Some(Variant::A), Some(ViewMode::Side)) => (Mode::SideBySide, FixtureName::Modified),
+            (Some(variant), Some(ViewMode::Side)) => {
+                (variant, Mode::SideBySide, FixtureName::Modified)
+            }
             (variant, mode) => {
                 return Err(Box::new((
                     format!(
-                        "не реализовано: вариант {}, режим {} — задачи 8 и 9",
-                        variant.map_or("?", Variant::name),
-                        mode.map_or("?", ViewMode::name)
+                        "нет оси вида: вариант {:?}, режим {:?}",
+                        variant.map(Variant::name),
+                        mode.map(ViewMode::name)
                     ),
                     report,
                 )));
@@ -313,7 +450,7 @@ impl OpenSmoke {
             .contentView()
             .map(|content| content.bounds())
             .unwrap_or_else(|| window.contentLayoutRect());
-        let surface = ViewA::new(mtm, bounds, theme);
+        let surface = View::new(variant, mtm, bounds, theme);
         let font = surface.font();
         report.push(
             "font",
@@ -330,7 +467,7 @@ impl OpenSmoke {
             Err(reason) => return Err(Box::new((reason, report))),
         };
         surface.bind(&scene);
-        scene.attach(surface.clone());
+        scene.attach(surface.surface());
         window.setContentView(Some(surface.scroll_view()));
         let responder: &NSResponder = surface.responder();
         if !window.makeFirstResponder(Some(responder))
@@ -406,6 +543,8 @@ impl OpenSmoke {
             selections: RefCell::new(Vec::new()),
             thread_steps: RefCell::new(Vec::new()),
             max_entries_seen: RefCell::new((0, 0)),
+            row_views: RefCell::new(RowViews::default()),
+            geometry: RefCell::new(Vec::new()),
             report: RefCell::new(Some(report)),
             mode,
         };
@@ -445,10 +584,39 @@ impl OpenSmoke {
     }
 
     fn observe_cache(&self) {
-        let (len, capacity) = self.view.cache_len();
-        let mut seen = self.max_entries_seen.borrow_mut();
-        if len > seen.0 {
-            *seen = (len, capacity);
+        match &self.view {
+            View::A(view) => {
+                let (len, capacity) = view.cache_len();
+                let mut seen = self.max_entries_seen.borrow_mut();
+                if len > seen.0 {
+                    *seen = (len, capacity);
+                }
+            }
+            View::B(view) => {
+                let views = view.available_row_views();
+                let visible = view.visible_table_rows().len();
+                let limit = 2 * visible + 10;
+                let mut seen = self.row_views.borrow_mut();
+                seen.over += u64::from(views > limit);
+                if views > seen.views {
+                    *seen = RowViews {
+                        views,
+                        limit,
+                        visible,
+                        over: seen.over,
+                    };
+                }
+            }
+        }
+    }
+
+    /// Строки таблицы B против индекса высот у видимых строк, `when` — после какого шага.
+    fn check_geometry(&self, when: &str) {
+        if let View::B(view) = &self.view {
+            let (checked, errors) = view.geometry();
+            self.geometry
+                .borrow_mut()
+                .push((when.to_owned(), checked, errors));
         }
     }
 
@@ -457,6 +625,15 @@ impl OpenSmoke {
         let errors = self.scene.errors();
         if !errors.is_empty() {
             return Some(Err(self.fail(format!("сцена: {}", errors.join("; ")))));
+        }
+        // Таблица запоминает высоту строки: ответ при занятой модели ломает вид.
+        if let View::B(view) = &self.view {
+            let failures = view.stats().height_failures;
+            if failures > 0 {
+                return Some(Err(self.fail(format!(
+                    "таблица B получила {failures} высот строк при занятой модели"
+                ))));
+            }
         }
         let step = std::mem::replace(&mut *self.step.borrow_mut(), Step::Done);
         match self.advance(step) {
@@ -484,6 +661,7 @@ impl OpenSmoke {
                     && self.covered_now()
                 {
                     *self.milestones.borrow_mut() = Some(milestones);
+                    self.check_geometry("open");
                     let shown = self.scene.mode();
                     if shown != self.mode {
                         return Err(format!(
@@ -659,6 +837,7 @@ impl OpenSmoke {
                         anchor_y,
                         held,
                     });
+                    self.check_geometry(name);
                     return match name {
                         "narrow" => self.resize("restore"),
                         _ => self.select_click(),
@@ -744,6 +923,7 @@ impl OpenSmoke {
                         visible: self.scene.visible_rows(),
                         detail,
                     });
+                    self.check_geometry(name);
                     return self.after_thread(name, &check);
                 }
                 if Instant::now() < deadline {
@@ -1354,18 +1534,54 @@ impl OpenSmoke {
         );
         report.push("marks", drawmark::take().len());
         report.push("ledger_size", format!("{:?}", self.ledger.borrow().size()));
-        report.push(
-            "layout_cache",
-            serde_json::to_string(&self.view.cache_counters()).unwrap_or_default(),
-        );
-        report.push(
-            "draw_stats",
-            serde_json::to_string(&self.view.draw_stats()).unwrap_or_default(),
-        );
-        report.push(
-            "dirty_rects",
-            serde_json::to_string(&self.view.dirty_log()).unwrap_or_default(),
-        );
+        match &self.view {
+            View::A(view) => {
+                report.push(
+                    "layout_cache",
+                    serde_json::to_string(&view.cache_counters()).unwrap_or_default(),
+                );
+                report.push(
+                    "draw_stats",
+                    serde_json::to_string(&view.draw_stats()).unwrap_or_default(),
+                );
+                report.push(
+                    "dirty_rects",
+                    serde_json::to_string(&view.dirty_log()).unwrap_or_default(),
+                );
+                report.push(
+                    "block_cache",
+                    serde_json::to_string(&view.block_cache_counters()).unwrap_or_default(),
+                );
+            }
+            View::B(view) => {
+                report.push(
+                    "table_stats",
+                    serde_json::to_string(&view.stats()).unwrap_or_default(),
+                );
+                report.push(
+                    "table_mismatches",
+                    serde_json::to_string(&view.mismatches()).unwrap_or_default(),
+                );
+                let map = view.map();
+                report.push(
+                    "table_rows",
+                    format!(
+                        "строк показа {}, строк блоков {:?}, строк таблицы {}",
+                        map.rows(),
+                        map.blocks(),
+                        map.len()
+                    ),
+                );
+                report.push(
+                    "row_views",
+                    serde_json::to_string(&*self.row_views.borrow()).unwrap_or_default(),
+                );
+                report.push(
+                    "table_geometry",
+                    serde_json::to_string(&*self.geometry.borrow()).unwrap_or_default(),
+                );
+            }
+        }
         report.push(
             "steps",
             serde_json::to_string(&*self.steps.borrow()).unwrap_or_default(),
@@ -1381,10 +1597,6 @@ impl OpenSmoke {
         report.push(
             "draft_stats",
             serde_json::to_string(&self.scene.draft_stats()).unwrap_or_default(),
-        );
-        report.push(
-            "block_cache",
-            serde_json::to_string(&self.view.block_cache_counters()).unwrap_or_default(),
         );
         report.push(
             "selections",
@@ -1432,16 +1644,29 @@ impl OpenSmoke {
 
     fn finish(&self) -> Result<Report, Failed> {
         let milestones = self.milestones.borrow().clone().unwrap_or_default();
-        let counters = self.view.cache_counters();
+        self.check_geometry("finish");
         let seen = *self.max_entries_seen.borrow();
         let visible = self.scene.visible_rows();
-        let farthest = self
-            .view
-            .cache_rows()
-            .into_iter()
-            .map(|row| crate::view_a::layout_cache::distance(row, &visible))
-            .max()
-            .unwrap_or(0);
+        let bounded = match &self.view {
+            View::A(view) => {
+                let counters = view.cache_counters();
+                let farthest = view
+                    .cache_rows()
+                    .into_iter()
+                    .map(|row| crate::paint::distance(row, &visible))
+                    .max()
+                    .unwrap_or(0);
+                Bounded::A {
+                    counters,
+                    seen,
+                    farthest,
+                }
+            }
+            View::B(view) => Bounded::B {
+                stats: view.stats(),
+                views: *self.row_views.borrow(),
+            },
+        };
         let drafts = self.scene.draft_stats();
         let (mut report, external) = self.close();
         if let Some(input) = external {
@@ -1608,16 +1833,105 @@ impl OpenSmoke {
                 fields.created, fields.released, drafts
             ),
         );
-        let bounded = counters.max_entries <= counters.max_capacity && counters.far_builds == 0;
+        match bounded {
+            Bounded::A {
+                counters,
+                seen,
+                farthest,
+            } => {
+                let bounded =
+                    counters.max_entries <= counters.max_capacity && counters.far_builds == 0;
+                report.finding(
+                    "layout_cache_bounded",
+                    if bounded { Verdict::Pass } else { Verdict::Fail },
+                    format!(
+                        "записей не больше {} при пределе до {} (наблюдалось {} при пределе {}), построено {}, вытеснено {}, дальних раскладок {}; в конце дальняя запись в {farthest} строках от видимых {visible:?}",
+                        counters.max_entries, counters.max_capacity, seen.0, seen.1, counters.built, counters.evicted, counters.far_builds
+                    ),
+                );
+            }
+            Bounded::B { stats, views } => self.table_findings(&mut report, stats, views),
+        }
+        Ok(report)
+    }
+}
+
+/// Ограниченность работы вида к вердикту: кэш раскладки A или виды строк B.
+enum Bounded {
+    A {
+        counters: crate::view_a::layout_cache::Counters,
+        seen: (usize, usize),
+        farthest: u32,
+    },
+    B {
+        stats: crate::view_b::TableStats,
+        views: RowViews,
+    },
+}
+
+impl OpenSmoke {
+    /// Вердикты таблицы B: виды строк ограничены, строки таблицы совпадают с индексом высот,
+    /// полный `reloadData` — только при замене diff.
+    fn table_findings(
+        &self,
+        report: &mut Report,
+        stats: crate::view_b::TableStats,
+        views: RowViews,
+    ) {
         report.finding(
-            "layout_cache_bounded",
-            if bounded { Verdict::Pass } else { Verdict::Fail },
+            "row_views_bounded",
+            if views.over == 0 && stats.far_builds == 0 {
+                Verdict::Pass
+            } else {
+                Verdict::Fail
+            },
             format!(
-                "записей не больше {} при пределе до {} (наблюдалось {} при пределе {}), построено {}, вытеснено {}, дальних раскладок {}; в конце дальняя запись в {farthest} строках от видимых {visible:?}",
-                counters.max_entries, counters.max_capacity, seen.0, seen.1, counters.built, counters.evicted, counters.far_builds
+                "видов строк не больше {} при пределе {} ({} видимых строк таблицы), наблюдений сверх предела {}, создано {}, раскладок построено {}, дальних {}",
+                views.views, views.limit, views.visible, views.over, stats.row_views_created, stats.layouts_built, stats.far_builds
             ),
         );
-        Ok(report)
+        let geometry = self.geometry.borrow();
+        let errors: Vec<String> = geometry
+            .iter()
+            .flat_map(|(when, _, errors)| {
+                errors.iter().map(move |error| format!("{when}: {error}"))
+            })
+            .collect();
+        let checked: usize = geometry.iter().map(|(_, checked, _)| checked).sum();
+        report.finding(
+            "table_geometry",
+            if errors.is_empty() && checked > 0 && stats.frame_mismatches == 0 {
+                Verdict::Pass
+            } else {
+                Verdict::Fail
+            },
+            format!(
+                "проверок {}, строк таблицы проверено {checked}, расхождений {}, расхождений высоты таблицы {}{}",
+                geometry.len(),
+                errors.len(),
+                stats.frame_mismatches,
+                errors
+                    .first()
+                    .map_or(String::new(), |error| format!(", первое: {error}"))
+            ),
+        );
+        report.finding(
+            "reload_data_once",
+            if stats.reload_data == 1 {
+                Verdict::Pass
+            } else {
+                Verdict::Fail
+            },
+            format!(
+                "reloadData {}, noteHeightOfRows {}, noteNumberOfRows {}, вставлено строк {}, удалено {}, вызовов heightOfRow {}",
+                stats.reload_data,
+                stats.note_heights,
+                stats.note_rows,
+                stats.inserted_rows,
+                stats.removed_rows,
+                stats.height_calls
+            ),
+        );
     }
 }
 

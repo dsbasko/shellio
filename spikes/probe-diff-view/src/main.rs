@@ -8,12 +8,14 @@
 mod args;
 mod blocks;
 mod draft_field;
+mod paint;
 mod results;
 mod scenario;
 mod scene;
 mod stats;
 mod text;
 mod view_a;
+mod view_b;
 
 use std::cell::{OnceCell, RefCell};
 use std::ffi::CString;
