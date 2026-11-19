@@ -712,6 +712,17 @@ impl Scene {
         Some(model.state.as_ref()?.shown(&view)?.y)
     }
 
+    /// Ответил ли worker подсветки на последний запрос: он отвечает только последнему из
+    /// накопившихся, поэтому ответ на него означает, что запросов в работе нет.
+    pub fn highlight_settled(&self) -> bool {
+        let requested = self.highlight.requested();
+        self.timeline
+            .borrow()
+            .snapshots
+            .last()
+            .is_some_and(|applied| applied.request >= requested)
+    }
+
     /// Перестройка раскладки ещё не установлена.
     pub fn relayout_pending(&self) -> bool {
         self.model.borrow().pending.is_some()

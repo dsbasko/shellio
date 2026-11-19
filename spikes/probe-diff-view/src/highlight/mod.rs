@@ -949,6 +949,11 @@ impl HighlightWorker {
     pub fn document(&self) -> u64 {
         self.current.load(Ordering::Acquire)
     }
+
+    /// Номер последнего отправленного запроса.
+    pub fn requested(&self) -> u64 {
+        self.requests.load(Ordering::Acquire)
+    }
 }
 
 impl Drop for HighlightWorker {

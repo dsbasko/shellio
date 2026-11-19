@@ -323,7 +323,7 @@ fn run_scenario(
         None => None,
     };
     let mut outcome = match scenario {
-        Scenario::Memory | Scenario::Keys => Outcome::error(
+        Scenario::Memory => Outcome::error(
             format!("сценарий {} ещё не реализован", scenario.name()),
             None,
             Report::default(),
@@ -332,6 +332,7 @@ fn run_scenario(
         | Scenario::Calibrate
         | Scenario::OpenSmoke
         | Scenario::Ax
+        | Scenario::Keys
         | Scenario::Idle => run_app(Some(scenario), view, Some(out.clone()), None, trace)
             .unwrap_or_else(|| {
                 Outcome::error(
@@ -965,7 +966,17 @@ impl AppDelegate {
                     Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
                     Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
                 },
-                Some(Scenario::Highlight | Scenario::Memory | Scenario::Keys) | None => {
+                Some(Scenario::Keys) => match scenario::keys_run::KeysRun::start(
+                    self.mtm(),
+                    window,
+                    report,
+                    ivars.trace.clone(),
+                    ivars.view,
+                ) {
+                    Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
+                    Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
+                },
+                Some(Scenario::Highlight | Scenario::Memory) | None => {
                     self.finish(Outcome::ok(report))
                 }
             }

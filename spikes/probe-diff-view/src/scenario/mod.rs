@@ -21,10 +21,10 @@ pub mod frames_run;
 pub mod highlight;
 pub mod idle;
 pub mod idle_run;
-// Чистые части `keys` и `memory` задачи 13: GUI-части подключаются следующей итерацией.
-#[allow(dead_code)]
 pub mod keys;
+pub mod keys_run;
 pub mod marker;
+// Чистая часть `memory` задачи 13: GUI-часть подключается следующей итерацией.
 #[allow(dead_code)]
 pub mod memory;
 pub mod neighbor;
