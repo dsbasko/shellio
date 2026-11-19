@@ -2,6 +2,7 @@
 //! на worker и отменяемый фоновый исполнитель. Они идут в `make check`, бинарь пробы подключает их
 //! по мере задач плана.
 
+pub mod access;
 pub mod fixtures;
 pub mod highlight;
 pub mod keymap;

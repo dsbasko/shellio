@@ -62,6 +62,9 @@ const SMOKE_DEADLINE: Duration = Duration::from_secs(60);
 /// Срок сторожа `open-smoke` из отчёта, раздел «Сроки и размеры»: окно, генерация фикстуры и
 /// сроки всех шагов вместе.
 const OPEN_SMOKE_DEADLINE: Duration = Duration::from_secs(90);
+/// Срок сторожа `ax` из отчёта, раздел «Сроки и размеры»: окно, генерация фикстуры, готовность
+/// клиента, открытие, четыре шага и пять снимков.
+const AX_DEADLINE: Duration = Duration::from_secs(150);
 /// Частота встроенного дисплея, которую подтверждает `calibrate` (предусловие плана).
 const REQUIRED_FPS: isize = 120;
 /// Срок сторожа `calibrate` из отчёта, раздел «Сроки и размеры»: четыре записи по 5 с, у каждой
@@ -91,6 +94,7 @@ fn main() -> ExitCode {
         Command::Aggregate { run_dir } => aggregate(&run_dir),
         Command::Reference { dir } => reference(&dir),
         Command::Neighbor => neighbor(),
+        Command::AxClient { pid } => ax_client(pid),
         Command::Demo(view) => match run_app(None, view, None, Default::default()) {
             None => ExitCode::SUCCESS,
             Some(outcome) => print_outcome(&outcome),
@@ -179,6 +183,19 @@ fn neighbor() -> ExitCode {
     ExitCode::from(EXIT_EXECUTION)
 }
 
+/// Внешний клиент доступности сценария `ax`. Отказ до готовности — строка `ax_client_error=`.
+fn ax_client(pid: i32) -> ExitCode {
+    match scenario::ax_client::run(pid) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(reason) => {
+            let mut stdout = io::stdout().lock();
+            let _ = writeln!(stdout, "{}{reason}", scenario::ax_client::ERROR_LINE);
+            let _ = stdout.flush();
+            ExitCode::from(EXIT_EXECUTION)
+        }
+    }
+}
+
 /// Итог процесса сценария.
 struct Outcome {
     execution: Execution,
@@ -261,6 +278,7 @@ fn run_scenario(
         Scenario::Calibrate => Some(("calibrate", CALIBRATE_DEADLINE)),
         Scenario::Smoke => Some(("smoke", SMOKE_DEADLINE)),
         Scenario::OpenSmoke => Some(("open-smoke", OPEN_SMOKE_DEADLINE)),
+        Scenario::Ax => Some(("ax", AX_DEADLINE)),
         Scenario::Highlight => None,
     };
     let _watchdog = match deadline {
@@ -279,7 +297,7 @@ fn run_scenario(
         None => None,
     };
     let mut outcome = match scenario {
-        Scenario::Smoke | Scenario::Calibrate | Scenario::OpenSmoke => {
+        Scenario::Smoke | Scenario::Calibrate | Scenario::OpenSmoke | Scenario::Ax => {
             run_app(Some(scenario), view, Some(out.clone()), trace).unwrap_or_else(|| {
                 Outcome::error(
                     "основной цикл завершился без итога сценария",
@@ -811,6 +829,17 @@ impl AppDelegate {
                     report,
                     ivars.trace.clone(),
                     ivars.view,
+                ) {
+                    Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
+                    Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
+                },
+                Some(Scenario::Ax) => match scenario::ax::Ax::start(
+                    self.mtm(),
+                    window,
+                    report,
+                    ivars.trace.clone(),
+                    ivars.view,
+                    out,
                 ) {
                     Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
                     Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),

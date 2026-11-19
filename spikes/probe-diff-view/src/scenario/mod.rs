@@ -4,6 +4,8 @@
 // Часть стенда задачи 6 нужна сценариям задач 7–16: ожидание покрытия, синтетические клавиши и
 // мышь, снимки окна, CPU простоя, наблюдение показов поверхностей. Разрешение снимается, когда их
 // подключат.
+pub mod ax;
+pub mod ax_client;
 pub mod calibrate;
 pub mod calibrate_run;
 pub mod capture;
@@ -24,6 +26,7 @@ pub mod sampler;
 pub mod smoke;
 #[allow(dead_code)]
 pub mod snapshot;
+pub mod stage;
 pub mod stand;
 #[allow(dead_code)]
 pub mod watchdog;

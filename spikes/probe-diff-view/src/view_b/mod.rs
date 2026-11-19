@@ -14,27 +14,34 @@
 pub mod row;
 
 use std::cell::{Cell, OnceCell, RefCell};
+use std::collections::HashMap;
 use std::ops::Range;
 use std::rc::{Rc, Weak};
 
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, ProtocolObject};
-use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
+use objc2::{
+    AnyThread, ClassType, DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_class,
+    msg_send, sel,
+};
 use objc2_app_kit::{
-    NSAnimationContext, NSColor, NSControl, NSControlTextEditingDelegate, NSEvent,
-    NSEventModifierFlags, NSFocusRingType, NSResponder, NSScrollView, NSTableColumn,
-    NSTableColumnResizingOptions, NSTableRowView, NSTableView, NSTableViewAnimationOptions,
-    NSTableViewColumnAutoresizingStyle, NSTableViewDataSource, NSTableViewDelegate,
-    NSTableViewGridLineStyle, NSTableViewRowSizeStyle, NSTableViewSelectionHighlightStyle,
-    NSTableViewStyle, NSView, NSViewBoundsDidChangeNotification, NSViewFrameDidChangeNotification,
-    NSWindowOrderingMode,
+    NSAccessibility, NSAccessibilityElement, NSAccessibilityFocusedUIElementChangedNotification,
+    NSAccessibilityLayoutChangedNotification, NSAccessibilityPostNotification,
+    NSAccessibilityRowRole, NSAccessibilitySelectedRowsChangedNotification, NSAnimationContext,
+    NSColor, NSControl, NSControlTextEditingDelegate, NSEvent, NSEventModifierFlags,
+    NSFocusRingType, NSResponder, NSScrollView, NSTableColumn, NSTableColumnResizingOptions,
+    NSTableRowView, NSTableView, NSTableViewAnimationOptions, NSTableViewColumnAutoresizingStyle,
+    NSTableViewDataSource, NSTableViewDelegate, NSTableViewGridLineStyle, NSTableViewRowSizeStyle,
+    NSTableViewSelectionHighlightStyle, NSTableViewStyle, NSView,
+    NSViewBoundsDidChangeNotification, NSViewFrameDidChangeNotification, NSWindowOrderingMode,
 };
 use objc2_foundation::{
-    NSIndexSet, NSInteger, NSMutableIndexSet, NSNotificationCenter, NSObject, NSObjectProtocol,
-    NSPoint, NSRange, NSRect, NSSize, NSString,
+    NSArray, NSIndexSet, NSInteger, NSMutableIndexSet, NSNotificationCenter, NSObject,
+    NSObjectProtocol, NSPoint, NSRange, NSRect, NSSize, NSString,
 };
 use serde::Serialize;
 
+use probe_diff_view::access::{BLOCK_LABEL, RowAx};
 use probe_diff_view::keymap::KeyInput;
 use probe_diff_view::model::Side;
 use probe_diff_view::model::heights::HeightIndex;
@@ -43,7 +50,7 @@ use probe_diff_view::tokens::{Theme, ThemeKey};
 use self::row::RowView;
 use crate::draft_field::DraftField;
 use crate::scenario::counters::{Live, counter};
-use crate::scene::{DraftPlace, FontMetrics, Scene, Surface, Visible};
+use crate::scene::{Announce, DraftPlace, FontMetrics, Scene, Surface, Visible};
 use crate::text::{ColorCache, Font};
 
 counter!(TABLE_B, "ProbeDiffTableB");
@@ -258,6 +265,37 @@ pub struct Shared {
     mismatches: RefCell<Vec<String>>,
     /// Одно поле черновика на таблицу, создаётся при первом черновике.
     draft: OnceCell<Retained<DraftField>>,
+    /// Элементы доступности видимых строк таблицы по адресу.
+    ax_rows: RefCell<HashMap<AxKey, Retained<NSAccessibilityElement>>>,
+    /// Изменения доступности до отправки уведомлений.
+    ax_pending: Cell<Announce>,
+    ax_stats: Cell<AxStatsB>,
+}
+
+/// Ключ элемента доступности строки таблицы: адрес строки показа (номера строк сторон) и
+/// признак строки блоков под ней.
+type AxKey = (bool, (Option<u32>, Option<u32>));
+
+/// Элементы строк и уведомления доступности варианта B.
+#[derive(Clone, Copy, Debug, Default, Serialize)]
+pub struct AxStatsB {
+    /// Запросов строк (`accessibilityVisibleRows` и родственные, фокус).
+    pub queries: u64,
+    pub created: u64,
+    /// Строк таблицы, получивших прежний элемент своего адреса.
+    pub reused: u64,
+    /// Элементов, отпущенных при уходе строки за экран.
+    pub dropped: u64,
+    /// Наибольшее число живых элементов и видимых строк таблицы в тот момент.
+    pub max_live: usize,
+    pub max_visible: usize,
+    /// Видов строк, которые после переиспользования показывают не строку таблицы своего индекса.
+    pub view_mismatches: u64,
+    /// Запросов при занятой модели: строки не выданы.
+    pub busy: u64,
+    pub posted_focus: u64,
+    pub posted_selection: u64,
+    pub posted_layout: u64,
 }
 
 impl Shared {
@@ -273,6 +311,12 @@ impl Shared {
         let mut stats = self.stats.get();
         update(&mut stats);
         self.stats.set(stats);
+    }
+
+    fn count_ax(&self, update: impl FnOnce(&mut AxStatsB)) {
+        let mut stats = self.ax_stats.get();
+        update(&mut stats);
+        self.ax_stats.set(stats);
     }
 
     /// Строки таблицы и загруженное по модели; `None` — модель занята.
@@ -387,10 +431,247 @@ define_class!(
                 scene.resized();
             }
         }
+
+        /// Отправка накопленных уведомлений доступности: раз за проход цикла.
+        #[unsafe(method(axFlush:))]
+        fn ax_flush(&self, _argument: Option<&AnyObject>) {
+            self.flush_accessibility();
+        }
+
+        /// Строки доступности — свои элементы видимых строк таблицы по адресу строки показа, а
+        /// не приватные `NSTableRow` AppKit: те не берут подпись, текст и выбранность у вида
+        /// строки (прогон `20261119-125516-13324`). Элемент не живёт в виде строки: с ним он
+        /// после переиспользования вида описывал бы другую строку (прогон
+        /// `20261119-130028-16537`). Все строки таблицы видами не представлены, поэтому и
+        /// `AXRows` — только видимые.
+        #[unsafe(method_id(accessibilityRows))]
+        fn accessibility_rows(&self) -> Option<Retained<NSArray<AnyObject>>> {
+            Some(NSArray::from_retained_slice(&self.ax_rows()))
+        }
+
+        #[unsafe(method_id(accessibilityVisibleRows))]
+        fn accessibility_visible_rows(&self) -> Option<Retained<NSArray<AnyObject>>> {
+            let rows = self.ax_rows();
+            Some(NSArray::from_retained_slice(&rows))
+        }
+
+        /// Строки и поле черновика, если оно видно.
+        #[unsafe(method_id(accessibilityChildren))]
+        fn accessibility_children(&self) -> Option<Retained<NSArray<AnyObject>>> {
+            let mut children = self.ax_rows();
+            if let Some(field) = self.ivars().shared.draft.get()
+                && !field.isHidden()
+            {
+                children.push(object(field.clone()));
+            }
+            Some(NSArray::from_retained_slice(&children))
+        }
+
+        #[unsafe(method_id(accessibilitySelectedRows))]
+        fn accessibility_selected_rows(&self) -> Option<Retained<NSArray<AnyObject>>> {
+            let rows: Vec<Retained<AnyObject>> = self
+                .ax_elements()
+                .into_iter()
+                .filter(|(_, element)| element.isAccessibilitySelected())
+                .map(|(_, element)| object(element))
+                .collect();
+            Some(NSArray::from_retained_slice(&rows))
+        }
+
+        /// Фокус доступности — элемент строки курсора, если она видна, иначе таблица.
+        #[unsafe(method_id(accessibilityFocusedUIElement))]
+        fn accessibility_focused(&self) -> Option<Retained<AnyObject>> {
+            Some(self.ax_focused())
+        }
     }
 );
 
+/// Объект доступности из вида.
+fn object<T: Message>(value: Retained<T>) -> Retained<AnyObject> {
+    // SAFETY: любой объект Objective-C — `AnyObject`.
+    unsafe { Retained::cast_unchecked(value) }
+}
+
+/// Подпись роли строки для VoiceOver, как у варианта A.
+const ROW_ROLE_DESCRIPTION: &str = "строка diff";
+
+/// Прямоугольник в неперевёрнутых координатах родителя высоты `height`: так AppKit читает
+/// `accessibilityFrameInParentSpace`, хотя таблица перевёрнута.
+fn unflipped(rect: NSRect, height: f64) -> NSRect {
+    NSRect::new(
+        NSPoint::new(rect.origin.x, height - rect.origin.y - rect.size.height),
+        rect.size,
+    )
+}
+
+fn new_element(table: &Table) -> Retained<NSAccessibilityElement> {
+    let element = NSAccessibilityElement::init(NSAccessibilityElement::alloc());
+    // SAFETY: роль — константа AppKit, родитель — живая таблица; элементы держит `Shared`, его
+    // держат таблица и её виды строк.
+    unsafe {
+        element.setAccessibilityRole(Some(NSAccessibilityRowRole));
+        element.setAccessibilityParent(Some(table));
+    }
+    element.setAccessibilityRoleDescription(Some(&NSString::from_str(ROW_ROLE_DESCRIPTION)));
+    element
+}
+
+/// Атрибуты элемента строки таблицы `index`, которая показывает `item` строки показа с
+/// описанием `ax`.
+fn update(element: &NSAccessibilityElement, item: Item, ax: &RowAx, index: usize, frame: NSRect) {
+    let text_row = matches!(item, Item::Text(_));
+    let label = if text_row {
+        ax.label()
+    } else {
+        BLOCK_LABEL.to_owned()
+    };
+    element.setAccessibilityLabel(Some(&NSString::from_str(&label)));
+    let text = text_row.then(|| NSString::from_str(&ax.text));
+    // SAFETY: значение строки — NSString или nil.
+    unsafe { element.setAccessibilityValue(text.as_deref().map(|text| text as &AnyObject)) };
+    element.setAccessibilitySelected(text_row && ax.selected);
+    element.setAccessibilityIndex(index as NSInteger);
+    element.setAccessibilityFrameInParentSpace(frame);
+}
+
 impl Table {
+    /// Виды строк видимых строк таблицы по порядку.
+    fn row_views(&self) -> Vec<(Retained<RowView>, usize)> {
+        let range: NSRange = self.rowsInRect(self.visibleRect());
+        (range.location..range.location + range.length)
+            .filter_map(|index| {
+                let view = self.rowViewAtRow_makeIfNecessary(index as NSInteger, false)?;
+                let view = view.downcast::<RowView>().ok()?;
+                Some((view, index))
+            })
+            .collect()
+    }
+
+    /// Элементы доступности видимых строк таблицы с их индексами и атрибутами по модели. Элемент
+    /// выдаётся по адресу строки показа: пока строка видна, клиент получает тот же элемент,
+    /// ушедшая за экран строка свой элемент отпускает, другой адрес элемент не получает. Строку,
+    /// которую показывает вид строки после переиспользования, элемент сверяет с картой строк
+    /// таблицы по индексу.
+    fn ax_elements(&self) -> Vec<(usize, Retained<NSAccessibilityElement>)> {
+        let shared = &self.ivars().shared;
+        let Some(scene) = shared.scene() else {
+            return Vec::new();
+        };
+        let Ok(model) = scene.model().try_borrow() else {
+            shared.count_ax(|stats| stats.busy += 1);
+            return Vec::new();
+        };
+        let views = self.row_views();
+        let map = shared.map.borrow();
+        let height = self.bounds().size.height;
+        let mut elements = shared.ax_rows.borrow_mut();
+        let mut kept = HashMap::with_capacity(views.len());
+        let mut out = Vec::with_capacity(views.len());
+        let (mut created, mut reused, mut mismatches) = (0u64, 0u64, 0u64);
+        for (view, index) in &views {
+            let Some(item) = map.item(*index) else {
+                continue;
+            };
+            if view.item() != Some(item) {
+                mismatches += 1;
+            }
+            let Some(ax) = model.row_ax(item.row()) else {
+                continue;
+            };
+            let key = (matches!(item, Item::Block(_)), ax.key());
+            let element = match elements.remove(&key) {
+                Some(element) => {
+                    reused += 1;
+                    element
+                }
+                None => {
+                    created += 1;
+                    new_element(self)
+                }
+            };
+            let frame = unflipped(self.rectOfRow(*index as NSInteger), height);
+            update(&element, item, &ax, *index, frame);
+            out.push((*index, element.clone()));
+            kept.insert(key, element);
+        }
+        let dropped = elements.len() as u64;
+        *elements = kept;
+        let live = elements.len();
+        drop(elements);
+        shared.count_ax(|stats| {
+            stats.queries += 1;
+            stats.created += created;
+            stats.reused += reused;
+            stats.dropped += dropped;
+            stats.view_mismatches += mismatches;
+            if live > stats.max_live {
+                stats.max_live = live;
+                stats.max_visible = views.len();
+            }
+        });
+        out
+    }
+
+    fn ax_rows(&self) -> Vec<Retained<AnyObject>> {
+        self.ax_elements()
+            .into_iter()
+            .map(|(_, element)| object(element))
+            .collect()
+    }
+
+    /// Элемент строки курсора среди видимых или сама таблица.
+    fn ax_focused(&self) -> Retained<AnyObject> {
+        let shared = &self.ivars().shared;
+        let index = shared
+            .scene()
+            .and_then(|scene| scene.model().try_borrow().ok()?.cursor_row())
+            .and_then(|row| shared.map.borrow().index(Item::Text(row)));
+        let element =
+            index.and_then(|index| self.ax_elements().into_iter().find(|(at, _)| *at == index));
+        match element {
+            Some((_, element)) => object(element),
+            None => object(self.retain()),
+        }
+    }
+
+    fn flush_accessibility(&self) {
+        let shared = &self.ivars().shared;
+        let change = shared.ax_pending.replace(Announce::default());
+        if change.is_empty() {
+            return;
+        }
+        // Элементы строятся, только если клиент уже спрашивал строки, как у варианта A.
+        let focused = if shared.ax_rows.borrow().is_empty() {
+            object(self.retain())
+        } else {
+            self.ax_focused()
+        };
+        let target: &AnyObject = self;
+        // SAFETY: таблица — объект доступности, имена уведомлений — константы AppKit.
+        unsafe {
+            if change.layout {
+                NSAccessibilityPostNotification(target, NSAccessibilityLayoutChangedNotification);
+            }
+            if change.selection {
+                NSAccessibilityPostNotification(
+                    target,
+                    NSAccessibilitySelectedRowsChangedNotification,
+                );
+            }
+            if change.focus {
+                NSAccessibilityPostNotification(
+                    &focused,
+                    NSAccessibilityFocusedUIElementChangedNotification,
+                );
+            }
+        }
+        shared.count_ax(|stats| {
+            stats.posted_layout += u64::from(change.layout);
+            stats.posted_selection += u64::from(change.selection);
+            stats.posted_focus += u64::from(change.focus);
+        });
+    }
+
     fn key(&self, event: &NSEvent) -> bool {
         let Some(scene) = self.ivars().shared.scene() else {
             return false;
@@ -564,6 +845,9 @@ impl ViewB {
             stats: Cell::new(TableStats::default()),
             mismatches: RefCell::new(Vec::new()),
             draft: OnceCell::new(),
+            ax_rows: RefCell::new(HashMap::new()),
+            ax_pending: Cell::new(Announce::default()),
+            ax_stats: Cell::new(AxStatsB::default()),
         });
         let source = Source::new(mtm, Rc::clone(&shared));
         let scroll = NSScrollView::initWithFrame(NSScrollView::alloc(mtm), frame);
@@ -672,6 +956,10 @@ impl ViewB {
 
     pub fn stats(&self) -> TableStats {
         self.shared.stats.get()
+    }
+
+    pub fn ax_stats(&self) -> AxStatsB {
+        self.shared.ax_stats.get()
     }
 
     pub fn mismatches(&self) -> Vec<String> {
@@ -1012,14 +1300,35 @@ impl Surface for ViewB {
             window.makeFirstResponder(Some(responder));
         }
     }
+
+    fn announce(&self, change: Announce) {
+        let before = self.shared.ax_pending.get();
+        self.shared.ax_pending.set(before.merge(change));
+        if before.is_empty() {
+            // SAFETY: таблица отвечает на `axFlush:`; отложенный вызов держит её до вызова и
+            // снимается в `Drop`.
+            unsafe {
+                let _: () = msg_send![
+                    &*self.table,
+                    performSelector: sel!(axFlush:),
+                    withObject: None::<&AnyObject>,
+                    afterDelay: 0.0f64
+                ];
+            }
+        }
+    }
 }
 
 impl Drop for ViewB {
     fn drop(&mut self) {
-        // SAFETY: снимается наблюдатель, поставленный в `new`, и отвязывается источник данных до
-        // его освобождения.
+        // SAFETY: снимаются наблюдатель, поставленный в `new`, и отложенная отправка уведомлений,
+        // источник данных отвязывается до его освобождения.
         unsafe {
             NSNotificationCenter::defaultCenter().removeObserver(&self.table);
+            let _: () = msg_send![
+                NSObject::class(),
+                cancelPreviousPerformRequestsWithTarget: &*self.table
+            ];
             self.table.setDataSource(None);
             self.table.setDelegate(None);
         }

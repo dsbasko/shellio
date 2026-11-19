@@ -22,6 +22,8 @@ pub const USAGE: &str = "\
       эталоны подсветки фикстур в <каталог фикстур>/<имя>/reference.json
   probe-diff-view --neighbor
       служебный сосед калибровки: движущееся окно до закрытия stdin
+  probe-diff-view --ax-client <pid>
+      внешний клиент доступности сценария ax: снимки дерева AX процесса <pid> по командам stdin
 
 у демонстрации по умолчанию --variant a --mode unified; сценарий стенда идёт без --variant и
 --mode, сценарий вида требует обоих; --fixtures нужен ровно сценариям с эталоном подсветки";
@@ -103,14 +105,17 @@ pub enum Scenario {
     Calibrate,
     /// Открытие `added` в виде варианта и режима: первый экран нарисован, `G`, `gg`, щелчок.
     OpenSmoke,
+    /// Доступность вида: внешний клиент читает строки, выбранность и фокус, стенд сверяет с моделью.
+    Ax,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 4] = [
+    pub const ALL: [Scenario; 5] = [
         Scenario::Smoke,
         Scenario::Highlight,
         Scenario::Calibrate,
         Scenario::OpenSmoke,
+        Scenario::Ax,
     ];
 
     pub fn name(self) -> &'static str {
@@ -119,6 +124,7 @@ impl Scenario {
             Scenario::Highlight => "highlight",
             Scenario::Calibrate => "calibrate",
             Scenario::OpenSmoke => "open-smoke",
+            Scenario::Ax => "ax",
         }
     }
 
@@ -131,7 +137,7 @@ impl Scenario {
     pub fn axes(self) -> Axes {
         match self {
             Scenario::Smoke | Scenario::Highlight | Scenario::Calibrate => Axes::STAND,
-            Scenario::OpenSmoke => Axes::VIEW,
+            Scenario::OpenSmoke | Scenario::Ax => Axes::VIEW,
         }
     }
 
@@ -139,7 +145,7 @@ impl Scenario {
     /// (`needs_fixtures`) повторяет её.
     pub fn needs_fixtures(self) -> bool {
         match self {
-            Scenario::Smoke | Scenario::Calibrate | Scenario::OpenSmoke => false,
+            Scenario::Smoke | Scenario::Calibrate | Scenario::OpenSmoke | Scenario::Ax => false,
             Scenario::Highlight => true,
         }
     }
@@ -170,6 +176,10 @@ pub enum Command {
     },
     /// Служебный сосед обратного контроля `calibrate`.
     Neighbor,
+    /// Внешний клиент доступности сценария `ax` к процессу `pid`.
+    AxClient {
+        pid: i32,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -315,6 +325,8 @@ impl Raw {
 
 /// Флаг служебного соседа, без значения.
 const NEIGHBOR: &str = "--neighbor";
+/// Флаг клиента доступности, значение — pid процесса пробы.
+const AX_CLIENT: &str = "--ax-client";
 
 /// Разбирает аргументы без имени программы.
 pub fn parse(args: &[String]) -> Result<Command, ArgsError> {
@@ -327,6 +339,21 @@ pub fn parse(args: &[String]) -> Result<Command, ArgsError> {
             Ok(Command::Neighbor)
         } else {
             Err(ArgsError::Exclusive(NEIGHBOR))
+        };
+    }
+
+    if let Some(position) = args.iter().position(|arg| arg == AX_CLIENT) {
+        if position != 0 || args.len() > 2 {
+            return Err(ArgsError::Exclusive(AX_CLIENT));
+        }
+        let value = args.get(1).ok_or(ArgsError::MissingValue(AX_CLIENT))?;
+        return match value.parse::<i32>() {
+            Ok(pid) if pid > 0 => Ok(Command::AxClient { pid }),
+            _ => Err(ArgsError::InvalidValue {
+                flag: AX_CLIENT,
+                value: value.clone(),
+                expected: "pid процесса пробы",
+            }),
         };
     }
 
@@ -532,6 +559,63 @@ mod tests {
             Err(ArgsError::AxisNotAccepted {
                 scenario: "highlight",
                 flag: "--mode"
+            })
+        );
+    }
+
+    #[test]
+    fn ax_client_takes_a_pid_and_nothing_else() {
+        assert_eq!(
+            parse_str(&["--ax-client", "4242"]),
+            Ok(Command::AxClient { pid: 4242 })
+        );
+        assert_eq!(
+            parse_str(&["--ax-client"]),
+            Err(ArgsError::MissingValue("--ax-client"))
+        );
+        for bad in ["0", "-1", "x", ""] {
+            assert!(
+                matches!(
+                    parse_str(&["--ax-client", bad]),
+                    Err(ArgsError::InvalidValue { .. })
+                ),
+                "{bad}"
+            );
+        }
+        assert_eq!(
+            parse_str(&["--ax-client", "1", "--out", "o"]),
+            Err(ArgsError::Exclusive("--ax-client"))
+        );
+        assert_eq!(
+            parse_str(&["--scenario", "ax", "--ax-client", "1"]),
+            Err(ArgsError::Exclusive("--ax-client"))
+        );
+    }
+
+    #[test]
+    fn ax_is_a_view_scenario() {
+        assert_eq!(Scenario::from_name("ax"), Some(Scenario::Ax));
+        assert_eq!(Scenario::Ax.axes(), Axes::VIEW);
+        assert!(!Scenario::Ax.needs_fixtures());
+        assert_eq!(
+            parse_str(&[
+                "--scenario",
+                "ax",
+                "--out",
+                "o",
+                "--variant",
+                "b",
+                "--mode",
+                "side"
+            ]),
+            Ok(Command::Scenario {
+                scenario: Scenario::Ax,
+                view: ViewOptions {
+                    variant: Some(Variant::B),
+                    mode: Some(ViewMode::Side),
+                },
+                out: PathBuf::from("o"),
+                fixtures: None,
             })
         );
     }

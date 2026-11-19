@@ -6,6 +6,7 @@
 //! ([`layout_cache`]). Доменного состояния вид не хранит: он читает модель сцены, клавиши и мышь
 //! отдаёт её обработчикам, прокрутку к якорю ведёт `scrollToPoint` у clip view.
 
+pub mod ax;
 pub mod layout_cache;
 
 use std::cell::{Cell, OnceCell, RefCell};
@@ -14,12 +15,17 @@ use std::rc::{Rc, Weak};
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
-use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
-use objc2_app_kit::{
-    NSColor, NSEvent, NSEventModifierFlags, NSGraphicsContext, NSResponder, NSScrollView, NSView,
-    NSViewBoundsDidChangeNotification, NSViewFrameDidChangeNotification,
+use objc2::{
+    ClassType, DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_class, msg_send, sel,
 };
-use objc2_foundation::{NSNotificationCenter, NSPoint, NSRect, NSSize, NSString};
+use objc2_app_kit::{
+    NSAccessibilityTableRole, NSColor, NSEvent, NSEventModifierFlags, NSGraphicsContext,
+    NSResponder, NSScrollView, NSView, NSViewBoundsDidChangeNotification,
+    NSViewFrameDidChangeNotification,
+};
+use objc2_foundation::{
+    NSArray, NSCopying, NSNotificationCenter, NSObject, NSPoint, NSRect, NSSize, NSString,
+};
 use serde::Serialize;
 
 use probe_diff_view::keymap::KeyInput;
@@ -33,7 +39,7 @@ use crate::results::Rect;
 use crate::scenario::counters::{Live, counter};
 use crate::scenario::drawmark::{self, Mark};
 use crate::scenario::sampler;
-use crate::scene::{DraftPlace, Scene, Surface, Visible};
+use crate::scene::{Announce, DraftPlace, Scene, Surface, Visible};
 use crate::text::{ColorCache, Font};
 
 counter!(DOCUMENT_VIEW_A, "ProbeDiffDocumentViewA");
@@ -74,6 +80,7 @@ pub struct DocumentIvars {
     colors: RefCell<ColorCache>,
     dirty_log: RefCell<Vec<DirtyRecord>>,
     stats: Cell<DrawStats>,
+    ax: ax::AxRows,
 }
 
 fn rect(value: NSRect) -> Rect {
@@ -161,6 +168,65 @@ define_class!(
                 scene.resized();
             }
         }
+
+        #[unsafe(method(isAccessibilityElement))]
+        fn is_accessibility_element(&self) -> bool {
+            true
+        }
+
+        #[unsafe(method_id(accessibilityRole))]
+        fn accessibility_role(&self) -> Option<Retained<NSString>> {
+            // SAFETY: неизменяемая константа AppKit.
+            Some(unsafe { NSAccessibilityTableRole }.copy())
+        }
+
+        #[unsafe(method_id(accessibilityLabel))]
+        fn accessibility_label(&self) -> Option<Retained<NSString>> {
+            Some(NSString::from_str(ax::TABLE_LABEL))
+        }
+
+        /// Строки и подвиды AppKit (поле черновика).
+        #[unsafe(method_id(accessibilityChildren))]
+        fn accessibility_children(&self) -> Option<Retained<NSArray<AnyObject>>> {
+            let mut children = self.ax_rows();
+            // SAFETY: `accessibilityChildren` у NSView без аргументов.
+            let base: Option<Retained<NSArray<AnyObject>>> =
+                unsafe { msg_send![super(self), accessibilityChildren] };
+            children.extend(base.iter().flat_map(|base| base.iter()));
+            Some(NSArray::from_retained_slice(&children))
+        }
+
+        #[unsafe(method_id(accessibilityRows))]
+        fn accessibility_rows(&self) -> Option<Retained<NSArray<AnyObject>>> {
+            Some(NSArray::from_retained_slice(&self.ax_rows()))
+        }
+
+        #[unsafe(method_id(accessibilityVisibleRows))]
+        fn accessibility_visible_rows(&self) -> Option<Retained<NSArray<AnyObject>>> {
+            Some(NSArray::from_retained_slice(&self.ax_rows()))
+        }
+
+        #[unsafe(method_id(accessibilitySelectedRows))]
+        fn accessibility_selected_rows(&self) -> Option<Retained<NSArray<AnyObject>>> {
+            let rows: Vec<Retained<AnyObject>> = self
+                .ivars()
+                .ax
+                .selected(&self.ax_rows_typed());
+            Some(NSArray::from_retained_slice(&rows))
+        }
+
+        /// Фокус доступности — элемент строки курсора, если она видна, иначе контейнер.
+        #[unsafe(method_id(accessibilityFocusedUIElement))]
+        fn accessibility_focused(&self) -> Option<Retained<AnyObject>> {
+            let _ = self.ax_rows_typed();
+            Some(self.ax_focused())
+        }
+
+        /// Отправка накопленных уведомлений доступности: раз за проход цикла.
+        #[unsafe(method(axFlush:))]
+        fn ax_flush(&self, _argument: Option<&AnyObject>) {
+            self.flush_accessibility();
+        }
     }
 );
 
@@ -178,6 +244,7 @@ impl DocumentView {
             colors: RefCell::new(ColorCache::default()),
             dirty_log: RefCell::new(Vec::new()),
             stats: Cell::new(DrawStats::default()),
+            ax: ax::AxRows::default(),
         });
         // SAFETY: назначенный инициализатор NSView с прямоугольником.
         unsafe { msg_send![super(this), initWithFrame: frame] }
@@ -345,6 +412,59 @@ impl DocumentView {
         self.ivars().cache.borrow().counters()
     }
 
+    /// Элементы видимых строк с атрибутами по модели.
+    fn ax_rows_typed(&self) -> Vec<Retained<objc2_app_kit::NSAccessibilityElement>> {
+        let Some(scene) = self.scene() else {
+            return Vec::new();
+        };
+        let Ok(model) = scene.model().try_borrow() else {
+            return Vec::new();
+        };
+        let Some(shown) = model.shown() else {
+            return Vec::new();
+        };
+        let visible = self.visibleRect();
+        let rows = shown.heights.visible(
+            visible.origin.y.max(0.0) as u64,
+            visible.size.height.max(0.0) as u64,
+        );
+        self.ivars().ax.visible(self.mtm(), self, &model, rows)
+    }
+
+    fn ax_rows(&self) -> Vec<Retained<AnyObject>> {
+        self.ax_rows_typed()
+            .into_iter()
+            .map(|element| Retained::into_super(Retained::into_super(element)))
+            .collect()
+    }
+
+    /// Элемент строки курсора среди выданных или сам контейнер.
+    fn ax_focused(&self) -> Retained<AnyObject> {
+        let row = self
+            .scene()
+            .and_then(|scene| scene.model().try_borrow().ok()?.cursor_row());
+        match row.and_then(|row| self.ivars().ax.element_of(row)) {
+            Some(element) => Retained::into_super(Retained::into_super(element)),
+            None => Retained::into_super(Retained::into_super(Retained::into_super(
+                Retained::into_super(self.retain()),
+            ))),
+        }
+    }
+
+    fn flush_accessibility(&self) {
+        let ax = &self.ivars().ax;
+        let change = ax.take_pending();
+        if change.is_empty() {
+            return;
+        }
+        // Атрибуты обновляются, только если клиент уже спрашивал строки.
+        if ax.active() {
+            let _ = self.ax_rows_typed();
+        }
+        let focused = self.ax_focused();
+        ax.post(change, self, &focused);
+    }
+
     fn block_counters(&self) -> Counters {
         self.ivars().blocks.borrow().counters()
     }
@@ -491,6 +611,10 @@ impl ViewA {
         self.document.ivars().stats.get()
     }
 
+    pub fn ax_stats(&self) -> ax::AxStats {
+        self.document.ivars().ax.stats()
+    }
+
     pub fn dirty_log(&self) -> Vec<DirtyRecord> {
         self.document.ivars().dirty_log.borrow().clone()
     }
@@ -635,12 +759,34 @@ impl Surface for ViewA {
             window.makeFirstResponder(Some(responder));
         }
     }
+
+    fn announce(&self, change: Announce) {
+        if self.document.ivars().ax.defer(change) {
+            // SAFETY: document view отвечает на `axFlush:`; отложенный вызов держит его до вызова и
+            // снимается в `Drop`.
+            unsafe {
+                let _: () = msg_send![
+                    &*self.document,
+                    performSelector: sel!(axFlush:),
+                    withObject: None::<&AnyObject>,
+                    afterDelay: 0.0f64
+                ];
+            }
+        }
+    }
 }
 
 impl Drop for ViewA {
     fn drop(&mut self) {
-        // SAFETY: снимается наблюдатель, поставленный в `new`.
-        unsafe { NSNotificationCenter::defaultCenter().removeObserver(&self.document) };
+        // SAFETY: снимаются наблюдатель, поставленный в `new`, и отложенная отправка уведомлений
+        // доступности.
+        unsafe {
+            NSNotificationCenter::defaultCenter().removeObserver(&self.document);
+            let _: () = msg_send![
+                NSObject::class(),
+                cancelPreviousPerformRequestsWithTarget: &*self.document
+            ];
+        }
         *self.document.ivars().scene.borrow_mut() = Weak::new();
         if let Some(field) = self.draft.get() {
             field.unbind();

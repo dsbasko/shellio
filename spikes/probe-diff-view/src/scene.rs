@@ -23,6 +23,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use dispatch2::DispatchQueue;
 use serde::Serialize;
 
+use probe_diff_view::access::{RowAx, describe_row};
 use probe_diff_view::fixtures::Fixture;
 use probe_diff_view::highlight::store::{Changed, StyleStore};
 use probe_diff_view::highlight::{HighlightWorker, LineSet, Sides, Snapshot, Source};
@@ -64,6 +65,39 @@ pub trait Surface {
     fn heights_changed(&self, height: f64, rows: &[Range<u32>]);
     /// Поле черновика над блоком черновика или скрыто (`None`).
     fn place_draft(&self, place: Option<DraftPlace>);
+    /// Изменилось то, что сообщают элементы доступности строк: вид шлёт уведомления.
+    fn announce(&self, change: Announce);
+}
+
+/// Что изменилось для доступности.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct Announce {
+    /// Строка курсора: фокус доступности.
+    pub focus: bool,
+    /// Выбранные строки: выделение или, без него, строка курсора.
+    pub selection: bool,
+    /// Видимые строки: прокрутка или новое содержимое.
+    pub layout: bool,
+}
+
+impl Announce {
+    pub const ALL: Announce = Announce {
+        focus: true,
+        selection: true,
+        layout: true,
+    };
+
+    pub fn is_empty(self) -> bool {
+        !(self.focus || self.selection || self.layout)
+    }
+
+    pub fn merge(self, other: Announce) -> Announce {
+        Announce {
+            focus: self.focus || other.focus,
+            selection: self.selection || other.selection,
+            layout: self.layout || other.layout,
+        }
+    }
 }
 
 /// Где показать поле черновика: колонка блока черновика в координатах документа.
@@ -255,6 +289,30 @@ impl Model {
             layout: &self.layout,
             threads: &self.threads,
         })
+    }
+
+    /// Строка курсора.
+    pub fn cursor_row(&self) -> Option<u32> {
+        let shown = self.shown()?;
+        let cursor = self.state.as_ref()?.cursor()?;
+        shown
+            .body
+            .row_of_addr(self.mode, cursor.addr)
+            .map(|located| located.index)
+    }
+
+    /// Что сообщает элемент доступности строки показа `row`.
+    pub fn row_ax(&self, row: u32) -> Option<RowAx> {
+        let shown = self.shown()?;
+        let state = self.state.as_ref()?;
+        describe_row(
+            shown.diff,
+            shown.body,
+            self.mode,
+            row,
+            self.cursor_row(),
+            state.selection(),
+        )
     }
 
     fn expanded(&self) -> std::collections::BTreeSet<ThreadId> {
@@ -824,6 +882,15 @@ impl Scene {
         self.reloading.set(false);
         self.place_draft(None, false);
         self.request_visible();
+        self.announce(Announce::ALL);
+    }
+
+    fn announce(&self, change: Announce) {
+        if !change.is_empty()
+            && let Some(surface) = self.surface()
+        {
+            surface.announce(change);
+        }
     }
 
     fn heights_ready(&self, delivery: Delivery<Arc<HeightSnapshot>>) {
@@ -1171,6 +1238,10 @@ impl Scene {
         self.reloading.set(false);
         self.place_draft(None, false);
         self.request_visible();
+        self.announce(Announce {
+            layout: true,
+            ..Announce::default()
+        });
     }
 
     /// Поле черновика над блоком черновика, если он в этом файле, иначе скрыто. `text` — текст
@@ -1270,6 +1341,10 @@ impl Scene {
             model.state = Some(next);
         }
         self.request_visible();
+        self.announce(Announce {
+            layout: true,
+            ..Announce::default()
+        });
     }
 
     /// Команда состояния вида: новое состояние, перерисовка строк курсора и выделения и
@@ -1289,6 +1364,11 @@ impl Scene {
             let next = state.apply(command, &view);
             let after = marked_rows(&next, &view, mode);
             let y = next.shown(&view).map(|shown| shown.y);
+            let change = Announce {
+                focus: before.0 != after.0,
+                selection: before != after,
+                layout: false,
+            };
             let mut rows = Vec::new();
             if before != after {
                 for (cursor, selection) in [before, after] {
@@ -1301,9 +1381,9 @@ impl Scene {
             if !rows.is_empty() {
                 model.generation += 1;
             }
-            (model.generation, rows, y)
+            (model.generation, rows, y, change)
         };
-        let (generation, rows, y) = outcome;
+        let (generation, rows, y, mut change) = outcome;
         if !rows.is_empty() {
             self.changed(generation, Some(rows));
         }
@@ -1311,8 +1391,10 @@ impl Scene {
             && (y as f64 - visible.y).abs() >= 0.5
         {
             surface.scroll_to(y as f64);
+            change.layout = true;
         }
         self.request_visible();
+        self.announce(change);
     }
 }
 
