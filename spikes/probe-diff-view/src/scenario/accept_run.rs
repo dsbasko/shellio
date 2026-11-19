@@ -546,7 +546,10 @@ impl AcceptScript {
                 self.file, file.path
             ),
         ));
-        let rows = ctx.stage.scene.timeline().rows;
+        let rows = {
+            let model = ctx.stage.scene.model().borrow();
+            model.shown().map(|shown| shown.heights.len())
+        };
         checks.push(Check::new(
             format!("{name} rows"),
             rows == u32::try_from(raw.rows(mode)).ok(),
