@@ -41,6 +41,21 @@ pub mod stand;
 #[allow(dead_code)]
 pub mod watchdog;
 
+thread_local! {
+    static PAUSE: std::cell::Cell<Option<std::time::Duration>> = const { std::cell::Cell::new(None) };
+}
+
+/// Сценарий просит таймер опроса стенда не будить его `duration`: следующее срабатывание
+/// переносится на конец паузы.
+pub fn request_pause(duration: std::time::Duration) {
+    PAUSE.with(|pause| pause.set(Some(duration)));
+}
+
+/// Запрошенная пауза, если она есть; запрос снимается.
+pub fn take_pause() -> Option<std::time::Duration> {
+    PAUSE.with(std::cell::Cell::take)
+}
+
 /// Код выхода ошибки исполнения, тот же, что у `main`.
 #[allow(dead_code)]
 pub const EXIT_EXECUTION: u8 = 3;

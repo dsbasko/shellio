@@ -1,8 +1,9 @@
 //! Сценарий `idle` с окном: фикстура `modified` генерируется на рабочем потоке, клавиша `o`
 //! открывает её в виде варианта и режима, после снимка полного разбора, покрытия видимых строк и
 //! без перестройки идёт окно простоя 10 с. Тело опроса в окне — одно сравнение времени: таймер
-//! стенда 5 мс работает и в окне и входит в CPU процесса (отчёт, строка «Окно `idle`»). До
-//! клавиши открытия идёт контрольное окно 10 с без diff — пол стенда (строка «Пол стенда `idle`»).
+//! стенда на время окна переносит срабатывание на его конец (строка «Таймер опроса в окнах
+//! `idle`»). До клавиши открытия идёт контрольное окно 10 с без diff — пол стенда (строка «Пол
+//! стенда `idle`»).
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -188,6 +189,7 @@ impl IdleRun {
                     Some(Ok(_)) if !self.window.viewsNeedDisplay() => {
                         drawmark::take();
                         let start = sampler::sample()?;
+                        super::request_pause(Duration::from_nanos(idle::WINDOW_NS));
                         Ok(Step::Floor {
                             start,
                             until_ns: start.mono_ns + idle::WINDOW_NS,
@@ -208,6 +210,7 @@ impl IdleRun {
                 if self.opened(&posted, posted_ns)? {
                     drawmark::take();
                     let start = sampler::sample()?;
+                    super::request_pause(Duration::from_nanos(idle::WINDOW_NS));
                     return Ok(Step::Idle {
                         start,
                         until_ns: start.mono_ns + idle::WINDOW_NS,

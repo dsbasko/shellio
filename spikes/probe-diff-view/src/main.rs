@@ -36,7 +36,7 @@ use objc2_app_kit::{
 };
 use objc2_core_graphics::CGDisplayIsBuiltin;
 use objc2_foundation::{
-    NSNotification, NSObject, NSObjectProtocol, NSPoint, NSProcessInfo, NSRect, NSRunLoop,
+    NSDate, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSProcessInfo, NSRect, NSRunLoop,
     NSRunLoopCommonModes, NSSize, NSString, NSTimer,
 };
 
@@ -734,7 +734,17 @@ define_class!(
             let polled = self.ivars().running.borrow().as_ref().map(|run| run.poll());
             match polled {
                 None => self.check_window(),
-                Some(None) => {}
+                Some(None) => {
+                    // Сценарий попросил не опрашивать его до конца окна: одно срабатывание вместо
+                    // опроса раз в 5 мс (отчёт, строка «Таймер опроса в окнах `idle`»).
+                    if let Some(pause) = scenario::take_pause()
+                        && let Some(timer) = self.ivars().timer.borrow().as_ref()
+                    {
+                        timer.setFireDate(&NSDate::dateWithTimeIntervalSinceNow(
+                            pause.as_secs_f64(),
+                        ));
+                    }
+                }
                 Some(Some(result)) => {
                     drop(self.ivars().running.borrow_mut().take());
                     self.finish(match result {
