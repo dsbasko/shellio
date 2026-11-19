@@ -180,10 +180,14 @@ pub enum Scenario {
     Pairs,
     /// Контракт: ограниченность видов строк, кэша раскладки и счётчиков объектов.
     Bounded,
+    /// Зоны: хост части зоны всех зон и классов, заглушка ниже `min_size`, якорь и клавиши.
+    Zones,
+    /// Темы: светлая, тёмная и Increase Contrast, пиксельная проба фонов, снимок окна.
+    Theme,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 16] = [
+    pub const ALL: [Scenario; 18] = [
         Scenario::Smoke,
         Scenario::Highlight,
         Scenario::Calibrate,
@@ -200,6 +204,8 @@ impl Scenario {
         Scenario::Threads,
         Scenario::Pairs,
         Scenario::Bounded,
+        Scenario::Zones,
+        Scenario::Theme,
     ];
 
     pub fn name(self) -> &'static str {
@@ -220,6 +226,8 @@ impl Scenario {
             Scenario::Threads => "threads",
             Scenario::Pairs => "pairs",
             Scenario::Bounded => "bounded",
+            Scenario::Zones => "zones",
+            Scenario::Theme => "theme",
         }
     }
 
@@ -238,7 +246,9 @@ impl Scenario {
             | Scenario::Idle
             | Scenario::Selection
             | Scenario::Threads
-            | Scenario::Bounded => Axes::VIEW,
+            | Scenario::Bounded
+            | Scenario::Zones
+            | Scenario::Theme => Axes::VIEW,
             Scenario::Open
             | Scenario::OpenWarm
             | Scenario::Frames
@@ -262,7 +272,9 @@ impl Scenario {
             | Scenario::Idle
             | Scenario::Selection
             | Scenario::Threads
-            | Scenario::Bounded => &[],
+            | Scenario::Bounded
+            | Scenario::Zones
+            | Scenario::Theme => &[],
             Scenario::Anchor => &[OpenFixture::Threads, OpenFixture::Wrap],
             Scenario::Pairs => &[OpenFixture::Modified, OpenFixture::Wrap],
             Scenario::Open | Scenario::OpenWarm => &[
@@ -306,7 +318,9 @@ impl Scenario {
             | Scenario::Selection
             | Scenario::Threads
             | Scenario::Pairs
-            | Scenario::Bounded => false,
+            | Scenario::Bounded
+            | Scenario::Zones
+            | Scenario::Theme => false,
             Scenario::Highlight | Scenario::Open | Scenario::OpenWarm => true,
         }
     }

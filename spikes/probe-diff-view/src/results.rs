@@ -1274,6 +1274,14 @@ mod tests {
                 key("threads", Some(Variant::A), Some(ViewMode::Unified), None),
             ),
             (
+                "zones-b-side",
+                key("zones", Some(Variant::B), Some(ViewMode::Side), None),
+            ),
+            (
+                "theme-a-unified",
+                key("theme", Some(Variant::A), Some(ViewMode::Unified), None),
+            ),
+            (
                 "frames-threads-b-side",
                 ProcessKey {
                     fixture: Some(OpenFixture::Threads),

@@ -24,7 +24,7 @@ CARGO="${CARGO:-cargo}"
 BIN="$ROOT/target/release/probe-diff-view"
 OUT_BASE="$ROOT/target/probes/diff-view"
 FIXTURES_DIR="$OUT_BASE/fixtures"
-ALL_SCENARIOS="smoke highlight calibrate open-smoke ax open open-warm frames memory keys idle anchor selection threads pairs bounded"
+ALL_SCENARIOS="smoke highlight calibrate open-smoke ax open open-warm frames memory keys idle anchor selection threads pairs bounded zones theme"
 ALL_VARIANTS="a b"
 ALL_MODES="unified side"
 ALL_FIXTURES="added modified sparse wrap real threads"
@@ -125,7 +125,7 @@ check_state_dir() {
 axes_of() {
     case "$1" in
         smoke | highlight | calibrate) echo stand ;;
-        open-smoke | ax | keys | idle | selection | threads | bounded) echo view ;;
+        open-smoke | ax | keys | idle | selection | threads | bounded | zones | theme) echo view ;;
         open | open-warm | frames | anchor | pairs) echo open ;;
         memory) echo variant ;;
         *) die "неизвестный сценарий «${1}», известны: $ALL_SCENARIOS" ;;

@@ -452,6 +452,15 @@ pub fn drawn_row(row: u32) -> (Option<super::anchor::Drawn>, Option<super::ancho
     })
 }
 
+/// Записей журнала: строк с текстом, блоками и гуттером. Ноль после сброса — ничего не нарисовано.
+pub fn journal_entries() -> usize {
+    JOURNAL.with(|journal| {
+        journal.borrow().as_ref().map_or(0, |journal| {
+            journal.text.len() + journal.blocks.len() + journal.gutter.len()
+        })
+    })
+}
+
 /// Последний нарисованный текст гуттера половины строки показа и его поколение.
 pub fn gutter_of(row: u32, half: HalfKey) -> Option<(u64, String)> {
     JOURNAL.with(|journal| {

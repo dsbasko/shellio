@@ -37,6 +37,7 @@ pub mod open;
 pub mod open_smoke;
 pub mod pairs;
 pub mod pairs_run;
+pub mod render;
 #[allow(dead_code)]
 pub mod sampler;
 pub mod scroll;
@@ -47,10 +48,14 @@ pub mod smoke;
 pub mod snapshot;
 pub mod stage;
 pub mod stand;
+pub mod theme;
+pub mod theme_run;
 pub mod threads;
 pub mod threads_run;
 #[allow(dead_code)]
 pub mod watchdog;
+pub mod zones;
+pub mod zones_run;
 
 thread_local! {
     static PAUSE: std::cell::Cell<Option<std::time::Duration>> = const { std::cell::Cell::new(None) };

@@ -16,6 +16,7 @@ mod stats;
 mod text;
 mod view_a;
 mod view_b;
+mod zone_host;
 
 use std::cell::{OnceCell, RefCell};
 use std::ffi::CString;
@@ -88,6 +89,9 @@ const SELECTION_DEADLINE: Duration = Duration::from_secs(3 * 60);
 const THREADS_DEADLINE: Duration = Duration::from_secs(10 * 60);
 const PAIRS_DEADLINE: Duration = Duration::from_secs(5 * 60);
 const BOUNDED_DEADLINE: Duration = Duration::from_secs(20 * 60);
+/// Сторожа `zones` и `theme` (отчёт, строка «Сроки `zones` и `theme`»).
+const ZONES_DEADLINE: Duration = Duration::from_secs(10 * 60);
+const THEME_DEADLINE: Duration = Duration::from_secs(6 * 60);
 /// Период проверки готовности окна. Поток не засыпает: между проверками цикл обрабатывает события.
 const POLL_INTERVAL_S: f64 = 0.005;
 
@@ -319,6 +323,8 @@ fn run_scenario(
         Scenario::Threads => Some(("threads", THREADS_DEADLINE)),
         Scenario::Pairs => Some(("pairs", PAIRS_DEADLINE)),
         Scenario::Bounded => Some(("bounded", BOUNDED_DEADLINE)),
+        Scenario::Zones => Some(("zones", ZONES_DEADLINE)),
+        Scenario::Theme => Some(("theme", THEME_DEADLINE)),
         Scenario::Highlight => None,
     };
     let _watchdog = match deadline {
@@ -348,7 +354,9 @@ fn run_scenario(
         | Scenario::Selection
         | Scenario::Threads
         | Scenario::Pairs
-        | Scenario::Bounded => run_app(Some(scenario), view, Some(out.clone()), None, trace)
+        | Scenario::Bounded
+        | Scenario::Zones
+        | Scenario::Theme => run_app(Some(scenario), view, Some(out.clone()), None, trace)
             .unwrap_or_else(|| {
                 Outcome::error(
                     "основной цикл завершился без итога сценария",
@@ -1006,7 +1014,9 @@ impl AppDelegate {
                     | Scenario::Selection
                     | Scenario::Threads
                     | Scenario::Pairs
-                    | Scenario::Bounded),
+                    | Scenario::Bounded
+                    | Scenario::Zones
+                    | Scenario::Theme),
                 ) => {
                     let Some(part) = scenario::contract_run::Part::of(scenario) else {
                         return self.finish(Outcome::error(
@@ -1022,6 +1032,7 @@ impl AppDelegate {
                         ivars.trace.clone(),
                         ivars.view,
                         part,
+                        out,
                     ) {
                         Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
                         Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),

@@ -202,15 +202,16 @@ pub struct Target {
 }
 
 impl Target {
-    /// Раскладка текста `body` в видимой области центра. `None` — ниже `min_size`.
-    fn of(body: &TextBody, font: FontMetrics, requested: Mode, visible: Visible) -> Option<Self> {
-        let metrics = TextMetrics {
-            char_width: font.char_width,
-            digits: TextMetrics::digits_of(max_line(body)),
-            divider: DIVIDER,
-        };
+    /// Раскладка текста `body` в видимой области части зоны `zone`. `None` — ниже `min_size`.
+    fn of(
+        body: &TextBody,
+        font: FontMetrics,
+        requested: Mode,
+        visible: Visible,
+        zone: Zone,
+    ) -> Option<Self> {
         let DiffLayout::Diff(geometry) =
-            metrics.adapt(Geometry::new(Zone::Center, visible.width, visible.height))
+            text_metrics(body, font).adapt(Geometry::new(zone, visible.width, visible.height))
         else {
             return None;
         };
@@ -223,6 +224,15 @@ impl Target {
                 wrap: geometry.wrap(mode),
             },
         })
+    }
+}
+
+/// Метрики текста `body` для `adapt`: клетка шрифта, цифры самого большого номера, разделитель.
+fn text_metrics(body: &TextBody, font: FontMetrics) -> TextMetrics {
+    TextMetrics {
+        char_width: font.char_width,
+        digits: TextMetrics::digits_of(max_line(body)),
+        divider: DIVIDER,
     }
 }
 
@@ -261,6 +271,8 @@ pub struct Model {
     pub threads: Threads,
     /// Блоки установленного индекса высот: меняются вместе с ним.
     pub layout: ThreadLayout,
+    /// Зона части, в которой стоит вид: её задаёт хост.
+    pub zone: Zone,
     last_visible: Option<Sides<LineSet>>,
 }
 
@@ -573,6 +585,7 @@ impl Scene {
                 relayout: Relayout::default(),
                 threads: Threads::new(fixture.threads.clone()),
                 layout: ThreadLayout::default(),
+                zone: Zone::Center,
                 last_visible: None,
             }),
             surface: RefCell::new(None),
@@ -874,7 +887,8 @@ impl Scene {
                 self.fail("у активного файла нет текста".to_owned());
                 return;
             };
-            let Some(target) = Target::of(body, model.font, model.requested, visible) else {
+            let Some(target) = Target::of(body, model.font, model.requested, visible, model.zone)
+            else {
                 drop(model);
                 self.fail(format!(
                     "часть зоны {} × {} ниже min_size",
@@ -912,6 +926,21 @@ impl Scene {
         }
     }
 
+    /// Хост поставил вид в часть зоны `zone`: раскладка перестраивается, как при смене размера.
+    pub fn set_zone(&self, zone: Zone) {
+        self.model.borrow_mut().zone = zone;
+        self.resized();
+    }
+
+    /// Раскладка открытого текста в части зоны `zone` размером `width × height`: по ней хост
+    /// решает, показать вид или заглушку. `None` — текст ещё не открыт.
+    pub fn layout_at(&self, zone: Zone, width: f64, height: f64) -> Option<DiffLayout> {
+        let model = self.model.borrow();
+        let diff = model.diff.as_ref()?;
+        let body = diff.diff.file(model.file)?.text()?;
+        Some(text_metrics(body, model.font).adapt(Geometry::new(zone, width, height)))
+    }
+
     /// Запрошенный режим сменился без смены ширины: раскладка перестраивается, как при смене
     /// размера, якорь остаётся адресом и смещением. «Рядом» включается, только если ширины
     /// хватает на две стороны.
@@ -933,7 +962,8 @@ impl Scene {
             let Some(body) = diff.diff.file(model.file).and_then(|file| file.text()) else {
                 return;
             };
-            let Some(target) = Target::of(body, model.font, model.requested, visible) else {
+            let Some(target) = Target::of(body, model.font, model.requested, visible, model.zone)
+            else {
                 return;
             };
             let installed = model.installed();
@@ -1650,17 +1680,64 @@ mod tests {
             width,
             height,
         };
-        let wide = Target::of(body, font, Mode::SideBySide, visible(1180.0, 700.0)).unwrap();
+        let wide = Target::of(
+            body,
+            font,
+            Mode::SideBySide,
+            visible(1180.0, 700.0),
+            Zone::Center,
+        )
+        .unwrap();
         assert_eq!(wide.mode, Mode::SideBySide);
-        let narrower = Target::of(body, font, Mode::SideBySide, visible(1060.0, 700.0)).unwrap();
+        let narrower = Target::of(
+            body,
+            font,
+            Mode::SideBySide,
+            visible(1060.0, 700.0),
+            Zone::Center,
+        )
+        .unwrap();
         assert_eq!(narrower.mode, Mode::SideBySide);
         assert_ne!(narrower.metrics, wide.metrics);
         // Высота внутри класса раскладку не меняет: индекс не перестраивается.
-        let shorter = Target::of(body, font, Mode::SideBySide, visible(1180.0, 500.0)).unwrap();
+        let shorter = Target::of(
+            body,
+            font,
+            Mode::SideBySide,
+            visible(1180.0, 500.0),
+            Zone::Center,
+        )
+        .unwrap();
         assert_eq!(shorter, wide);
-        let narrow = Target::of(body, font, Mode::SideBySide, visible(600.0, 700.0)).unwrap();
+        let narrow = Target::of(
+            body,
+            font,
+            Mode::SideBySide,
+            visible(600.0, 700.0),
+            Zone::Center,
+        )
+        .unwrap();
         assert_eq!(narrow.mode, Mode::Unified);
-        assert!(Target::of(body, font, Mode::Unified, visible(100.0, 700.0)).is_none());
+        assert!(
+            Target::of(
+                body,
+                font,
+                Mode::Unified,
+                visible(100.0, 700.0),
+                Zone::Center
+            )
+            .is_none()
+        );
+        // Боковая зона снимает запрос «Рядом» при той же ширине.
+        let left = Target::of(
+            body,
+            font,
+            Mode::SideBySide,
+            visible(1180.0, 700.0),
+            Zone::Left,
+        )
+        .unwrap();
+        assert_eq!(left.mode, Mode::Unified);
     }
 
     #[test]

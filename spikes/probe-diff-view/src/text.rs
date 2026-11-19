@@ -23,6 +23,16 @@ use probe_diff_view::highlight::Run;
 use probe_diff_view::model::wrap::{self, Wrap};
 use probe_diff_view::tokens::{Appearance, Rgb, Theme, ThemeKey};
 
+thread_local! {
+    static CONTRAST_OVERRIDE: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
+}
+
+/// Переопределение пробы поверх системного Increase Contrast (сценарий `theme`): `None` —
+/// системный переключатель.
+pub fn override_contrast(increase: Option<bool>) {
+    CONTRAST_OVERRIDE.with(|cell| cell.set(increase));
+}
+
 /// Тема вида по оформлению приложения и Increase Contrast.
 pub fn current_theme(mtm: MainThreadMarker) -> ThemeKey {
     let app = NSApplication::sharedApplication(mtm);
@@ -39,8 +49,11 @@ pub fn current_theme(mtm: MainThreadMarker) -> ThemeKey {
         } else {
             Appearance::Light
         },
-        increase_contrast: NSWorkspace::sharedWorkspace()
-            .accessibilityDisplayShouldIncreaseContrast(),
+        increase_contrast: CONTRAST_OVERRIDE
+            .with(std::cell::Cell::get)
+            .unwrap_or_else(|| {
+                NSWorkspace::sharedWorkspace().accessibilityDisplayShouldIncreaseContrast()
+            }),
     }
 }
 

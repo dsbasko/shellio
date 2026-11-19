@@ -9,6 +9,7 @@
 //! сцены и таблицы B.
 
 use std::cell::{Cell, RefCell};
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::thread;
@@ -54,6 +55,8 @@ pub enum Part {
     Threads,
     Pairs,
     Bounded,
+    Zones,
+    Theme,
 }
 
 impl Part {
@@ -64,6 +67,8 @@ impl Part {
             Scenario::Threads => Part::Threads,
             Scenario::Pairs => Part::Pairs,
             Scenario::Bounded => Part::Bounded,
+            Scenario::Zones => Part::Zones,
+            Scenario::Theme => Part::Theme,
             Scenario::Smoke
             | Scenario::Highlight
             | Scenario::Calibrate
@@ -85,6 +90,8 @@ impl Part {
             Part::Threads => "threads",
             Part::Pairs => "pairs",
             Part::Bounded => "bounded",
+            Part::Zones => "zones",
+            Part::Theme => "theme",
         }
     }
 
@@ -93,7 +100,7 @@ impl Part {
     pub fn fixture(self, given: Option<OpenFixture>) -> Result<OpenFixture, String> {
         let own = match self {
             Part::Selection | Part::Threads => OpenFixture::Threads,
-            Part::Bounded => OpenFixture::Modified,
+            Part::Bounded | Part::Zones | Part::Theme => OpenFixture::Modified,
             Part::Anchor | Part::Pairs => {
                 return given.ok_or_else(|| format!("у {} нет оси фикстур", self.name()));
             }
@@ -338,13 +345,20 @@ pub fn returned(posted: &[u64]) -> bool {
         .all(|number| events::record(*number).is_some_and(|record| record.send_return.is_some()))
 }
 
-fn script_of(part: Part, fixture: OpenFixture, mode: Mode) -> Result<Box<dyn Script>, String> {
+fn script_of(
+    part: Part,
+    fixture: OpenFixture,
+    mode: Mode,
+    out: &Path,
+) -> Result<Box<dyn Script>, String> {
     match part {
         Part::Anchor => Ok(Box::new(super::anchor_run::AnchorScript::new(fixture)?)),
         Part::Selection => Ok(Box::new(super::selection_run::SelectionScript::new(mode))),
         Part::Threads => Ok(Box::new(super::threads_run::ThreadsScript::default())),
         Part::Pairs => Ok(Box::new(super::pairs_run::PairsScript::new(fixture, mode)?)),
         Part::Bounded => Ok(Box::new(super::bounded_run::BoundedScript::new())),
+        Part::Zones => Ok(Box::new(super::zones_run::ZonesScript::new(mode))),
+        Part::Theme => Ok(Box::new(super::theme_run::ThemeScript::new(out))),
     }
 }
 
@@ -356,6 +370,7 @@ impl ContractRun {
         trace: SharedTrace,
         view: ViewOptions,
         part: Part,
+        out: &Path,
     ) -> Result<ContractRun, Failed> {
         let (variant, mode) = match (view.variant, view.mode) {
             (Some(variant), Some(mode)) => (variant, mode),
@@ -380,7 +395,7 @@ impl ContractRun {
             ViewMode::Unified => Mode::Unified,
             ViewMode::Side => Mode::SideBySide,
         };
-        let script = match script_of(part, fixture, requested) {
+        let script = match script_of(part, fixture, requested, out) {
             Ok(script) => script,
             Err(reason) => return Err(Box::new((reason, report))),
         };

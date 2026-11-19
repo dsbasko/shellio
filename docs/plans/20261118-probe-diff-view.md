@@ -727,6 +727,8 @@
 **Files:**
 - Create: `spikes/probe-diff-view/src/scenario/zones.rs`
 - Create: `spikes/probe-diff-view/src/scenario/theme.rs`
+- ➕ Create: `spikes/probe-diff-view/src/scenario/zones_run.rs`, `src/scenario/theme_run.rs` (шаги в общем исполнителе контракта), `src/scenario/render.rs` (рендер вида в bitmap и пиксель из P0.2), `src/zone_host.rs` (хост части зоны и заглушка «Развернуть», вне `view_a` и `view_b`)
+- ➕ Modify: `src/scene.rs` (`Scene::set_zone`, `Scene::layout_at`), `src/text.rs` (переопределение Increase Contrast), `src/scenario/drawmark.rs` (`journal_entries`), `src/scenario/contract_run.rs` (`Part::Zones`, `Part::Theme`, каталог процесса), `src/args.rs`, `src/main.rs`, `src/results.rs` (тест имён каталогов), `src/scenario/mod.rs`, `Cargo.toml` (функции `objc2-app-kit`: `NSButton`, `NSBitmapImageRep`, `NSImageRep`, `NSColorSpace`), `run.sh`, `AGENTS.md`, отчёт
 
 - [ ] `zones`: хост заданного размера для всех четырёх зон и классов, граница `min_size`, приоритет правил (заглушка, политика зоны, класс и ширина), широкая боковая часть, короткая широкая часть центра, боковая часть 236 точек, заглушка «Развернуть», сохранение якоря при смене класса, клавиши в каждом классе
 - [ ] `theme`: светлая, тёмная тема и Increase Contrast из переопределений пробы, пиксельная проба фона добавления, удаления, выделения и гуттера против токенов, снимок окна в каждой ячейке
