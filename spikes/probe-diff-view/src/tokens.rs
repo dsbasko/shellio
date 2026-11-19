@@ -136,6 +136,8 @@ pub struct Theme {
     pub cursor_line: Rgb,
     /// Граница ханка и разделитель половин «Рядом».
     pub separator: Rgb,
+    /// Фон блока треда и поля черновика.
+    pub thread_background: Rgb,
     pub syntax: Syntax,
 }
 
@@ -152,6 +154,7 @@ const LIGHT: Theme = Theme {
     selection: Rgb::hex(0xDDF4FF),
     cursor_line: Rgb::hex(0xEEF1F4),
     separator: Rgb::hex(0xD0D7DE),
+    thread_background: Rgb::hex(0xF3F6FC),
     syntax: Syntax {
         keyword: Rgb::hex(0xB3261E),
         string: Rgb::hex(0x0A3069),
@@ -179,6 +182,7 @@ const LIGHT_CONTRAST: Theme = Theme {
     selection: Rgb::hex(0xCCEBFF),
     cursor_line: Rgb::hex(0xE4E8EC),
     separator: Rgb::hex(0x6E7781),
+    thread_background: Rgb::hex(0xF0F3F9),
     syntax: Syntax {
         keyword: Rgb::hex(0x7F0D16),
         string: Rgb::hex(0x0A2550),
@@ -206,6 +210,7 @@ const DARK: Theme = Theme {
     selection: Rgb::hex(0x1C2D44),
     cursor_line: Rgb::hex(0x1A1F27),
     separator: Rgb::hex(0x30363D),
+    thread_background: Rgb::hex(0x101A27),
     syntax: Syntax {
         keyword: Rgb::hex(0xFF7B72),
         string: Rgb::hex(0xA5D6FF),
@@ -233,6 +238,7 @@ const DARK_CONTRAST: Theme = Theme {
     selection: Rgb::hex(0x14263D),
     cursor_line: Rgb::hex(0x151A21),
     separator: Rgb::hex(0x8B949E),
+    thread_background: Rgb::hex(0x0A111B),
     syntax: Syntax {
         keyword: Rgb::hex(0xFFA198),
         string: Rgb::hex(0xCAE8FF),
@@ -290,22 +296,24 @@ impl Theme {
     }
 
     /// Фоны, на которых рисуется текст строк diff.
-    pub fn text_backgrounds(&self) -> [(&'static str, Rgb); 5] {
+    pub fn text_backgrounds(&self) -> [(&'static str, Rgb); 6] {
         [
             ("background", self.background),
             ("added_background", self.added_background),
             ("removed_background", self.removed_background),
             ("selection", self.selection),
             ("cursor_line", self.cursor_line),
+            ("thread_background", self.thread_background),
         ]
     }
 
-    /// Фоны гуттера, на которых рисуются номера строк.
-    pub fn gutter_backgrounds(&self) -> [(&'static str, Rgb); 3] {
+    /// Фоны, на которых рисуется цвет гуттера: номера строк, заголовок и автор треда.
+    pub fn gutter_backgrounds(&self) -> [(&'static str, Rgb); 4] {
         [
             ("gutter_background", self.gutter_background),
             ("added_gutter", self.added_gutter),
             ("removed_gutter", self.removed_gutter),
+            ("thread_background", self.thread_background),
         ]
     }
 
@@ -387,6 +395,8 @@ mod tests {
                 theme.removed_background,
                 theme.selection,
                 theme.cursor_line,
+                theme.thread_background,
+                theme.gutter_background,
             ];
             for (i, a) in surfaces.iter().enumerate() {
                 for b in &surfaces[i + 1..] {

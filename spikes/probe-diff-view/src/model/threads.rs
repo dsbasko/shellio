@@ -12,6 +12,7 @@
 //! Черновик один на модель: вид держит одно поле черновика и ставит его над блоком черновика.
 
 use std::collections::BTreeSet;
+use std::ops::Range;
 
 use super::heights::Block;
 use super::rows::Mode;
@@ -194,9 +195,79 @@ impl BlockMetrics {
     pub fn draft_height(&self) -> u32 {
         self.line_height.saturating_mul(self.draft_lines)
     }
+
+    /// Визуальные строки блока треда, ровно столько, сколько считает [`Self::thread_height`]:
+    /// у свёрнутого — заголовок и пустые строки до `collapsed_lines`, у раскрытого — заголовок,
+    /// у каждого комментария автор и визуальные строки текста. Заголовок и автор длиннее строки
+    /// обрезаются её первой визуальной строкой.
+    pub fn thread_lines(&self, thread: &Thread, expanded: bool) -> Vec<BlockLine> {
+        let first = |role: LineRole, text: String| {
+            let segment = wrap::segments(text.as_bytes(), self.wrap)
+                .into_iter()
+                .next()
+                .unwrap_or(0..0);
+            BlockLine {
+                role,
+                text,
+                segment,
+            }
+        };
+        let anchor = &thread.anchor;
+        let side = match anchor.side {
+            Side::Old => "старая",
+            Side::New => "новая",
+        };
+        let lines = if anchor.is_range() {
+            format!("{}–{}", anchor.start_line, anchor.line)
+        } else {
+            anchor.line.to_string()
+        };
+        let header = format!(
+            "{} тред {}: {side} {lines}, комментариев {}",
+            if expanded { "▾" } else { "▸" },
+            thread.id.0,
+            thread.comments.len()
+        );
+        let mut out = vec![first(LineRole::Header, header)];
+        if !expanded {
+            out.extend((1..self.collapsed_lines).map(|_| first(LineRole::Header, String::new())));
+            return out;
+        }
+        for comment in &thread.comments {
+            out.push(first(LineRole::Author, comment.author.clone()));
+            for line in comment.body.split('\n') {
+                out.extend(
+                    wrap::segments(line.as_bytes(), self.wrap)
+                        .into_iter()
+                        .map(|segment| BlockLine {
+                            role: LineRole::Body,
+                            text: line.to_owned(),
+                            segment,
+                        }),
+                );
+            }
+        }
+        out
+    }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+/// Роль визуальной строки блока треда.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LineRole {
+    Header,
+    Author,
+    Body,
+}
+
+/// Визуальная строка блока треда: логическая строка и байты визуальной строки в ней.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BlockLine {
+    pub role: LineRole,
+    pub text: String,
+    pub segment: Range<usize>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BlockItem {
     Thread(ThreadId),
     Draft,
@@ -648,6 +719,49 @@ mod tests {
         // Заголовок 1, первый комментарий 1 + 1, второй 1 + 1 + 3 (45 символов по 20).
         assert_eq!(metrics.thread_height(&item, true), 8 * LINE);
         assert_eq!(metrics.draft_height(), 4 * LINE);
+
+        for expanded in [false, true] {
+            let lines = metrics.thread_lines(&item, expanded);
+            assert_eq!(
+                lines.len() as u32 * LINE,
+                metrics.thread_height(&item, expanded),
+                "{expanded}"
+            );
+        }
+        let lines = metrics.thread_lines(&item, true);
+        let roles: Vec<LineRole> = lines.iter().map(|line| line.role).collect();
+        assert_eq!(
+            roles,
+            [
+                LineRole::Header,
+                LineRole::Author,
+                LineRole::Body,
+                LineRole::Author,
+                LineRole::Body,
+                LineRole::Body,
+                LineRole::Body,
+                LineRole::Body,
+            ]
+        );
+        // Заголовок длиннее 20 клеток обрезан первой визуальной строкой.
+        assert!(lines[0].text.starts_with("▾ тред 0: новая 1"));
+        assert_eq!(
+            wrap::visual_lines(
+                &lines[0].text.as_bytes()[lines[0].segment.clone()],
+                metrics.wrap
+            ),
+            1
+        );
+        let tail: Vec<&str> = lines[5..]
+            .iter()
+            .map(|line| &line.text[line.segment.clone()])
+            .collect();
+        assert_eq!(tail, [&long[..20], &long[20..40], &long[40..]]);
+        let collapsed = BlockMetrics {
+            collapsed_lines: 2,
+            ..metrics
+        };
+        assert_eq!(collapsed.thread_lines(&item, false).len(), 2);
 
         let diff = two_hunks();
         let threads = Threads::new(vec![item]);

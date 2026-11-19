@@ -11,6 +11,8 @@ pub enum Action {
     Command(Command),
     /// Клавиша открытия фикстуры, только для стенда пробы: `o`.
     Open,
+    /// `c`: черновик комментария на выделении или строке курсора.
+    Draft,
 }
 
 /// Клавиша: `charactersIgnoringModifiers` и модификаторы.
@@ -85,6 +87,7 @@ impl Decoder {
             "k" => Some(Action::Command(Command::Up)),
             "G" => Some(Action::Command(Command::Bottom)),
             "v" => Some(Action::Command(Command::ToggleVisual)),
+            "c" => Some(Action::Draft),
             "\u{1b}" => Some(Action::Command(Command::ClearSelection)),
             "o" => Some(Action::Open),
             "g" => {
@@ -137,6 +140,13 @@ mod tests {
             );
         }
         assert_eq!(decoder.feed(&KeyInput::plain("o")), Some(Action::Open));
+        assert_eq!(decoder.feed(&KeyInput::plain("c")), Some(Action::Draft));
+        // `c` после `]` — следующее изменение, а не черновик.
+        assert_eq!(decoder.feed(&KeyInput::plain("]")), None);
+        assert_eq!(
+            decoder.feed(&KeyInput::plain("c")),
+            Some(Action::Command(Command::NextChange))
+        );
     }
 
     #[test]
@@ -164,8 +174,11 @@ mod tests {
             feed(&mut decoder, &[KeyInput::plain("g"), KeyInput::plain("j")]),
             vec![None, Some(Action::Command(Command::Down))]
         );
-        // `c` без префикса — черновик задачи 8, здесь не действие.
-        assert_eq!(decoder.feed(&KeyInput::plain("c")), None);
+        // `c` после сброшенного префикса — снова черновик.
+        assert_eq!(
+            feed(&mut decoder, &[KeyInput::plain("g"), KeyInput::plain("c")]),
+            vec![None, Some(Action::Draft)]
+        );
         assert_eq!(
             feed(
                 &mut decoder,

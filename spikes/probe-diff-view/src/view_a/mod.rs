@@ -6,8 +6,9 @@
 //! отдаёт её обработчикам, прокрутку к якорю ведёт `scrollToPoint` у clip view.
 
 pub mod layout_cache;
+pub mod thread_block;
 
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, OnceCell, RefCell};
 use std::ops::Range;
 use std::rc::{Rc, Weak};
 
@@ -21,7 +22,7 @@ use objc2_app_kit::{
 use objc2_core_foundation::{CFRetained, CGAffineTransform};
 use objc2_core_graphics::CGContext;
 use objc2_core_text::CTLine;
-use objc2_foundation::{NSNotificationCenter, NSPoint, NSRect, NSSize};
+use objc2_foundation::{NSNotificationCenter, NSPoint, NSRect, NSSize, NSString};
 use serde::Serialize;
 
 use probe_diff_view::keymap::KeyInput;
@@ -31,11 +32,13 @@ use probe_diff_view::model::{LineKind, Mode, Side};
 use probe_diff_view::tokens::{Rgb, Theme, ThemeKey};
 
 use self::layout_cache::{Counters, Half, LayoutCache};
+use self::thread_block::BlockLayout;
+use crate::draft_field::DraftField;
 use crate::results::Rect;
 use crate::scenario::counters::{Live, counter};
 use crate::scenario::drawmark::{self, Mark};
 use crate::scenario::sampler;
-use crate::scene::{Model, Scene, Shown, Surface, Visible, drawn_side};
+use crate::scene::{DraftPlace, Model, Scene, Shown, Surface, Visible, drawn_side};
 use crate::text::{ColorCache, Font};
 
 counter!(DOCUMENT_VIEW_A, "ProbeDiffDocumentViewA");
@@ -84,6 +87,7 @@ pub struct DocumentIvars {
     theme: Cell<ThemeKey>,
     font: Font,
     cache: RefCell<LayoutCache<RowLayout>>,
+    blocks: RefCell<LayoutCache<BlockLayout>>,
     epoch: Cell<u64>,
     colors: RefCell<ColorCache>,
     dirty_log: RefCell<Vec<DirtyRecord>>,
@@ -193,6 +197,7 @@ impl DocumentView {
             theme: Cell::new(theme),
             font,
             cache: RefCell::new(LayoutCache::new(capacity)),
+            blocks: RefCell::new(LayoutCache::new(capacity)),
             epoch: Cell::new(1),
             colors: RefCell::new(ColorCache::default()),
             dirty_log: RefCell::new(Vec::new()),
@@ -293,6 +298,7 @@ impl DocumentView {
                 let capacity =
                     layout_cache::capacity(visible.size.height, shown.metrics.line_height, halves);
                 self.ivars().cache.borrow_mut().set_capacity(capacity);
+                self.ivars().blocks.borrow_mut().set_capacity(capacity);
                 CGContext::set_text_matrix(
                     Some(&context),
                     CGAffineTransform {
@@ -304,14 +310,10 @@ impl DocumentView {
                         ty: 0.0,
                     },
                 );
+                let width = visible.size.width.max(self.bounds().size.width);
                 for row in rows.clone() {
-                    self.paint_row(
-                        &context,
-                        &model,
-                        row,
-                        &seen,
-                        visible.size.width.max(self.bounds().size.width),
-                    );
+                    self.paint_row(&context, &model, row, &seen, width);
+                    self.paint_blocks(&context, &model, row, &seen, width);
                 }
                 rows
             }
@@ -558,6 +560,10 @@ impl DocumentView {
     fn counters(&self) -> Counters {
         self.ivars().cache.borrow().counters()
     }
+
+    fn block_counters(&self) -> Counters {
+        self.ivars().blocks.borrow().counters()
+    }
 }
 
 /// Текст гуттера unified: номера сторон по своим колонкам и знак. Колонок номеров — по
@@ -591,8 +597,12 @@ pub fn gutter_text(
 
 /// Вид варианта A для сцены: прокрутка и document view.
 pub struct ViewA {
+    mtm: MainThreadMarker,
+    theme: ThemeKey,
     scroll: Retained<NSScrollView>,
     document: Retained<DocumentView>,
+    /// Одно поле черновика на вид, создаётся при первом черновике.
+    draft: OnceCell<Retained<DraftField>>,
 }
 
 impl ViewA {
@@ -632,7 +642,13 @@ impl ViewA {
                 Some(&scroll),
             );
         }
-        Rc::new(ViewA { scroll, document })
+        Rc::new(ViewA {
+            mtm,
+            theme,
+            scroll,
+            document,
+            draft: OnceCell::new(),
+        })
     }
 
     pub fn bind(&self, scene: &Rc<Scene>) {
@@ -661,6 +677,28 @@ impl ViewA {
 
     pub fn cache_counters(&self) -> Counters {
         self.document.counters()
+    }
+
+    pub fn block_cache_counters(&self) -> Counters {
+        self.document.block_counters()
+    }
+
+    /// Рамка поля черновика в документе, если оно видно.
+    pub fn draft_shown(&self) -> Option<NSRect> {
+        let field = self.draft.get()?;
+        (!field.isHidden()).then(|| field.frame())
+    }
+
+    pub fn draft_focused(&self) -> bool {
+        self.draft.get().is_some_and(|field| field.is_focused())
+    }
+
+    pub fn document_focused(&self) -> bool {
+        let responder: &NSResponder = &self.document;
+        self.document
+            .window()
+            .and_then(|window| window.firstResponder())
+            .is_some_and(|first| std::ptr::eq(&*first, responder))
     }
 
     pub fn cache_len(&self) -> (usize, usize) {
@@ -734,6 +772,7 @@ impl Surface for ViewA {
         self.document
             .setFrameSize(NSSize::new(content.width, height.max(content.height)));
         self.document.ivars().cache.borrow_mut().clear();
+        self.document.ivars().blocks.borrow_mut().clear();
         let epoch = &self.document.ivars().epoch;
         epoch.set(epoch.get() + 1);
         self.document.setNeedsDisplay(true);
@@ -766,6 +805,59 @@ impl Surface for ViewA {
             height: visible.size.height,
         }
     }
+
+    fn heights_changed(&self, height: f64, rows: &[Range<u32>]) {
+        let content = self.scroll.contentSize();
+        self.document
+            .setFrameSize(NSSize::new(content.width, height.max(content.height)));
+        let mut blocks = self.document.ivars().blocks.borrow_mut();
+        for range in rows {
+            blocks.invalidate(range.clone());
+        }
+        drop(blocks);
+        self.document.setNeedsDisplay(true);
+    }
+
+    fn place_draft(&self, place: Option<DraftPlace>) {
+        let Some(place) = place else {
+            if let Some(field) = self.draft.get() {
+                let focused = field.is_focused();
+                field.setHidden(true);
+                if focused && let Some(window) = self.document.window() {
+                    let responder: &NSResponder = &self.document;
+                    window.makeFirstResponder(Some(responder));
+                }
+            }
+            return;
+        };
+        let field = self.draft.get_or_init(|| {
+            let field = DraftField::new(
+                self.mtm,
+                Theme::of(self.theme),
+                crate::text::FONT_NAME,
+                crate::text::FONT_SIZE,
+            );
+            if let Some(scene) = self.document.scene() {
+                field.bind(&scene);
+            }
+            self.document.addSubview(&field);
+            field
+        });
+        field.setFrame(NSRect::new(
+            NSPoint::new(place.x, place.y),
+            NSSize::new(place.width, place.height),
+        ));
+        if let Some(text) = place.text {
+            field.setString(&NSString::from_str(&text));
+        }
+        field.setHidden(false);
+        if place.focus
+            && let Some(window) = self.document.window()
+        {
+            let responder: &NSResponder = field;
+            window.makeFirstResponder(Some(responder));
+        }
+    }
 }
 
 impl Drop for ViewA {
@@ -773,6 +865,9 @@ impl Drop for ViewA {
         // SAFETY: снимается наблюдатель, поставленный в `new`.
         unsafe { NSNotificationCenter::defaultCenter().removeObserver(&self.document) };
         *self.document.ivars().scene.borrow_mut() = Weak::new();
+        if let Some(field) = self.draft.get() {
+            field.unbind();
+        }
     }
 }
 

@@ -6,6 +6,8 @@
 //! `spikes/probe-appkit-shell/src/main.rs` и `scenario/readback.rs` (P0.2) и упрощены.
 
 mod args;
+mod blocks;
+mod draft_field;
 mod results;
 mod scenario;
 mod scene;

@@ -31,12 +31,16 @@ use probe_diff_view::model::heights::{
     HeightIndex, HeightJob, HeightSnapshot, HeightWorker, Metrics,
 };
 use probe_diff_view::model::layout::{DiffGeometry, DiffLayout, Geometry, TextMetrics, Zone};
-use probe_diff_view::model::state::{Anchor, Command, Selection, ViewState, Viewport};
+use probe_diff_view::model::state::{Anchor, Command, Selection, ThreadId, ViewState, Viewport};
+use probe_diff_view::model::threads::{
+    BlockItem, Draft, DraftError, Thread, ThreadAnchor, ThreadLayout, Threads,
+};
 use probe_diff_view::model::{
     Diff, DiffSnapshot, LineAddr, LineKind, Mode, ParseOutcome, ParseWorker, Side, TextBody,
 };
 use probe_diff_view::worker::Delivery;
 
+use crate::blocks::{self, BlockFrame, Place};
 use crate::scenario::drawmark::{self, Declared};
 use crate::scenario::sampler;
 
@@ -55,6 +59,39 @@ pub trait Surface {
     fn scroll_to(&self, y: f64);
     /// Видимая область документа.
     fn viewport(&self) -> Visible;
+    /// Высоты строк изменились (блоки тредов): высота документа `height`, строки `rows` с новым
+    /// содержимым блоков. Текст строк прежний, всё ниже первой из них сдвинулось.
+    fn heights_changed(&self, height: f64, rows: &[Range<u32>]);
+    /// Поле черновика над блоком черновика или скрыто (`None`).
+    fn place_draft(&self, place: Option<DraftPlace>);
+}
+
+/// Где показать поле черновика: колонка блока черновика в координатах документа.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DraftPlace {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    /// Текст модели в поле: при открытии черновика.
+    pub text: Option<String>,
+    /// Сделать поле first responder.
+    pub focus: bool,
+}
+
+/// Исходы действий черновика и тредов.
+#[derive(Clone, Copy, Debug, Default, Serialize)]
+pub struct DraftStats {
+    pub opened: u64,
+    pub saved: u64,
+    pub cancelled: u64,
+    /// Черновик с текстом не уступил поле другому якорю.
+    pub refused_busy: u64,
+    /// Пустой черновик не сохранён.
+    pub refused_empty: u64,
+    pub toggled: u64,
+    /// Перестановок блоков на главном потоке.
+    pub block_updates: u64,
 }
 
 /// Видимая область документа в точках.
@@ -169,6 +206,9 @@ pub struct Model {
     pub font: FontMetrics,
     pub pending: Option<Target>,
     pub relayout: Relayout,
+    pub threads: Threads,
+    /// Блоки установленного индекса высот: меняются вместе с ним.
+    pub layout: ThreadLayout,
     last_visible: Option<Sides<LineSet>>,
 }
 
@@ -201,6 +241,40 @@ impl Model {
             mode: self.mode,
             metrics: self.metrics?,
         })
+    }
+
+    /// Раскладка блоков установленного индекса.
+    pub fn place(&self) -> Option<Place<'_>> {
+        let shown = self.shown()?;
+        Some(Place {
+            body: shown.body,
+            mode: self.mode,
+            geometry: shown.geometry,
+            char_width: self.font.char_width,
+            heights: shown.heights,
+            layout: &self.layout,
+            threads: &self.threads,
+        })
+    }
+
+    fn expanded(&self) -> std::collections::BTreeSet<ThreadId> {
+        self.state
+            .as_ref()
+            .map(|state| state.expanded().clone())
+            .unwrap_or_default()
+    }
+
+    /// Блоки файла при переносе `metrics`.
+    fn thread_layout(&self, metrics: Metrics) -> ThreadLayout {
+        match self.diff.as_ref() {
+            Some(diff) => self.threads.layout(
+                &diff.diff,
+                self.file,
+                &self.expanded(),
+                blocks::block_metrics(metrics),
+            ),
+            None => ThreadLayout::default(),
+        }
     }
 
     fn viewport(&self, height: f64) -> Option<Viewport<'_>> {
@@ -365,6 +439,7 @@ pub struct Scene {
     errors: RefCell<Vec<String>>,
     /// Идёт перезагрузка вида и прокрутка к якорю: уведомления о прокрутке якорь не меняют.
     reloading: Cell<bool>,
+    drafts: Cell<DraftStats>,
 }
 
 impl Scene {
@@ -400,6 +475,8 @@ impl Scene {
                 font,
                 pending: None,
                 relayout: Relayout::default(),
+                threads: Threads::new(fixture.threads.clone()),
+                layout: ThreadLayout::default(),
                 last_visible: None,
             }),
             surface: RefCell::new(None),
@@ -412,6 +489,7 @@ impl Scene {
             timeline: RefCell::new(Timeline::default()),
             errors: RefCell::new(Vec::new()),
             reloading: Cell::new(false),
+            drafts: Cell::new(DraftStats::default()),
         });
         CURRENT.with(|current| *current.borrow_mut() = Rc::downgrade(&scene));
         Ok(scene)
@@ -577,9 +655,14 @@ impl Scene {
             model.state = None;
             model.pending = None;
             model.last_visible = None;
+            model.threads = Threads::new(self.fixture.threads.clone());
+            model.layout = ThreadLayout::default();
             model.generation += 1;
             model.generation
         };
+        if let Some(surface) = self.surface() {
+            surface.place_draft(None);
+        }
         *self.timeline.borrow_mut() = Timeline {
             open_ns: Some(now),
             ..Timeline::default()
@@ -606,6 +689,9 @@ impl Scene {
         self.parse.cancel();
         self.heights.cancel();
         self.highlight.close();
+        if let Some(surface) = self.surface() {
+            surface.place_draft(None);
+        }
         *self.surface.borrow_mut() = None;
         CURRENT.with(|current| *current.borrow_mut() = Weak::new());
     }
@@ -670,7 +756,7 @@ impl Scene {
                 file: model.file,
                 mode: target.mode,
                 metrics: target.metrics,
-                blocks: Arc::from([]),
+                blocks: Arc::from(model.thread_layout(target.metrics).blocks()),
             }
         };
         if let Err(stopped) = self.heights.submit(job) {
@@ -736,6 +822,7 @@ impl Scene {
         }
         self.sync_scroll();
         self.reloading.set(false);
+        self.place_draft(None, false);
         self.request_visible();
     }
 
@@ -764,11 +851,18 @@ impl Scene {
             };
             let reinstall = model.heights.is_some();
             let switched = reinstall && model.mode != target.mode;
+            // Треды могли раскрыться или черновик открыться, пока шла перестройка.
+            let layout = model.thread_layout(target.metrics);
+            let mut index = snapshot.index.clone();
+            if let Some(body) = diff.diff.file(model.file).and_then(|file| file.text()) {
+                index.rebase_blocks(body, target.mode, &snapshot.blocks, &layout.blocks());
+            }
             model.pending = None;
             model.geometry = Some(target.geometry);
             model.mode = target.mode;
             model.metrics = Some(target.metrics);
-            model.heights = Some(snapshot.index.clone());
+            model.layout = layout;
+            model.heights = Some(index);
             model.state = Some(match model.state.take() {
                 None => ViewState::open(&diff.diff, model.file, target.mode),
                 Some(state) if state.mode() != target.mode => state.with_mode(target.mode),
@@ -780,7 +874,10 @@ impl Scene {
                 model.relayout.mode_switches += u64::from(switched);
             }
             model.generation += 1;
-            (model.generation, snapshot.index.total())
+            (
+                model.generation,
+                model.heights.as_ref().map_or(0, HeightIndex::total),
+            )
         };
         {
             let mut timeline = self.timeline.borrow_mut();
@@ -884,6 +981,220 @@ impl Scene {
         }
     }
 
+    fn count(&self, update: impl FnOnce(&mut DraftStats)) {
+        let mut stats = self.drafts.get();
+        update(&mut stats);
+        self.drafts.set(stats);
+    }
+
+    pub fn draft_stats(&self) -> DraftStats {
+        self.drafts.get()
+    }
+
+    pub fn draft(&self) -> Option<Draft> {
+        self.model.borrow().threads.draft().cloned()
+    }
+
+    pub fn threads(&self) -> Vec<Thread> {
+        self.model.borrow().threads.threads().to_vec()
+    }
+
+    pub fn is_expanded(&self, id: ThreadId) -> bool {
+        self.model
+            .borrow()
+            .state
+            .as_ref()
+            .is_some_and(|state| state.is_expanded(id))
+    }
+
+    /// Блок черновика в координатах документа.
+    pub fn draft_frame(&self) -> Option<BlockFrame> {
+        self.model.borrow().place()?.draft_frame()
+    }
+
+    /// Блоки под строкой показа в координатах документа.
+    pub fn block_frames(&self, row: u32) -> Vec<BlockFrame> {
+        self.model
+            .borrow()
+            .place()
+            .map(|place| place.frames_at_row(row))
+            .unwrap_or_default()
+    }
+
+    /// Высота блоков под строкой показа по установленному индексу.
+    pub fn block_height(&self, row: u32) -> Option<u32> {
+        self.model.borrow().shown()?.heights.block_height(row)
+    }
+
+    /// Высоты блоков треда при установленном переносе.
+    pub fn thread_height(&self, id: ThreadId, expanded: bool) -> Option<u32> {
+        let model = self.model.borrow();
+        let metrics = blocks::block_metrics(model.metrics?);
+        Some(metrics.thread_height(model.threads.get(id)?, expanded))
+    }
+
+    /// `c`: черновик на выделении или строке курсора. Выделение переходит в якорь черновика и
+    /// снимается. Черновик с текстом на другом якоре поле не уступает.
+    pub fn open_draft(&self) {
+        let opened = {
+            let mut model = self.model.borrow_mut();
+            let Some(path) = model
+                .diff
+                .as_ref()
+                .and_then(|diff| diff.diff.file(model.file))
+                .map(|file| file.path().to_owned())
+            else {
+                return;
+            };
+            let Some(state) = model.state.clone() else {
+                return;
+            };
+            let Some(cursor) = state.cursor() else {
+                return;
+            };
+            let anchor = ThreadAnchor::from_view(path, cursor, state.selection());
+            model.threads.open_draft(anchor)
+        };
+        match opened {
+            Ok(()) => {
+                self.count(|stats| stats.opened += 1);
+                if self.selection().is_some() {
+                    self.command(Command::ClearSelection);
+                }
+                self.relayout_blocks();
+                let text = self.draft().map(|draft| draft.text().to_owned());
+                self.place_draft(text, true);
+            }
+            Err(DraftError::Busy) => {
+                self.count(|stats| stats.refused_busy += 1);
+                self.place_draft(None, true);
+            }
+            Err(DraftError::NoDraft | DraftError::Empty) => {}
+        }
+    }
+
+    /// Текст поля черновика после правки.
+    pub fn draft_text(&self, text: String) {
+        let _ = self.model.borrow_mut().threads.set_draft_text(text);
+    }
+
+    /// `Cmd-Enter` в поле: черновик становится раскрытым тредом, поле скрывается.
+    pub fn save_draft(&self) {
+        let saved = {
+            let mut model = self.model.borrow_mut();
+            let saved = model.threads.save_draft(blocks::AUTHOR);
+            if let (Ok(id), Some(state)) = (saved, model.state.take()) {
+                model.state = Some(if state.is_expanded(id) {
+                    state
+                } else {
+                    state.toggle_thread(id)
+                });
+            }
+            saved
+        };
+        match saved {
+            Ok(_) => {
+                self.count(|stats| stats.saved += 1);
+                self.relayout_blocks();
+                self.hide_draft();
+            }
+            Err(DraftError::Empty) => self.count(|stats| stats.refused_empty += 1),
+            Err(DraftError::NoDraft | DraftError::Busy) => {}
+        }
+    }
+
+    /// `Escape` в поле: черновик закрывается без треда.
+    pub fn cancel_draft(&self) {
+        let cancelled = self.model.borrow_mut().threads.cancel_draft();
+        if cancelled.is_some() {
+            self.count(|stats| stats.cancelled += 1);
+            self.relayout_blocks();
+        }
+        self.hide_draft();
+    }
+
+    /// Раскрыть или свернуть тред: высота его блока, якорь прокрутки прежний.
+    pub fn toggle_thread(&self, id: ThreadId) {
+        {
+            let mut model = self.model.borrow_mut();
+            let Some(state) = model.state.take() else {
+                return;
+            };
+            model.state = Some(state.toggle_thread(id));
+        }
+        self.count(|stats| stats.toggled += 1);
+        self.relayout_blocks();
+    }
+
+    /// Блоки после изменения тредов или черновика на главном потоке: высоты блоков правятся в
+    /// установленном индексе, все строки ниже сдвигаются, поэтому объявляются все.
+    fn relayout_blocks(&self) {
+        let changed = {
+            let mut model = self.model.borrow_mut();
+            let (Some(diff), Some(metrics)) = (model.diff.clone(), model.metrics) else {
+                return;
+            };
+            let Some(body) = diff.diff.file(model.file).and_then(|file| file.text()) else {
+                return;
+            };
+            let layout = model.thread_layout(metrics);
+            if layout == model.layout {
+                return;
+            }
+            let mode = model.mode;
+            let (before, after) = (model.layout.blocks(), layout.blocks());
+            let mut rows: Vec<u32> = Vec::new();
+            for entry in model.layout.entries().iter().chain(layout.entries()) {
+                let kept =
+                    model.layout.entries().contains(entry) && layout.entries().contains(entry);
+                if !kept && let Some(row) = body.row_of_line(mode, entry.line) {
+                    rows.push(row);
+                }
+            }
+            let Some(heights) = model.heights.as_mut() else {
+                return;
+            };
+            heights.rebase_blocks(body, mode, &before, &after);
+            let total = heights.total();
+            model.layout = layout;
+            model.generation += 1;
+            (model.generation, total, merge_rows(rows))
+        };
+        let (generation, total, rows) = changed;
+        self.count(|stats| stats.block_updates += 1);
+        self.changed(generation, None);
+        self.reloading.set(true);
+        if let Some(surface) = self.surface() {
+            surface.heights_changed(total as f64, &rows);
+        }
+        self.sync_scroll();
+        self.reloading.set(false);
+        self.place_draft(None, false);
+        self.request_visible();
+    }
+
+    /// Поле черновика над блоком черновика, если он в этом файле, иначе скрыто. `text` — текст
+    /// модели при открытии, `focus` — поле становится first responder.
+    fn place_draft(&self, text: Option<String>, focus: bool) {
+        let place = self.draft_frame().map(|frame| DraftPlace {
+            x: frame.x,
+            y: frame.y,
+            width: frame.width,
+            height: frame.height,
+            text,
+            focus,
+        });
+        if let Some(surface) = self.surface() {
+            surface.place_draft(place);
+        }
+    }
+
+    fn hide_draft(&self) {
+        if let Some(surface) = self.surface() {
+            surface.place_draft(None);
+        }
+    }
+
     /// Клавиша вида. `true` — клавиша относится к diff, в том числе начало двухклавишной команды.
     pub fn key(&self, key: &KeyInput) -> bool {
         let action = self.decoder.borrow_mut().feed(key);
@@ -894,6 +1205,10 @@ impl Scene {
             }
             Some(Action::Command(command)) => {
                 self.command(command);
+                true
+            }
+            Some(Action::Draft) => {
+                self.open_draft();
                 true
             }
             None => self.decoder.borrow().is_pending(),
@@ -912,6 +1227,17 @@ impl Scene {
             let Some(hit) = shown.heights.row_at((y.max(0.0) as u64).min(last)) else {
                 return;
             };
+            if hit.in_block {
+                let item = model
+                    .place()
+                    .and_then(|place| place.frame_at(hit.row, y))
+                    .map(|frame| frame.entry.item);
+                drop(model);
+                if let Some(BlockItem::Thread(id)) = item {
+                    self.toggle_thread(id);
+                }
+                return;
+            }
             if extend {
                 Command::ExtendTo { row: hit.row }
             } else {

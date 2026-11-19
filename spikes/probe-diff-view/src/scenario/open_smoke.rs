@@ -21,7 +21,8 @@ use serde::Serialize;
 
 use probe_diff_view::fixtures::{self, FixtureName};
 use probe_diff_view::highlight::Source;
-use probe_diff_view::model::state::{Anchor, Selection};
+use probe_diff_view::model::state::{Anchor, Selection, ThreadId};
+use probe_diff_view::model::threads::{Comment, ThreadAnchor};
 use probe_diff_view::model::{LineAddr, Mode, Side};
 
 use super::calibrate_run::Failed;
@@ -128,8 +129,48 @@ enum Step {
         posted_ns: u64,
         deadline: Instant,
     },
+    Thread {
+        name: &'static str,
+        check: ThreadCheck,
+        posted: Vec<u64>,
+        posted_ns: u64,
+        deadline: Instant,
+    },
     Done,
 }
+
+/// Условие шага тредов и черновика.
+#[derive(Clone, Debug)]
+enum ThreadCheck {
+    /// `v j c`: черновик на диапазоне стороны `from` вниз от него, поле над блоком и с фокусом.
+    Opened { from: LineAddr },
+    /// Клавиши в поле: текст в модели, курсор diff на месте.
+    Typed {
+        text: &'static str,
+        cursor: Option<LineAddr>,
+    },
+    /// `Cmd-Enter`: раскрытый тред вместо черновика под строкой `row`, фокус у документа.
+    Saved {
+        anchor: ThreadAnchor,
+        text: &'static str,
+        row: u32,
+    },
+    /// Щелчок по блоку треда: тред свёрнут, якорь прокрутки прежний.
+    Toggled {
+        id: ThreadId,
+        row: u32,
+        anchor: Option<Anchor>,
+    },
+    /// `c` без выделения: черновик на строке курсора в том же поле.
+    Reopened { at: LineAddr },
+    /// `Escape` в поле: черновика нет, тредов прежнее число, фокус у документа.
+    Cancelled { threads: usize },
+}
+
+/// Текст черновика, набранный клавишами стенда.
+const DRAFT_TEXT: &str = "jk";
+/// Шагов тредов и черновика.
+const THREAD_STEPS: usize = 6;
 
 /// Условие шага выделения.
 #[derive(Clone, Copy, Debug)]
@@ -204,6 +245,7 @@ pub struct OpenSmoke {
     steps: RefCell<Vec<StepResult>>,
     resizes: RefCell<Vec<ResizeResult>>,
     selections: RefCell<Vec<StepResult>>,
+    thread_steps: RefCell<Vec<StepResult>>,
     max_entries_seen: RefCell<(usize, usize)>,
     report: RefCell<Option<Report>>,
     mode: Mode,
@@ -351,6 +393,7 @@ impl OpenSmoke {
             steps: RefCell::new(Vec::new()),
             resizes: RefCell::new(Vec::new()),
             selections: RefCell::new(Vec::new()),
+            thread_steps: RefCell::new(Vec::new()),
             max_entries_seen: RefCell::new((0, 0)),
             report: RefCell::new(Some(report)),
             mode,
@@ -669,7 +712,280 @@ impl OpenSmoke {
                     returned(&posted)
                 ))
             }
+            Step::Thread {
+                name,
+                check,
+                posted,
+                posted_ns,
+                deadline,
+            } => {
+                let (met, detail) = self.thread_met(&check);
+                if returned(&posted) && met && self.covered_now() {
+                    let at = self
+                        .coverage
+                        .borrow()
+                        .last()
+                        .map_or(now_ns(), |event| event.at_ns.max(posted_ns));
+                    self.thread_steps.borrow_mut().push(StepResult {
+                        name,
+                        latency_ms: at.saturating_sub(posted_ns) as f64 / 1e6,
+                        scroll_y: self.view.viewport_y(),
+                        visible: self.scene.visible_rows(),
+                        detail,
+                    });
+                    return self.after_thread(name, &check);
+                }
+                if Instant::now() < deadline {
+                    return Ok(Step::Thread {
+                        name,
+                        check,
+                        posted,
+                        posted_ns,
+                        deadline,
+                    });
+                }
+                Err(format!(
+                    "шаг черновика {name} не выполнен за {} мс: ожидалось {check:?}; {detail}; покрыты {}, sendEvent вернулся {}",
+                    STEP_DEADLINE.as_millis(),
+                    self.covered_now(),
+                    returned(&posted)
+                ))
+            }
             Step::Done => Ok(Step::Done),
+        }
+    }
+
+    /// Поле черновика стоит ровно над блоком черновика.
+    fn field_over_draft(&self) -> bool {
+        match (self.view.draft_shown(), self.scene.draft_frame()) {
+            (Some(field), Some(frame)) => {
+                (field.origin.x - frame.x).abs() <= 0.5
+                    && (field.origin.y - frame.y).abs() <= 0.5
+                    && (field.size.width - frame.width).abs() <= 0.5
+                    && (field.size.height - frame.height).abs() <= 0.5
+            }
+            _ => false,
+        }
+    }
+
+    /// Выполнено ли условие шага тредов и черновика, и что видно сейчас.
+    fn thread_met(&self, check: &ThreadCheck) -> (bool, String) {
+        let draft = self.scene.draft();
+        let threads = self.scene.threads();
+        let fields = crate::draft_field::count();
+        let detail = format!(
+            "черновик {:?}, тредов {}, поле {:?}, фокус у поля {}, у документа {}, полей создано {}",
+            draft.as_ref().map(|draft| (&draft.anchor, draft.text())),
+            threads.len(),
+            self.view.draft_shown().map(crate::describe_rect),
+            self.view.draft_focused(),
+            self.view.document_focused(),
+            fields.created
+        );
+        let met = match check {
+            ThreadCheck::Opened { from } => draft.as_ref().is_some_and(|draft| {
+                let anchor = &draft.anchor;
+                let row_height = self
+                    .scene
+                    .draft_frame()
+                    .and_then(|frame| Some((self.scene.block_height(frame.row)?, frame.height)));
+                anchor.side == from.side
+                    && anchor.start_line == from.line
+                    && anchor.line > from.line
+                    && self.scene.selection().is_none()
+                    && self.field_over_draft()
+                    && self.view.draft_focused()
+                    && row_height.is_some_and(|(block, draft)| f64::from(block) == draft)
+            }),
+            ThreadCheck::Typed { text, cursor } => {
+                draft.as_ref().is_some_and(|draft| draft.text() == *text)
+                    && self.scene.cursor() == *cursor
+                    && self.view.draft_focused()
+                    && self.field_over_draft()
+            }
+            ThreadCheck::Saved { anchor, text, row } => {
+                draft.is_none()
+                    && threads.len() == 1
+                    && threads.first().is_some_and(|thread| {
+                        thread.anchor == *anchor
+                            && thread.comments
+                                == [Comment {
+                                    author: crate::blocks::AUTHOR.to_owned(),
+                                    body: (*text).to_owned(),
+                                }]
+                            && self.scene.is_expanded(thread.id)
+                            && self.scene.block_height(*row)
+                                == self.scene.thread_height(thread.id, true)
+                    })
+                    && self.view.draft_shown().is_none()
+                    && self.view.document_focused()
+            }
+            ThreadCheck::Toggled { id, row, anchor } => {
+                !self.scene.is_expanded(*id)
+                    && self.scene.block_height(*row) == self.scene.thread_height(*id, false)
+                    && self.scene.anchor() == *anchor
+            }
+            ThreadCheck::Reopened { at } => draft.as_ref().is_some_and(|draft| {
+                draft.anchor.side == at.side
+                    && draft.anchor.start_line == at.line
+                    && draft.anchor.line == at.line
+                    && draft.text().is_empty()
+                    && self.field_over_draft()
+                    && self.view.draft_focused()
+                    && fields.created == 1
+            }),
+            ThreadCheck::Cancelled { threads: count } => {
+                draft.is_none()
+                    && threads.len() == *count
+                    && self.view.draft_shown().is_none()
+                    && self.view.document_focused()
+            }
+        };
+        (met, detail)
+    }
+
+    fn thread_step(
+        &self,
+        name: &'static str,
+        check: ThreadCheck,
+        posted: Vec<u64>,
+        posted_ns: u64,
+    ) -> Step {
+        Step::Thread {
+            name,
+            check,
+            posted,
+            posted_ns,
+            deadline: Instant::now() + STEP_DEADLINE,
+        }
+    }
+
+    /// `v j c` от курсора: черновик на диапазоне из двух строк.
+    fn draft_open(&self) -> Result<Step, String> {
+        let from = self
+            .scene
+            .cursor()
+            .ok_or_else(|| "нет курсора перед черновиком".to_owned())?;
+        let posted_ns = now_ns();
+        let mut posted = events::press(Key::V)?;
+        posted.extend(events::press(Key::J)?);
+        posted.extend(events::press(Key::C)?);
+        Ok(self.thread_step(
+            "draft_open",
+            ThreadCheck::Opened { from },
+            posted,
+            posted_ns,
+        ))
+    }
+
+    /// Следующий шаг тредов и черновика после `name`.
+    fn after_thread(&self, name: &'static str, check: &ThreadCheck) -> Result<Step, String> {
+        match (name, check) {
+            ("draft_open", ThreadCheck::Opened { .. }) => {
+                let posted_ns = now_ns();
+                let mut posted = events::press(Key::J)?;
+                posted.extend(events::press(Key::K)?);
+                Ok(self.thread_step(
+                    "draft_type",
+                    ThreadCheck::Typed {
+                        text: DRAFT_TEXT,
+                        cursor: self.scene.cursor(),
+                    },
+                    posted,
+                    posted_ns,
+                ))
+            }
+            ("draft_type", ThreadCheck::Typed { text, .. }) => {
+                let anchor = self
+                    .scene
+                    .draft()
+                    .map(|draft| draft.anchor)
+                    .ok_or_else(|| "нет черновика перед сохранением".to_owned())?;
+                let row = self
+                    .scene
+                    .draft_frame()
+                    .map(|frame| frame.row)
+                    .ok_or_else(|| "нет блока черновика перед сохранением".to_owned())?;
+                let posted_ns = now_ns();
+                let posted = events::press(Key::CMD_RETURN)?;
+                Ok(self.thread_step(
+                    "draft_save",
+                    ThreadCheck::Saved { anchor, text, row },
+                    posted,
+                    posted_ns,
+                ))
+            }
+            ("draft_save", ThreadCheck::Saved { row, .. }) => {
+                let frame = self
+                    .scene
+                    .block_frames(*row)
+                    .into_iter()
+                    .find(|frame| {
+                        matches!(
+                            frame.entry.item,
+                            probe_diff_view::model::threads::BlockItem::Thread(_)
+                        )
+                    })
+                    .ok_or_else(|| format!("нет блока треда под строкой {row}"))?;
+                let probe_diff_view::model::threads::BlockItem::Thread(id) = frame.entry.item
+                else {
+                    return Err("блок не тред".to_owned());
+                };
+                let line = f64::from(self.view.font().line_height);
+                let area = NSRect::new(
+                    NSPoint::new(frame.x, frame.y),
+                    NSSize::new(frame.width.min(200.0), line),
+                );
+                let screen = self.window.convertRectToScreen(self.view.to_window(area));
+                let anchor = self.scene.anchor();
+                let posted_ns = now_ns();
+                let gesture = events::mouse_down(
+                    self.mtm,
+                    events::center(screen),
+                    &self.window,
+                    NSEventModifierFlags::empty(),
+                    1,
+                    "thread_toggle",
+                )?;
+                let posted = vec![gesture.down, gesture.up("thread_toggle")?];
+                Ok(self.thread_step(
+                    "thread_toggle",
+                    ThreadCheck::Toggled {
+                        id,
+                        row: *row,
+                        anchor,
+                    },
+                    posted,
+                    posted_ns,
+                ))
+            }
+            ("thread_toggle", _) => {
+                let at = self
+                    .scene
+                    .cursor()
+                    .ok_or_else(|| "нет курсора перед повторным черновиком".to_owned())?;
+                let posted_ns = now_ns();
+                let posted = events::press(Key::C)?;
+                Ok(self.thread_step(
+                    "draft_reopen",
+                    ThreadCheck::Reopened { at },
+                    posted,
+                    posted_ns,
+                ))
+            }
+            ("draft_reopen", _) => {
+                let posted_ns = now_ns();
+                let posted = events::press(Key::ESCAPE)?;
+                Ok(self.thread_step(
+                    "draft_cancel",
+                    ThreadCheck::Cancelled {
+                        threads: self.scene.threads().len(),
+                    },
+                    posted,
+                    posted_ns,
+                ))
+            }
+            _ => Ok(Step::Done),
         }
     }
 
@@ -822,6 +1138,7 @@ impl OpenSmoke {
                 let posted = events::press(Key::ESCAPE)?;
                 Ok(self.select_step("sel_escape", Expect::NoSelection, posted, posted_ns))
             }
+            "sel_escape" => self.draft_open(),
             _ => Ok(Step::Done),
         }
     }
@@ -970,6 +1287,18 @@ impl OpenSmoke {
             serde_json::to_string(&*self.resizes.borrow()).unwrap_or_default(),
         );
         report.push(
+            "thread_steps",
+            serde_json::to_string(&*self.thread_steps.borrow()).unwrap_or_default(),
+        );
+        report.push(
+            "draft_stats",
+            serde_json::to_string(&self.scene.draft_stats()).unwrap_or_default(),
+        );
+        report.push(
+            "block_cache",
+            serde_json::to_string(&self.view.block_cache_counters()).unwrap_or_default(),
+        );
+        report.push(
             "selections",
             serde_json::to_string(&*self.selections.borrow()).unwrap_or_default(),
         );
@@ -1025,6 +1354,7 @@ impl OpenSmoke {
             .map(|row| crate::view_a::layout_cache::distance(row, &visible))
             .max()
             .unwrap_or(0);
+        let drafts = self.scene.draft_stats();
         let (mut report, external) = self.close();
         if let Some(input) = external {
             return Err(Box::new((
@@ -1157,6 +1487,38 @@ impl OpenSmoke {
                 })
                 .collect::<Vec<_>>()
                 .join("; "),
+        );
+        let thread_steps = self.thread_steps.borrow();
+        report.finding(
+            "threads_draft",
+            if thread_steps.len() == THREAD_STEPS {
+                Verdict::Pass
+            } else {
+                Verdict::Fail
+            },
+            thread_steps
+                .iter()
+                .map(|step| {
+                    format!(
+                        "{}: {}, покрыто за {:.1} мс",
+                        step.name, step.detail, step.latency_ms
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("; "),
+        );
+        let fields = crate::draft_field::count();
+        report.finding(
+            "draft_field_single",
+            if fields.created == 1 && thread_steps.len() == THREAD_STEPS {
+                Verdict::Pass
+            } else {
+                Verdict::Fail
+            },
+            format!(
+                "полей черновика создано {}, освобождено {}, исходы {:?}",
+                fields.created, fields.released, drafts
+            ),
         );
         let bounded = counters.max_entries <= counters.max_capacity && counters.far_builds == 0;
         report.finding(
