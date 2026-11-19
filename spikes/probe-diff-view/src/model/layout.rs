@@ -12,6 +12,7 @@
 //! «Рядом» показывается, только если его запросили: [`DiffGeometry::mode`] снимает запрос, когда
 //! правила его не допускают.
 
+use super::Side;
 use super::rows::Mode;
 use super::wrap::{TAB_WIDTH, Wrap};
 
@@ -219,6 +220,38 @@ impl DiffGeometry {
     pub fn wrap(&self, mode: Mode) -> Wrap {
         Wrap::from_width(self.text_width(mode), self.metrics.char_width, TAB_WIDTH)
     }
+
+    /// Ширина части зоны в точках.
+    pub fn width(&self) -> f64 {
+        self.width
+    }
+
+    /// Ширина половины «Рядом» с её гуттером, без разделителя.
+    pub fn half_width(&self) -> f64 {
+        ((self.width - self.metrics.divider) / 2.0).max(0.0)
+    }
+
+    /// Начало половины «Рядом» по x: старая слева, новая за разделителем.
+    pub fn half_origin(&self, side: Side) -> f64 {
+        match side {
+            Side::Old => 0.0,
+            Side::New => self.half_width() + self.metrics.divider,
+        }
+    }
+
+    /// Разделитель половин «Рядом»: начало по x и ширина.
+    pub fn divider(&self) -> (f64, f64) {
+        (self.half_width(), self.metrics.divider)
+    }
+
+    /// Половина «Рядом» под координатой `x`: разделитель делится пополам между сторонами.
+    pub fn side_at(&self, x: f64) -> Side {
+        if x < self.half_width() + self.metrics.divider / 2.0 {
+            Side::Old
+        } else {
+            Side::New
+        }
+    }
 }
 
 #[cfg(test)]
@@ -237,6 +270,38 @@ mod tests {
 
     fn adapt(zone: Zone, width: f64, height: f64) -> DiffLayout {
         METRICS.adapt(Geometry::new(zone, width, height))
+    }
+
+    #[test]
+    fn halves_split_the_width_around_the_divider() {
+        let DiffLayout::Diff(layout) = adapt(Zone::Center, 1201.0, TALL) else {
+            panic!("заглушка");
+        };
+        assert_eq!(layout.width(), 1201.0);
+        assert_eq!(layout.half_width(), 600.0);
+        assert_eq!(layout.half_origin(Side::Old), 0.0);
+        assert_eq!(layout.half_origin(Side::New), 601.0);
+        assert_eq!(layout.divider(), (600.0, 1.0));
+        // Гуттер половины и область текста укладываются в половину.
+        let gutter = f64::from(layout.gutter_cells(Mode::SideBySide)) * METRICS.char_width;
+        assert_eq!(gutter + layout.text_width(Mode::SideBySide), 600.0);
+    }
+
+    #[test]
+    fn click_side_follows_the_half() {
+        let DiffLayout::Diff(layout) = adapt(Zone::Center, 1201.0, TALL) else {
+            panic!("заглушка");
+        };
+        assert_eq!(layout.side_at(0.0), Side::Old);
+        assert_eq!(layout.side_at(599.9), Side::Old);
+        // Разделитель [600; 601) делится пополам.
+        assert_eq!(layout.side_at(600.4), Side::Old);
+        assert_eq!(layout.side_at(600.5), Side::New);
+        assert_eq!(layout.side_at(601.0), Side::New);
+        assert_eq!(layout.side_at(1200.0), Side::New);
+        // За пределами части зоны — ближняя половина.
+        assert_eq!(layout.side_at(-5.0), Side::Old);
+        assert_eq!(layout.side_at(5000.0), Side::New);
     }
 
     fn diff(layout: DiffLayout) -> DiffGeometry {

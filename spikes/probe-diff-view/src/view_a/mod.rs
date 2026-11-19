@@ -35,7 +35,7 @@ use crate::results::Rect;
 use crate::scenario::counters::{Live, counter};
 use crate::scenario::drawmark::{self, Mark};
 use crate::scenario::sampler;
-use crate::scene::{Model, Scene, Surface, Visible, drawn_side};
+use crate::scene::{Model, Scene, Shown, Surface, Visible, drawn_side};
 use crate::text::{ColorCache, Font};
 
 counter!(DOCUMENT_VIEW_A, "ProbeDiffDocumentViewA");
@@ -47,6 +47,13 @@ const DIRTY_LOG: usize = 24;
 pub struct RowLayout {
     gutter: CFRetained<CTLine>,
     segments: Vec<CFRetained<CTLine>>,
+}
+
+/// Полоса текста строки показа в координатах документа.
+struct Band {
+    row: u32,
+    top: f64,
+    height: f64,
 }
 
 /// Грязный прямоугольник `drawRect:` и что вид нарисовал.
@@ -211,7 +218,7 @@ impl DocumentView {
     fn click(&self, event: &NSEvent, extend: bool) {
         let point = self.convertPoint_fromView(event.locationInWindow(), None);
         if let Some(scene) = self.scene() {
-            scene.click(point.y, None, extend);
+            scene.click_at(point.x, point.y, extend);
         }
     }
 
@@ -258,8 +265,12 @@ impl DocumentView {
                     visible.origin.y.max(0.0) as u64,
                     visible.size.height.max(0.0) as u64,
                 );
+                let halves = match model.mode {
+                    Mode::Unified => 1,
+                    Mode::SideBySide => 2,
+                };
                 let capacity =
-                    layout_cache::capacity(visible.size.height, shown.metrics.line_height, 1);
+                    layout_cache::capacity(visible.size.height, shown.metrics.line_height, halves);
                 self.ivars().cache.borrow_mut().set_capacity(capacity);
                 CGContext::set_text_matrix(
                     Some(&context),
@@ -312,8 +323,9 @@ impl DocumentView {
         });
     }
 
-    /// Строка показа unified: фон по виду строки, гуттер с номерами и знаком, визуальные строки
-    /// текста. Курсор отмечен фоном гуттера, выделение — фоном текста.
+    /// Строка показа: в unified одна половина во всю ширину, в «Рядом» старая слева и новая
+    /// справа за разделителем, пустая половина залита фоном гуттера. Граница ханка — линия
+    /// поверх строки.
     fn paint_row(
         &self,
         context: &CGContext,
@@ -326,33 +338,113 @@ impl DocumentView {
             return;
         };
         let mode = model.mode;
-        let (Some(top), Some(text_height)) =
-            (shown.heights.top(row), shown.heights.text_height(row))
-        else {
-            return;
-        };
-        let Some(index) = shown.body.row(mode, row).and_then(|halves| halves.first()) else {
-            return;
-        };
-        let Some(line) = shown.body.line(index) else {
+        let (Some(top), Some(text_height), Some(halves)) = (
+            shown.heights.top(row),
+            shown.heights.text_height(row),
+            shown.body.row(mode, row),
+        ) else {
             return;
         };
         let theme = self.theme();
+        let band = Band {
+            row,
+            top: top as f64,
+            height: f64::from(text_height),
+        };
+        match mode {
+            Mode::Unified => {
+                if let Some(index) = halves.first() {
+                    self.paint_half(context, model, &shown, &band, index, None, 0.0, width, seen);
+                }
+            }
+            Mode::SideBySide => {
+                for side in Side::BOTH {
+                    let x = shown.geometry.half_origin(side);
+                    let half_width = match side {
+                        Side::Old => shown.geometry.half_width(),
+                        Side::New => (width - x).max(0.0),
+                    };
+                    match halves.half(side) {
+                        Some(index) => self.paint_half(
+                            context,
+                            model,
+                            &shown,
+                            &band,
+                            index,
+                            Some(side),
+                            x,
+                            half_width,
+                            seen,
+                        ),
+                        None => fill(
+                            context,
+                            theme.gutter_background,
+                            NSRect::new(
+                                NSPoint::new(x, band.top),
+                                NSSize::new(half_width, band.height),
+                            ),
+                        ),
+                    }
+                }
+                let (x, divider) = shown.geometry.divider();
+                fill(
+                    context,
+                    theme.separator,
+                    NSRect::new(NSPoint::new(x, band.top), NSSize::new(divider, band.height)),
+                );
+            }
+        }
+        if row > 0 && shown.body.starts_hunk(mode, row) {
+            fill(
+                context,
+                theme.separator,
+                NSRect::new(NSPoint::new(0.0, band.top), NSSize::new(width, 1.0)),
+            );
+        }
+    }
+
+    /// Половина строки показа от `x` шириной `width`: фон по виду строки, гуттер с номером и
+    /// знаком, визуальные строки текста. `side` — половина «Рядом», `None` — unified. Курсор
+    /// отмечен фоном гуттера, выделение — фоном текста половины своей стороны.
+    #[allow(clippy::too_many_arguments)]
+    fn paint_half(
+        &self,
+        context: &CGContext,
+        model: &Model,
+        shown: &Shown<'_>,
+        band: &Band,
+        index: u32,
+        side: Option<Side>,
+        x: f64,
+        width: f64,
+        seen: &Range<u32>,
+    ) {
+        let Some(line) = shown.body.line(index) else {
+            return;
+        };
+        let mode = model.mode;
+        let theme = self.theme();
         let font = &self.ivars().font;
-        let top = top as f64;
-        let height = f64::from(text_height);
-        let gutter_width = f64::from(shown.geometry.gutter_cells(mode)) * font.char_width;
+        let gutter_cells = shown.geometry.gutter_cells(mode);
+        let gutter_width = f64::from(gutter_cells) * font.char_width;
         let kind = line.kind();
         let state = model.state.as_ref();
         let cursor = state
             .and_then(|state| state.cursor())
-            .and_then(|cursor| shown.body.row_of_addr(mode, cursor.addr))
-            .is_some_and(|located| located.index == row);
+            .is_some_and(|cursor| match side {
+                Some(side) => line.addr(side) == Some(cursor.addr),
+                None => shown
+                    .body
+                    .row_of_addr(mode, cursor.addr)
+                    .is_some_and(|located| located.index == band.row),
+            });
         let selected = state
             .and_then(|state| state.selection())
             .is_some_and(|selection| {
-                line.addr(selection.side)
-                    .is_some_and(|addr| selection.contains(addr))
+                side.is_none_or(|side| side == selection.side)
+                    && line
+                        .addr(selection.side)
+                        .is_some_and(|addr| selection.contains(addr))
             });
         let (text_fill, gutter_fill) = match kind {
             LineKind::Context => (theme.background, theme.gutter_background),
@@ -370,40 +462,44 @@ impl DocumentView {
         fill(
             context,
             gutter_fill,
-            NSRect::new(NSPoint::new(0.0, top), NSSize::new(gutter_width, height)),
+            NSRect::new(
+                NSPoint::new(x, band.top),
+                NSSize::new(gutter_width.min(width), band.height),
+            ),
         );
         fill(
             context,
             text_fill,
             NSRect::new(
-                NSPoint::new(gutter_width, top),
-                NSSize::new((width - gutter_width).max(0.0), height),
+                NSPoint::new(x + gutter_width, band.top),
+                NSSize::new((width - gutter_width).max(0.0), band.height),
             ),
         );
-        if row > 0 && shown.body.starts_hunk(mode, row) {
-            fill(
-                context,
-                theme.separator,
-                NSRect::new(NSPoint::new(0.0, top), NSSize::new(width, 1.0)),
-            );
-        }
         let text = shown.diff.line_text(line);
-        let side = drawn_side(kind, mode, Side::New);
+        let drawn = drawn_side(kind, mode, side.unwrap_or(Side::New));
         let runs = line
-            .line(side)
-            .map_or(&[][..], |number| model.styles.runs(side, number));
+            .line(drawn)
+            .map_or(&[][..], |number| model.styles.runs(drawn, number));
+        let (gutter, numbers, half) = match side {
+            None => (
+                shown.geometry.gutter,
+                (line.line(Side::Old), line.line(Side::New)),
+                Half::Unified,
+            ),
+            Some(side) => (
+                Gutter::Single,
+                match side {
+                    Side::Old => (line.line(Side::Old), None),
+                    Side::New => (None, line.line(Side::New)),
+                },
+                Half::of(side),
+            ),
+        };
         let epoch = self.ivars().epoch.get();
-        let digits = shown.geometry.gutter_cells(Mode::Unified);
         let mut cache = self.ivars().cache.borrow_mut();
         let mut colors = self.ivars().colors.borrow_mut();
-        let layout = cache.get_or_build(row, Half::Unified, epoch, seen, || {
-            let gutter = gutter_text(
-                shown.geometry.gutter,
-                digits,
-                line.line(Side::Old),
-                line.line(Side::New),
-                kind,
-            );
+        let layout = cache.get_or_build(band.row, half, epoch, seen, || {
+            let gutter = gutter_text(gutter, gutter_cells, numbers.0, numbers.1, kind);
             let gutter_units: Vec<u16> = gutter.encode_utf16().collect();
             RowLayout {
                 gutter: font.line(
@@ -427,12 +523,12 @@ impl DocumentView {
             }
         });
         let line_height = f64::from(shown.metrics.line_height);
-        let baseline = |visual: usize| top + visual as f64 * line_height + font.ascent;
-        CGContext::set_text_position(Some(context), 0.0, baseline(0));
+        let baseline = |visual: usize| band.top + visual as f64 * line_height + font.ascent;
+        CGContext::set_text_position(Some(context), x, baseline(0));
         // SAFETY: строка Core Text и контекст живы на время вызова.
         unsafe { layout.gutter.draw(context) };
         for (visual, segment) in layout.segments.iter().enumerate() {
-            CGContext::set_text_position(Some(context), gutter_width, baseline(visual));
+            CGContext::set_text_position(Some(context), x + gutter_width, baseline(visual));
             // SAFETY: строка Core Text и контекст живы на время вызова.
             unsafe { segment.draw(context) };
         }
@@ -570,6 +666,17 @@ impl ViewA {
         Some(NSRect::new(
             NSPoint::new(0.0, top),
             NSSize::new(self.document.bounds().size.width, height),
+        ))
+    }
+
+    /// Прямоугольник половины `side` строки показа в «Рядом» в координатах документа.
+    pub fn half_rect(&self, row: u32, side: Side) -> Option<NSRect> {
+        let scene = self.document.scene()?;
+        let geometry = scene.geometry()?;
+        let area = self.row_rect(row)?;
+        Some(NSRect::new(
+            NSPoint::new(geometry.half_origin(side), area.origin.y),
+            NSSize::new(geometry.half_width(), area.size.height),
         ))
     }
 

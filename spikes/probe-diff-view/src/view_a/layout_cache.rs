@@ -12,6 +12,8 @@ use std::ops::Range;
 
 use serde::Serialize;
 
+use probe_diff_view::model::Side;
+
 /// Экранов в пределе кэша.
 pub const SCREENS: u32 = 3;
 /// Экранов от видимых строк, дальше которых раскладка не строится.
@@ -21,11 +23,18 @@ pub const FAR_SCREENS: u32 = 2;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Half {
     Unified,
-    // Половины «Рядом» рисует задача 8.
-    #[allow(dead_code)]
     Old,
-    #[allow(dead_code)]
     New,
+}
+
+impl Half {
+    /// Половина «Рядом» стороны `side`.
+    pub fn of(side: Side) -> Half {
+        match side {
+            Side::Old => Half::Old,
+            Side::New => Half::New,
+        }
+    }
 }
 
 /// Счётчики кэша для `result.json`.

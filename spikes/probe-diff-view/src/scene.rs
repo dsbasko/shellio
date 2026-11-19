@@ -441,6 +441,35 @@ impl Scene {
         shown.body.row_addr(model.mode, row, side)
     }
 
+    /// Адрес половины `side` строки показа: в «Рядом» щелчок по половине, у пустой половины
+    /// адреса нет.
+    pub fn row_addr_at(&self, row: u32, side: Side) -> Option<LineAddr> {
+        let model = self.model.borrow();
+        model.shown()?.body.row_addr(model.mode, row, side)
+    }
+
+    /// Показанный режим.
+    pub fn mode(&self) -> Mode {
+        self.model.borrow().mode
+    }
+
+    /// Раскладка части зоны, с которой построен индекс высот.
+    pub fn geometry(&self) -> Option<DiffGeometry> {
+        self.model.borrow().geometry
+    }
+
+    /// Щелчок по точке документа: в «Рядом» сторону задаёт половина под `x`.
+    pub fn click_at(&self, x: f64, y: f64, extend: bool) {
+        let side = {
+            let model = self.model.borrow();
+            match (model.mode, model.geometry) {
+                (Mode::SideBySide, Some(geometry)) => Some(geometry.side_at(x)),
+                _ => None,
+            }
+        };
+        self.click(y, side, extend);
+    }
+
     /// Открытие фикстуры по клавише: разбор и подсветка уходят на worker, прежний diff
     /// снимается.
     pub fn open(&self) {

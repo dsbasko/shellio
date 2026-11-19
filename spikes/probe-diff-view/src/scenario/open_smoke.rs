@@ -21,7 +21,7 @@ use serde::Serialize;
 
 use probe_diff_view::fixtures::{self, FixtureName};
 use probe_diff_view::highlight::Source;
-use probe_diff_view::model::Mode;
+use probe_diff_view::model::{Mode, Side};
 
 use super::calibrate_run::Failed;
 use super::drawmark::{self, Ledger};
@@ -104,6 +104,7 @@ enum Step {
     },
     Click {
         row: u32,
+        side: Option<Side>,
         posted: Vec<u64>,
         posted_ns: u64,
         deadline: Instant,
@@ -133,6 +134,7 @@ pub struct OpenSmoke {
     steps: RefCell<Vec<StepResult>>,
     max_entries_seen: RefCell<(usize, usize)>,
     report: RefCell<Option<Report>>,
+    mode: Mode,
 }
 
 fn now_ns() -> u64 {
@@ -153,8 +155,10 @@ impl OpenSmoke {
         trace: SharedTrace,
         view: ViewOptions,
     ) -> Result<OpenSmoke, Failed> {
-        match (view.variant, view.mode) {
-            (Some(Variant::A), Some(ViewMode::Unified)) => {}
+        let (mode, name) = match (view.variant, view.mode) {
+            (Some(Variant::A), Some(ViewMode::Unified)) => (Mode::Unified, FixtureName::Added),
+            // У `added` старая половина пустая: «Рядом» открывает `modified`, где пары полные.
+            (Some(Variant::A), Some(ViewMode::Side)) => (Mode::SideBySide, FixtureName::Modified),
             (variant, mode) => {
                 return Err(Box::new((
                     format!(
@@ -165,9 +169,9 @@ impl OpenSmoke {
                     report,
                 )));
             }
-        }
+        };
         let generated = Instant::now();
-        let fixture = fixtures::generate(FixtureName::Added);
+        let fixture = fixtures::generate(name);
         report.metric(
             "fixture_generate_ms",
             "ms",
@@ -175,7 +179,7 @@ impl OpenSmoke {
         );
         report.push(
             "fixture",
-            format!("added, отпечаток {:016x}", fixture.digest()),
+            format!("{}, отпечаток {:016x}", name.as_str(), fixture.digest()),
         );
         let app = NSApplication::sharedApplication(mtm);
         let theme = crate::text::current_theme(mtm);
@@ -196,7 +200,7 @@ impl OpenSmoke {
                 font.line_height
             ),
         );
-        let scene = match Scene::new(fixture, Mode::Unified, font) {
+        let scene = match Scene::new(fixture, mode, font) {
             Ok(scene) => scene,
             Err(reason) => return Err(Box::new((reason, report))),
         };
@@ -275,6 +279,7 @@ impl OpenSmoke {
             steps: RefCell::new(Vec::new()),
             max_entries_seen: RefCell::new((0, 0)),
             report: RefCell::new(Some(report)),
+            mode,
         };
         if let Some(report) = run.report.borrow_mut().as_mut() {
             match sampler::sample() {
@@ -351,6 +356,13 @@ impl OpenSmoke {
                     && self.covered_now()
                 {
                     *self.milestones.borrow_mut() = Some(milestones);
+                    let shown = self.scene.mode();
+                    if shown != self.mode {
+                        return Err(format!(
+                            "запрошен режим {:?}, показан {shown:?}: ширины окна не хватило",
+                            self.mode
+                        ));
+                    }
                     return self.press("G", Key::SHIFT_G);
                 }
                 if Instant::now() < deadline {
@@ -412,7 +424,10 @@ impl OpenSmoke {
                     });
                     return match name {
                         "G" => self.press_sequence("gg"),
-                        _ => self.click(),
+                        _ => self.click(match self.mode {
+                            Mode::Unified => None,
+                            Mode::SideBySide => Some(Side::Old),
+                        }),
                     };
                 }
                 if Instant::now() < deadline {
@@ -432,11 +447,15 @@ impl OpenSmoke {
             }
             Step::Click {
                 row,
+                side,
                 posted,
                 posted_ns,
                 deadline,
             } => {
-                let expected = self.scene.row_addr(row);
+                let expected = match side {
+                    Some(side) => self.scene.row_addr_at(row, side),
+                    None => self.scene.row_addr(row),
+                };
                 let cursor = self.scene.cursor();
                 if returned(&posted)
                     && expected.is_some()
@@ -454,20 +473,24 @@ impl OpenSmoke {
                         latency_ms: at.saturating_sub(posted_ns) as f64 / 1e6,
                         scroll_y: self.view.viewport_y(),
                         visible,
-                        detail: format!("строка {row}, курсор {cursor:?}"),
+                        detail: format!("строка {row}, половина {side:?}, курсор {cursor:?}"),
                     });
-                    return Ok(Step::Done);
+                    return match side {
+                        Some(Side::Old) => self.click(Some(Side::New)),
+                        Some(Side::New) | None => Ok(Step::Done),
+                    };
                 }
                 if Instant::now() < deadline {
                     return Ok(Step::Click {
                         row,
+                        side,
                         posted,
                         posted_ns,
                         deadline,
                     });
                 }
                 Err(format!(
-                    "щелчок по строке {row} не поставил курсор за {} мс: ожидался {expected:?}, курсор {cursor:?}, покрыты {}",
+                    "щелчок по строке {row}, половина {side:?}, не поставил курсор за {} мс: ожидался {expected:?}, курсор {cursor:?}, покрыты {}",
                     STEP_DEADLINE.as_millis(),
                     self.covered_now()
                 ))
@@ -498,22 +521,26 @@ impl OpenSmoke {
         })
     }
 
-    /// Щелчок по центру видимой строки [`CLICK_ROW`] без модификаторов.
-    fn click(&self) -> Result<Step, String> {
+    /// Щелчок по центру видимой строки [`CLICK_ROW`] без модификаторов: в unified по левым
+    /// 400 точкам строки, в «Рядом» по центру половины `side`.
+    fn click(&self, side: Option<Side>) -> Result<Step, String> {
         let visible = self.scene.visible_rows();
         let row = visible.start + CLICK_ROW - 1;
         if row >= visible.end {
             return Err(format!("видимых строк меньше {CLICK_ROW}: {visible:?}"));
         }
-        let area = self
-            .view
-            .row_rect(row)
-            .ok_or_else(|| format!("нет прямоугольника строки {row}"))?;
+        let area = match side {
+            Some(side) => self.view.half_rect(row, side),
+            None => self.view.row_rect(row).map(|area| {
+                NSRect::new(
+                    area.origin,
+                    NSSize::new(area.size.width.min(400.0), area.size.height),
+                )
+            }),
+        }
+        .ok_or_else(|| format!("нет прямоугольника строки {row}"))?;
         let screen = self.window.convertRectToScreen(self.view.to_window(area));
-        let point = events::center(NSRect::new(
-            screen.origin,
-            NSSize::new(screen.size.width.min(400.0), screen.size.height),
-        ));
+        let point = events::center(screen);
         let posted_ns = now_ns();
         let gesture = events::mouse_down(
             self.mtm,
@@ -526,6 +553,7 @@ impl OpenSmoke {
         let posted = vec![gesture.down, gesture.up("open-smoke")?];
         Ok(Step::Click {
             row,
+            side,
             posted,
             posted_ns,
             deadline: Instant::now() + STEP_DEADLINE,
@@ -684,10 +712,28 @@ impl OpenSmoke {
                 format!("шагов клавиш {}", keys.len()),
             );
         }
-        match steps.iter().find(|step| step.name == "click") {
-            Some(step) => report.finding("click_cursor", Verdict::Pass, step.detail.clone()),
-            None => report.finding("click_cursor", Verdict::Fail, "щелчка нет"),
-        }
+        let clicks: Vec<String> = steps
+            .iter()
+            .filter(|step| step.name == "click")
+            .map(|step| step.detail.clone())
+            .collect();
+        let expected_clicks = match self.mode {
+            Mode::Unified => 1,
+            Mode::SideBySide => 2,
+        };
+        report.finding(
+            "click_cursor",
+            if clicks.len() == expected_clicks {
+                Verdict::Pass
+            } else {
+                Verdict::Fail
+            },
+            if clicks.is_empty() {
+                "щелчка нет".to_owned()
+            } else {
+                clicks.join("; ")
+            },
+        );
         let bounded = counters.max_entries <= counters.max_capacity && counters.far_builds == 0;
         report.finding(
             "layout_cache_bounded",
