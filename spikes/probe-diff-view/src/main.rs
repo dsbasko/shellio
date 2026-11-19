@@ -288,6 +288,9 @@ fn run_scenario(
     fixtures: Option<&Path>,
     frames_path: FramesPath,
 ) -> ExitCode {
+    if scenario == Scenario::Memory {
+        scenario::memory_run::install_counter();
+    }
     let environment = static_environment();
     // Грамматика проверяется до окна: разбор строки из одного выражения, без AppKit.
     let grammar = check_grammar();
@@ -323,16 +326,12 @@ fn run_scenario(
         None => None,
     };
     let mut outcome = match scenario {
-        Scenario::Memory => Outcome::error(
-            format!("сценарий {} ещё не реализован", scenario.name()),
-            None,
-            Report::default(),
-        ),
         Scenario::Smoke
         | Scenario::Calibrate
         | Scenario::OpenSmoke
         | Scenario::Ax
         | Scenario::Keys
+        | Scenario::Memory
         | Scenario::Idle => run_app(Some(scenario), view, Some(out.clone()), None, trace)
             .unwrap_or_else(|| {
                 Outcome::error(
@@ -976,9 +975,17 @@ impl AppDelegate {
                     Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
                     Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
                 },
-                Some(Scenario::Highlight | Scenario::Memory) | None => {
-                    self.finish(Outcome::ok(report))
-                }
+                Some(Scenario::Memory) => match scenario::memory_run::MemoryRun::start(
+                    self.mtm(),
+                    window,
+                    report,
+                    ivars.trace.clone(),
+                    ivars.view,
+                ) {
+                    Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
+                    Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
+                },
+                Some(Scenario::Highlight) | None => self.finish(Outcome::ok(report)),
             }
         } else if waited >= SMOKE_TIMEOUT {
             self.finish(Outcome::error(

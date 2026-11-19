@@ -24,9 +24,8 @@ pub mod idle_run;
 pub mod keys;
 pub mod keys_run;
 pub mod marker;
-// Чистая часть `memory` задачи 13: GUI-часть подключается следующей итерацией.
-#[allow(dead_code)]
 pub mod memory;
+pub mod memory_run;
 pub mod neighbor;
 pub mod open;
 pub mod open_smoke;
