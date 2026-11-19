@@ -16,6 +16,7 @@
 //! отрезки байт от начала строки без перевода строки, соседние отрезки одного класса слиты.
 
 pub mod reference;
+pub mod store;
 
 use std::cmp::Reverse;
 use std::fmt;

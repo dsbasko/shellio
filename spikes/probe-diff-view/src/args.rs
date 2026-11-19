@@ -87,6 +87,10 @@ impl Axes {
         variants: false,
         modes: false,
     };
+    pub const VIEW: Axes = Axes {
+        variants: true,
+        modes: true,
+    };
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -97,16 +101,24 @@ pub enum Scenario {
     Highlight,
     /// Калибровка замера кадров: окно с движением по S1, отметка `drawRect:`, сверка пика.
     Calibrate,
+    /// Открытие `added` в виде варианта и режима: первый экран нарисован, `G`, `gg`, щелчок.
+    OpenSmoke,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 3] = [Scenario::Smoke, Scenario::Highlight, Scenario::Calibrate];
+    pub const ALL: [Scenario; 4] = [
+        Scenario::Smoke,
+        Scenario::Highlight,
+        Scenario::Calibrate,
+        Scenario::OpenSmoke,
+    ];
 
     pub fn name(self) -> &'static str {
         match self {
             Scenario::Smoke => "smoke",
             Scenario::Highlight => "highlight",
             Scenario::Calibrate => "calibrate",
+            Scenario::OpenSmoke => "open-smoke",
         }
     }
 
@@ -119,6 +131,7 @@ impl Scenario {
     pub fn axes(self) -> Axes {
         match self {
             Scenario::Smoke | Scenario::Highlight | Scenario::Calibrate => Axes::STAND,
+            Scenario::OpenSmoke => Axes::VIEW,
         }
     }
 
@@ -126,7 +139,7 @@ impl Scenario {
     /// (`needs_fixtures`) повторяет её.
     pub fn needs_fixtures(self) -> bool {
         match self {
-            Scenario::Smoke | Scenario::Calibrate => false,
+            Scenario::Smoke | Scenario::Calibrate | Scenario::OpenSmoke => false,
             Scenario::Highlight => true,
         }
     }
@@ -582,6 +595,53 @@ mod tests {
                 scenario: "smoke",
                 flag: "--mode"
             })
+        );
+    }
+
+    #[test]
+    fn open_smoke_is_a_view_scenario() {
+        assert_eq!(
+            parse_str(&[
+                "--scenario",
+                "open-smoke",
+                "--out",
+                "o",
+                "--variant",
+                "a",
+                "--mode",
+                "unified",
+            ]),
+            Ok(Command::Scenario {
+                scenario: Scenario::OpenSmoke,
+                view: ViewOptions {
+                    variant: Some(Variant::A),
+                    mode: Some(ViewMode::Unified),
+                },
+                out: PathBuf::from("o"),
+                fixtures: None,
+            })
+        );
+        assert_eq!(
+            parse_str(&["--scenario", "open-smoke", "--out", "o", "--variant", "b"]),
+            Err(ArgsError::AxisRequired {
+                scenario: "open-smoke",
+                flag: "--mode"
+            })
+        );
+        assert_eq!(
+            parse_str(&[
+                "--scenario",
+                "open-smoke",
+                "--out",
+                "o",
+                "--variant",
+                "a",
+                "--mode",
+                "side",
+                "--fixtures",
+                "f",
+            ]),
+            Err(ArgsError::FixturesNotAccepted("open-smoke"))
         );
     }
 

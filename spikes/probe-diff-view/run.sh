@@ -16,7 +16,7 @@ CARGO="${CARGO:-cargo}"
 BIN="$ROOT/target/release/probe-diff-view"
 OUT_BASE="$ROOT/target/probes/diff-view"
 FIXTURES_DIR="$OUT_BASE/fixtures"
-ALL_SCENARIOS="smoke highlight calibrate"
+ALL_SCENARIOS="smoke highlight calibrate open-smoke"
 ALL_VARIANTS="a b"
 ALL_MODES="unified side"
 
@@ -108,6 +108,7 @@ check_state_dir() {
 axes_of() {
     case "$1" in
         smoke | highlight | calibrate) echo stand ;;
+        open-smoke) echo view ;;
         *) die "неизвестный сценарий «${1}», известны: $ALL_SCENARIOS" ;;
     esac
 }

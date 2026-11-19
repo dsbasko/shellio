@@ -340,6 +340,9 @@ impl Key {
         flags: NSEventModifierFlags::Command,
     };
     pub const ESCAPE: Key = Key::plain_with("Escape", 53, "\u{1b}");
+    /// Клавиша открытия фикстуры, только для стенда пробы: в keymap продукта её нет (⚠️ решение
+    /// исполнителя задачи 7).
+    pub const OPEN: Key = Key::plain("o", 31);
 
     const fn plain(characters: &'static str, code: u16) -> Key {
         Key::plain_with(characters, code, characters)

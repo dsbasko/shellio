@@ -138,11 +138,184 @@ impl Waiter {
     }
 }
 
+/// Изменение содержимого, объявленное видом: поколение и строки показа, которые оно затронуло.
+/// `rows == None` — все строки: открытие, замена diff, смена ширины или режима. Прокрутка
+/// содержимого не меняет и не объявляется.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Declared {
+    pub generation: u64,
+    pub rows: Option<Vec<Range<usize>>>,
+    pub at_ns: u64,
+}
+
+/// Поколение по строкам: отсортированные непересекающиеся полуинтервалы, соседние с одним
+/// поколением слиты.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct RowGenerations {
+    ranges: Vec<(Range<usize>, u64)>,
+}
+
+impl RowGenerations {
+    fn get(&self, row: usize) -> Option<u64> {
+        let index = self.ranges.partition_point(|(range, _)| range.end <= row);
+        self.ranges
+            .get(index)
+            .filter(|(range, _)| range.start <= row)
+            .map(|(_, generation)| *generation)
+    }
+
+    /// Ставит поколение строкам `rows` поверх прежнего.
+    fn set(&mut self, rows: Range<usize>, generation: u64) {
+        if rows.is_empty() {
+            return;
+        }
+        let mut next: Vec<(Range<usize>, u64)> = Vec::with_capacity(self.ranges.len() + 2);
+        let mut placed = false;
+        for (range, value) in self.ranges.drain(..) {
+            if range.end <= rows.start {
+                next.push((range, value));
+                continue;
+            }
+            if range.start < rows.start {
+                next.push((range.start..rows.start, value));
+            }
+            if !placed && range.start >= rows.start {
+                next.push((rows.clone(), generation));
+                placed = true;
+            }
+            if range.end > rows.end {
+                if !placed {
+                    next.push((rows.clone(), generation));
+                    placed = true;
+                }
+                next.push((range.start.max(rows.end)..range.end, value));
+            }
+        }
+        if !placed {
+            next.push((rows, generation));
+        }
+        let mut merged: Vec<(Range<usize>, u64)> = Vec::with_capacity(next.len());
+        for (range, value) in next {
+            match merged.last_mut() {
+                Some((last, last_value)) if last.end == range.start && *last_value == value => {
+                    last.end = range.end;
+                }
+                _ => merged.push((range, value)),
+            }
+        }
+        self.ranges = merged;
+    }
+
+    fn clear(&mut self) {
+        self.ranges.clear();
+    }
+
+    fn len(&self) -> usize {
+        self.ranges.len()
+    }
+}
+
+/// Учёт покрытия по строкам для вида, который перерисовывает только затронутые строки. Строка
+/// требует поколения последнего объявленного изменения, которое её затронуло, и покрыта, если
+/// последняя отметка над ней не младше. Отметки идут с неубывающим поколением: вид рисует
+/// текущее поколение, а объявляет его до отрисовки.
+///
+/// Покрытие — верхняя оценка: строка, отрисованная давно и выгруженная AppKit из кэша плиток,
+/// считается покрытой до новой отрисовки. Содержимое такой строки не менялось.
+#[derive(Clone, Debug, Default)]
+pub struct Ledger {
+    /// Поколение последнего изменения всех строк.
+    base: u64,
+    /// Частичные изменения после него.
+    required: RowGenerations,
+    drawn: RowGenerations,
+    latest: u64,
+}
+
+impl Ledger {
+    pub fn declare(&mut self, declared: &Declared) {
+        self.latest = self.latest.max(declared.generation);
+        match &declared.rows {
+            None => {
+                self.base = declared.generation;
+                self.required.clear();
+                self.drawn.clear();
+            }
+            Some(rows) => {
+                for range in rows {
+                    self.required.set(range.clone(), declared.generation);
+                }
+            }
+        }
+    }
+
+    pub fn mark(&mut self, mark: &Mark) {
+        self.drawn.set(mark.rows.clone(), mark.generation);
+    }
+
+    /// Последнее объявленное поколение.
+    pub fn latest(&self) -> u64 {
+        self.latest
+    }
+
+    pub fn required(&self, row: usize) -> u64 {
+        self.base.max(self.required.get(row).unwrap_or(0))
+    }
+
+    pub fn is_covered(&self, row: usize) -> bool {
+        self.base > 0
+            && self
+                .drawn
+                .get(row)
+                .is_some_and(|drawn| drawn >= self.required(row))
+    }
+
+    /// Первая непокрытая строка из `visible`.
+    pub fn uncovered(&self, visible: Range<usize>) -> Option<usize> {
+        visible.into_iter().find(|&row| !self.is_covered(row))
+    }
+
+    /// Число полуинтервалов учёта: для наблюдения за его ростом.
+    pub fn size(&self) -> (usize, usize) {
+        (self.required.len(), self.drawn.len())
+    }
+}
+
 type Hook = Box<dyn FnMut(&Mark)>;
+
+type DeclareHook = Box<dyn FnMut(&Declared)>;
 
 thread_local! {
     static MARKS: RefCell<Vec<Mark>> = const { RefCell::new(Vec::new()) };
     static HOOK: RefCell<Option<Hook>> = const { RefCell::new(None) };
+    static DECLARED: RefCell<Vec<Declared>> = const { RefCell::new(Vec::new()) };
+    static DECLARE_HOOK: RefCell<Option<DeclareHook>> = const { RefCell::new(None) };
+}
+
+/// Записывает объявленное изменение и передаёт его наблюдателю стенда. Вызывается видом в момент
+/// смены поколения, до отрисовки.
+pub fn declare(declared: Declared) {
+    let taken = DECLARE_HOOK.with(|hook| hook.borrow_mut().take());
+    if let Some(mut hook) = taken {
+        hook(&declared);
+        DECLARE_HOOK.with(|slot| {
+            let mut slot = slot.borrow_mut();
+            if slot.is_none() {
+                *slot = Some(hook);
+            }
+        });
+    }
+    DECLARED.with(|journal| journal.borrow_mut().push(declared));
+}
+
+/// Наблюдатель объявленных изменений; заменяет прежний.
+pub fn on_declare(hook: impl FnMut(&Declared) + 'static) {
+    DECLARE_HOOK.with(|slot| *slot.borrow_mut() = Some(Box::new(hook)));
+}
+
+/// Забирает журнал объявленных изменений.
+pub fn take_declared() -> Vec<Declared> {
+    DECLARED.with(|journal| std::mem::take(&mut *journal.borrow_mut()))
 }
 
 /// Записывает отметку и передаёт её наблюдателю стенда. Вызывается видом в конце `drawRect:`.
@@ -249,5 +422,128 @@ mod tests {
         assert_eq!(*seen.borrow(), vec![1, 2]);
         assert_eq!(take().len(), 2);
         assert!(take().is_empty());
+    }
+
+    fn declared(generation: u64, rows: Option<Vec<Range<usize>>>) -> Declared {
+        Declared {
+            generation,
+            rows,
+            at_ns: 0,
+        }
+    }
+
+    #[test]
+    fn row_generations_overwrite_and_merge() {
+        let mut map = RowGenerations::default();
+        map.set(0..10, 1);
+        map.set(3..5, 2);
+        assert_eq!(map.ranges, vec![(0..3, 1), (3..5, 2), (5..10, 1)]);
+        map.set(3..5, 1);
+        assert_eq!(map.ranges, vec![(0..10, 1)]);
+        map.set(8..12, 3);
+        map.set(20..22, 3);
+        assert_eq!(map.ranges, vec![(0..8, 1), (8..12, 3), (20..22, 3)]);
+        map.set(0..30, 4);
+        assert_eq!(map.ranges, vec![(0..30, 4)]);
+        assert_eq!(map.get(29), Some(4));
+        assert_eq!(map.get(30), None);
+        map.set(5..5, 9);
+        assert_eq!(map.ranges, vec![(0..30, 4)]);
+    }
+
+    #[test]
+    fn row_generations_match_a_per_row_reference() {
+        let mut map = RowGenerations::default();
+        let mut reference = [None::<u64>; 64];
+        let mut seed = 0x6d61_726bu64;
+        for generation in 1..400u64 {
+            seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+            let a = (seed >> 33) as usize % 64;
+            seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+            let b = (seed >> 33) as usize % 64;
+            let (start, end) = (a.min(b), a.max(b));
+            let value = generation % 5;
+            map.set(start..end, value);
+            for slot in &mut reference[start..end] {
+                *slot = Some(value);
+            }
+            for (row, expected) in reference.iter().enumerate() {
+                assert_eq!(map.get(row), *expected, "строка {row}, шаг {generation}");
+            }
+            for pair in map.ranges.windows(2) {
+                assert!(pair[0].0.end <= pair[1].0.start);
+                assert!(pair[0].0.end < pair[1].0.start || pair[0].1 != pair[1].1);
+            }
+        }
+    }
+
+    #[test]
+    fn ledger_needs_all_visible_rows_after_open() {
+        let mut ledger = Ledger::default();
+        assert_eq!(ledger.uncovered(0..3), Some(0));
+        ledger.declare(&declared(1, None));
+        assert_eq!(ledger.uncovered(0..40), Some(0));
+        ledger.mark(&mark(1, 0..20, 10, 20));
+        assert_eq!(ledger.uncovered(0..40), Some(20));
+        ledger.mark(&mark(1, 20..40, 30, 40));
+        assert_eq!(ledger.uncovered(0..40), None);
+        assert_eq!(ledger.latest(), 1);
+    }
+
+    #[test]
+    fn ledger_partial_change_needs_only_its_rows() {
+        let mut ledger = Ledger::default();
+        ledger.declare(&declared(1, None));
+        ledger.mark(&mark(1, 0..40, 10, 20));
+        // Снимок подсветки затронул строки 5–7 и 30: остальные покрыты прежним поколением.
+        ledger.declare(&declared(2, Some(vec![5..8, 30..31])));
+        assert_eq!(ledger.uncovered(0..40), Some(5));
+        ledger.mark(&mark(2, 5..8, 30, 40));
+        assert_eq!(ledger.uncovered(0..40), Some(30));
+        ledger.mark(&mark(2, 30..31, 50, 60));
+        assert_eq!(ledger.uncovered(0..40), None);
+        assert_eq!(ledger.required(6), 2);
+        assert_eq!(ledger.required(10), 1);
+    }
+
+    #[test]
+    fn ledger_keeps_rows_drawn_before_a_scroll() {
+        let mut ledger = Ledger::default();
+        ledger.declare(&declared(1, None));
+        ledger.mark(&mark(1, 0..40, 10, 20));
+        // Прокрутка на 10 строк: AppKit рисует только открывшуюся полосу.
+        assert_eq!(ledger.uncovered(10..50), Some(40));
+        ledger.mark(&mark(1, 40..50, 30, 40));
+        assert_eq!(ledger.uncovered(10..50), None);
+    }
+
+    #[test]
+    fn ledger_resets_on_full_change_and_ignores_older_marks() {
+        let mut ledger = Ledger::default();
+        ledger.declare(&declared(1, None));
+        ledger.mark(&mark(1, 0..40, 10, 20));
+        ledger.declare(&declared(2, Some(std::iter::once(0..40).collect())));
+        ledger.declare(&declared(3, None));
+        assert_eq!(ledger.uncovered(0..10), Some(0));
+        ledger.mark(&mark(2, 0..10, 30, 40));
+        assert_eq!(ledger.uncovered(0..10), Some(0));
+        ledger.mark(&mark(3, 0..10, 50, 60));
+        assert_eq!(ledger.uncovered(0..10), None);
+        assert_eq!(ledger.size(), (0, 1));
+    }
+
+    #[test]
+    fn declare_reaches_hook_and_journal() {
+        let seen = std::rc::Rc::new(RefCell::new(Vec::new()));
+        {
+            let seen = std::rc::Rc::clone(&seen);
+            on_declare(move |declared| seen.borrow_mut().push(declared.generation));
+        }
+        take_declared();
+        declare(declared(7, None));
+        declare(declared(8, Some(std::iter::once(1..2).collect())));
+        assert_eq!(*seen.borrow(), vec![7, 8]);
+        assert_eq!(take_declared().len(), 2);
+        on_declare(|_| {});
     }
 }

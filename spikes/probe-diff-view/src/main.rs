@@ -8,7 +8,10 @@
 mod args;
 mod results;
 mod scenario;
+mod scene;
 mod stats;
+mod text;
+mod view_a;
 
 use std::cell::{OnceCell, RefCell};
 use std::ffi::CString;
@@ -52,6 +55,9 @@ const SMOKE_TIMEOUT: Duration = Duration::from_secs(10);
 /// Срок сторожа `smoke` из отчёта, раздел «Сроки и размеры»: окно, два ожидания отметки по 2 с и
 /// снимок до 10 с.
 const SMOKE_DEADLINE: Duration = Duration::from_secs(60);
+/// Срок сторожа `open-smoke` из отчёта, раздел «Сроки и размеры»: окно, генерация фикстуры,
+/// открытие до 5 с и три шага по 2 с.
+const OPEN_SMOKE_DEADLINE: Duration = Duration::from_secs(60);
 /// Частота встроенного дисплея, которую подтверждает `calibrate` (предусловие плана).
 const REQUIRED_FPS: isize = 120;
 /// Срок сторожа `calibrate` из отчёта, раздел «Сроки и размеры»: четыре записи по 5 с, у каждой
@@ -250,6 +256,7 @@ fn run_scenario(
     let deadline = match scenario {
         Scenario::Calibrate => Some(("calibrate", CALIBRATE_DEADLINE)),
         Scenario::Smoke => Some(("smoke", SMOKE_DEADLINE)),
+        Scenario::OpenSmoke => Some(("open-smoke", OPEN_SMOKE_DEADLINE)),
         Scenario::Highlight => None,
     };
     let _watchdog = match deadline {
@@ -268,7 +275,7 @@ fn run_scenario(
         None => None,
     };
     let mut outcome = match scenario {
-        Scenario::Smoke | Scenario::Calibrate => {
+        Scenario::Smoke | Scenario::Calibrate | Scenario::OpenSmoke => {
             run_app(Some(scenario), view, Some(out.clone()), trace).unwrap_or_else(|| {
                 Outcome::error(
                     "основной цикл завершился без итога сценария",
@@ -582,10 +589,10 @@ struct DelegateIvars {
     shown_at: OnceCell<Instant>,
     /// Запрошенная рамка содержимого окна в глобальных координатах AppKit.
     requested: OnceCell<NSRect>,
-    calibration: RefCell<Option<scenario::calibrate_run::Calibration>>,
+    /// Идущий сценарий с окном.
+    running: RefCell<Option<Box<dyn scenario::Running>>>,
     /// Кольцо следа сторожа процесса, его же получает стенд событий.
     trace: scenario::watchdog::SharedTrace,
-    smoke: RefCell<Option<scenario::smoke::Smoke>>,
 }
 
 define_class!(
@@ -627,25 +634,12 @@ define_class!(
     impl AppDelegate {
         #[unsafe(method(pollWindow:))]
         fn poll_window(&self, _timer: &NSTimer) {
-            let smoke = self.ivars().smoke.borrow().as_ref().map(|run| run.poll());
-            match smoke {
-                None => {}
-                Some(None) => return,
-                Some(Some(result)) => {
-                    drop(self.ivars().smoke.borrow_mut().take());
-                    self.finish(match result {
-                        Ok(report) => Outcome::ok(report),
-                        Err(failed) => Outcome::error(failed.0, None, failed.1),
-                    });
-                    return;
-                }
-            }
-            let polled = self.ivars().calibration.borrow().as_ref().map(|run| run.poll());
+            let polled = self.ivars().running.borrow().as_ref().map(|run| run.poll());
             match polled {
                 None => self.check_window(),
                 Some(None) => {}
                 Some(Some(result)) => {
-                    drop(self.ivars().calibration.borrow_mut().take());
+                    drop(self.ivars().running.borrow_mut().take());
                     self.finish(match result {
                         Ok(report) => Outcome::ok(report),
                         Err(failed) => Outcome::error(failed.0, None, failed.1),
@@ -674,9 +668,8 @@ impl AppDelegate {
             timer: RefCell::new(None),
             shown_at: OnceCell::new(),
             requested: OnceCell::new(),
-            calibration: RefCell::new(None),
+            running: RefCell::new(None),
             trace,
-            smoke: RefCell::new(None),
         });
         // SAFETY: `init` у NSObject без аргументов.
         unsafe { msg_send![super(this), init] }
@@ -794,7 +787,7 @@ impl AppDelegate {
                         report,
                         out,
                     ) {
-                        Ok(run) => *ivars.calibration.borrow_mut() = Some(run),
+                        Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
                         Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
                     }
                 }
@@ -805,7 +798,17 @@ impl AppDelegate {
                     out,
                     ivars.trace.clone(),
                 ) {
-                    Ok(run) => *ivars.smoke.borrow_mut() = Some(run),
+                    Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
+                    Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
+                },
+                Some(Scenario::OpenSmoke) => match scenario::open_smoke::OpenSmoke::start(
+                    self.mtm(),
+                    window,
+                    report,
+                    ivars.trace.clone(),
+                    ivars.view,
+                ) {
+                    Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
                     Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
                 },
                 Some(Scenario::Highlight) | None => self.finish(Outcome::ok(report)),

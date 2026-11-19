@@ -4,5 +4,7 @@
 
 pub mod fixtures;
 pub mod highlight;
+pub mod keymap;
 pub mod model;
+pub mod tokens;
 pub mod worker;
