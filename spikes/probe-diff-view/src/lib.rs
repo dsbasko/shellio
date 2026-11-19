@@ -3,6 +3,7 @@
 //! по мере задач плана.
 
 pub mod access;
+pub mod estimate;
 pub mod fixtures;
 pub mod highlight;
 pub mod keymap;

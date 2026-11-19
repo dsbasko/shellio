@@ -657,13 +657,18 @@
 - Create: `spikes/probe-diff-view/src/scenario/keys.rs`
 - Create: `spikes/probe-diff-view/src/scenario/idle.rs`
 - Create: `spikes/probe-diff-view/src/estimate.rs`
+- ➕ Create: `spikes/probe-diff-view/src/scenario/memory_run.rs`, `src/scenario/keys_run.rs`, `src/scenario/idle_run.rs` (GUI-части, как `frames_run.rs`; в `memory.rs`, `keys.rs`, `idle.rs` — чистые части с тестами)
+- ➕ Modify: `src/model/mod.rs`, `src/model/rows.rs`, `src/model/heights.rs` (байты буферов по ёмкости), `src/lib.rs`, `src/scenario/mod.rs`, `src/args.rs`, `src/main.rs`, `src/results.rs`, `run.sh`, `Makefile`, `AGENTS.md`, отчёт
 
 - [ ] `memory`: фазы из раздела «Память», `ri_phys_footprint` и `ri_lifetime_max_phys_footprint`, вердикт против 150 000 000 байт
 - [ ] оценка `≈` данных модели по фактической `capacity` буферов, отдельной строкой. Деревья tree-sitter — только если работает подсчёт выделений, иначе строка «не оценено»
 - [ ] `keys`: `j`, `k`, `Ctrl-d`, `]c`, `G`, `gg` по 100 событий после 10 прогревочных, p95 «postEvent → `drawRect:` нужного поколения». Перед каждым событием курсор возвращается в подготовленную позицию вне замера, чтобы `G`, `gg` и `]c` не упирались в край и каждый раз вызывали отрисовку
 - [ ] `idle`: 10 с неподвижного `modified` после окончания подсветки, CPU и число проходов отображения
-- [ ] тесты оценки памяти на известных буферах и агрегирования клавиш
+- [x] тесты оценки памяти на известных буферах и агрегирования клавиш: `estimate::tests` (ёмкость `Vec`, срезы `Arc<[u8]>`, строки, сумма без деревьев, «не оценено», буферы модели по ёмкости на разобранном diff и индексе высот), `scenario::keys::tests` (исключение прогрева, p95 ближайшим рангом, событие без отметки — ошибка исполнения, догоняющая подсветка отдельно, вердикт только на 120 Гц), также `scenario::memory::tests` (пик между выборками только при росте внутри окна, вердикт по фазам до закрытия) и `scenario::idle::tests`, в `make check`
 - [ ] `make check` и `make probe-diff SCENARIOS="memory keys idle"` — без ошибок исполнения
+- состояние задачи 13 на промежуточной точке (задача идёт несколькими итерациями, сессия исполнителя ограничена 30 мин, как у задач 6, 8 и 12):
+  - сделано (итерация 15:49–16:00): чистые части `estimate.rs` (оценка `≈` по ёмкости, деревья — подсчитаны или «не оценено»), `scenario/keys.rs` (`KeyName`, `Press`, `summarize`, `judge`), `scenario/memory.rs` (`Phase`, `summarize` с правилом пика фазы, `judge`), `scenario/idle.rs` (`summarize`, `judge`); методы ёмкости модели `Diff::lines_bytes`, `Diff::rows_bytes`, `TextBody::lines_bytes`, `TextBody::rows_bytes`, `HeightIndex::heap_bytes`. `make check` — 1363 теста. Правила и ожидания трёх сценариев записаны в отчёт до первого прогона: таблица «Сроки и размеры», строки «Процессы `memory`, `keys`, `idle`», «Фазы `memory`», «Пик фазы `memory`», «Оценка `≈` `memory`», «Клавиши `keys`», «120 Гц `keys`», «Окно `idle`», «Сроки `memory`, `keys`, `idle`», и строка «Ожиданий»
+  - следующий шаг: проводка — `Scenario::Memory`, `Keys`, `Idle` в `args.rs` (`ALL`, `name`, `axes`: у `memory` новая ось «только вариант», `fixtures`, `needs_fixtures`), разбор каталога `memory-<вариант>` в `ProcessKey` (`results.rs`), сроки и сторожа в `main.rs`, запуск в `check_window`, `run.sh` (`ALL_SCENARIOS`, `axes_of`, ячейки с осью «только вариант»), `Makefile` и `AGENTS.md` при смене списка сценариев. Затем GUI-части по порядку `idle` → `keys` → `memory` по образцу `frames_run.rs`. Для `keys` проверить, как ставить подготовленную позицию (курсор и верхний край: `Command::Click`, `Command::ScrollTo`) и как узнать, что запросов подсветки в работе нет. Для `memory` — смену режима внутри процесса повторным `stage::prepare` без утечки прежнего вида (счётчики `counters`), распределитель tree-sitter со счётчиком до первого разбора (до `check_grammar`). Перед GUI-прогоном — блокировка экрана, AeroSpace, место, крышка и пауза ввода владельца
 
 ### Task 14: Сценарии контракта корректности
 

@@ -90,6 +90,15 @@ pub(super) struct Rows {
 }
 
 impl Rows {
+    /// Байты буферов строк «Рядом» и индексов адресов по ёмкости.
+    pub(super) fn heap_bytes(&self) -> u64 {
+        use crate::estimate::vec_bytes;
+        vec_bytes(&self.split)
+            + vec_bytes(&self.line_to_split)
+            + vec_bytes(&self.old_lines)
+            + vec_bytes(&self.new_lines)
+    }
+
     fn side(&self, side: Side) -> &[u32] {
         match side {
             Side::Old => &self.old_lines,

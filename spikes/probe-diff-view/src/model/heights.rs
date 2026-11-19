@@ -59,6 +59,12 @@ impl Default for HeightIndex {
 }
 
 impl HeightIndex {
+    /// Байты высот и дерева Фенвика по ёмкости.
+    pub fn heap_bytes(&self) -> u64 {
+        use crate::estimate::vec_bytes;
+        vec_bytes(&self.text) + vec_bytes(&self.block) + vec_bytes(&self.tree)
+    }
+
     /// Индекс из высот текста строк и блоков тредов. Недостающие блоки — нулевые, лишние
     /// отбрасываются. Построение за O(n).
     pub fn from_heights(text: Vec<u32>, mut block: Vec<u32>) -> Self {

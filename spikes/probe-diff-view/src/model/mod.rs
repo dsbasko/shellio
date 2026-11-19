@@ -163,6 +163,16 @@ pub struct TextBody {
 }
 
 impl TextBody {
+    /// Байты строк diff и ханков по ёмкости.
+    pub fn lines_bytes(&self) -> u64 {
+        crate::estimate::vec_bytes(&self.lines) + crate::estimate::vec_bytes(&self.hunks)
+    }
+
+    /// Байты строк показа «Рядом» и индексов адресов по ёмкости.
+    pub fn rows_bytes(&self) -> u64 {
+        self.rows.heap_bytes()
+    }
+
     pub fn lines(&self) -> &[DiffLine] {
         &self.lines
     }
@@ -213,6 +223,29 @@ pub struct Diff {
 }
 
 impl Diff {
+    /// Байты разбора без текста diff: файлы, пути, строки и ханки по ёмкости. Строки показа «Рядом»
+    /// — [`Diff::rows_bytes`].
+    pub fn lines_bytes(&self) -> u64 {
+        use crate::estimate::{string_bytes, vec_bytes};
+        self.files.iter().fold(vec_bytes(&self.files), |sum, file| {
+            let paths = [&file.old_path, &file.new_path]
+                .into_iter()
+                .flatten()
+                .map(|path| string_bytes(path, path.capacity()))
+                .sum::<u64>();
+            sum + paths + file.text().map_or(0, TextBody::lines_bytes)
+        })
+    }
+
+    /// Байты строк показа «Рядом» и индексов адресов всех файлов.
+    pub fn rows_bytes(&self) -> u64 {
+        self.files
+            .iter()
+            .filter_map(FileDiff::text)
+            .map(TextBody::rows_bytes)
+            .sum()
+    }
+
     pub fn source(&self) -> &Arc<[u8]> {
         &self.source
     }

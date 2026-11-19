@@ -19,7 +19,14 @@ pub mod events;
 pub mod frames;
 pub mod frames_run;
 pub mod highlight;
+// Чистые части `idle`, `keys` и `memory` задачи 13: GUI-части подключаются следующей итерацией.
+#[allow(dead_code)]
+pub mod idle;
+#[allow(dead_code)]
+pub mod keys;
 pub mod marker;
+#[allow(dead_code)]
+pub mod memory;
 pub mod neighbor;
 pub mod open;
 pub mod open_smoke;
