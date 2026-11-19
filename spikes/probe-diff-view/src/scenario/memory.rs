@@ -6,7 +6,10 @@
 //! внутри её окна: это поле — максимум за жизнь процесса, и выше него ни одна фаза не поднималась.
 //! Если внутри окна поле не выросло, пик фазы — максимум её выборок. Поэтому сверка контрольным
 //! выделением идёт до всех фаз, а её 64 МиБ и генерация фикстур вне окон фаз дают полу пика:
-//! пик фазы ниже пола между выборками не виден, виден только максимум выборок.
+//! пик фазы ниже пола между выборками не виден, виден только максимум выборок. Пол фазы — поле
+//! в начале её окна, его поднимают и пики прежних фаз. Рост поля внутри окна засчитывается фазе
+//! при любом поле. Фаза до закрытия с полом не ниже бюджета и без роста поля слепа к пику между
+//! выборками: её пик — максимум выборок, а пик между выборками — `not_run`.
 
 use serde::Serialize;
 
@@ -124,6 +127,20 @@ pub fn summarize(
     })
 }
 
+/// Фазы до закрытия, слепые к пику между выборками: поле в начале окна не ниже бюджета и внутри
+/// окна не выросло, поэтому пик от бюджета до пола не виден.
+pub fn blind(phases: &[PhaseSummary]) -> Vec<Phase> {
+    phases
+        .iter()
+        .filter(|summary| {
+            summary.phase.judged()
+                && summary.lifetime_first >= BUDGET_BYTES
+                && summary.lifetime_last <= summary.lifetime_first
+        })
+        .map(|summary| summary.phase)
+        .collect()
+}
+
 /// Вердикт: пик каждой фазы до закрытия не больше 150 000 000 байт. Ошибка исполнения: нет итога
 /// какой-либо фазы до закрытия или фазы не по порядку.
 pub fn judge(phases: &[PhaseSummary]) -> Result<(Verdict, String), String> {
@@ -204,6 +221,46 @@ mod tests {
         let unchecked = summarize(Phase::AddedUnified, &grown, false).unwrap();
         assert_eq!(unchecked.peak_between, None);
         assert_eq!(unchecked.peak, 100);
+    }
+
+    #[test]
+    fn peak_grown_inside_a_window_survives_a_floor_above_the_budget() {
+        const MB: u64 = 1_000_000;
+        let window = |footprint: u64, first: u64, last: u64| {
+            vec![
+                at(0, footprint * MB, first * MB),
+                at(5, footprint * MB, first * MB),
+                at(10, footprint * MB, last * MB),
+            ]
+        };
+        let samples: Vec<(Phase, Vec<Sample>)> = Phase::ALL
+            .iter()
+            .map(|&phase| match phase {
+                Phase::Empty => (phase, window(20, 90, 90)),
+                Phase::AddedUnified => (phase, window(120, 100, 160)),
+                _ => (phase, window(130, 160, 160)),
+            })
+            .collect();
+        let phases: Vec<PhaseSummary> = samples
+            .iter()
+            .map(|(phase, samples)| summarize(*phase, samples, true).unwrap())
+            .collect();
+        let (verdict, reason) = judge(&phases).unwrap();
+        assert_eq!(verdict, Verdict::Fail);
+        assert!(
+            reason.contains("added-unified (между выборками)"),
+            "{reason}"
+        );
+        assert_eq!(
+            blind(&phases),
+            vec![
+                Phase::AddedBottom,
+                Phase::AddedSide,
+                Phase::Threads,
+                Phase::WrapResize
+            ]
+        );
+        assert!(blind(&phases[..2]).is_empty());
     }
 
     #[test]

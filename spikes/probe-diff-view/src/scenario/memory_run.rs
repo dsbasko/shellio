@@ -785,20 +785,24 @@ impl MemoryRun {
             .max()
             .unwrap_or(0);
         report.metric("memory_peak_floor_bytes", "bytes", vec![floor as f64]);
-        let between = checked && floor < memory::BUDGET_BYTES;
-        if checked && !between {
-            report.finding(
-                "memory_peak_between",
-                Verdict::NotRun,
-                format!("пол пика не ниже бюджета: {floor} байт"),
-            );
-        }
         let mut phases: Vec<PhaseSummary> = Vec::with_capacity(samples.len());
         for (phase, samples) in samples.iter() {
-            match memory::summarize(*phase, samples, between) {
+            match memory::summarize(*phase, samples, checked) {
                 Ok(summary) => phases.push(summary),
                 Err(reason) => return Err(Box::new((reason, report))),
             }
+        }
+        let blind = memory::blind(&phases);
+        if checked && !blind.is_empty() {
+            let names: Vec<&str> = blind.iter().map(|phase| phase.name()).collect();
+            report.finding(
+                "memory_peak_between",
+                Verdict::NotRun,
+                format!(
+                    "пол пика не ниже бюджета в фазах без роста поля: {}; наибольший пол {floor} байт",
+                    names.join(", ")
+                ),
+            );
         }
         let transitions: Vec<(String, u64)> = phases
             .windows(2)

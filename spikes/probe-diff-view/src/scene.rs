@@ -492,6 +492,37 @@ fn marked_rows(
     (cursor, selection)
 }
 
+/// Строки показа для перерисовки и объявление доступности при смене состояния `before` на
+/// `after`. В «Рядом» курсор отмечен половиной своей стороны, поэтому переход курсора на другую
+/// половину той же строки тоже её перерисовывает. Доступность описывает строку целиком, и такой
+/// переход не объявляет.
+fn repaint(
+    before: &ViewState,
+    after: &ViewState,
+    view: &Viewport<'_>,
+    mode: Mode,
+) -> (Vec<Range<u32>>, Announce) {
+    let marked = (
+        marked_rows(before, view, mode),
+        marked_rows(after, view, mode),
+    );
+    let moved =
+        before.cursor().map(|cursor| cursor.addr) != after.cursor().map(|cursor| cursor.addr);
+    let change = Announce {
+        focus: marked.0.0 != marked.1.0,
+        selection: marked.0 != marked.1,
+        layout: false,
+    };
+    let mut rows = Vec::new();
+    if marked.0 != marked.1 || moved {
+        for (cursor, selection) in [marked.0, marked.1] {
+            rows.extend(cursor);
+            rows.extend(selection.into_iter().flatten());
+        }
+    }
+    (merge_rows(rows), change)
+}
+
 thread_local! {
     static CURRENT: RefCell<Weak<Scene>> = const { RefCell::new(Weak::new()) };
 }
@@ -1657,30 +1688,16 @@ impl Scene {
         let outcome = {
             let mut model = self.model.borrow_mut();
             let mode = model.mode;
-            let Some(state) = model.state.clone() else {
-                return;
-            };
             let Some(view) = model.viewport(visible.height) else {
                 return;
             };
-            let before = marked_rows(&state, &view, mode);
-            let next = state.apply(command, &view);
-            let after = marked_rows(&next, &view, mode);
-            let y = next.shown(&view).map(|shown| shown.y);
-            let change = Announce {
-                focus: before.0 != after.0,
-                selection: before != after,
-                layout: false,
+            let Some(state) = model.state.as_ref() else {
+                return;
             };
-            let mut rows = Vec::new();
-            if before != after {
-                for (cursor, selection) in [before, after] {
-                    rows.extend(cursor);
-                    rows.extend(selection.into_iter().flatten());
-                }
-            }
+            let next = state.clone().apply(command, &view);
+            let (rows, change) = repaint(state, &next, &view, mode);
+            let y = next.shown(&view).map(|shown| shown.y);
             model.state = Some(next);
-            let rows = merge_rows(rows);
             if !rows.is_empty() {
                 model.generation += 1;
             }
@@ -1714,6 +1731,7 @@ mod tests {
     use probe_diff_view::fixtures::FixtureName;
     use probe_diff_view::highlight::Sides;
     use probe_diff_view::model::parse;
+    use probe_diff_view::model::wrap::{TAB_WIDTH, Wrap};
     use probe_diff_view::worker::Cancel;
 
     use super::*;
@@ -1816,6 +1834,58 @@ mod tests {
         assert_eq!(scene.model.borrow().state.as_ref(), Some(&state));
         assert_eq!(scene.draft_stats().refused_empty, 1);
         assert!(scene.draft().is_some());
+    }
+
+    #[test]
+    fn cursor_half_switch_repaints_its_row() {
+        let diff = diff();
+        let body = diff.file(0).unwrap().text().unwrap();
+        let metrics = Metrics {
+            line_height: 15,
+            wrap: Wrap::new(80, TAB_WIDTH),
+        };
+        let heights = probe_diff_view::model::heights::build(
+            &diff,
+            body,
+            Mode::SideBySide,
+            metrics,
+            &[],
+            &Cancel::never(),
+        )
+        .unwrap();
+        let view = Viewport {
+            body,
+            heights: &heights,
+            height: 600,
+        };
+        // «Рядом»: a, b|c, d, e|f — щелчок по старой половине строки 1, затем по новой.
+        let old = ViewState::open(&diff, 0, Mode::SideBySide).apply(
+            Command::Click {
+                row: 1,
+                side: Side::Old,
+            },
+            &view,
+        );
+        let new = old.clone().apply(
+            Command::Click {
+                row: 1,
+                side: Side::New,
+            },
+            &view,
+        );
+        assert_ne!(old.cursor().unwrap().addr, new.cursor().unwrap().addr);
+        let (rows, change) = repaint(&old, &new, &view, Mode::SideBySide);
+        assert_eq!(rows, vec![1..2]);
+        assert_eq!(change, Announce::default());
+
+        let (rows, change) = repaint(&new, &new, &view, Mode::SideBySide);
+        assert!(rows.is_empty());
+        assert!(change.is_empty());
+
+        let down = new.clone().apply(Command::Down, &view);
+        let (rows, change) = repaint(&new, &down, &view, Mode::SideBySide);
+        assert_eq!(rows, vec![1..3]);
+        assert!(change.focus && change.selection);
     }
 
     #[test]
