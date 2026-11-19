@@ -235,6 +235,7 @@ impl IdleRun {
                 *self.floor.borrow_mut() = Some(idle::summarize(start, end, passes)?);
                 let posted_ns = now_ns();
                 let posted = events::press(Key::OPEN)?;
+                self.addressed(&posted)?;
                 Ok(Step::Opening {
                     posted,
                     posted_ns,
@@ -274,6 +275,23 @@ impl IdleRun {
         })
     }
 
+    /// Клавиша открытия адресована окну пробы. Без key window пробы событие уходит в окно 0 и
+    /// теряется, а сценарий ждал бы открытия до срока (строка «Фокус при клавише `idle`»).
+    fn addressed(&self, posted: &[u64]) -> Result<(), String> {
+        let own = self.window.windowNumber();
+        for number in posted {
+            let record =
+                events::record(*number).ok_or_else(|| format!("нет записи события #{number}"))?;
+            if record.signature.window != own {
+                return Err(format!(
+                    "клавиша открытия ушла в окно {} вместо окна пробы {own}: {}",
+                    record.signature.window, record.before
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// Открытие закончено: клавиша доставлена, снимок полного разбора применён после неё,
     /// видимые строки покрыты, перестройки нет, показан запрошенный режим.
     fn opened(&self, posted: &[u64], posted_ns: u64) -> Result<bool, String> {
@@ -310,6 +328,10 @@ impl IdleRun {
         let released = events::release_open_gestures();
         let external = events::external_input();
         report.push("released_gestures", released);
+        report.push(
+            "events",
+            serde_json::to_string(&events::export()).unwrap_or_default(),
+        );
         report.push(
             "timeline",
             serde_json::to_string(&stage.scene.timeline()).unwrap_or_default(),
