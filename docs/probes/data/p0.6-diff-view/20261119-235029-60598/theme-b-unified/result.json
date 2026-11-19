@@ -1,0 +1,167 @@
+{
+  "schema": 1,
+  "scenario": "theme",
+  "variant": "b",
+  "mode": "unified",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "81c73ae8bf46",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-core-text 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-quartz-core 0.3.2",
+      "tree_sitter": "tree-sitter 0.27.2, tree-sitter-language 0.1.9, tree-sitter-rust 0.24.2",
+      "xcode": "Xcode 27.0 Build version 27A266a",
+      "xctrace": "xctrace version 27.0 (27A266a)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "displays": [
+      {
+        "id": 1,
+        "name": "Built-in Retina Display",
+        "builtin": true,
+        "frame": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1512.0,
+          "height": 982.0
+        },
+        "visible_frame": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1512.0,
+          "height": 949.0
+        },
+        "scale": 2.0,
+        "max_fps": 120
+      },
+      {
+        "id": 3,
+        "name": "LG HDR WQHD",
+        "builtin": false,
+        "frame": {
+          "x": -913.0,
+          "y": 982.0,
+          "width": 3440.0,
+          "height": 1440.0
+        },
+        "visible_frame": {
+          "x": -913.0,
+          "y": 982.0,
+          "width": 3440.0,
+          "height": 1410.0
+        },
+        "scale": 1.0,
+        "max_fps": 50
+      }
+    ],
+    "window": {
+      "display_id": 1,
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "backing_scale": 2.0
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "observations": [
+    {
+      "key": "window_state",
+      "value": "isActive=true isVisible=true isKeyWindow=true viewsNeedDisplay=false"
+    },
+    {
+      "key": "builtin_display",
+      "value": "Built-in Retina Display, до 120 Гц"
+    },
+    {
+      "key": "fixture",
+      "value": "modified, src/modified.rs, отпечаток 907617d6abed7ced"
+    },
+    {
+      "key": "theme",
+      "value": "dark"
+    },
+    {
+      "key": "font",
+      "value": "Menlo 12 точек: клетка 7.2246 точки, строка 14 точек"
+    },
+    {
+      "key": "cursor_warped_to",
+      "value": "1508,4"
+    },
+    {
+      "key": "theme_checks",
+      "value": "[{\"step\":\"light theme\",\"ok\":true,\"detail\":\"тема вида light, ячейка light\"},{\"step\":\"light R row 26 text\",\"ok\":true,\"detail\":\"selection #DDF4FF (сырые #E1F3FE в «Color LCD»), токен selection #DDF4FF, разница 0, допуск 1\"},{\"step\":\"light R row 26 gutter\",\"ok\":true,\"detail\":\"selection #DDF4FF (сырые #E1F3FE в «Color LCD»), токен selection #DDF4FF, разница 0, допуск 1\"},{\"step\":\"light context row 1 text\",\"ok\":true,\"detail\":\"background #FFFFFF (сырые #FFFFFF в «Color LCD»), токен background #FFFFFF, разница 0, допуск 1\"},{\"step\":\"light context row 1 gutter\",\"ok\":true,\"detail\":\"gutter_background #F6F8FA (сырые #F6F8FA в «Color LCD»), токен gutter_background #F6F8FA, разница 0, допуск 1\"},{\"step\":\"light added row 4 text\",\"ok\":true,\"detail\":\"added_background #E6FFEC (сырые #EBFEED в «Color LCD»), токен added_background #E6FFEC, разница 0, допуск 1\"},{\"step\":\"light added row 4 gutter\",\"ok\":true,\"detail\":\"added_gutter #CCFFD8 (сырые #D6FEDB в «Color LCD»), токен added_gutter #CCFFD8, разница 0, допуск 1\"},{\"step\":\"light removed row 3 text\",\"ok\":true,\"detail\":\"removed_background #FFEBE9 (сырые #FCECEA в «Color LCD»), токен removed_background #FFEBE9, разница 0, допуск 1\"},{\"step\":\"light removed row 3 gutter\",\"ok\":true,\"detail\":\"removed_gutter #FFD6D5 (сырые #F9D8D6 в «Color LCD»), токен removed_gutter #FFD7D5, разница 1, допуск 1\"},{\"step\":\"dark theme\",\"ok\":true,\"detail\":\"тема вида dark, ячейка dark\"},{\"step\":\"dark R row 26 text\",\"ok\":true,\"detail\":\"selection #1C2D44 (сырые #202D42 в «Color LCD»), токен selection #1C2D44, разница 0, допуск 1\"},{\"step\":\"dark R row 26 gutter\",\"ok\":true,\"detail\":\"selection #1C2D44 (сырые #202D42 в «Color LCD»), токен selection #1C2D44, разница 0, допуск 1\"},{\"step\":\"dark context row 1 text\",\"ok\":true,\"detail\":\"background #0D1116 (сырые #0E1116 в «Color LCD»), токен background #0D1117, разница 1, допуск 1\"},{\"step\":\"dark context row 1 gutter\",\"ok\":true,\"detail\":\"gutter_background #161B22 (сырые #171B21 в «Color LCD»), токен gutter_background #161B22, разница 0, допуск 1\"},{\"step\":\"dark added row 4 text\",\"ok\":true,\"detail\":\"added_background #12271D (сырые #17261E в «Color LCD»), токен added_background #12261E, разница 1, допуск 1\"},{\"step\":\"dark added row 4 gutter\",\"ok\":true,\"detail\":\"added_gutter #1C3A2A (сырые #23392B в «Color LCD»), токен added_gutter #1B3A2A, разница 1, допуск 1\"},{\"step\":\"dark removed row 3 text\",\"ok\":true,\"detail\":\"removed_background #2A1417 (сырые #271517 в «Color LCD»), токен removed_background #2A1417, разница 0, допуск 1\"},{\"step\":\"dark removed row 3 gutter\",\"ok\":true,\"detail\":\"removed_gutter #3D1C1F (сырые #391E20 в «Color LCD»), токен removed_gutter #3D1C20, разница 1, допуск 1\"},{\"step\":\"light-contrast theme\",\"ok\":true,\"detail\":\"тема вида light-contrast, ячейка light-contrast\"},{\"step\":\"light-contrast R row 26 text\",\"ok\":true,\"detail\":\"selection #CCEBFF (сырые #D2EAFD в «Color LCD»), токен selection #CCEBFF, разница 0, допуск 1\"},{\"step\":\"light-contrast R row 26 gutter\",\"ok\":true,\"detail\":\"selection #CCEBFF (сырые #D2EAFD в «Color LCD»), токен selection #CCEBFF, разница 0, допуск 1\"},{\"step\":\"light-contrast context row 1 text\",\"ok\":true,\"detail\":\"background #FFFFFF (сырые #FFFFFF в «Color LCD»), токен background #FFFFFF, разница 0, допуск 1\"},{\"step\":\"light-contrast context row 1 gutter\",\"ok\":true,\"detail\":\"gutter_background #F0F2F4 (сырые #F0F2F4 в «Color LCD»), токен gutter_background #F0F2F4, разница 0, допуск 1\"},{\"step\":\"light-contrast added row 4 text\",\"ok\":true,\"detail\":\"added_background #DDFBE4 (сырые #E3FAE6 в «Color LCD»), токен added_background #DDFBE4, разница 0, допуск 1\"},{\"step\":\"light-contrast added row 4 gutter\",\"ok\":true,\"detail\":\"added_gutter #BDF5CB (сырые #C8F3CE в «Color LCD»), токен added_gutter #BDF5CB, разница 0, допуск 1\"},{\"step\":\"light-contrast removed row 3 text\",\"ok\":true,\"detail\":\"removed_background #FFE3E0 (сырые #FAE4E1 в «Color LCD»), токен removed_background #FFE3E0, разница 0, допуск 1\"},{\"step\":\"light-contrast removed row 3 gutter\",\"ok\":true,\"detail\":\"removed_gutter #FFCBC7 (сырые #F7CDC8 в «Color LCD»), токен removed_gutter #FFCBC7, разница 0, допуск 1\"},{\"step\":\"dark-contrast theme\",\"ok\":true,\"detail\":\"тема вида dark-contrast, ячейка dark-contrast\"},{\"step\":\"dark-contrast R row 26 text\",\"ok\":true,\"detail\":\"selection #14263D (сырые #18263B в «Color LCD»), токен selection #14263D, разница 0, допуск 1\"},{\"step\":\"dark-contrast R row 26 gutter\",\"ok\":true,\"detail\":\"selection #14263D (сырые #18263B в «Color LCD»), токен selection #14263D, разница 0, допуск 1\"},{\"step\":\"dark-contrast context row 1 text\",\"ok\":true,\"detail\":\"background #000000 (сырые #000000 в «Color LCD»), токен background #000000, разница 0, допуск 1\"},{\"step\":\"dark-contrast context row 1 gutter\",\"ok\":true,\"detail\":\"gutter_background #0A0C10 (сырые #0A0C10 в «Color LCD»), токен gutter_background #0A0C10, разница 0, допуск 1\"},{\"step\":\"dark-contrast added row 4 text\",\"ok\":true,\"detail\":\"added_background #0A2116 (сырые #102017 в «Color LCD»), токен added_background #0B2016, разница 1, допуск 1\"},{\"step\":\"dark-contrast added row 4 gutter\",\"ok\":true,\"detail\":\"added_gutter #113222 (сырые #1A3123 в «Color LCD»), токен added_gutter #123222, разница 1, допуск 1\"},{\"step\":\"dark-contrast removed row 3 text\",\"ok\":true,\"detail\":\"removed_background #260B10 (сырые #230D10 в «Color LCD»), токен removed_background #260C10, разница 1, допуск 1\"},{\"step\":\"dark-contrast removed row 3 gutter\",\"ok\":true,\"detail\":\"removed_gutter #3A1419 (сырые #35161A в «Color LCD»), токен removed_gutter #3A141A, разница 1, допуск 1\"}]"
+    },
+    {
+      "key": "theme_opens",
+      "value": "5"
+    },
+    {
+      "key": "theme_snapshot_files",
+      "value": "[{\"name\":\"theme-light\",\"kind\":\"window\",\"status\":\"ok\",\"file\":\"theme-light.png\",\"reason\":null,\"rect_points\":{\"x\":166.0,\"y\":114.0,\"width\":1180.0,\"height\":752.0}},{\"name\":\"theme-dark\",\"kind\":\"window\",\"status\":\"ok\",\"file\":\"theme-dark.png\",\"reason\":null,\"rect_points\":{\"x\":166.0,\"y\":114.0,\"width\":1180.0,\"height\":752.0}},{\"name\":\"theme-light-contrast\",\"kind\":\"window\",\"status\":\"ok\",\"file\":\"theme-light-contrast.png\",\"reason\":null,\"rect_points\":{\"x\":166.0,\"y\":114.0,\"width\":1180.0,\"height\":752.0}},{\"name\":\"theme-dark-contrast\",\"kind\":\"window\",\"status\":\"ok\",\"file\":\"theme-dark-contrast.png\",\"reason\":null,\"rect_points\":{\"x\":166.0,\"y\":114.0,\"width\":1180.0,\"height\":752.0}}]"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "window_ready_ms",
+      "unit": "ms",
+      "samples": [
+        88.924125
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 88.924125,
+        "p95": 88.924125,
+        "max": 88.924125
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 88.9 мс"
+    },
+    {
+      "name": "theme_contract",
+      "verdict": "pass",
+      "reason": "theme: выполнено 36 проверок"
+    },
+    {
+      "name": "theme_snapshots",
+      "verdict": "pass",
+      "reason": "снимок окна записан в каждой из 4 ячеек"
+    },
+    {
+      "name": "theme_system_contrast",
+      "verdict": "not_run",
+      "reason": "системный Increase Contrast процессом не переключается: ячейки контраста — переопределение пробы"
+    },
+    {
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    }
+  ]
+}

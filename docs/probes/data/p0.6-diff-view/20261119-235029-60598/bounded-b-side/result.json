@@ -1,0 +1,165 @@
+{
+  "schema": 1,
+  "scenario": "bounded",
+  "variant": "b",
+  "mode": "side",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "81c73ae8bf46",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-core-text 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-quartz-core 0.3.2",
+      "tree_sitter": "tree-sitter 0.27.2, tree-sitter-language 0.1.9, tree-sitter-rust 0.24.2",
+      "xcode": "Xcode 27.0 Build version 27A266a",
+      "xctrace": "xctrace version 27.0 (27A266a)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "displays": [
+      {
+        "id": 1,
+        "name": "Built-in Retina Display",
+        "builtin": true,
+        "frame": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1512.0,
+          "height": 982.0
+        },
+        "visible_frame": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1512.0,
+          "height": 949.0
+        },
+        "scale": 2.0,
+        "max_fps": 120
+      },
+      {
+        "id": 3,
+        "name": "LG HDR WQHD",
+        "builtin": false,
+        "frame": {
+          "x": -913.0,
+          "y": 982.0,
+          "width": 3440.0,
+          "height": 1440.0
+        },
+        "visible_frame": {
+          "x": -913.0,
+          "y": 982.0,
+          "width": 3440.0,
+          "height": 1410.0
+        },
+        "scale": 1.0,
+        "max_fps": 50
+      }
+    ],
+    "window": {
+      "display_id": 1,
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "backing_scale": 2.0
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "observations": [
+    {
+      "key": "window_state",
+      "value": "isActive=true isVisible=true isKeyWindow=true viewsNeedDisplay=false"
+    },
+    {
+      "key": "builtin_display",
+      "value": "Built-in Retina Display, до 120 Гц"
+    },
+    {
+      "key": "fixture",
+      "value": "modified, src/modified.rs, отпечаток 907617d6abed7ced"
+    },
+    {
+      "key": "theme",
+      "value": "dark"
+    },
+    {
+      "key": "font",
+      "value": "Menlo 12 точек: клетка 7.2246 точки, строка 14 точек"
+    },
+    {
+      "key": "cursor_warped_to",
+      "value": "1508,4"
+    },
+    {
+      "key": "bounded_checks",
+      "value": "[{\"step\":\"screen 1\",\"ok\":true,\"detail\":\"видов строк 47, видимых 45, предел 100\"},{\"step\":\"screen 2\",\"ok\":true,\"detail\":\"видов строк 51, видимых 49, предел 108\"},{\"step\":\"screen 3\",\"ok\":true,\"detail\":\"видов строк 52, видимых 50, предел 110\"},{\"step\":\"screen 4\",\"ok\":true,\"detail\":\"видов строк 54, видимых 52, предел 114\"},{\"step\":\"screen 5\",\"ok\":true,\"detail\":\"видов строк 51, видимых 48, предел 106\"},{\"step\":\"screen 6\",\"ok\":true,\"detail\":\"видов строк 49, видимых 47, предел 104\"},{\"step\":\"screen 7\",\"ok\":true,\"detail\":\"видов строк 53, видимых 50, предел 110\"},{\"step\":\"screen 8\",\"ok\":true,\"detail\":\"видов строк 51, видимых 49, предел 108\"},{\"step\":\"screen 9\",\"ok\":true,\"detail\":\"видов строк 49, видимых 47, предел 104\"},{\"step\":\"screen 10\",\"ok\":true,\"detail\":\"видов строк 49, видимых 47, предел 104\"},{\"step\":\"screen 11\",\"ok\":true,\"detail\":\"видов строк 54, видимых 52, предел 114\"},{\"step\":\"screen 12\",\"ok\":true,\"detail\":\"видов строк 51, видимых 48, предел 106\"},{\"step\":\"screen 13\",\"ok\":true,\"detail\":\"видов строк 53, видимых 51, предел 112\"},{\"step\":\"screen 14\",\"ok\":true,\"detail\":\"видов строк 52, видимых 49, предел 108\"},{\"step\":\"screen 15\",\"ok\":true,\"detail\":\"видов строк 53, видимых 51, предел 112\"},{\"step\":\"screen 16\",\"ok\":true,\"detail\":\"видов строк 54, видимых 52, предел 114\"},{\"step\":\"screen 17\",\"ok\":true,\"detail\":\"видов строк 51, видимых 49, предел 108\"},{\"step\":\"screen 18\",\"ok\":true,\"detail\":\"видов строк 55, видимых 53, предел 116\"},{\"step\":\"screen 19\",\"ok\":true,\"detail\":\"видов строк 51, видимых 48, предел 106\"},{\"step\":\"screen 20\",\"ok\":true,\"detail\":\"видов строк 52, видимых 50, предел 110\"},{\"step\":\"screen 21\",\"ok\":true,\"detail\":\"видов строк 55, видимых 52, предел 114\"},{\"step\":\"screen 22\",\"ok\":true,\"detail\":\"видов строк 50, видимых 48, предел 106\"},{\"step\":\"screen 23\",\"ok\":true,\"detail\":\"видов строк 49, видимых 47, предел 104\"},{\"step\":\"screen 24\",\"ok\":true,\"detail\":\"видов строк 50, видимых 48, предел 106\"},{\"step\":\"screen 25\",\"ok\":true,\"detail\":\"видов строк 54, видимых 53, предел 116\"},{\"step\":\"screen 26\",\"ok\":true,\"detail\":\"видов строк 49, видимых 46, предел 102\"},{\"step\":\"screen 27\",\"ok\":true,\"detail\":\"видов строк 51, видимых 49, предел 108\"},{\"step\":\"screen 28\",\"ok\":true,\"detail\":\"видов строк 51, видимых 50, предел 110\"},{\"step\":\"screen 29\",\"ok\":true,\"detail\":\"видов строк 52, видимых 50, предел 110\"},{\"step\":\"screen 30\",\"ok\":true,\"detail\":\"видов строк 53, видимых 51, предел 112\"},{\"step\":\"G\",\"ok\":true,\"detail\":\"видов строк 52, видимых 50, предел 110\"},{\"step\":\"gg\",\"ok\":true,\"detail\":\"видов строк 50, видимых 50, предел 110\"},{\"step\":\"Ctrl-d 1\",\"ok\":true,\"detail\":\"видов строк 48, видимых 45, предел 100\"},{\"step\":\"Ctrl-d 2\",\"ok\":true,\"detail\":\"видов строк 48, видимых 45, предел 100\"},{\"step\":\"Ctrl-d 3\",\"ok\":true,\"detail\":\"видов строк 50, видимых 48, предел 106\"},{\"step\":\"Ctrl-d 4\",\"ok\":true,\"detail\":\"видов строк 51, видимых 48, предел 106\"},{\"step\":\"Ctrl-d 5\",\"ok\":true,\"detail\":\"видов строк 49, видимых 46, предел 102\"},{\"step\":\"Ctrl-d 6\",\"ok\":true,\"detail\":\"видов строк 53, видимых 50, предел 110\"},{\"step\":\"Ctrl-d 7\",\"ok\":true,\"detail\":\"видов строк 55, видимых 52, предел 114\"},{\"step\":\"Ctrl-d 8\",\"ok\":true,\"detail\":\"видов строк 54, видимых 51, предел 112\"},{\"step\":\"Ctrl-d 9\",\"ok\":true,\"detail\":\"видов строк 54, видимых 51, предел 112\"},{\"step\":\"Ctrl-d 10\",\"ok\":true,\"detail\":\"видов строк 52, видимых 49, предел 108\"},{\"step\":\"jump 1\",\"ok\":true,\"detail\":\"видов строк 52, видимых 50, предел 110\"},{\"step\":\"jump 2\",\"ok\":true,\"detail\":\"видов строк 45, видимых 43, предел 96\"},{\"step\":\"jump 3\",\"ok\":true,\"detail\":\"видов строк 50, видимых 48, предел 106\"},{\"step\":\"jump 4\",\"ok\":true,\"detail\":\"видов строк 53, видимых 51, предел 112\"},{\"step\":\"jump 5\",\"ok\":true,\"detail\":\"видов строк 51, видимых 48, предел 106\"},{\"step\":\"jump 6\",\"ok\":true,\"detail\":\"видов строк 52, видимых 50, предел 110\"},{\"step\":\"jump 7\",\"ok\":true,\"detail\":\"видов строк 51, видимых 48, предел 106\"},{\"step\":\"jump 8\",\"ok\":true,\"detail\":\"видов строк 50, видимых 48, предел 106\"},{\"step\":\"jump 9\",\"ok\":true,\"detail\":\"видов строк 49, видимых 47, предел 104\"},{\"step\":\"jump 10\",\"ok\":true,\"detail\":\"видов строк 48, видимых 48, предел 106\"},{\"step\":\"far layouts\",\"ok\":true,\"detail\":\"раскладок дальше 2 экранов 0\"},{\"step\":\"cycles 10→100\",\"ok\":true,\"detail\":\"живых по классам совпадает: ProbeDiffRowViewB 50, ProbeDiffTableB 1, ProbeDiffTableSourceB 1\"}]"
+    },
+    {
+      "key": "bounded_opens",
+      "value": "101"
+    },
+    {
+      "key": "bounded_cycles",
+      "value": "100"
+    },
+    {
+      "key": "bounded_counters_first",
+      "value": "ProbeDiffRowViewB 555/505, ProbeDiffTableB 11/10, ProbeDiffTableSourceB 11/10"
+    },
+    {
+      "key": "bounded_counters_last",
+      "value": "ProbeDiffRowViewB 5055/5005, ProbeDiffTableB 101/100, ProbeDiffTableSourceB 101/100"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "window_ready_ms",
+      "unit": "ms",
+      "samples": [
+        85.213542
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 85.213542,
+        "p95": 85.213542,
+        "max": 85.213542
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 85.2 мс"
+    },
+    {
+      "name": "bounded_contract",
+      "verdict": "pass",
+      "reason": "bounded: выполнено 54 проверок"
+    },
+    {
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    }
+  ]
+}

@@ -1,0 +1,4488 @@
+{
+  "schema": 1,
+  "run_dir": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/diff-view/20261120-001351-82623",
+  "percentile_method": "nearest-rank",
+  "totals": {
+    "processes": 22,
+    "execution_ok": 22,
+    "execution_errors": 0,
+    "pass": 88,
+    "fail": 0,
+    "not_run": 0
+  },
+  "processes": [
+    {
+      "dir": "open-wrap-a-side-01",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "run": 1,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 88.0 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 87.968958,
+            "p95": 87.968958,
+            "max": 87.968958
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 128.04275,
+            "p95": 128.04275,
+            "max": 128.04275
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.610708,
+            "p95": 6.610708,
+            "max": 6.610708
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102450208.0,
+            "p95": 102450208.0,
+            "max": 102450208.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 11.158375,
+            "p95": 11.158375,
+            "max": 11.158375
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1569818616.0,
+            "p95": 1569818616.0,
+            "max": 1569818616.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 58.213208,
+            "p95": 58.213208,
+            "max": 58.213208
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 59.3955,
+            "p95": 59.3955,
+            "max": 59.3955
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 106.67075,
+            "p95": 106.67075,
+            "max": 106.67075
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 991.374833,
+            "p95": 991.374833,
+            "max": 991.374833
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 106.67075,
+            "p95": 106.67075,
+            "max": 106.67075
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 58.213208,
+          "first_text_ms": 59.3955,
+          "preliminary_ms": 106.67075,
+          "preliminary_mismatched": 0,
+          "correction_ms": 991.374833,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 106.67075,
+          "visible_lines": 6
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-side-02",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "run": 2,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 76.0 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 75.974792,
+            "p95": 75.974792,
+            "max": 75.974792
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 127.65075,
+            "p95": 127.65075,
+            "max": 127.65075
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.2638750000000005,
+            "p95": 6.2638750000000005,
+            "max": 6.2638750000000005
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102188064.0,
+            "p95": 102188064.0,
+            "max": 102188064.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 10.956792,
+            "p95": 10.956792,
+            "max": 10.956792
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1570195472.0,
+            "p95": 1570195472.0,
+            "max": 1570195472.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 57.72575,
+            "p95": 57.72575,
+            "max": 57.72575
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 58.853584,
+            "p95": 58.853584,
+            "max": 58.853584
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 106.471125,
+            "p95": 106.471125,
+            "max": 106.471125
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 1007.662625,
+            "p95": 1007.662625,
+            "max": 1007.662625
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 106.471125,
+            "p95": 106.471125,
+            "max": 106.471125
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 57.72575,
+          "first_text_ms": 58.853584,
+          "preliminary_ms": 106.471125,
+          "preliminary_mismatched": 0,
+          "correction_ms": 1007.662625,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 106.471125,
+          "visible_lines": 6
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-side-03",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "run": 3,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 85.0 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 84.98712499999999,
+            "p95": 84.98712499999999,
+            "max": 84.98712499999999
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 127.43025,
+            "p95": 127.43025,
+            "max": 127.43025
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.2355,
+            "p95": 6.2355,
+            "max": 6.2355
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102548512.0,
+            "p95": 102548512.0,
+            "max": 102548512.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 11.277125,
+            "p95": 11.277125,
+            "max": 11.277125
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1569785872.0,
+            "p95": 1569785872.0,
+            "max": 1569785872.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 62.133125,
+            "p95": 62.133125,
+            "max": 62.133125
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 63.344333,
+            "p95": 63.344333,
+            "max": 63.344333
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 110.795167,
+            "p95": 110.795167,
+            "max": 110.795167
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 986.204458,
+            "p95": 986.204458,
+            "max": 986.204458
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 110.795167,
+            "p95": 110.795167,
+            "max": 110.795167
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 62.133125,
+          "first_text_ms": 63.344333,
+          "preliminary_ms": 110.795167,
+          "preliminary_mismatched": 0,
+          "correction_ms": 986.204458,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 110.795167,
+          "visible_lines": 6
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-side-04",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "run": 4,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 83.6 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 83.62225,
+            "p95": 83.62225,
+            "max": 83.62225
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 128.915584,
+            "p95": 128.915584,
+            "max": 128.915584
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.54775,
+            "p95": 6.54775,
+            "max": 6.54775
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 101958688.0,
+            "p95": 101958688.0,
+            "max": 101958688.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 12.804125,
+            "p95": 12.804125,
+            "max": 12.804125
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1577486328.0,
+            "p95": 1577486328.0,
+            "max": 1577486328.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 56.000458,
+            "p95": 56.000458,
+            "max": 56.000458
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 57.18375,
+            "p95": 57.18375,
+            "max": 57.18375
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 104.536916,
+            "p95": 104.536916,
+            "max": 104.536916
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 976.347333,
+            "p95": 976.347333,
+            "max": 976.347333
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 104.536916,
+            "p95": 104.536916,
+            "max": 104.536916
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 56.000458,
+          "first_text_ms": 57.18375,
+          "preliminary_ms": 104.536916,
+          "preliminary_mismatched": 0,
+          "correction_ms": 976.347333,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 104.536916,
+          "visible_lines": 6
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-side-05",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "run": 5,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 84.5 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 84.45325,
+            "p95": 84.45325,
+            "max": 84.45325
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 127.947375,
+            "p95": 127.947375,
+            "max": 127.947375
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 7.225208,
+            "p95": 7.225208,
+            "max": 7.225208
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102269984.0,
+            "p95": 102269984.0,
+            "max": 102269984.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 11.063417,
+            "p95": 11.063417,
+            "max": 11.063417
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1570129936.0,
+            "p95": 1570129936.0,
+            "max": 1570129936.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 59.253416,
+            "p95": 59.253416,
+            "max": 59.253416
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 61.618,
+            "p95": 61.618,
+            "max": 61.618
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 108.976083,
+            "p95": 108.976083,
+            "max": 108.976083
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 1019.274666,
+            "p95": 1019.274666,
+            "max": 1019.274666
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 108.976083,
+            "p95": 108.976083,
+            "max": 108.976083
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 59.253416,
+          "first_text_ms": 61.618,
+          "preliminary_ms": 108.976083,
+          "preliminary_mismatched": 0,
+          "correction_ms": 1019.274666,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 108.976083,
+          "visible_lines": 6
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-side-06",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "run": 6,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 80.3 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 80.287959,
+            "p95": 80.287959,
+            "max": 80.287959
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 127.587709,
+            "p95": 127.587709,
+            "max": 127.587709
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.409584000000001,
+            "p95": 6.409584000000001,
+            "max": 6.409584000000001
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102253600.0,
+            "p95": 102253600.0,
+            "max": 102253600.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 10.916417,
+            "p95": 10.916417,
+            "max": 10.916417
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1570179088.0,
+            "p95": 1570179088.0,
+            "max": 1570179088.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 55.914583,
+            "p95": 55.914583,
+            "max": 55.914583
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 57.115375,
+            "p95": 57.115375,
+            "max": 57.115375
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 103.807541,
+            "p95": 103.807541,
+            "max": 103.807541
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 988.272375,
+            "p95": 988.272375,
+            "max": 988.272375
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 103.807541,
+            "p95": 103.807541,
+            "max": 103.807541
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 55.914583,
+          "first_text_ms": 57.115375,
+          "preliminary_ms": 103.807541,
+          "preliminary_mismatched": 0,
+          "correction_ms": 988.272375,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 103.807541,
+          "visible_lines": 6
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-side-07",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "run": 7,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 82.4 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 82.370833,
+            "p95": 82.370833,
+            "max": 82.370833
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 128.59925,
+            "p95": 128.59925,
+            "max": 128.59925
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.719250000000001,
+            "p95": 6.719250000000001,
+            "max": 6.719250000000001
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 101991456.0,
+            "p95": 101991456.0,
+            "max": 101991456.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 11.017709,
+            "p95": 11.017709,
+            "max": 11.017709
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1569966096.0,
+            "p95": 1569966096.0,
+            "max": 1569966096.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 64.01725,
+            "p95": 64.01725,
+            "max": 64.01725
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 65.190958,
+            "p95": 65.190958,
+            "max": 65.190958
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 112.303542,
+            "p95": 112.303542,
+            "max": 112.303542
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 995.057292,
+            "p95": 995.057292,
+            "max": 995.057292
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 112.303542,
+            "p95": 112.303542,
+            "max": 112.303542
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 64.01725,
+          "first_text_ms": 65.190958,
+          "preliminary_ms": 112.303542,
+          "preliminary_mismatched": 0,
+          "correction_ms": 995.057292,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 112.303542,
+          "visible_lines": 6
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-side-08",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "run": 8,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 84.5 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 84.527375,
+            "p95": 84.527375,
+            "max": 84.527375
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 128.220042,
+            "p95": 128.220042,
+            "max": 128.220042
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.412958,
+            "p95": 6.412958,
+            "max": 6.412958
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102368288.0,
+            "p95": 102368288.0,
+            "max": 102368288.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 10.941459,
+            "p95": 10.941459,
+            "max": 10.941459
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1570342928.0,
+            "p95": 1570342928.0,
+            "max": 1570342928.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 61.787208,
+            "p95": 61.787208,
+            "max": 61.787208
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 62.973042,
+            "p95": 62.973042,
+            "max": 62.973042
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 110.56,
+            "p95": 110.56,
+            "max": 110.56
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 998.16175,
+            "p95": 998.16175,
+            "max": 998.16175
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 110.56,
+            "p95": 110.56,
+            "max": 110.56
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 61.787208,
+          "first_text_ms": 62.973042,
+          "preliminary_ms": 110.56,
+          "preliminary_mismatched": 0,
+          "correction_ms": 998.16175,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 110.56,
+          "visible_lines": 6
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-side-09",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "run": 9,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 92.1 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 92.092583,
+            "p95": 92.092583,
+            "max": 92.092583
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 131.418791,
+            "p95": 131.418791,
+            "max": 131.418791
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.186125,
+            "p95": 6.186125,
+            "max": 6.186125
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102450208.0,
+            "p95": 102450208.0,
+            "max": 102450208.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 10.929209,
+            "p95": 10.929209,
+            "max": 10.929209
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1570408464.0,
+            "p95": 1570408464.0,
+            "max": 1570408464.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 63.828458,
+            "p95": 63.828458,
+            "max": 63.828458
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 67.008792,
+            "p95": 67.008792,
+            "max": 67.008792
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 111.81975,
+            "p95": 111.81975,
+            "max": 111.81975
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 1006.789458,
+            "p95": 1006.789458,
+            "max": 1006.789458
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 111.81975,
+            "p95": 111.81975,
+            "max": 111.81975
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 63.828458,
+          "first_text_ms": 67.008792,
+          "preliminary_ms": 111.81975,
+          "preliminary_mismatched": 0,
+          "correction_ms": 1006.789458,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 111.81975,
+          "visible_lines": 6
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-side-10",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "run": 10,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 86.9 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 86.899709,
+            "p95": 86.899709,
+            "max": 86.899709
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 128.111625,
+            "p95": 128.111625,
+            "max": 128.111625
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.219334,
+            "p95": 6.219334,
+            "max": 6.219334
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102319136.0,
+            "p95": 102319136.0,
+            "max": 102319136.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 11.106209,
+            "p95": 11.106209,
+            "max": 11.106209
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1569851384.0,
+            "p95": 1569851384.0,
+            "max": 1569851384.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 60.221958,
+            "p95": 60.221958,
+            "max": 60.221958
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 61.367333,
+            "p95": 61.367333,
+            "max": 61.367333
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 108.540083,
+            "p95": 108.540083,
+            "max": 108.540083
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 1006.31725,
+            "p95": 1006.31725,
+            "max": 1006.31725
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 108.540083,
+            "p95": 108.540083,
+            "max": 108.540083
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 60.221958,
+          "first_text_ms": 61.367333,
+          "preliminary_ms": 108.540083,
+          "preliminary_mismatched": 0,
+          "correction_ms": 1006.31725,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 108.540083,
+          "visible_lines": 6
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-side-11",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "run": 11,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 82.8 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 82.838125,
+            "p95": 82.838125,
+            "max": 82.838125
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 128.150375,
+            "p95": 128.150375,
+            "max": 128.150375
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.366625,
+            "p95": 6.366625,
+            "max": 6.366625
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102024224.0,
+            "p95": 102024224.0,
+            "max": 102024224.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 11.034542,
+            "p95": 11.034542,
+            "max": 11.034542
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1570342928.0,
+            "p95": 1570342928.0,
+            "max": 1570342928.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 63.035958,
+            "p95": 63.035958,
+            "max": 63.035958
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 64.209333,
+            "p95": 64.209333,
+            "max": 64.209333
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 111.651416,
+            "p95": 111.651416,
+            "max": 111.651416
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 1002.357291,
+            "p95": 1002.357291,
+            "max": 1002.357291
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 111.651416,
+            "p95": 111.651416,
+            "max": 111.651416
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 63.035958,
+          "first_text_ms": 64.209333,
+          "preliminary_ms": 111.651416,
+          "preliminary_mismatched": 0,
+          "correction_ms": 1002.357291,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 111.651416,
+          "visible_lines": 6
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-unified-01",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "run": 1,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 84.9 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 84.92079199999999,
+            "p95": 84.92079199999999,
+            "max": 84.92079199999999
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 126.572084,
+            "p95": 126.572084,
+            "max": 126.572084
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.4555419999999994,
+            "p95": 6.4555419999999994,
+            "max": 6.4555419999999994
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 101991456.0,
+            "p95": 101991456.0,
+            "max": 101991456.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 11.054167,
+            "p95": 11.054167,
+            "max": 11.054167
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1569409040.0,
+            "p95": 1569409040.0,
+            "max": 1569409040.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 61.3215,
+            "p95": 61.3215,
+            "max": 61.3215
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 62.219916,
+            "p95": 62.219916,
+            "max": 62.219916
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 109.069416,
+            "p95": 109.069416,
+            "max": 109.069416
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 996.516708,
+            "p95": 996.516708,
+            "max": 996.516708
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 109.069416,
+            "p95": 109.069416,
+            "max": 109.069416
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 61.3215,
+          "first_text_ms": 62.219916,
+          "preliminary_ms": 109.069416,
+          "preliminary_mismatched": 0,
+          "correction_ms": 996.516708,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 109.069416,
+          "visible_lines": 4
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-unified-02",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "run": 2,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 90.3 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 90.259791,
+            "p95": 90.259791,
+            "max": 90.259791
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 128.01416600000002,
+            "p95": 128.01416600000002,
+            "max": 128.01416600000002
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.180041,
+            "p95": 6.180041,
+            "max": 6.180041
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 101975072.0,
+            "p95": 101975072.0,
+            "max": 101975072.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 10.994,
+            "p95": 10.994,
+            "max": 10.994
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1569540112.0,
+            "p95": 1569540112.0,
+            "max": 1569540112.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 61.76925,
+            "p95": 61.76925,
+            "max": 61.76925
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 62.667292,
+            "p95": 62.667292,
+            "max": 62.667292
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 109.361125,
+            "p95": 109.361125,
+            "max": 109.361125
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 993.985209,
+            "p95": 993.985209,
+            "max": 993.985209
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 109.361125,
+            "p95": 109.361125,
+            "max": 109.361125
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 61.76925,
+          "first_text_ms": 62.667292,
+          "preliminary_ms": 109.361125,
+          "preliminary_mismatched": 0,
+          "correction_ms": 993.985209,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 109.361125,
+          "visible_lines": 4
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-unified-03",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "run": 3,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 85.4 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 85.350375,
+            "p95": 85.350375,
+            "max": 85.350375
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 128.803916,
+            "p95": 128.803916,
+            "max": 128.803916
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.573708,
+            "p95": 6.573708,
+            "max": 6.573708
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 101942304.0,
+            "p95": 101942304.0,
+            "max": 101942304.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 10.966084,
+            "p95": 10.966084,
+            "max": 10.966084
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1569392656.0,
+            "p95": 1569392656.0,
+            "max": 1569392656.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 61.7715,
+            "p95": 61.7715,
+            "max": 61.7715
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 62.682084,
+            "p95": 62.682084,
+            "max": 62.682084
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 109.579667,
+            "p95": 109.579667,
+            "max": 109.579667
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 1024.606709,
+            "p95": 1024.606709,
+            "max": 1024.606709
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 109.579667,
+            "p95": 109.579667,
+            "max": 109.579667
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 61.7715,
+          "first_text_ms": 62.682084,
+          "preliminary_ms": 109.579667,
+          "preliminary_mismatched": 0,
+          "correction_ms": 1024.606709,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 109.579667,
+          "visible_lines": 4
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-unified-04",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "run": 4,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 84.3 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 84.299667,
+            "p95": 84.299667,
+            "max": 84.299667
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 127.615208,
+            "p95": 127.615208,
+            "max": 127.615208
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.607916,
+            "p95": 6.607916,
+            "max": 6.607916
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102220832.0,
+            "p95": 102220832.0,
+            "max": 102220832.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 11.046792,
+            "p95": 11.046792,
+            "max": 11.046792
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1441056784.0,
+            "p95": 1441056784.0,
+            "max": 1441056784.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 62.796792,
+            "p95": 62.796792,
+            "max": 62.796792
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 63.688167,
+            "p95": 63.688167,
+            "max": 63.688167
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 110.311959,
+            "p95": 110.311959,
+            "max": 110.311959
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 1305.449,
+            "p95": 1305.449,
+            "max": 1305.449
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 110.311959,
+            "p95": 110.311959,
+            "max": 110.311959
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 62.796792,
+          "first_text_ms": 63.688167,
+          "preliminary_ms": 110.311959,
+          "preliminary_mismatched": 0,
+          "correction_ms": 1305.449,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 110.311959,
+          "visible_lines": 4
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-unified-05",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "run": 5,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 87.6 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 87.614333,
+            "p95": 87.614333,
+            "max": 87.614333
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 128.079459,
+            "p95": 128.079459,
+            "max": 128.079459
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.282375,
+            "p95": 6.282375,
+            "max": 6.282375
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102155296.0,
+            "p95": 102155296.0,
+            "max": 102155296.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 11.158208,
+            "p95": 11.158208,
+            "max": 11.158208
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1569343504.0,
+            "p95": 1569343504.0,
+            "max": 1569343504.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 59.724542,
+            "p95": 59.724542,
+            "max": 59.724542
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 60.628167,
+            "p95": 60.628167,
+            "max": 60.628167
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 107.606334,
+            "p95": 107.606334,
+            "max": 107.606334
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 985.055084,
+            "p95": 985.055084,
+            "max": 985.055084
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 107.606334,
+            "p95": 107.606334,
+            "max": 107.606334
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 59.724542,
+          "first_text_ms": 60.628167,
+          "preliminary_ms": 107.606334,
+          "preliminary_mismatched": 0,
+          "correction_ms": 985.055084,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 107.606334,
+          "visible_lines": 4
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-unified-06",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "run": 6,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 85.7 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 85.72666600000001,
+            "p95": 85.72666600000001,
+            "max": 85.72666600000001
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 128.048042,
+            "p95": 128.048042,
+            "max": 128.048042
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.4889589999999995,
+            "p95": 6.4889589999999995,
+            "max": 6.4889589999999995
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102351904.0,
+            "p95": 102351904.0,
+            "max": 102351904.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 10.967458,
+            "p95": 10.967458,
+            "max": 10.967458
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1576994856.0,
+            "p95": 1576994856.0,
+            "max": 1576994856.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 56.091084,
+            "p95": 56.091084,
+            "max": 56.091084
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 56.965417,
+            "p95": 56.965417,
+            "max": 56.965417
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 103.592792,
+            "p95": 103.592792,
+            "max": 103.592792
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 983.229459,
+            "p95": 983.229459,
+            "max": 983.229459
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 103.592792,
+            "p95": 103.592792,
+            "max": 103.592792
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 56.091084,
+          "first_text_ms": 56.965417,
+          "preliminary_ms": 103.592792,
+          "preliminary_mismatched": 0,
+          "correction_ms": 983.229459,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 103.592792,
+          "visible_lines": 4
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-unified-07",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "run": 7,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 89.3 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 89.345417,
+            "p95": 89.345417,
+            "max": 89.345417
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 131.908792,
+            "p95": 131.908792,
+            "max": 131.908792
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.734584,
+            "p95": 6.734584,
+            "max": 6.734584
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 101745696.0,
+            "p95": 101745696.0,
+            "max": 101745696.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 11.024167,
+            "p95": 11.024167,
+            "max": 11.024167
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1440860176.0,
+            "p95": 1440860176.0,
+            "max": 1440860176.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 64.350541,
+            "p95": 64.350541,
+            "max": 64.350541
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 67.153333,
+            "p95": 67.153333,
+            "max": 67.153333
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 111.793291,
+            "p95": 111.793291,
+            "max": 111.793291
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 1307.862583,
+            "p95": 1307.862583,
+            "max": 1307.862583
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 111.793291,
+            "p95": 111.793291,
+            "max": 111.793291
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 64.350541,
+          "first_text_ms": 67.153333,
+          "preliminary_ms": 111.793291,
+          "preliminary_mismatched": 0,
+          "correction_ms": 1307.862583,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 111.793291,
+          "visible_lines": 4
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-unified-08",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "run": 8,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 86.0 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 86.001667,
+            "p95": 86.001667,
+            "max": 86.001667
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 128.47108300000002,
+            "p95": 128.47108300000002,
+            "max": 128.47108300000002
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.4236249999999995,
+            "p95": 6.4236249999999995,
+            "max": 6.4236249999999995
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102220832.0,
+            "p95": 102220832.0,
+            "max": 102220832.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 11.005625,
+            "p95": 11.005625,
+            "max": 11.005625
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1569507368.0,
+            "p95": 1569507368.0,
+            "max": 1569507368.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 57.919792,
+            "p95": 57.919792,
+            "max": 57.919792
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 58.804458,
+            "p95": 58.804458,
+            "max": 58.804458
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 105.735917,
+            "p95": 105.735917,
+            "max": 105.735917
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 987.509667,
+            "p95": 987.509667,
+            "max": 987.509667
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 105.735917,
+            "p95": 105.735917,
+            "max": 105.735917
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 57.919792,
+          "first_text_ms": 58.804458,
+          "preliminary_ms": 105.735917,
+          "preliminary_mismatched": 0,
+          "correction_ms": 987.509667,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 105.735917,
+          "visible_lines": 4
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-unified-09",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "run": 9,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 81.4 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 81.43145799999999,
+            "p95": 81.43145799999999,
+            "max": 81.43145799999999
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 127.968667,
+            "p95": 127.968667,
+            "max": 127.968667
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.39375,
+            "p95": 6.39375,
+            "max": 6.39375
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 101745696.0,
+            "p95": 101745696.0,
+            "max": 101745696.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 11.087959,
+            "p95": 11.087959,
+            "max": 11.087959
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1569376272.0,
+            "p95": 1569376272.0,
+            "max": 1569376272.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 62.468958,
+            "p95": 62.468958,
+            "max": 62.468958
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 63.376958,
+            "p95": 63.376958,
+            "max": 63.376958
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 109.970083,
+            "p95": 109.970083,
+            "max": 109.970083
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 991.597791,
+            "p95": 991.597791,
+            "max": 991.597791
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 109.970083,
+            "p95": 109.970083,
+            "max": 109.970083
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 62.468958,
+          "first_text_ms": 63.376958,
+          "preliminary_ms": 109.970083,
+          "preliminary_mismatched": 0,
+          "correction_ms": 991.597791,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 109.970083,
+          "visible_lines": 4
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-unified-10",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "run": 10,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 100.3 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 100.296917,
+            "p95": 100.296917,
+            "max": 100.296917
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 131.629875,
+            "p95": 131.629875,
+            "max": 131.629875
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.6795420000000005,
+            "p95": 6.6795420000000005,
+            "max": 6.6795420000000005
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102450208.0,
+            "p95": 102450208.0,
+            "max": 102450208.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 11.3535,
+            "p95": 11.3535,
+            "max": 11.3535
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1569900584.0,
+            "p95": 1569900584.0,
+            "max": 1569900584.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 65.0705,
+            "p95": 65.0705,
+            "max": 65.0705
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 67.174125,
+            "p95": 67.174125,
+            "max": 67.174125
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 112.386833,
+            "p95": 112.386833,
+            "max": 112.386833
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 988.5205,
+            "p95": 988.5205,
+            "max": 988.5205
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 112.386833,
+            "p95": 112.386833,
+            "max": 112.386833
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 65.0705,
+          "first_text_ms": 67.174125,
+          "preliminary_ms": 112.386833,
+          "preliminary_mismatched": 0,
+          "correction_ms": 988.5205,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 112.386833,
+          "visible_lines": 4
+        }
+      ]
+    },
+    {
+      "dir": "open-wrap-a-unified-11",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "run": 11,
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 76.0 мс"
+        },
+        {
+          "name": "open_reference_full",
+          "verdict": "pass",
+          "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 75.997916,
+            "p95": 75.997916,
+            "max": 75.997916
+          }
+        },
+        {
+          "name": "fixture_generate_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 127.656125,
+            "p95": 127.656125,
+            "max": 127.656125
+          }
+        },
+        {
+          "name": "reference_read_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 6.385375000000001,
+            "p95": 6.385375000000001,
+            "max": 6.385375000000001
+          }
+        },
+        {
+          "name": "footprint_before_open_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 102073376.0,
+            "p95": 102073376.0,
+            "max": 102073376.0
+          }
+        },
+        {
+          "name": "query_compile_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 10.952041,
+            "p95": 10.952041,
+            "max": 10.952041
+          }
+        },
+        {
+          "name": "phys_footprint_bytes",
+          "unit": "bytes",
+          "summary": {
+            "count": 1,
+            "p50": 1569638416.0,
+            "p95": 1569638416.0,
+            "max": 1569638416.0
+          }
+        },
+        {
+          "name": "open_model_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 57.686125,
+            "p95": 57.686125,
+            "max": 57.686125
+          }
+        },
+        {
+          "name": "open_first_text_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 58.57025,
+            "p95": 58.57025,
+            "max": 58.57025
+          }
+        },
+        {
+          "name": "open_preliminary_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 104.303041,
+            "p95": 104.303041,
+            "max": 104.303041
+          }
+        },
+        {
+          "name": "open_correction_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 994.696791,
+            "p95": 994.696791,
+            "max": 994.696791
+          }
+        },
+        {
+          "name": "open_end_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 104.303041,
+            "p95": 104.303041,
+            "max": 104.303041
+          }
+        }
+      ],
+      "opens": [
+        {
+          "model_ms": 57.686125,
+          "first_text_ms": 58.57025,
+          "preliminary_ms": 104.303041,
+          "preliminary_mismatched": 0,
+          "correction_ms": 994.696791,
+          "correction_mismatched": 0,
+          "end": "preliminary",
+          "end_ms": 104.303041,
+          "visible_lines": 4
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "dir": "open-wrap-a-side-01",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 88.0 мс"
+    },
+    {
+      "dir": "open-wrap-a-side-01",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-side-01",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-side-01",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-side-02",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 76.0 мс"
+    },
+    {
+      "dir": "open-wrap-a-side-02",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-side-02",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-side-02",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-side-03",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 85.0 мс"
+    },
+    {
+      "dir": "open-wrap-a-side-03",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-side-03",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-side-03",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-side-04",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 83.6 мс"
+    },
+    {
+      "dir": "open-wrap-a-side-04",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-side-04",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-side-04",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-side-05",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 84.5 мс"
+    },
+    {
+      "dir": "open-wrap-a-side-05",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-side-05",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-side-05",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-side-06",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 80.3 мс"
+    },
+    {
+      "dir": "open-wrap-a-side-06",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-side-06",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-side-06",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-side-07",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 82.4 мс"
+    },
+    {
+      "dir": "open-wrap-a-side-07",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-side-07",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-side-07",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-side-08",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 84.5 мс"
+    },
+    {
+      "dir": "open-wrap-a-side-08",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-side-08",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-side-08",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-side-09",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 92.1 мс"
+    },
+    {
+      "dir": "open-wrap-a-side-09",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-side-09",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-side-09",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-side-10",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 86.9 мс"
+    },
+    {
+      "dir": "open-wrap-a-side-10",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-side-10",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-side-10",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-side-11",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 82.8 мс"
+    },
+    {
+      "dir": "open-wrap-a-side-11",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 6 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-side-11",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-side-11",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-unified-01",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 84.9 мс"
+    },
+    {
+      "dir": "open-wrap-a-unified-01",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-unified-01",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-unified-01",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-unified-02",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 90.3 мс"
+    },
+    {
+      "dir": "open-wrap-a-unified-02",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-unified-02",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-unified-02",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-unified-03",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 85.4 мс"
+    },
+    {
+      "dir": "open-wrap-a-unified-03",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-unified-03",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-unified-03",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-unified-04",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 84.3 мс"
+    },
+    {
+      "dir": "open-wrap-a-unified-04",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-unified-04",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-unified-04",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-unified-05",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 87.6 мс"
+    },
+    {
+      "dir": "open-wrap-a-unified-05",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-unified-05",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-unified-05",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-unified-06",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 85.7 мс"
+    },
+    {
+      "dir": "open-wrap-a-unified-06",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-unified-06",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-unified-06",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-unified-07",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 89.3 мс"
+    },
+    {
+      "dir": "open-wrap-a-unified-07",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-unified-07",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-unified-07",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-unified-08",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 86.0 мс"
+    },
+    {
+      "dir": "open-wrap-a-unified-08",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-unified-08",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-unified-08",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-unified-09",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 81.4 мс"
+    },
+    {
+      "dir": "open-wrap-a-unified-09",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-unified-09",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-unified-09",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-unified-10",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 100.3 мс"
+    },
+    {
+      "dir": "open-wrap-a-unified-10",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-unified-10",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-unified-10",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "open-wrap-a-unified-11",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 76.0 мс"
+    },
+    {
+      "dir": "open-wrap-a-unified-11",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 4 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "dir": "open-wrap-a-unified-11",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "open-wrap-a-unified-11",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    }
+  ],
+  "open": [
+    {
+      "dir": "open-wrap-a-side",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "side",
+      "processes": 11,
+      "execution_errors": 0,
+      "first": {
+        "model_ms": 58.213208,
+        "first_text_ms": 59.3955,
+        "preliminary_ms": 106.67075,
+        "preliminary_mismatched": 0,
+        "correction_ms": 991.374833,
+        "correction_mismatched": 0,
+        "end": "preliminary",
+        "end_ms": 106.67075,
+        "visible_lines": 6
+      },
+      "aggregated": 10,
+      "model_ms": {
+        "count": 10,
+        "p50": 60.221958,
+        "p95": 64.01725,
+        "max": 64.01725
+      },
+      "first_text_ms": {
+        "count": 10,
+        "p50": 61.618,
+        "p95": 67.008792,
+        "max": 67.008792
+      },
+      "preliminary_ms": {
+        "count": 10,
+        "p50": 108.976083,
+        "p95": 112.303542,
+        "max": 112.303542
+      },
+      "correction_ms": {
+        "count": 10,
+        "p50": 998.16175,
+        "p95": 1019.274666,
+        "max": 1019.274666
+      },
+      "end_ms": {
+        "count": 10,
+        "p50": 108.976083,
+        "p95": 112.303542,
+        "max": 112.303542
+      },
+      "preliminary_mismatched": 0,
+      "end_preliminary": 10,
+      "end_missing": 0,
+      "verdict": null,
+      "reason": "наблюдение без вердикта: максимум 10 прогретых процессов 112.3 мс, p50 109.0 мс; вне агрегатов 106.7 мс; отметка — предварительная подсветка в 10 из 10, расхождений предварительной 0"
+    },
+    {
+      "dir": "open-wrap-a-unified",
+      "scenario": "open",
+      "fixture": "wrap",
+      "variant": "a",
+      "mode": "unified",
+      "processes": 11,
+      "execution_errors": 0,
+      "first": {
+        "model_ms": 61.3215,
+        "first_text_ms": 62.219916,
+        "preliminary_ms": 109.069416,
+        "preliminary_mismatched": 0,
+        "correction_ms": 996.516708,
+        "correction_mismatched": 0,
+        "end": "preliminary",
+        "end_ms": 109.069416,
+        "visible_lines": 4
+      },
+      "aggregated": 10,
+      "model_ms": {
+        "count": 10,
+        "p50": 61.76925,
+        "p95": 65.0705,
+        "max": 65.0705
+      },
+      "first_text_ms": {
+        "count": 10,
+        "p50": 62.667292,
+        "p95": 67.174125,
+        "max": 67.174125
+      },
+      "preliminary_ms": {
+        "count": 10,
+        "p50": 109.361125,
+        "p95": 112.386833,
+        "max": 112.386833
+      },
+      "correction_ms": {
+        "count": 10,
+        "p50": 991.597791,
+        "p95": 1307.862583,
+        "max": 1307.862583
+      },
+      "end_ms": {
+        "count": 10,
+        "p50": 109.361125,
+        "p95": 112.386833,
+        "max": 112.386833
+      },
+      "preliminary_mismatched": 0,
+      "end_preliminary": 10,
+      "end_missing": 0,
+      "verdict": null,
+      "reason": "наблюдение без вердикта: максимум 10 прогретых процессов 112.4 мс, p50 109.4 мс; вне агрегатов 109.1 мс; отметка — предварительная подсветка в 10 из 10, расхождений предварительной 0"
+    }
+  ],
+  "errors": []
+}

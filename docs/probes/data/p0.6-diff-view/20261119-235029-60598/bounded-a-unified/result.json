@@ -1,0 +1,165 @@
+{
+  "schema": 1,
+  "scenario": "bounded",
+  "variant": "a",
+  "mode": "unified",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "81c73ae8bf46",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-core-text 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-quartz-core 0.3.2",
+      "tree_sitter": "tree-sitter 0.27.2, tree-sitter-language 0.1.9, tree-sitter-rust 0.24.2",
+      "xcode": "Xcode 27.0 Build version 27A266a",
+      "xctrace": "xctrace version 27.0 (27A266a)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "displays": [
+      {
+        "id": 1,
+        "name": "Built-in Retina Display",
+        "builtin": true,
+        "frame": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1512.0,
+          "height": 982.0
+        },
+        "visible_frame": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1512.0,
+          "height": 949.0
+        },
+        "scale": 2.0,
+        "max_fps": 120
+      },
+      {
+        "id": 3,
+        "name": "LG HDR WQHD",
+        "builtin": false,
+        "frame": {
+          "x": -913.0,
+          "y": 982.0,
+          "width": 3440.0,
+          "height": 1440.0
+        },
+        "visible_frame": {
+          "x": -913.0,
+          "y": 982.0,
+          "width": 3440.0,
+          "height": 1410.0
+        },
+        "scale": 1.0,
+        "max_fps": 50
+      }
+    ],
+    "window": {
+      "display_id": 1,
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "backing_scale": 2.0
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "observations": [
+    {
+      "key": "window_state",
+      "value": "isActive=true isVisible=true isKeyWindow=true viewsNeedDisplay=false"
+    },
+    {
+      "key": "builtin_display",
+      "value": "Built-in Retina Display, до 120 Гц"
+    },
+    {
+      "key": "fixture",
+      "value": "modified, src/modified.rs, отпечаток 907617d6abed7ced"
+    },
+    {
+      "key": "theme",
+      "value": "dark"
+    },
+    {
+      "key": "font",
+      "value": "Menlo 12 точек: клетка 7.2246 точки, строка 14 точек"
+    },
+    {
+      "key": "cursor_warped_to",
+      "value": "1508,4"
+    },
+    {
+      "key": "bounded_checks",
+      "value": "[{\"step\":\"cache rows\",\"ok\":true,\"detail\":\"записей не больше 159, предел 3 экранов 159\"},{\"step\":\"cache blocks\",\"ok\":true,\"detail\":\"записей не больше 0, предел 3 экранов 159\"},{\"step\":\"far layouts\",\"ok\":true,\"detail\":\"раскладок дальше 2 экранов 0\"},{\"step\":\"cycles 10→100\",\"ok\":true,\"detail\":\"живых по классам совпадает: ProbeDiffDocumentViewA 1\"}]"
+    },
+    {
+      "key": "bounded_opens",
+      "value": "101"
+    },
+    {
+      "key": "bounded_cycles",
+      "value": "100"
+    },
+    {
+      "key": "bounded_counters_first",
+      "value": "ProbeDiffDocumentViewA 11/10"
+    },
+    {
+      "key": "bounded_counters_last",
+      "value": "ProbeDiffDocumentViewA 101/100"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "window_ready_ms",
+      "unit": "ms",
+      "samples": [
+        95.00037499999999
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 95.00037499999999,
+        "p95": 95.00037499999999,
+        "max": 95.00037499999999
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 95.0 мс"
+    },
+    {
+      "name": "bounded_contract",
+      "verdict": "pass",
+      "reason": "bounded: выполнено 4 проверок"
+    },
+    {
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    }
+  ]
+}

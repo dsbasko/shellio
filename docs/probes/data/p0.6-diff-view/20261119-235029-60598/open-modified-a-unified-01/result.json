@@ -1,0 +1,314 @@
+{
+  "schema": 1,
+  "scenario": "open",
+  "variant": "a",
+  "mode": "unified",
+  "fixture": "modified",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "81c73ae8bf46",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-core-text 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-quartz-core 0.3.2",
+      "tree_sitter": "tree-sitter 0.27.2, tree-sitter-language 0.1.9, tree-sitter-rust 0.24.2",
+      "xcode": "Xcode 27.0 Build version 27A266a",
+      "xctrace": "xctrace version 27.0 (27A266a)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "displays": [
+      {
+        "id": 1,
+        "name": "Built-in Retina Display",
+        "builtin": true,
+        "frame": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1512.0,
+          "height": 982.0
+        },
+        "visible_frame": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1512.0,
+          "height": 949.0
+        },
+        "scale": 2.0,
+        "max_fps": 120
+      }
+    ],
+    "window": {
+      "display_id": 1,
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "backing_scale": 2.0
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "observations": [
+    {
+      "key": "window_state",
+      "value": "isActive=true isVisible=true isKeyWindow=true viewsNeedDisplay=false"
+    },
+    {
+      "key": "builtin_display",
+      "value": "Built-in Retina Display, до 120 Гц"
+    },
+    {
+      "key": "fixture_bytes",
+      "value": "diff 5549978, старая сторона 4466206, новая 4534928"
+    },
+    {
+      "key": "open_at",
+      "value": "начало файла"
+    },
+    {
+      "key": "fixture",
+      "value": "modified, src/modified.rs, отпечаток 907617d6abed7ced"
+    },
+    {
+      "key": "theme",
+      "value": "dark"
+    },
+    {
+      "key": "font",
+      "value": "Menlo 12 точек: клетка 7.2246 точки, строка 14 точек"
+    },
+    {
+      "key": "cursor_warped_to",
+      "value": "1508,4"
+    },
+    {
+      "key": "released_gestures",
+      "value": "0"
+    },
+    {
+      "key": "timeline",
+      "value": "{\"open_ns\":725149657394583,\"parsed_ns\":725149660589041,\"model_ns\":725149666467666,\"open_generation\":2,\"rows\":119999,\"document_height\":1765050,\"snapshots\":[{\"source\":\"local\",\"request\":1,\"at_ns\":725149659862083,\"generation\":1,\"changed_rows\":0,\"compute_ms\":0.0005},{\"source\":\"local\",\"request\":2,\"at_ns\":725149669123916,\"generation\":3,\"changed_rows\":52,\"compute_ms\":2.480125},{\"source\":\"full\",\"request\":2,\"at_ns\":725150004297041,\"generation\":3,\"changed_rows\":0,\"compute_ms\":0.20925}]}"
+    },
+    {
+      "key": "opens",
+      "value": "[{\"index\":0,\"path\":\"src/modified.rs\",\"visible_rows\":[0,52],\"scroll_y\":0.0,\"snapshots\":3,\"kept\":[[\"Local\",1,0],[\"Local\",3,52],[\"Full\",3,0]]}]"
+    },
+    {
+      "key": "coverage_events",
+      "value": "1"
+    },
+    {
+      "key": "marks",
+      "value": "3"
+    },
+    {
+      "key": "ledger_size",
+      "value": "(1, 1)"
+    },
+    {
+      "key": "document_frame",
+      "value": "0,0 1180x1765050"
+    },
+    {
+      "key": "layout_cache",
+      "value": "{\"built\":52,\"rebuilt\":0,\"hits\":0,\"evicted\":0,\"far_builds\":0,\"max_entries\":52,\"max_capacity\":159,\"cleared\":0}"
+    },
+    {
+      "key": "draw_stats",
+      "value": "{\"draws\":3,\"rows_drawn\":52,\"max_rows_per_draw\":52,\"clipped_draws\":0,\"busy_draws\":0,\"max_draw_ms\":1.265209}"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "window_ready_ms",
+      "unit": "ms",
+      "samples": [
+        37.897375
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 37.897375,
+        "p95": 37.897375,
+        "max": 37.897375
+      }
+    },
+    {
+      "name": "fixture_generate_ms",
+      "unit": "ms",
+      "samples": [
+        21.685166
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 21.685166,
+        "p95": 21.685166,
+        "max": 21.685166
+      }
+    },
+    {
+      "name": "reference_read_ms",
+      "unit": "ms",
+      "samples": [
+        0.951583
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 0.951583,
+        "p95": 0.951583,
+        "max": 0.951583
+      }
+    },
+    {
+      "name": "footprint_before_open_bytes",
+      "unit": "bytes",
+      "samples": [
+        46810096.0
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 46810096.0,
+        "p95": 46810096.0,
+        "max": 46810096.0
+      }
+    },
+    {
+      "name": "query_compile_ms",
+      "unit": "ms",
+      "samples": [
+        11.171083999999999
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 11.171083999999999,
+        "p95": 11.171083999999999,
+        "max": 11.171083999999999
+      }
+    },
+    {
+      "name": "phys_footprint_bytes",
+      "unit": "bytes",
+      "samples": [
+        617629040.0
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 617629040.0,
+        "p95": 617629040.0,
+        "max": 617629040.0
+      }
+    },
+    {
+      "name": "open_model_ms",
+      "unit": "ms",
+      "samples": [
+        17.4055
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 17.4055,
+        "p95": 17.4055,
+        "max": 17.4055
+      }
+    },
+    {
+      "name": "open_first_text_ms",
+      "unit": "ms",
+      "samples": [
+        26.218959
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 26.218959,
+        "p95": 26.218959,
+        "max": 26.218959
+      }
+    },
+    {
+      "name": "open_preliminary_ms",
+      "unit": "ms",
+      "samples": [
+        26.218959
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 26.218959,
+        "p95": 26.218959,
+        "max": 26.218959
+      }
+    },
+    {
+      "name": "open_correction_ms",
+      "unit": "ms",
+      "samples": [
+        355.234875
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 355.234875,
+        "p95": 355.234875,
+        "max": 355.234875
+      }
+    },
+    {
+      "name": "open_end_ms",
+      "unit": "ms",
+      "samples": [
+        26.218959
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 26.218959,
+        "p95": 26.218959,
+        "max": 26.218959
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 37.9 мс"
+    },
+    {
+      "name": "open_reference_full",
+      "verdict": "pass",
+      "reason": "исправление полным разбором совпало с эталоном по 52 видимым строкам в каждом из 1 открытий"
+    },
+    {
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    }
+  ],
+  "opens": [
+    {
+      "model_ms": 17.4055,
+      "first_text_ms": 26.218959,
+      "preliminary_ms": 26.218959,
+      "preliminary_mismatched": 0,
+      "correction_ms": 355.234875,
+      "correction_mismatched": 0,
+      "end": "preliminary",
+      "end_ms": 26.218959,
+      "visible_lines": 52
+    }
+  ]
+}

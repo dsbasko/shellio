@@ -1,0 +1,154 @@
+{
+  "schema": 1,
+  "scenario": "anchor",
+  "variant": "a",
+  "mode": "unified",
+  "fixture": "threads",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "81c73ae8bf46",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-core-text 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-quartz-core 0.3.2",
+      "tree_sitter": "tree-sitter 0.27.2, tree-sitter-language 0.1.9, tree-sitter-rust 0.24.2",
+      "xcode": "Xcode 27.0 Build version 27A266a",
+      "xctrace": "xctrace version 27.0 (27A266a)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "displays": [
+      {
+        "id": 1,
+        "name": "Built-in Retina Display",
+        "builtin": true,
+        "frame": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1512.0,
+          "height": 982.0
+        },
+        "visible_frame": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1512.0,
+          "height": 949.0
+        },
+        "scale": 2.0,
+        "max_fps": 120
+      },
+      {
+        "id": 3,
+        "name": "LG HDR WQHD",
+        "builtin": false,
+        "frame": {
+          "x": -913.0,
+          "y": 982.0,
+          "width": 3440.0,
+          "height": 1440.0
+        },
+        "visible_frame": {
+          "x": -913.0,
+          "y": 982.0,
+          "width": 3440.0,
+          "height": 1410.0
+        },
+        "scale": 1.0,
+        "max_fps": 50
+      }
+    ],
+    "window": {
+      "display_id": 1,
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "backing_scale": 2.0
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "observations": [
+    {
+      "key": "window_state",
+      "value": "isActive=true isVisible=true isKeyWindow=true viewsNeedDisplay=false"
+    },
+    {
+      "key": "builtin_display",
+      "value": "Built-in Retina Display, до 120 Гц"
+    },
+    {
+      "key": "fixture",
+      "value": "threads, src/threads.rs, отпечаток 32ec20d29d51c52a"
+    },
+    {
+      "key": "theme",
+      "value": "dark"
+    },
+    {
+      "key": "font",
+      "value": "Menlo 12 точек: клетка 7.2246 точки, строка 14 точек"
+    },
+    {
+      "key": "cursor_warped_to",
+      "value": "1508,4"
+    },
+    {
+      "key": "anchor_checks",
+      "value": "[{\"step\":\"position\",\"ok\":true,\"detail\":\"{\\\"expected\\\":\\\"LineAddr { side: New, line: 50001 }\\\",\\\"model\\\":\\\"Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }\\\",\\\"model_row\\\":59979,\\\"drawn\\\":{\\\"generation\\\":5,\\\"row\\\":59979,\\\"top\\\":885584.0,\\\"height\\\":14.0},\\\"viewport_y\\\":885591.0,\\\"drawn_offset\\\":7.0,\\\"ok\\\":true,\\\"reason\\\":\\\"\\\"}\"},{\"step\":\"expand\",\"ok\":true,\"detail\":\"{\\\"expected\\\":\\\"LineAddr { side: New, line: 50001 }\\\",\\\"model\\\":\\\"Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }\\\",\\\"model_row\\\":59979,\\\"drawn\\\":{\\\"generation\\\":6,\\\"row\\\":59979,\\\"top\\\":886536.0,\\\"height\\\":14.0},\\\"viewport_y\\\":886543.0,\\\"drawn_offset\\\":7.0,\\\"ok\\\":true,\\\"reason\\\":\\\"\\\"}\"},{\"step\":\"expand kept\",\"ok\":true,\"detail\":\"якорь модели Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }, исходный Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }\"},{\"step\":\"collapse\",\"ok\":true,\"detail\":\"{\\\"expected\\\":\\\"LineAddr { side: New, line: 50001 }\\\",\\\"model\\\":\\\"Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }\\\",\\\"model_row\\\":59979,\\\"drawn\\\":{\\\"generation\\\":7,\\\"row\\\":59979,\\\"top\\\":885584.0,\\\"height\\\":14.0},\\\"viewport_y\\\":885591.0,\\\"drawn_offset\\\":7.0,\\\"ok\\\":true,\\\"reason\\\":\\\"\\\"}\"},{\"step\":\"collapse kept\",\"ok\":true,\"detail\":\"якорь модели Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }, исходный Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }\"},{\"step\":\"G cursor\",\"ok\":true,\"detail\":\"курсор модели Some(LineAddr { side: New, line: 100000 }), ожидался Some(LineAddr { side: New, line: 100000 })\"},{\"step\":\"G\",\"ok\":true,\"detail\":\"{\\\"expected\\\":null,\\\"model\\\":\\\"Anchor { addr: LineAddr { side: New, line: 99959 }, offset: 8 }\\\",\\\"model_row\\\":119908,\\\"drawn\\\":{\\\"generation\\\":9,\\\"row\\\":119908,\\\"top\\\":1770762.0,\\\"height\\\":14.0},\\\"viewport_y\\\":1770770.0,\\\"drawn_offset\\\":8.0,\\\"ok\\\":true,\\\"reason\\\":\\\"\\\"}\"},{\"step\":\"Ctrl-o after G\",\"ok\":true,\"detail\":\"{\\\"expected\\\":\\\"LineAddr { side: New, line: 50001 }\\\",\\\"model\\\":\\\"Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }\\\",\\\"model_row\\\":59979,\\\"drawn\\\":{\\\"generation\\\":10,\\\"row\\\":59979,\\\"top\\\":885584.0,\\\"height\\\":14.0},\\\"viewport_y\\\":885591.0,\\\"drawn_offset\\\":7.0,\\\"ok\\\":true,\\\"reason\\\":\\\"\\\"}\"},{\"step\":\"Ctrl-o after G kept\",\"ok\":true,\"detail\":\"якорь модели Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }, исходный Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }\"},{\"step\":\"gg\",\"ok\":true,\"detail\":\"{\\\"expected\\\":\\\"LineAddr { side: New, line: 2 }\\\",\\\"model\\\":\\\"Anchor { addr: LineAddr { side: New, line: 2 }, offset: 0 }\\\",\\\"model_row\\\":0,\\\"drawn\\\":{\\\"generation\\\":11,\\\"row\\\":0,\\\"top\\\":0.0,\\\"height\\\":14.0},\\\"viewport_y\\\":0.0,\\\"drawn_offset\\\":0.0,\\\"ok\\\":true,\\\"reason\\\":\\\"\\\"}\"},{\"step\":\"gg row\",\"ok\":true,\"detail\":\"якорь модели Anchor { addr: LineAddr { side: New, line: 2 }, offset: 0 } в строке 0, ожидалась строка 0 со смещением 0\"},{\"step\":\"Ctrl-o after gg\",\"ok\":true,\"detail\":\"{\\\"expected\\\":\\\"LineAddr { side: New, line: 50001 }\\\",\\\"model\\\":\\\"Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }\\\",\\\"model_row\\\":59979,\\\"drawn\\\":{\\\"generation\\\":12,\\\"row\\\":59979,\\\"top\\\":885584.0,\\\"height\\\":14.0},\\\"viewport_y\\\":885591.0,\\\"drawn_offset\\\":7.0,\\\"ok\\\":true,\\\"reason\\\":\\\"\\\"}\"},{\"step\":\"Ctrl-o after gg kept\",\"ok\":true,\"detail\":\"якорь модели Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }, исходный Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }\"},{\"step\":\"]c\",\"ok\":true,\"detail\":\"{\\\"expected\\\":\\\"LineAddr { side: Old, line: 50005 }\\\",\\\"model\\\":\\\"Anchor { addr: LineAddr { side: Old, line: 50005 }, offset: 0 }\\\",\\\"model_row\\\":59983,\\\"drawn\\\":{\\\"generation\\\":13,\\\"row\\\":59983,\\\"top\\\":885640.0,\\\"height\\\":14.0},\\\"viewport_y\\\":885640.0,\\\"drawn_offset\\\":0.0,\\\"ok\\\":true,\\\"reason\\\":\\\"\\\"}\"},{\"step\":\"]c row\",\"ok\":true,\"detail\":\"якорь модели Anchor { addr: LineAddr { side: Old, line: 50005 }, offset: 0 } в строке 59983, ожидалась строка 59983 со смещением 0\"},{\"step\":\"Ctrl-o after ]c\",\"ok\":true,\"detail\":\"{\\\"expected\\\":\\\"LineAddr { side: New, line: 50001 }\\\",\\\"model\\\":\\\"Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }\\\",\\\"model_row\\\":59979,\\\"drawn\\\":{\\\"generation\\\":15,\\\"row\\\":59979,\\\"top\\\":885584.0,\\\"height\\\":14.0},\\\"viewport_y\\\":885591.0,\\\"drawn_offset\\\":7.0,\\\"ok\\\":true,\\\"reason\\\":\\\"\\\"}\"},{\"step\":\"Ctrl-o after ]c kept\",\"ok\":true,\"detail\":\"якорь модели Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }, исходный Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }\"},{\"step\":\"[c\",\"ok\":true,\"detail\":\"{\\\"expected\\\":\\\"LineAddr { side: Old, line: 50000 }\\\",\\\"model\\\":\\\"Anchor { addr: LineAddr { side: Old, line: 50000 }, offset: 0 }\\\",\\\"model_row\\\":59977,\\\"drawn\\\":{\\\"generation\\\":17,\\\"row\\\":59977,\\\"top\\\":885556.0,\\\"height\\\":14.0},\\\"viewport_y\\\":885556.0,\\\"drawn_offset\\\":0.0,\\\"ok\\\":true,\\\"reason\\\":\\\"\\\"}\"},{\"step\":\"[c row\",\"ok\":true,\"detail\":\"якорь модели Anchor { addr: LineAddr { side: Old, line: 50000 }, offset: 0 } в строке 59977, ожидалась строка 59977 со смещением 0\"},{\"step\":\"Ctrl-o after [c\",\"ok\":true,\"detail\":\"{\\\"expected\\\":\\\"LineAddr { side: New, line: 50001 }\\\",\\\"model\\\":\\\"Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }\\\",\\\"model_row\\\":59979,\\\"drawn\\\":{\\\"generation\\\":18,\\\"row\\\":59979,\\\"top\\\":885584.0,\\\"height\\\":14.0},\\\"viewport_y\\\":885591.0,\\\"drawn_offset\\\":7.0,\\\"ok\\\":true,\\\"reason\\\":\\\"\\\"}\"},{\"step\":\"Ctrl-o after [c kept\",\"ok\":true,\"detail\":\"якорь модели Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }, исходный Anchor { addr: LineAddr { side: New, line: 50001 }, offset: 7 }\"}]"
+    },
+    {
+      "key": "anchor_opens",
+      "value": "1"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "window_ready_ms",
+      "unit": "ms",
+      "samples": [
+        70.778833
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 70.778833,
+        "p95": 70.778833,
+        "max": 70.778833
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 70.8 мс"
+    },
+    {
+      "name": "anchor_contract",
+      "verdict": "pass",
+      "reason": "anchor: выполнено 21 проверок"
+    },
+    {
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    }
+  ]
+}

@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "scenario": "threads",
+  "variant": "b",
+  "mode": "side",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "81c73ae8bf46",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-core-text 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-quartz-core 0.3.2",
+      "tree_sitter": "tree-sitter 0.27.2, tree-sitter-language 0.1.9, tree-sitter-rust 0.24.2",
+      "xcode": "Xcode 27.0 Build version 27A266a",
+      "xctrace": "xctrace version 27.0 (27A266a)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "displays": [
+      {
+        "id": 1,
+        "name": "Built-in Retina Display",
+        "builtin": true,
+        "frame": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1512.0,
+          "height": 982.0
+        },
+        "visible_frame": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1512.0,
+          "height": 949.0
+        },
+        "scale": 2.0,
+        "max_fps": 120
+      },
+      {
+        "id": 3,
+        "name": "LG HDR WQHD",
+        "builtin": false,
+        "frame": {
+          "x": -913.0,
+          "y": 982.0,
+          "width": 3440.0,
+          "height": 1440.0
+        },
+        "visible_frame": {
+          "x": -913.0,
+          "y": 982.0,
+          "width": 3440.0,
+          "height": 1410.0
+        },
+        "scale": 1.0,
+        "max_fps": 50
+      }
+    ],
+    "window": {
+      "display_id": 1,
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "backing_scale": 2.0
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "observations": [
+    {
+      "key": "window_state",
+      "value": "isActive=true isVisible=true isKeyWindow=true viewsNeedDisplay=false"
+    },
+    {
+      "key": "builtin_display",
+      "value": "Built-in Retina Display, до 120 Гц"
+    },
+    {
+      "key": "fixture",
+      "value": "threads, src/threads.rs, отпечаток 32ec20d29d51c52a"
+    },
+    {
+      "key": "theme",
+      "value": "dark"
+    },
+    {
+      "key": "font",
+      "value": "Menlo 12 точек: клетка 7.2246 точки, строка 14 точек"
+    },
+    {
+      "key": "cursor_warped_to",
+      "value": "1508,4"
+    },
+    {
+      "key": "threads_checks",
+      "value": "[{\"step\":\"line c\",\"ok\":true,\"detail\":\"якорь черновика Some(ThreadAnchor { path: \\\"src/threads.rs\\\", side: New, start_line: 7, line: 7 }), ожидался ThreadAnchor { path: \\\"src/threads.rs\\\", side: New, start_line: 7, line: 7 }, поле Some(\\\"647,98 516x56\\\"), блок Some((647.021484375, 98.0, 515.978515625, 56.0)), фокус true\"},{\"step\":\"line text\",\"ok\":true,\"detail\":\"текст черновика Some(\\\"jk\\\")\"},{\"step\":\"line Cmd-Enter thread\",\"ok\":true,\"detail\":\"тред на ThreadAnchor { path: \\\"src/threads.rs\\\", side: New, start_line: 7, line: 7 } с текстом \\\"jk\\\": Some(ThreadId(500))\"},{\"step\":\"line Cmd-Enter block\",\"ok\":true,\"detail\":\"текст Some(Drawn { generation: 6, row: 5, top: 84.0, height: 14.0 }), блок Some(Drawn { generation: 6, row: 5, top: 98.0, height: 42.0 })\"},{\"step\":\"range c\",\"ok\":true,\"detail\":\"якорь черновика Some(ThreadAnchor { path: \\\"src/threads.rs\\\", side: New, start_line: 11, line: 13 }), ожидался ThreadAnchor { path: \\\"src/threads.rs\\\", side: New, start_line: 11, line: 13 }, поле Some(\\\"647.021484375,238 515.978515625x56\\\"), блок Some((647.021484375, 238.0, 515.978515625, 56.0)), фокус true\"},{\"step\":\"range text\",\"ok\":true,\"detail\":\"текст черновика Some(\\\"jk\\\")\"},{\"step\":\"range Cmd-Enter thread\",\"ok\":true,\"detail\":\"тред на ThreadAnchor { path: \\\"src/threads.rs\\\", side: New, start_line: 11, line: 13 } с текстом \\\"jk\\\": Some(ThreadId(501))\"},{\"step\":\"range Cmd-Enter block\",\"ok\":true,\"detail\":\"текст Some(Drawn { generation: 13, row: 11, top: 224.0, height: 14.0 }), блок Some(Drawn { generation: 13, row: 11, top: 238.0, height: 42.0 })\"},{\"step\":\"cross c\",\"ok\":true,\"detail\":\"якорь черновика Some(ThreadAnchor { path: \\\"src/threads.rs\\\", side: New, start_line: 9498, line: 9502 }), ожидался ThreadAnchor { path: \\\"src/threads.rs\\\", side: New, start_line: 9498, line: 9502 }, поле Some(\\\"647.021484375,146762 515.978515625x56\\\"), блок Some((647.021484375, 146762.0, 515.978515625, 56.0)), фокус true\"},{\"step\":\"cross text\",\"ok\":true,\"detail\":\"текст черновика Some(\\\"jk\\\")\"},{\"step\":\"cross Cmd-Enter thread\",\"ok\":true,\"detail\":\"тред на ThreadAnchor { path: \\\"src/threads.rs\\\", side: New, start_line: 9498, line: 9502 } с текстом \\\"jk\\\": Some(ThreadId(502))\"},{\"step\":\"cross Cmd-Enter crosses\",\"ok\":true,\"detail\":\"диапазон ThreadAnchor { path: \\\"src/threads.rs\\\", side: New, start_line: 9498, line: 9502 } через границу ханка\"},{\"step\":\"cross Cmd-Enter block\",\"ok\":true,\"detail\":\"текст Some(Drawn { generation: 20, row: 9497, top: 146734.0, height: 14.0 }), блок Some(Drawn { generation: 20, row: 9497, top: 146748.0, height: 56.0 })\"},{\"step\":\"cycle 0 c\",\"ok\":true,\"detail\":\"якорь черновика Some(ThreadAnchor { path: \\\"src/threads.rs\\\", side: New, start_line: 9503, line: 9503 }), ожидался ThreadAnchor { path: \\\"src/threads.rs\\\", side: New, start_line: 9503, line: 9503 }, поле Some(\\\"647.021484375,146818 515.978515625x56\\\"), блок Some((647.021484375, 146818.0, 515.978515625, 56.0)), фокус true\"},{\"step\":\"cycle 99 c\",\"ok\":true,\"detail\":\"якорь черновика Some(ThreadAnchor { path: \\\"src/threads.rs\\\", side: New, start_line: 9503, line: 9503 }), ожидался ThreadAnchor { path: \\\"src/threads.rs\\\", side: New, start_line: 9503, line: 9503 }, поле Some(\\\"647.021484375,146818 515.978515625x56\\\"), блок Some((647.021484375, 146818.0, 515.978515625, 56.0)), фокус true\"},{\"step\":\"draft field\",\"ok\":true,\"detail\":\"создано полей черновика 1, живых 1\"}]"
+    },
+    {
+      "key": "threads_opens",
+      "value": "1"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "window_ready_ms",
+      "unit": "ms",
+      "samples": [
+        84.73420800000001
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 84.73420800000001,
+        "p95": 84.73420800000001,
+        "max": 84.73420800000001
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 84.7 мс"
+    },
+    {
+      "name": "threads_contract",
+      "verdict": "pass",
+      "reason": "threads: выполнено 16 проверок"
+    },
+    {
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    }
+  ]
+}

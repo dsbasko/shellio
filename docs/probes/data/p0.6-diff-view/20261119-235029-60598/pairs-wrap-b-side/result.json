@@ -1,0 +1,175 @@
+{
+  "schema": 1,
+  "scenario": "pairs",
+  "variant": "b",
+  "mode": "side",
+  "fixture": "wrap",
+  "environment": {
+    "os": "Version 27.0.1 (Build 26A434)",
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832
+    },
+    "build": {
+      "commit": "81c73ae8bf46",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "objc2": "objc2 0.6.5, objc2-app-kit 0.3.2, objc2-core-foundation 0.3.2, objc2-core-graphics 0.3.2, objc2-core-text 0.3.2, objc2-encode 4.1.0, objc2-foundation 0.3.2, objc2-quartz-core 0.3.2",
+      "tree_sitter": "tree-sitter 0.27.2, tree-sitter-language 0.1.9, tree-sitter-rust 0.24.2",
+      "xcode": "Xcode 27.0 Build version 27A266a",
+      "xctrace": "xctrace version 27.0 (27A266a)",
+      "profile": "release",
+      "probe_version": "0.1.0"
+    },
+    "displays": [
+      {
+        "id": 1,
+        "name": "Built-in Retina Display",
+        "builtin": true,
+        "frame": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1512.0,
+          "height": 982.0
+        },
+        "visible_frame": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1512.0,
+          "height": 949.0
+        },
+        "scale": 2.0,
+        "max_fps": 120
+      },
+      {
+        "id": 3,
+        "name": "LG HDR WQHD",
+        "builtin": false,
+        "frame": {
+          "x": -913.0,
+          "y": 982.0,
+          "width": 3440.0,
+          "height": 1440.0
+        },
+        "visible_frame": {
+          "x": -913.0,
+          "y": 982.0,
+          "width": 3440.0,
+          "height": 1410.0
+        },
+        "scale": 1.0,
+        "max_fps": 50
+      }
+    ],
+    "window": {
+      "display_id": 1,
+      "frame": {
+        "x": 166.0,
+        "y": 114.0,
+        "width": 1180.0,
+        "height": 752.0
+      },
+      "content_points": {
+        "width": 1180.0,
+        "height": 720.0
+      },
+      "backing_scale": 2.0
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "percentile_method": "nearest-rank",
+  "observations": [
+    {
+      "key": "window_state",
+      "value": "isActive=true isVisible=true isKeyWindow=true viewsNeedDisplay=false"
+    },
+    {
+      "key": "builtin_display",
+      "value": "Built-in Retina Display, до 120 Гц"
+    },
+    {
+      "key": "fixture",
+      "value": "wrap, src/wrap.rs, отпечаток c9d07d51aa3b0166"
+    },
+    {
+      "key": "theme",
+      "value": "dark"
+    },
+    {
+      "key": "font",
+      "value": "Menlo 12 точек: клетка 7.2246 точки, строка 14 точек"
+    },
+    {
+      "key": "cursor_warped_to",
+      "value": "1508,4"
+    },
+    {
+      "key": "fixture",
+      "value": "pair31, src/pair31.rs, отпечаток 0e36a12b42229f63"
+    },
+    {
+      "key": "theme",
+      "value": "dark"
+    },
+    {
+      "key": "font",
+      "value": "Menlo 12 точек: клетка 7.2246 точки, строка 14 точек"
+    },
+    {
+      "key": "cursor_warped_to",
+      "value": "1508,4"
+    },
+    {
+      "key": "pairs_checks",
+      "value": "[{\"step\":\"top 0% pairs\",\"ok\":true,\"detail\":\"верх 0.0, видимые 0..3, строк 3, расхождений 0\"},{\"step\":\"top 0% gutter\",\"ok\":true,\"detail\":\"верх 0.0, видимые 0..3, строк 3, расхождений 0\"},{\"step\":\"top 25% pairs\",\"ok\":true,\"detail\":\"верх 742689.0, видимые 2478..2482, строк 4, расхождений 0\"},{\"step\":\"top 25% gutter\",\"ok\":true,\"detail\":\"верх 742689.0, видимые 2478..2482, строк 4, расхождений 0\"},{\"step\":\"top 50% pairs\",\"ok\":true,\"detail\":\"верх 1485379.0, видимые 4998..5002, строк 4, расхождений 0\"},{\"step\":\"top 50% gutter\",\"ok\":true,\"detail\":\"верх 1485379.0, видимые 4998..5002, строк 4, расхождений 0\"},{\"step\":\"top 75% pairs\",\"ok\":true,\"detail\":\"верх 2228068.0, видимые 7526..7528, строк 2, расхождений 0\"},{\"step\":\"top 75% gutter\",\"ok\":true,\"detail\":\"верх 2228068.0, видимые 7526..7528, строк 2, расхождений 0\"},{\"step\":\"top limit pairs\",\"ok\":true,\"detail\":\"верх 2970038.0, видимые 9997..9999, строк 2, расхождений 0\"},{\"step\":\"top limit gutter\",\"ok\":true,\"detail\":\"верх 2970038.0, видимые 9997..9999, строк 2, расхождений 0\"},{\"step\":\"pair31 row 1\",\"ok\":true,\"detail\":\"строка 31: нарисована высота 42.0, по индексу Some(42)\"},{\"step\":\"pair31 row 2\",\"ok\":true,\"detail\":\"строка 39: нарисована высота 42.0, по индексу Some(42)\"},{\"step\":\"pair31 row 3\",\"ok\":true,\"detail\":\"строка 47: нарисована высота 42.0, по индексу Some(42)\"}]"
+    },
+    {
+      "key": "pairs_opens",
+      "value": "2"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "window_ready_ms",
+      "unit": "ms",
+      "samples": [
+        86.23475
+      ],
+      "summary": {
+        "count": 1,
+        "p50": 86.23475,
+        "p95": 86.23475,
+        "max": 86.23475
+      }
+    }
+  ],
+  "findings": [
+    {
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 86.2 мс"
+    },
+    {
+      "name": "pairs_contract",
+      "verdict": "pass",
+      "reason": "pairs: выполнено 13 проверок"
+    },
+    {
+      "name": "pairs_height31",
+      "verdict": "pass",
+      "reason": "pairs_height31: выполнено 3 проверок"
+    },
+    {
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    }
+  ]
+}

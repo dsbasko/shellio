@@ -1,0 +1,587 @@
+{
+  "schema": 1,
+  "run_dir": "/Users/dsbasko/Develop/dsbasko/shellio/target/probes/diff-view/20261120-005551-37998",
+  "percentile_method": "nearest-rank",
+  "totals": {
+    "processes": 4,
+    "execution_ok": 4,
+    "execution_errors": 0,
+    "pass": 16,
+    "fail": 4,
+    "not_run": 14
+  },
+  "processes": [
+    {
+      "dir": "accept-a-side",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "side",
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 97.2 мс"
+        },
+        {
+          "name": "accept_contract",
+          "verdict": "fail",
+          "reason": "accept: не выполнено 13 из 239; 01-file-01 ax: строк 49, расхождения: удержанный элемент строки AXRow #1 «без изменений, старая 4, новая 4» указывает на другую строку: AXRow #0 «без изменений, старая 4, новая 4»; удержанный элемент строки AXRow #2 «без изменений, старая 5, новая 5» указывает на другую строку: AXRow #1 «без изменений, старая 5, новая 5»; удержанный элемент строки AXRow #3 «изменена, старая 6, новая 6» указывает на другую строку: AXRow #2 «без изменений, старая 6, новая 6»; 02-file-02 ax: строк 38, расхождения: удержанный элемент строки AXRow #3 «добавлена, новая 7» указывает на другую строку: AXRow #6 «добавлена, новая 7»; удержанный элемент строки AXRow #4 «добавлена, новая 8» указывает на другую строку: AXRow #7 «добавлена, новая 8»; удержанный элемент строки AXRow #5 «добавлена, новая 9» указывает на другую строку: AXRow #8 «добавлена, новая 9»; 03-file-03 ax: строк 43, расхождения: удержанный элемент строки AXRow #6 «добавлена, новая 7» указывает на другую строку: AXRow #3 «добавлена, новая 7»; удержанный элемент строки AXRow #7 «добавлена, новая 8» указывает на другую строку: AXRow #4 «добавлена, новая 8»; удержанный элемент строки AXRow #8 «добавлена, новая 9» указывает на другую строку: AXRow #5 «добавлена, новая 9»"
+        },
+        {
+          "name": "accept_snapshots",
+          "verdict": "pass",
+          "reason": "снимок окна записан после каждого из 45 шагов"
+        },
+        {
+          "name": "accept_voiceover",
+          "verdict": "not_run",
+          "reason": "автоматика не наблюдает"
+        },
+        {
+          "name": "accept_smoothness",
+          "verdict": "not_run",
+          "reason": "автоматика не наблюдает"
+        },
+        {
+          "name": "accept_hid",
+          "verdict": "not_run",
+          "reason": "автоматика не наблюдает"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 97.205125,
+            "p95": 97.205125,
+            "max": 97.205125
+          }
+        }
+      ]
+    },
+    {
+      "dir": "accept-a-unified",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "unified",
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 96.1 мс"
+        },
+        {
+          "name": "accept_contract",
+          "verdict": "fail",
+          "reason": "accept: не выполнено 17 из 227; 01-file-01 ax: строк 52, расхождения: удержанный элемент строки AXRow #1 «без изменений, старая 4, новая 4» указывает на другую строку: AXRow #0 «без изменений, старая 4, новая 4»; удержанный элемент строки AXRow #2 «без изменений, старая 5, новая 5» указывает на другую строку: AXRow #1 «без изменений, старая 5, новая 5»; удержанный элемент строки AXRow #11 «добавлена, новая 26» указывает на другую строку: AXRow #22 «добавлена, новая 26»; 02-file-02 ax: строк 52, расхождения: удержанный элемент строки AXRow #3 «добавлена, новая 7» указывает на другую строку: AXRow #6 «добавлена, новая 7»; удержанный элемент строки AXRow #4 «добавлена, новая 8» указывает на другую строку: AXRow #7 «добавлена, новая 8»; удержанный элемент строки AXRow #5 «добавлена, новая 9» указывает на другую строку: AXRow #8 «добавлена, новая 9»; 03-file-03 ax: строк 45, расхождения: удержанный элемент строки AXRow #6 «добавлена, новая 7» указывает на другую строку: AXRow #3 «добавлена, новая 7»; удержанный элемент строки AXRow #7 «добавлена, новая 8» указывает на другую строку: AXRow #4 «добавлена, новая 8»; удержанный элемент строки AXRow #8 «добавлена, новая 9» указывает на другую строку: AXRow #5 «добавлена, новая 9»"
+        },
+        {
+          "name": "accept_snapshots",
+          "verdict": "pass",
+          "reason": "снимок окна записан после каждого из 43 шагов"
+        },
+        {
+          "name": "accept_half_click",
+          "verdict": "not_run",
+          "reason": "не применимо: у unified нет половин строки"
+        },
+        {
+          "name": "accept_voiceover",
+          "verdict": "not_run",
+          "reason": "автоматика не наблюдает"
+        },
+        {
+          "name": "accept_smoothness",
+          "verdict": "not_run",
+          "reason": "автоматика не наблюдает"
+        },
+        {
+          "name": "accept_hid",
+          "verdict": "not_run",
+          "reason": "автоматика не наблюдает"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 96.1045,
+            "p95": 96.1045,
+            "max": 96.1045
+          }
+        }
+      ]
+    },
+    {
+      "dir": "accept-b-side",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "side",
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 103.8 мс"
+        },
+        {
+          "name": "accept_contract",
+          "verdict": "fail",
+          "reason": "accept: не выполнено 4 из 239; 16-file-16 ax: строк 41, расхождения: удержанный элемент строки AXRow #3 «добавлена, новая 5» указывает на другую строку: AXRow #4 «добавлена, новая 5»; удержанный элемент строки AXRow #5 «добавлена, новая 7» указывает на другую строку: AXRow #6 «добавлена, новая 7»; удержанный элемент строки AXRow #6 «добавлена, новая 8» указывает на другую строку: AXRow #7 «добавлена, новая 8»; 36-draft ax: строк 40, расхождения: удержанный элемент строки AXRow #6 «добавлена, новая 10» указывает на другую строку: AXRow #7 «добавлена, новая 10»; удержанный элемент строки AXRow #7 «без изменений, старая 8, новая 11» указывает на другую строку: AXRow #8 «без изменений, старая 8, новая 11»; удержанный элемент строки AXRow #8 «изменена, старая 9, новая 12» указывает на другую строку: AXRow #9 «изменена, старая 9, новая 12»; 43-narrow ax: строк 35, расхождения: удержанный элемент строки AXRow #4 «добавлена, новая 8» указывает на другую строку: AXRow #5 «добавлена, новая 8»; удержанный элемент строки AXRow #5 «добавлена, новая 9» указывает на другую строку: AXRow #6 «добавлена, новая 9»; удержанный элемент строки AXRow #6 «обсуждение» указывает на другую строку: AXRow #7 «обсуждение»"
+        },
+        {
+          "name": "accept_snapshots",
+          "verdict": "pass",
+          "reason": "снимок окна записан после каждого из 45 шагов"
+        },
+        {
+          "name": "accept_voiceover",
+          "verdict": "not_run",
+          "reason": "автоматика не наблюдает"
+        },
+        {
+          "name": "accept_smoothness",
+          "verdict": "not_run",
+          "reason": "автоматика не наблюдает"
+        },
+        {
+          "name": "accept_hid",
+          "verdict": "not_run",
+          "reason": "автоматика не наблюдает"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 103.775125,
+            "p95": 103.775125,
+            "max": 103.775125
+          }
+        }
+      ]
+    },
+    {
+      "dir": "accept-b-unified",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "unified",
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "window_ready",
+          "verdict": "pass",
+          "reason": "приложение активно, окно видимо и key, отображение не ждёт через 97.4 мс"
+        },
+        {
+          "name": "accept_contract",
+          "verdict": "fail",
+          "reason": "accept: не выполнено 6 из 227; 01-file-01 ax: строк 52, расхождения: удержанный элемент строки AXRow #1 «без изменений, старая 4, новая 4» указывает на другую строку: AXRow #0 «без изменений, старая 4, новая 4»; удержанный элемент строки AXRow #2 «без изменений, старая 5, новая 5» указывает на другую строку: AXRow #1 «без изменений, старая 5, новая 5»; удержанный элемент строки AXRow #11 «добавлена, новая 26» указывает на другую строку: AXRow #22 «добавлена, новая 26»; 16-file-16 ax: строк 52, расхождения: удержанный элемент строки AXRow #3 «добавлена, новая 5» указывает на другую строку: AXRow #4 «добавлена, новая 5»; удержанный элемент строки AXRow #5 «добавлена, новая 7» указывает на другую строку: AXRow #6 «добавлена, новая 7»; удержанный элемент строки AXRow #6 «добавлена, новая 8» указывает на другую строку: AXRow #7 «добавлена, новая 8»; 19-file-19 ax: строк 50, расхождения: удержанный элемент строки AXRow #31 «добавлена, новая 32» указывает на другую строку: AXRow #3 «добавлена, новая 32»; удержанный элемент строки AXRow #32 «добавлена, новая 33» указывает на другую строку: AXRow #4 «добавлена, новая 33»"
+        },
+        {
+          "name": "accept_snapshots",
+          "verdict": "pass",
+          "reason": "снимок окна записан после каждого из 43 шагов"
+        },
+        {
+          "name": "accept_half_click",
+          "verdict": "not_run",
+          "reason": "не применимо: у unified нет половин строки"
+        },
+        {
+          "name": "accept_voiceover",
+          "verdict": "not_run",
+          "reason": "автоматика не наблюдает"
+        },
+        {
+          "name": "accept_smoothness",
+          "verdict": "not_run",
+          "reason": "автоматика не наблюдает"
+        },
+        {
+          "name": "accept_hid",
+          "verdict": "not_run",
+          "reason": "автоматика не наблюдает"
+        },
+        {
+          "name": "grammar_loaded",
+          "verdict": "pass",
+          "reason": "ABI грамматики 15, корень source_file"
+        },
+        {
+          "name": "environment_complete",
+          "verdict": "pass",
+          "reason": "все поля окружения есть"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "window_ready_ms",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 97.361625,
+            "p95": 97.361625,
+            "max": 97.361625
+          }
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "dir": "accept-a-side",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "side",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 97.2 мс"
+    },
+    {
+      "dir": "accept-a-side",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "side",
+      "name": "accept_contract",
+      "verdict": "fail",
+      "reason": "accept: не выполнено 13 из 239; 01-file-01 ax: строк 49, расхождения: удержанный элемент строки AXRow #1 «без изменений, старая 4, новая 4» указывает на другую строку: AXRow #0 «без изменений, старая 4, новая 4»; удержанный элемент строки AXRow #2 «без изменений, старая 5, новая 5» указывает на другую строку: AXRow #1 «без изменений, старая 5, новая 5»; удержанный элемент строки AXRow #3 «изменена, старая 6, новая 6» указывает на другую строку: AXRow #2 «без изменений, старая 6, новая 6»; 02-file-02 ax: строк 38, расхождения: удержанный элемент строки AXRow #3 «добавлена, новая 7» указывает на другую строку: AXRow #6 «добавлена, новая 7»; удержанный элемент строки AXRow #4 «добавлена, новая 8» указывает на другую строку: AXRow #7 «добавлена, новая 8»; удержанный элемент строки AXRow #5 «добавлена, новая 9» указывает на другую строку: AXRow #8 «добавлена, новая 9»; 03-file-03 ax: строк 43, расхождения: удержанный элемент строки AXRow #6 «добавлена, новая 7» указывает на другую строку: AXRow #3 «добавлена, новая 7»; удержанный элемент строки AXRow #7 «добавлена, новая 8» указывает на другую строку: AXRow #4 «добавлена, новая 8»; удержанный элемент строки AXRow #8 «добавлена, новая 9» указывает на другую строку: AXRow #5 «добавлена, новая 9»"
+    },
+    {
+      "dir": "accept-a-side",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "side",
+      "name": "accept_snapshots",
+      "verdict": "pass",
+      "reason": "снимок окна записан после каждого из 45 шагов"
+    },
+    {
+      "dir": "accept-a-side",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "side",
+      "name": "accept_voiceover",
+      "verdict": "not_run",
+      "reason": "автоматика не наблюдает"
+    },
+    {
+      "dir": "accept-a-side",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "side",
+      "name": "accept_smoothness",
+      "verdict": "not_run",
+      "reason": "автоматика не наблюдает"
+    },
+    {
+      "dir": "accept-a-side",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "side",
+      "name": "accept_hid",
+      "verdict": "not_run",
+      "reason": "автоматика не наблюдает"
+    },
+    {
+      "dir": "accept-a-side",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "side",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "accept-a-side",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "side",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "accept-a-unified",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "unified",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 96.1 мс"
+    },
+    {
+      "dir": "accept-a-unified",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "unified",
+      "name": "accept_contract",
+      "verdict": "fail",
+      "reason": "accept: не выполнено 17 из 227; 01-file-01 ax: строк 52, расхождения: удержанный элемент строки AXRow #1 «без изменений, старая 4, новая 4» указывает на другую строку: AXRow #0 «без изменений, старая 4, новая 4»; удержанный элемент строки AXRow #2 «без изменений, старая 5, новая 5» указывает на другую строку: AXRow #1 «без изменений, старая 5, новая 5»; удержанный элемент строки AXRow #11 «добавлена, новая 26» указывает на другую строку: AXRow #22 «добавлена, новая 26»; 02-file-02 ax: строк 52, расхождения: удержанный элемент строки AXRow #3 «добавлена, новая 7» указывает на другую строку: AXRow #6 «добавлена, новая 7»; удержанный элемент строки AXRow #4 «добавлена, новая 8» указывает на другую строку: AXRow #7 «добавлена, новая 8»; удержанный элемент строки AXRow #5 «добавлена, новая 9» указывает на другую строку: AXRow #8 «добавлена, новая 9»; 03-file-03 ax: строк 45, расхождения: удержанный элемент строки AXRow #6 «добавлена, новая 7» указывает на другую строку: AXRow #3 «добавлена, новая 7»; удержанный элемент строки AXRow #7 «добавлена, новая 8» указывает на другую строку: AXRow #4 «добавлена, новая 8»; удержанный элемент строки AXRow #8 «добавлена, новая 9» указывает на другую строку: AXRow #5 «добавлена, новая 9»"
+    },
+    {
+      "dir": "accept-a-unified",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "unified",
+      "name": "accept_snapshots",
+      "verdict": "pass",
+      "reason": "снимок окна записан после каждого из 43 шагов"
+    },
+    {
+      "dir": "accept-a-unified",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "unified",
+      "name": "accept_half_click",
+      "verdict": "not_run",
+      "reason": "не применимо: у unified нет половин строки"
+    },
+    {
+      "dir": "accept-a-unified",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "unified",
+      "name": "accept_voiceover",
+      "verdict": "not_run",
+      "reason": "автоматика не наблюдает"
+    },
+    {
+      "dir": "accept-a-unified",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "unified",
+      "name": "accept_smoothness",
+      "verdict": "not_run",
+      "reason": "автоматика не наблюдает"
+    },
+    {
+      "dir": "accept-a-unified",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "unified",
+      "name": "accept_hid",
+      "verdict": "not_run",
+      "reason": "автоматика не наблюдает"
+    },
+    {
+      "dir": "accept-a-unified",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "unified",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "accept-a-unified",
+      "scenario": "accept",
+      "variant": "a",
+      "mode": "unified",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "accept-b-side",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "side",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 103.8 мс"
+    },
+    {
+      "dir": "accept-b-side",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "side",
+      "name": "accept_contract",
+      "verdict": "fail",
+      "reason": "accept: не выполнено 4 из 239; 16-file-16 ax: строк 41, расхождения: удержанный элемент строки AXRow #3 «добавлена, новая 5» указывает на другую строку: AXRow #4 «добавлена, новая 5»; удержанный элемент строки AXRow #5 «добавлена, новая 7» указывает на другую строку: AXRow #6 «добавлена, новая 7»; удержанный элемент строки AXRow #6 «добавлена, новая 8» указывает на другую строку: AXRow #7 «добавлена, новая 8»; 36-draft ax: строк 40, расхождения: удержанный элемент строки AXRow #6 «добавлена, новая 10» указывает на другую строку: AXRow #7 «добавлена, новая 10»; удержанный элемент строки AXRow #7 «без изменений, старая 8, новая 11» указывает на другую строку: AXRow #8 «без изменений, старая 8, новая 11»; удержанный элемент строки AXRow #8 «изменена, старая 9, новая 12» указывает на другую строку: AXRow #9 «изменена, старая 9, новая 12»; 43-narrow ax: строк 35, расхождения: удержанный элемент строки AXRow #4 «добавлена, новая 8» указывает на другую строку: AXRow #5 «добавлена, новая 8»; удержанный элемент строки AXRow #5 «добавлена, новая 9» указывает на другую строку: AXRow #6 «добавлена, новая 9»; удержанный элемент строки AXRow #6 «обсуждение» указывает на другую строку: AXRow #7 «обсуждение»"
+    },
+    {
+      "dir": "accept-b-side",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "side",
+      "name": "accept_snapshots",
+      "verdict": "pass",
+      "reason": "снимок окна записан после каждого из 45 шагов"
+    },
+    {
+      "dir": "accept-b-side",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "side",
+      "name": "accept_voiceover",
+      "verdict": "not_run",
+      "reason": "автоматика не наблюдает"
+    },
+    {
+      "dir": "accept-b-side",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "side",
+      "name": "accept_smoothness",
+      "verdict": "not_run",
+      "reason": "автоматика не наблюдает"
+    },
+    {
+      "dir": "accept-b-side",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "side",
+      "name": "accept_hid",
+      "verdict": "not_run",
+      "reason": "автоматика не наблюдает"
+    },
+    {
+      "dir": "accept-b-side",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "side",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "accept-b-side",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "side",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    },
+    {
+      "dir": "accept-b-unified",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "unified",
+      "name": "window_ready",
+      "verdict": "pass",
+      "reason": "приложение активно, окно видимо и key, отображение не ждёт через 97.4 мс"
+    },
+    {
+      "dir": "accept-b-unified",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "unified",
+      "name": "accept_contract",
+      "verdict": "fail",
+      "reason": "accept: не выполнено 6 из 227; 01-file-01 ax: строк 52, расхождения: удержанный элемент строки AXRow #1 «без изменений, старая 4, новая 4» указывает на другую строку: AXRow #0 «без изменений, старая 4, новая 4»; удержанный элемент строки AXRow #2 «без изменений, старая 5, новая 5» указывает на другую строку: AXRow #1 «без изменений, старая 5, новая 5»; удержанный элемент строки AXRow #11 «добавлена, новая 26» указывает на другую строку: AXRow #22 «добавлена, новая 26»; 16-file-16 ax: строк 52, расхождения: удержанный элемент строки AXRow #3 «добавлена, новая 5» указывает на другую строку: AXRow #4 «добавлена, новая 5»; удержанный элемент строки AXRow #5 «добавлена, новая 7» указывает на другую строку: AXRow #6 «добавлена, новая 7»; удержанный элемент строки AXRow #6 «добавлена, новая 8» указывает на другую строку: AXRow #7 «добавлена, новая 8»; 19-file-19 ax: строк 50, расхождения: удержанный элемент строки AXRow #31 «добавлена, новая 32» указывает на другую строку: AXRow #3 «добавлена, новая 32»; удержанный элемент строки AXRow #32 «добавлена, новая 33» указывает на другую строку: AXRow #4 «добавлена, новая 33»"
+    },
+    {
+      "dir": "accept-b-unified",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "unified",
+      "name": "accept_snapshots",
+      "verdict": "pass",
+      "reason": "снимок окна записан после каждого из 43 шагов"
+    },
+    {
+      "dir": "accept-b-unified",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "unified",
+      "name": "accept_half_click",
+      "verdict": "not_run",
+      "reason": "не применимо: у unified нет половин строки"
+    },
+    {
+      "dir": "accept-b-unified",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "unified",
+      "name": "accept_voiceover",
+      "verdict": "not_run",
+      "reason": "автоматика не наблюдает"
+    },
+    {
+      "dir": "accept-b-unified",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "unified",
+      "name": "accept_smoothness",
+      "verdict": "not_run",
+      "reason": "автоматика не наблюдает"
+    },
+    {
+      "dir": "accept-b-unified",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "unified",
+      "name": "accept_hid",
+      "verdict": "not_run",
+      "reason": "автоматика не наблюдает"
+    },
+    {
+      "dir": "accept-b-unified",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "unified",
+      "name": "grammar_loaded",
+      "verdict": "pass",
+      "reason": "ABI грамматики 15, корень source_file"
+    },
+    {
+      "dir": "accept-b-unified",
+      "scenario": "accept",
+      "variant": "b",
+      "mode": "unified",
+      "name": "environment_complete",
+      "verdict": "pass",
+      "reason": "все поля окружения есть"
+    }
+  ],
+  "open": [],
+  "errors": []
+}
