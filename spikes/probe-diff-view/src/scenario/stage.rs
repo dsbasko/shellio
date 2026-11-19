@@ -289,4 +289,12 @@ impl Stage {
                 .uncovered(visible.start as usize..visible.end as usize)
                 .is_none()
     }
+
+    /// Состав непокрытых видимых строк сейчас.
+    pub fn census_now(&self) -> Option<drawmark::Uncovered> {
+        let visible = self.scene.visible_rows();
+        self.ledger
+            .borrow()
+            .census(visible.start as usize..visible.end as usize)
+    }
 }

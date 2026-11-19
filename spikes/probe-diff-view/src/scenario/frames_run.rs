@@ -1,6 +1,6 @@
 //! Сценарий `frames` с окном: открытие фикстуры клавишей `o`, у `threads` раскрытие всех тредов,
-//! затем три отрезка S1, у `modified` после них бросок S2, у `wrap` в «Рядом» вместо S1 ресайз
-//! S3. Стимулы, ритм `displayLink`, время `drawRect:` и подсчёт потерь — чистая часть
+//! затем три отрезка S1, у `modified` после них бросок S2 и контрольный ряд без фаз, у `wrap` в
+//! «Рядом» вместо S1 ресайз S3. Стимулы, ритм `displayLink`, время `drawRect:` и подсчёт потерь — чистая часть
 //! [`super::scroll`]. Путь замера здесь только `none`: трасса не пишется, вердикт по кадрам —
 //! `not_run` «не откалиброван», потери в процессе — наблюдение (отчёт, раздел «Ошибка разбора
 //! отрезка `stall`», итог калибровки задачи 12).
@@ -30,7 +30,8 @@ use super::drawmark;
 use super::events::{self, Key};
 use super::sampler;
 use super::scroll::{
-    self, FLING_SETTLE_TICKS, RESIZE_S, S1Summary, S1Tick, S2Tick, Sweep, WheelStep,
+    self, FLING_SETTLE_TICKS, PLAIN_EVENTS, RESIZE_S, S1Summary, S1Tick, S2Tick, Sweep, WheelSeen,
+    WheelStep,
 };
 use super::stage::{Stage, View};
 use super::stand::FrameDriver;
@@ -82,11 +83,14 @@ enum Drive {
         ticks: Vec<S1Tick>,
         done: bool,
     },
+    /// Бросок S2 или контрольный ряд без фаз (`plain`).
     S2 {
+        plain: bool,
         steps: Vec<WheelStep>,
         point: objc2_foundation::NSPoint,
         primary_height: f64,
         posted: Vec<u64>,
+        seen: Vec<WheelSeen>,
         ticks: Vec<S2Tick>,
         settle: usize,
         error: Option<String>,
@@ -144,6 +148,7 @@ enum Step {
 enum Next {
     S1(usize),
     S2,
+    Plain,
     S3,
 }
 
@@ -172,6 +177,7 @@ pub struct FramesRun {
     segments: RefCell<Vec<SegmentNote>>,
     s1_targets: RefCell<Vec<f64>>,
     fling: RefCell<Option<scroll::FlingCheck>>,
+    plain: RefCell<Option<scroll::PlainCheck>>,
     report: RefCell<Option<Report>>,
     closed: Cell<bool>,
 }
@@ -237,6 +243,7 @@ impl FramesRun {
             segments: RefCell::new(Vec::new()),
             s1_targets: RefCell::new(Vec::new()),
             fling: RefCell::new(None),
+            plain: RefCell::new(None),
             report: RefCell::new(Some(report)),
             closed: Cell::new(false),
         })
@@ -399,7 +406,8 @@ impl FramesRun {
         match done {
             Next::S1(index) if index + 1 < Sweep::ALL.len() => Some(Next::S1(index + 1)),
             Next::S1(_) if self.fixture == OpenFixture::Modified => Some(Next::S2),
-            Next::S1(_) | Next::S2 | Next::S3 => None,
+            Next::S2 => Some(Next::Plain),
+            Next::S1(_) | Next::Plain | Next::S3 => None,
         }
     }
 
@@ -455,14 +463,14 @@ impl FramesRun {
         Ok(true)
     }
 
-    /// Ставит начальное положение и ждёт покрытия: S1 — `y0` отрезка, S2 — начало документа, S3
-    /// — без прокрутки.
+    /// Ставит начальное положение и ждёт покрытия: S1 — `y0` отрезка, S2 и ряд без фаз — начало
+    /// документа, S3 — без прокрутки.
     fn position(&self, next: Next) -> Result<Step, String> {
         let stage = self.stage()?;
         let limit = self.limit(&stage)?;
         match next {
             Next::S1(index) => stage.view.scroll_to(Sweep::ALL[index].origin(limit)),
-            Next::S2 => stage.view.scroll_to(0.0),
+            Next::S2 | Next::Plain => stage.view.scroll_to(0.0),
             Next::S3 => {}
         }
         Ok(Step::Positioning {
@@ -496,7 +504,8 @@ impl FramesRun {
                 };
                 SEGMENT_DEADLINE
             }
-            Next::S2 => {
+            Next::S2 | Next::Plain => {
+                let plain = next == Next::Plain;
                 let scroll: &NSView = stage.view.scroll_view();
                 let in_window = scroll.convertRect_toView(scroll.bounds(), None);
                 let screen = self.window.convertRectToScreen(in_window);
@@ -509,10 +518,16 @@ impl FramesRun {
                     .map(|screen| screen.frame().size.height)
                     .ok_or_else(|| "нет дисплея для координат колеса".to_owned())?;
                 *self.drive.borrow_mut() = Drive::S2 {
-                    steps: scroll::fling(),
+                    plain,
+                    steps: if plain {
+                        scroll::plain()
+                    } else {
+                        scroll::fling()
+                    },
                     point,
                     primary_height,
                     posted: Vec::new(),
+                    seen: Vec::new(),
                     ticks: Vec::new(),
                     settle: 0,
                     error: None,
@@ -585,14 +600,21 @@ impl FramesRun {
                 ..
             } => self.collect_s1(sweep, limit, start_s, &ticks, &marks)?,
             Drive::S2 {
+                plain,
                 steps,
                 posted,
+                seen,
                 ticks,
                 error,
                 ..
             } => {
                 if let Some(error) = error {
                     return Err(error);
+                }
+                if !scroll::phases_match(&steps, &seen) {
+                    return Err(format!(
+                        "ошибка стенда: фазы готового NSEvent {seen:?} не совпали с заданными"
+                    ));
                 }
                 let delivered = posted
                     .iter()
@@ -602,7 +624,6 @@ impl FramesRun {
                         })
                     })
                     .count();
-                let check = scroll::judge_fling(&steps, delivered, &ticks);
                 let journal: Vec<serde_json::Value> = posted
                     .iter()
                     .filter_map(|&number| events::record(number))
@@ -616,21 +637,30 @@ impl FramesRun {
                     })
                     .collect();
                 let (via_window, direct) = events::wheel_routes();
+                let prefix = if plain { "s2_plain" } else { "s2" };
                 if let Some(report) = self.report.borrow_mut().as_mut() {
                     report.push(
-                        "s2_events",
+                        &format!("{prefix}_events"),
                         serde_json::to_string(&journal).unwrap_or_default(),
                     );
                     report.push(
-                        "s2_ticks",
+                        &format!("{prefix}_seen"),
+                        serde_json::to_string(&seen).unwrap_or_default(),
+                    );
+                    report.push(
+                        &format!("{prefix}_ticks"),
                         serde_json::to_string(&ticks).unwrap_or_default(),
                     );
                     report.push(
-                        "s2_wheel_routes",
+                        &format!("{prefix}_wheel_routes"),
                         format!("через окно {via_window}, стендом виду {direct}"),
                     );
                 }
-                *self.fling.borrow_mut() = Some(check);
+                if plain {
+                    *self.plain.borrow_mut() = Some(scroll::judge_plain(&steps, delivered, &ticks));
+                } else {
+                    *self.fling.borrow_mut() = Some(scroll::judge_fling(&steps, delivered, &ticks));
+                }
             }
             Drive::S3 { ticks, error, .. } => {
                 if let Some(error) = error {
@@ -823,12 +853,17 @@ impl FramesRun {
             let losses: Vec<String> = segments
                 .iter()
                 .map(|segment| {
+                    let split = segment.summary.undrawn_split;
                     format!(
-                        "{}: потерь в процессе {} (пропуски накрыли {}, недорисовано {})",
+                        "{}: потерь в процессе {} (пропуски накрыли {}, недорисовано {}: только \
+                         отставшие {}, только ненарисованные {}, оба {})",
                         segment.sweep,
                         segment.summary.lost_in_process,
                         segment.summary.rhythm.skipped_ticks,
-                        segment.summary.undrawn.len()
+                        segment.summary.undrawn.len(),
+                        split.stale_only,
+                        split.undrawn_only,
+                        split.both
                     )
                 })
                 .collect();
@@ -864,7 +899,16 @@ impl FramesRun {
                 serde_json::to_string(&*segments).unwrap_or_default(),
             );
         }
+        let plain = self.plain.borrow();
+        if let Some(plain) = plain.as_ref() {
+            report.push("s2_plain", serde_json::to_string(plain).unwrap_or_default());
+        }
         if let Some(check) = self.fling.borrow().as_ref() {
+            let cause = if check.pass {
+                String::new()
+            } else {
+                format!("; {}", scroll::fling_cause(true, plain.as_ref()))
+            };
             report.finding(
                 "s2_fling",
                 if check.pass {
@@ -873,7 +917,7 @@ impl FramesRun {
                     Verdict::Fail
                 },
                 format!(
-                    "событий с возвратом {} из {}, сдвиг жеста {:.1}, инерции {:.1}, итог {:.1} против {:.0}, успокоился {}{}",
+                    "событий с возвратом {} из {}, сдвиг жеста {:.1}, инерции {:.1}, итог {:.1} против {:.0}, успокоился {}{}{cause}",
                     check.delivered,
                     check.events,
                     check.gesture_shift,
@@ -945,7 +989,11 @@ fn tick(drive: &RefCell<Drive>, stage: &Stage, window: &NSWindow, link: &CADispl
                 return;
             }
             if let Some(last) = ticks.last_mut() {
-                last.covered_next = Some(stage.covered_now());
+                let covered = stage.covered_now();
+                last.covered_next = Some(covered);
+                if !covered {
+                    last.uncovered = stage.census_now();
+                }
             }
             let start = *start_s.get_or_insert(target);
             if scroll::s1_done(start, target) {
@@ -962,13 +1010,16 @@ fn tick(drive: &RefCell<Drive>, stage: &Stage, window: &NSWindow, link: &CADispl
                 top: stage.view.viewport_y(),
                 rows: (rows.start, rows.end),
                 covered_next: None,
+                uncovered: None,
             });
         }
         Drive::S2 {
+            plain,
             steps,
             point,
             primary_height,
             posted,
+            seen,
             ticks,
             settle,
             error,
@@ -983,7 +1034,11 @@ fn tick(drive: &RefCell<Drive>, stage: &Stage, window: &NSWindow, link: &CADispl
                 posted: posted.len(),
             });
             if let Some(step) = steps.get(posted.len()).copied() {
-                let label = format!("s2 #{}", posted.len());
+                let label = format!(
+                    "{} #{}",
+                    if *plain { "s2-plain" } else { "s2" },
+                    posted.len()
+                );
                 match events::post_wheel(
                     window,
                     *point,
@@ -993,7 +1048,12 @@ fn tick(drive: &RefCell<Drive>, stage: &Stage, window: &NSWindow, link: &CADispl
                     step.momentum,
                     &label,
                 ) {
-                    Ok(number) => posted.push(number),
+                    Ok((number, fields)) => {
+                        posted.push(number);
+                        if seen.len() < PLAIN_EVENTS {
+                            seen.push(fields);
+                        }
+                    }
                     Err(reason) => {
                         *error = Some(format!("событие колеса {label}: {reason}"));
                         *done = true;

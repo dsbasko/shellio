@@ -7,6 +7,7 @@ use std::collections::BTreeSet;
 use serde::Serialize;
 
 use super::calibrate::{self, Window};
+use super::drawmark::Uncovered;
 
 /// Скорость S1, точки в секунду.
 pub const SPEED: f64 = 4800.0;
@@ -269,6 +270,106 @@ pub fn fling() -> Vec<WheelStep> {
     steps
 }
 
+/// Событий контрольного ряда S2 без фаз и событий броска, у которых пишутся поля `NSEvent`.
+pub const PLAIN_EVENTS: usize = 12;
+
+/// Контрольный ряд S2: первые [`PLAIN_EVENTS`] дельт броска без фаз жеста и инерции, по событию
+/// на такт.
+pub fn plain() -> Vec<WheelStep> {
+    (0..PLAIN_EVENTS)
+        .map(|index| WheelStep {
+            at_s: index as f64 * PERIOD_S,
+            phase: WheelPhase::None,
+            momentum: WheelPhase::None,
+            delta: FLING_START * FLING_DECAY.powi(index as i32),
+        })
+        .collect()
+}
+
+/// Поля готового `NSEvent` колеса: `phase` и `momentumPhase` — значения `NSEventPhase`.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+pub struct WheelSeen {
+    pub phase: u64,
+    pub momentum: u64,
+    pub delta_y: f64,
+    pub precise: bool,
+}
+
+/// `NSEventPhase` фазы стенда. У CG другие значения: `kCGScrollPhaseChanged` = 2, а 2 у AppKit —
+/// `Stationary`.
+pub fn ns_phase(phase: WheelPhase) -> u64 {
+    match phase {
+        WheelPhase::None => 0,
+        WheelPhase::Began => 1,
+        WheelPhase::Changed => 4,
+        WheelPhase::Ended => 8,
+    }
+}
+
+/// Фазы готовых событий совпадают с заданными по порядку.
+pub fn phases_match(steps: &[WheelStep], seen: &[WheelSeen]) -> bool {
+    !seen.is_empty()
+        && seen.len() <= steps.len()
+        && seen.iter().zip(steps).all(|(seen, step)| {
+            seen.phase == ns_phase(step.phase) && seen.momentum == ns_phase(step.momentum)
+        })
+}
+
+/// Итог контрольного ряда без фаз, наблюдение без вердикта.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct PlainCheck {
+    pub events: usize,
+    pub delivered: usize,
+    /// Событий, за которыми край сдвинулся к концу документа.
+    pub moved: usize,
+    pub total_shift: f64,
+    pub expected_shift: f64,
+}
+
+/// Край после события `i` — на первом вызове, где отправлено больше `i` событий; событие
+/// двинуло край, если он там дальше, чем на вызове его отправки.
+pub fn judge_plain(steps: &[WheelStep], delivered: usize, ticks: &[S2Tick]) -> PlainCheck {
+    let top_when = |posted: usize| {
+        ticks
+            .iter()
+            .find(|tick| tick.posted >= posted)
+            .map(|tick| tick.top)
+    };
+    let moved = (0..steps.len())
+        .filter(|&index| match (top_when(index), top_when(index + 1)) {
+            (Some(before), Some(after)) => after > before,
+            _ => false,
+        })
+        .count();
+    let start = ticks.first().map_or(0.0, |tick| tick.top);
+    let end = ticks.last().map_or(start, |tick| tick.top);
+    PlainCheck {
+        events: steps.len(),
+        delivered,
+        moved,
+        total_shift: end - start,
+        expected_shift: steps.iter().map(|step| step.delta.round()).sum(),
+    }
+}
+
+/// Причина `fail` броска по диагностике: фазы верны и без фаз край идёт за каждым событием —
+/// ограничение стенда; иначе — что именно не сошлось.
+pub fn fling_cause(phases: bool, plain: Option<&PlainCheck>) -> String {
+    match plain {
+        _ if !phases => "фазы готового NSEvent не совпали с заданными".to_owned(),
+        Some(plain) if plain.moved == plain.events && plain.delivered == plain.events => {
+            "ограничение стенда: фазы NSEvent верны, без фаз край идёт за каждым событием, \
+             синтетический бросок с фазами вид не ведёт"
+                .to_owned()
+        }
+        Some(plain) => format!(
+            "ограничение стенда: без фаз край сдвинулся за {} событиями из {}, смотреть scrollingDeltaY",
+            plain.moved, plain.events
+        ),
+        None => "ограничение стенда: контрольного ряда без фаз нет".to_owned(),
+    }
+}
+
 /// Шаг ширины окна S3 за вызов `displayLink`, точки.
 pub const RESIZE_STEP: f64 = 8.0;
 /// Длительность S3 по `targetTimestamp`, секунды.
@@ -305,6 +406,31 @@ pub struct S1Tick {
     pub top: f64,
     pub rows: (u32, u32),
     pub covered_next: Option<bool>,
+    /// Состав непокрытых видимых строк ко входу следующего вызова, если такт недорисован.
+    pub uncovered: Option<Uncovered>,
+}
+
+/// Состав недорисованных тактов окна замера: только с отставшими строками (текст нарисован,
+/// отстаёт частичное изменение), только с ненарисованными и с обоими; суммы строк каждого вида.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct UndrawnSplit {
+    pub stale_only: usize,
+    pub undrawn_only: usize,
+    pub both: usize,
+    pub stale_rows: u64,
+    pub undrawn_rows: u64,
+}
+
+impl UndrawnSplit {
+    fn add(&mut self, census: Uncovered) {
+        match (census.stale > 0, census.undrawn > 0) {
+            (true, true) => self.both += 1,
+            (true, false) => self.stale_only += 1,
+            (false, _) => self.undrawn_only += 1,
+        }
+        self.stale_rows += census.stale as u64;
+        self.undrawn_rows += census.undrawn as u64;
+    }
 }
 
 /// Итог отрезка S1 в процессе: ритм `displayLink` окна замера, недорисованные такты и потери в
@@ -318,6 +444,7 @@ pub struct S1Summary {
     pub rhythm: Rhythm,
     /// Номера тактов от начала отрезка по `targetTimestamp`.
     pub undrawn: Vec<u64>,
+    pub undrawn_split: UndrawnSplit,
     pub lost_in_process: u64,
     /// Время `drawRect:` по тактам окна замера, миллисекунды.
     pub draw_ms: Vec<f64>,
@@ -356,10 +483,16 @@ pub fn s1_summary(start_s: f64, ticks: &[S1Tick], draw_ms: &[f64]) -> Result<S1S
         ));
     }
     let mut undrawn = Vec::new();
+    let mut undrawn_split = UndrawnSplit::default();
     for &index in &inside {
         match ticks[index].covered_next {
             Some(true) => {}
-            Some(false) => undrawn.push(calibrate::tick_index(start_s, ticks[index].target_s)),
+            Some(false) => {
+                undrawn.push(calibrate::tick_index(start_s, ticks[index].target_s));
+                if let Some(census) = ticks[index].uncovered {
+                    undrawn_split.add(census);
+                }
+            }
             None => {
                 return Err(format!(
                     "вызов {index} окна замера без отметки покрытия к следующему вызову"
@@ -380,6 +513,7 @@ pub fn s1_summary(start_s: f64, ticks: &[S1Tick], draw_ms: &[f64]) -> Result<S1S
         lost_in_process: rhythm.skipped_ticks + undrawn.len() as u64,
         rhythm,
         undrawn,
+        undrawn_split,
         draw_ms: inside.iter().map(|&index| draw_ms[index]).collect(),
         rows_passed,
     })
@@ -725,6 +859,7 @@ mod tests {
                 top: index as f64 * 40.0,
                 rows: (index as u32 * 3, index as u32 * 3 + 50),
                 covered_next: Some(true),
+                uncovered: None,
             })
             .collect()
     }
@@ -739,8 +874,14 @@ mod tests {
             index != 300 && index != 301
         });
         for tick in &mut ticks {
-            if [50, 500, 1190].contains(&calibrate::tick_index(start, tick.target_s)) {
+            let index = calibrate::tick_index(start, tick.target_s);
+            if [50, 500, 1190].contains(&index) {
                 tick.covered_next = Some(false);
+                tick.uncovered = Some(Uncovered {
+                    first: index as usize * 3,
+                    stale: if index == 1190 { 0 } else { 6 },
+                    undrawn: if index == 500 { 0 } else { 4 },
+                });
             }
         }
         ticks.last_mut().unwrap().covered_next = None;
@@ -752,6 +893,17 @@ mod tests {
         assert_eq!(summary.rhythm.skips, 1);
         assert_eq!(summary.rhythm.skipped_ticks, 2);
         assert_eq!(summary.undrawn, vec![500, 1190]);
+        // Такт 50 — прогрев и в состав не входит.
+        assert_eq!(
+            summary.undrawn_split,
+            UndrawnSplit {
+                stale_only: 1,
+                undrawn_only: 1,
+                both: 0,
+                stale_rows: 6,
+                undrawn_rows: 4,
+            }
+        );
         assert_eq!(summary.lost_in_process, 4);
         assert_eq!(summary.draw_ms.len(), 1078);
         assert_eq!(summary.rows_passed, (360, 1199 * 3 + 50));
@@ -769,6 +921,71 @@ mod tests {
         unmarked[600].covered_next = None;
         assert!(s1_summary(start, &unmarked, &draw).is_err());
         assert!(s1_summary(start, &ticks, &draw).is_ok());
+    }
+
+    #[test]
+    fn plain_series_repeats_the_first_deltas_without_phases() {
+        let fling = fling();
+        let plain = plain();
+        assert_eq!(plain.len(), PLAIN_EVENTS);
+        assert!(
+            plain.iter().all(|step| {
+                step.phase == WheelPhase::None && step.momentum == WheelPhase::None
+            })
+        );
+        assert_eq!(plain[0].delta, fling[0].delta);
+        assert_eq!(plain[7].delta, fling[7].delta);
+        // В броске после восьмой дельты стоит ended жеста без дельты.
+        assert_eq!(plain[8].delta, fling[9].delta);
+        let expected: f64 = plain.iter().map(|step| step.delta.round()).sum();
+        assert!((expected - 1838.0).abs() <= 2.0, "{expected}");
+    }
+
+    #[test]
+    fn phases_are_checked_against_appkit_values() {
+        let steps = fling();
+        let seen: Vec<WheelSeen> = steps
+            .iter()
+            .take(PLAIN_EVENTS)
+            .map(|step| WheelSeen {
+                phase: ns_phase(step.phase),
+                momentum: ns_phase(step.momentum),
+                delta_y: -step.delta,
+                precise: true,
+            })
+            .collect();
+        assert!(phases_match(&steps, &seen));
+        assert_eq!(seen[1].phase, 4);
+        assert_eq!(seen[8].phase, 8);
+        assert_eq!(seen[9].momentum, 1);
+        let mut raw_cg = seen.clone();
+        raw_cg[1].phase = 2;
+        assert!(!phases_match(&steps, &raw_cg));
+        assert!(!phases_match(&steps, &[]));
+    }
+
+    #[test]
+    fn plain_counts_events_that_moved_the_edge() {
+        let steps = plain();
+        let all = fling_ticks(&steps, 1.0, FLING_SETTLE_TICKS);
+        let check = judge_plain(&steps, steps.len(), &all);
+        assert_eq!(check.moved, PLAIN_EVENTS);
+        assert!((check.total_shift - check.expected_shift).abs() < 1e-9);
+        assert!(fling_cause(true, Some(&check)).contains("край идёт за каждым событием"));
+        // Край двинулся только за первым событием.
+        let first = steps[0].delta.round();
+        let stuck: Vec<S2Tick> = all
+            .iter()
+            .map(|tick| S2Tick {
+                top: if tick.posted >= 1 { first } else { 0.0 },
+                ..*tick
+            })
+            .collect();
+        let check = judge_plain(&steps, steps.len(), &stuck);
+        assert_eq!(check.moved, 1);
+        assert!(fling_cause(true, Some(&check)).contains("за 1 событиями из 12"));
+        assert!(fling_cause(false, Some(&check)).contains("не совпали"));
+        assert!(fling_cause(true, None).contains("нет"));
     }
 
     #[test]

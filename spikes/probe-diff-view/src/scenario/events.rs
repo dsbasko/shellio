@@ -32,7 +32,7 @@ use objc2_core_graphics::{
 use objc2_foundation::{NSObjectProtocol, NSPoint, NSProcessInfo, NSRect, NSString};
 use serde::Serialize;
 
-use super::scroll::WheelPhase;
+use super::scroll::{WheelPhase, WheelSeen};
 use super::watchdog::{SharedTrace, push_trace};
 
 /// Минимальный шаг `timestamp` между отправленными событиями.
@@ -884,7 +884,8 @@ pub fn wheel_routes() -> (usize, usize) {
 /// Событие колеса в пикселях с фазами жеста и инерции в точке экрана `point` (координаты
 /// AppKit) окна `window`. `delta` > 0 — к концу документа. У `NSEvent` нет конструктора
 /// прокрутки, поэтому событие строится из `CGEvent` с окном под указателем, в таблицу идёт
-/// сигнатура готового `NSEvent`. Курсор системы не двигается.
+/// сигнатура готового `NSEvent`. Курсор системы не двигается. Вместе с номером возвращаются фазы,
+/// дельта и точность готового `NSEvent`.
 pub fn post_wheel(
     window: &NSWindow,
     point: NSPoint,
@@ -893,7 +894,7 @@ pub fn post_wheel(
     phase: WheelPhase,
     momentum: WheelPhase,
     label: &str,
-) -> Result<u64, String> {
+) -> Result<(u64, WheelSeen), String> {
     with_bench(|bench| {
         let before = focus_state(&bench.app);
         let wheel = -(delta.round() as i32);
@@ -935,11 +936,18 @@ pub fn post_wheel(
                 .last_timestamp
                 .map_or(timestamp, |last| last.max(timestamp)),
         );
-        Ok(bench.post(
+        let seen = WheelSeen {
+            phase: event.phase().0 as u64,
+            momentum: event.momentumPhase().0 as u64,
+            delta_y: event.scrollingDeltaY(),
+            precise: event.hasPreciseScrollingDeltas(),
+        };
+        let number = bench.post(
             format!("{label} wheel {wheel} окно {}", event.windowNumber()),
             event,
             before,
-        ))
+        );
+        Ok((number, seen))
     })
     .unwrap_or_else(|| Err(no_bench()))
 }

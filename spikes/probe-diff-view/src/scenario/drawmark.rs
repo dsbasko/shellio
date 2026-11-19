@@ -215,6 +215,15 @@ impl RowGenerations {
     }
 }
 
+/// Непокрытые видимые строки: первая из них, отставшие (нарисованы старым поколением) и
+/// ненарисованные после последнего полного объявления.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct Uncovered {
+    pub first: usize,
+    pub stale: usize,
+    pub undrawn: usize,
+}
+
 /// Учёт покрытия по строкам для вида, который перерисовывает только затронутые строки. Строка
 /// требует поколения последнего объявленного изменения, которое её затронуло, и покрыта, если
 /// последняя отметка над ней не младше. Отметки идут с неубывающим поколением: вид рисует
@@ -273,6 +282,28 @@ impl Ledger {
     /// Первая непокрытая строка из `visible`.
     pub fn uncovered(&self, visible: Range<usize>) -> Option<usize> {
         visible.into_iter().find(|&row| !self.is_covered(row))
+    }
+
+    /// Состав непокрытых строк `visible`: `None`, если все покрыты. Строка без отметки после
+    /// последнего полного объявления не нарисована, строка с отметкой младше требуемой отстаёт.
+    pub fn census(&self, visible: Range<usize>) -> Option<Uncovered> {
+        let mut census: Option<Uncovered> = None;
+        for row in visible {
+            if self.is_covered(row) {
+                continue;
+            }
+            let entry = census.get_or_insert(Uncovered {
+                first: row,
+                stale: 0,
+                undrawn: 0,
+            });
+            if self.drawn.get(row).is_some() {
+                entry.stale += 1;
+            } else {
+                entry.undrawn += 1;
+            }
+        }
+        census
     }
 
     /// Число полуинтервалов учёта: для наблюдения за его ростом.
@@ -504,6 +535,45 @@ mod tests {
         assert_eq!(ledger.uncovered(0..40), None);
         assert_eq!(ledger.required(6), 2);
         assert_eq!(ledger.required(10), 1);
+    }
+
+    #[test]
+    fn census_splits_stale_and_undrawn_rows() {
+        let mut ledger = Ledger::default();
+        ledger.declare(&declared(1, None));
+        assert_eq!(
+            ledger.census(0..4),
+            Some(Uncovered {
+                first: 0,
+                stale: 0,
+                undrawn: 4
+            })
+        );
+        ledger.mark(&mark(1, 0..20, 10, 20));
+        assert_eq!(ledger.census(0..20), None);
+        // Подсветка отстала на строках 12–14, ниже прокрутка открыла ненарисованные 20–29:
+        // первая непокрытая строка — отставшая, но ненарисованные тоже считаются.
+        ledger.declare(&declared(2, Some(std::iter::once(12..15).collect())));
+        assert_eq!(
+            ledger.census(5..30),
+            Some(Uncovered {
+                first: 12,
+                stale: 3,
+                undrawn: 10
+            })
+        );
+        ledger.mark(&mark(2, 12..15, 30, 40));
+        ledger.mark(&mark(2, 20..30, 50, 60));
+        assert_eq!(ledger.census(5..30), None);
+        ledger.declare(&declared(3, None));
+        assert_eq!(
+            ledger.census(0..2),
+            Some(Uncovered {
+                first: 0,
+                stale: 0,
+                undrawn: 2
+            })
+        );
     }
 
     #[test]
