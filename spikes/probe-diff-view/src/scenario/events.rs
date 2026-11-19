@@ -337,6 +337,14 @@ impl Key {
         ignoring: "u",
         flags: NSEventModifierFlags::Control,
     };
+    /// `Ctrl-o`: возврат к положению до перехода (`Command::JumpBack`).
+    pub const CTRL_O: Key = Key {
+        label: "Ctrl-o",
+        code: 31,
+        characters: "\u{f}",
+        ignoring: "o",
+        flags: NSEventModifierFlags::Control,
+    };
     pub const CMD_RETURN: Key = Key {
         label: "Cmd-Enter",
         code: 36,
@@ -393,6 +401,7 @@ pub fn sequence(name: &str) -> Option<&'static [Key]> {
         "[c" => &PREVIOUS_CHANGE,
         "Ctrl-d" => &[Key::CTRL_D],
         "Ctrl-u" => &[Key::CTRL_U],
+        "Ctrl-o" => &[Key::CTRL_O],
         "Cmd-Enter" => &[Key::CMD_RETURN],
         "Escape" => &[Key::ESCAPE],
         _ => return None,
@@ -1423,8 +1432,13 @@ mod tests {
         assert_eq!(sequence("Ctrl-d"), Some(&[Key::CTRL_D][..]));
         assert_eq!(sequence("Cmd-Enter"), Some(&[Key::CMD_RETURN][..]));
         assert_eq!(sequence("x"), None);
+        // `Ctrl-o` и клавиша открытия стенда `o` — один keyCode, различает их Control.
+        assert_eq!(sequence("Ctrl-o"), Some(&[Key::CTRL_O][..]));
+        assert_eq!(Key::CTRL_O.code, Key::OPEN.code);
+        assert!(Key::CTRL_O.flags.contains(NSEventModifierFlags::Control));
+        assert!(!Key::OPEN.flags.contains(NSEventModifierFlags::Control));
         for name in [
-            "j", "k", "v", "c", "G", "gg", "]c", "[c", "Ctrl-d", "Ctrl-u", "Escape",
+            "j", "k", "v", "c", "G", "gg", "]c", "[c", "Ctrl-d", "Ctrl-u", "Ctrl-o", "Escape",
         ] {
             let keys = sequence(name).unwrap_or_default();
             assert!(!keys.is_empty(), "{name}");
