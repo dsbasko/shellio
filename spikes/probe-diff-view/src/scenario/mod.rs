@@ -51,8 +51,8 @@ pub mod smoke;
 pub mod snapshot;
 pub mod stage;
 pub mod stand;
-#[allow(dead_code)]
 pub mod threads;
+pub mod threads_run;
 #[allow(dead_code)]
 pub mod watchdog;
 

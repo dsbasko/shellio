@@ -345,9 +345,8 @@ fn script_of(part: Part, fixture: OpenFixture, mode: Mode) -> Result<Box<dyn Scr
     match part {
         Part::Anchor => Ok(Box::new(super::anchor_run::AnchorScript::new(fixture)?)),
         Part::Selection => Ok(Box::new(super::selection_run::SelectionScript::new(mode))),
-        Part::Threads | Part::Pairs | Part::Bounded => {
-            Err(format!("сценарий {} ещё не реализован", part.name()))
-        }
+        Part::Threads => Ok(Box::new(super::threads_run::ThreadsScript::default())),
+        Part::Pairs | Part::Bounded => Err(format!("сценарий {} ещё не реализован", part.name())),
     }
 }
 
