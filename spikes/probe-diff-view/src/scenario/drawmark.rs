@@ -374,9 +374,125 @@ pub fn take() -> Vec<Mark> {
     MARKS.with(|marks| std::mem::take(&mut *marks.borrow_mut()))
 }
 
+/// Половина строки показа в журнале гуттера: unified, старая или новая.
+pub type HalfKey = Option<probe_diff_view::model::Side>;
+
+/// Журнал отрисованных строк сценариев контракта (строка отчёта «Журнал отрисованных строк
+/// контракта»): последний прямоугольник текста и блоков каждой строки показа и последний
+/// нарисованный текст гуттера каждой половины.
+#[derive(Clone, Debug, Default)]
+pub struct Journal {
+    pub text: std::collections::BTreeMap<u32, super::anchor::Drawn>,
+    pub blocks: std::collections::BTreeMap<u32, super::anchor::Drawn>,
+    pub gutter: std::collections::BTreeMap<(u32, u8), (u64, String)>,
+}
+
+fn half_key(half: HalfKey) -> u8 {
+    match half {
+        None => 0,
+        Some(probe_diff_view::model::Side::Old) => 1,
+        Some(probe_diff_view::model::Side::New) => 2,
+    }
+}
+
+thread_local! {
+    static JOURNAL: RefCell<Option<Journal>> = const { RefCell::new(None) };
+}
+
+/// Включает журнал отрисованных строк с пустого или выключает его.
+pub fn record_rows(on: bool) {
+    JOURNAL.with(|journal| *journal.borrow_mut() = on.then(Journal::default));
+}
+
+/// Журнал включён: вид пишет в него при отрисовке.
+pub fn recording() -> bool {
+    JOURNAL.with(|journal| journal.borrow().is_some())
+}
+
+fn with_journal(write: impl FnOnce(&mut Journal)) {
+    JOURNAL.with(|journal| {
+        if let Some(journal) = journal.borrow_mut().as_mut() {
+            write(journal);
+        }
+    });
+}
+
+/// Прямоугольник нарисованного текста строки показа.
+pub fn drawn_text(drawn: super::anchor::Drawn) {
+    with_journal(|journal| {
+        journal.text.insert(drawn.row, drawn);
+    });
+}
+
+/// Прямоугольник нарисованных блоков строки показа.
+pub fn drawn_block(drawn: super::anchor::Drawn) {
+    with_journal(|journal| {
+        journal.blocks.insert(drawn.row, drawn);
+    });
+}
+
+/// Нарисованный текст гуттера половины строки показа.
+pub fn drawn_gutter(generation: u64, row: u32, half: HalfKey, text: &str) {
+    with_journal(|journal| {
+        journal
+            .gutter
+            .insert((row, half_key(half)), (generation, text.to_owned()));
+    });
+}
+
+/// Последний нарисованный текст и блоки строки показа.
+pub fn drawn_row(row: u32) -> (Option<super::anchor::Drawn>, Option<super::anchor::Drawn>) {
+    JOURNAL.with(|journal| {
+        journal.borrow().as_ref().map_or((None, None), |journal| {
+            (
+                journal.text.get(&row).copied(),
+                journal.blocks.get(&row).copied(),
+            )
+        })
+    })
+}
+
+/// Последний нарисованный текст гуттера половины строки показа и его поколение.
+pub fn gutter_of(row: u32, half: HalfKey) -> Option<(u64, String)> {
+    JOURNAL.with(|journal| {
+        journal
+            .borrow()
+            .as_ref()
+            .and_then(|journal| journal.gutter.get(&(row, half_key(half))).cloned())
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn row_journal_records_only_while_on() {
+        use super::super::anchor::Drawn;
+        let drawn = Drawn {
+            generation: 3,
+            row: 7,
+            top: 10.0,
+            height: 15.0,
+        };
+        record_rows(false);
+        drawn_text(drawn);
+        assert!(!recording());
+        assert_eq!(drawn_row(7), (None, None));
+        record_rows(true);
+        drawn_text(drawn);
+        drawn_block(Drawn { top: 25.0, ..drawn });
+        drawn_gutter(3, 7, Some(probe_diff_view::model::Side::Old), " 7 - ");
+        assert_eq!(drawn_row(7).0, Some(drawn));
+        assert_eq!(drawn_row(7).1.map(|block| block.top), Some(25.0));
+        assert_eq!(
+            gutter_of(7, Some(probe_diff_view::model::Side::Old)),
+            Some((3, " 7 - ".to_owned()))
+        );
+        assert_eq!(gutter_of(7, None), None);
+        record_rows(false);
+        assert_eq!(drawn_row(7), (None, None));
+    }
 
     fn mark(generation: u64, rows: Range<usize>, start: u64, end: u64) -> Mark {
         Mark {

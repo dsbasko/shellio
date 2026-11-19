@@ -36,6 +36,43 @@ pub struct Gutter {
     pub new: Option<u32>,
 }
 
+/// Номера из нарисованного текста гуттера (формат `paint::gutter_text`): у unified две
+/// колонки номеров, у половины «Рядом» одна — номер её стороны. `None` — текст не по формату.
+pub fn parse_gutter(text: &str, half: Option<Side>) -> Option<Gutter> {
+    let chars: Vec<char> = text.chars().collect();
+    let column = |from: usize, digits: usize| -> Option<Option<u32>> {
+        let value: String = chars.get(from..from + digits)?.iter().collect();
+        let value = value.trim();
+        if value.is_empty() {
+            Some(None)
+        } else {
+            value.parse::<u32>().ok().map(Some)
+        }
+    };
+    match half {
+        None => {
+            let digits = (chars.len().checked_sub(2)? / 2).checked_sub(1)?;
+            Some(Gutter {
+                old: column(0, digits)?,
+                new: column(digits + 1, digits)?,
+            })
+        }
+        Some(side) => {
+            let number = column(0, chars.len().checked_sub(3)?)?;
+            Some(match side {
+                Side::Old => Gutter {
+                    old: number,
+                    new: None,
+                },
+                Side::New => Gutter {
+                    old: None,
+                    new: number,
+                },
+            })
+        }
+    }
+}
+
 /// Номера, которых требует сырой diff у строки показа `row`.
 pub fn expected_gutter(raw: &Raw, mode: Mode, row: usize) -> Option<Gutter> {
     let addrs = raw.row_addrs(mode, row);
@@ -167,6 +204,44 @@ pub fn rows_3_and_1(raw: &Raw, old: &[u8], new: &[u8], columns: u32) -> Vec<usiz
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn drawn_gutter_text_parses_back_to_numbers() {
+        use crate::paint::gutter_text;
+        use probe_diff_view::model::LineKind;
+        use probe_diff_view::model::layout::Gutter as Columns;
+        let both = gutter_text(
+            Columns::Both,
+            16,
+            Some(12),
+            Some(345_678),
+            LineKind::Context,
+        );
+        assert_eq!(
+            parse_gutter(&both, None),
+            Some(Gutter {
+                old: Some(12),
+                new: Some(345_678)
+            })
+        );
+        let added = gutter_text(Columns::Both, 16, None, Some(7), LineKind::Added);
+        assert_eq!(
+            parse_gutter(&added, None),
+            Some(Gutter {
+                old: None,
+                new: Some(7)
+            })
+        );
+        let half = gutter_text(Columns::Single, 9, Some(9), None, LineKind::Removed);
+        assert_eq!(
+            parse_gutter(&half, Some(Side::Old)),
+            Some(Gutter {
+                old: Some(9),
+                new: None
+            })
+        );
+        assert_eq!(parse_gutter("   1x2 345678   ", None), None);
+    }
 
     #[test]
     fn visual_lines_round_up_and_keep_one_for_empty() {

@@ -83,6 +83,40 @@ pub struct DocumentIvars {
     ax: ax::AxRows,
 }
 
+/// Журнал контракта: полоса текста и блоков строки показа, как их нарисовали `paint_row` и
+/// `paint_blocks` по индексу высот, установленному на момент `drawRect:`.
+fn record_row(model: &crate::scene::Model, row: u32) {
+    use crate::scenario::anchor::Drawn;
+    let Some(shown) = model.shown() else {
+        return;
+    };
+    if let (Some(top), Some(height)) = (shown.heights.top(row), shown.heights.text_height(row)) {
+        drawmark::drawn_text(Drawn {
+            generation: model.generation,
+            row,
+            top: top as f64,
+            height: f64::from(height),
+        });
+    }
+    let frames = model
+        .place()
+        .map(|place| place.frames_at_row(row))
+        .unwrap_or_default();
+    let top = frames.iter().map(|frame| frame.y).reduce(f64::min);
+    let bottom = frames
+        .iter()
+        .map(|frame| frame.y + frame.height)
+        .reduce(f64::max);
+    if let (Some(top), Some(bottom)) = (top, bottom) {
+        drawmark::drawn_block(Drawn {
+            generation: model.generation,
+            row,
+            top,
+            height: bottom - top,
+        });
+    }
+}
+
 fn rect(value: NSRect) -> Rect {
     Rect {
         x: value.origin.x,
@@ -376,6 +410,9 @@ impl DocumentView {
                             seen: &seen,
                         },
                     );
+                    if drawmark::recording() {
+                        record_row(&model, row);
+                    }
                 }
                 rows
             }

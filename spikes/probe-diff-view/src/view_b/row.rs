@@ -273,6 +273,20 @@ impl RowView {
         CGContext::restore_g_state(Some(&context));
         let generation = model.generation;
         drop(model);
+        if drawmark::recording() {
+            // B отдаёт рамку вида строки в координатах таблицы: её ставит сама таблица.
+            let frame = self.frame();
+            let drawn = crate::scenario::anchor::Drawn {
+                generation,
+                row: item.row(),
+                top: frame.origin.y,
+                height: frame.size.height,
+            };
+            match item {
+                Item::Text(_) => drawmark::drawn_text(drawn),
+                Item::Block(_) => drawmark::drawn_block(drawn),
+            }
+        }
         let row = item.row();
         let screen = seen.end.saturating_sub(seen.start).max(1);
         let far = distance(row, &seen) > FAR_SCREENS * screen;

@@ -19,6 +19,7 @@ use probe_diff_view::model::{LineKind, Mode, Side};
 use probe_diff_view::tokens::{Rgb, Theme};
 
 use crate::blocks::{self, BlockFrame};
+use crate::scenario::drawmark;
 use crate::scene::{Model, Shown, drawn_side};
 use crate::text::{ColorCache, Expanded, Font};
 
@@ -57,6 +58,8 @@ impl Half {
 /// Раскладка половины строки показа: гуттер и визуальные строки текста.
 pub struct RowLayout {
     gutter: CFRetained<CTLine>,
+    /// Текст гуттера раскладки: журнал контракта пишет то, что нарисовано, а не пересчёт.
+    gutter_text: String,
     segments: Vec<CFRetained<CTLine>>,
 }
 
@@ -292,6 +295,7 @@ fn paint_half(
         let gutter = gutter_text(gutter, gutter_cells, numbers.0, numbers.1, kind);
         let gutter_units: Vec<u16> = gutter.encode_utf16().collect();
         RowLayout {
+            gutter_text: gutter.clone(),
             gutter: font.line(
                 &gutter_units,
                 &[(0..gutter_units.len(), theme.gutter_text)],
@@ -304,11 +308,15 @@ fn paint_half(
         }
     };
     let line_height = f64::from(shown.metrics.line_height);
+    let record = drawmark::recording();
     let baseline = |visual: usize| band.top + visual as f64 * line_height + font.ascent;
     let mut draw = |layout: &RowLayout| {
         CGContext::set_text_position(Some(context), x, baseline(0));
         // SAFETY: строка Core Text и контекст живы на время вызова.
         unsafe { layout.gutter.draw(context) };
+        if record {
+            drawmark::drawn_gutter(model.generation, band.row, side, &layout.gutter_text);
+        }
         for (visual, segment) in layout.segments.iter().enumerate() {
             CGContext::set_text_position(Some(context), x + gutter_width, baseline(visual));
             // SAFETY: строка Core Text и контекст живы на время вызова.
