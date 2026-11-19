@@ -253,13 +253,13 @@ fn format_rgb(rgb: probe_diff_view::tokens::Rgb) -> String {
 
 impl Script for ThemeScript {
     fn next(&mut self, ctx: &Ctx<'_>) -> Result<Next, String> {
+        if self.next == Step::Apply && self.cell >= CELLS.len() {
+            apply(ctx.mtm, None);
+            return Ok(Next::Done);
+        }
         let name = self.key().name();
         match self.next {
             Step::Apply => {
-                if self.cell >= CELLS.len() {
-                    apply(ctx.mtm, None);
-                    return Ok(Next::Done);
-                }
                 apply(ctx.mtm, Some(self.key()));
                 self.next = Step::Click;
                 Ok(Next::Restage(Restage {
