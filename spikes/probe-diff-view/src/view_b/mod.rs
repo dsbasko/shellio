@@ -614,7 +614,7 @@ impl ViewB {
         }
         scroll.setDocumentView(Some(&table));
         table.sizeLastColumnToFit();
-        // Настройки таблицы выше снова включают оценку высот: выключатель — последним.
+        // `setDelegate:` снова включает оценку высот: выключатель — после него.
         let estimates_off = disable_estimates(&table);
         shared.count(|stats| stats.estimates_off = estimates_off);
         *shared.table.borrow_mut() = Some(objc2::rc::Weak::from_retained(&table));
