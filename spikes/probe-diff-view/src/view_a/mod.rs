@@ -16,7 +16,7 @@ use objc2::runtime::AnyObject;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSColor, NSEvent, NSEventModifierFlags, NSGraphicsContext, NSResponder, NSScrollView, NSView,
-    NSViewBoundsDidChangeNotification,
+    NSViewBoundsDidChangeNotification, NSViewFrameDidChangeNotification,
 };
 use objc2_core_foundation::{CFRetained, CGAffineTransform};
 use objc2_core_graphics::CGContext;
@@ -173,6 +173,14 @@ define_class!(
                 scene.scrolled();
             }
         }
+
+        #[unsafe(method(scrollFrameChanged:))]
+        fn scroll_frame_changed(&self, _notification: &AnyObject) {
+            self.fit_width();
+            if let Some(scene) = self.scene() {
+                scene.resized();
+            }
+        }
     }
 );
 
@@ -196,6 +204,19 @@ impl DocumentView {
 
     fn scene(&self) -> Option<Rc<Scene>> {
         self.ivars().scene.borrow().upgrade()
+    }
+
+    /// Ширина документа по ширине прокрутки до вопроса сцене о видимой области: видимая
+    /// область — пересечение clip view с документом, и узкий документ занизил бы её ширину.
+    fn fit_width(&self) {
+        let Some(scroll) = self.enclosingScrollView() else {
+            return;
+        };
+        let width = scroll.contentSize().width;
+        let frame = self.frame();
+        if (frame.size.width - width).abs() >= 0.5 {
+            self.setFrameSize(NSSize::new(width, frame.size.height));
+        }
     }
 
     fn key(&self, event: &NSEvent) -> bool {
@@ -593,14 +614,22 @@ impl ViewA {
         scroll.setDocumentView(Some(&document));
         let clip = scroll.contentView();
         clip.setPostsBoundsChangedNotifications(true);
-        // SAFETY: наблюдатель — document view, он отвечает на `clipBoundsChanged:`; снимается в
-        // `Drop` до освобождения вида.
+        scroll.setPostsFrameChangedNotifications(true);
+        // SAFETY: наблюдатель — document view, он отвечает на `clipBoundsChanged:` и
+        // `scrollFrameChanged:`; снимается в `Drop` до освобождения вида.
         unsafe {
-            NSNotificationCenter::defaultCenter().addObserver_selector_name_object(
+            let center = NSNotificationCenter::defaultCenter();
+            center.addObserver_selector_name_object(
                 &document,
                 sel!(clipBoundsChanged:),
                 Some(NSViewBoundsDidChangeNotification),
                 Some(&clip),
+            );
+            center.addObserver_selector_name_object(
+                &document,
+                sel!(scrollFrameChanged:),
+                Some(NSViewFrameDidChangeNotification),
+                Some(&scroll),
             );
         }
         Rc::new(ViewA { scroll, document })

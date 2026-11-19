@@ -1,6 +1,6 @@
 //! Сценарий `open-smoke`: открытие фикстуры `added` в виде варианта и режима, первый экран
-//! нарисован, затем `G`, `gg` и щелчок по строке. Ожидания и сроки записаны в отчёт до первого
-//! прогона. Бюджет открытия здесь не выносится: отметки открытия — наблюдение, вердикт по ним
+//! нарисован, затем `G`, `gg`, щелчок по строке и смена ширины окна с проверкой якоря. Ожидания
+//! и сроки записаны в отчёт до первого прогона. Бюджет открытия здесь не выносится: отметки открытия — наблюдение, вердикт по ним
 //! даёт сценарий `open` задачи 11.
 //!
 //! Готовность экрана — барьер покрытия: вид объявляет изменения содержимого и отмечает
@@ -21,6 +21,7 @@ use serde::Serialize;
 
 use probe_diff_view::fixtures::{self, FixtureName};
 use probe_diff_view::highlight::Source;
+use probe_diff_view::model::state::Anchor;
 use probe_diff_view::model::{Mode, Side};
 
 use super::calibrate_run::Failed;
@@ -30,7 +31,7 @@ use super::sampler;
 use super::watchdog::SharedTrace;
 use crate::args::{Variant, ViewMode, ViewOptions};
 use crate::results::{Report, Verdict};
-use crate::scene::{Scene, Timeline};
+use crate::scene::{Scene, Surface, Timeline};
 use crate::view_a::ViewA;
 
 /// Срок открытия: от `postEvent` клавиши до покрытия после снимка полного разбора.
@@ -41,6 +42,8 @@ pub const STEP_DEADLINE: Duration = Duration::from_secs(2);
 pub const CLICK_ROW: u32 = 5;
 /// Допуск положения прокрутки, точки.
 const SCROLL_TOLERANCE: f64 = 1.0;
+/// Окно сужается на столько точек и возвращается обратно.
+const RESIZE_DELTA: f64 = 120.0;
 
 /// Покрытие видимых строк: поколение учёта и время отметки, которая его закрыла.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -109,7 +112,30 @@ enum Step {
         posted_ns: u64,
         deadline: Instant,
     },
+    Resize {
+        name: &'static str,
+        before: Anchor,
+        from_width: f64,
+        posted_ns: u64,
+        deadline: Instant,
+    },
     Done,
+}
+
+/// Итог смены ширины: якорь до и после, верхний край против выведенного из якоря.
+#[derive(Clone, Debug, Serialize)]
+struct ResizeResult {
+    name: &'static str,
+    latency_ms: f64,
+    from_width: f64,
+    to_width: f64,
+    mode: String,
+    document_height: Option<u64>,
+    before: String,
+    after: String,
+    scroll_y: f64,
+    anchor_y: Option<u64>,
+    held: bool,
 }
 
 /// Итог шага клавиши или щелчка.
@@ -132,6 +158,7 @@ pub struct OpenSmoke {
     step: RefCell<Step>,
     milestones: RefCell<Option<Milestones>>,
     steps: RefCell<Vec<StepResult>>,
+    resizes: RefCell<Vec<ResizeResult>>,
     max_entries_seen: RefCell<(usize, usize)>,
     report: RefCell<Option<Report>>,
     mode: Mode,
@@ -277,6 +304,7 @@ impl OpenSmoke {
             step: RefCell::new(Step::Done),
             milestones: RefCell::new(None),
             steps: RefCell::new(Vec::new()),
+            resizes: RefCell::new(Vec::new()),
             max_entries_seen: RefCell::new((0, 0)),
             report: RefCell::new(Some(report)),
             mode,
@@ -477,7 +505,7 @@ impl OpenSmoke {
                     });
                     return match side {
                         Some(Side::Old) => self.click(Some(Side::New)),
-                        Some(Side::New) | None => Ok(Step::Done),
+                        Some(Side::New) | None => self.resize("narrow"),
                     };
                 }
                 if Instant::now() < deadline {
@@ -495,8 +523,105 @@ impl OpenSmoke {
                     self.covered_now()
                 ))
             }
+            Step::Resize {
+                name,
+                before,
+                from_width,
+                posted_ns,
+                deadline,
+            } => {
+                let geometry = self.scene.geometry();
+                let installed = geometry
+                    .is_some_and(|geometry| (geometry.width() - from_width).abs() >= 0.5)
+                    && !self.scene.relayout_pending();
+                if installed && self.covered_now() {
+                    let after = self.scene.anchor();
+                    let anchor_y = self.scene.anchor_y();
+                    let scroll_y = self.view.viewport_y();
+                    let held = after == Some(before)
+                        && anchor_y
+                            .is_some_and(|y| (y as f64 - scroll_y).abs() <= SCROLL_TOLERANCE);
+                    let at = self
+                        .coverage
+                        .borrow()
+                        .last()
+                        .map_or(now_ns(), |event| event.at_ns);
+                    self.resizes.borrow_mut().push(ResizeResult {
+                        name,
+                        latency_ms: at.saturating_sub(posted_ns) as f64 / 1e6,
+                        from_width,
+                        to_width: geometry.map_or(0.0, |geometry| geometry.width()),
+                        mode: format!("{:?}", self.scene.mode()),
+                        document_height: self.scene.scroll_limit().map(|(total, _)| total),
+                        before: format!("{before:?}"),
+                        after: format!("{after:?}"),
+                        scroll_y,
+                        anchor_y,
+                        held,
+                    });
+                    return match name {
+                        "narrow" => self.resize("restore"),
+                        _ => Ok(Step::Done),
+                    };
+                }
+                if Instant::now() < deadline {
+                    return Ok(Step::Resize {
+                        name,
+                        before,
+                        from_width,
+                        posted_ns,
+                        deadline,
+                    });
+                }
+                Err(format!(
+                    "смена ширины {name} не установлена за {} с: ширина {from_width} → {:?}, перестройка ждёт {}, покрыты {}, перестройки {:?}",
+                    OPEN_DEADLINE.as_secs(),
+                    geometry.map(|geometry| geometry.width()),
+                    self.scene.relayout_pending(),
+                    self.covered_now(),
+                    self.scene.relayout()
+                ))
+            }
             Step::Done => Ok(Step::Done),
         }
+    }
+
+    /// Смена ширины окна на [`RESIZE_DELTA`]: `narrow` сужает, `restore` возвращает. Перед
+    /// сужением верхний край встаёт на середину предела прокрутки со смещением внутри строки.
+    fn resize(&self, name: &'static str) -> Result<Step, String> {
+        let from = self
+            .scene
+            .geometry()
+            .ok_or_else(|| "нет геометрии до смены ширины".to_owned())?;
+        if name == "narrow" {
+            let (_, max_y) = self
+                .scene
+                .scroll_limit()
+                .ok_or_else(|| "нет индекса высот до смены ширины".to_owned())?;
+            let line = u64::from(self.view.font().line_height);
+            self.view.scroll_to((max_y / 2 + line / 2) as f64);
+        }
+        let before = self
+            .scene
+            .anchor()
+            .ok_or_else(|| "нет якоря до смены ширины".to_owned())?;
+        let frame = self.window.frame();
+        let width = match name {
+            "narrow" => frame.size.width - RESIZE_DELTA,
+            _ => frame.size.width + RESIZE_DELTA,
+        };
+        let posted_ns = now_ns();
+        self.window.setFrame_display(
+            NSRect::new(frame.origin, NSSize::new(width, frame.size.height)),
+            true,
+        );
+        Ok(Step::Resize {
+            name,
+            before,
+            from_width: from.width(),
+            posted_ns,
+            deadline: Instant::now() + OPEN_DEADLINE,
+        })
     }
 
     fn press(&self, name: &'static str, key: Key) -> Result<Step, String> {
@@ -599,6 +724,14 @@ impl OpenSmoke {
         report.push(
             "steps",
             serde_json::to_string(&*self.steps.borrow()).unwrap_or_default(),
+        );
+        report.push(
+            "resizes",
+            serde_json::to_string(&*self.resizes.borrow()).unwrap_or_default(),
+        );
+        report.push(
+            "relayout",
+            serde_json::to_string(&self.scene.relayout()).unwrap_or_default(),
         );
         report.push(
             "document_frame",
@@ -733,6 +866,34 @@ impl OpenSmoke {
             } else {
                 clicks.join("; ")
             },
+        );
+        let resizes = self.resizes.borrow();
+        report.finding(
+            "resize_anchor",
+            if resizes.len() == 2 && resizes.iter().all(|resize| resize.held) {
+                Verdict::Pass
+            } else {
+                Verdict::Fail
+            },
+            resizes
+                .iter()
+                .map(|resize| {
+                    format!(
+                        "{}: ширина {} → {}, режим {}, высота документа {:?}, якорь до {}, после {}, верхний край {} при {:?} по якорю, покрыто за {:.1} мс",
+                        resize.name,
+                        resize.from_width,
+                        resize.to_width,
+                        resize.mode,
+                        resize.document_height,
+                        resize.before,
+                        resize.after,
+                        resize.scroll_y,
+                        resize.anchor_y,
+                        resize.latency_ms
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("; "),
         );
         let bounded = counters.max_entries <= counters.max_capacity && counters.far_builds == 0;
         report.finding(

@@ -14,7 +14,7 @@
 //! Сцена не держит заимствование модели, пока зовёт вид: `scrollToPoint` может сразу вернуть
 //! уведомление о прокрутке в [`Scene::scrolled`].
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::ops::Range;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
@@ -31,7 +31,7 @@ use probe_diff_view::model::heights::{
     HeightIndex, HeightJob, HeightSnapshot, HeightWorker, Metrics,
 };
 use probe_diff_view::model::layout::{DiffGeometry, DiffLayout, Geometry, TextMetrics, Zone};
-use probe_diff_view::model::state::{Command, ViewState, Viewport};
+use probe_diff_view::model::state::{Anchor, Command, ViewState, Viewport};
 use probe_diff_view::model::{
     Diff, DiffSnapshot, LineAddr, LineKind, Mode, ParseOutcome, ParseWorker, Side, TextBody,
 };
@@ -103,7 +103,58 @@ enum Msg {
     Styles(Snapshot),
 }
 
-/// Состояние вида на главном потоке. Вид читает его при отрисовке.
+/// Раскладка, под которую строится индекс высот: геометрия части зоны, показанный режим и
+/// перенос.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Target {
+    pub geometry: DiffGeometry,
+    pub mode: Mode,
+    pub metrics: Metrics,
+}
+
+impl Target {
+    /// Раскладка текста `body` в видимой области центра. `None` — ниже `min_size`.
+    fn of(body: &TextBody, font: FontMetrics, requested: Mode, visible: Visible) -> Option<Self> {
+        let metrics = TextMetrics {
+            char_width: font.char_width,
+            digits: TextMetrics::digits_of(max_line(body)),
+            divider: DIVIDER,
+        };
+        let DiffLayout::Diff(geometry) =
+            metrics.adapt(Geometry::new(Zone::Center, visible.width, visible.height))
+        else {
+            return None;
+        };
+        let mode = geometry.mode(requested);
+        Some(Target {
+            geometry,
+            mode,
+            metrics: Metrics {
+                line_height: font.line_height,
+                wrap: geometry.wrap(mode),
+            },
+        })
+    }
+}
+
+/// Перестройка индекса высот после смены ширины: от запроса до установки.
+#[derive(Clone, Copy, Debug, Default, Serialize)]
+pub struct Relayout {
+    /// Запрошено перестроек на worker.
+    pub submitted: u64,
+    /// Установлено перестроенных индексов.
+    pub installed: u64,
+    /// Смен геометрии без перестройки: перенос и режим те же.
+    pub geometry_only: u64,
+    /// Смен режима при установке.
+    pub mode_switches: u64,
+    pub last_submit_ns: Option<u64>,
+    pub last_install_ns: Option<u64>,
+}
+
+/// Состояние вида на главном потоке. Вид читает его при отрисовке. `geometry`, `mode`,
+/// `metrics` и `heights` меняются только вместе: цель перестройки ждёт в `pending`, иначе вид
+/// нарисовал бы новый перенос по старым высотам.
 pub struct Model {
     pub diff: Option<Arc<DiffSnapshot>>,
     pub file: usize,
@@ -116,6 +167,8 @@ pub struct Model {
     pub styles: StyleStore,
     pub generation: u64,
     pub font: FontMetrics,
+    pub pending: Option<Target>,
+    pub relayout: Relayout,
     last_visible: Option<Sides<LineSet>>,
 }
 
@@ -136,6 +189,16 @@ impl Model {
             body: diff.file(self.file)?.text()?,
             heights: self.heights.as_ref()?,
             geometry: self.geometry?,
+            metrics: self.metrics?,
+        })
+    }
+
+    /// Раскладка установленного индекса высот.
+    pub fn installed(&self) -> Option<Target> {
+        self.heights.as_ref()?;
+        Some(Target {
+            geometry: self.geometry?,
+            mode: self.mode,
             metrics: self.metrics?,
         })
     }
@@ -300,6 +363,8 @@ pub struct Scene {
     fixture: Fixture,
     timeline: RefCell<Timeline>,
     errors: RefCell<Vec<String>>,
+    /// Идёт перезагрузка вида и прокрутка к якорю: уведомления о прокрутке якорь не меняют.
+    reloading: Cell<bool>,
 }
 
 impl Scene {
@@ -333,6 +398,8 @@ impl Scene {
                 styles: StyleStore::default(),
                 generation: 0,
                 font,
+                pending: None,
+                relayout: Relayout::default(),
                 last_visible: None,
             }),
             surface: RefCell::new(None),
@@ -344,6 +411,7 @@ impl Scene {
             fixture,
             timeline: RefCell::new(Timeline::default()),
             errors: RefCell::new(Vec::new()),
+            reloading: Cell::new(false),
         });
         CURRENT.with(|current| *current.borrow_mut() = Rc::downgrade(&scene));
         Ok(scene)
@@ -419,6 +487,28 @@ impl Scene {
         Some((total, total.saturating_sub(visible.height.max(0.0) as u64)))
     }
 
+    /// Якорь прокрутки состояния.
+    pub fn anchor(&self) -> Option<Anchor> {
+        self.model.borrow().state.as_ref()?.anchor()
+    }
+
+    /// Верхний край видимой области, выведенный из якоря по установленному индексу высот.
+    pub fn anchor_y(&self) -> Option<u64> {
+        let visible = self.viewport();
+        let model = self.model.borrow();
+        let view = model.viewport(visible.height)?;
+        Some(model.state.as_ref()?.shown(&view)?.y)
+    }
+
+    /// Перестройка раскладки ещё не установлена.
+    pub fn relayout_pending(&self) -> bool {
+        self.model.borrow().pending.is_some()
+    }
+
+    pub fn relayout(&self) -> Relayout {
+        self.model.borrow().relayout
+    }
+
     pub fn cursor(&self) -> Option<LineAddr> {
         self.model
             .borrow()
@@ -481,6 +571,7 @@ impl Scene {
             model.metrics = None;
             model.heights = None;
             model.state = None;
+            model.pending = None;
             model.last_visible = None;
             model.generation += 1;
             model.generation
@@ -538,50 +629,110 @@ impl Scene {
         };
         self.timeline.borrow_mut().parsed_ns = Some(now_ns());
         let visible = self.viewport();
-        let job = {
+        let target = {
             let mut model = self.model.borrow_mut();
             let Some(body) = snapshot.diff.file(model.file).and_then(|file| file.text()) else {
                 drop(model);
                 self.fail("у активного файла нет текста".to_owned());
                 return;
             };
-            let metrics = TextMetrics {
-                char_width: model.font.char_width,
-                digits: TextMetrics::digits_of(max_line(body)),
-                divider: DIVIDER,
+            let Some(target) = Target::of(body, model.font, model.requested, visible) else {
+                drop(model);
+                self.fail(format!(
+                    "часть зоны {} × {} ниже min_size",
+                    visible.width, visible.height
+                ));
+                return;
             };
-            let geometry =
-                match metrics.adapt(Geometry::new(Zone::Center, visible.width, visible.height)) {
-                    DiffLayout::Diff(geometry) => geometry,
-                    DiffLayout::Placeholder => {
-                        drop(model);
-                        self.fail(format!(
-                            "часть зоны {} × {} ниже min_size",
-                            visible.width, visible.height
-                        ));
-                        return;
-                    }
-                };
-            let mode = geometry.mode(model.requested);
-            let line_metrics = Metrics {
-                line_height: model.font.line_height,
-                wrap: geometry.wrap(mode),
+            model.diff = Some(snapshot);
+            target
+        };
+        self.relayout_to(target);
+    }
+
+    /// Задание индекса высот под раскладку `target`. Установленная раскладка остаётся до
+    /// [`Scene::heights_ready`].
+    fn relayout_to(&self, target: Target) {
+        let job = {
+            let mut model = self.model.borrow_mut();
+            let Some(snapshot) = model.diff.clone() else {
+                return;
             };
-            model.diff = Some(Arc::clone(&snapshot));
-            model.geometry = Some(geometry);
-            model.mode = mode;
-            model.metrics = Some(line_metrics);
+            model.pending = Some(target);
+            model.relayout.submitted += 1;
+            model.relayout.last_submit_ns = Some(now_ns());
             HeightJob {
                 snapshot,
                 file: model.file,
-                mode,
-                metrics: line_metrics,
+                mode: target.mode,
+                metrics: target.metrics,
                 blocks: Arc::from([]),
             }
         };
         if let Err(stopped) = self.heights.submit(job) {
             self.fail(format!("индекс высот не принят: {stopped:?}"));
         }
+    }
+
+    /// Видимая область сменила размер. Новый перенос или режим строится на worker, якорь
+    /// остаётся адресом и смещением. Та же раскладка при другой геометрии ставится сразу.
+    /// Ниже `min_size` раскладка не меняется: заглушка — сцена зон.
+    pub fn resized(&self) {
+        let visible = self.viewport();
+        let geometry_only = {
+            let mut model = self.model.borrow_mut();
+            let Some(diff) = model.diff.clone() else {
+                return;
+            };
+            let Some(body) = diff.diff.file(model.file).and_then(|file| file.text()) else {
+                return;
+            };
+            let Some(target) = Target::of(body, model.font, model.requested, visible) else {
+                return;
+            };
+            let installed = model.installed();
+            if model.pending.or(installed) == Some(target) {
+                return;
+            }
+            match installed {
+                None => None,
+                Some(current)
+                    if current.mode == target.mode && current.metrics == target.metrics =>
+                {
+                    model.geometry = Some(target.geometry);
+                    if model.pending.take().is_some() {
+                        self.heights.cancel();
+                    }
+                    model.relayout.geometry_only += 1;
+                    model.generation += 1;
+                    Some((
+                        model.generation,
+                        model.heights.as_ref().map_or(0, HeightIndex::total),
+                    ))
+                }
+                Some(_) => None,
+            }
+            .ok_or(target)
+        };
+        match geometry_only {
+            Ok((generation, total)) => {
+                self.changed(generation, None);
+                self.reload(total);
+            }
+            Err(target) => self.relayout_to(target),
+        }
+    }
+
+    /// Вид заново с высотой `total` и прокрутка к якорю. Прижатие clip view при более коротком
+    /// документе и сама прокрутка якорь не выводят заново.
+    fn reload(&self, total: u64) {
+        self.reloading.set(true);
+        if let Some(surface) = self.surface() {
+            surface.reload(total as f64);
+        }
+        self.sync_scroll();
+        self.reloading.set(false);
+        self.request_visible();
     }
 
     fn heights_ready(&self, delivery: Delivery<Arc<HeightSnapshot>>) {
@@ -591,22 +742,38 @@ impl Scene {
         let snapshot = delivery.value;
         let (generation, total) = {
             let mut model = self.model.borrow_mut();
+            let Some(target) = model.pending.filter(|target| {
+                target.mode == snapshot.mode && target.metrics == snapshot.metrics
+            }) else {
+                return;
+            };
             let matches = model
                 .diff
                 .as_ref()
                 .is_some_and(|diff| diff.generation == snapshot.diff_generation)
-                && model.file == snapshot.file
-                && model.mode == snapshot.mode
-                && model.metrics == Some(snapshot.metrics);
+                && model.file == snapshot.file;
             if !matches {
                 return;
             }
+            let Some(diff) = model.diff.clone() else {
+                return;
+            };
+            let reinstall = model.heights.is_some();
+            let switched = reinstall && model.mode != target.mode;
+            model.pending = None;
+            model.geometry = Some(target.geometry);
+            model.mode = target.mode;
+            model.metrics = Some(target.metrics);
             model.heights = Some(snapshot.index.clone());
-            if model.state.is_none() {
-                let Some(diff) = model.diff.clone() else {
-                    return;
-                };
-                model.state = Some(ViewState::open(&diff.diff, model.file, model.mode));
+            model.state = Some(match model.state.take() {
+                None => ViewState::open(&diff.diff, model.file, target.mode),
+                Some(state) if state.mode() != target.mode => state.with_mode(target.mode),
+                Some(state) => state,
+            });
+            if reinstall {
+                model.relayout.installed += 1;
+                model.relayout.last_install_ns = Some(now_ns());
+                model.relayout.mode_switches += u64::from(switched);
             }
             model.generation += 1;
             (model.generation, snapshot.index.total())
@@ -621,11 +788,7 @@ impl Scene {
             }
         }
         self.changed(generation, None);
-        if let Some(surface) = self.surface() {
-            surface.reload(total as f64);
-        }
-        self.sync_scroll();
-        self.request_visible();
+        self.reload(total);
     }
 
     fn styles(&self, snapshot: &Snapshot) {
@@ -760,6 +923,9 @@ impl Scene {
 
     /// Прокрутка видом: колесо, полоса прокрутки или свой `scrollToPoint`.
     pub fn scrolled(&self) {
+        if self.reloading.get() {
+            return;
+        }
         let visible = self.viewport();
         {
             let mut model = self.model.borrow_mut();
@@ -910,6 +1076,32 @@ mod tests {
     fn rows_merge_into_ranges() {
         assert_eq!(merge_rows(vec![5, 1, 2, 2, 9, 3]), vec![1..4, 5..6, 9..10]);
         assert!(merge_rows(Vec::new()).is_empty());
+    }
+
+    #[test]
+    fn target_follows_width_not_height() {
+        let diff = diff();
+        let body = diff.file(0).unwrap().text().unwrap();
+        let font = FontMetrics {
+            char_width: 7.0,
+            line_height: 15,
+        };
+        let visible = |width: f64, height: f64| Visible {
+            y: 0.0,
+            width,
+            height,
+        };
+        let wide = Target::of(body, font, Mode::SideBySide, visible(1180.0, 700.0)).unwrap();
+        assert_eq!(wide.mode, Mode::SideBySide);
+        let narrower = Target::of(body, font, Mode::SideBySide, visible(1060.0, 700.0)).unwrap();
+        assert_eq!(narrower.mode, Mode::SideBySide);
+        assert_ne!(narrower.metrics, wide.metrics);
+        // Высота внутри класса раскладку не меняет: индекс не перестраивается.
+        let shorter = Target::of(body, font, Mode::SideBySide, visible(1180.0, 500.0)).unwrap();
+        assert_eq!(shorter, wide);
+        let narrow = Target::of(body, font, Mode::SideBySide, visible(600.0, 700.0)).unwrap();
+        assert_eq!(narrow.mode, Mode::Unified);
+        assert!(Target::of(body, font, Mode::Unified, visible(100.0, 700.0)).is_none());
     }
 
     #[test]
