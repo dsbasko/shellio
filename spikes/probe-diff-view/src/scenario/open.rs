@@ -57,6 +57,23 @@ fn ms(elapsed: Duration) -> f64 {
 }
 
 /// Загрузка на рабочем потоке: генерация или чтение фикстуры и эталон с проверкой отпечатка.
+/// Причина ошибки исполнения от сцены или таблицы B стенда.
+fn stage_failure(stage: &Stage) -> Option<String> {
+    let errors = stage.scene.errors();
+    if !errors.is_empty() {
+        return Some(format!("сцена: {}", errors.join("; ")));
+    }
+    if let View::B(view) = &stage.view {
+        let failures = view.stats().height_failures;
+        if failures > 0 {
+            return Some(format!(
+                "таблица B получила {failures} высот строк при занятой модели"
+            ));
+        }
+    }
+    None
+}
+
 fn load(fixture: OpenFixture, dir: &Path) -> Result<Loaded, String> {
     let started = Instant::now();
     let mut metrics = Vec::new();
@@ -255,19 +272,10 @@ impl Open {
     }
 
     pub fn poll(&self) -> Option<Result<Report, Failed>> {
-        if let Some(stage) = self.stage.borrow().as_ref() {
-            let errors = stage.scene.errors();
-            if !errors.is_empty() {
-                return Some(Err(self.fail(format!("сцена: {}", errors.join("; ")))));
-            }
-            if let View::B(view) = &stage.view {
-                let failures = view.stats().height_failures;
-                if failures > 0 {
-                    return Some(Err(self.fail(format!(
-                        "таблица B получила {failures} высот строк при занятой модели"
-                    ))));
-                }
-            }
+        // Заём `stage` отпускается до `fail`: тот снимает стенд через `borrow_mut`.
+        let failure = self.stage.borrow().as_ref().and_then(stage_failure);
+        if let Some(reason) = failure {
+            return Some(Err(self.fail(reason)));
         }
         let step = std::mem::replace(&mut *self.step.borrow_mut(), Step::Done);
         match self.advance(step) {

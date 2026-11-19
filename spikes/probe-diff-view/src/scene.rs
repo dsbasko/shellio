@@ -1414,7 +1414,9 @@ impl Scene {
         let saved = {
             let mut model = self.model.borrow_mut();
             let saved = model.threads.save_draft(blocks::AUTHOR);
-            if let (Ok(id), Some(state)) = (saved, model.state.take()) {
+            if let Ok(id) = saved
+                && let Some(state) = model.state.take()
+            {
                 model.state = Some(if state.is_expanded(id) {
                     state
                 } else {
@@ -1709,6 +1711,7 @@ impl Drop for Scene {
 mod tests {
     use std::sync::Arc;
 
+    use probe_diff_view::fixtures::FixtureName;
     use probe_diff_view::highlight::Sides;
     use probe_diff_view::model::parse;
     use probe_diff_view::worker::Cancel;
@@ -1784,6 +1787,35 @@ mod tests {
         let rows = changed_rows(body, Mode::SideBySide, &changed);
         // «Рядом»: a, b|c, d, e|f — строки 1, 2 и 3.
         assert_eq!(rows, vec![1..4]);
+    }
+
+    #[test]
+    fn refused_save_keeps_view_state() {
+        let fixture = probe_diff_view::fixtures::generate(FixtureName::Modified);
+        let font = FontMetrics {
+            char_width: 7.0,
+            line_height: 15,
+        };
+        let scene = Scene::new(fixture, Mode::Unified, font).unwrap();
+        let state = ViewState::open(&diff(), 0, Mode::Unified);
+        scene.model.borrow_mut().state = Some(state.clone());
+
+        scene.save_draft();
+        assert_eq!(scene.model.borrow().state.as_ref(), Some(&state));
+
+        let anchor = ThreadAnchor::at(
+            "f.rs",
+            LineAddr {
+                side: Side::New,
+                line: 2,
+            },
+        );
+        scene.model.borrow_mut().threads.open_draft(anchor).unwrap();
+        scene.draft_text(" \n".to_owned());
+        scene.save_draft();
+        assert_eq!(scene.model.borrow().state.as_ref(), Some(&state));
+        assert_eq!(scene.draft_stats().refused_empty, 1);
+        assert!(scene.draft().is_some());
     }
 
     #[test]
