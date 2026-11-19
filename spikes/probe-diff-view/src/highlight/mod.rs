@@ -304,11 +304,6 @@ impl LineIndex {
         self.starts.len() as u32
     }
 
-    /// Ёмкость буфера начал строк в байтах: для оценки памяти данных модели.
-    pub fn capacity_bytes(&self) -> usize {
-        self.starts.capacity() * std::mem::size_of::<u32>()
-    }
-
     fn start(&self, line: u32) -> Option<usize> {
         self.starts
             .get(line.checked_sub(1)? as usize)
@@ -417,10 +412,6 @@ impl SideStyles {
 
     pub fn line_count(&self) -> usize {
         self.lines.len()
-    }
-
-    pub fn run_count(&self) -> usize {
-        self.runs.len()
     }
 }
 

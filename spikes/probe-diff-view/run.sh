@@ -10,9 +10,10 @@
 # VARIANTS (по умолчанию «a b») и MODES («unified side») сужают оси сценариев вида, FIXTURES
 # («added modified sparse wrap real threads») — ось фикстур: у open и open-warm «added modified
 # sparse wrap real», у frames «added modified threads wrap» (wrap только в side), у anchor
-# «threads wrap», у pairs «modified wrap». Сценарий берёт
-# пересечение FIXTURES со своим списком, пустое пересечение — отказ. FRAMES_PATH (none,
-# xctrace, screencapturekit; по умолчанию none) — путь замера кадров frames.
+# «threads wrap», у pairs «modified wrap». Сценарий берёт пересечение FIXTURES со своим списком,
+# пустое пересечение или ни одной пары фикстуры и режима — отказ до сборки. FRAMES_PATH (none,
+# xctrace, screencapturekit; по умолчанию none) — путь замера кадров frames, работает только none:
+# остальные дают ошибку исполнения до окна.
 # Перед сценариями открытия с фикстурой real run.sh готовит её через git без сети в
 # target/probes/diff-view/fixtures/real/ (status.txt, diff.patch, manifest.tsv, blobs/) и пишет
 # время чтения из git. Без закреплённых коммитов фикстура получает status=not_run с причиной.
@@ -148,6 +149,17 @@ fixtures_of() {
 # Пара фикстуры и режима не идёт процессом сценария, как Scenario::accepts в args.rs.
 skip_cell() {
     [ "$1" = frames ] && [ "$2" = wrap ] && [ "$3" = unified ]
+}
+
+# Отказ, если skip_cell отбрасывает все пары фикстуры и режима сценария.
+open_cells_exist() {
+    local scenario="$1" fixtures="$2" modes="$3" fixture mode
+    for fixture in $fixtures; do
+        for mode in $modes; do
+            skip_cell "$scenario" "$fixture" "$mode" || return 0
+        done
+    done
+    die "у сценария $scenario нет процессов: фикстуры «${fixtures}» не идут в режимах «${modes}»"
 }
 
 # Фикстуры из FIXTURES, которые принимает сценарий, в порядке FIXTURES.
@@ -296,7 +308,7 @@ cmd_scenarios() {
     local scenario axes variant mode fixture index name out code total=0 failed=0 aggregate=0 run_dir
     for scenario in $scenarios; do
         if [ "$(axes_of "$scenario")" = open ]; then
-            scenario_fixtures "$scenario" "$fixtures" >/dev/null
+            open_cells_exist "$scenario" "$(scenario_fixtures "$scenario" "$fixtures")" "$modes"
         fi
     done
     build

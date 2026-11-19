@@ -1602,4 +1602,125 @@ mod tests {
             "сценарий smoke идёт без --mode"
         );
     }
+
+    const RUN_SH: &str = include_str!("../run.sh");
+
+    /// Значение `NAME="…"` или `NAME=…` в начале строки `run.sh`.
+    fn shell_value(name: &str) -> Vec<&'static str> {
+        let prefix = format!("{name}=");
+        let line = RUN_SH
+            .lines()
+            .find_map(|line| line.strip_prefix(prefix.as_str()))
+            .unwrap_or_else(|| panic!("в run.sh нет {name}"));
+        line.trim_matches('"').split_whitespace().collect()
+    }
+
+    /// Тело функции `run.sh` между `name() {` и закрывающей `}`.
+    fn shell_body(name: &str) -> Vec<&'static str> {
+        let header = format!("{name}() {{");
+        let mut lines = RUN_SH.lines().skip_while(|line| *line != header);
+        assert!(lines.next().is_some(), "в run.sh нет функции {name}");
+        lines.take_while(|line| *line != "}").collect()
+    }
+
+    /// Ветки `case` функции: образцы и действие, кроме `*)`.
+    fn shell_case(name: &str) -> Vec<(Vec<&'static str>, &'static str)> {
+        shell_body(name)
+            .into_iter()
+            .filter_map(|line| {
+                let (patterns, action) = line.trim().split_once(") ")?;
+                (!patterns.starts_with("case") && patterns != "*").then(|| {
+                    let patterns = patterns.split('|').map(str::trim).collect();
+                    (patterns, action.trim_end_matches(";;").trim())
+                })
+            })
+            .collect()
+    }
+
+    fn shell_branch(name: &str, scenario: Scenario) -> Option<&'static str> {
+        shell_case(name)
+            .into_iter()
+            .find(|(patterns, _)| patterns.contains(&scenario.name()))
+            .map(|(_, action)| action)
+    }
+
+    #[test]
+    fn run_sh_tables_repeat_the_scenario_tables() {
+        let names = |all: &[&'static str]| all.to_vec();
+        assert_eq!(
+            shell_value("ALL_SCENARIOS"),
+            names(&Scenario::ALL.map(Scenario::name))
+        );
+        assert_eq!(
+            shell_value("ALL_VARIANTS"),
+            names(&Variant::ALL.map(Variant::name))
+        );
+        assert_eq!(
+            shell_value("ALL_MODES"),
+            names(&ViewMode::ALL.map(ViewMode::name))
+        );
+        assert_eq!(
+            shell_value("ALL_FIXTURES"),
+            names(&OpenFixture::ALL.map(OpenFixture::name))
+        );
+        assert_eq!(
+            shell_value("ALL_FRAMES_PATHS"),
+            names(&FramesPath::ALL.map(FramesPath::name))
+        );
+        assert_eq!(
+            shell_value("OPEN_RUNS"),
+            [probe_diff_view::open::RUNS.to_string().as_str()]
+        );
+
+        for scenario in Scenario::ALL {
+            let axes = match shell_branch("axes_of", scenario) {
+                Some("echo stand") => Axes::STAND,
+                Some("echo view") => Axes::VIEW,
+                Some("echo open") => Axes::OPEN,
+                Some("echo variant") => Axes::VARIANT,
+                other => panic!("axes_of {}: {other:?}", scenario.name()),
+            };
+            assert_eq!(axes, scenario.axes(), "axes_of {}", scenario.name());
+
+            let fixtures: Vec<&str> = shell_branch("fixtures_of", scenario)
+                .map(|action| action.trim_start_matches("echo ").trim_matches('"'))
+                .map_or_else(Vec::new, |list| list.split_whitespace().collect());
+            let expected: Vec<&str> = scenario.fixtures().iter().map(|f| f.name()).collect();
+            assert_eq!(fixtures, expected, "fixtures_of {}", scenario.name());
+
+            let needs = match shell_branch("needs_fixtures", scenario) {
+                Some("return 0") => true,
+                None => false,
+                other => panic!("needs_fixtures {}: {other:?}", scenario.name()),
+            };
+            assert_eq!(
+                needs,
+                scenario.needs_fixtures(),
+                "needs_fixtures {}",
+                scenario.name()
+            );
+        }
+
+        assert_eq!(
+            shell_body("skip_cell"),
+            [r#"    [ "$1" = frames ] && [ "$2" = wrap ] && [ "$3" = unified ]"#]
+        );
+        for scenario in Scenario::ALL {
+            for &fixture in scenario.fixtures() {
+                for mode in ViewMode::ALL {
+                    let skipped = scenario == Scenario::Frames
+                        && fixture == OpenFixture::Wrap
+                        && mode == ViewMode::Unified;
+                    assert_eq!(
+                        scenario.accepts(fixture, mode),
+                        !skipped,
+                        "{} {} {}",
+                        scenario.name(),
+                        fixture.name(),
+                        mode.name()
+                    );
+                }
+            }
+        }
+    }
 }

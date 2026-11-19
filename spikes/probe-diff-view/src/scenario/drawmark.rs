@@ -109,10 +109,6 @@ impl Waiter {
         self.pending = Some((change, Coverage::default(), 0));
     }
 
-    pub fn is_waiting(&self) -> bool {
-        self.pending.is_some()
-    }
-
     /// Учитывает отметку. Возвращает итог, если она закрыла покрытие.
     pub fn observe(&mut self, mark: &Mark) -> Option<Covered> {
         let (change, coverage, marks) = self.pending.as_mut()?;
@@ -543,7 +539,6 @@ mod tests {
         assert_eq!(covered.marks, 2);
         assert_eq!(covered.latency_ns(), 60);
         assert_eq!(covered.order_violation(), None);
-        assert!(!waiter.is_waiting());
         assert_eq!(waiter.observe(&mark(2, 0..40, 170, 180)), None);
     }
 

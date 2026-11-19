@@ -1092,7 +1092,7 @@ mod tests {
 
     #[test]
     fn structural_errors_have_lines() {
-        let cases: [(&str, usize, ParseErrorKind); 7] = [
+        let cases: [(&str, usize, ParseErrorKind); 11] = [
             ("garbage\n", 1, ParseErrorKind::ExpectedFileHeader),
             (
                 "diff --git a/f b/f\n--- a/f\n@@ -1 +1 @@\n",
@@ -1123,6 +1123,22 @@ mod tests {
                 "diff --git a/f b/f\n--- a/f\n+++ b/f\n@@ -5 +5 @@\n a\n@@ -3 +3 @@\n b\n",
                 6,
                 ParseErrorKind::HunkOutOfOrder,
+            ),
+            ("diff --git a/x y b/x z\n", 2, ParseErrorKind::MissingPath),
+            (
+                "diff --git a/f b/f\nsimilarity index 101%\n",
+                2,
+                ParseErrorKind::BadSimilarity,
+            ),
+            (
+                "diff --git a/f b/f\nindex abc\n",
+                2,
+                ParseErrorKind::UnknownHeader,
+            ),
+            (
+                "diff --git a/f b/f\nindex abc..def 10x644\n",
+                2,
+                ParseErrorKind::BadMode,
             ),
         ];
         for (text, line, kind) in cases {

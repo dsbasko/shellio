@@ -447,6 +447,7 @@ mod tests {
         use probe_diff_view::model::parse;
         use probe_diff_view::worker::Cancel;
         let fixtures = [
+            generate(FixtureName::Modified),
             generate(FixtureName::Threads),
             generate(FixtureName::Wrap),
             super::super::pairs::pair31(),

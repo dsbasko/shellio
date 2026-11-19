@@ -1,9 +1,6 @@
 //! Сценарии стенда пробы. `highlight` идёт без окна и без `NSApplication`. Стенд с окном, событиями
 //! и отметкой отрисовки — задача 6 плана, сценарии вида — с задачи 7.
 
-// Часть стенда задачи 6 нужна сценариям задач 7–16: ожидание покрытия, синтетические клавиши и
-// мышь, снимки окна, CPU простоя, наблюдение показов поверхностей. Разрешение снимается, когда их
-// подключат.
 pub mod accept_run;
 pub mod anchor;
 pub mod anchor_run;
@@ -16,13 +13,9 @@ pub mod calibrate_run;
 pub mod capture;
 pub mod contract;
 pub mod contract_run;
-#[allow(dead_code, unused_macros, unused_imports)]
 pub mod counters;
-#[allow(dead_code)]
 pub mod drawmark;
-#[allow(dead_code)]
 pub mod events;
-#[allow(dead_code)]
 pub mod frames;
 pub mod frames_run;
 pub mod highlight;
@@ -39,13 +32,11 @@ pub mod open_smoke;
 pub mod pairs;
 pub mod pairs_run;
 pub mod render;
-#[allow(dead_code)]
 pub mod sampler;
 pub mod scroll;
 pub mod selection;
 pub mod selection_run;
 pub mod smoke;
-#[allow(dead_code)]
 pub mod snapshot;
 pub mod stage;
 pub mod stand;
@@ -53,7 +44,6 @@ pub mod theme;
 pub mod theme_run;
 pub mod threads;
 pub mod threads_run;
-#[allow(dead_code)]
 pub mod watchdog;
 pub mod zones;
 pub mod zones_run;
@@ -73,8 +63,8 @@ pub fn take_pause() -> Option<std::time::Duration> {
     PAUSE.with(std::cell::Cell::take)
 }
 
-/// Код выхода ошибки исполнения, тот же, что у `main`.
-#[allow(dead_code)]
+/// Код выхода при ошибке исполнения: стенд не дошёл до конца, предусловие не выполнено,
+/// тайм-аут. Отрицательный вывод гипотезы ошибкой исполнения не считается.
 pub const EXIT_EXECUTION: u8 = 3;
 
 /// Идущий сценарий с окном: таймер стенда опрашивает его до итога.

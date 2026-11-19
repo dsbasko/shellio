@@ -498,6 +498,13 @@ pub struct SummaryFile {
     pub errors: Vec<String>,
 }
 
+impl SummaryFile {
+    /// Ошибка исполнения хотя бы одного процесса или самого агрегирования; выводы не в счёт.
+    pub fn has_execution_errors(&self) -> bool {
+        self.totals.execution_errors > 0 || !self.errors.is_empty()
+    }
+}
+
 pub const OPEN_SCENARIO: &str = "open";
 pub const OPEN_WARM_SCENARIO: &str = "open-warm";
 /// Вывод процесса `open` без фикстуры: `not_run` с причиной из `run.sh`.
@@ -1643,6 +1650,8 @@ mod tests {
             summary.errors,
             ["группа open-modified-b-side: нет процессов [11] из 1–11"]
         );
+        assert_eq!(summary.totals.execution_errors, 0);
+        assert!(summary.has_execution_errors());
 
         let wrap = group("open-wrap-a-unified");
         assert_eq!(wrap.verdict, None);
@@ -1702,6 +1711,24 @@ mod tests {
     }
 
     #[test]
+    fn open_budget_includes_its_limit() {
+        let run = temp_dir("open-limit");
+        open_group_dirs(
+            &run,
+            OpenFixture::Added,
+            Variant::A,
+            ViewMode::Unified,
+            1..=11,
+            |_| (Some(open::BUDGET_MS), open::EndMark::Correction),
+        );
+        let summary = aggregate(&run).unwrap();
+        let [group] = summary.open.as_slice() else {
+            panic!("групп {} вместо 1", summary.open.len());
+        };
+        assert_eq!(group.verdict, Some(Verdict::Pass), "{}", group.reason);
+    }
+
+    #[test]
     fn open_group_rejects_repeated_and_foreign_runs() {
         let process = |run: Option<u32>, opens: usize| ProcessSummary {
             dir: format!("open-added-a-unified-{run:?}"),
@@ -1730,6 +1757,45 @@ mod tests {
         members[3] = process(Some(4), 1);
         members[3].execution = Execution::error("сторож".to_owned());
         assert!(split(&members).unwrap_err().contains("ошибкой исполнения"));
+
+        let warm = |opens: usize| ProcessSummary {
+            dir: "open-warm-added-a-unified".to_owned(),
+            scenario: OPEN_WARM_SCENARIO.to_owned(),
+            run: None,
+            ..process(None, opens)
+        };
+        let warm_split = |members: &[ProcessSummary]| {
+            let members: Vec<&ProcessSummary> = members.iter().collect();
+            open_split(OPEN_WARM_SCENARIO, &members).map(|(_, warm)| warm.len())
+        };
+        let opens = open::WARM_OPENS;
+        assert_eq!(warm_split(&[warm(opens)]), Ok(opens - 1));
+        let two = warm_split(&[warm(opens), warm(opens)]).unwrap_err();
+        assert!(two.contains("процессов 2 вместо 1"), "{two}");
+        for wrong in [opens - 1, opens + 1] {
+            let reason = warm_split(&[warm(wrong)]).unwrap_err();
+            assert!(
+                reason.contains(&format!("открытий {wrong} вместо {opens}")),
+                "{reason}"
+            );
+        }
+    }
+
+    #[test]
+    fn only_execution_errors_mark_the_run() {
+        let run = temp_dir("verdicts");
+        for (name, sample) in [("smoke", ok_sample()), ("open-b-side", not_run_sample())] {
+            let dir = run.join(name);
+            fs::create_dir_all(&dir).unwrap();
+            write_result(&dir, &sample).unwrap();
+        }
+        let summary = aggregate(&run).unwrap();
+        assert!(!summary.has_execution_errors(), "{summary:?}");
+
+        let failed = run.join("smoke-02");
+        fs::create_dir_all(&failed).unwrap();
+        write_result(&failed, &error_sample()).unwrap();
+        assert!(aggregate(&run).unwrap().has_execution_errors());
     }
 
     #[test]

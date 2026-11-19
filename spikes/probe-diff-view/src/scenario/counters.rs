@@ -88,27 +88,6 @@ impl Count {
     }
 }
 
-static LATE: Mutex<Vec<(&'static str, usize)>> = Mutex::new(Vec::new());
-
-/// Владелец обратного вызова в месте `site`; `None` отмечается как поздний вызов.
-pub fn owner<T>(site: &'static str, owner: Option<T>) -> Option<T> {
-    if owner.is_none() {
-        let mut late = LATE.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        match late.iter_mut().find(|(known, _)| *known == site) {
-            Some((_, count)) => *count += 1,
-            None => late.push((site, 1)),
-        }
-    }
-    owner
-}
-
-/// Поздние обратные вызовы по местам.
-pub fn late_calls() -> Vec<(&'static str, usize)> {
-    LATE.lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .clone()
-}
-
 /// Классы, у которых число живых экземпляров в `actual` отличается от `expected`: имя, живых
 /// в `expected` и в `actual`. Класса, которого нет в снимке, в нём ноль живых.
 pub fn live_changes(expected: &[Count], actual: &[Count]) -> Vec<(&'static str, usize, usize)> {
@@ -207,19 +186,6 @@ mod tests {
         let leaked = [count("Scene", 2, 1), count("Stand", 1, 0)];
         assert_eq!(live_changes(&baseline, &leaked), vec![("Scene", 0, 1)]);
         assert_eq!(live_changes(&leaked, &baseline), vec![("Scene", 1, 0)]);
-    }
-
-    #[test]
-    fn owner_counts_only_missing_owners() {
-        assert_eq!(owner("test.alive", Some(1)), Some(1));
-        assert_eq!(owner::<u8>("test.gone", None), None);
-        assert_eq!(owner::<u8>("test.gone", None), None);
-        let late = late_calls();
-        assert!(late.contains(&("test.gone", 2)), "{late:?}");
-        assert!(
-            !late.iter().any(|(site, _)| *site == "test.alive"),
-            "{late:?}"
-        );
     }
 
     #[test]

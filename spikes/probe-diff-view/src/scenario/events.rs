@@ -268,19 +268,6 @@ impl<T> Table<T> {
         }
     }
 
-    pub fn held_count(&self) -> usize {
-        self.held.len()
-    }
-
-    /// События, чей `sendEvent` начался и ещё не вернулся.
-    pub fn open(&self) -> Vec<u64> {
-        self.records
-            .iter()
-            .filter(|record| record.dispatch_start.is_some() && record.send_return.is_none())
-            .map(|record| record.number)
-            .collect()
-    }
-
     pub fn record(&self, number: u64) -> Option<&Record> {
         self.records.iter().find(|record| record.number == number)
     }
@@ -576,7 +563,6 @@ pub struct Bench {
     last_timestamp: Option<f64>,
     external: Option<String>,
     service_traced: usize,
-    internal: Vec<String>,
     gestures: Vec<OpenGesture>,
     /// Вид, которому стенд сам передаёт своё событие колеса без окна.
     wheel_target: Option<Retained<NSView>>,
@@ -599,7 +585,6 @@ pub fn install(app: Retained<NSApplication>, trace: SharedTrace) {
         last_timestamp: None,
         external: None,
         service_traced: 0,
-        internal: Vec::new(),
         gestures: Vec::new(),
         wheel_target: None,
         wheel_routes: (0, 0),
@@ -657,7 +642,6 @@ fn admit(event: &NSEvent) -> Admit {
                 &bench.trace,
                 format!("{} внутреннее событие AppKit {description}", ms(at)),
             );
-            bench.internal.push(format!("{} {description}", ms(at)));
             return Admit::Pass;
         }
         push_trace(
@@ -684,11 +668,6 @@ pub fn external_input() -> Option<String> {
     with_bench(|bench| bench.external.clone()).flatten()
 }
 
-/// Служебные события AppKit, созданные самим процессом и пропущенные без отметок.
-pub fn internal_events() -> Vec<String> {
-    with_bench(|bench| bench.internal.clone()).unwrap_or_default()
-}
-
 /// Строка следа в кольцо сторожа с отметкой времени стенда.
 pub fn note(line: impl AsRef<str>) {
     with_bench(|bench| {
@@ -706,11 +685,6 @@ pub fn record(number: u64) -> Option<Record> {
 pub fn export() -> Vec<EventRecord> {
     with_bench(|bench| bench.table.records().iter().map(Record::export).collect())
         .unwrap_or_default()
-}
-
-/// События, чей `sendEvent` начался и ещё не вернулся: открытый цикл отслеживания.
-pub fn open_dispatch() -> Vec<u64> {
-    with_bench(|bench| bench.table.open()).unwrap_or_default()
 }
 
 /// Отпускает удерживаемые события перед подсчётом живых объектов.
@@ -1220,15 +1194,6 @@ fn corners(area: NSRect) -> [NSPoint; 4] {
     ]
 }
 
-/// Курсор вне всех видимых окон пробы.
-pub fn cursor_outside(app: &NSApplication) -> bool {
-    let cursor = NSEvent::mouseLocation();
-    !app.windows()
-        .iter()
-        .filter(|window| window.isVisible())
-        .any(|window| contains(window.frame(), cursor))
-}
-
 /// Объект Objective-C, совпадающий с `expected`.
 pub fn same<T: ?Sized, U: ?Sized>(object: &T, expected: &U) -> bool {
     std::ptr::addr_eq(object, expected)
@@ -1371,13 +1336,9 @@ mod tests {
             None,
             "начавшее dispatch не узнаётся повторно"
         );
-        assert_eq!(table.open(), vec![a]);
         table.mark_return(a, Duration::from_millis(4));
-        assert!(table.open().is_empty());
-        assert_eq!(table.held_count(), 1);
 
         table.clear();
-        assert_eq!(table.held_count(), 0);
         assert_eq!(table.record(b).map(|r| r.undispatched), Some(true));
         assert_eq!(table.records().len(), 2);
         let exported = table.record(a).map(Record::export);

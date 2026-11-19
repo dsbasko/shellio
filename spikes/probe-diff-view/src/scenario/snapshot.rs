@@ -21,15 +21,12 @@ use crate::results::Rect;
 
 pub const NO_PERMISSION: &str = "нет разрешения Screen Recording";
 const SCREENCAPTURE: &str = "/usr/sbin/screencapture";
-/// Запас вокруг окна у снимка окрестности: тень и соседние окна у края.
-pub const SURROUNDING_MARGIN: f64 = 40.0;
 
 type Slot<T> = Arc<Mutex<Option<Result<T, String>>>>;
 
 /// Работа в рабочем потоке; итог забирает главный поток, не блокируясь.
 pub struct Background<T> {
     slot: Slot<T>,
-    thread: Option<thread::JoinHandle<()>>,
 }
 
 impl<T: Send + 'static> Background<T> {
@@ -44,21 +41,16 @@ impl<T: Send + 'static> Background<T> {
                     .lock()
                     .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(result);
             });
-        let thread = match spawned {
-            Ok(thread) => Some(thread),
-            Err(err) => {
-                *slot.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) =
-                    Some(Err(format!("рабочий поток не запущен: {err}")));
-                None
-            }
-        };
-        Background { slot, thread }
+        if let Err(err) = spawned {
+            *slot.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) =
+                Some(Err(format!("рабочий поток не запущен: {err}")));
+        }
+        Background { slot }
     }
 
     pub fn ready(value: T) -> Self {
         Background {
             slot: Arc::new(Mutex::new(Some(Ok(value)))),
-            thread: None,
         }
     }
 
@@ -69,16 +61,6 @@ impl<T: Send + 'static> Background<T> {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .take()
     }
-
-    /// Ждёт конца рабочего потока. Только вне главного потока, например в тестах и `--aggregate`.
-    pub fn join(mut self) -> Option<Result<T, String>> {
-        if let Some(thread) = self.thread.take()
-            && thread.join().is_err()
-        {
-            return Some(Err("рабочий поток снимка упал".to_owned()));
-        }
-        self.try_take()
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -86,8 +68,6 @@ impl<T: Send + 'static> Background<T> {
 pub enum SnapshotKind {
     /// Окно с тенью: `screencapture -l <номер окна>`.
     Window,
-    /// Прямоугольник экрана вокруг окна: `screencapture -R`.
-    Surrounding,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -147,38 +127,6 @@ pub fn capture_window(window: &NSWindow, out: &Path, name: &str) -> Background<S
     run_capture(name, SnapshotKind::Window, frame, args, out)
 }
 
-/// Снимок прямоугольника экрана вокруг окна с запасом `SURROUNDING_MARGIN`.
-pub fn capture_surrounding(
-    window: &NSWindow,
-    primary_height: f64,
-    out: &Path,
-    name: &str,
-) -> Background<Snapshot> {
-    let area = super::events::inset(window.frame(), -SURROUNDING_MARGIN);
-    if !screen_capture_allowed() {
-        return Background::ready(not_run(name, SnapshotKind::Surrounding, area));
-    }
-    let args = vec![
-        "-x".to_owned(),
-        "-R".to_owned(),
-        capture_region(area, primary_height),
-    ];
-    run_capture(name, SnapshotKind::Surrounding, area, args, out)
-}
-
-/// Аргумент `-R` для прямоугольника в координатах AppKit. Координаты `screencapture` — от
-/// верхнего левого угла главного экрана.
-pub fn capture_region(area: NSRect, primary_height: f64) -> String {
-    let top = primary_height - (area.origin.y + area.size.height);
-    format!(
-        "{},{},{},{}",
-        area.origin.x.round(),
-        top.round(),
-        area.size.width.round(),
-        area.size.height.round()
-    )
-}
-
 fn run_capture(
     name: &str,
     kind: SnapshotKind,
@@ -232,7 +180,6 @@ fn capture_with(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use objc2_foundation::{NSPoint, NSSize};
 
     fn blank(name: &str) -> Snapshot {
         Snapshot {
@@ -260,21 +207,28 @@ mod tests {
         dir
     }
 
-    #[test]
-    fn capture_region_uses_top_left_origin() {
-        let area = NSRect::new(NSPoint::new(100.4, 50.0), NSSize::new(300.0, 200.6));
-        assert_eq!(capture_region(area, 982.0), "100,731,300,201");
+    /// Итог рабочего потока: опрос без сна, как у таймера главного потока.
+    fn finished<T: Send + 'static>(job: &Background<T>) -> Result<T, String> {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        loop {
+            if let Some(result) = job.try_take() {
+                return result;
+            }
+            assert!(std::time::Instant::now() < deadline, "итога нет за 10 с");
+            thread::yield_now();
+        }
     }
 
     #[test]
     fn background_delivers_result_once() {
         let job = Background::spawn("test", || Ok(7));
-        assert_eq!(job.join(), Some(Ok(7)));
+        assert_eq!(finished(&job), Ok(7));
+        assert_eq!(job.try_take(), None);
         let ready = Background::ready("x");
         assert_eq!(ready.try_take(), Some(Ok("x")));
         assert_eq!(ready.try_take(), None);
         let failed: Background<()> = Background::spawn("test", || Err("нет".to_owned()));
-        assert_eq!(failed.join(), Some(Err("нет".to_owned())));
+        assert_eq!(finished(&failed), Err("нет".to_owned()));
     }
 
     #[test]

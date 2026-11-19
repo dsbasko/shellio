@@ -308,6 +308,8 @@ impl Clock {
     }
 
     /// Время трассы, наносекунды от начала, во время `CLOCK_UPTIME_RAW`.
+    // Показы по трассе нужны откалиброванному пути; при пути `none` процесс их не читает.
+    #[allow(dead_code)]
     pub fn uptime_ns(&self, trace_ns: u64) -> u64 {
         self.epoch_ns() + trace_ns
     }
@@ -345,6 +347,8 @@ pub fn vsyncs(table: &Table) -> Result<Vec<Vsync>, String> {
 }
 
 /// Показ поверхности на дисплее.
+// Показы по трассе нужны откалиброванному пути; при пути `none` процесс их не читает.
+#[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Surface {
     pub swap_ns: u64,
@@ -357,6 +361,7 @@ pub struct Surface {
 }
 
 /// Источник кадра из подписи показа: `Surface 21 (<процесс> (<pid>):Frame <n>:Surface <m>)`.
+#[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Source {
     pub process: String,
@@ -365,6 +370,7 @@ pub struct Source {
     pub surface: u64,
 }
 
+#[allow(dead_code)]
 impl Surface {
     /// Процесс, кадр и поверхность источника, если подпись их называет. Подпись без источника —
     /// поверхность самого дисплея.
@@ -383,6 +389,7 @@ impl Surface {
     }
 }
 
+#[allow(dead_code)]
 pub fn surfaces(table: &Table) -> Result<Vec<Surface>, String> {
     let swap = table.column("start")?;
     let duration = table.column("duration")?;

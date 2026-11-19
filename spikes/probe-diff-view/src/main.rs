@@ -49,12 +49,10 @@ use results::{
     Build, DisplayInfo, Environment, Execution, Hardware, Rect, Report, ResultFile, Size, Verdict,
     WindowInfo,
 };
+use scenario::EXIT_EXECUTION;
 
 const PROBE_NAME: &str = "probe-diff-view";
 const EXIT_USAGE: u8 = 2;
-/// Код выхода при ошибке исполнения: стенд не дошёл до конца, предусловие не выполнено,
-/// тайм-аут. Отрицательный вывод гипотезы ошибкой исполнения не считается.
-const EXIT_EXECUTION: u8 = 3;
 const WINDOW_SIZE: NSSize = NSSize::new(1180.0, 720.0);
 /// Менеджер окон, при котором окно стенда не держит запрошенную рамку.
 const AEROSPACE_BUNDLE_ID: &str = "bobko.aerospace";
@@ -173,7 +171,7 @@ fn aggregate(run_dir: &Path) -> ExitCode {
     let mut stdout = io::stdout().lock();
     let _ = write!(stdout, "{}", results::render_summary(&summary));
     let _ = writeln!(stdout, "сводка: {}", path.display());
-    if summary.totals.execution_errors > 0 {
+    if summary.has_execution_errors() {
         ExitCode::from(EXIT_EXECUTION)
     } else {
         ExitCode::SUCCESS
@@ -1407,6 +1405,10 @@ mod tests {
             "execution=ok\nfinding=pass window_ready: готово\n"
         );
         assert_eq!(ok.exit_code(), ExitCode::SUCCESS);
+        let mut negative = Report::default();
+        negative.finding("open_budget", Verdict::Fail, "превышен");
+        negative.finding("frames_s1", Verdict::NotRun, "не откалиброван");
+        assert_eq!(Outcome::ok(negative).exit_code(), ExitCode::SUCCESS);
         let error = Outcome::error(
             "тайм-аут",
             Some("isActive=false".to_owned()),

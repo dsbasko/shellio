@@ -269,6 +269,34 @@ mod tests {
     }
 
     #[test]
+    fn result_finished_after_cancel_is_not_delivered() {
+        let (started_tx, started_rx) = mpsc::channel::<()>();
+        let (gate_tx, gate_rx) = mpsc::channel::<()>();
+        let (delivered_tx, delivered_rx) = mpsc::channel::<Delivery<u32>>();
+        let worker = Worker::spawn(
+            "test-worker",
+            move |input: u32, _: &Cancel| {
+                if input == 0 {
+                    let _ = started_tx.send(());
+                    let _ = gate_rx.recv();
+                }
+                Some(input)
+            },
+            move |delivery| {
+                let _ = delivered_tx.send(delivery);
+            },
+        )
+        .unwrap();
+        worker.submit(0).unwrap();
+        recv(&started_rx);
+        worker.cancel();
+        gate_tx.send(()).unwrap();
+        let control = worker.submit(1).unwrap();
+        let delivery = recv(&delivered_rx);
+        assert_eq!((delivery.generation, delivery.value), (control, 1));
+    }
+
+    #[test]
     fn cancel_without_new_job_stops_current() {
         let worker = Worker::spawn("test-worker", |_: (), _: &Cancel| Some(()), |_| {}).unwrap();
         let generation = worker.submit(()).unwrap();

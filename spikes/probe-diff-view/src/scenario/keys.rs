@@ -253,6 +253,11 @@ mod tests {
             .map(|&key| summarize(key, &presses(key, &[6.0; WARMUP + MEASURED])).unwrap())
             .collect();
         assert_eq!(judge(&ok, true).0, Verdict::Pass);
+        let at_budget: Vec<KeySummary> = KeyName::ALL
+            .iter()
+            .map(|&key| summarize(key, &presses(key, &[BUDGET_MS; WARMUP + MEASURED])).unwrap())
+            .collect();
+        assert_eq!(judge(&at_budget, true).0, Verdict::Pass);
         let (verdict, reason) = judge(&ok, false);
         assert_eq!(verdict, Verdict::NotRun);
         assert!(reason.contains("120 Гц не подтверждены"), "{reason}");
