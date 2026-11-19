@@ -139,10 +139,12 @@ impl Wait {
 }
 
 /// Пересборка стенда: прежняя сцена и вид снимаются, новые открывают `fixture`. `quiet` —
-/// наблюдения подготовки не идут в итог (100 циклов `bounded`).
+/// наблюдения подготовки не идут в итог (100 циклов `bounded`). `cycle` — цикл `bounded`:
+/// пересборка, готовность и открытие укладываются в [`CYCLE_DEADLINE`].
 pub struct Restage {
     pub fixture: Fixture,
     pub quiet: bool,
+    pub cycle: bool,
 }
 
 pub enum Next {
@@ -160,7 +162,6 @@ pub struct Ctx<'a> {
     pub fixture: &'a Fixture,
     /// Запрошенный режим ячейки.
     pub mode: Mode,
-    pub variant: Variant,
 }
 
 impl Ctx<'_> {
@@ -188,12 +189,6 @@ impl Ctx<'_> {
     pub fn text_height(&self, row: u32) -> Option<u32> {
         let model = self.stage.scene.model().borrow();
         model.shown()?.heights.text_height(row)
-    }
-
-    /// Строк показа в установленном индексе.
-    pub fn rows(&self) -> u32 {
-        let model = self.stage.scene.model().borrow();
-        model.shown().map_or(0, |shown| shown.heights.len())
     }
 
     pub fn line_height(&self) -> u32 {
@@ -328,6 +323,8 @@ pub struct ContractRun {
     report: RefCell<Option<Report>>,
     opens: Cell<u64>,
     closed: Cell<bool>,
+    /// Конец срока идущего цикла `bounded`.
+    cycle_end: Cell<Option<Instant>>,
 }
 
 fn now_ns() -> u64 {
@@ -346,7 +343,8 @@ fn script_of(part: Part, fixture: OpenFixture, mode: Mode) -> Result<Box<dyn Scr
         Part::Anchor => Ok(Box::new(super::anchor_run::AnchorScript::new(fixture)?)),
         Part::Selection => Ok(Box::new(super::selection_run::SelectionScript::new(mode))),
         Part::Threads => Ok(Box::new(super::threads_run::ThreadsScript::default())),
-        Part::Pairs | Part::Bounded => Err(format!("сценарий {} ещё не реализован", part.name())),
+        Part::Pairs => Ok(Box::new(super::pairs_run::PairsScript::new(fixture, mode)?)),
+        Part::Bounded => Ok(Box::new(super::bounded_run::BoundedScript::new())),
     }
 }
 
@@ -420,7 +418,24 @@ impl ContractRun {
             report: RefCell::new(Some(report)),
             opens: Cell::new(0),
             closed: Cell::new(false),
+            cycle_end: Cell::new(None),
         })
+    }
+
+    /// Срок шага, не дальше конца идущего цикла `bounded`.
+    fn capped(&self, deadline: Instant) -> Instant {
+        self.cycle_end
+            .get()
+            .map_or(deadline, |end| end.min(deadline))
+    }
+
+    /// Пометка срока цикла в причине истёкшего ожидания.
+    fn cycle_note(&self) -> String {
+        if self.cycle_end.get().is_some() {
+            format!(" (срок цикла {} с)", CYCLE_DEADLINE.as_secs())
+        } else {
+            String::new()
+        }
     }
 
     fn stage(&self) -> Result<Rc<Stage>, String> {
@@ -468,7 +483,6 @@ impl ContractRun {
             raw: &raw,
             fixture,
             mode: self.mode,
-            variant: self.variant,
         };
         run(&ctx)
     }
@@ -501,13 +515,14 @@ impl ContractRun {
                         Ok(Step::Opening {
                             posted,
                             posted_ns,
-                            deadline: Instant::now() + OPEN_DEADLINE,
+                            deadline: self.capped(Instant::now() + OPEN_DEADLINE),
                         })
                     }
                     _ if Instant::now() < deadline => Ok(Step::Ready { deadline }),
                     state => Err(format!(
-                        "до клавиши не готово за {} с: запрос {state:?}",
-                        READY_DEADLINE.as_secs()
+                        "до клавиши не готово за {} с{}: запрос {state:?}",
+                        READY_DEADLINE.as_secs(),
+                        self.cycle_note()
                     )),
                 }
             }
@@ -518,6 +533,7 @@ impl ContractRun {
             } => {
                 if self.opened(&posted, posted_ns)? {
                     self.opens.set(self.opens.get() + 1);
+                    self.cycle_end.set(None);
                     return Ok(Step::Acting);
                 }
                 if Instant::now() < deadline {
@@ -528,8 +544,9 @@ impl ContractRun {
                     })
                 } else {
                     Err(format!(
-                        "открытие не закончено за {} с: {}",
+                        "открытие не закончено за {} с{}: {}",
                         OPEN_DEADLINE.as_secs(),
+                        self.cycle_note(),
                         self.state(&*self.stage()?)
                     ))
                 }
@@ -541,7 +558,12 @@ impl ContractRun {
                         let deadline = Instant::now() + wait.deadline;
                         Ok(Step::Waiting { wait, deadline })
                     }
-                    Next::Restage(restage) => self.restage(restage.fixture, None, restage.quiet),
+                    Next::Restage(restage) => {
+                        if restage.cycle {
+                            self.cycle_end.set(Some(Instant::now() + CYCLE_DEADLINE));
+                        }
+                        self.restage(restage.fixture, None, restage.quiet)
+                    }
                     Next::Done => Ok(Step::Done),
                 }
             }
@@ -620,7 +642,7 @@ impl ContractRun {
         *self.stage.borrow_mut() = Some(Rc::new(stage?));
         drawmark::record_rows(true);
         Ok(Step::Ready {
-            deadline: Instant::now() + READY_DEADLINE,
+            deadline: self.capped(Instant::now() + READY_DEADLINE),
         })
     }
 

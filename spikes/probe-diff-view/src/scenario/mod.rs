@@ -8,16 +8,12 @@ pub mod anchor;
 pub mod anchor_run;
 pub mod ax;
 pub mod ax_client;
-#[allow(dead_code)]
 pub mod bounded;
+pub mod bounded_run;
 pub mod calibrate;
 pub mod calibrate_run;
 pub mod capture;
-// Оракулы `selection`, `threads`, `pairs` и `bounded` и части исполнителя для них (пересборка
-// стенда, щелчок по строке) подключат их сценарии, тогда разрешение снимается.
-#[allow(dead_code)]
 pub mod contract;
-#[allow(dead_code)]
 pub mod contract_run;
 #[allow(dead_code, unused_macros, unused_imports)]
 pub mod counters;
@@ -39,8 +35,8 @@ pub mod memory_run;
 pub mod neighbor;
 pub mod open;
 pub mod open_smoke;
-#[allow(dead_code)]
 pub mod pairs;
+pub mod pairs_run;
 #[allow(dead_code)]
 pub mod sampler;
 pub mod scroll;

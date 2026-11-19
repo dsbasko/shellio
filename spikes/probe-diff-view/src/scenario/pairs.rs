@@ -115,6 +115,98 @@ pub fn pair_matches(
     }
 }
 
+/// Адреса строки показа из модели против сырого diff: в «Рядом» — пара правила плана, в
+/// unified — адреса строки diff.
+pub fn model_matches(
+    raw: &Raw,
+    mode: Mode,
+    row: usize,
+    old: Option<LineAddr>,
+    new: Option<LineAddr>,
+) -> Result<(), String> {
+    if mode == Mode::SideBySide {
+        return pair_matches(raw, row, old, new);
+    }
+    let want = expected_gutter(raw, mode, row)
+        .ok_or_else(|| format!("строки {row} нет среди строк сырого diff"))?;
+    let addr = |side, line: Option<u32>| line.map(|line| LineAddr { side, line });
+    let (want_old, want_new) = (addr(Side::Old, want.old), addr(Side::New, want.new));
+    if (want_old, want_new) == (old, new) {
+        Ok(())
+    } else {
+        Err(format!(
+            "строка {row}: адреса модели {old:?} и {new:?}, строка сырого diff {want_old:?} и {want_new:?}"
+        ))
+    }
+}
+
+/// Номера, которые показывает половина `half` строки с номерами `expected`: unified — обе
+/// колонки, половина «Рядом» — номер своей стороны.
+pub fn half_gutter(expected: Gutter, half: Option<Side>) -> Gutter {
+    match half {
+        None => expected,
+        Some(Side::Old) => Gutter {
+            old: expected.old,
+            new: None,
+        },
+        Some(Side::New) => Gutter {
+            old: None,
+            new: expected.new,
+        },
+    }
+}
+
+/// Нарисованный гуттер половины `half` строки `row` против номеров `want`. `drawn` — поколение
+/// и текст из журнала, `generation` — требуемое поколение строки в учёте покрытия. Пустая
+/// половина «Рядом» гуттер не рисует.
+pub fn gutter_matches(
+    row: u32,
+    half: Option<Side>,
+    want: Gutter,
+    drawn: Option<(u64, &str)>,
+    generation: u64,
+) -> Result<(), String> {
+    let Some((drawn_generation, text)) = drawn else {
+        return if want == Gutter::default() {
+            Ok(())
+        } else {
+            Err(format!(
+                "строка {row} {half:?}: номера {want:?} не нарисованы"
+            ))
+        };
+    };
+    if drawn_generation < generation {
+        return Err(format!(
+            "строка {row} {half:?}: гуттер отрисован поколением {drawn_generation}, требуется \
+             {generation}"
+        ));
+    }
+    match parse_gutter(text, half) {
+        Some(got) if got == want => Ok(()),
+        Some(got) => Err(format!(
+            "строка {row} {half:?}: нарисовано {got:?} ({text:?}), адреса {want:?}"
+        )),
+        None => Err(format!(
+            "строка {row} {half:?}: текст гуттера {text:?} не по формату"
+        )),
+    }
+}
+
+/// Нарисованная высота строки пары 3 и 1 против 3 высот визуальной строки.
+pub fn height31_matches(row: u32, drawn: f64, line_height: u32) -> Result<(), String> {
+    let want = 3.0 * f64::from(line_height);
+    if (drawn - want).abs() <= HEIGHT_TOLERANCE {
+        Ok(())
+    } else {
+        Err(format!(
+            "строка {row}: нарисована высота {drawn:.1}, ожидалось 3 × {line_height} = {want:.1}"
+        ))
+    }
+}
+
+/// Допуск высоты нарисованной строки, точки: рамки AppKit идут в дробных точках.
+pub const HEIGHT_TOLERANCE: f64 = 0.5;
+
 /// Строка символов длины `chars`, похожая на код: без табуляции и широких символов.
 fn code_line(seed: u32, chars: usize) -> String {
     let mut line = format!("let value_{seed} = ");
@@ -265,6 +357,95 @@ mod tests {
                 rows.len()
             );
         }
+    }
+
+    #[test]
+    fn model_addresses_follow_the_raw_diff_in_both_modes() {
+        let fixture = pair31();
+        let raw = Raw::parse(&fixture.diff).expect("разбор");
+        let at = |side, line| Some(LineAddr { side, line });
+        assert!(model_matches(&raw, Mode::Unified, 0, at(Side::Old, 1), at(Side::New, 1)).is_ok());
+        let removed = (PAIR31_EVERY - 1) as usize;
+        assert!(
+            model_matches(
+                &raw,
+                Mode::Unified,
+                removed,
+                at(Side::Old, PAIR31_EVERY),
+                None
+            )
+            .is_ok()
+        );
+        assert!(
+            model_matches(
+                &raw,
+                Mode::Unified,
+                removed + 1,
+                None,
+                at(Side::New, PAIR31_EVERY)
+            )
+            .is_ok()
+        );
+        assert!(
+            model_matches(
+                &raw,
+                Mode::Unified,
+                removed,
+                at(Side::Old, PAIR31_EVERY),
+                at(Side::New, PAIR31_EVERY)
+            )
+            .is_err()
+        );
+        assert!(
+            model_matches(
+                &raw,
+                Mode::SideBySide,
+                removed,
+                at(Side::Old, PAIR31_EVERY),
+                at(Side::New, PAIR31_EVERY)
+            )
+            .is_ok()
+        );
+        assert!(model_matches(&raw, Mode::Unified, usize::MAX, None, None).is_err());
+    }
+
+    #[test]
+    fn drawn_gutter_is_checked_per_half_and_generation() {
+        use crate::paint::gutter_text;
+        use probe_diff_view::model::LineKind;
+        use probe_diff_view::model::layout::Gutter as Columns;
+        let both = Gutter {
+            old: Some(12),
+            new: Some(14),
+        };
+        assert_eq!(
+            half_gutter(both, Some(Side::Old)),
+            Gutter {
+                old: Some(12),
+                new: None
+            }
+        );
+        assert_eq!(half_gutter(both, None), both);
+        let text = gutter_text(Columns::Both, 8, Some(12), Some(14), LineKind::Context);
+        assert!(gutter_matches(3, None, both, Some((5, &text)), 5).is_ok());
+        let stale = gutter_matches(3, None, both, Some((4, &text)), 5).unwrap_err();
+        assert!(stale.contains("поколением 4"), "{stale}");
+        let other = Gutter {
+            old: Some(12),
+            new: Some(15),
+        };
+        assert!(gutter_matches(3, None, other, Some((5, &text)), 5).is_err());
+        assert!(gutter_matches(3, Some(Side::Old), Gutter::default(), None, 5).is_ok());
+        assert!(gutter_matches(3, None, both, None, 5).is_err());
+        assert!(gutter_matches(3, None, both, Some((5, "garbage")), 5).is_err());
+    }
+
+    #[test]
+    fn height31_allows_half_a_point() {
+        assert!(height31_matches(1, 48.0, 16).is_ok());
+        assert!(height31_matches(1, 48.5, 16).is_ok());
+        assert!(height31_matches(1, 49.0, 16).is_err());
+        assert!(height31_matches(1, 16.0, 16).is_err());
     }
 
     #[test]
