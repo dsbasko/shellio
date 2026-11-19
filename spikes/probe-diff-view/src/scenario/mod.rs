@@ -24,6 +24,8 @@ pub mod open;
 pub mod open_smoke;
 #[allow(dead_code)]
 pub mod sampler;
+#[allow(dead_code)]
+pub mod scroll;
 pub mod smoke;
 #[allow(dead_code)]
 pub mod snapshot;

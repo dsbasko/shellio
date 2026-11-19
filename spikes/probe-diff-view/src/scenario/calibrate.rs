@@ -6,7 +6,7 @@
 //! удержания — ни одного. Обратный контроль: содержимое пробы замерло, сосед движется, кадры
 //! соседа источнику пробы не приписаны.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -212,6 +212,8 @@ pub struct Exported {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Segment {
     pub vsync_display: String,
+    /// Дисплей жизней кадров пробы: только его показы ложатся на сетку окна.
+    pub window_display: String,
     pub frames_displays: Vec<String>,
     pub grid: Grid,
     pub rate: Rate,
@@ -231,6 +233,48 @@ pub fn snap(grid: &Grid, window: Window) -> Window {
     Window {
         start_ns: edge(window.start_ns),
         end_ns: edge(window.end_ns),
+    }
+}
+
+/// Дисплей `hitches-frame-lifetimes`, на котором показаны кадры пробы `pid` за всю запись. Жизни
+/// кадров других дисплеев на сетку окна не ложатся и в разбор не входят: ⚠️ ошибка исполнения
+/// стенда, найдена в первом прогоне с двумя дисплеями `20261119-135920-89488`. Кадры пробы на
+/// нескольких дисплеях — ошибка. Без кадров пробы дисплей окна — единственный дисплей жизней.
+fn probe_display(exported: &Exported, pid: u32) -> Result<String, String> {
+    let swaps: HashSet<u64> = exported
+        .updates
+        .iter()
+        .filter(|update| update.pid == pid)
+        .map(|update| update.swap_id)
+        .collect();
+    let displays = |probe_only: bool| {
+        let mut names: Vec<&str> = exported
+            .lifetimes
+            .iter()
+            .filter(|lifetime| !probe_only || swaps.contains(&lifetime.swap_id))
+            .map(|lifetime| lifetime.display.as_str())
+            .collect();
+        names.sort_unstable();
+        names.dedup();
+        names
+    };
+    let probe = displays(true);
+    let names = if probe.is_empty() {
+        displays(false)
+    } else {
+        probe
+    };
+    match names.as_slice() {
+        [only] => Ok((*only).to_owned()),
+        [] => Err("в hitches-frame-lifetimes нет кадров".to_owned()),
+        many => Err(format!(
+            "дисплей окна не определён: кадры {} на дисплеях {many:?}",
+            if swaps.is_empty() {
+                "дисплеев"
+            } else {
+                "пробы"
+            }
+        )),
     }
 }
 
@@ -280,7 +324,13 @@ pub fn analyze(
         start_ns: to_trace(window.start_ns)?,
         end_ns: to_trace(window.end_ns)?,
     };
-    let mut shown: Vec<u64> = exported.lifetimes.iter().map(Lifetime::shown_ns).collect();
+    let window_display = probe_display(exported, pid)?;
+    let mut shown: Vec<u64> = exported
+        .lifetimes
+        .iter()
+        .filter(|lifetime| lifetime.display == window_display)
+        .map(Lifetime::shown_ns)
+        .collect();
     shown.sort_unstable();
     let (first_shown, last_shown) = match (shown.first(), shown.last()) {
         (Some(&first), Some(&last)) => (first, last),
@@ -336,6 +386,7 @@ pub fn analyze(
     let forward = forward(&ticks, &probe_frames, window, &held);
     Ok(Segment {
         vsync_display: display,
+        window_display,
         frames_displays,
         grid,
         rate,
@@ -680,6 +731,52 @@ mod tests {
         assert!(clean.forward.missed.is_empty());
         let other = analyze(&data, 7, window, &[]).unwrap();
         assert!(other.probe_frames.is_empty());
+    }
+
+    #[test]
+    fn analyze_keeps_to_the_display_of_the_probe_frames() {
+        let period = 1e9 / RATE_HZ;
+        let epoch = 1_000_000_000;
+        let at = |slot: u64| epoch + (100_000_000.0 + slot as f64 * period).round() as u64;
+        let window = Window {
+            start_ns: at(120) + 300,
+            end_ns: at(600) - 300,
+        };
+        // Второй дисплей 60 Гц со сдвигом фазы: его жизни на сетку окна не ложатся.
+        let mut two = exported(700, &[], 42);
+        let external: Vec<Lifetime> = (0..350)
+            .map(|slot| Lifetime {
+                start_ns: 100_000_000 + slot * 16_666_667 + 3_000_000,
+                duration_ns: 16_666_667,
+                display: "Display 3".to_owned(),
+                swap_id: 10_000 + slot,
+                surface_id: 2,
+            })
+            .collect();
+        two.lifetimes.extend(external.clone());
+        let segment = analyze(&two, 42, window, &[]).unwrap();
+        assert_eq!(segment.window_display, "Display 1");
+        assert_eq!(
+            segment.frames_displays,
+            vec!["Display 1".to_owned(), "Display 3".to_owned()]
+        );
+        assert!(segment.forward.passed(), "{:?}", segment.forward);
+        assert_eq!(segment.probe_frames.len(), 480);
+
+        // Кадры пробы на двух дисплеях — ошибка: дисплей окна не определён.
+        let mut split = two.clone();
+        split.updates.push(Update {
+            start_ns: external[200].start_ns,
+            duration_ns: 200_000,
+            process: "probe".to_owned(),
+            pid: 42,
+            swap_id: external[200].swap_id,
+            surface_id: 2,
+        });
+        assert!(analyze(&split, 42, window, &[]).is_err());
+
+        // Без кадров пробы и с жизнями двух дисплеев дисплей окна тоже не определён.
+        assert!(analyze(&two, 7, window, &[]).is_err());
     }
 
     #[test]

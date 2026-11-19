@@ -489,6 +489,7 @@ fn tick(state: &State, view: &MotionView, link: &CADisplayLink) {
 #[derive(Serialize)]
 struct SegmentSummary<'a> {
     vsync_display: &'a str,
+    window_display: &'a str,
     frames_displays: &'a [String],
     grid: &'a frames::Grid,
     rate: &'a frames::Rate,
@@ -507,6 +508,7 @@ fn record_segments(report: &mut Report, outcomes: &[(Stimulus, SegmentOutcome, V
         let segment = &outcome.segment;
         let summary = SegmentSummary {
             vsync_display: &segment.vsync_display,
+            window_display: &segment.window_display,
             frames_displays: &segment.frames_displays,
             grid: &segment.grid,
             rate: &segment.rate,
