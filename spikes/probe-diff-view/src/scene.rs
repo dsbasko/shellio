@@ -1278,6 +1278,35 @@ impl Scene {
         self.hide_draft();
     }
 
+    /// Раскрыть все свёрнутые треды тем же переходом состояния, что у [`Scene::toggle_thread`],
+    /// но одной перестройкой блоков. Возвращает число раскрытых.
+    pub fn expand_threads(&self) -> usize {
+        let expanded = {
+            let mut model = self.model.borrow_mut();
+            let Some(state) = model.state.take() else {
+                return 0;
+            };
+            let collapsed: Vec<ThreadId> = model
+                .threads
+                .threads()
+                .iter()
+                .map(|thread| thread.id)
+                .filter(|&id| !state.is_expanded(id))
+                .collect();
+            model.state = Some(
+                collapsed
+                    .iter()
+                    .fold(state, |state, &id| state.toggle_thread(id)),
+            );
+            collapsed.len()
+        };
+        if expanded > 0 {
+            self.count(|stats| stats.toggled += expanded as u64);
+            self.relayout_blocks();
+        }
+        expanded
+    }
+
     /// Раскрыть или свернуть тред: высота его блока, якорь прокрутки прежний.
     pub fn toggle_thread(&self, id: ThreadId) {
         {

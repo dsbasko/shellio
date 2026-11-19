@@ -21,7 +21,9 @@ pub const RUNS: u32 = 11;
 /// Открытий в одном процессе `open-warm`.
 pub const WARM_OPENS: usize = 20;
 
-/// Фикстура открытия. `real` готовит `run.sh` из git, остальные генерирует процесс.
+/// Фикстура процесса сценария вида с осью фикстур: открытия (`open`, `open-warm`) и кадров
+/// (`frames`). Какие фикстуры принимает сценарий, решает `Scenario::fixtures`. `real` готовит
+/// `run.sh` из git, остальные генерирует процесс.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OpenFixture {
@@ -30,15 +32,18 @@ pub enum OpenFixture {
     Sparse,
     Wrap,
     Real,
+    /// `modified` с 500 тредами: только сценарий `frames`, эталона подсветки у неё нет.
+    Threads,
 }
 
 impl OpenFixture {
-    pub const ALL: [OpenFixture; 5] = [
+    pub const ALL: [OpenFixture; 6] = [
         OpenFixture::Added,
         OpenFixture::Modified,
         OpenFixture::Sparse,
         OpenFixture::Wrap,
         OpenFixture::Real,
+        OpenFixture::Threads,
     ];
 
     pub fn name(self) -> &'static str {
@@ -48,6 +53,7 @@ impl OpenFixture {
             OpenFixture::Sparse => "sparse",
             OpenFixture::Wrap => "wrap",
             OpenFixture::Real => "real",
+            OpenFixture::Threads => "threads",
         }
     }
 
@@ -61,7 +67,7 @@ impl OpenFixture {
     pub fn mandatory(self) -> bool {
         match self {
             OpenFixture::Added | OpenFixture::Modified | OpenFixture::Sparse => true,
-            OpenFixture::Wrap | OpenFixture::Real => false,
+            OpenFixture::Wrap | OpenFixture::Real | OpenFixture::Threads => false,
         }
     }
 
@@ -69,9 +75,11 @@ impl OpenFixture {
     pub fn at_last_hunk(self) -> bool {
         match self {
             OpenFixture::Sparse => true,
-            OpenFixture::Added | OpenFixture::Modified | OpenFixture::Wrap | OpenFixture::Real => {
-                false
-            }
+            OpenFixture::Added
+            | OpenFixture::Modified
+            | OpenFixture::Wrap
+            | OpenFixture::Real
+            | OpenFixture::Threads => false,
         }
     }
 
@@ -82,6 +90,7 @@ impl OpenFixture {
             OpenFixture::Modified => Some(FixtureName::Modified),
             OpenFixture::Sparse => Some(FixtureName::Sparse),
             OpenFixture::Wrap => Some(FixtureName::Wrap),
+            OpenFixture::Threads => Some(FixtureName::Threads),
             OpenFixture::Real => None,
         }
     }
@@ -447,7 +456,7 @@ mod tests {
                 (fixture != OpenFixture::Real).then_some(fixture.name())
             );
         }
-        assert_eq!(OpenFixture::parse("threads"), None);
+        assert_eq!(OpenFixture::parse("sparse-threads"), None);
         let mandatory: Vec<&str> = OpenFixture::ALL
             .into_iter()
             .filter(|fixture| fixture.mandatory())

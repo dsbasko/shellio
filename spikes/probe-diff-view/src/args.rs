@@ -16,7 +16,8 @@ pub const USAGE: &str = "\
   probe-diff-view [--variant a|b] [--mode unified|side]
       демонстрация без стенда и result.json
   probe-diff-view --scenario <имя> --out <каталог> [--variant a|b] [--mode unified|side]
-                  [--fixture added|modified|sparse|wrap|real] [--fixtures <каталог фикстур>]
+                  [--fixture added|modified|sparse|wrap|real|threads] [--fixtures <каталог фикстур>]
+                  [--frames-path none|xctrace|screencapturekit]
       сценарий стенда, итог в <каталог>/result.json
   probe-diff-view --aggregate <каталог прогона>
       сводка результатов прогона без окна
@@ -28,8 +29,8 @@ pub const USAGE: &str = "\
       внешний клиент доступности сценария ax: снимки дерева AX процесса <pid> по командам stdin
 
 у демонстрации по умолчанию --variant a --mode unified; сценарий стенда идёт без --variant и
---mode, сценарий вида требует обоих, сценарий открытия также --fixture; --fixtures нужен ровно
-сценариям с эталоном подсветки";
+--mode, сценарий вида требует обоих, сценарии открытия и кадров также --fixture; --fixtures нужен
+ровно сценариям с эталоном подсветки; --frames-path — только у frames, по умолчанию none";
 
 /// Вариант отрисовки: A — собственный `NSView` с Core Text, B — view-based `NSTableView`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -79,6 +80,38 @@ impl ViewMode {
     }
 }
 
+/// Путь замера кадров сценария `frames`. Значение ставит исполнитель по объединённому итогу
+/// калибровки отчёта, сценарий сам итог `calibrate` не читает.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FramesPath {
+    /// Без записи трассы: вердикт по кадрам `not_run`, потери в процессе — наблюдение.
+    #[default]
+    None,
+    Xctrace,
+    Screencapturekit,
+}
+
+impl FramesPath {
+    pub const ALL: [FramesPath; 3] = [
+        FramesPath::None,
+        FramesPath::Xctrace,
+        FramesPath::Screencapturekit,
+    ];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            FramesPath::None => "none",
+            FramesPath::Xctrace => "xctrace",
+            FramesPath::Screencapturekit => "screencapturekit",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<FramesPath> {
+        FramesPath::ALL.into_iter().find(|path| path.name() == name)
+    }
+}
+
 /// По каким осям идёт сценарий. Сценарий стенда — один процесс без варианта и режима, сценарий
 /// вида — процесс на каждую пару варианта и режима, сценарий открытия — также на каждую
 /// фикстуру. Таблица `run.sh` (`axes_of`) повторяет её.
@@ -123,10 +156,12 @@ pub enum Scenario {
     Open,
     /// 20 открытий фикстуры в одном процессе без вердикта.
     OpenWarm,
+    /// Кадры прокрутки: отрезки S1, бросок S2 у `modified`, ресайз S3 у `wrap` в «Рядом».
+    Frames,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 7] = [
+    pub const ALL: [Scenario; 8] = [
         Scenario::Smoke,
         Scenario::Highlight,
         Scenario::Calibrate,
@@ -134,6 +169,7 @@ impl Scenario {
         Scenario::Ax,
         Scenario::Open,
         Scenario::OpenWarm,
+        Scenario::Frames,
     ];
 
     pub fn name(self) -> &'static str {
@@ -145,6 +181,7 @@ impl Scenario {
             Scenario::Ax => "ax",
             Scenario::Open => "open",
             Scenario::OpenWarm => "open-warm",
+            Scenario::Frames => "frames",
         }
     }
 
@@ -158,15 +195,53 @@ impl Scenario {
         match self {
             Scenario::Smoke | Scenario::Highlight | Scenario::Calibrate => Axes::STAND,
             Scenario::OpenSmoke | Scenario::Ax => Axes::VIEW,
-            Scenario::Open | Scenario::OpenWarm => Axes::OPEN,
+            Scenario::Open | Scenario::OpenWarm | Scenario::Frames => Axes::OPEN,
         }
+    }
+
+    /// Фикстуры сценария с осью фикстур, пусто — оси нет. Таблица `run.sh` (`fixtures_of`)
+    /// повторяет её.
+    pub fn fixtures(self) -> &'static [OpenFixture] {
+        match self {
+            Scenario::Smoke
+            | Scenario::Highlight
+            | Scenario::Calibrate
+            | Scenario::OpenSmoke
+            | Scenario::Ax => &[],
+            Scenario::Open | Scenario::OpenWarm => &[
+                OpenFixture::Added,
+                OpenFixture::Modified,
+                OpenFixture::Sparse,
+                OpenFixture::Wrap,
+                OpenFixture::Real,
+            ],
+            Scenario::Frames => &[
+                OpenFixture::Added,
+                OpenFixture::Modified,
+                OpenFixture::Threads,
+                OpenFixture::Wrap,
+            ],
+        }
+    }
+
+    /// Пара фикстуры и режима идёт процессом сценария: у `frames` фикстура `wrap` — только в
+    /// «Рядом» (ресайз S3). `run.sh` (`skip_cell`) повторяет правило.
+    pub fn accepts(self, fixture: OpenFixture, mode: ViewMode) -> bool {
+        self.fixtures().contains(&fixture)
+            && !(self == Scenario::Frames
+                && fixture == OpenFixture::Wrap
+                && mode == ViewMode::Unified)
     }
 
     /// Сценарию нужен каталог фикстур с эталонами `--reference`. Таблица `run.sh`
     /// (`needs_fixtures`) повторяет её.
     pub fn needs_fixtures(self) -> bool {
         match self {
-            Scenario::Smoke | Scenario::Calibrate | Scenario::OpenSmoke | Scenario::Ax => false,
+            Scenario::Smoke
+            | Scenario::Calibrate
+            | Scenario::OpenSmoke
+            | Scenario::Ax
+            | Scenario::Frames => false,
             Scenario::Highlight | Scenario::Open | Scenario::OpenWarm => true,
         }
     }
@@ -189,6 +264,8 @@ pub enum Command {
         view: ViewOptions,
         out: PathBuf,
         fixtures: Option<PathBuf>,
+        /// Путь замера кадров, только у `frames`.
+        frames_path: Option<FramesPath>,
     },
     Aggregate {
         run_dir: PathBuf,
@@ -232,6 +309,14 @@ pub enum ArgsError {
         scenario: &'static str,
         flag: &'static str,
     },
+    /// Фикстура или пара фикстуры и режима не идёт процессом сценария.
+    FixtureNotAccepted {
+        scenario: &'static str,
+        fixture: &'static str,
+        mode: &'static str,
+    },
+    /// `--frames-path` есть только у `frames`.
+    FramesPathNotAccepted(&'static str),
 }
 
 impl fmt::Display for ArgsError {
@@ -274,6 +359,17 @@ impl fmt::Display for ArgsError {
             ArgsError::AxisNotAccepted { scenario, flag } => {
                 write!(f, "сценарий {scenario} идёт без {flag}")
             }
+            ArgsError::FixtureNotAccepted {
+                scenario,
+                fixture,
+                mode,
+            } => write!(
+                f,
+                "сценарий {scenario} не идёт с фикстурой {fixture} в режиме {mode}"
+            ),
+            ArgsError::FramesPathNotAccepted(scenario) => {
+                write!(f, "сценарий {scenario} идёт без --frames-path")
+            }
         }
     }
 }
@@ -288,10 +384,11 @@ enum Flag {
     Fixtures,
     Aggregate,
     Reference,
+    FramesPath,
 }
 
 impl Flag {
-    const ALL: [Flag; 8] = [
+    const ALL: [Flag; 9] = [
         Flag::Scenario,
         Flag::Variant,
         Flag::Mode,
@@ -300,6 +397,7 @@ impl Flag {
         Flag::Fixtures,
         Flag::Aggregate,
         Flag::Reference,
+        Flag::FramesPath,
     ];
 
     fn name(self) -> &'static str {
@@ -312,6 +410,7 @@ impl Flag {
             Flag::Fixtures => "--fixtures",
             Flag::Aggregate => "--aggregate",
             Flag::Reference => "--reference",
+            Flag::FramesPath => "--frames-path",
         }
     }
 
@@ -330,6 +429,7 @@ struct Raw {
     fixtures: Option<PathBuf>,
     aggregate: Option<PathBuf>,
     reference: Option<PathBuf>,
+    frames_path: Option<FramesPath>,
 }
 
 impl Raw {
@@ -343,6 +443,7 @@ impl Raw {
             (Flag::Fixtures, self.fixtures.is_some()),
             (Flag::Aggregate, self.aggregate.is_some()),
             (Flag::Reference, self.reference.is_some()),
+            (Flag::FramesPath, self.frames_path.is_some()),
         ];
         given
             .into_iter()
@@ -410,7 +511,11 @@ pub fn parse(args: &[String]) -> Result<Command, ArgsError> {
             }
             Flag::Fixture => {
                 let fixture = OpenFixture::parse(value).ok_or_else(|| {
-                    invalid(flag, value, "added, modified, sparse, wrap или real")
+                    invalid(
+                        flag,
+                        value,
+                        "added, modified, sparse, wrap, real или threads",
+                    )
                 })?;
                 set(&mut raw.fixture, flag, fixture)?;
             }
@@ -418,6 +523,11 @@ pub fn parse(args: &[String]) -> Result<Command, ArgsError> {
             Flag::Fixtures => set(&mut raw.fixtures, flag, path(flag, value)?)?,
             Flag::Aggregate => set(&mut raw.aggregate, flag, path(flag, value)?)?,
             Flag::Reference => set(&mut raw.reference, flag, path(flag, value)?)?,
+            Flag::FramesPath => {
+                let frames = FramesPath::from_name(value)
+                    .ok_or_else(|| invalid(flag, value, "none, xctrace или screencapturekit"))?;
+                set(&mut raw.frames_path, flag, frames)?;
+            }
         }
     }
 
@@ -444,6 +554,18 @@ pub fn parse(args: &[String]) -> Result<Command, ArgsError> {
     match (raw.scenario, raw.out) {
         (Some(scenario), Some(out)) => {
             check_axes(scenario.name(), scenario.axes(), view)?;
+            if let (Some(fixture), Some(mode)) = (view.fixture, view.mode)
+                && !scenario.accepts(fixture, mode)
+            {
+                return Err(ArgsError::FixtureNotAccepted {
+                    scenario: scenario.name(),
+                    fixture: fixture.name(),
+                    mode: mode.name(),
+                });
+            }
+            if raw.frames_path.is_some() && scenario != Scenario::Frames {
+                return Err(ArgsError::FramesPathNotAccepted(scenario.name()));
+            }
             match (scenario.needs_fixtures(), raw.fixtures.is_some()) {
                 (true, false) => return Err(ArgsError::FixturesRequired(scenario.name())),
                 (false, true) => return Err(ArgsError::FixturesNotAccepted(scenario.name())),
@@ -454,11 +576,15 @@ pub fn parse(args: &[String]) -> Result<Command, ArgsError> {
                 view,
                 out,
                 fixtures: raw.fixtures,
+                frames_path: raw.frames_path,
             })
         }
         (Some(_), None) => Err(ArgsError::ScenarioWithoutOut),
         (None, Some(_)) => Err(ArgsError::OutWithoutScenario),
         (None, None) if raw.fixtures.is_some() => Err(ArgsError::FixturesWithoutScenario),
+        (None, None) if raw.frames_path.is_some() => {
+            Err(ArgsError::FramesPathNotAccepted("демонстрация"))
+        }
         (None, None) if raw.fixture.is_some() => Err(ArgsError::AxisNotAccepted {
             scenario: "демонстрация",
             flag: Flag::Fixture.name(),
@@ -559,6 +685,7 @@ mod tests {
                 view: ViewOptions::default(),
                 out: PathBuf::from("/tmp/run/smoke"),
                 fixtures: None,
+                frames_path: None,
             })
         );
     }
@@ -572,6 +699,7 @@ mod tests {
                 view: ViewOptions::default(),
                 out: PathBuf::from("o"),
                 fixtures: Some(PathBuf::from("f")),
+                frames_path: None,
             })
         );
         assert_eq!(
@@ -658,6 +786,7 @@ mod tests {
                 },
                 out: PathBuf::from("o"),
                 fixtures: None,
+                frames_path: None,
             })
         );
     }
@@ -746,6 +875,7 @@ mod tests {
                 },
                 out: PathBuf::from("o"),
                 fixtures: None,
+                frames_path: None,
             })
         );
         assert_eq!(
@@ -802,6 +932,7 @@ mod tests {
                     },
                     out: PathBuf::from("o"),
                     fixtures: Some(PathBuf::from("f")),
+                    frames_path: None,
                 })
             );
         }
@@ -864,7 +995,7 @@ mod tests {
             })
         );
         assert!(matches!(
-            parse_str(&["--fixture", "threads"]),
+            parse_str(&["--fixture", "large"]),
             Err(ArgsError::InvalidValue {
                 flag: "--fixture",
                 ..
@@ -967,6 +1098,146 @@ mod tests {
             parse_str(&["--scenario", "nope", "--out", "out"]),
             Err(ArgsError::UnknownScenario("nope".to_owned()))
         );
+    }
+
+    #[test]
+    fn frames_takes_its_own_fixtures_and_path() {
+        let base = [
+            "--scenario",
+            "frames",
+            "--out",
+            "o",
+            "--variant",
+            "b",
+            "--mode",
+            "side",
+        ];
+        let with = |extra: &[&str]| {
+            let mut args: Vec<&str> = base.to_vec();
+            args.extend_from_slice(extra);
+            parse_str(&args)
+        };
+        assert_eq!(
+            with(&["--fixture", "threads", "--frames-path", "screencapturekit"]),
+            Ok(Command::Scenario {
+                scenario: Scenario::Frames,
+                view: ViewOptions {
+                    variant: Some(Variant::B),
+                    mode: Some(ViewMode::Side),
+                    fixture: Some(OpenFixture::Threads),
+                },
+                out: PathBuf::from("o"),
+                fixtures: None,
+                frames_path: Some(FramesPath::Screencapturekit),
+            })
+        );
+        assert!(matches!(
+            with(&["--fixture", "wrap"]),
+            Ok(Command::Scenario {
+                frames_path: None,
+                ..
+            })
+        ));
+        assert_eq!(
+            with(&["--fixture", "sparse"]),
+            Err(ArgsError::FixtureNotAccepted {
+                scenario: "frames",
+                fixture: "sparse",
+                mode: "side",
+            })
+        );
+        assert_eq!(
+            parse_str(&[
+                "--scenario",
+                "frames",
+                "--out",
+                "o",
+                "--variant",
+                "a",
+                "--mode",
+                "unified",
+                "--fixture",
+                "wrap",
+            ]),
+            Err(ArgsError::FixtureNotAccepted {
+                scenario: "frames",
+                fixture: "wrap",
+                mode: "unified",
+            })
+        );
+        assert_eq!(
+            with(&["--fixture", "added", "--frames-path", "trace"]),
+            Err(ArgsError::InvalidValue {
+                flag: "--frames-path",
+                value: "trace".to_owned(),
+                expected: "none, xctrace или screencapturekit",
+            })
+        );
+        assert_eq!(
+            parse_str(&[
+                "--scenario",
+                "open",
+                "--out",
+                "o",
+                "--fixtures",
+                "f",
+                "--variant",
+                "a",
+                "--mode",
+                "side",
+                "--fixture",
+                "threads",
+            ]),
+            Err(ArgsError::FixtureNotAccepted {
+                scenario: "open",
+                fixture: "threads",
+                mode: "side",
+            })
+        );
+        assert_eq!(
+            parse_str(&["--scenario", "smoke", "--out", "o", "--frames-path", "none"]),
+            Err(ArgsError::FramesPathNotAccepted("smoke"))
+        );
+        assert_eq!(
+            parse_str(&["--frames-path", "none"]),
+            Err(ArgsError::FramesPathNotAccepted("демонстрация"))
+        );
+        for path in FramesPath::ALL {
+            assert_eq!(FramesPath::from_name(path.name()), Some(path));
+        }
+        assert_eq!(FramesPath::default(), FramesPath::None);
+    }
+
+    #[test]
+    fn scenario_fixtures_match_their_axes() {
+        let cells = |scenario: Scenario| -> Vec<String> {
+            OpenFixture::ALL
+                .into_iter()
+                .flat_map(|fixture| ViewMode::ALL.map(|mode| (fixture, mode)))
+                .filter(|&(fixture, mode)| scenario.accepts(fixture, mode))
+                .map(|(fixture, mode)| format!("{}:{}", fixture.name(), mode.name()))
+                .collect()
+        };
+        for scenario in Scenario::ALL {
+            assert_eq!(scenario.axes().fixtures, !scenario.fixtures().is_empty());
+        }
+        assert_eq!(
+            cells(Scenario::Frames),
+            [
+                "added:unified",
+                "added:side",
+                "modified:unified",
+                "modified:side",
+                "wrap:side",
+                "threads:unified",
+                "threads:side",
+            ]
+        );
+        assert_eq!(cells(Scenario::Open).len(), 10);
+        assert!(!cells(Scenario::Open).contains(&"threads:side".to_owned()));
+        assert!(cells(Scenario::Ax).is_empty());
+        assert!(!Scenario::Frames.needs_fixtures());
+        assert_eq!(Scenario::from_name("frames"), Some(Scenario::Frames));
     }
 
     #[test]

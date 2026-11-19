@@ -6,7 +6,10 @@
 #                                   пишет summary.json и сводку выводов
 #   run.sh demo [аргументы пробы …]  демонстрация для ручной работы
 # VARIANTS (по умолчанию «a b») и MODES («unified side») сужают оси сценариев вида, FIXTURES
-# («added modified sparse wrap real») — ось фикстур сценариев открытия.
+# («added modified sparse wrap real threads») — ось фикстур: у open и open-warm «added modified
+# sparse wrap real», у frames «added modified threads wrap» (wrap только в side). Сценарий берёт
+# пересечение FIXTURES со своим списком, пустое пересечение — отказ. FRAMES_PATH (none,
+# xctrace, screencapturekit; по умолчанию none) — путь замера кадров frames.
 # Перед сценариями открытия с фикстурой real run.sh готовит её через git без сети в
 # target/probes/diff-view/fixtures/real/ (status.txt, diff.patch, manifest.tsv, blobs/) и пишет
 # время чтения из git. Без закреплённых коммитов фикстура получает status=not_run с причиной.
@@ -20,10 +23,11 @@ CARGO="${CARGO:-cargo}"
 BIN="$ROOT/target/release/probe-diff-view"
 OUT_BASE="$ROOT/target/probes/diff-view"
 FIXTURES_DIR="$OUT_BASE/fixtures"
-ALL_SCENARIOS="smoke highlight calibrate open-smoke ax open open-warm"
+ALL_SCENARIOS="smoke highlight calibrate open-smoke ax open open-warm frames"
 ALL_VARIANTS="a b"
 ALL_MODES="unified side"
-ALL_FIXTURES="added modified sparse wrap real"
+ALL_FIXTURES="added modified sparse wrap real threads"
+ALL_FRAMES_PATHS="none xctrace screencapturekit"
 # Свежих процессов open на фикстуру, вариант и режим, как open::RUNS.
 OPEN_RUNS=11
 # Фикстура real: настоящий diff проекта между закреплёнными коммитами.
@@ -120,9 +124,35 @@ axes_of() {
     case "$1" in
         smoke | highlight | calibrate) echo stand ;;
         open-smoke | ax) echo view ;;
-        open | open-warm) echo open ;;
+        open | open-warm | frames) echo open ;;
         *) die "неизвестный сценарий «${1}», известны: $ALL_SCENARIOS" ;;
     esac
+}
+
+# Фикстуры сценария с осью фикстур, как Scenario::fixtures в args.rs.
+fixtures_of() {
+    case "$1" in
+        open | open-warm) echo "added modified sparse wrap real" ;;
+        frames) echo "added modified threads wrap" ;;
+        *) echo "" ;;
+    esac
+}
+
+# Пара фикстуры и режима не идёт процессом сценария, как Scenario::accepts в args.rs.
+skip_cell() {
+    [ "$1" = frames ] && [ "$2" = wrap ] && [ "$3" = unified ]
+}
+
+# Фикстуры из FIXTURES, которые принимает сценарий, в порядке FIXTURES.
+scenario_fixtures() {
+    local scenario="$1" given="$2" fixture picked=""
+    for fixture in $given; do
+        case " $(fixtures_of "$scenario") " in
+            *" $fixture "*) picked="$picked $fixture" ;;
+        esac
+    done
+    [ -n "$picked" ] || die "FIXTURES: у сценария $scenario нет фикстур из «${given}», его фикстуры: $(fixtures_of "$scenario")"
+    echo "${picked# }"
 }
 
 # Сценарии с эталоном подсветки, как Scenario::needs_fixtures в args.rs.
@@ -250,9 +280,16 @@ cmd_scenarios() {
     variants="$(pick VARIANTS "$ALL_VARIANTS" "${VARIANTS:-}")"
     modes="$(pick MODES "$ALL_MODES" "${MODES:-}")"
     fixtures="$(pick FIXTURES "$ALL_FIXTURES" "${FIXTURES:-}")"
+    local frames_path
+    frames_path="$(pick FRAMES_PATH "$ALL_FRAMES_PATHS" "${FRAMES_PATH:-none}")"
+    case "$frames_path" in
+        *" "*) die "FRAMES_PATH: нужно одно значение из $ALL_FRAMES_PATHS" ;;
+    esac
     local scenario axes variant mode fixture index name out code total=0 failed=0 aggregate=0 run_dir
     for scenario in $scenarios; do
-        axes_of "$scenario" >/dev/null
+        if [ "$(axes_of "$scenario")" = open ]; then
+            scenario_fixtures "$scenario" "$fixtures" >/dev/null
+        fi
     done
     build
     export_build_info
@@ -260,7 +297,8 @@ cmd_scenarios() {
     run_dir="$OUT_BASE/$(date +%Y%m%d-%H%M%S)-$$"
     mkdir "$run_dir"
     for scenario in $scenarios; do
-        if [ "$(axes_of "$scenario")" = open ] && [[ " $fixtures " == *" real "* ]]; then
+        if [ "$(axes_of "$scenario")" = open ] \
+            && [[ " $(scenario_fixtures "$scenario" "$fixtures") " == *" real "* ]]; then
             prepare_real
             break
         fi
@@ -275,7 +313,7 @@ cmd_scenarios() {
         axes="$(axes_of "$scenario")"
         local cells cell_fixtures
         cell_fixtures="-"
-        [ "$axes" = open ] && cell_fixtures="$fixtures"
+        [ "$axes" = open ] && cell_fixtures="$(scenario_fixtures "$scenario" "$fixtures")"
         if [ "$axes" = stand ]; then
             cells="-:-:-"
         else
@@ -283,6 +321,7 @@ cmd_scenarios() {
             for fixture in $cell_fixtures; do
                 for variant in $variants; do
                     for mode in $modes; do
+                        skip_cell "$scenario" "$fixture" "$mode" && continue
                         cells="$cells $fixture:$variant:$mode"
                     done
                 done
@@ -299,6 +338,9 @@ cmd_scenarios() {
                 local flags=(--scenario "$scenario")
                 if needs_fixtures "$scenario"; then
                     flags+=(--fixtures "$FIXTURES_DIR")
+                fi
+                if [ "$scenario" = frames ]; then
+                    flags+=(--frames-path "$frames_path")
                 fi
                 if [ "$fixture" != - ]; then
                     name="$name-$fixture"

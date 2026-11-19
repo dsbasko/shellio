@@ -40,7 +40,7 @@ use objc2_foundation::{
     NSRunLoopCommonModes, NSSize, NSString, NSTimer,
 };
 
-use args::{Command, Scenario, USAGE, Variant, ViewMode, ViewOptions};
+use args::{Command, FramesPath, Scenario, USAGE, Variant, ViewMode, ViewOptions};
 use results::{
     Build, DisplayInfo, Environment, Execution, Hardware, Rect, Report, ResultFile, Size, Verdict,
     WindowInfo,
@@ -75,6 +75,9 @@ const REQUIRED_FPS: isize = 120;
 /// Срок сторожа `calibrate` из отчёта, раздел «Сроки и размеры»: четыре записи по 5 с, у каждой
 /// сохранение до 3 мин.
 const CALIBRATE_DEADLINE: Duration = Duration::from_secs(20 * 60);
+/// Срок сторожа `frames` при пути `none` из отчёта, раздел «Сроки и размеры»: окно, загрузка,
+/// готовность, открытие, раскрытие тредов, три отрезка S1 с ожиданием покрытия, S2 и S3.
+const FRAMES_DEADLINE: Duration = Duration::from_secs(4 * 60);
 /// Период проверки готовности окна. Поток не засыпает: между проверками цикл обрабатывает события.
 const POLL_INTERVAL_S: f64 = 0.005;
 
@@ -109,11 +112,18 @@ fn main() -> ExitCode {
             view,
             out,
             fixtures,
+            frames_path,
         } => {
             if !out.is_dir() {
                 return usage_error(&format!("--out {}: каталога нет", out.display()));
             }
-            run_scenario(scenario, view, out, fixtures.as_deref())
+            run_scenario(
+                scenario,
+                view,
+                out,
+                fixtures.as_deref(),
+                frames_path.unwrap_or_default(),
+            )
         }
     }
 }
@@ -272,6 +282,7 @@ fn run_scenario(
     view: ViewOptions,
     out: PathBuf,
     fixtures: Option<&Path>,
+    frames_path: FramesPath,
 ) -> ExitCode {
     let environment = static_environment();
     // Грамматика проверяется до окна: разбор строки из одного выражения, без AppKit.
@@ -286,6 +297,7 @@ fn run_scenario(
         Scenario::Ax => Some(("ax", AX_DEADLINE)),
         Scenario::Open => Some(("open", OPEN_DEADLINE)),
         Scenario::OpenWarm => Some(("open-warm", OPEN_WARM_DEADLINE)),
+        Scenario::Frames => Some(("frames", FRAMES_DEADLINE)),
         Scenario::Highlight => None,
     };
     let _watchdog = match deadline {
@@ -314,6 +326,18 @@ fn run_scenario(
             })
         }
         Scenario::Highlight => run_headless(fixtures),
+        Scenario::Frames => match scenario::frames_run::unsupported_path(frames_path) {
+            Some(reason) => Outcome::error(reason, None, Report::default()),
+            None => {
+                run_app(Some(scenario), view, Some(out.clone()), None, trace).unwrap_or_else(|| {
+                    Outcome::error(
+                        "основной цикл завершился без итога сценария",
+                        None,
+                        Report::default(),
+                    )
+                })
+            }
+        },
         Scenario::Open | Scenario::OpenWarm => {
             match fixtures.and_then(|dir| scenario::open::not_run_reason(view, dir)) {
                 Some(reason) => {
@@ -896,6 +920,16 @@ impl AppDelegate {
                         Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
                     }
                 }
+                Some(Scenario::Frames) => match scenario::frames_run::FramesRun::start(
+                    self.mtm(),
+                    window,
+                    report,
+                    ivars.trace.clone(),
+                    ivars.view,
+                ) {
+                    Ok(run) => *ivars.running.borrow_mut() = Some(Box::new(run)),
+                    Err(failed) => self.finish(Outcome::error(failed.0, None, failed.1)),
+                },
                 Some(Scenario::Highlight) | None => self.finish(Outcome::ok(report)),
             }
         } else if waited >= SMOKE_TIMEOUT {

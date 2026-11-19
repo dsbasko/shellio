@@ -21,13 +21,18 @@ use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{ClassType, MainThreadMarker, MainThreadOnly, Message, define_class, msg_send};
 use objc2_app_kit::{
-    NSApplication, NSEvent, NSEventModifierFlags, NSEventType, NSResponder, NSScreen, NSWindow,
+    NSApplication, NSEvent, NSEventModifierFlags, NSEventType, NSResponder, NSScreen, NSView,
+    NSWindow,
 };
 use objc2_core_foundation::CGPoint;
-use objc2_core_graphics::{CGEvent, CGEventField, CGWarpMouseCursorPosition};
+use objc2_core_graphics::{
+    CGEvent, CGEventField, CGMomentumScrollPhase, CGScrollEventUnit, CGScrollPhase,
+    CGWarpMouseCursorPosition,
+};
 use objc2_foundation::{NSObjectProtocol, NSPoint, NSProcessInfo, NSRect, NSString};
 use serde::Serialize;
 
+use super::scroll::WheelPhase;
 use super::watchdog::{SharedTrace, push_trace};
 
 /// Минимальный шаг `timestamp` между отправленными событиями.
@@ -485,7 +490,10 @@ define_class!(
             match admit(event) {
                 Admit::Pass => self.dispatch(event),
                 Admit::Ours(number) => {
-                    self.dispatch(event);
+                    match wheel_target(event) {
+                        Some(target) => target.scrollWheel(event),
+                        None => self.dispatch(event),
+                    }
                     returned(number);
                 }
                 Admit::External => {}
@@ -499,6 +507,25 @@ impl ProbeApplication {
         // SAFETY: вызов реализации `sendEvent:` суперкласса с тем же событием.
         let () = unsafe { msg_send![super(self), sendEvent: event] };
     }
+}
+
+/// Своё событие колеса без окна получает вид стенда: AppKit такое событие до вида не доводит
+/// (находка P0.3). Событие с окном идёт обычным путём.
+fn wheel_target(event: &NSEvent) -> Option<Retained<NSView>> {
+    if event.r#type() != NSEventType::ScrollWheel {
+        return None;
+    }
+    let direct = event.windowNumber() == 0;
+    with_bench(|bench| {
+        if direct {
+            bench.wheel_routes.1 += 1;
+            bench.wheel_target.clone()
+        } else {
+            bench.wheel_routes.0 += 1;
+            None
+        }
+    })
+    .flatten()
 }
 
 /// Создаёт `NSApp` класса `ProbeApplication`. Вызывается до первого `sharedApplication`.
@@ -537,6 +564,10 @@ pub struct Bench {
     service_traced: usize,
     internal: Vec<String>,
     gestures: Vec<OpenGesture>,
+    /// Вид, которому стенд сам передаёт своё событие колеса без окна.
+    wheel_target: Option<Retained<NSView>>,
+    /// Своих событий колеса доставлено через окно и переданных виду стендом.
+    wheel_routes: (usize, usize),
 }
 
 thread_local! {
@@ -556,6 +587,8 @@ pub fn install(app: Retained<NSApplication>, trace: SharedTrace) {
         service_traced: 0,
         internal: Vec::new(),
         gestures: Vec::new(),
+        wheel_target: None,
+        wheel_routes: (0, 0),
     };
     BENCH.with(|cell| *cell.borrow_mut() = Some(bench));
 }
@@ -816,6 +849,97 @@ fn post_key(
         )
         .ok_or_else(|| format!("NSEvent не создал событие {label}"))?;
         Ok(bench.post(label.to_owned(), event, before))
+    })
+    .unwrap_or_else(|| Err(no_bench()))
+}
+
+fn scroll_phase(phase: WheelPhase) -> i64 {
+    match phase {
+        WheelPhase::None => 0,
+        WheelPhase::Began => i64::from(CGScrollPhase::Began.0),
+        WheelPhase::Changed => i64::from(CGScrollPhase::Changed.0),
+        WheelPhase::Ended => i64::from(CGScrollPhase::Ended.0),
+    }
+}
+
+fn momentum_phase(phase: WheelPhase) -> i64 {
+    match phase {
+        WheelPhase::None => i64::from(CGMomentumScrollPhase::None.0),
+        WheelPhase::Began => i64::from(CGMomentumScrollPhase::Begin.0),
+        WheelPhase::Changed => i64::from(CGMomentumScrollPhase::Continue.0),
+        WheelPhase::Ended => i64::from(CGMomentumScrollPhase::End.0),
+    }
+}
+
+/// Вид, которому стенд передаёт своё событие колеса, если оно пришло без окна; `None` снимает.
+pub fn route_wheel_to(view: Option<Retained<NSView>>) {
+    with_bench(|bench| bench.wheel_target = view);
+}
+
+/// Своих событий колеса: доставлено через окно и передано виду стендом.
+pub fn wheel_routes() -> (usize, usize) {
+    with_bench(|bench| bench.wheel_routes).unwrap_or_default()
+}
+
+/// Событие колеса в пикселях с фазами жеста и инерции в точке экрана `point` (координаты
+/// AppKit) окна `window`. `delta` > 0 — к концу документа. У `NSEvent` нет конструктора
+/// прокрутки, поэтому событие строится из `CGEvent` с окном под указателем, в таблицу идёт
+/// сигнатура готового `NSEvent`. Курсор системы не двигается.
+pub fn post_wheel(
+    window: &NSWindow,
+    point: NSPoint,
+    primary_height: f64,
+    delta: f64,
+    phase: WheelPhase,
+    momentum: WheelPhase,
+    label: &str,
+) -> Result<u64, String> {
+    with_bench(|bench| {
+        let before = focus_state(&bench.app);
+        let wheel = -(delta.round() as i32);
+        let cg = CGEvent::new_scroll_wheel_event2(None, CGScrollEventUnit::Pixel, 1, wheel, 0, 0)
+            .ok_or_else(|| format!("CGEvent не создал прокрутку {label}"))?;
+        CGEvent::set_location(Some(&cg), ns_to_cg(point, primary_height));
+        let number = i64::try_from(window.windowNumber())
+            .map_err(|_| format!("номер окна {} вне i64", window.windowNumber()))?;
+        for (field, value) in [
+            (CGEventField::ScrollWheelEventIsContinuous, 1),
+            (
+                CGEventField::ScrollWheelEventScrollPhase,
+                scroll_phase(phase),
+            ),
+            (
+                CGEventField::ScrollWheelEventMomentumPhase,
+                momentum_phase(momentum),
+            ),
+            (CGEventField::MouseEventWindowUnderMousePointer, number),
+            (
+                CGEventField::MouseEventWindowUnderMousePointerThatCanHandleThisEvent,
+                number,
+            ),
+        ] {
+            CGEvent::set_integer_value_field(Some(&cg), field, value);
+        }
+        let event = NSEvent::eventWithCGEvent(&cg)
+            .ok_or_else(|| format!("NSEvent не создал прокрутку {label}"))?;
+        let timestamp = event.timestamp();
+        if let Some(last) = bench.last_timestamp
+            && (timestamp - last).abs() < TIMESTAMP_SPACING
+        {
+            return Err(format!(
+                "timestamp прокрутки {timestamp:.6} ближе {TIMESTAMP_SPACING} к соседнему {last:.6}"
+            ));
+        }
+        bench.last_timestamp = Some(
+            bench
+                .last_timestamp
+                .map_or(timestamp, |last| last.max(timestamp)),
+        );
+        Ok(bench.post(
+            format!("{label} wheel {wheel} окно {}", event.windowNumber()),
+            event,
+            before,
+        ))
     })
     .unwrap_or_else(|| Err(no_bench()))
 }

@@ -147,6 +147,8 @@ pub fn draw_per_tick(entries_ns: &[u64], marks: &[(u64, u64)]) -> Vec<f64> {
 /// Потери отрезка S1. Такт — vsync окна замера. Потерян такт, после которого нет нового кадра
 /// окна пробы (`missed`), или такт показа кадра, на `targetTimestamp` которого видимые строки
 /// не были дорисованы (`undrawn`): кадр показан, но не соответствует положению S1 целиком.
+// Потери по трассе нужны откалиброванному пути; при пути `none` процесс их не считает.
+#[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Losses {
     pub ticks: usize,
@@ -162,6 +164,7 @@ pub struct Losses {
 /// показан на такте T + `shift`, где `shift` — сдвиг `k` из итога калибровки: недорисованный
 /// такт T и такт T + k без нового кадра — одна потеря. Меньше [`MIN_TICKS`] тактов в окне —
 /// ошибка исполнения.
+#[allow(dead_code)]
 pub fn count_losses(
     vsyncs_ns: &[u64],
     frames_ns: &[u64],
@@ -282,6 +285,195 @@ pub fn resize_width(tick: u64, max: f64, min: f64) -> f64 {
         2 * steps - phase
     };
     max - down as f64 * RESIZE_STEP
+}
+
+/// Допуск частоты 120 Гц: медиана интервала `targetTimestamp` в пределах 1% от периода.
+pub const RATE_TOLERANCE: f64 = 0.01;
+
+/// Медиана интервала `targetTimestamp` подтверждает 120 Гц.
+pub fn rate_confirmed(interval_median_ms: f64) -> bool {
+    (interval_median_ms / (PERIOD_S * 1e3) - 1.0).abs() <= RATE_TOLERANCE
+}
+
+/// Вызов `displayLink` отрезка S1: положение S1 для `targetTimestamp`, верхний край после
+/// установки, видимые строки и покрыты ли они учётом `drawmark` ко входу следующего вызова.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+pub struct S1Tick {
+    pub target_s: f64,
+    pub entry_ns: u64,
+    pub y: f64,
+    pub top: f64,
+    pub rows: (u32, u32),
+    pub covered_next: Option<bool>,
+}
+
+/// Итог отрезка S1 в процессе: ритм `displayLink` окна замера, недорисованные такты и потери в
+/// процессе — такты, накрытые пропусками вызовов, и недорисованные.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct S1Summary {
+    pub calls: usize,
+    pub window_calls: usize,
+    /// Такты сетки 120 Гц по `targetTimestamp` от первого до последнего вызова окна.
+    pub grid_ticks: u64,
+    pub rhythm: Rhythm,
+    /// Номера тактов от начала отрезка по `targetTimestamp`.
+    pub undrawn: Vec<u64>,
+    pub lost_in_process: u64,
+    /// Время `drawRect:` по тактам окна замера, миллисекунды.
+    pub draw_ms: Vec<f64>,
+    /// Наименьшая и наибольшая строка, которую видимая область прошла за окно замера.
+    pub rows_passed: (u32, u32),
+}
+
+/// Сводка отрезка S1 по журналу вызовов. `draw_ms` — время `drawRect:` каждого вызова журнала
+/// ([`draw_per_tick`]). Меньше [`MIN_TICKS`] тактов сетки в окне или вызов окна без отметки
+/// покрытия к следующему вызову — ошибка исполнения.
+pub fn s1_summary(start_s: f64, ticks: &[S1Tick], draw_ms: &[f64]) -> Result<S1Summary, String> {
+    if draw_ms.len() != ticks.len() {
+        return Err(format!(
+            "времён drawRect: {} на {} вызовов",
+            draw_ms.len(),
+            ticks.len()
+        ));
+    }
+    let window = measure_window(start_s);
+    let inside: Vec<usize> = ticks
+        .iter()
+        .enumerate()
+        .filter(|(_, tick)| {
+            let at = ns(tick.target_s);
+            window.start_ns <= at && at < window.end_ns
+        })
+        .map(|(index, _)| index)
+        .collect();
+    let (Some(&first), Some(&last)) = (inside.first(), inside.last()) else {
+        return Err("в окне замера нет вызовов displayLink".to_owned());
+    };
+    let grid_ticks = ((ticks[last].target_s - ticks[first].target_s) / PERIOD_S).round() as u64 + 1;
+    if grid_ticks < MIN_TICKS as u64 {
+        return Err(format!(
+            "в окне замера {grid_ticks} тактов сетки 120 Гц, нужно не меньше {MIN_TICKS}"
+        ));
+    }
+    let mut undrawn = Vec::new();
+    for &index in &inside {
+        match ticks[index].covered_next {
+            Some(true) => {}
+            Some(false) => undrawn.push(calibrate::tick_index(start_s, ticks[index].target_s)),
+            None => {
+                return Err(format!(
+                    "вызов {index} окна замера без отметки покрытия к следующему вызову"
+                ));
+            }
+        }
+    }
+    let targets: Vec<f64> = inside.iter().map(|&index| ticks[index].target_s).collect();
+    let rhythm = rhythm(&targets);
+    let rows_passed = inside.iter().fold((u32::MAX, 0), |(low, high), &index| {
+        let rows = ticks[index].rows;
+        (low.min(rows.0), high.max(rows.1))
+    });
+    Ok(S1Summary {
+        calls: ticks.len(),
+        window_calls: inside.len(),
+        grid_ticks,
+        lost_in_process: rhythm.skipped_ticks + undrawn.len() as u64,
+        rhythm,
+        undrawn,
+        draw_ms: inside.iter().map(|&index| draw_ms[index]).collect(),
+        rows_passed,
+    })
+}
+
+/// Вызов `displayLink` броска S2: верхний край на входе и сколько событий броска уже отправлено.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+pub struct S2Tick {
+    pub target_s: f64,
+    pub top: f64,
+    pub posted: usize,
+}
+
+/// Проверка броска S2 без вердикта бюджета.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct FlingCheck {
+    pub delivered: usize,
+    pub events: usize,
+    pub gesture_shift: f64,
+    pub momentum_shift: f64,
+    pub settled: bool,
+    pub total_shift: f64,
+    pub expected_shift: f64,
+    pub pass: bool,
+    pub reasons: Vec<String>,
+}
+
+/// Допуск итогового сдвига броска от суммы дельт.
+pub const FLING_SHIFT_TOLERANCE: f64 = 0.10;
+/// Вызовов `displayLink` после возврата последнего события, за которые край не меняется.
+pub const FLING_SETTLE_TICKS: usize = 30;
+
+/// Бросок прошёл: все события дошли до `sendEvent` с возвратом, край сдвигался к концу документа
+/// в фазе жеста и в фазе инерции и после `ended` инерции не менялся, итоговый сдвиг — в пределах
+/// [`FLING_SHIFT_TOLERANCE`] от суммы дельт. `delivered` — событий с началом и возвратом
+/// `sendEvent`, `ticks` — журнал от первого вызова до конца ожидания.
+pub fn judge_fling(steps: &[WheelStep], delivered: usize, ticks: &[S2Tick]) -> FlingCheck {
+    let events = steps.len();
+    let momentum_at = steps
+        .iter()
+        .position(|step| step.momentum == WheelPhase::Began)
+        .unwrap_or(events);
+    let top_when = |posted: usize| {
+        ticks
+            .iter()
+            .find(|tick| tick.posted >= posted)
+            .map(|tick| tick.top)
+    };
+    let start = ticks.first().map_or(0.0, |tick| tick.top);
+    let at_momentum = top_when(momentum_at).unwrap_or(start);
+    let after_all: Vec<f64> = ticks
+        .iter()
+        .filter(|tick| tick.posted >= events)
+        .map(|tick| tick.top)
+        .collect();
+    let settle = &after_all[after_all.len().saturating_sub(FLING_SETTLE_TICKS)..];
+    let settled =
+        settle.len() == FLING_SETTLE_TICKS && settle.windows(2).all(|pair| pair[0] == pair[1]);
+    let end = ticks.last().map_or(start, |tick| tick.top);
+    let expected: f64 = steps.iter().map(|step| step.delta.round()).sum();
+    let total = end - start;
+    let mut reasons = Vec::new();
+    if delivered != events {
+        reasons.push(format!(
+            "до sendEvent с возвратом дошло {delivered} из {events}"
+        ));
+    }
+    if at_momentum <= start {
+        reasons.push("в фазе жеста край не сдвинулся к концу".to_owned());
+    }
+    if end <= at_momentum {
+        reasons.push("в фазе инерции край не сдвинулся к концу".to_owned());
+    }
+    if !settled {
+        reasons.push(format!(
+            "после ended инерции край менялся или вызовов меньше {FLING_SETTLE_TICKS}"
+        ));
+    }
+    if (total - expected).abs() > FLING_SHIFT_TOLERANCE * expected {
+        reasons.push(format!(
+            "сдвиг {total:.1} точки против суммы дельт {expected:.0}"
+        ));
+    }
+    FlingCheck {
+        delivered,
+        events,
+        gesture_shift: at_momentum - start,
+        momentum_shift: end - at_momentum,
+        settled,
+        total_shift: total,
+        expected_shift: expected,
+        pass: reasons.is_empty(),
+        reasons,
+    }
 }
 
 #[cfg(test)]
@@ -522,5 +714,113 @@ mod tests {
                 .iter()
                 .all(|&width| (1060.0..=1180.0).contains(&width))
         );
+    }
+
+    fn s1_ticks(count: usize, start_s: f64) -> Vec<S1Tick> {
+        (0..count)
+            .map(|index| S1Tick {
+                target_s: start_s + index as f64 * PERIOD_S,
+                entry_ns: ns(start_s + index as f64 * PERIOD_S) - 7_000_000,
+                y: index as f64 * 40.0,
+                top: index as f64 * 40.0,
+                rows: (index as u32 * 3, index as u32 * 3 + 50),
+                covered_next: Some(true),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn s1_summary_counts_skips_and_undrawn_ticks() {
+        let start = 100.0;
+        let mut ticks = s1_ticks(1201, start);
+        // Вызовы тактов 300 и 301 пропущены, такты 500 и 1190 недорисованы, такт 50 — прогрев.
+        ticks.retain(|tick| {
+            let index = calibrate::tick_index(start, tick.target_s);
+            index != 300 && index != 301
+        });
+        for tick in &mut ticks {
+            if [50, 500, 1190].contains(&calibrate::tick_index(start, tick.target_s)) {
+                tick.covered_next = Some(false);
+            }
+        }
+        ticks.last_mut().unwrap().covered_next = None;
+        let draw = vec![1.5; ticks.len()];
+        let summary = s1_summary(start, &ticks, &draw).unwrap();
+        assert_eq!(summary.calls, 1199);
+        assert_eq!(summary.window_calls, 1078);
+        assert_eq!(summary.grid_ticks, 1080);
+        assert_eq!(summary.rhythm.skips, 1);
+        assert_eq!(summary.rhythm.skipped_ticks, 2);
+        assert_eq!(summary.undrawn, vec![500, 1190]);
+        assert_eq!(summary.lost_in_process, 4);
+        assert_eq!(summary.draw_ms.len(), 1078);
+        assert_eq!(summary.rows_passed, (360, 1199 * 3 + 50));
+    }
+
+    #[test]
+    fn s1_summary_refuses_a_short_or_unmarked_window() {
+        let start = 5.0;
+        let ticks = s1_ticks(1201, start);
+        let draw = vec![0.0; ticks.len()];
+        assert!(s1_summary(start, &ticks, &draw[1..]).is_err());
+        let short: Vec<S1Tick> = ticks[..1000].to_vec();
+        assert!(s1_summary(start, &short, &draw[..1000]).is_err());
+        let mut unmarked = ticks.clone();
+        unmarked[600].covered_next = None;
+        assert!(s1_summary(start, &unmarked, &draw).is_err());
+        assert!(s1_summary(start, &ticks, &draw).is_ok());
+    }
+
+    #[test]
+    fn rate_is_confirmed_within_one_percent() {
+        assert!(rate_confirmed(8.333));
+        assert!(rate_confirmed(8.40));
+        assert!(!rate_confirmed(8.45));
+        assert!(!rate_confirmed(16.667));
+    }
+
+    fn fling_ticks(steps: &[WheelStep], scale: f64, settle: usize) -> Vec<S2Tick> {
+        let mut top = 0.0;
+        let mut ticks = Vec::new();
+        for (index, step) in steps.iter().enumerate() {
+            ticks.push(S2Tick {
+                target_s: index as f64 * PERIOD_S,
+                top,
+                posted: index,
+            });
+            top += step.delta.round() * scale;
+        }
+        for extra in 0..settle {
+            ticks.push(S2Tick {
+                target_s: (steps.len() + extra) as f64 * PERIOD_S,
+                top,
+                posted: steps.len(),
+            });
+        }
+        ticks
+    }
+
+    #[test]
+    fn fling_passes_when_the_view_follows_the_trajectory() {
+        let steps = fling();
+        let check = judge_fling(&steps, steps.len(), &fling_ticks(&steps, 1.0, 40));
+        assert!(check.pass, "{:?}", check.reasons);
+        assert!(check.gesture_shift > 0.0 && check.momentum_shift > 0.0);
+        assert!((check.expected_shift - 3981.0).abs() < 60.0);
+        assert_eq!(check.total_shift, check.expected_shift);
+    }
+
+    #[test]
+    fn fling_fails_on_lost_events_short_shift_or_drift() {
+        let steps = fling();
+        let lost = judge_fling(&steps, steps.len() - 1, &fling_ticks(&steps, 1.0, 40));
+        assert!(!lost.pass);
+        let short = judge_fling(&steps, steps.len(), &fling_ticks(&steps, 0.5, 40));
+        assert!(!short.pass && short.reasons.iter().any(|reason| reason.contains("сдвиг")));
+        let unsettled = judge_fling(&steps, steps.len(), &fling_ticks(&steps, 1.0, 10));
+        assert!(!unsettled.pass && !unsettled.settled);
+        let mut drift = fling_ticks(&steps, 1.0, 40);
+        drift.last_mut().unwrap().top += 5.0;
+        assert!(!judge_fling(&steps, steps.len(), &drift).pass);
     }
 }

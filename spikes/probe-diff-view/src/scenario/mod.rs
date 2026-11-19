@@ -17,6 +17,7 @@ pub mod drawmark;
 pub mod events;
 #[allow(dead_code)]
 pub mod frames;
+pub mod frames_run;
 pub mod highlight;
 pub mod marker;
 pub mod neighbor;
@@ -24,7 +25,6 @@ pub mod open;
 pub mod open_smoke;
 #[allow(dead_code)]
 pub mod sampler;
-#[allow(dead_code)]
 pub mod scroll;
 pub mod smoke;
 #[allow(dead_code)]
