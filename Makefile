@@ -146,8 +146,9 @@ probe-update-tcc-grant:
 
 # Проба P0.6 probe-diff набор ghostty не читает и идёт без блокировки vendor/ghostty.lock. VARIANTS
 # («a b») и MODES («unified side») сужают оси сценариев вида, FIXTURES («added modified sparse wrap
-# real threads») — ось фикстур сценариев открытия и кадров, пусто — все; FRAMES_PATH («none»,
-# «xctrace», «screencapturekit», пусто — none) — путь замера кадров frames (ADR-0034).
+# real threads») — ось фикстур сценариев open, open-warm, frames, anchor и pairs, пусто — все;
+# FRAMES_PATH («none», «xctrace», «screencapturekit», пусто — none) — путь замера кадров frames
+# (ADR-0034).
 probe-diff:
 	CARGO=$(CARGO) VARIANTS="$(VARIANTS)" MODES="$(MODES)" FIXTURES="$(FIXTURES)" FRAMES_PATH="$(FRAMES_PATH)" $(PROBE_DIFF) scenarios $(SCENARIOS)
 
