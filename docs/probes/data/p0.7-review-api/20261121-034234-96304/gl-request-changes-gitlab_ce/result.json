@@ -1,0 +1,2937 @@
+{
+  "schema": 1,
+  "series": "t15-20261121",
+  "build": "21a981e31bf46b640f9f94a4eb6eebf51b7efca455d6696a7595ff91862aa7b5",
+  "scenario": "gl-request-changes",
+  "column": "gitlab_ce",
+  "host": {
+    "version": "GitLab 19.6.1 (CE, образ 19.6.1-ce.0)",
+    "tier": "free"
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "status": "pass",
+  "reason": "все 4 проверок ожидания прошли",
+  "trace": [
+    {
+      "actor": "author",
+      "duration_us": 108873,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "_links": {
+          "cluster_agents": "http://<gitlab-ce>/api/v4/projects/1/cluster_agents",
+          "events": "http://<gitlab-ce>/api/v4/projects/1/events",
+          "issues": "http://<gitlab-ce>/api/v4/projects/1/issues",
+          "labels": "http://<gitlab-ce>/api/v4/projects/1/labels",
+          "members": "http://<gitlab-ce>/api/v4/projects/1/members",
+          "merge_requests": "http://<gitlab-ce>/api/v4/projects/1/merge_requests",
+          "repo_branches": "http://<gitlab-ce>/api/v4/projects/1/repository/branches",
+          "self": "http://<gitlab-ce>/api/v4/projects/1"
+        },
+        "allow_merge_on_skipped_pipeline": null,
+        "analytics_access_level": "enabled",
+        "archived": false,
+        "auto_cancel_pending_pipelines": "enabled",
+        "auto_devops_deploy_strategy": "continuous",
+        "auto_devops_enabled": true,
+        "autoclose_referenced_issues": true,
+        "automatic_rebase_enabled": false,
+        "avatar_url": null,
+        "build_git_strategy": "fetch",
+        "build_timeout": 3600,
+        "builds_access_level": "enabled",
+        "can_create_merge_request_in": true,
+        "ci_allow_fork_pipelines_to_run_in_parent_project": true,
+        "ci_config_path": null,
+        "ci_default_git_depth": 20,
+        "ci_delete_pipelines_in_seconds": null,
+        "ci_display_pipeline_variables": false,
+        "ci_forward_deployment_enabled": true,
+        "ci_forward_deployment_rollback_allowed": true,
+        "ci_id_token_sub_claim_components": [
+          "project_path",
+          "ref_type",
+          "ref"
+        ],
+        "ci_job_token_scope_enabled": false,
+        "ci_pipeline_variables_minimum_override_role": "developer",
+        "ci_push_repository_for_job_token_allowed": false,
+        "ci_separated_caches": true,
+        "ci_skip_branch_pipelines_for_mrs": false,
+        "cicd_catalog_enabled": false,
+        "container_expiration_policy": {
+          "cadence": "1d",
+          "enabled": false,
+          "keep_n": 10,
+          "name_regex": ".*",
+          "name_regex_keep": null,
+          "next_run_at": "2026-11-21T22:44:45.791Z",
+          "older_than": "90d"
+        },
+        "container_registry_access_level": "enabled",
+        "container_registry_enabled": true,
+        "created_at": "2026-11-20T22:44:45.779Z",
+        "creator_id": 2,
+        "default_branch": "main",
+        "description": null,
+        "description_html": "",
+        "emails_disabled": false,
+        "emails_enabled": true,
+        "empty_repo": false,
+        "enforce_auth_checks_on_uploads": true,
+        "environments_access_level": "enabled",
+        "feature_flags_access_level": "enabled",
+        "forking_access_level": "enabled",
+        "forks_count": 0,
+        "group_runners_enabled": true,
+        "http_url_to_repo": "http://<gitlab-ce>/<repo>.git",
+        "id": 1,
+        "import_error": null,
+        "import_status": "none",
+        "import_type": null,
+        "import_url": null,
+        "infrastructure_access_level": "enabled",
+        "issue_branch_template": null,
+        "issues_access_level": "enabled",
+        "issues_enabled": true,
+        "jobs_enabled": true,
+        "keep_latest_artifact": true,
+        "last_activity_at": "2026-11-20T22:44:45.739Z",
+        "lfs_enabled": true,
+        "marked_for_deletion_at": null,
+        "marked_for_deletion_on": null,
+        "max_artifacts_size": null,
+        "merge_commit_template": null,
+        "merge_method": "merge",
+        "merge_requests_access_level": "enabled",
+        "merge_requests_enabled": true,
+        "model_experiments_access_level": "private",
+        "model_registry_access_level": "private",
+        "monitor_access_level": "enabled",
+        "mr_default_title_template": null,
+        "name": "shellio-review-sandbox",
+        "name_with_namespace": "<author> / shellio-review-sandbox",
+        "namespace": {
+          "avatar_url": "<avatar>",
+          "full_path": "<author>",
+          "id": 2,
+          "kind": "user",
+          "name": "<author>",
+          "parent_id": null,
+          "path": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "only_allow_merge_if_all_discussions_are_resolved": false,
+        "only_allow_merge_if_pipeline_succeeds": false,
+        "open_issues_count": 0,
+        "owner": {
+          "avatar_url": "<avatar>",
+          "id": 2,
+          "locked": false,
+          "name": "<author>",
+          "public_email": null,
+          "state": "active",
+          "username": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "package_registry_access_level": "enabled",
+        "packages_enabled": true,
+        "pages_access_level": "private",
+        "path": "shellio-review-sandbox",
+        "path_with_namespace": "<repo>",
+        "permissions": {
+          "group_access": null,
+          "project_access": {
+            "access_level": 50,
+            "notification_level": 3
+          }
+        },
+        "printing_merge_request_link_enabled": true,
+        "protect_merge_request_pipelines": true,
+        "public_jobs": true,
+        "readme_url": "http://<gitlab-ce>/<repo>/-/blob/main/README.md",
+        "releases_access_level": "enabled",
+        "remove_source_branch_after_merge": true,
+        "repository_access_level": "enabled",
+        "repository_object_format": "sha1",
+        "request_access_enabled": true,
+        "resolve_outdated_diff_discussions": false,
+        "resource_group_default_process_mode": "unordered",
+        "restrict_user_defined_variables": false,
+        "runner_token_expiration_interval": null,
+        "runners_token": "<token>",
+        "security_and_compliance_access_level": "private",
+        "service_desk_address": null,
+        "service_desk_enabled": false,
+        "shared_runners_enabled": true,
+        "shared_with_groups": [],
+        "show_diff_preview_in_email": true,
+        "snippets_access_level": "enabled",
+        "snippets_enabled": true,
+        "squash_commit_template": null,
+        "squash_option": "default_off",
+        "ssh_url_to_repo": "git@<gitlab-ce>:<repo>.git",
+        "star_count": 0,
+        "suggestion_commit_message": null,
+        "tag_list": [],
+        "topics": [],
+        "updated_at": "2026-11-20T22:44:46.635Z",
+        "visibility": "private",
+        "warn_about_potentially_unwanted_characters": true,
+        "web_url": "http://<gitlab-ce>/<repo>",
+        "wiki_access_level": "enabled",
+        "wiki_enabled": true
+      },
+      "seq": 1,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 76987,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/repository/branches/main",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "can_push": true,
+        "commit": {
+          "author_email": "<email>",
+          "author_name": "<author>",
+          "authored_date": "2026-11-20T22:44:46.000+00:00",
+          "committed_date": "2026-11-20T22:44:46.000+00:00",
+          "committer_email": "<email>",
+          "committer_name": "<author>",
+          "created_at": "2026-11-20T22:44:46.000+00:00",
+          "extended_trailers": {},
+          "id": "c221cae30fe998d16fdb8b05e1e33d46a85513ab",
+          "message": "Initial commit",
+          "parent_ids": [],
+          "short_id": "c221cae3",
+          "title": "Initial commit",
+          "trailers": {},
+          "web_url": "http://<gitlab-ce>/<repo>/-/commit/c221cae30fe998d16fdb8b05e1e33d46a85513ab"
+        },
+        "default": true,
+        "developers_can_merge": false,
+        "developers_can_push": false,
+        "merged": false,
+        "name": "main",
+        "protected": true,
+        "web_url": "http://<gitlab-ce>/<repo>/-/tree/main"
+      },
+      "seq": 2,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 129758,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "_links": {
+          "cluster_agents": "http://<gitlab-ce>/api/v4/projects/1/cluster_agents",
+          "events": "http://<gitlab-ce>/api/v4/projects/1/events",
+          "issues": "http://<gitlab-ce>/api/v4/projects/1/issues",
+          "labels": "http://<gitlab-ce>/api/v4/projects/1/labels",
+          "members": "http://<gitlab-ce>/api/v4/projects/1/members",
+          "merge_requests": "http://<gitlab-ce>/api/v4/projects/1/merge_requests",
+          "repo_branches": "http://<gitlab-ce>/api/v4/projects/1/repository/branches",
+          "self": "http://<gitlab-ce>/api/v4/projects/1"
+        },
+        "allow_merge_on_skipped_pipeline": null,
+        "analytics_access_level": "enabled",
+        "archived": false,
+        "autoclose_referenced_issues": true,
+        "automatic_rebase_enabled": false,
+        "avatar_url": null,
+        "builds_access_level": "enabled",
+        "can_create_merge_request_in": true,
+        "ci_config_path": null,
+        "cicd_catalog_enabled": false,
+        "container_expiration_policy": {
+          "cadence": "1d",
+          "enabled": false,
+          "keep_n": 10,
+          "name_regex": ".*",
+          "name_regex_keep": null,
+          "next_run_at": "2026-11-21T22:44:45.791Z",
+          "older_than": "90d"
+        },
+        "container_registry_access_level": "enabled",
+        "container_registry_enabled": true,
+        "created_at": "2026-11-20T22:44:45.779Z",
+        "creator_id": 2,
+        "default_branch": "main",
+        "description": null,
+        "description_html": "",
+        "emails_disabled": false,
+        "emails_enabled": true,
+        "empty_repo": false,
+        "enforce_auth_checks_on_uploads": true,
+        "environments_access_level": "enabled",
+        "feature_flags_access_level": "enabled",
+        "forking_access_level": "enabled",
+        "forks_count": 0,
+        "http_url_to_repo": "http://<gitlab-ce>/<repo>.git",
+        "id": 1,
+        "import_status": "none",
+        "infrastructure_access_level": "enabled",
+        "issue_branch_template": null,
+        "issues_access_level": "enabled",
+        "issues_enabled": true,
+        "jobs_enabled": true,
+        "last_activity_at": "2026-11-20T22:44:45.739Z",
+        "lfs_enabled": true,
+        "marked_for_deletion_at": null,
+        "marked_for_deletion_on": null,
+        "max_artifacts_size": null,
+        "merge_commit_template": null,
+        "merge_method": "merge",
+        "merge_requests_access_level": "enabled",
+        "merge_requests_enabled": true,
+        "model_experiments_access_level": "private",
+        "model_registry_access_level": "private",
+        "monitor_access_level": "enabled",
+        "mr_default_title_template": null,
+        "name": "shellio-review-sandbox",
+        "name_with_namespace": "<author> / shellio-review-sandbox",
+        "namespace": {
+          "avatar_url": "<avatar>",
+          "full_path": "<author>",
+          "id": 2,
+          "kind": "user",
+          "name": "<author>",
+          "parent_id": null,
+          "path": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "only_allow_merge_if_all_discussions_are_resolved": false,
+        "only_allow_merge_if_pipeline_succeeds": false,
+        "open_issues_count": 0,
+        "owner": {
+          "avatar_url": "<avatar>",
+          "id": 2,
+          "locked": false,
+          "name": "<author>",
+          "public_email": null,
+          "state": "active",
+          "username": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "package_registry_access_level": "enabled",
+        "packages_enabled": true,
+        "pages_access_level": "private",
+        "path": "shellio-review-sandbox",
+        "path_with_namespace": "<repo>",
+        "permissions": {
+          "group_access": null,
+          "project_access": {
+            "access_level": 30,
+            "notification_level": 3
+          }
+        },
+        "printing_merge_request_link_enabled": true,
+        "public_jobs": true,
+        "readme_url": "http://<gitlab-ce>/<repo>/-/blob/main/README.md",
+        "releases_access_level": "enabled",
+        "remove_source_branch_after_merge": true,
+        "repository_access_level": "enabled",
+        "repository_object_format": "sha1",
+        "request_access_enabled": true,
+        "resolve_outdated_diff_discussions": false,
+        "security_and_compliance_access_level": "private",
+        "service_desk_address": null,
+        "service_desk_enabled": false,
+        "shared_runners_enabled": true,
+        "shared_with_groups": [],
+        "show_diff_preview_in_email": true,
+        "snippets_access_level": "enabled",
+        "snippets_enabled": true,
+        "squash_commit_template": null,
+        "squash_option": "default_off",
+        "ssh_url_to_repo": "git@<gitlab-ce>:<repo>.git",
+        "star_count": 0,
+        "suggestion_commit_message": null,
+        "tag_list": [],
+        "topics": [],
+        "updated_at": "2026-11-20T22:44:46.635Z",
+        "visibility": "private",
+        "warn_about_potentially_unwanted_characters": true,
+        "web_url": "http://<gitlab-ce>/<repo>",
+        "wiki_access_level": "enabled",
+        "wiki_enabled": true
+      },
+      "seq": 3,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 18237,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/user",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "avatar_url": "<avatar>",
+        "bio": "",
+        "bot": false,
+        "can_create_group": true,
+        "can_create_project": true,
+        "color_scheme_id": 1,
+        "commit_email": "<email>",
+        "confirmed_at": "2026-11-20T22:44:45.198Z",
+        "created_at": "2026-11-20T22:44:45.604Z",
+        "current_sign_in_at": "2026-11-20T22:44:49.992Z",
+        "discord": "",
+        "email": "<email>",
+        "external": false,
+        "github": "",
+        "id": 3,
+        "identities": [],
+        "job_title": "",
+        "last_activity_on": "2026-11-20",
+        "last_sign_in_at": "2026-11-20T22:44:49.992Z",
+        "linkedin": "",
+        "local_time": null,
+        "location": "",
+        "locked": false,
+        "name": "<reviewer>",
+        "organization": "",
+        "preferred_language": "en",
+        "private_profile": false,
+        "projects_limit": 100000,
+        "pronouns": null,
+        "public_email": null,
+        "state": "active",
+        "theme_id": 3,
+        "twitter": "",
+        "two_factor_enabled": false,
+        "username": "<reviewer>",
+        "web_url": "http://<gitlab-ce>/<reviewer>",
+        "website_url": "",
+        "work_information": null
+      },
+      "seq": 4,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 149145,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/repository/branches",
+      "rate_limit": {},
+      "request_body": {
+        "branch": "probe/20261121-034234-96304-gl-request-changes-base",
+        "ref": "c221cae30fe998d16fdb8b05e1e33d46a85513ab"
+      },
+      "response_body": {
+        "can_push": true,
+        "commit": {
+          "author_email": "<email>",
+          "author_name": "<author>",
+          "authored_date": "2026-11-20T22:44:46.000+00:00",
+          "committed_date": "2026-11-20T22:44:46.000+00:00",
+          "committer_email": "<email>",
+          "committer_name": "<author>",
+          "created_at": "2026-11-20T22:44:46.000+00:00",
+          "extended_trailers": {},
+          "id": "c221cae30fe998d16fdb8b05e1e33d46a85513ab",
+          "message": "Initial commit",
+          "parent_ids": [],
+          "short_id": "c221cae3",
+          "title": "Initial commit",
+          "trailers": {},
+          "web_url": "http://<gitlab-ce>/<repo>/-/commit/c221cae30fe998d16fdb8b05e1e33d46a85513ab"
+        },
+        "default": false,
+        "developers_can_merge": false,
+        "developers_can_push": false,
+        "merged": false,
+        "name": "probe/20261121-034234-96304-gl-request-changes-base",
+        "protected": false,
+        "web_url": "http://<gitlab-ce>/<repo>/-/tree/probe/20261121-034234-96304-gl-request-changes-base"
+      },
+      "seq": 5,
+      "status": 201
+    },
+    {
+      "actor": "author",
+      "duration_us": 244199,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/repository/commits",
+      "rate_limit": {},
+      "request_body": {
+        "actions": [
+          {
+            "action": "create",
+            "content": "line 01\nline 02\nline 03\nline 04\nline 05\nline 06\nline 07\nline 08\nline 09\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\n",
+            "file_path": "probe-review/fixture.txt"
+          }
+        ],
+        "branch": "probe/20261121-034234-96304-gl-request-changes-base",
+        "commit_message": "probe-review: fixture base"
+      },
+      "response_body": {
+        "author_email": "<email>",
+        "author_name": "<author>",
+        "authored_date": "2026-11-20T22:44:58.000+00:00",
+        "committed_date": "2026-11-20T22:44:58.000+00:00",
+        "committer_email": "<email>",
+        "committer_name": "<author>",
+        "created_at": "2026-11-20T22:44:58.000+00:00",
+        "extended_trailers": {},
+        "id": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+        "last_pipeline": null,
+        "message": "probe-review: fixture base",
+        "parent_ids": [
+          "c221cae30fe998d16fdb8b05e1e33d46a85513ab"
+        ],
+        "project_id": 1,
+        "short_id": "41dd3217",
+        "stats": {
+          "additions": 30,
+          "deletions": 0,
+          "total": 30
+        },
+        "status": null,
+        "title": "probe-review: fixture base",
+        "trailers": {},
+        "web_url": "http://<gitlab-ce>/<repo>/-/commit/41dd32173a8af0f40b86dbcf28cbb60ca938f741"
+      },
+      "seq": 6,
+      "status": 201
+    },
+    {
+      "actor": "author",
+      "duration_us": 168430,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/repository/branches",
+      "rate_limit": {},
+      "request_body": {
+        "branch": "probe/20261121-034234-96304-gl-request-changes",
+        "ref": "41dd32173a8af0f40b86dbcf28cbb60ca938f741"
+      },
+      "response_body": {
+        "can_push": true,
+        "commit": {
+          "author_email": "<email>",
+          "author_name": "<author>",
+          "authored_date": "2026-11-20T22:44:58.000+00:00",
+          "committed_date": "2026-11-20T22:44:58.000+00:00",
+          "committer_email": "<email>",
+          "committer_name": "<author>",
+          "created_at": "2026-11-20T22:44:58.000+00:00",
+          "extended_trailers": {},
+          "id": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+          "message": "probe-review: fixture base",
+          "parent_ids": [
+            "c221cae30fe998d16fdb8b05e1e33d46a85513ab"
+          ],
+          "short_id": "41dd3217",
+          "title": "probe-review: fixture base",
+          "trailers": {},
+          "web_url": "http://<gitlab-ce>/<repo>/-/commit/41dd32173a8af0f40b86dbcf28cbb60ca938f741"
+        },
+        "default": false,
+        "developers_can_merge": false,
+        "developers_can_push": false,
+        "merged": false,
+        "name": "probe/20261121-034234-96304-gl-request-changes",
+        "protected": false,
+        "web_url": "http://<gitlab-ce>/<repo>/-/tree/probe/20261121-034234-96304-gl-request-changes"
+      },
+      "seq": 7,
+      "status": 201
+    },
+    {
+      "actor": "author",
+      "duration_us": 253266,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/repository/commits",
+      "rate_limit": {},
+      "request_body": {
+        "actions": [
+          {
+            "action": "update",
+            "content": "line 01\nline 02\nline 04\nline 05 changed\nline 06\nline 07\nline 08\nline 09\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 24a\nline 24b\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\n",
+            "file_path": "probe-review/fixture.txt"
+          }
+        ],
+        "branch": "probe/20261121-034234-96304-gl-request-changes",
+        "commit_message": "probe-review: fixture head"
+      },
+      "response_body": {
+        "author_email": "<email>",
+        "author_name": "<author>",
+        "authored_date": "2026-11-20T22:44:58.000+00:00",
+        "committed_date": "2026-11-20T22:44:58.000+00:00",
+        "committer_email": "<email>",
+        "committer_name": "<author>",
+        "created_at": "2026-11-20T22:44:58.000+00:00",
+        "extended_trailers": {},
+        "id": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+        "last_pipeline": null,
+        "message": "probe-review: fixture head",
+        "parent_ids": [
+          "41dd32173a8af0f40b86dbcf28cbb60ca938f741"
+        ],
+        "project_id": 1,
+        "short_id": "1467a9f7",
+        "stats": {
+          "additions": 3,
+          "deletions": 2,
+          "total": 5
+        },
+        "status": null,
+        "title": "probe-review: fixture head",
+        "trailers": {},
+        "web_url": "http://<gitlab-ce>/<repo>/-/commit/1467a9f7f1fe8a81dfc984b10477749eee842c7c"
+      },
+      "seq": 8,
+      "status": 201
+    },
+    {
+      "actor": "author",
+      "duration_us": 120971,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/merge_requests",
+      "rate_limit": {},
+      "request_body": {
+        "description": "Проба P0.7: MR и его ветки удаляются после прогона клетки.",
+        "reviewer_ids": [
+          3
+        ],
+        "source_branch": "probe/20261121-034234-96304-gl-request-changes",
+        "target_branch": "probe/20261121-034234-96304-gl-request-changes-base",
+        "title": "probe-review gl-request-changes"
+      },
+      "response_body": {
+        "assignee": null,
+        "assignees": [],
+        "author": {
+          "avatar_url": "<avatar>",
+          "bot": false,
+          "id": 2,
+          "locked": false,
+          "name": "<author>",
+          "public_email": null,
+          "state": "active",
+          "username": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "blocking_discussions_resolved": true,
+        "changes_count": null,
+        "closed_at": null,
+        "closed_by": null,
+        "created_at": "2026-11-20T22:44:59.029Z",
+        "description": "Проба P0.7: MR и его ветки удаляются после прогона клетки.",
+        "detailed_merge_status": "preparing",
+        "diff_refs": null,
+        "discussion_locked": null,
+        "downvotes": 0,
+        "draft": false,
+        "first_deployed_to_production_at": null,
+        "force_remove_source_branch": true,
+        "has_conflicts": false,
+        "head_pipeline": null,
+        "id": 3,
+        "iid": 3,
+        "imported": false,
+        "imported_from": "none",
+        "labels": [],
+        "latest_build_finished_at": null,
+        "latest_build_started_at": null,
+        "merge_after": null,
+        "merge_commit_sha": null,
+        "merge_error": null,
+        "merge_status": "checking",
+        "merge_user": null,
+        "merge_when_pipeline_succeeds": false,
+        "merged_at": null,
+        "merged_by": null,
+        "milestone": null,
+        "pipeline": null,
+        "prepared_at": null,
+        "project_id": 1,
+        "reference": "!3",
+        "references": {
+          "full": "<repo>!3",
+          "relative": "!3",
+          "short": "!3"
+        },
+        "reviewers": [
+          {
+            "avatar_url": "<avatar>",
+            "id": 3,
+            "locked": false,
+            "name": "<reviewer>",
+            "public_email": null,
+            "state": "active",
+            "username": "<reviewer>",
+            "web_url": "http://<gitlab-ce>/<reviewer>"
+          }
+        ],
+        "sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+        "should_remove_source_branch": null,
+        "source_branch": "probe/20261121-034234-96304-gl-request-changes",
+        "source_project_id": 1,
+        "squash": false,
+        "squash_commit_sha": null,
+        "squash_on_merge": false,
+        "state": "opened",
+        "subscribed": true,
+        "target_branch": "probe/20261121-034234-96304-gl-request-changes-base",
+        "target_project_id": 1,
+        "task_completion_status": {
+          "completed_count": 0,
+          "count": 0
+        },
+        "time_stats": {
+          "human_time_estimate": null,
+          "human_total_time_spent": null,
+          "time_estimate": 0,
+          "total_time_spent": 0
+        },
+        "title": "probe-review gl-request-changes",
+        "updated_at": "2026-11-20T22:44:59.029Z",
+        "upvotes": 0,
+        "user": {
+          "can_merge": true
+        },
+        "user_notes_count": 0,
+        "web_url": "http://<gitlab-ce>/<repo>/-/merge_requests/3",
+        "work_in_progress": false
+      },
+      "seq": 9,
+      "status": 201
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 51957,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "assignee": null,
+        "assignees": [],
+        "author": {
+          "avatar_url": "<avatar>",
+          "bot": false,
+          "id": 2,
+          "locked": false,
+          "name": "<author>",
+          "public_email": null,
+          "state": "active",
+          "username": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "blocking_discussions_resolved": true,
+        "changes_count": null,
+        "closed_at": null,
+        "closed_by": null,
+        "created_at": "2026-11-20T22:44:59.029Z",
+        "description": "Проба P0.7: MR и его ветки удаляются после прогона клетки.",
+        "detailed_merge_status": "preparing",
+        "diff_refs": null,
+        "discussion_locked": null,
+        "downvotes": 0,
+        "draft": false,
+        "first_contribution": true,
+        "first_deployed_to_production_at": null,
+        "force_remove_source_branch": true,
+        "has_conflicts": false,
+        "head_pipeline": null,
+        "id": 3,
+        "iid": 3,
+        "imported": false,
+        "imported_from": "none",
+        "labels": [],
+        "latest_build_finished_at": null,
+        "latest_build_started_at": null,
+        "merge_after": null,
+        "merge_commit_sha": null,
+        "merge_error": null,
+        "merge_status": "checking",
+        "merge_user": null,
+        "merge_when_pipeline_succeeds": false,
+        "merged_at": null,
+        "merged_by": null,
+        "milestone": null,
+        "pipeline": null,
+        "prepared_at": null,
+        "project_id": 1,
+        "reference": "!3",
+        "references": {
+          "full": "<repo>!3",
+          "relative": "!3",
+          "short": "!3"
+        },
+        "reviewers": [
+          {
+            "avatar_url": "<avatar>",
+            "id": 3,
+            "locked": false,
+            "name": "<reviewer>",
+            "public_email": null,
+            "state": "active",
+            "username": "<reviewer>",
+            "web_url": "http://<gitlab-ce>/<reviewer>"
+          }
+        ],
+        "sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+        "should_remove_source_branch": null,
+        "source_branch": "probe/20261121-034234-96304-gl-request-changes",
+        "source_project_id": 1,
+        "squash": false,
+        "squash_commit_sha": null,
+        "squash_on_merge": false,
+        "state": "opened",
+        "subscribed": true,
+        "target_branch": "probe/20261121-034234-96304-gl-request-changes-base",
+        "target_project_id": 1,
+        "task_completion_status": {
+          "completed_count": 0,
+          "count": 0
+        },
+        "time_stats": {
+          "human_time_estimate": null,
+          "human_total_time_spent": null,
+          "time_estimate": 0,
+          "total_time_spent": 0
+        },
+        "title": "probe-review gl-request-changes",
+        "updated_at": "2026-11-20T22:44:59.029Z",
+        "upvotes": 0,
+        "user": {
+          "can_merge": true
+        },
+        "user_notes_count": 0,
+        "web_url": "http://<gitlab-ce>/<repo>/-/merge_requests/3",
+        "work_in_progress": false
+      },
+      "seq": 10,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 44689,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "assignee": null,
+        "assignees": [],
+        "author": {
+          "avatar_url": "<avatar>",
+          "bot": false,
+          "id": 2,
+          "locked": false,
+          "name": "<author>",
+          "public_email": null,
+          "state": "active",
+          "username": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "blocking_discussions_resolved": true,
+        "changes_count": "1",
+        "closed_at": null,
+        "closed_by": null,
+        "created_at": "2026-11-20T22:44:59.029Z",
+        "description": "Проба P0.7: MR и его ветки удаляются после прогона клетки.",
+        "detailed_merge_status": "checking",
+        "diff_refs": {
+          "base_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+          "head_sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+          "start_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741"
+        },
+        "discussion_locked": null,
+        "downvotes": 0,
+        "draft": false,
+        "first_contribution": true,
+        "first_deployed_to_production_at": null,
+        "force_remove_source_branch": true,
+        "has_conflicts": false,
+        "head_pipeline": null,
+        "id": 3,
+        "iid": 3,
+        "imported": false,
+        "imported_from": "none",
+        "labels": [],
+        "latest_build_finished_at": null,
+        "latest_build_started_at": null,
+        "merge_after": null,
+        "merge_commit_sha": null,
+        "merge_error": null,
+        "merge_status": "checking",
+        "merge_user": null,
+        "merge_when_pipeline_succeeds": false,
+        "merged_at": null,
+        "merged_by": null,
+        "milestone": null,
+        "pipeline": null,
+        "prepared_at": "2026-11-20T22:44:59.893Z",
+        "project_id": 1,
+        "reference": "!3",
+        "references": {
+          "full": "<repo>!3",
+          "relative": "!3",
+          "short": "!3"
+        },
+        "reviewers": [
+          {
+            "avatar_url": "<avatar>",
+            "id": 3,
+            "locked": false,
+            "name": "<reviewer>",
+            "public_email": null,
+            "state": "active",
+            "username": "<reviewer>",
+            "web_url": "http://<gitlab-ce>/<reviewer>"
+          }
+        ],
+        "sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+        "should_remove_source_branch": null,
+        "source_branch": "probe/20261121-034234-96304-gl-request-changes",
+        "source_project_id": 1,
+        "squash": false,
+        "squash_commit_sha": null,
+        "squash_on_merge": false,
+        "state": "opened",
+        "subscribed": true,
+        "target_branch": "probe/20261121-034234-96304-gl-request-changes-base",
+        "target_project_id": 1,
+        "task_completion_status": {
+          "completed_count": 0,
+          "count": 0
+        },
+        "time_stats": {
+          "human_time_estimate": null,
+          "human_total_time_spent": null,
+          "time_estimate": 0,
+          "total_time_spent": 0
+        },
+        "title": "probe-review gl-request-changes",
+        "updated_at": "2026-11-20T22:44:59.902Z",
+        "upvotes": 0,
+        "user": {
+          "can_merge": true
+        },
+        "user_notes_count": 0,
+        "web_url": "http://<gitlab-ce>/<repo>/-/merge_requests/3",
+        "work_in_progress": false
+      },
+      "seq": 11,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 28023,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions?per_page=100&page=1",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": [
+        {
+          "base_commit_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+          "created_at": "2026-11-20T22:44:59.444Z",
+          "head_commit_sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+          "id": 7,
+          "merge_request_id": 3,
+          "patch_id_sha": "e73cf9af61b3e99f0e50add6fa51d019fd5be994",
+          "real_size": "1",
+          "start_commit_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+          "state": "collected"
+        },
+        {
+          "base_commit_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+          "created_at": "2026-11-20T22:44:59.442Z",
+          "head_commit_sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+          "id": 6,
+          "merge_request_id": 3,
+          "patch_id_sha": "e73cf9af61b3e99f0e50add6fa51d019fd5be994",
+          "real_size": "1",
+          "start_commit_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+          "state": "collected"
+        }
+      ],
+      "seq": 12,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 44821,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions/7",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "base_commit_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+        "commits": [
+          {
+            "author_email": "<email>",
+            "author_name": "<author>",
+            "authored_date": "2026-11-20T22:44:58.000+00:00",
+            "committed_date": "2026-11-20T22:44:58.000+00:00",
+            "committer_email": "<email>",
+            "committer_name": "<author>",
+            "created_at": "2026-11-20T22:44:58.000+00:00",
+            "extended_trailers": {},
+            "id": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+            "message": "probe-review: fixture head",
+            "parent_ids": [
+              "41dd32173a8af0f40b86dbcf28cbb60ca938f741"
+            ],
+            "short_id": "1467a9f7",
+            "title": "probe-review: fixture head",
+            "trailers": {},
+            "web_url": "http://<gitlab-ce>/<repo>/-/commit/1467a9f7f1fe8a81dfc984b10477749eee842c7c"
+          }
+        ],
+        "created_at": "2026-11-20T22:44:59.444Z",
+        "diffs": [
+          {
+            "a_mode": "100644",
+            "b_mode": "100644",
+            "collapsed": false,
+            "deleted_file": false,
+            "diff": "@@ -1,8 +1,7 @@\n line 01\n line 02\n-line 03\n line 04\n-line 05\n+line 05 changed\n line 06\n line 07\n line 08\n@@ -22,6 +21,8 @@ line 21\n line 22\n line 23\n line 24\n+line 24a\n+line 24b\n line 25\n line 26\n line 27\n",
+            "generated_file": false,
+            "new_file": false,
+            "new_path": "probe-review/fixture.txt",
+            "old_path": "probe-review/fixture.txt",
+            "renamed_file": false,
+            "too_large": false
+          }
+        ],
+        "head_commit_sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+        "id": 7,
+        "merge_request_id": 3,
+        "patch_id_sha": "e73cf9af61b3e99f0e50add6fa51d019fd5be994",
+        "real_size": "1",
+        "start_commit_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+        "state": "collected"
+      },
+      "seq": 13,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 22123,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/user",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "avatar_url": "<avatar>",
+        "bio": "",
+        "bot": false,
+        "can_create_group": true,
+        "can_create_project": true,
+        "color_scheme_id": 1,
+        "commit_email": "<email>",
+        "confirmed_at": "2026-11-20T22:44:45.198Z",
+        "created_at": "2026-11-20T22:44:45.604Z",
+        "current_sign_in_at": "2026-11-20T22:44:49.992Z",
+        "discord": "",
+        "email": "<email>",
+        "external": false,
+        "github": "",
+        "id": 3,
+        "identities": [],
+        "job_title": "",
+        "last_activity_on": "2026-11-20",
+        "last_sign_in_at": "2026-11-20T22:44:49.992Z",
+        "linkedin": "",
+        "local_time": null,
+        "location": "",
+        "locked": false,
+        "name": "<reviewer>",
+        "organization": "",
+        "preferred_language": "en",
+        "private_profile": false,
+        "projects_limit": 100000,
+        "pronouns": null,
+        "public_email": null,
+        "state": "active",
+        "theme_id": 3,
+        "twitter": "",
+        "two_factor_enabled": false,
+        "username": "<reviewer>",
+        "web_url": "http://<gitlab-ce>/<reviewer>",
+        "website_url": "",
+        "work_information": null
+      },
+      "seq": 14,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 20442,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/metadata",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "enterprise": false,
+        "kas": {
+          "enabled": true,
+          "externalK8sProxyUrl": "http://<gitlab-ce>/-/kubernetes-agent/k8s-proxy/",
+          "externalUrl": "ws://<gitlab-ce>/-/kubernetes-agent/",
+          "version": "19.6.1"
+        },
+        "plan": "free",
+        "revision": "6ec1905561e",
+        "version": "19.6.1"
+      },
+      "seq": 15,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 40107,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "_links": {
+          "cluster_agents": "http://<gitlab-ce>/api/v4/projects/1/cluster_agents",
+          "events": "http://<gitlab-ce>/api/v4/projects/1/events",
+          "issues": "http://<gitlab-ce>/api/v4/projects/1/issues",
+          "labels": "http://<gitlab-ce>/api/v4/projects/1/labels",
+          "members": "http://<gitlab-ce>/api/v4/projects/1/members",
+          "merge_requests": "http://<gitlab-ce>/api/v4/projects/1/merge_requests",
+          "repo_branches": "http://<gitlab-ce>/api/v4/projects/1/repository/branches",
+          "self": "http://<gitlab-ce>/api/v4/projects/1"
+        },
+        "allow_merge_on_skipped_pipeline": null,
+        "analytics_access_level": "enabled",
+        "archived": false,
+        "autoclose_referenced_issues": true,
+        "automatic_rebase_enabled": false,
+        "avatar_url": null,
+        "builds_access_level": "enabled",
+        "can_create_merge_request_in": true,
+        "ci_config_path": null,
+        "cicd_catalog_enabled": false,
+        "container_expiration_policy": {
+          "cadence": "1d",
+          "enabled": false,
+          "keep_n": 10,
+          "name_regex": ".*",
+          "name_regex_keep": null,
+          "next_run_at": "2026-11-21T22:44:45.791Z",
+          "older_than": "90d"
+        },
+        "container_registry_access_level": "enabled",
+        "container_registry_enabled": true,
+        "created_at": "2026-11-20T22:44:45.779Z",
+        "creator_id": 2,
+        "default_branch": "main",
+        "description": null,
+        "description_html": "",
+        "emails_disabled": false,
+        "emails_enabled": true,
+        "empty_repo": false,
+        "enforce_auth_checks_on_uploads": true,
+        "environments_access_level": "enabled",
+        "feature_flags_access_level": "enabled",
+        "forking_access_level": "enabled",
+        "forks_count": 0,
+        "http_url_to_repo": "http://<gitlab-ce>/<repo>.git",
+        "id": 1,
+        "import_status": "none",
+        "infrastructure_access_level": "enabled",
+        "issue_branch_template": null,
+        "issues_access_level": "enabled",
+        "issues_enabled": true,
+        "jobs_enabled": true,
+        "last_activity_at": "2026-11-20T22:44:45.739Z",
+        "lfs_enabled": true,
+        "marked_for_deletion_at": null,
+        "marked_for_deletion_on": null,
+        "max_artifacts_size": null,
+        "merge_commit_template": null,
+        "merge_method": "merge",
+        "merge_requests_access_level": "enabled",
+        "merge_requests_enabled": true,
+        "model_experiments_access_level": "private",
+        "model_registry_access_level": "private",
+        "monitor_access_level": "enabled",
+        "mr_default_title_template": null,
+        "name": "shellio-review-sandbox",
+        "name_with_namespace": "<author> / shellio-review-sandbox",
+        "namespace": {
+          "avatar_url": "<avatar>",
+          "full_path": "<author>",
+          "id": 2,
+          "kind": "user",
+          "name": "<author>",
+          "parent_id": null,
+          "path": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "only_allow_merge_if_all_discussions_are_resolved": false,
+        "only_allow_merge_if_pipeline_succeeds": false,
+        "open_issues_count": 0,
+        "owner": {
+          "avatar_url": "<avatar>",
+          "id": 2,
+          "locked": false,
+          "name": "<author>",
+          "public_email": null,
+          "state": "active",
+          "username": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "package_registry_access_level": "enabled",
+        "packages_enabled": true,
+        "pages_access_level": "private",
+        "path": "shellio-review-sandbox",
+        "path_with_namespace": "<repo>",
+        "permissions": {
+          "group_access": null,
+          "project_access": {
+            "access_level": 30,
+            "notification_level": 3
+          }
+        },
+        "printing_merge_request_link_enabled": true,
+        "public_jobs": true,
+        "readme_url": "http://<gitlab-ce>/<repo>/-/blob/main/README.md",
+        "releases_access_level": "enabled",
+        "remove_source_branch_after_merge": true,
+        "repository_access_level": "enabled",
+        "repository_object_format": "sha1",
+        "request_access_enabled": true,
+        "resolve_outdated_diff_discussions": false,
+        "security_and_compliance_access_level": "private",
+        "service_desk_address": null,
+        "service_desk_enabled": false,
+        "shared_runners_enabled": true,
+        "shared_with_groups": [],
+        "show_diff_preview_in_email": true,
+        "snippets_access_level": "enabled",
+        "snippets_enabled": true,
+        "squash_commit_template": null,
+        "squash_option": "default_off",
+        "ssh_url_to_repo": "git@<gitlab-ce>:<repo>.git",
+        "star_count": 0,
+        "suggestion_commit_message": null,
+        "tag_list": [],
+        "topics": [],
+        "updated_at": "2026-11-20T22:44:46.635Z",
+        "visibility": "private",
+        "warn_about_potentially_unwanted_characters": true,
+        "web_url": "http://<gitlab-ce>/<repo>",
+        "wiki_access_level": "enabled",
+        "wiki_enabled": true
+      },
+      "seq": 16,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 15608,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/namespaces/2",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "message": "404 Namespace Not Found"
+      },
+      "seq": 17,
+      "status": 404
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 582968,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/graphql",
+      "rate_limit": {},
+      "request_body": {
+        "query": "query($name: String!) { __type(name: $name) { fields { name } } }",
+        "variables": {
+          "name": "Mutation"
+        }
+      },
+      "response_body": {
+        "bytes": 8774476,
+        "keys": [
+          "data"
+        ],
+        "mutation_fields": 733,
+        "mutation_type": "Mutation",
+        "mutations": {
+          "addPullRequestReviewThread": false,
+          "markFileAsViewed": false,
+          "mergeRequestRequestChanges": true,
+          "resolveReviewThread": false,
+          "unmarkFileAsViewed": false,
+          "unresolveReviewThread": false,
+          "updatePullRequestReviewComment": false
+        },
+        "summary": "introspection __schema",
+        "types": 4676
+      },
+      "seq": 18,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 82829,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/discussions?per_page=100&page=1",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": [
+        {
+          "id": "b8029db752698791803a888d8c8f41e7d9ccec96",
+          "individual_note": true,
+          "notes": [
+            {
+              "author": {
+                "avatar_url": "<avatar>",
+                "id": 2,
+                "locked": false,
+                "name": "<author>",
+                "public_email": null,
+                "state": "active",
+                "username": "<author>",
+                "web_url": "http://<gitlab-ce>/<author>"
+              },
+              "body": "requested review from @<reviewer>",
+              "commands_changes": {},
+              "confidential": false,
+              "created_at": "2026-11-20T22:44:59.048Z",
+              "id": 8,
+              "imported": false,
+              "imported_from": "none",
+              "internal": false,
+              "noteable_id": 3,
+              "noteable_iid": 3,
+              "noteable_type": "MergeRequest",
+              "project_id": 1,
+              "resolvable": false,
+              "system": true,
+              "type": null,
+              "updated_at": "2026-11-20T22:44:59.049Z"
+            }
+          ],
+          "resolvable": false
+        },
+        {
+          "id": "caab59ad8989e3151be45c460856f1dddc544aac",
+          "individual_note": true,
+          "notes": [
+            {
+              "author": {
+                "avatar_url": "<avatar>",
+                "id": 2,
+                "locked": false,
+                "name": "<author>",
+                "public_email": null,
+                "state": "active",
+                "username": "<author>",
+                "web_url": "http://<gitlab-ce>/<author>"
+              },
+              "body": "added 1 commit\n\n<ul><li>1467a9f7f1fe8a81dfc984b10477749eee842c7c - probe-review: fixture head</li></ul>\n\n[Compare with previous version](/<repo>/-/merge_requests/3/diffs?diff_id=7&start_sha=41dd32173a8af0f40b86dbcf28cbb60ca938f741)",
+              "commands_changes": {},
+              "confidential": false,
+              "created_at": "2026-11-20T22:44:59.766Z",
+              "id": 9,
+              "imported": false,
+              "imported_from": "none",
+              "internal": false,
+              "noteable_id": 3,
+              "noteable_iid": 3,
+              "noteable_type": "MergeRequest",
+              "project_id": 1,
+              "resolvable": false,
+              "system": true,
+              "type": null,
+              "updated_at": "2026-11-20T22:44:59.767Z"
+            }
+          ],
+          "resolvable": false
+        }
+      ],
+      "seq": 19,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 40306,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes?per_page=100&page=1",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": [],
+      "seq": 20,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 46384,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/graphql",
+      "rate_limit": {},
+      "request_body": {
+        "query": "query($fullPath: ID!, $iid: String!) { project(fullPath: $fullPath) { mergeRequest(iid: $iid) { reviewers(first: 100) { nodes { username mergeRequestInteraction { reviewState } } } } } }",
+        "variables": {
+          "fullPath": "<repo>",
+          "iid": "3"
+        }
+      },
+      "response_body": {
+        "data": {
+          "project": {
+            "mergeRequest": {
+              "reviewers": {
+                "nodes": [
+                  {
+                    "mergeRequestInteraction": {
+                      "reviewState": "UNREVIEWED"
+                    },
+                    "username": "<reviewer>"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "seq": 21,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 48021,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "assignee": null,
+        "assignees": [],
+        "author": {
+          "avatar_url": "<avatar>",
+          "bot": false,
+          "id": 2,
+          "locked": false,
+          "name": "<author>",
+          "public_email": null,
+          "state": "active",
+          "username": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "blocking_discussions_resolved": true,
+        "changes_count": "1",
+        "closed_at": null,
+        "closed_by": null,
+        "created_at": "2026-11-20T22:44:59.029Z",
+        "description": "Проба P0.7: MR и его ветки удаляются после прогона клетки.",
+        "detailed_merge_status": "mergeable",
+        "diff_refs": {
+          "base_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+          "head_sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+          "start_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741"
+        },
+        "discussion_locked": null,
+        "downvotes": 0,
+        "draft": false,
+        "first_contribution": true,
+        "first_deployed_to_production_at": null,
+        "force_remove_source_branch": true,
+        "has_conflicts": false,
+        "head_pipeline": null,
+        "id": 3,
+        "iid": 3,
+        "imported": false,
+        "imported_from": "none",
+        "labels": [],
+        "latest_build_finished_at": null,
+        "latest_build_started_at": null,
+        "merge_after": null,
+        "merge_commit_sha": null,
+        "merge_error": null,
+        "merge_status": "can_be_merged",
+        "merge_user": null,
+        "merge_when_pipeline_succeeds": false,
+        "merged_at": null,
+        "merged_by": null,
+        "milestone": null,
+        "pipeline": null,
+        "prepared_at": "2026-11-20T22:44:59.893Z",
+        "project_id": 1,
+        "reference": "!3",
+        "references": {
+          "full": "<repo>!3",
+          "relative": "!3",
+          "short": "!3"
+        },
+        "reviewers": [
+          {
+            "avatar_url": "<avatar>",
+            "id": 3,
+            "locked": false,
+            "name": "<reviewer>",
+            "public_email": null,
+            "state": "active",
+            "username": "<reviewer>",
+            "web_url": "http://<gitlab-ce>/<reviewer>"
+          }
+        ],
+        "sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+        "should_remove_source_branch": null,
+        "source_branch": "probe/20261121-034234-96304-gl-request-changes",
+        "source_project_id": 1,
+        "squash": false,
+        "squash_commit_sha": null,
+        "squash_on_merge": false,
+        "state": "opened",
+        "subscribed": true,
+        "target_branch": "probe/20261121-034234-96304-gl-request-changes-base",
+        "target_project_id": 1,
+        "task_completion_status": {
+          "completed_count": 0,
+          "count": 0
+        },
+        "time_stats": {
+          "human_time_estimate": null,
+          "human_total_time_spent": null,
+          "time_estimate": 0,
+          "total_time_spent": 0
+        },
+        "title": "probe-review gl-request-changes",
+        "updated_at": "2026-11-20T22:44:59.902Z",
+        "upvotes": 0,
+        "user": {
+          "can_merge": true
+        },
+        "user_notes_count": 0,
+        "web_url": "http://<gitlab-ce>/<repo>/-/merge_requests/3",
+        "work_in_progress": false
+      },
+      "seq": 22,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 27869,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions?per_page=100&page=1",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": [
+        {
+          "base_commit_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+          "created_at": "2026-11-20T22:44:59.444Z",
+          "head_commit_sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+          "id": 7,
+          "merge_request_id": 3,
+          "patch_id_sha": "e73cf9af61b3e99f0e50add6fa51d019fd5be994",
+          "real_size": "1",
+          "start_commit_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+          "state": "collected"
+        },
+        {
+          "base_commit_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+          "created_at": "2026-11-20T22:44:59.442Z",
+          "head_commit_sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+          "id": 6,
+          "merge_request_id": 3,
+          "patch_id_sha": "e73cf9af61b3e99f0e50add6fa51d019fd5be994",
+          "real_size": "1",
+          "start_commit_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+          "state": "collected"
+        }
+      ],
+      "seq": 23,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 35098,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions/7",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "base_commit_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+        "commits": [
+          {
+            "author_email": "<email>",
+            "author_name": "<author>",
+            "authored_date": "2026-11-20T22:44:58.000+00:00",
+            "committed_date": "2026-11-20T22:44:58.000+00:00",
+            "committer_email": "<email>",
+            "committer_name": "<author>",
+            "created_at": "2026-11-20T22:44:58.000+00:00",
+            "extended_trailers": {},
+            "id": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+            "message": "probe-review: fixture head",
+            "parent_ids": [
+              "41dd32173a8af0f40b86dbcf28cbb60ca938f741"
+            ],
+            "short_id": "1467a9f7",
+            "title": "probe-review: fixture head",
+            "trailers": {},
+            "web_url": "http://<gitlab-ce>/<repo>/-/commit/1467a9f7f1fe8a81dfc984b10477749eee842c7c"
+          }
+        ],
+        "created_at": "2026-11-20T22:44:59.444Z",
+        "diffs": [
+          {
+            "a_mode": "100644",
+            "b_mode": "100644",
+            "collapsed": false,
+            "deleted_file": false,
+            "diff": "@@ -1,8 +1,7 @@\n line 01\n line 02\n-line 03\n line 04\n-line 05\n+line 05 changed\n line 06\n line 07\n line 08\n@@ -22,6 +21,8 @@ line 21\n line 22\n line 23\n line 24\n+line 24a\n+line 24b\n line 25\n line 26\n line 27\n",
+            "generated_file": false,
+            "new_file": false,
+            "new_path": "probe-review/fixture.txt",
+            "old_path": "probe-review/fixture.txt",
+            "renamed_file": false,
+            "too_large": false
+          }
+        ],
+        "head_commit_sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+        "id": 7,
+        "merge_request_id": 3,
+        "patch_id_sha": "e73cf9af61b3e99f0e50add6fa51d019fd5be994",
+        "real_size": "1",
+        "start_commit_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+        "state": "collected"
+      },
+      "seq": 24,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 74139,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/graphql",
+      "rate_limit": {},
+      "request_body": {
+        "query": "mutation($input: MergeRequestRequestChangesInput!) { mergeRequestRequestChanges(input: $input) { errors } }",
+        "variables": {
+          "input": {
+            "iid": "3",
+            "projectPath": "<repo>"
+          }
+        }
+      },
+      "response_body": {
+        "data": {
+          "mergeRequestRequestChanges": {
+            "errors": []
+          }
+        }
+      },
+      "seq": 25,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 34053,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/graphql",
+      "rate_limit": {},
+      "request_body": {
+        "query": "query($fullPath: ID!, $iid: String!) { project(fullPath: $fullPath) { mergeRequest(iid: $iid) { reviewers(first: 100) { nodes { username mergeRequestInteraction { reviewState } } } } } }",
+        "variables": {
+          "fullPath": "<repo>",
+          "iid": "3"
+        }
+      },
+      "response_body": {
+        "data": {
+          "project": {
+            "mergeRequest": {
+              "reviewers": {
+                "nodes": [
+                  {
+                    "mergeRequestInteraction": {
+                      "reviewState": "REQUESTED_CHANGES"
+                    },
+                    "username": "<reviewer>"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "seq": 26,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 43640,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/discussions?per_page=100&page=1",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": [
+        {
+          "id": "b8029db752698791803a888d8c8f41e7d9ccec96",
+          "individual_note": true,
+          "notes": [
+            {
+              "author": {
+                "avatar_url": "<avatar>",
+                "id": 2,
+                "locked": false,
+                "name": "<author>",
+                "public_email": null,
+                "state": "active",
+                "username": "<author>",
+                "web_url": "http://<gitlab-ce>/<author>"
+              },
+              "body": "requested review from @<reviewer>",
+              "commands_changes": {},
+              "confidential": false,
+              "created_at": "2026-11-20T22:44:59.048Z",
+              "id": 8,
+              "imported": false,
+              "imported_from": "none",
+              "internal": false,
+              "noteable_id": 3,
+              "noteable_iid": 3,
+              "noteable_type": "MergeRequest",
+              "project_id": 1,
+              "resolvable": false,
+              "system": true,
+              "type": null,
+              "updated_at": "2026-11-20T22:44:59.049Z"
+            }
+          ],
+          "resolvable": false
+        },
+        {
+          "id": "caab59ad8989e3151be45c460856f1dddc544aac",
+          "individual_note": true,
+          "notes": [
+            {
+              "author": {
+                "avatar_url": "<avatar>",
+                "id": 2,
+                "locked": false,
+                "name": "<author>",
+                "public_email": null,
+                "state": "active",
+                "username": "<author>",
+                "web_url": "http://<gitlab-ce>/<author>"
+              },
+              "body": "added 1 commit\n\n<ul><li>1467a9f7f1fe8a81dfc984b10477749eee842c7c - probe-review: fixture head</li></ul>\n\n[Compare with previous version](/<repo>/-/merge_requests/3/diffs?diff_id=7&start_sha=41dd32173a8af0f40b86dbcf28cbb60ca938f741)",
+              "commands_changes": {},
+              "confidential": false,
+              "created_at": "2026-11-20T22:44:59.766Z",
+              "id": 9,
+              "imported": false,
+              "imported_from": "none",
+              "internal": false,
+              "noteable_id": 3,
+              "noteable_iid": 3,
+              "noteable_type": "MergeRequest",
+              "project_id": 1,
+              "resolvable": false,
+              "system": true,
+              "type": null,
+              "updated_at": "2026-11-20T22:44:59.767Z"
+            }
+          ],
+          "resolvable": false
+        },
+        {
+          "id": "d9c58984bcc6c60239f0555cc422ae6f1a6201fb",
+          "individual_note": true,
+          "notes": [
+            {
+              "author": {
+                "avatar_url": "<avatar>",
+                "id": 3,
+                "locked": false,
+                "name": "<reviewer>",
+                "public_email": null,
+                "state": "active",
+                "username": "<reviewer>",
+                "web_url": "http://<gitlab-ce>/<reviewer>"
+              },
+              "body": "requested changes",
+              "commands_changes": {},
+              "confidential": false,
+              "created_at": "2026-11-20T22:45:01.375Z",
+              "id": 10,
+              "imported": false,
+              "imported_from": "none",
+              "internal": false,
+              "noteable_id": 3,
+              "noteable_iid": 3,
+              "noteable_type": "MergeRequest",
+              "project_id": 1,
+              "resolvable": false,
+              "system": true,
+              "type": null,
+              "updated_at": "2026-11-20T22:45:01.376Z"
+            }
+          ],
+          "resolvable": false
+        }
+      ],
+      "seq": 27,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 26741,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes?per_page=100&page=1",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": [],
+      "seq": 28,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 30144,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/graphql",
+      "rate_limit": {},
+      "request_body": {
+        "query": "query($fullPath: ID!, $iid: String!) { project(fullPath: $fullPath) { mergeRequest(iid: $iid) { reviewers(first: 100) { nodes { username mergeRequestInteraction { reviewState } } } } } }",
+        "variables": {
+          "fullPath": "<repo>",
+          "iid": "3"
+        }
+      },
+      "response_body": {
+        "data": {
+          "project": {
+            "mergeRequest": {
+              "reviewers": {
+                "nodes": [
+                  {
+                    "mergeRequestInteraction": {
+                      "reviewState": "REQUESTED_CHANGES"
+                    },
+                    "username": "<reviewer>"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "seq": 29,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 17826,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/user",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "avatar_url": "<avatar>",
+        "bio": "",
+        "bot": false,
+        "can_create_group": true,
+        "can_create_project": true,
+        "color_scheme_id": 1,
+        "commit_email": "<email>",
+        "confirmed_at": "2026-11-20T22:44:44.508Z",
+        "created_at": "2026-11-20T22:44:44.957Z",
+        "current_sign_in_at": "2026-11-20T22:45:01.176Z",
+        "discord": "",
+        "email": "<email>",
+        "external": false,
+        "github": "",
+        "id": 2,
+        "identities": [],
+        "job_title": "",
+        "last_activity_on": "2026-11-20",
+        "last_sign_in_at": "2026-11-20T22:45:01.176Z",
+        "linkedin": "",
+        "local_time": null,
+        "location": "",
+        "locked": false,
+        "name": "<author>",
+        "organization": "",
+        "preferred_language": "en",
+        "private_profile": false,
+        "projects_limit": 100000,
+        "pronouns": null,
+        "public_email": null,
+        "state": "active",
+        "theme_id": 3,
+        "twitter": "",
+        "two_factor_enabled": false,
+        "username": "<author>",
+        "web_url": "http://<gitlab-ce>/<author>",
+        "website_url": "",
+        "work_information": null
+      },
+      "seq": 30,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 17782,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/metadata",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "enterprise": false,
+        "kas": {
+          "enabled": true,
+          "externalK8sProxyUrl": "http://<gitlab-ce>/-/kubernetes-agent/k8s-proxy/",
+          "externalUrl": "ws://<gitlab-ce>/-/kubernetes-agent/",
+          "version": "19.6.1"
+        },
+        "plan": "free",
+        "revision": "6ec1905561e",
+        "version": "19.6.1"
+      },
+      "seq": 31,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 36882,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "_links": {
+          "cluster_agents": "http://<gitlab-ce>/api/v4/projects/1/cluster_agents",
+          "events": "http://<gitlab-ce>/api/v4/projects/1/events",
+          "issues": "http://<gitlab-ce>/api/v4/projects/1/issues",
+          "labels": "http://<gitlab-ce>/api/v4/projects/1/labels",
+          "members": "http://<gitlab-ce>/api/v4/projects/1/members",
+          "merge_requests": "http://<gitlab-ce>/api/v4/projects/1/merge_requests",
+          "repo_branches": "http://<gitlab-ce>/api/v4/projects/1/repository/branches",
+          "self": "http://<gitlab-ce>/api/v4/projects/1"
+        },
+        "allow_merge_on_skipped_pipeline": null,
+        "analytics_access_level": "enabled",
+        "archived": false,
+        "auto_cancel_pending_pipelines": "enabled",
+        "auto_devops_deploy_strategy": "continuous",
+        "auto_devops_enabled": true,
+        "autoclose_referenced_issues": true,
+        "automatic_rebase_enabled": false,
+        "avatar_url": null,
+        "build_git_strategy": "fetch",
+        "build_timeout": 3600,
+        "builds_access_level": "enabled",
+        "can_create_merge_request_in": true,
+        "ci_allow_fork_pipelines_to_run_in_parent_project": true,
+        "ci_config_path": null,
+        "ci_default_git_depth": 20,
+        "ci_delete_pipelines_in_seconds": null,
+        "ci_display_pipeline_variables": false,
+        "ci_forward_deployment_enabled": true,
+        "ci_forward_deployment_rollback_allowed": true,
+        "ci_id_token_sub_claim_components": [
+          "project_path",
+          "ref_type",
+          "ref"
+        ],
+        "ci_job_token_scope_enabled": false,
+        "ci_pipeline_variables_minimum_override_role": "developer",
+        "ci_push_repository_for_job_token_allowed": false,
+        "ci_separated_caches": true,
+        "ci_skip_branch_pipelines_for_mrs": false,
+        "cicd_catalog_enabled": false,
+        "container_expiration_policy": {
+          "cadence": "1d",
+          "enabled": false,
+          "keep_n": 10,
+          "name_regex": ".*",
+          "name_regex_keep": null,
+          "next_run_at": "2026-11-21T22:44:45.791Z",
+          "older_than": "90d"
+        },
+        "container_registry_access_level": "enabled",
+        "container_registry_enabled": true,
+        "created_at": "2026-11-20T22:44:45.779Z",
+        "creator_id": 2,
+        "default_branch": "main",
+        "description": null,
+        "description_html": "",
+        "emails_disabled": false,
+        "emails_enabled": true,
+        "empty_repo": false,
+        "enforce_auth_checks_on_uploads": true,
+        "environments_access_level": "enabled",
+        "feature_flags_access_level": "enabled",
+        "forking_access_level": "enabled",
+        "forks_count": 0,
+        "group_runners_enabled": true,
+        "http_url_to_repo": "http://<gitlab-ce>/<repo>.git",
+        "id": 1,
+        "import_error": null,
+        "import_status": "none",
+        "import_type": null,
+        "import_url": null,
+        "infrastructure_access_level": "enabled",
+        "issue_branch_template": null,
+        "issues_access_level": "enabled",
+        "issues_enabled": true,
+        "jobs_enabled": true,
+        "keep_latest_artifact": true,
+        "last_activity_at": "2026-11-20T22:44:45.739Z",
+        "lfs_enabled": true,
+        "marked_for_deletion_at": null,
+        "marked_for_deletion_on": null,
+        "max_artifacts_size": null,
+        "merge_commit_template": null,
+        "merge_method": "merge",
+        "merge_requests_access_level": "enabled",
+        "merge_requests_enabled": true,
+        "model_experiments_access_level": "private",
+        "model_registry_access_level": "private",
+        "monitor_access_level": "enabled",
+        "mr_default_title_template": null,
+        "name": "shellio-review-sandbox",
+        "name_with_namespace": "<author> / shellio-review-sandbox",
+        "namespace": {
+          "avatar_url": "<avatar>",
+          "full_path": "<author>",
+          "id": 2,
+          "kind": "user",
+          "name": "<author>",
+          "parent_id": null,
+          "path": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "only_allow_merge_if_all_discussions_are_resolved": false,
+        "only_allow_merge_if_pipeline_succeeds": false,
+        "open_issues_count": 0,
+        "owner": {
+          "avatar_url": "<avatar>",
+          "id": 2,
+          "locked": false,
+          "name": "<author>",
+          "public_email": null,
+          "state": "active",
+          "username": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "package_registry_access_level": "enabled",
+        "packages_enabled": true,
+        "pages_access_level": "private",
+        "path": "shellio-review-sandbox",
+        "path_with_namespace": "<repo>",
+        "permissions": {
+          "group_access": null,
+          "project_access": {
+            "access_level": 50,
+            "notification_level": 3
+          }
+        },
+        "printing_merge_request_link_enabled": true,
+        "protect_merge_request_pipelines": true,
+        "public_jobs": true,
+        "readme_url": "http://<gitlab-ce>/<repo>/-/blob/main/README.md",
+        "releases_access_level": "enabled",
+        "remove_source_branch_after_merge": true,
+        "repository_access_level": "enabled",
+        "repository_object_format": "sha1",
+        "request_access_enabled": true,
+        "resolve_outdated_diff_discussions": false,
+        "resource_group_default_process_mode": "unordered",
+        "restrict_user_defined_variables": false,
+        "runner_token_expiration_interval": null,
+        "runners_token": "<token>",
+        "security_and_compliance_access_level": "private",
+        "service_desk_address": null,
+        "service_desk_enabled": false,
+        "shared_runners_enabled": true,
+        "shared_with_groups": [],
+        "show_diff_preview_in_email": true,
+        "snippets_access_level": "enabled",
+        "snippets_enabled": true,
+        "squash_commit_template": null,
+        "squash_option": "default_off",
+        "ssh_url_to_repo": "git@<gitlab-ce>:<repo>.git",
+        "star_count": 0,
+        "suggestion_commit_message": null,
+        "tag_list": [],
+        "topics": [],
+        "updated_at": "2026-11-20T22:44:46.635Z",
+        "visibility": "private",
+        "warn_about_potentially_unwanted_characters": true,
+        "web_url": "http://<gitlab-ce>/<repo>",
+        "wiki_access_level": "enabled",
+        "wiki_enabled": true
+      },
+      "seq": 32,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 16345,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/namespaces/2",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "avatar_url": "<avatar>",
+        "full_path": "<author>",
+        "id": 2,
+        "kind": "user",
+        "name": "<author>",
+        "parent_id": null,
+        "path": "<author>",
+        "web_url": "http://<gitlab-ce>/<author>"
+      },
+      "seq": 33,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 1029055,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/graphql",
+      "rate_limit": {},
+      "request_body": {
+        "query": "query($name: String!) { __type(name: $name) { fields { name } } }",
+        "variables": {
+          "name": "Mutation"
+        }
+      },
+      "response_body": {
+        "bytes": 8774476,
+        "keys": [
+          "data"
+        ],
+        "mutation_fields": 733,
+        "mutation_type": "Mutation",
+        "mutations": {
+          "addPullRequestReviewThread": false,
+          "markFileAsViewed": false,
+          "mergeRequestRequestChanges": true,
+          "resolveReviewThread": false,
+          "unmarkFileAsViewed": false,
+          "unresolveReviewThread": false,
+          "updatePullRequestReviewComment": false
+        },
+        "summary": "introspection __schema",
+        "types": 4676
+      },
+      "seq": 34,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 59113,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/graphql",
+      "rate_limit": {},
+      "request_body": {
+        "query": "mutation($input: MergeRequestRequestChangesInput!) { mergeRequestRequestChanges(input: $input) { errors } }",
+        "variables": {
+          "input": {
+            "iid": "3",
+            "projectPath": "<repo>"
+          }
+        }
+      },
+      "response_body": {
+        "data": {
+          "mergeRequestRequestChanges": {
+            "errors": [
+              "Reviewer not found"
+            ]
+          }
+        }
+      },
+      "seq": 35,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 52662,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests?state=opened&source_branch=probe%2F20261121-034234-96304-gl-request-changes-base&per_page=100&page=1",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": [],
+      "seq": 36,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 102979,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests?state=opened&source_branch=probe%2F20261121-034234-96304-gl-request-changes&per_page=100&page=1",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": [
+        {
+          "assignee": null,
+          "assignees": [],
+          "author": {
+            "avatar_url": "<avatar>",
+            "bot": false,
+            "id": 2,
+            "locked": false,
+            "name": "<author>",
+            "public_email": null,
+            "state": "active",
+            "username": "<author>",
+            "web_url": "http://<gitlab-ce>/<author>"
+          },
+          "blocking_discussions_resolved": true,
+          "closed_at": null,
+          "closed_by": null,
+          "created_at": "2026-11-20T22:44:59.029Z",
+          "description": "Проба P0.7: MR и его ветки удаляются после прогона клетки.",
+          "detailed_merge_status": "mergeable",
+          "discussion_locked": null,
+          "downvotes": 0,
+          "draft": false,
+          "force_remove_source_branch": true,
+          "has_conflicts": false,
+          "id": 3,
+          "iid": 3,
+          "imported": false,
+          "imported_from": "none",
+          "labels": [],
+          "merge_after": null,
+          "merge_commit_sha": null,
+          "merge_status": "can_be_merged",
+          "merge_user": null,
+          "merge_when_pipeline_succeeds": false,
+          "merged_at": null,
+          "merged_by": null,
+          "milestone": null,
+          "prepared_at": "2026-11-20T22:44:59.893Z",
+          "project_id": 1,
+          "reference": "!3",
+          "references": {
+            "full": "<repo>!3",
+            "relative": "!3",
+            "short": "!3"
+          },
+          "reviewers": [
+            {
+              "avatar_url": "<avatar>",
+              "id": 3,
+              "locked": false,
+              "name": "<reviewer>",
+              "public_email": null,
+              "state": "active",
+              "username": "<reviewer>",
+              "web_url": "http://<gitlab-ce>/<reviewer>"
+            }
+          ],
+          "sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+          "should_remove_source_branch": null,
+          "source_branch": "probe/20261121-034234-96304-gl-request-changes",
+          "source_project_id": 1,
+          "squash": false,
+          "squash_commit_sha": null,
+          "squash_on_merge": false,
+          "state": "opened",
+          "target_branch": "probe/20261121-034234-96304-gl-request-changes-base",
+          "target_project_id": 1,
+          "task_completion_status": {
+            "completed_count": 0,
+            "count": 0
+          },
+          "time_stats": {
+            "human_time_estimate": null,
+            "human_total_time_spent": null,
+            "time_estimate": 0,
+            "total_time_spent": 0
+          },
+          "title": "probe-review gl-request-changes",
+          "updated_at": "2026-11-20T22:44:59.902Z",
+          "upvotes": 0,
+          "user_notes_count": 0,
+          "web_url": "http://<gitlab-ce>/<repo>/-/merge_requests/3",
+          "work_in_progress": false
+        }
+      ],
+      "seq": 37,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 39843,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes?per_page=100&page=1",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": [],
+      "seq": 38,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 83769,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "assignee": null,
+        "assignees": [],
+        "author": {
+          "avatar_url": "<avatar>",
+          "bot": false,
+          "id": 2,
+          "locked": false,
+          "name": "<author>",
+          "public_email": null,
+          "state": "active",
+          "username": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "blocking_discussions_resolved": true,
+        "changes_count": "1",
+        "closed_at": null,
+        "closed_by": null,
+        "created_at": "2026-11-20T22:44:59.029Z",
+        "description": "Проба P0.7: MR и его ветки удаляются после прогона клетки.",
+        "detailed_merge_status": "mergeable",
+        "diff_refs": {
+          "base_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+          "head_sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+          "start_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741"
+        },
+        "discussion_locked": null,
+        "downvotes": 0,
+        "draft": false,
+        "first_contribution": true,
+        "first_deployed_to_production_at": null,
+        "force_remove_source_branch": true,
+        "has_conflicts": false,
+        "head_pipeline": null,
+        "id": 3,
+        "iid": 3,
+        "imported": false,
+        "imported_from": "none",
+        "labels": [],
+        "latest_build_finished_at": null,
+        "latest_build_started_at": null,
+        "merge_after": null,
+        "merge_commit_sha": null,
+        "merge_error": null,
+        "merge_status": "can_be_merged",
+        "merge_user": null,
+        "merge_when_pipeline_succeeds": false,
+        "merged_at": null,
+        "merged_by": null,
+        "milestone": null,
+        "pipeline": null,
+        "prepared_at": "2026-11-20T22:44:59.893Z",
+        "project_id": 1,
+        "reference": "!3",
+        "references": {
+          "full": "<repo>!3",
+          "relative": "!3",
+          "short": "!3"
+        },
+        "reviewers": [
+          {
+            "avatar_url": "<avatar>",
+            "id": 3,
+            "locked": false,
+            "name": "<reviewer>",
+            "public_email": null,
+            "state": "active",
+            "username": "<reviewer>",
+            "web_url": "http://<gitlab-ce>/<reviewer>"
+          }
+        ],
+        "sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+        "should_remove_source_branch": null,
+        "source_branch": "probe/20261121-034234-96304-gl-request-changes",
+        "source_project_id": 1,
+        "squash": false,
+        "squash_commit_sha": null,
+        "squash_on_merge": false,
+        "state": "opened",
+        "subscribed": true,
+        "target_branch": "probe/20261121-034234-96304-gl-request-changes-base",
+        "target_project_id": 1,
+        "task_completion_status": {
+          "completed_count": 0,
+          "count": 0
+        },
+        "time_stats": {
+          "human_time_estimate": null,
+          "human_total_time_spent": null,
+          "time_estimate": 0,
+          "total_time_spent": 0
+        },
+        "title": "probe-review gl-request-changes",
+        "updated_at": "2026-11-20T22:44:59.902Z",
+        "upvotes": 0,
+        "user": {
+          "can_merge": true
+        },
+        "user_notes_count": 0,
+        "web_url": "http://<gitlab-ce>/<repo>/-/merge_requests/3",
+        "work_in_progress": false
+      },
+      "seq": 39,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 153579,
+      "failure": null,
+      "failure_detail": null,
+      "method": "PUT",
+      "path": "/api/v4/projects/<repo>/merge_requests/3",
+      "rate_limit": {},
+      "request_body": {
+        "state_event": "close"
+      },
+      "response_body": {
+        "assignee": null,
+        "assignees": [],
+        "author": {
+          "avatar_url": "<avatar>",
+          "bot": false,
+          "id": 2,
+          "locked": false,
+          "name": "<author>",
+          "public_email": null,
+          "state": "active",
+          "username": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "blocking_discussions_resolved": true,
+        "changes_count": "1",
+        "closed_at": "2026-11-20T22:45:03.114Z",
+        "closed_by": {
+          "avatar_url": "<avatar>",
+          "id": 2,
+          "locked": false,
+          "name": "<author>",
+          "public_email": null,
+          "state": "active",
+          "username": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "created_at": "2026-11-20T22:44:59.029Z",
+        "description": "Проба P0.7: MR и его ветки удаляются после прогона клетки.",
+        "detailed_merge_status": "not_open",
+        "diff_refs": {
+          "base_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+          "head_sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+          "start_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741"
+        },
+        "discussion_locked": null,
+        "downvotes": 0,
+        "draft": false,
+        "first_deployed_to_production_at": null,
+        "force_remove_source_branch": true,
+        "has_conflicts": false,
+        "head_pipeline": null,
+        "id": 3,
+        "iid": 3,
+        "imported": false,
+        "imported_from": "none",
+        "labels": [],
+        "latest_build_finished_at": null,
+        "latest_build_started_at": null,
+        "merge_after": null,
+        "merge_commit_sha": null,
+        "merge_error": null,
+        "merge_status": "can_be_merged",
+        "merge_user": null,
+        "merge_when_pipeline_succeeds": false,
+        "merged_at": null,
+        "merged_by": null,
+        "milestone": null,
+        "pipeline": null,
+        "prepared_at": "2026-11-20T22:44:59.893Z",
+        "project_id": 1,
+        "reference": "!3",
+        "references": {
+          "full": "<repo>!3",
+          "relative": "!3",
+          "short": "!3"
+        },
+        "reviewers": [
+          {
+            "avatar_url": "<avatar>",
+            "id": 3,
+            "locked": false,
+            "name": "<reviewer>",
+            "public_email": null,
+            "state": "active",
+            "username": "<reviewer>",
+            "web_url": "http://<gitlab-ce>/<reviewer>"
+          }
+        ],
+        "sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+        "should_remove_source_branch": null,
+        "source_branch": "probe/20261121-034234-96304-gl-request-changes",
+        "source_project_id": 1,
+        "squash": false,
+        "squash_commit_sha": null,
+        "squash_on_merge": false,
+        "state": "closed",
+        "subscribed": true,
+        "target_branch": "probe/20261121-034234-96304-gl-request-changes-base",
+        "target_project_id": 1,
+        "task_completion_status": {
+          "completed_count": 0,
+          "count": 0
+        },
+        "time_stats": {
+          "human_time_estimate": null,
+          "human_total_time_spent": null,
+          "time_estimate": 0,
+          "total_time_spent": 0
+        },
+        "title": "probe-review gl-request-changes",
+        "updated_at": "2026-11-20T22:45:03.186Z",
+        "upvotes": 0,
+        "user": {
+          "can_merge": true
+        },
+        "user_notes_count": 0,
+        "web_url": "http://<gitlab-ce>/<repo>/-/merge_requests/3",
+        "work_in_progress": false
+      },
+      "seq": 40,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 148675,
+      "failure": null,
+      "failure_detail": null,
+      "method": "DELETE",
+      "path": "/api/v4/projects/<repo>/repository/branches/probe%2F20261121-034234-96304-gl-request-changes",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": null,
+      "seq": 41,
+      "status": 204
+    },
+    {
+      "actor": "author",
+      "duration_us": 151221,
+      "failure": null,
+      "failure_detail": null,
+      "method": "DELETE",
+      "path": "/api/v4/projects/<repo>/repository/branches/probe%2F20261121-034234-96304-gl-request-changes-base",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": null,
+      "seq": 42,
+      "status": 204
+    },
+    {
+      "actor": "author",
+      "duration_us": 53376,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "assignee": null,
+        "assignees": [],
+        "author": {
+          "avatar_url": "<avatar>",
+          "bot": false,
+          "id": 2,
+          "locked": false,
+          "name": "<author>",
+          "public_email": null,
+          "state": "active",
+          "username": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "blocking_discussions_resolved": true,
+        "changes_count": "1",
+        "closed_at": "2026-11-20T22:45:03.114Z",
+        "closed_by": {
+          "avatar_url": "<avatar>",
+          "id": 2,
+          "locked": false,
+          "name": "<author>",
+          "public_email": null,
+          "state": "active",
+          "username": "<author>",
+          "web_url": "http://<gitlab-ce>/<author>"
+        },
+        "created_at": "2026-11-20T22:44:59.029Z",
+        "description": "Проба P0.7: MR и его ветки удаляются после прогона клетки.",
+        "detailed_merge_status": "not_open",
+        "diff_refs": {
+          "base_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741",
+          "head_sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+          "start_sha": "41dd32173a8af0f40b86dbcf28cbb60ca938f741"
+        },
+        "discussion_locked": null,
+        "downvotes": 0,
+        "draft": false,
+        "first_contribution": true,
+        "first_deployed_to_production_at": null,
+        "force_remove_source_branch": true,
+        "has_conflicts": false,
+        "head_pipeline": null,
+        "id": 3,
+        "iid": 3,
+        "imported": false,
+        "imported_from": "none",
+        "labels": [],
+        "latest_build_finished_at": null,
+        "latest_build_started_at": null,
+        "merge_after": null,
+        "merge_commit_sha": null,
+        "merge_error": null,
+        "merge_status": "can_be_merged",
+        "merge_user": null,
+        "merge_when_pipeline_succeeds": false,
+        "merged_at": null,
+        "merged_by": null,
+        "milestone": null,
+        "pipeline": null,
+        "prepared_at": "2026-11-20T22:44:59.893Z",
+        "project_id": 1,
+        "reference": "!3",
+        "references": {
+          "full": "<repo>!3",
+          "relative": "!3",
+          "short": "!3"
+        },
+        "reviewers": [
+          {
+            "avatar_url": "<avatar>",
+            "id": 3,
+            "locked": false,
+            "name": "<reviewer>",
+            "public_email": null,
+            "state": "active",
+            "username": "<reviewer>",
+            "web_url": "http://<gitlab-ce>/<reviewer>"
+          }
+        ],
+        "sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+        "should_remove_source_branch": null,
+        "source_branch": "probe/20261121-034234-96304-gl-request-changes",
+        "source_project_id": 1,
+        "squash": false,
+        "squash_commit_sha": null,
+        "squash_on_merge": false,
+        "state": "closed",
+        "subscribed": true,
+        "target_branch": "probe/20261121-034234-96304-gl-request-changes-base",
+        "target_project_id": 1,
+        "task_completion_status": {
+          "completed_count": 0,
+          "count": 0
+        },
+        "time_stats": {
+          "human_time_estimate": null,
+          "human_total_time_spent": null,
+          "time_estimate": 0,
+          "total_time_spent": 0
+        },
+        "title": "probe-review gl-request-changes",
+        "updated_at": "2026-11-20T22:45:03.186Z",
+        "upvotes": 0,
+        "user": {
+          "can_merge": true
+        },
+        "user_notes_count": 0,
+        "web_url": "http://<gitlab-ce>/<repo>/-/merge_requests/3",
+        "work_in_progress": false
+      },
+      "seq": 43,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 32849,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes?per_page=100&page=1",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": [],
+      "seq": 44,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 33470,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/repository/branches/probe%2F20261121-034234-96304-gl-request-changes-base",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "message": "404 Branch Not Found"
+      },
+      "seq": 45,
+      "status": 404
+    },
+    {
+      "actor": "author",
+      "duration_us": 38972,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/repository/branches/probe%2F20261121-034234-96304-gl-request-changes",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "message": "404 Branch Not Found"
+      },
+      "seq": 46,
+      "status": 404
+    },
+    {
+      "actor": "author",
+      "duration_us": 32349,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests?state=opened&source_branch=probe%2F20261121-034234-96304-gl-request-changes-base&per_page=100&page=1",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": [],
+      "seq": 47,
+      "status": 200
+    },
+    {
+      "actor": "author",
+      "duration_us": 40648,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests?state=opened&source_branch=probe%2F20261121-034234-96304-gl-request-changes&per_page=100&page=1",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": [],
+      "seq": 48,
+      "status": 200
+    }
+  ],
+  "calls": {
+    "DELETE /api/v4/projects/<repo>/repository/branches/probe%2F20261121-034234-96304-gl-request-changes": 1,
+    "DELETE /api/v4/projects/<repo>/repository/branches/probe%2F20261121-034234-96304-gl-request-changes-base": 1,
+    "GET /api/v4/metadata": 2,
+    "GET /api/v4/namespaces/2": 2,
+    "GET /api/v4/projects/<repo>": 4,
+    "GET /api/v4/projects/<repo>/merge_requests": 4,
+    "GET /api/v4/projects/<repo>/merge_requests/3": 5,
+    "GET /api/v4/projects/<repo>/merge_requests/3/discussions": 2,
+    "GET /api/v4/projects/<repo>/merge_requests/3/draft_notes": 4,
+    "GET /api/v4/projects/<repo>/merge_requests/3/versions": 2,
+    "GET /api/v4/projects/<repo>/merge_requests/3/versions/7": 2,
+    "GET /api/v4/projects/<repo>/repository/branches/main": 1,
+    "GET /api/v4/projects/<repo>/repository/branches/probe%2F20261121-034234-96304-gl-request-changes": 1,
+    "GET /api/v4/projects/<repo>/repository/branches/probe%2F20261121-034234-96304-gl-request-changes-base": 1,
+    "GET /api/v4/user": 3,
+    "POST /api/graphql": 7,
+    "POST /api/v4/projects/<repo>/merge_requests": 1,
+    "POST /api/v4/projects/<repo>/repository/branches": 2,
+    "POST /api/v4/projects/<repo>/repository/commits": 2,
+    "PUT /api/v4/projects/<repo>/merge_requests/3": 1
+  },
+  "server_before": {
+    "drafts": [],
+    "notes": [
+      {
+        "author": "<author>",
+        "body": "requested review from @<reviewer>",
+        "discussion": "b8029db752698791803a888d8c8f41e7d9ccec96",
+        "id": "8",
+        "position": null,
+        "system": true
+      },
+      {
+        "author": "<author>",
+        "body": "added 1 commit\n\n<ul><li>1467a9f7f1fe8a81dfc984b10477749eee842c7c - probe-review: fixture head</li></ul>\n\n[Compare with previous version](/<repo>/-/merge_requests/3/diffs?diff_id=7&start_sha=41dd32173a8af0f40b86dbcf28cbb60ca938f741)",
+        "discussion": "caab59ad8989e3151be45c460856f1dddc544aac",
+        "id": "9",
+        "position": null,
+        "system": true
+      }
+    ],
+    "reviewer_state": "UNREVIEWED"
+  },
+  "server_after": {
+    "drafts": [],
+    "notes": [
+      {
+        "author": "<author>",
+        "body": "requested review from @<reviewer>",
+        "discussion": "b8029db752698791803a888d8c8f41e7d9ccec96",
+        "id": "8",
+        "position": null,
+        "system": true
+      },
+      {
+        "author": "<author>",
+        "body": "added 1 commit\n\n<ul><li>1467a9f7f1fe8a81dfc984b10477749eee842c7c - probe-review: fixture head</li></ul>\n\n[Compare with previous version](/<repo>/-/merge_requests/3/diffs?diff_id=7&start_sha=41dd32173a8af0f40b86dbcf28cbb60ca938f741)",
+        "discussion": "caab59ad8989e3151be45c460856f1dddc544aac",
+        "id": "9",
+        "position": null,
+        "system": true
+      },
+      {
+        "author": "<reviewer>",
+        "body": "requested changes",
+        "discussion": "d9c58984bcc6c60239f0555cc422ae6f1a6201fb",
+        "id": "10",
+        "position": null,
+        "system": true
+      }
+    ],
+    "reviewer_state": "REQUESTED_CHANGES"
+  },
+  "journal": {
+    "recovered": [],
+    "sessions": [
+      {
+        "account": "<reviewer>",
+        "drafts": [],
+        "head_sha": "1467a9f7f1fe8a81dfc984b10477749eee842c7c",
+        "id": 1,
+        "submissions": [
+          {
+            "closed": false,
+            "delivery": "full",
+            "event": null,
+            "id": 1,
+            "items": [
+              {
+                "candidate": null,
+                "detail": null,
+                "drafts": [],
+                "operation": "gitlab.request_changes",
+                "remote_id": null,
+                "seq": 0,
+                "state": "confirmed"
+              }
+            ],
+            "pending_foreign": null,
+            "pending_review": null,
+            "summary": ""
+          }
+        ]
+      }
+    ]
+  },
+  "leftovers": [],
+  "notes": [
+    "MR клетки: версия 7",
+    "ветвь «мутации нет в схеме»: not_run «инъекция недоступна на живом хосте»",
+    "ветвь «ошибка верхнего уровня при HTTP 200»: not_run «инъекция недоступна на живом хосте»",
+    "наблюдение: mergeRequestRequestChanges токеном автора (не ревьюер MR): отказ: вызов: payload.errors: Reviewer not found",
+    "ok записи ревьюера: {\"graphql mergeRequestRequestChanges\": 1}",
+    "ok состояние ревьюера по чтению автора: Some(\"REQUESTED_CHANGES\")",
+    "ok журнал: все элементы confirmed, итог «полностью»: [(GitLabRequestChanges, Confirmed)]",
+    "ok восстановленные элементы: 0"
+  ]
+}

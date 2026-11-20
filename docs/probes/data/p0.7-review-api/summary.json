@@ -1,0 +1,868 @@
+{
+  "schema": 1,
+  "series": "t15-20261121",
+  "build": "21a981e31bf46b640f9f94a4eb6eebf51b7efca455d6696a7595ff91862aa7b5",
+  "runs": [
+    {
+      "name": "20261121-034220-95762",
+      "target": "fake",
+      "completed": true,
+      "docker": {
+        "status": "cleaned",
+        "removed": 0,
+        "detail": ""
+      }
+    },
+    {
+      "name": "20261121-034234-96304",
+      "target": "live",
+      "completed": true,
+      "docker": {
+        "status": "cleaned",
+        "removed": 0,
+        "detail": ""
+      }
+    },
+    {
+      "name": "20261121-034606-873",
+      "target": "live",
+      "completed": true,
+      "docker": {
+        "status": "cleaned",
+        "removed": 0,
+        "detail": ""
+      }
+    },
+    {
+      "name": "20261121-034608-1000",
+      "target": "live",
+      "completed": true,
+      "docker": {
+        "status": "cleaned",
+        "removed": 0,
+        "detail": ""
+      }
+    },
+    {
+      "name": "20261121-034608-1116",
+      "target": "live",
+      "completed": true,
+      "docker": {
+        "status": "cleaned",
+        "removed": 0,
+        "detail": ""
+      }
+    }
+  ],
+  "expected": [
+    "fake:smoke",
+    "fake:gh-local-create",
+    "fake:gh-pending-cycle",
+    "fake:gh-pending-foreign",
+    "fake:gh-anchors",
+    "fake:gh-viewed",
+    "fake:gl-draft-publish",
+    "fake:gl-foreign-draft",
+    "fake:gl-approve-sha",
+    "fake:gl-request-changes",
+    "fake:gl-anchors",
+    "fake:head-change",
+    "fake:journal-crash",
+    "fake:reconcile-ambiguous",
+    "fake:reconcile-foreign",
+    "fake:reconcile-deleted",
+    "fake:reconcile-paged",
+    "fake:partial",
+    "fake:capabilities",
+    "fake:volume",
+    "fake:rate-limit",
+    "github_cloud:gh-local-create",
+    "github_cloud:gh-pending-cycle",
+    "github_cloud:gh-pending-foreign",
+    "github_cloud:gh-anchors",
+    "github_cloud:gh-viewed",
+    "github_cloud:reconcile-foreign",
+    "github_cloud:capabilities",
+    "gitlab_cloud:gl-draft-publish",
+    "gitlab_cloud:gl-foreign-draft",
+    "gitlab_cloud:gl-approve-sha",
+    "gitlab_cloud:gl-request-changes",
+    "gitlab_cloud:gl-anchors",
+    "gitlab_cloud:head-change",
+    "gitlab_cloud:journal-crash",
+    "gitlab_cloud:reconcile-ambiguous",
+    "gitlab_cloud:reconcile-deleted",
+    "gitlab_cloud:reconcile-paged",
+    "gitlab_cloud:partial",
+    "gitlab_cloud:capabilities",
+    "gitlab_ce:gl-draft-publish",
+    "gitlab_ce:gl-foreign-draft",
+    "gitlab_ce:gl-approve-sha",
+    "gitlab_ce:gl-request-changes",
+    "gitlab_ce:gl-anchors",
+    "gitlab_ce:head-change",
+    "gitlab_ce:journal-crash",
+    "gitlab_ce:reconcile-ambiguous",
+    "gitlab_ce:reconcile-deleted",
+    "gitlab_ce:reconcile-paged",
+    "gitlab_ce:partial",
+    "gitlab_ce:capabilities",
+    "ghes:gh-local-create",
+    "ghes:gh-pending-cycle",
+    "ghes:gh-pending-foreign",
+    "ghes:gh-anchors",
+    "ghes:gh-viewed",
+    "ghes:reconcile-foreign",
+    "ghes:capabilities"
+  ],
+  "cells": [
+    {
+      "pair": "fake:smoke",
+      "column": "fake",
+      "scenario": "smoke",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "стенд в столбце fake: временный каталог состояния доступен для записи, result.json пишется в каталог процесса",
+      "host": {}
+    },
+    {
+      "pair": "fake:gh-local-create",
+      "column": "fake",
+      "scenario": "gh-local-create",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 30 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:gh-pending-cycle",
+      "column": "fake",
+      "scenario": "gh-pending-cycle",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 13 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:gh-pending-foreign",
+      "column": "fake",
+      "scenario": "gh-pending-foreign",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 8 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:gh-anchors",
+      "column": "fake",
+      "scenario": "gh-anchors",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 6 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:gh-viewed",
+      "column": "fake",
+      "scenario": "gh-viewed",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 6 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:gl-draft-publish",
+      "column": "fake",
+      "scenario": "gl-draft-publish",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 8 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:gl-foreign-draft",
+      "column": "fake",
+      "scenario": "gl-foreign-draft",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 4 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:gl-approve-sha",
+      "column": "fake",
+      "scenario": "gl-approve-sha",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 8 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:gl-request-changes",
+      "column": "fake",
+      "scenario": "gl-request-changes",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 21 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:gl-anchors",
+      "column": "fake",
+      "scenario": "gl-anchors",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 8 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:head-change",
+      "column": "fake",
+      "scenario": "head-change",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 9 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:journal-crash",
+      "column": "fake",
+      "scenario": "journal-crash",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 10 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:reconcile-ambiguous",
+      "column": "fake",
+      "scenario": "reconcile-ambiguous",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 4 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:reconcile-foreign",
+      "column": "fake",
+      "scenario": "reconcile-foreign",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 5 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:reconcile-deleted",
+      "column": "fake",
+      "scenario": "reconcile-deleted",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 4 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:reconcile-paged",
+      "column": "fake",
+      "scenario": "reconcile-paged",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 5 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:partial",
+      "column": "fake",
+      "scenario": "partial",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 4 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:capabilities",
+      "column": "fake",
+      "scenario": "capabilities",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 8 проверок ожидания прошли",
+      "host": {
+        "version": "GitHub API 2022-11-28; GitLab 17.6.0 (CE)"
+      }
+    },
+    {
+      "pair": "fake:volume",
+      "column": "fake",
+      "scenario": "volume",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 18 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "fake:rate-limit",
+      "column": "fake",
+      "scenario": "rate-limit",
+      "run": "20261121-034220-95762",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 22 проверок ожидания прошли",
+      "host": {}
+    },
+    {
+      "pair": "github_cloud:gh-local-create",
+      "column": "github_cloud",
+      "scenario": "gh-local-create",
+      "run": "20261121-034606-873",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "github_cloud:gh-pending-cycle",
+      "column": "github_cloud",
+      "scenario": "gh-pending-cycle",
+      "run": "20261121-034606-873",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "github_cloud:gh-pending-foreign",
+      "column": "github_cloud",
+      "scenario": "gh-pending-foreign",
+      "run": "20261121-034606-873",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "github_cloud:gh-anchors",
+      "column": "github_cloud",
+      "scenario": "gh-anchors",
+      "run": "20261121-034606-873",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "github_cloud:gh-viewed",
+      "column": "github_cloud",
+      "scenario": "gh-viewed",
+      "run": "20261121-034606-873",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "github_cloud:reconcile-foreign",
+      "column": "github_cloud",
+      "scenario": "reconcile-foreign",
+      "run": "20261121-034606-873",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "github_cloud:capabilities",
+      "column": "github_cloud",
+      "scenario": "capabilities",
+      "run": "20261121-034606-873",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "gitlab_cloud:gl-draft-publish",
+      "column": "gitlab_cloud",
+      "scenario": "gl-draft-publish",
+      "run": "20261121-034608-1000",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "gitlab_cloud:gl-foreign-draft",
+      "column": "gitlab_cloud",
+      "scenario": "gl-foreign-draft",
+      "run": "20261121-034608-1000",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "gitlab_cloud:gl-approve-sha",
+      "column": "gitlab_cloud",
+      "scenario": "gl-approve-sha",
+      "run": "20261121-034608-1000",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "gitlab_cloud:gl-request-changes",
+      "column": "gitlab_cloud",
+      "scenario": "gl-request-changes",
+      "run": "20261121-034608-1000",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "gitlab_cloud:gl-anchors",
+      "column": "gitlab_cloud",
+      "scenario": "gl-anchors",
+      "run": "20261121-034608-1000",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "gitlab_cloud:head-change",
+      "column": "gitlab_cloud",
+      "scenario": "head-change",
+      "run": "20261121-034608-1000",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "gitlab_cloud:journal-crash",
+      "column": "gitlab_cloud",
+      "scenario": "journal-crash",
+      "run": "20261121-034608-1000",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "gitlab_cloud:reconcile-ambiguous",
+      "column": "gitlab_cloud",
+      "scenario": "reconcile-ambiguous",
+      "run": "20261121-034608-1000",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "gitlab_cloud:reconcile-deleted",
+      "column": "gitlab_cloud",
+      "scenario": "reconcile-deleted",
+      "run": "20261121-034608-1000",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "gitlab_cloud:reconcile-paged",
+      "column": "gitlab_cloud",
+      "scenario": "reconcile-paged",
+      "run": "20261121-034608-1000",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "gitlab_cloud:partial",
+      "column": "gitlab_cloud",
+      "scenario": "partial",
+      "run": "20261121-034608-1000",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "gitlab_cloud:capabilities",
+      "column": "gitlab_cloud",
+      "scenario": "capabilities",
+      "run": "20261121-034608-1000",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет sandbox.toml",
+      "host": {}
+    },
+    {
+      "pair": "gitlab_ce:gl-draft-publish",
+      "column": "gitlab_ce",
+      "scenario": "gl-draft-publish",
+      "run": "20261121-034234-96304",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 9 проверок ожидания прошли",
+      "host": {
+        "version": "GitLab 19.6.1 (CE, образ 19.6.1-ce.0)",
+        "tier": "free"
+      }
+    },
+    {
+      "pair": "gitlab_ce:gl-foreign-draft",
+      "column": "gitlab_ce",
+      "scenario": "gl-foreign-draft",
+      "run": "20261121-034234-96304",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 10 проверок ожидания прошли",
+      "host": {
+        "version": "GitLab 19.6.1 (CE, образ 19.6.1-ce.0)",
+        "tier": "free"
+      }
+    },
+    {
+      "pair": "gitlab_ce:gl-approve-sha",
+      "column": "gitlab_ce",
+      "scenario": "gl-approve-sha",
+      "run": "20261121-034234-96304",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 9 проверок ожидания прошли",
+      "host": {
+        "version": "GitLab 19.6.1 (CE, образ 19.6.1-ce.0)",
+        "tier": "free"
+      }
+    },
+    {
+      "pair": "gitlab_ce:gl-request-changes",
+      "column": "gitlab_ce",
+      "scenario": "gl-request-changes",
+      "run": "20261121-034234-96304",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 4 проверок ожидания прошли",
+      "host": {
+        "version": "GitLab 19.6.1 (CE, образ 19.6.1-ce.0)",
+        "tier": "free"
+      }
+    },
+    {
+      "pair": "gitlab_ce:gl-anchors",
+      "column": "gitlab_ce",
+      "scenario": "gl-anchors",
+      "run": "20261121-034234-96304",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 8 проверок ожидания прошли",
+      "host": {
+        "version": "GitLab 19.6.1 (CE, образ 19.6.1-ce.0)",
+        "tier": "free"
+      }
+    },
+    {
+      "pair": "gitlab_ce:head-change",
+      "column": "gitlab_ce",
+      "scenario": "head-change",
+      "run": "20261121-034234-96304",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "fail",
+      "reason": "не прошли 4 из 13 проверок: записи ревьюера: {\"POST draft_notes\": 3, \"PUT draft_notes/{id}/publish\": 2}, ожидалось {\"POST draft_notes\": 3, \"PUT draft_notes/{id}/publish\": 3}; путь «остаться»: черновик T создан и опубликован на v1: POST draft_notes: неожиданный ответ: черновик 10 записан с другой тройкой SHA (head b5d384eb30a1ca745dda95799e8c3539417fcd1e); черновиков ревьюера после отправки: 1, ожидалось 0; автор: заметки с позициями черновиков: {\"перепривязать\", \"сохранится\"}, ожидалось {\"остаться\", \"перепривязать\", \"сохранится\"}",
+      "host": {
+        "version": "GitLab 19.6.1 (CE, образ 19.6.1-ce.0)",
+        "tier": "free"
+      }
+    },
+    {
+      "pair": "gitlab_ce:journal-crash",
+      "column": "gitlab_ce",
+      "scenario": "journal-crash",
+      "run": "20261121-034234-96304",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 11 проверок ожидания прошли",
+      "host": {
+        "version": "GitLab 19.6.1 (CE, образ 19.6.1-ce.0)",
+        "tier": "free"
+      }
+    },
+    {
+      "pair": "gitlab_ce:reconcile-ambiguous",
+      "column": "gitlab_ce",
+      "scenario": "reconcile-ambiguous",
+      "run": "20261121-034234-96304",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 9 проверок ожидания прошли",
+      "host": {
+        "version": "GitLab 19.6.1 (CE, образ 19.6.1-ce.0)",
+        "tier": "free"
+      }
+    },
+    {
+      "pair": "gitlab_ce:reconcile-deleted",
+      "column": "gitlab_ce",
+      "scenario": "reconcile-deleted",
+      "run": "20261121-034234-96304",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 6 проверок ожидания прошли",
+      "host": {
+        "version": "GitLab 19.6.1 (CE, образ 19.6.1-ce.0)",
+        "tier": "free"
+      }
+    },
+    {
+      "pair": "gitlab_ce:reconcile-paged",
+      "column": "gitlab_ce",
+      "scenario": "reconcile-paged",
+      "run": "20261121-034234-96304",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 10 проверок ожидания прошли",
+      "host": {
+        "version": "GitLab 19.6.1 (CE, образ 19.6.1-ce.0)",
+        "tier": "free"
+      }
+    },
+    {
+      "pair": "gitlab_ce:partial",
+      "column": "gitlab_ce",
+      "scenario": "partial",
+      "run": "20261121-034234-96304",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "все 9 проверок ожидания прошли",
+      "host": {
+        "version": "GitLab 19.6.1 (CE, образ 19.6.1-ce.0)",
+        "tier": "free"
+      }
+    },
+    {
+      "pair": "gitlab_ce:capabilities",
+      "column": "gitlab_ce",
+      "scenario": "capabilities",
+      "run": "20261121-034234-96304",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "pass",
+      "reason": "возможности прочитаны через сторожа без записей: GitLab 19.6.1 CE, проект приватный, роль ревьюера Developer, mergeRequestRequestChanges в схеме — есть",
+      "host": {
+        "version": "GitLab 19.6.1 (CE, образ 19.6.1-ce.0)",
+        "tier": "free"
+      }
+    },
+    {
+      "pair": "ghes:gh-local-create",
+      "column": "ghes",
+      "scenario": "gh-local-create",
+      "run": "20261121-034608-1116",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет инсталляции GitHub Enterprise Server, передача P4.1",
+      "host": {}
+    },
+    {
+      "pair": "ghes:gh-pending-cycle",
+      "column": "ghes",
+      "scenario": "gh-pending-cycle",
+      "run": "20261121-034608-1116",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет инсталляции GitHub Enterprise Server, передача P4.1",
+      "host": {}
+    },
+    {
+      "pair": "ghes:gh-pending-foreign",
+      "column": "ghes",
+      "scenario": "gh-pending-foreign",
+      "run": "20261121-034608-1116",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет инсталляции GitHub Enterprise Server, передача P4.1",
+      "host": {}
+    },
+    {
+      "pair": "ghes:gh-anchors",
+      "column": "ghes",
+      "scenario": "gh-anchors",
+      "run": "20261121-034608-1116",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет инсталляции GitHub Enterprise Server, передача P4.1",
+      "host": {}
+    },
+    {
+      "pair": "ghes:gh-viewed",
+      "column": "ghes",
+      "scenario": "gh-viewed",
+      "run": "20261121-034608-1116",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет инсталляции GitHub Enterprise Server, передача P4.1",
+      "host": {}
+    },
+    {
+      "pair": "ghes:reconcile-foreign",
+      "column": "ghes",
+      "scenario": "reconcile-foreign",
+      "run": "20261121-034608-1116",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет инсталляции GitHub Enterprise Server, передача P4.1",
+      "host": {}
+    },
+    {
+      "pair": "ghes:capabilities",
+      "column": "ghes",
+      "scenario": "capabilities",
+      "run": "20261121-034608-1116",
+      "execution": {
+        "status": "ok"
+      },
+      "status": "not_run",
+      "reason": "нет инсталляции GitHub Enterprise Server, передача P4.1",
+      "host": {}
+    }
+  ],
+  "replacements": [],
+  "errors": []
+}

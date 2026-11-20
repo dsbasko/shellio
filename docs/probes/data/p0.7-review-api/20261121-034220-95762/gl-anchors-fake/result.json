@@ -1,0 +1,1012 @@
+{
+  "schema": 1,
+  "series": "t15-20261121",
+  "build": "21a981e31bf46b640f9f94a4eb6eebf51b7efca455d6696a7595ff91862aa7b5",
+  "scenario": "gl-anchors",
+  "column": "fake",
+  "host": {},
+  "execution": {
+    "status": "ok"
+  },
+  "status": "pass",
+  "reason": "все 8 проверок ожидания прошли",
+  "trace": [
+    {
+      "actor": "reviewer",
+      "duration_us": 410,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/user",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "1",
+        "ratelimit-remaining": "1999",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "id": 2001,
+        "name": "<reviewer> name",
+        "state": "active",
+        "username": "<reviewer>"
+      },
+      "seq": 1,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 135,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/metadata",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "2",
+        "ratelimit-remaining": "1998",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "enterprise": false,
+        "kas": {
+          "enabled": false,
+          "externalUrl": null,
+          "version": null
+        },
+        "revision": "fake0001",
+        "version": "18.5.1"
+      },
+      "seq": 2,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 133,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "3",
+        "ratelimit-remaining": "1997",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "default_branch": "main",
+        "id": 42,
+        "name": "sandbox-project",
+        "path": "sandbox-project",
+        "path_with_namespace": "<repo>",
+        "permissions": {
+          "group_access": null,
+          "project_access": {
+            "access_level": 30
+          }
+        },
+        "visibility": "private"
+      },
+      "seq": 3,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 341,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/graphql",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "4",
+        "ratelimit-remaining": "1996",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": {
+        "query": "query($name: String!) { __type(name: $name) { fields { name } } }",
+        "variables": {
+          "name": "Mutation"
+        }
+      },
+      "response_body": {
+        "data": {
+          "__type": {
+            "fields": [
+              {
+                "name": "createNote"
+              },
+              {
+                "name": "mergeRequestAccept"
+              },
+              {
+                "name": "mergeRequestRequestChanges"
+              },
+              {
+                "name": "mergeRequestSetDraft"
+              }
+            ],
+            "name": "Mutation"
+          }
+        }
+      },
+      "seq": 4,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 123,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "5",
+        "ratelimit-remaining": "1995",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "author": {
+          "id": 2002,
+          "name": "<author> name",
+          "state": "active",
+          "username": "<author>"
+        },
+        "diff_refs": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "id": 2003,
+        "iid": 3,
+        "project_id": 42,
+        "reviewers": [
+          {
+            "id": 2001,
+            "name": "<reviewer> name",
+            "state": "active",
+            "username": "<reviewer>"
+          }
+        ],
+        "sha": "2222222222222222222222222222222222222222",
+        "source_branch": "probe/3",
+        "state": "opened",
+        "target_branch": "main"
+      },
+      "seq": 5,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 87,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions?per_page=100&page=1",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "6",
+        "ratelimit-remaining": "1994",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "base_commit_sha": "1111111111111111111111111111111111111111",
+          "created_at": "2026-01-01T00:00:01.000Z",
+          "head_commit_sha": "2222222222222222222222222222222222222222",
+          "id": 2004,
+          "real_size": "1",
+          "start_commit_sha": "1111111111111111111111111111111111111111",
+          "state": "collected"
+        }
+      ],
+      "seq": 6,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 78,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions/2004",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "7",
+        "ratelimit-remaining": "1993",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "base_commit_sha": "1111111111111111111111111111111111111111",
+        "created_at": "2026-01-01T00:00:01.000Z",
+        "diffs": [
+          {
+            "a_mode": "100644",
+            "b_mode": "100644",
+            "collapsed": false,
+            "deleted_file": false,
+            "diff": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+            "new_file": false,
+            "new_path": "src/review.rs",
+            "old_path": "src/review.rs",
+            "renamed_file": false,
+            "too_large": false
+          }
+        ],
+        "head_commit_sha": "2222222222222222222222222222222222222222",
+        "id": 2004,
+        "real_size": "1",
+        "start_commit_sha": "1111111111111111111111111111111111111111",
+        "state": "collected"
+      },
+      "seq": 7,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 112,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "8",
+        "ratelimit-remaining": "1992",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "author": {
+          "id": 2002,
+          "name": "<author> name",
+          "state": "active",
+          "username": "<author>"
+        },
+        "diff_refs": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "id": 2003,
+        "iid": 3,
+        "project_id": 42,
+        "reviewers": [
+          {
+            "id": 2001,
+            "name": "<reviewer> name",
+            "state": "active",
+            "username": "<reviewer>"
+          }
+        ],
+        "sha": "2222222222222222222222222222222222222222",
+        "source_branch": "probe/3",
+        "state": "opened",
+        "target_branch": "main"
+      },
+      "seq": 8,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 79,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions?per_page=100&page=1",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "9",
+        "ratelimit-remaining": "1991",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "base_commit_sha": "1111111111111111111111111111111111111111",
+          "created_at": "2026-01-01T00:00:01.000Z",
+          "head_commit_sha": "2222222222222222222222222222222222222222",
+          "id": 2004,
+          "real_size": "1",
+          "start_commit_sha": "1111111111111111111111111111111111111111",
+          "state": "collected"
+        }
+      ],
+      "seq": 9,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 72,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions/2004",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "10",
+        "ratelimit-remaining": "1990",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "base_commit_sha": "1111111111111111111111111111111111111111",
+        "created_at": "2026-01-01T00:00:01.000Z",
+        "diffs": [
+          {
+            "a_mode": "100644",
+            "b_mode": "100644",
+            "collapsed": false,
+            "deleted_file": false,
+            "diff": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+            "new_file": false,
+            "new_path": "src/review.rs",
+            "old_path": "src/review.rs",
+            "renamed_file": false,
+            "too_large": false
+          }
+        ],
+        "head_commit_sha": "2222222222222222222222222222222222222222",
+        "id": 2004,
+        "real_size": "1",
+        "start_commit_sha": "1111111111111111111111111111111111111111",
+        "state": "collected"
+      },
+      "seq": 10,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 194,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "11",
+        "ratelimit-remaining": "1989",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": {
+        "note": "удалённая",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "new_path": "src/review.rs",
+          "old_line": 2,
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        }
+      },
+      "response_body": {
+        "author_id": 2001,
+        "commit_id": null,
+        "discussion_id": null,
+        "id": 2005,
+        "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_2_2",
+        "merge_request_id": 2003,
+        "note": "удалённая",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "line_range": null,
+          "new_line": null,
+          "new_path": "src/review.rs",
+          "old_line": 2,
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "resolve_discussion": false
+      },
+      "seq": 11,
+      "status": 201
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 195,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "12",
+        "ratelimit-remaining": "1988",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": {
+        "note": "добавленная",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "new_line": 4,
+          "new_path": "src/review.rs",
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        }
+      },
+      "response_body": {
+        "author_id": 2001,
+        "commit_id": null,
+        "discussion_id": null,
+        "id": 2006,
+        "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_4_4",
+        "merge_request_id": 2003,
+        "note": "добавленная",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "line_range": null,
+          "new_line": 4,
+          "new_path": "src/review.rs",
+          "old_line": null,
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "resolve_discussion": false
+      },
+      "seq": 12,
+      "status": 201
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 174,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "13",
+        "ratelimit-remaining": "1987",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": {
+        "note": "неизменённая",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "new_line": 3,
+          "new_path": "src/review.rs",
+          "old_line": 3,
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        }
+      },
+      "response_body": {
+        "author_id": 2001,
+        "commit_id": null,
+        "discussion_id": null,
+        "id": 2007,
+        "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_3_3",
+        "merge_request_id": 2003,
+        "note": "неизменённая",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "line_range": null,
+          "new_line": 3,
+          "new_path": "src/review.rs",
+          "old_line": 3,
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "resolve_discussion": false
+      },
+      "seq": 13,
+      "status": 201
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 179,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "14",
+        "ratelimit-remaining": "1986",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": {
+        "note": "диапазон",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "line_range": {
+            "end": {
+              "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_3_2",
+              "new_line": 2,
+              "type": "new"
+            },
+            "start": {
+              "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_1_1",
+              "new_line": 1,
+              "old_line": 1
+            }
+          },
+          "new_line": 2,
+          "new_path": "src/review.rs",
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        }
+      },
+      "response_body": {
+        "author_id": 2001,
+        "commit_id": null,
+        "discussion_id": null,
+        "id": 2008,
+        "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_3_2",
+        "merge_request_id": 2003,
+        "note": "диапазон",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "line_range": {
+            "end": {
+              "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_3_2",
+              "new_line": 2,
+              "type": "new"
+            },
+            "start": {
+              "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_1_1",
+              "new_line": 1,
+              "old_line": 1
+            }
+          },
+          "new_line": 2,
+          "new_path": "src/review.rs",
+          "old_line": null,
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "resolve_discussion": false
+      },
+      "seq": 14,
+      "status": 201
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 161,
+      "failure": null,
+      "failure_detail": null,
+      "method": "PUT",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes/2005/publish",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "15",
+        "ratelimit-remaining": "1985",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": null,
+      "seq": 15,
+      "status": 204
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 136,
+      "failure": null,
+      "failure_detail": null,
+      "method": "PUT",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes/2006/publish",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "16",
+        "ratelimit-remaining": "1984",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": null,
+      "seq": 16,
+      "status": 204
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 139,
+      "failure": null,
+      "failure_detail": null,
+      "method": "PUT",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes/2007/publish",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "17",
+        "ratelimit-remaining": "1983",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": null,
+      "seq": 17,
+      "status": 204
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 240,
+      "failure": null,
+      "failure_detail": null,
+      "method": "PUT",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes/2008/publish",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "18",
+        "ratelimit-remaining": "1982",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": null,
+      "seq": 18,
+      "status": 204
+    }
+  ],
+  "calls": {
+    "GET /api/v4/metadata": 1,
+    "GET /api/v4/projects/<repo>": 1,
+    "GET /api/v4/projects/<repo>/merge_requests/3": 2,
+    "GET /api/v4/projects/<repo>/merge_requests/3/versions": 2,
+    "GET /api/v4/projects/<repo>/merge_requests/3/versions/2004": 2,
+    "GET /api/v4/user": 1,
+    "POST /api/graphql": 1,
+    "POST /api/v4/projects/<repo>/merge_requests/3/draft_notes": 4,
+    "PUT /api/v4/projects/<repo>/merge_requests/3/draft_notes/2005/publish": 1,
+    "PUT /api/v4/projects/<repo>/merge_requests/3/draft_notes/2006/publish": 1,
+    "PUT /api/v4/projects/<repo>/merge_requests/3/draft_notes/2007/publish": 1,
+    "PUT /api/v4/projects/<repo>/merge_requests/3/draft_notes/2008/publish": 1
+  },
+  "server_before": {
+    "main": {
+      "merge_requests": [
+        {
+          "approved_by": [],
+          "author": "<author>",
+          "discussions": [],
+          "drafts": [],
+          "iid": 3,
+          "notes": [],
+          "reviewers": [
+            {
+              "state": "unreviewed",
+              "username": "<reviewer>"
+            }
+          ],
+          "versions": [
+            {
+              "base_sha": "1111111111111111111111111111111111111111",
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 2004,
+              "start_sha": "1111111111111111111111111111111111111111"
+            }
+          ]
+        }
+      ],
+      "request_changes": "Available"
+    }
+  },
+  "server_after": {
+    "main": {
+      "merge_requests": [
+        {
+          "approved_by": [],
+          "author": "<author>",
+          "discussions": [
+            {
+              "id": "9ed1d8daba13016701c6bfe5e5e430a787c54016",
+              "individual_note": false,
+              "resolved": false
+            },
+            {
+              "id": "e2f9e0a9337b52d16e0ad7e3ee4af6fecedfa437",
+              "individual_note": false,
+              "resolved": false
+            },
+            {
+              "id": "590f0c438f97aba7f69e5a75737fdef5bc5b2a2b",
+              "individual_note": false,
+              "resolved": false
+            },
+            {
+              "id": "5024ba1d510d5883ddd5f736ab3f7d2d3ce22fbc",
+              "individual_note": false,
+              "resolved": false
+            }
+          ],
+          "drafts": [],
+          "iid": 3,
+          "notes": [
+            {
+              "author": "<reviewer>",
+              "body": "удалённая",
+              "discussion_id": "9ed1d8daba13016701c6bfe5e5e430a787c54016",
+              "from_draft": 2005,
+              "id": 2010,
+              "origin": "api",
+              "position": {
+                "base_sha": "1111111111111111111111111111111111111111",
+                "head_sha": "2222222222222222222222222222222222222222",
+                "line_range": null,
+                "new_line": null,
+                "new_path": "src/review.rs",
+                "old_line": 2,
+                "old_path": "src/review.rs",
+                "position_type": "text",
+                "start_sha": "1111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "author": "<reviewer>",
+              "body": "добавленная",
+              "discussion_id": "e2f9e0a9337b52d16e0ad7e3ee4af6fecedfa437",
+              "from_draft": 2006,
+              "id": 2012,
+              "origin": "api",
+              "position": {
+                "base_sha": "1111111111111111111111111111111111111111",
+                "head_sha": "2222222222222222222222222222222222222222",
+                "line_range": null,
+                "new_line": 4,
+                "new_path": "src/review.rs",
+                "old_line": null,
+                "old_path": "src/review.rs",
+                "position_type": "text",
+                "start_sha": "1111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "author": "<reviewer>",
+              "body": "неизменённая",
+              "discussion_id": "590f0c438f97aba7f69e5a75737fdef5bc5b2a2b",
+              "from_draft": 2007,
+              "id": 2014,
+              "origin": "api",
+              "position": {
+                "base_sha": "1111111111111111111111111111111111111111",
+                "head_sha": "2222222222222222222222222222222222222222",
+                "line_range": null,
+                "new_line": 3,
+                "new_path": "src/review.rs",
+                "old_line": 3,
+                "old_path": "src/review.rs",
+                "position_type": "text",
+                "start_sha": "1111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "author": "<reviewer>",
+              "body": "диапазон",
+              "discussion_id": "5024ba1d510d5883ddd5f736ab3f7d2d3ce22fbc",
+              "from_draft": 2008,
+              "id": 2016,
+              "origin": "api",
+              "position": {
+                "base_sha": "1111111111111111111111111111111111111111",
+                "head_sha": "2222222222222222222222222222222222222222",
+                "line_range": {
+                  "end": {
+                    "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_3_2",
+                    "new_line": 2,
+                    "type": "new"
+                  },
+                  "start": {
+                    "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_1_1",
+                    "new_line": 1,
+                    "old_line": 1
+                  }
+                },
+                "new_line": 2,
+                "new_path": "src/review.rs",
+                "old_line": null,
+                "old_path": "src/review.rs",
+                "position_type": "text",
+                "start_sha": "1111111111111111111111111111111111111111"
+              }
+            }
+          ],
+          "reviewers": [
+            {
+              "state": "unreviewed",
+              "username": "<reviewer>"
+            }
+          ],
+          "versions": [
+            {
+              "base_sha": "1111111111111111111111111111111111111111",
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 2004,
+              "start_sha": "1111111111111111111111111111111111111111"
+            }
+          ]
+        }
+      ],
+      "request_changes": "Available"
+    }
+  },
+  "journal": {
+    "main": {
+      "recovered": [],
+      "sessions": [
+        {
+          "account": "<reviewer>",
+          "drafts": [
+            {
+              "body": "удалённая",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 1,
+              "remote_id": "2005"
+            },
+            {
+              "body": "добавленная",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 2,
+              "remote_id": "2006"
+            },
+            {
+              "body": "неизменённая",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 3,
+              "remote_id": "2007"
+            },
+            {
+              "body": "диапазон",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 4,
+              "remote_id": "2008"
+            }
+          ],
+          "head_sha": "2222222222222222222222222222222222222222",
+          "id": 1,
+          "submissions": [
+            {
+              "closed": false,
+              "delivery": "full",
+              "event": null,
+              "id": 1,
+              "items": [
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    1
+                  ],
+                  "operation": "gitlab.create_draft_note",
+                  "remote_id": "2005",
+                  "seq": 0,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    2
+                  ],
+                  "operation": "gitlab.create_draft_note",
+                  "remote_id": "2006",
+                  "seq": 1,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    3
+                  ],
+                  "operation": "gitlab.create_draft_note",
+                  "remote_id": "2007",
+                  "seq": 2,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    4
+                  ],
+                  "operation": "gitlab.create_draft_note",
+                  "remote_id": "2008",
+                  "seq": 3,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    1
+                  ],
+                  "operation": "gitlab.publish_draft_note",
+                  "remote_id": "2005",
+                  "seq": 4,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    2
+                  ],
+                  "operation": "gitlab.publish_draft_note",
+                  "remote_id": "2006",
+                  "seq": 5,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    3
+                  ],
+                  "operation": "gitlab.publish_draft_note",
+                  "remote_id": "2007",
+                  "seq": 6,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    4
+                  ],
+                  "operation": "gitlab.publish_draft_note",
+                  "remote_id": "2008",
+                  "seq": 7,
+                  "state": "confirmed"
+                }
+              ],
+              "pending_foreign": null,
+              "pending_review": null,
+              "summary": ""
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "leftovers": [],
+  "notes": [
+    "ok записи: {\"POST /projects/{id}/merge_requests/{merge_request_iid}/draft_notes\": 4, \"PUT /projects/{id}/merge_requests/{merge_request_iid}/draft_notes/{draft_note_id}/publish\": 4}",
+    "ok позиция черновика: тип и тройка diff_refs: (Some(\"text\"), Some(\"1111111111111111111111111111111111111111\"), Some(\"1111111111111111111111111111111111111111\"), Some(\"2222222222222222222222222222222222222222\"))",
+    "ok позиция черновика: тип и тройка diff_refs: (Some(\"text\"), Some(\"1111111111111111111111111111111111111111\"), Some(\"1111111111111111111111111111111111111111\"), Some(\"2222222222222222222222222222222222222222\"))",
+    "ok позиция черновика: тип и тройка diff_refs: (Some(\"text\"), Some(\"1111111111111111111111111111111111111111\"), Some(\"1111111111111111111111111111111111111111\"), Some(\"2222222222222222222222222222222222222222\"))",
+    "ok позиция черновика: тип и тройка diff_refs: (Some(\"text\"), Some(\"1111111111111111111111111111111111111111\"), Some(\"1111111111111111111111111111111111111111\"), Some(\"2222222222222222222222222222222222222222\"))",
+    "ok заметки с позициями: [(\"диапазон\", None, Some(2), \"1111111111111111111111111111111111111111/1111111111111111111111111111111111111111/2222222222222222222222222222222222222222\"), (\"добавленная\", None, Some(4), \"1111111111111111111111111111111111111111/1111111111111111111111111111111111111111/2222222222222222222222222222222222222222\"), (\"неизменённая\", Some(3), Some(3), \"1111111111111111111111111111111111111111/1111111111111111111111111111111111111111/2222222222222222222222222222222222222222\"), (\"удалённая\", Some(2), None, \"1111111111111111111111111111111111111111/1111111111111111111111111111111111111111/2222222222222222222222222222222222222222\")]",
+    "ok line_range диапазона: (Some(\"2256241c82d6ec1c5594c82b0e92ff7fffde9c16_1_1\"), Some(\"2256241c82d6ec1c5594c82b0e92ff7fffde9c16_3_2\"), Some(\"new\"), None)",
+    "ok журнал: итог: Full"
+  ]
+}

@@ -1,0 +1,1633 @@
+{
+  "schema": 1,
+  "series": "t15-20261121",
+  "build": "21a981e31bf46b640f9f94a4eb6eebf51b7efca455d6696a7595ff91862aa7b5",
+  "scenario": "gh-local-create",
+  "column": "fake",
+  "host": {},
+  "execution": {
+    "status": "ok"
+  },
+  "status": "pass",
+  "reason": "все 30 проверок ожидания прошли",
+  "trace": [
+    {
+      "actor": "reviewer",
+      "duration_us": 792,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/user",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4999",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "1"
+      },
+      "request_body": null,
+      "response_body": {
+        "id": 1001,
+        "login": "<reviewer>",
+        "node_id": "U_fake1001"
+      },
+      "seq": 1,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 175,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/versions",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4998",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "2"
+      },
+      "request_body": null,
+      "response_body": [
+        "2022-11-28"
+      ],
+      "seq": 2,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 174,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4997",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "3"
+      },
+      "request_body": null,
+      "response_body": {
+        "default_branch": "main",
+        "full_name": "<repo>",
+        "id": 1,
+        "name": "sandbox-repo",
+        "node_id": "R_fake1",
+        "owner": {
+          "login": "<namespace>"
+        },
+        "permissions": {
+          "admin": false,
+          "pull": true,
+          "push": true
+        },
+        "private": true,
+        "visibility": "private"
+      },
+      "seq": 3,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 386,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/graphql",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4996",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "graphql",
+        "x-ratelimit-used": "4"
+      },
+      "request_body": {
+        "query": "query($name: String!) { __type(name: $name) { fields { name } } }",
+        "variables": {
+          "name": "Mutation"
+        }
+      },
+      "response_body": {
+        "data": {
+          "__type": {
+            "fields": [
+              {
+                "name": "addPullRequestReviewThread"
+              },
+              {
+                "name": "markFileAsViewed"
+              },
+              {
+                "name": "resolveReviewThread"
+              },
+              {
+                "name": "unmarkFileAsViewed"
+              },
+              {
+                "name": "unresolveReviewThread"
+              },
+              {
+                "name": "updatePullRequestReviewComment"
+              }
+            ],
+            "name": "Mutation"
+          }
+        }
+      },
+      "seq": 4,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 179,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4995",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "5"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 5,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 96,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/files?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4994",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "6"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "filename": "src/review.rs",
+          "patch": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+          "status": "modified"
+        }
+      ],
+      "seq": 6,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 80,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4993",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "7"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 7,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 140,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4992",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "8"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 8,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 76,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/files?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4991",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "9"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "filename": "src/review.rs",
+          "patch": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+          "status": "modified"
+        }
+      ],
+      "seq": 9,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 72,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4990",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "10"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 10,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 81,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/reviews?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4989",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "11"
+      },
+      "request_body": null,
+      "response_body": [],
+      "seq": 11,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 245,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/repos/<repo>/pulls/7/reviews",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4988",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "12"
+      },
+      "request_body": {
+        "body": "Итог ревью",
+        "comments": [
+          {
+            "body": "первый",
+            "line": 2,
+            "path": "src/review.rs",
+            "side": "RIGHT"
+          },
+          {
+            "body": "второй",
+            "line": 4,
+            "path": "src/review.rs",
+            "side": "RIGHT"
+          }
+        ],
+        "commit_id": "2222222222222222222222222222222222222222",
+        "event": "COMMENT"
+      },
+      "response_body": {
+        "body": "Итог ревью",
+        "commit_id": "2222222222222222222222222222222222222222",
+        "id": 1003,
+        "node_id": "PRR_fake1003",
+        "pull_request_url": "/pulls/7",
+        "state": "COMMENTED",
+        "submitted_at": "2026-01-01T00:00:01Z",
+        "user": {
+          "login": "<reviewer>"
+        }
+      },
+      "seq": 12,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 186,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/user",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4999",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "1"
+      },
+      "request_body": null,
+      "response_body": {
+        "id": 1001,
+        "login": "<reviewer>",
+        "node_id": "U_fake1001"
+      },
+      "seq": 13,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 77,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/versions",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4998",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "2"
+      },
+      "request_body": null,
+      "response_body": [
+        "2022-11-28"
+      ],
+      "seq": 14,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 89,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4997",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "3"
+      },
+      "request_body": null,
+      "response_body": {
+        "default_branch": "main",
+        "full_name": "<repo>",
+        "id": 1,
+        "name": "sandbox-repo",
+        "node_id": "R_fake1",
+        "owner": {
+          "login": "<namespace>"
+        },
+        "permissions": {
+          "admin": false,
+          "pull": true,
+          "push": true
+        },
+        "private": true,
+        "visibility": "private"
+      },
+      "seq": 15,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 160,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/graphql",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4996",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "graphql",
+        "x-ratelimit-used": "4"
+      },
+      "request_body": {
+        "query": "query($name: String!) { __type(name: $name) { fields { name } } }",
+        "variables": {
+          "name": "Mutation"
+        }
+      },
+      "response_body": {
+        "data": {
+          "__type": {
+            "fields": [
+              {
+                "name": "addPullRequestReviewThread"
+              },
+              {
+                "name": "markFileAsViewed"
+              },
+              {
+                "name": "resolveReviewThread"
+              },
+              {
+                "name": "unmarkFileAsViewed"
+              },
+              {
+                "name": "unresolveReviewThread"
+              },
+              {
+                "name": "updatePullRequestReviewComment"
+              }
+            ],
+            "name": "Mutation"
+          }
+        }
+      },
+      "seq": 16,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 136,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4995",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "5"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 17,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 101,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/files?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4994",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "6"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "filename": "src/review.rs",
+          "patch": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+          "status": "modified"
+        }
+      ],
+      "seq": 18,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 103,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4993",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "7"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 19,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 105,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4992",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "8"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 20,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 111,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/files?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4991",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "9"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "filename": "src/review.rs",
+          "patch": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+          "status": "modified"
+        }
+      ],
+      "seq": 21,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 98,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4990",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "10"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 22,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 101,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/reviews?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4989",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "11"
+      },
+      "request_body": null,
+      "response_body": [],
+      "seq": 23,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 297,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/repos/<repo>/pulls/7/reviews",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4988",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "12"
+      },
+      "request_body": {
+        "body": "Итог ревью",
+        "comments": [
+          {
+            "body": "первый",
+            "line": 2,
+            "path": "src/review.rs",
+            "side": "RIGHT"
+          },
+          {
+            "body": "второй",
+            "line": 4,
+            "path": "src/review.rs",
+            "side": "RIGHT"
+          }
+        ],
+        "commit_id": "2222222222222222222222222222222222222222",
+        "event": "APPROVE"
+      },
+      "response_body": {
+        "body": "Итог ревью",
+        "commit_id": "2222222222222222222222222222222222222222",
+        "id": 1003,
+        "node_id": "PRR_fake1003",
+        "pull_request_url": "/pulls/7",
+        "state": "APPROVED",
+        "submitted_at": "2026-01-01T00:00:01Z",
+        "user": {
+          "login": "<reviewer>"
+        }
+      },
+      "seq": 24,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 186,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/user",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4999",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "1"
+      },
+      "request_body": null,
+      "response_body": {
+        "id": 1001,
+        "login": "<reviewer>",
+        "node_id": "U_fake1001"
+      },
+      "seq": 25,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 95,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/versions",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4998",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "2"
+      },
+      "request_body": null,
+      "response_body": [
+        "2022-11-28"
+      ],
+      "seq": 26,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 105,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4997",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "3"
+      },
+      "request_body": null,
+      "response_body": {
+        "default_branch": "main",
+        "full_name": "<repo>",
+        "id": 1,
+        "name": "sandbox-repo",
+        "node_id": "R_fake1",
+        "owner": {
+          "login": "<namespace>"
+        },
+        "permissions": {
+          "admin": false,
+          "pull": true,
+          "push": true
+        },
+        "private": true,
+        "visibility": "private"
+      },
+      "seq": 27,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 195,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/graphql",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4996",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "graphql",
+        "x-ratelimit-used": "4"
+      },
+      "request_body": {
+        "query": "query($name: String!) { __type(name: $name) { fields { name } } }",
+        "variables": {
+          "name": "Mutation"
+        }
+      },
+      "response_body": {
+        "data": {
+          "__type": {
+            "fields": [
+              {
+                "name": "addPullRequestReviewThread"
+              },
+              {
+                "name": "markFileAsViewed"
+              },
+              {
+                "name": "resolveReviewThread"
+              },
+              {
+                "name": "unmarkFileAsViewed"
+              },
+              {
+                "name": "unresolveReviewThread"
+              },
+              {
+                "name": "updatePullRequestReviewComment"
+              }
+            ],
+            "name": "Mutation"
+          }
+        }
+      },
+      "seq": 28,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 215,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4995",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "5"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 29,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 131,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/files?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4994",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "6"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "filename": "src/review.rs",
+          "patch": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+          "status": "modified"
+        }
+      ],
+      "seq": 30,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 125,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4993",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "7"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 31,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 143,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4992",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "8"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 32,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 149,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/files?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4991",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "9"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "filename": "src/review.rs",
+          "patch": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+          "status": "modified"
+        }
+      ],
+      "seq": 33,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 132,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4990",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "10"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 34,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 128,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/reviews?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4989",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "11"
+      },
+      "request_body": null,
+      "response_body": [],
+      "seq": 35,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 315,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/repos/<repo>/pulls/7/reviews",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4988",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "12"
+      },
+      "request_body": {
+        "body": "Итог ревью",
+        "comments": [
+          {
+            "body": "первый",
+            "line": 2,
+            "path": "src/review.rs",
+            "side": "RIGHT"
+          },
+          {
+            "body": "второй",
+            "line": 4,
+            "path": "src/review.rs",
+            "side": "RIGHT"
+          }
+        ],
+        "commit_id": "2222222222222222222222222222222222222222",
+        "event": "REQUEST_CHANGES"
+      },
+      "response_body": {
+        "body": "Итог ревью",
+        "commit_id": "2222222222222222222222222222222222222222",
+        "id": 1003,
+        "node_id": "PRR_fake1003",
+        "pull_request_url": "/pulls/7",
+        "state": "CHANGES_REQUESTED",
+        "submitted_at": "2026-01-01T00:00:01Z",
+        "user": {
+          "login": "<reviewer>"
+        }
+      },
+      "seq": 36,
+      "status": 200
+    }
+  ],
+  "calls": {
+    "GET /repos/<repo>": 3,
+    "GET /repos/<repo>/pulls/7": 12,
+    "GET /repos/<repo>/pulls/7/files": 6,
+    "GET /repos/<repo>/pulls/7/reviews": 3,
+    "GET /user": 3,
+    "GET /versions": 3,
+    "POST /graphql": 3,
+    "POST /repos/<repo>/pulls/7/reviews": 3
+  },
+  "server_before": {
+    "approve": {
+      "pulls": [
+        {
+          "author": "<author>",
+          "base_sha": "1111111111111111111111111111111111111111",
+          "comments": [],
+          "commits": [
+            "2222222222222222222222222222222222222222"
+          ],
+          "number": 7,
+          "reviews": [],
+          "threads": [],
+          "viewed": {}
+        }
+      ]
+    },
+    "comment": {
+      "pulls": [
+        {
+          "author": "<author>",
+          "base_sha": "1111111111111111111111111111111111111111",
+          "comments": [],
+          "commits": [
+            "2222222222222222222222222222222222222222"
+          ],
+          "number": 7,
+          "reviews": [],
+          "threads": [],
+          "viewed": {}
+        }
+      ]
+    },
+    "request_changes": {
+      "pulls": [
+        {
+          "author": "<author>",
+          "base_sha": "1111111111111111111111111111111111111111",
+          "comments": [],
+          "commits": [
+            "2222222222222222222222222222222222222222"
+          ],
+          "number": 7,
+          "reviews": [],
+          "threads": [],
+          "viewed": {}
+        }
+      ]
+    }
+  },
+  "server_after": {
+    "approve": {
+      "pulls": [
+        {
+          "author": "<author>",
+          "base_sha": "1111111111111111111111111111111111111111",
+          "comments": [
+            {
+              "body": "первый",
+              "commit_id": "2222222222222222222222222222222222222222",
+              "id": 1004,
+              "in_reply_to": null,
+              "line": 2,
+              "node_id": "PRRC_fake1004",
+              "origin": "api",
+              "path": "src/review.rs",
+              "review_id": 1003,
+              "side": "RIGHT",
+              "start_line": null,
+              "start_side": null,
+              "thread_id": 1005,
+              "user": "<reviewer>"
+            },
+            {
+              "body": "второй",
+              "commit_id": "2222222222222222222222222222222222222222",
+              "id": 1006,
+              "in_reply_to": null,
+              "line": 4,
+              "node_id": "PRRC_fake1006",
+              "origin": "api",
+              "path": "src/review.rs",
+              "review_id": 1003,
+              "side": "RIGHT",
+              "start_line": null,
+              "start_side": null,
+              "thread_id": 1007,
+              "user": "<reviewer>"
+            }
+          ],
+          "commits": [
+            "2222222222222222222222222222222222222222"
+          ],
+          "number": 7,
+          "reviews": [
+            {
+              "body": "Итог ревью",
+              "commit_id": "2222222222222222222222222222222222222222",
+              "id": 1003,
+              "node_id": "PRR_fake1003",
+              "origin": "api",
+              "state": "APPROVED",
+              "user": "<reviewer>"
+            }
+          ],
+          "threads": [
+            {
+              "id": 1005,
+              "node_id": "PRRT_fake1005",
+              "resolved": false
+            },
+            {
+              "id": 1007,
+              "node_id": "PRRT_fake1007",
+              "resolved": false
+            }
+          ],
+          "viewed": {}
+        }
+      ]
+    },
+    "comment": {
+      "pulls": [
+        {
+          "author": "<author>",
+          "base_sha": "1111111111111111111111111111111111111111",
+          "comments": [
+            {
+              "body": "первый",
+              "commit_id": "2222222222222222222222222222222222222222",
+              "id": 1004,
+              "in_reply_to": null,
+              "line": 2,
+              "node_id": "PRRC_fake1004",
+              "origin": "api",
+              "path": "src/review.rs",
+              "review_id": 1003,
+              "side": "RIGHT",
+              "start_line": null,
+              "start_side": null,
+              "thread_id": 1005,
+              "user": "<reviewer>"
+            },
+            {
+              "body": "второй",
+              "commit_id": "2222222222222222222222222222222222222222",
+              "id": 1006,
+              "in_reply_to": null,
+              "line": 4,
+              "node_id": "PRRC_fake1006",
+              "origin": "api",
+              "path": "src/review.rs",
+              "review_id": 1003,
+              "side": "RIGHT",
+              "start_line": null,
+              "start_side": null,
+              "thread_id": 1007,
+              "user": "<reviewer>"
+            }
+          ],
+          "commits": [
+            "2222222222222222222222222222222222222222"
+          ],
+          "number": 7,
+          "reviews": [
+            {
+              "body": "Итог ревью",
+              "commit_id": "2222222222222222222222222222222222222222",
+              "id": 1003,
+              "node_id": "PRR_fake1003",
+              "origin": "api",
+              "state": "COMMENTED",
+              "user": "<reviewer>"
+            }
+          ],
+          "threads": [
+            {
+              "id": 1005,
+              "node_id": "PRRT_fake1005",
+              "resolved": false
+            },
+            {
+              "id": 1007,
+              "node_id": "PRRT_fake1007",
+              "resolved": false
+            }
+          ],
+          "viewed": {}
+        }
+      ]
+    },
+    "request_changes": {
+      "pulls": [
+        {
+          "author": "<author>",
+          "base_sha": "1111111111111111111111111111111111111111",
+          "comments": [
+            {
+              "body": "первый",
+              "commit_id": "2222222222222222222222222222222222222222",
+              "id": 1004,
+              "in_reply_to": null,
+              "line": 2,
+              "node_id": "PRRC_fake1004",
+              "origin": "api",
+              "path": "src/review.rs",
+              "review_id": 1003,
+              "side": "RIGHT",
+              "start_line": null,
+              "start_side": null,
+              "thread_id": 1005,
+              "user": "<reviewer>"
+            },
+            {
+              "body": "второй",
+              "commit_id": "2222222222222222222222222222222222222222",
+              "id": 1006,
+              "in_reply_to": null,
+              "line": 4,
+              "node_id": "PRRC_fake1006",
+              "origin": "api",
+              "path": "src/review.rs",
+              "review_id": 1003,
+              "side": "RIGHT",
+              "start_line": null,
+              "start_side": null,
+              "thread_id": 1007,
+              "user": "<reviewer>"
+            }
+          ],
+          "commits": [
+            "2222222222222222222222222222222222222222"
+          ],
+          "number": 7,
+          "reviews": [
+            {
+              "body": "Итог ревью",
+              "commit_id": "2222222222222222222222222222222222222222",
+              "id": 1003,
+              "node_id": "PRR_fake1003",
+              "origin": "api",
+              "state": "CHANGES_REQUESTED",
+              "user": "<reviewer>"
+            }
+          ],
+          "threads": [
+            {
+              "id": 1005,
+              "node_id": "PRRT_fake1005",
+              "resolved": false
+            },
+            {
+              "id": 1007,
+              "node_id": "PRRT_fake1007",
+              "resolved": false
+            }
+          ],
+          "viewed": {}
+        }
+      ]
+    }
+  },
+  "journal": {
+    "approve": {
+      "recovered": [],
+      "sessions": [
+        {
+          "account": "<reviewer>",
+          "drafts": [
+            {
+              "body": "первый",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 1,
+              "remote_id": null
+            },
+            {
+              "body": "второй",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 2,
+              "remote_id": null
+            }
+          ],
+          "head_sha": "2222222222222222222222222222222222222222",
+          "id": 1,
+          "submissions": [
+            {
+              "closed": false,
+              "delivery": "full",
+              "event": "APPROVE",
+              "id": 1,
+              "items": [
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    1,
+                    2
+                  ],
+                  "operation": "github.create_review",
+                  "remote_id": "1003",
+                  "seq": 0,
+                  "state": "confirmed"
+                }
+              ],
+              "pending_foreign": null,
+              "pending_review": null,
+              "summary": "Итог ревью"
+            }
+          ]
+        }
+      ]
+    },
+    "comment": {
+      "recovered": [],
+      "sessions": [
+        {
+          "account": "<reviewer>",
+          "drafts": [
+            {
+              "body": "первый",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 1,
+              "remote_id": null
+            },
+            {
+              "body": "второй",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 2,
+              "remote_id": null
+            }
+          ],
+          "head_sha": "2222222222222222222222222222222222222222",
+          "id": 1,
+          "submissions": [
+            {
+              "closed": false,
+              "delivery": "full",
+              "event": "COMMENT",
+              "id": 1,
+              "items": [
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    1,
+                    2
+                  ],
+                  "operation": "github.create_review",
+                  "remote_id": "1003",
+                  "seq": 0,
+                  "state": "confirmed"
+                }
+              ],
+              "pending_foreign": null,
+              "pending_review": null,
+              "summary": "Итог ревью"
+            }
+          ]
+        }
+      ]
+    },
+    "request_changes": {
+      "recovered": [],
+      "sessions": [
+        {
+          "account": "<reviewer>",
+          "drafts": [
+            {
+              "body": "первый",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 1,
+              "remote_id": null
+            },
+            {
+              "body": "второй",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 2,
+              "remote_id": null
+            }
+          ],
+          "head_sha": "2222222222222222222222222222222222222222",
+          "id": 1,
+          "submissions": [
+            {
+              "closed": false,
+              "delivery": "full",
+              "event": "REQUEST_CHANGES",
+              "id": 1,
+              "items": [
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    1,
+                    2
+                  ],
+                  "operation": "github.create_review",
+                  "remote_id": "1003",
+                  "seq": 0,
+                  "state": "confirmed"
+                }
+              ],
+              "pending_foreign": null,
+              "pending_review": null,
+              "summary": "Итог ревью"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "leftovers": [],
+  "notes": [
+    "ok comment: записи: {\"POST /repos/{owner}/{repo}/pulls/{number}/reviews\": 1}",
+    "ok comment: event Create review: Some(\"COMMENT\")",
+    "ok comment: body Create review непустой: \"Итог ревью\"",
+    "ok comment: commit_id Create review: Some(\"2222222222222222222222222222222222222222\")",
+    "ok comment: comments[] Create review: [(Some(\"src/review.rs\"), Some(2), Some(\"RIGHT\")), (Some(\"src/review.rs\"), Some(4), Some(\"RIGHT\"))]",
+    "ok comment: review на сервере: [(\"<reviewer>\", Commented, \"2222222222222222222222222222222222222222\", Api)]",
+    "ok comment: комментарии review: [(2, Right, \"первый\"), (4, Right, \"второй\")]",
+    "ok comment: итог в журнале: Full",
+    "ok comment: элементы в журнале: [(GitHubCreateReview, Confirmed, Some(\"1003\"))]",
+    "ok comment: восстановленные элементы: 0",
+    "ok approve: записи: {\"POST /repos/{owner}/{repo}/pulls/{number}/reviews\": 1}",
+    "ok approve: event Create review: Some(\"APPROVE\")",
+    "ok approve: body Create review непустой: \"Итог ревью\"",
+    "ok approve: commit_id Create review: Some(\"2222222222222222222222222222222222222222\")",
+    "ok approve: comments[] Create review: [(Some(\"src/review.rs\"), Some(2), Some(\"RIGHT\")), (Some(\"src/review.rs\"), Some(4), Some(\"RIGHT\"))]",
+    "ok approve: review на сервере: [(\"<reviewer>\", Approved, \"2222222222222222222222222222222222222222\", Api)]",
+    "ok approve: комментарии review: [(2, Right, \"первый\"), (4, Right, \"второй\")]",
+    "ok approve: итог в журнале: Full",
+    "ok approve: элементы в журнале: [(GitHubCreateReview, Confirmed, Some(\"1003\"))]",
+    "ok approve: восстановленные элементы: 0",
+    "ok request_changes: записи: {\"POST /repos/{owner}/{repo}/pulls/{number}/reviews\": 1}",
+    "ok request_changes: event Create review: Some(\"REQUEST_CHANGES\")",
+    "ok request_changes: body Create review непустой: \"Итог ревью\"",
+    "ok request_changes: commit_id Create review: Some(\"2222222222222222222222222222222222222222\")",
+    "ok request_changes: comments[] Create review: [(Some(\"src/review.rs\"), Some(2), Some(\"RIGHT\")), (Some(\"src/review.rs\"), Some(4), Some(\"RIGHT\"))]",
+    "ok request_changes: review на сервере: [(\"<reviewer>\", ChangesRequested, \"2222222222222222222222222222222222222222\", Api)]",
+    "ok request_changes: комментарии review: [(2, Right, \"первый\"), (4, Right, \"второй\")]",
+    "ok request_changes: итог в журнале: Full",
+    "ok request_changes: элементы в журнале: [(GitHubCreateReview, Confirmed, Some(\"1003\"))]",
+    "ok request_changes: восстановленные элементы: 0"
+  ]
+}

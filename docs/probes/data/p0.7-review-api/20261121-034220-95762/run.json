@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "series": "t15-20261121",
+  "build": "21a981e31bf46b640f9f94a4eb6eebf51b7efca455d6696a7595ff91862aa7b5",
+  "target": "fake",
+  "started_unix": 1795214542,
+  "pairs": ["fake:smoke", "fake:gh-local-create", "fake:gh-pending-cycle", "fake:gh-pending-foreign", "fake:gh-anchors", "fake:gh-viewed", "fake:gl-draft-publish", "fake:gl-foreign-draft", "fake:gl-approve-sha", "fake:gl-request-changes", "fake:gl-anchors", "fake:head-change", "fake:journal-crash", "fake:reconcile-ambiguous", "fake:reconcile-foreign", "fake:reconcile-deleted", "fake:reconcile-paged", "fake:partial", "fake:capabilities", "fake:volume", "fake:rate-limit"],
+  "skipped": [],
+  "docker": {"status": "cleaned", "removed": 0, "detail": ""}
+}

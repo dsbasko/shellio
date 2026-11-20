@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "series": "t15-20261121",
+  "build": "21a981e31bf46b640f9f94a4eb6eebf51b7efca455d6696a7595ff91862aa7b5",
+  "target": "live",
+  "started_unix": 1795214767,
+  "pairs": ["github_cloud:gh-local-create", "github_cloud:gh-pending-cycle", "github_cloud:gh-pending-foreign", "github_cloud:gh-anchors", "github_cloud:gh-viewed", "github_cloud:reconcile-foreign", "github_cloud:capabilities"],
+  "skipped": [],
+  "docker": {"status": "cleaned", "removed": 0, "detail": ""}
+}

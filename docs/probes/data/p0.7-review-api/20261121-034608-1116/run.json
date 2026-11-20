@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "series": "t15-20261121",
+  "build": "21a981e31bf46b640f9f94a4eb6eebf51b7efca455d6696a7595ff91862aa7b5",
+  "target": "live",
+  "started_unix": 1795214768,
+  "pairs": ["ghes:gh-local-create", "ghes:gh-pending-cycle", "ghes:gh-pending-foreign", "ghes:gh-anchors", "ghes:gh-viewed", "ghes:reconcile-foreign", "ghes:capabilities"],
+  "skipped": [],
+  "docker": {"status": "cleaned", "removed": 0, "detail": ""}
+}
