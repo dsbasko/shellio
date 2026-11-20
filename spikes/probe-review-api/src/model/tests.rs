@@ -590,3 +590,62 @@ fn rebind_takes_explicit_anchor_of_fresh_diff_only() -> TestResult {
     assert!(fx.drafts[0].is_current());
     Ok(())
 }
+
+#[test]
+fn stale_draft_is_rebound_later_to_the_current_revision_only_explicitly() -> TestResult {
+    let mut fx = head_fixture()?;
+    let HeadCheck::Changed(change) =
+        fx.session
+            .check_head(&fx.fresh, &fx.held_diff, &fx.fresh_diff, &fx.drafts)
+    else {
+        return Err("смена head не замечена".into());
+    };
+    fx.session
+        .apply_head(&change, HeadPath::Move, &mut fx.drafts, &fx.fresh_diff)?;
+    let fresh_file = &fx.fresh_diff[0];
+    let e_now = Anchor::line(fresh_file, LinePoint::at(fresh_file, Side::New, 6)?)?;
+    assert_eq!(
+        fx.session
+            .rebind_stale(&mut fx.drafts[0], e_now.clone(), &fx.fresh_diff),
+        Err(ModelError::RebindNotStale { draft: DraftId(1) })
+    );
+    let Placement::Line(held_anchor) = fx.drafts[2].placement().clone() else {
+        return Err("у черновика 3 нет якоря".into());
+    };
+    let before = fx.drafts[2].clone();
+    assert!(matches!(
+        fx.session
+            .rebind_stale(&mut fx.drafts[2], held_anchor, &fx.fresh_diff),
+        Err(ModelError::AnchorMissing { .. })
+    ));
+    assert_eq!(fx.drafts[2], before, "отказ без изменений");
+    fx.session
+        .rebind_stale(&mut fx.drafts[1], e_now, &fx.fresh_diff)?;
+    assert!(fx.drafts[1].is_current());
+    assert_eq!(fx.drafts[1].revision(), &fx.fresh);
+    let rebound = serde_json::to_value(fx.session.github_anchor(&fx.drafts[1])?)?;
+    assert_eq!(rebound["line"], 6);
+    assert_eq!(rebound["commit_id"], fx.fresh.head_sha().as_str());
+    Ok(())
+}
+
+#[test]
+fn missing_held_diff_makes_anchors_stale_never_kept() -> TestResult {
+    let fx = head_fixture()?;
+    let HeadCheck::Changed(change) =
+        fx.session
+            .check_head(&fx.fresh, &[], &fx.fresh_diff, &fx.drafts)
+    else {
+        return Err("смена head не замечена".into());
+    };
+    assert!(!change.fates().is_empty());
+    for (id, fate) in change.fates() {
+        assert_eq!(
+            fate,
+            &AnchorFate::Stale(StaleReason::NotInOwnDiff),
+            "черновик {}",
+            id.0
+        );
+    }
+    Ok(())
+}

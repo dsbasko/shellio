@@ -525,7 +525,7 @@ fn server_pending_cycle_keeps_ids_and_submits_without_comments() -> TestResult {
     let first = github.add_pending_comment(&session, &pending, &drafts[0])?;
     assert_eq!(first.id, ProviderId::new("PRRC_1"));
     assert_eq!(first.database_id, ProviderId::new("701"));
-    assert_eq!(first.thread_id, ProviderId::new("PRRT_1"));
+    assert_eq!(first.thread_id, Some(ProviderId::new("PRRT_1")));
     let range = github.add_pending_comment(&session, &pending, &drafts[2])?;
     assert_eq!(range.id, ProviderId::new("PRRC_2"));
     let updated = github.update_pending_comment(&pending, &first, "added v2")?;
@@ -606,7 +606,7 @@ fn pending_comment_answers_without_ids_or_with_other_ids_are_unknown() -> TestRe
     let comment = PendingComment {
         id: ProviderId::new("PRRC_1"),
         database_id: ProviderId::new("701"),
-        thread_id: ProviderId::new("PRRT_1"),
+        thread_id: Some(ProviderId::new("PRRT_1")),
         body: "added".to_owned(),
         review: ProviderId::new("PRR_601"),
     };
@@ -730,7 +730,7 @@ fn adopted_pending_on_another_commit_takes_no_comment() -> TestResult {
     let comment = PendingComment {
         id: ProviderId::new("PRRC_1"),
         database_id: ProviderId::new("701"),
-        thread_id: ProviderId::new("PRRT_1"),
+        thread_id: Some(ProviderId::new("PRRT_1")),
         body: "x".to_owned(),
         review: ProviderId::new("PRR_77"),
     };
@@ -954,7 +954,7 @@ fn graphql_errors_at_http_200_classify_the_write_fate() -> TestResult {
     let comment = PendingComment {
         id: ProviderId::new("PRRC_1"),
         database_id: ProviderId::new("701"),
-        thread_id: ProviderId::new("PRRT_1"),
+        thread_id: Some(ProviderId::new("PRRT_1")),
         body: "x".to_owned(),
         review: ProviderId::new("PRR_601"),
     };
@@ -1340,5 +1340,68 @@ fn absent_mutation_on_forge_fake_gates_the_pending_branch() -> TestResult {
         server.count("POST /repos/{owner}/{repo}/pulls/{number}/reviews"),
         0
     );
+    Ok(())
+}
+
+#[test]
+fn own_pending_is_resumed_from_recorded_ids_without_becoming_foreign() -> TestResult {
+    let server = fake_server()?;
+    let github = http_adapter(&server, "tok-reviewer")?;
+    let caps = github.capabilities()?;
+    let session = ReviewSession::new("bob", target(), github.pull()?.revision);
+    let drafts = drafts(&session)?;
+    let clear = github.check_no_pending(&caps)?;
+    let pending = github.start_pending(&session, &caps, &clear)?;
+    let first = github.add_pending_comment(&session, &pending, &drafts[0])?;
+    let recorded_review = pending.id().clone();
+    let recorded_comment = first.id.clone();
+    drop(pending);
+
+    let missing = github.resume_pending(
+        &session,
+        &recorded_review,
+        &[ProviderId::new("PRRC_нет")],
+        false,
+    );
+    assert!(
+        matches!(missing, Err(ApiError::Unexpected(_))),
+        "{missing:?}"
+    );
+    let (resumed, own) = github.resume_pending(
+        &session,
+        &recorded_review,
+        std::slice::from_ref(&recorded_comment),
+        false,
+    )?;
+    assert!(!resumed.is_adopted());
+    assert!(resumed.foreign().is_empty(), "свой комментарий не чужой");
+    assert_eq!(own.len(), 1);
+    assert_eq!(own[0].id, recorded_comment);
+    assert_eq!(own[0].database_id, first.database_id);
+    assert_eq!(own[0].thread_id, None);
+    let (unlisted, _) = github.resume_pending(&session, &recorded_review, &[], false)?;
+    assert_eq!(unlisted.foreign(), std::slice::from_ref(&first.database_id));
+
+    let edited = github.update_pending_comment(&resumed, &own[0], "после переоткрытия")?;
+    assert_eq!(edited.id, recorded_comment);
+    github.add_pending_comment(&session, &resumed, &drafts[1])?;
+    github.submit_pending(&resumed, ReviewEvent::Comment, "Итог")?;
+
+    let submitted = github.resume_pending(&session, &recorded_review, &[], false);
+    assert!(
+        matches!(submitted, Err(ApiError::Unexpected(_))),
+        "{submitted:?}"
+    );
+    let other = ReviewSession::new("alice", target(), session.revision().clone());
+    let foreign_account = github.resume_pending(&other, &recorded_review, &[], false);
+    assert!(foreign_account.is_err(), "{foreign_account:?}");
+    let comments = server.with(|fake| fake.comments(7));
+    assert_eq!(comments.len(), 2);
+    assert!(
+        comments
+            .iter()
+            .any(|comment| comment.body == "после переоткрытия")
+    );
+    server.finish()?;
     Ok(())
 }

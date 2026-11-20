@@ -30,7 +30,7 @@ use crate::model::{
 };
 
 const SCHEMA: &str = include_str!("schema.sql");
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 pub const RECOVERED_DETAIL: &str = "переоткрытие журнала: ответ на запрос не получен";
 
 /// Проект каталога (ADR-0025). Ключ корня проекта — непрозрачная строка.
@@ -193,6 +193,26 @@ impl Operation {
         }
     }
 
+    /// Операция над известным объектом по его ID: повтор не создаёт второго объекта (второй
+    /// Submit и вторая публикация отвергаются, изменение и одобрение идемпотентны). Только такой
+    /// элемент сверка может перевести из `unknown` в `failed` по чтению объекта в исходном
+    /// состоянии ([`Scope::refute`]).
+    pub fn targets_known_object(self) -> bool {
+        match self {
+            Operation::GitHubUpdatePendingComment
+            | Operation::GitHubSubmitReview
+            | Operation::GitLabUpdateDraftNote
+            | Operation::GitLabPublishDraftNote
+            | Operation::GitLabApprove
+            | Operation::GitLabRequestChanges => true,
+            Operation::GitHubCreateReview
+            | Operation::GitHubCreatePending
+            | Operation::GitHubAddPendingComment
+            | Operation::GitLabCreateDraftNote
+            | Operation::GitLabSummaryNote => false,
+        }
+    }
+
     pub fn drafts(self) -> DraftArity {
         match self {
             Operation::GitHubCreateReview => DraftArity::Any,
@@ -232,11 +252,37 @@ pub struct SubmitItem {
     pub in_flight_at: Option<i64>,
 }
 
+/// Параметры отправки, нужные сверке после переоткрытия журнала.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SubmissionSpec {
+    /// Итог review GitHub (`COMMENT`, `APPROVE`, `REQUEST_CHANGES`).
+    pub event: Option<String>,
+    /// Текст итога review GitHub или сводки GitLab.
+    pub summary: String,
+    /// `PENDING`, с которым работает отправка: принятый или созданный ею (числовой ID).
+    pub pending_review: Option<ProviderId>,
+    /// Чужие комментарии принятого `PENDING`, показанные при принятии; `None` — `PENDING` свой.
+    pub pending_foreign: Option<Vec<ProviderId>>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Submission {
     pub id: SubmissionId,
     pub session: SessionId,
+    pub spec: SubmissionSpec,
+    /// Отправка остановлена: элементы в `planned` не отправляются, их черновики свободны.
+    pub closed: bool,
     pub items: Vec<SubmitItem>,
+}
+
+/// Подтверждение элемента вместе с удалёнными ID шага 4 ADR-0015 — одной фиксацией: сбой между
+/// ними оставил бы подтверждённый элемент и черновик без ID, то есть дубль при продолжении.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Confirmation {
+    pub remote: Option<ProviderId>,
+    pub drafts: Vec<(DraftId, ProviderId)>,
+    /// ID `PENDING`, созданного элементом: отправка дальше работает с ним.
+    pub pending_review: Option<ProviderId>,
 }
 
 #[derive(Debug)]
@@ -277,6 +323,22 @@ pub enum JournalError {
     /// Сохранить можно только ревизию той же сессии: аккаунт и цель не меняются.
     SessionIdentity {
         session: SessionId,
+    },
+    /// Черновик держит элемент: в `in_flight` или `unknown` (до сверки) или в `planned`
+    /// незакрытой отправки. Он не входит в новую отправку, его текст и якорь не меняются.
+    DraftHeld {
+        draft: DraftId,
+        item: ItemId,
+        state: ItemState,
+    },
+    /// Сверка опровергает только операцию над известным объектом (`Operation::targets_known_object`).
+    Refute {
+        item: ItemId,
+        operation: Operation,
+    },
+    /// Закрытая отправка не продолжается.
+    Closed {
+        submission: SubmissionId,
     },
     Corrupt {
         reason: String,
@@ -328,6 +390,22 @@ impl fmt::Display for JournalError {
                 "сессия {}: аккаунт и цель не меняются, меняется только ревизия",
                 session.0
             ),
+            JournalError::DraftHeld { draft, item, state } => write!(
+                f,
+                "черновик {} держит элемент {} в состоянии {}",
+                draft.0,
+                item.0,
+                state.name()
+            ),
+            JournalError::Refute { item, operation } => write!(
+                f,
+                "элемент {}: операция {} создаёт объект, сверка её не опровергает",
+                item.0,
+                operation.name()
+            ),
+            JournalError::Closed { submission } => {
+                write!(f, "отправка {} закрыта", submission.0)
+            }
             JournalError::Corrupt { reason } => write!(f, "повреждённая запись журнала: {reason}"),
             JournalError::Clock => f.write_str("системное время раньше эпохи Unix"),
         }
@@ -512,6 +590,13 @@ impl Scope<'_> {
             ],
         )?;
         for draft in drafts {
+            if let Some((item, state)) = held_by(&tx, draft.id, false)? {
+                return Err(JournalError::DraftHeld {
+                    draft: draft.id,
+                    item,
+                    state,
+                });
+            }
             let columns = PlacementColumns::of(draft.placement());
             let draft_revision = draft.revision();
             let changed = tx.execute(
@@ -596,7 +681,13 @@ impl Scope<'_> {
         Ok(DraftComment::new(id, &review, placement, body))
     }
 
+    /// Новый текст черновика. Черновик с элементом в `in_flight` или `unknown` не меняется до
+    /// сверки: иначе сверка искала бы по содержимому другой текст.
     pub fn update_draft_body(&self, draft: DraftId, body: &str) -> Result<(), JournalError> {
+        self.draft(draft)?;
+        if let Some((item, state)) = held_by(self.conn, draft, false)? {
+            return Err(JournalError::DraftHeld { draft, item, state });
+        }
         let changed = self.conn.execute(
             "UPDATE drafts SET body = :body WHERE id = :id AND session_id IN \
              (SELECT id FROM sessions WHERE project = :project)",
@@ -656,10 +747,21 @@ impl Scope<'_> {
         rows.into_iter().map(DraftRow::into_draft).collect()
     }
 
-    /// Шаг 2 отправки: конкретный список запросов, все в `planned`, одной фиксацией.
+    /// Шаг 2 отправки без параметров (отправка GitLab без сводки, тесты журнала).
     pub fn plan_submission(
         &self,
         session: SessionId,
+        items: &[PlannedItem],
+    ) -> Result<Submission, JournalError> {
+        self.plan(session, &SubmissionSpec::default(), items)
+    }
+
+    /// Шаг 2 отправки: конкретный список запросов, все в `planned`, с параметрами одной
+    /// фиксацией. Черновик, который держит элемент другой отправки, не входит.
+    pub fn plan(
+        &self,
+        session: SessionId,
+        spec: &SubmissionSpec,
         items: &[PlannedItem],
     ) -> Result<Submission, JournalError> {
         let tx = Transaction::new_unchecked(self.conn, TransactionBehavior::Immediate)?;
@@ -700,11 +802,33 @@ impl Scope<'_> {
                         id: draft.0,
                     });
                 }
+                if let Some((item, state)) = held_by(&tx, *draft, true)? {
+                    return Err(JournalError::DraftHeld {
+                        draft: *draft,
+                        item,
+                        state,
+                    });
+                }
             }
         }
+        let foreign = spec
+            .pending_foreign
+            .as_ref()
+            .map(|ids| {
+                serde_json::to_string(&ids.iter().map(ProviderId::as_str).collect::<Vec<_>>())
+            })
+            .transpose()
+            .map_err(|err| corrupt(err.to_string()))?;
         tx.execute(
-            "INSERT INTO submissions (session_id) VALUES (?1)",
-            [session.0],
+            "INSERT INTO submissions (session_id, event, summary, pending_review, pending_foreign) \
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                session.0,
+                spec.event,
+                spec.summary,
+                spec.pending_review.as_ref().map(ProviderId::as_str),
+                foreign
+            ],
         )?;
         let submission = SubmissionId(row_id(tx.last_insert_rowid())?);
         for (seq, item) in items.iter().enumerate() {
@@ -731,25 +855,87 @@ impl Scope<'_> {
     }
 
     pub fn submission(&self, id: SubmissionId) -> Result<Submission, JournalError> {
-        let session = self
+        type Row = (
+            u64,
+            Option<String>,
+            String,
+            Option<String>,
+            Option<String>,
+            bool,
+        );
+        let (session, event, summary, pending_review, foreign, closed): Row = self
             .conn
             .query_row(
-                "SELECT s.session_id FROM submissions s JOIN sessions p ON p.id = s.session_id \
+                "SELECT s.session_id, s.event, s.summary, s.pending_review, s.pending_foreign, \
+                 s.closed FROM submissions s JOIN sessions p ON p.id = s.session_id \
                  WHERE s.id = ?1 AND p.project = ?2",
                 params![id.0, self.project.as_str()],
-                |row| row.get(0),
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                    ))
+                },
             )
             .optional()?
             .ok_or(JournalError::NotFound {
                 what: "отправка",
                 id: id.0,
             })?;
+        let pending_foreign = foreign
+            .map(|text| serde_json::from_str::<Vec<String>>(&text))
+            .transpose()
+            .map_err(|err| corrupt(format!("pending_foreign: {err}")))?
+            .map(|ids| ids.into_iter().map(ProviderId::new).collect());
         let items = self.items("i.submission_id = :key", id.0)?;
         Ok(Submission {
             id,
             session: SessionId(session),
+            spec: SubmissionSpec {
+                event,
+                summary,
+                pending_review: pending_review.map(ProviderId::new),
+                pending_foreign,
+            },
+            closed,
             items,
         })
+    }
+
+    /// Отправки сессии по порядку.
+    pub fn submissions(&self, session: SessionId) -> Result<Vec<Submission>, JournalError> {
+        load_session(self.conn, &self.project, session)?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id FROM submissions WHERE session_id = ?1 ORDER BY id")?;
+        let ids = stmt
+            .query_map([session.0], |row| row.get(0))?
+            .collect::<Result<Vec<u64>, _>>()?;
+        ids.into_iter()
+            .map(|id| self.submission(SubmissionId(id)))
+            .collect()
+    }
+
+    /// Остановить отправку: её элементы в `planned` больше не отправляются, черновики этих
+    /// элементов свободны для новой отправки. Элементы в `unknown` остаются до сверки.
+    pub fn close_submission(&self, id: SubmissionId) -> Result<(), JournalError> {
+        let changed = self.conn.execute(
+            "UPDATE submissions SET closed = 1 WHERE id = ?1 AND session_id IN \
+             (SELECT id FROM sessions WHERE project = ?2)",
+            params![id.0, self.project.as_str()],
+        )?;
+        expect_one(changed, "отправка", id.0)
+    }
+
+    /// Элемент, который держит черновик: `in_flight` или `unknown` любой отправки, `planned`
+    /// незакрытой.
+    pub fn draft_hold(&self, draft: DraftId) -> Result<Option<(ItemId, ItemState)>, JournalError> {
+        self.draft(draft)?;
+        held_by(self.conn, draft, true)
     }
 
     pub fn item(&self, id: ItemId) -> Result<SubmitItem, JournalError> {
@@ -794,6 +980,107 @@ impl Scope<'_> {
     /// Ответ на операцию или сверка, связавшая объект с операцией.
     pub fn confirm(&self, item: ItemId, remote: Option<&ProviderId>) -> Result<(), JournalError> {
         self.transition(item, ItemState::Confirmed, remote, None)
+    }
+
+    /// Подтверждение с удалёнными ID черновиков элемента и созданного `PENDING` одной фиксацией.
+    pub fn confirm_with(
+        &self,
+        item: ItemId,
+        confirmation: &Confirmation,
+    ) -> Result<(), JournalError> {
+        let tx = Transaction::new_unchecked(self.conn, TransactionBehavior::Immediate)?;
+        self.transition(
+            item,
+            ItemState::Confirmed,
+            confirmation.remote.as_ref(),
+            None,
+        )?;
+        let stored = self.item(item)?;
+        for (draft, remote) in &confirmation.drafts {
+            if !stored.drafts.contains(draft) {
+                return Err(JournalError::NotFound {
+                    what: "черновик элемента",
+                    id: draft.0,
+                });
+            }
+            tx.execute(
+                "UPDATE drafts SET remote_id = ?1 WHERE id = ?2",
+                params![remote.as_str(), draft.0],
+            )?;
+        }
+        if let Some(review) = &confirmation.pending_review {
+            tx.execute(
+                "UPDATE submissions SET pending_review = ?1 WHERE id = ?2",
+                params![review.as_str(), stored.submission.0],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Сверка прочитала известный объект по ID в исходном состоянии: запись не применена.
+    /// `unknown → failed` только у операции над известным объектом, повтор которой дубля не
+    /// создаёт; отсутствие объекта в списке таким доказательством не считается. Отправка
+    /// элемента закрывается.
+    pub fn refute(&self, item: ItemId, detail: &str) -> Result<(), JournalError> {
+        let stored = self.item(item)?;
+        if !stored.operation.targets_known_object() {
+            return Err(JournalError::Refute {
+                item,
+                operation: stored.operation,
+            });
+        }
+        let tx = Transaction::new_unchecked(self.conn, TransactionBehavior::Immediate)?;
+        let changed = tx.execute(
+            "UPDATE submit_items SET state = ?1, detail = ?2 WHERE id = ?3 AND state = ?4",
+            params![
+                ItemState::Failed.name(),
+                detail,
+                item.0,
+                ItemState::Unknown.name()
+            ],
+        )?;
+        if changed != 1 {
+            return Err(JournalError::Transition {
+                item,
+                from: stored.state,
+                to: ItemState::Failed,
+            });
+        }
+        tx.execute(
+            "UPDATE submissions SET closed = 1 WHERE id = ?1",
+            [stored.submission.0],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Итог сверки, не давший подтверждения: кандидат (если он один) и описание. Только `unknown`.
+    pub fn note_reconcile(
+        &self,
+        item: ItemId,
+        candidate: Option<&ProviderId>,
+        detail: &str,
+    ) -> Result<(), JournalError> {
+        let changed = self.conn.execute(
+            &format!(
+                "UPDATE submit_items SET candidate = COALESCE(:candidate, candidate), \
+                 detail = :detail WHERE id = :id AND state = :state \
+                 AND submission_id IN ({PROJECT_SUBMISSIONS})"
+            ),
+            named_params! {
+                ":candidate": candidate.map(ProviderId::as_str),
+                ":detail": detail,
+                ":id": item.0,
+                ":state": ItemState::Unknown.name(),
+                ":project": self.project.as_str(),
+            },
+        )?;
+        if changed == 1 {
+            return Ok(());
+        }
+        let state = self.item(item)?.state;
+        Err(JournalError::Candidate { item, state })
     }
 
     /// Ответа нет, а запрос мог быть принят: таймаут, обрыв после отправки.
@@ -917,6 +1204,38 @@ impl Scope<'_> {
             in_flight_at: row.in_flight_at,
         })
     }
+}
+
+/// Элемент, который держит черновик: `in_flight` или `unknown`, а с `planned` — ещё и `planned`
+/// незакрытой отправки.
+fn held_by(
+    conn: &Connection,
+    draft: DraftId,
+    planned: bool,
+) -> Result<Option<(ItemId, ItemState)>, JournalError> {
+    let row: Option<(u64, String)> = conn
+        .query_row(
+            "SELECT i.id, i.state FROM submit_items i \
+             JOIN submit_item_drafts d ON d.item_id = i.id \
+             JOIN submissions s ON s.id = i.submission_id \
+             WHERE d.draft_id = ?1 AND (i.state IN (?2, ?3) OR (?4 AND i.state = ?5 AND s.closed = 0)) \
+             ORDER BY i.id LIMIT 1",
+            params![
+                draft.0,
+                ItemState::InFlight.name(),
+                ItemState::Unknown.name(),
+                planned,
+                ItemState::Planned.name()
+            ],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?;
+    row.map(|(id, state)| {
+        ItemState::from_name(&state)
+            .map(|state| (ItemId(id), state))
+            .ok_or_else(|| corrupt(format!("состояние «{state}»")))
+    })
+    .transpose()
 }
 
 fn row_id(value: i64) -> Result<u64, JournalError> {

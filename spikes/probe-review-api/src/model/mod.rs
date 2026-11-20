@@ -242,6 +242,24 @@ impl ReviewSession {
         revision::check_head(&self.revision, fresh, held_diff, fresh_diff, drafts)
     }
 
+    /// Перепривязка уже устаревшего черновика (после «перейти» или неполной «перепривязать») к
+    /// явно заданному якорю diff текущей ревизии сессии; diff передаёт вызывающий. Черновик
+    /// переходит на ревизию сессии, номер строки не подбирается.
+    pub fn rebind_stale(
+        &self,
+        draft: &mut DraftComment,
+        anchor: Anchor,
+        current_diff: &[FileDiff],
+    ) -> Result<(), ModelError> {
+        if draft.is_current() {
+            return Err(ModelError::RebindNotStale { draft: draft.id });
+        }
+        anchor.validate(current_diff)?;
+        draft.placement = Placement::Line(anchor);
+        draft.rebase(self.revision.clone());
+        Ok(())
+    }
+
     pub fn apply_head(
         &mut self,
         change: &HeadChange,

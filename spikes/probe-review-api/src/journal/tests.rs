@@ -729,3 +729,235 @@ fn links_system_libsqlite3() -> TestResult {
 fn open_fails_on_unwritable_path() {
     assert!(Journal::open(Path::new("/nonexistent-dir/state.db")).is_err());
 }
+
+#[test]
+fn held_draft_is_refused_by_plan_body_and_head_until_closed_or_reconciled() -> TestResult {
+    let fx = Fixture::new()?;
+    let journal = fx.open()?;
+    let project = ProjectId::new("p1");
+    let scope = journal.scope(&project);
+    let (session_id, submission) = gitlab_submission(&scope)?;
+    let d1 = submission.items[0].drafts[0];
+    let d2 = submission.items[1].drafts[0];
+    let again = [planned(Operation::GitLabPublishDraftNote, &[d2])];
+    assert!(matches!(
+        scope.plan_submission(session_id, &again),
+        Err(JournalError::DraftHeld { draft, state: ItemState::Planned, .. }) if draft == d2
+    ));
+    assert_eq!(
+        scope.draft_hold(d2)?,
+        Some((submission.items[1].id, ItemState::Planned))
+    );
+    scope.begin(submission.items[0].id)?;
+    scope.mark_unknown(submission.items[0].id, "нет ответа")?;
+    scope.close_submission(submission.id)?;
+    assert!(scope.submission(submission.id)?.closed);
+    assert_eq!(scope.draft_hold(d2)?, None, "planned закрытой отправки");
+    let held = Err::<(), _>(JournalError::DraftHeld {
+        draft: d1,
+        item: submission.items[0].id,
+        state: ItemState::Unknown,
+    });
+    assert_eq!(
+        format!("{:?}", scope.update_draft_body(d1, "новый текст")),
+        format!("{held:?}")
+    );
+    assert_eq!(scope.draft(d1)?.body, "текст");
+    let draft = scope.draft(d1)?;
+    let review = scope.session(session_id)?;
+    assert!(matches!(
+        scope.save_head(session_id, &review, &[draft]),
+        Err(JournalError::DraftHeld { draft, .. }) if draft == d1
+    ));
+    assert!(matches!(
+        scope.plan_submission(
+            session_id,
+            &[planned(Operation::GitLabPublishDraftNote, &[d1])]
+        ),
+        Err(JournalError::DraftHeld {
+            state: ItemState::Unknown,
+            ..
+        })
+    ));
+    let next = scope.plan_submission(session_id, &again)?;
+    assert_eq!(next.items[0].drafts, [d2]);
+    scope.update_draft_body(d2, "правка")?;
+    scope.confirm(submission.items[0].id, None)?;
+    scope.update_draft_body(d1, "после сверки")?;
+    Ok(())
+}
+
+#[test]
+fn refute_only_moves_known_object_operations_out_of_unknown() -> TestResult {
+    let fx = Fixture::new()?;
+    let journal = fx.open()?;
+    let project = ProjectId::new("p1");
+    let scope = journal.scope(&project);
+    let (session_id, submission) = gitlab_submission(&scope)?;
+    let publish = submission.items[0].id;
+    let summary = submission.items[3].id;
+    assert!(matches!(
+        scope.refute(publish, "черновик на месте"),
+        Err(JournalError::Transition {
+            from: ItemState::Planned,
+            ..
+        })
+    ));
+    for item in [publish, summary] {
+        scope.begin(item)?;
+        scope.mark_unknown(item, "нет ответа")?;
+    }
+    assert!(matches!(
+        scope.refute(summary, "нет заметки"),
+        Err(JournalError::Refute {
+            operation: Operation::GitLabSummaryNote,
+            ..
+        })
+    ));
+    scope.refute(publish, "черновик на месте")?;
+    let stored = scope.item(publish)?;
+    assert_eq!(stored.state, ItemState::Failed);
+    assert_eq!(stored.detail.as_deref(), Some("черновик на месте"));
+    assert!(stored.in_flight_at.is_some());
+    assert!(scope.submission(submission.id)?.closed);
+    let draft = submission.items[0].drafts[0];
+    assert_eq!(scope.draft_hold(draft)?, None);
+    scope.plan_submission(
+        session_id,
+        &[planned(Operation::GitLabPublishDraftNote, &[draft])],
+    )?;
+    assert!(matches!(
+        scope.refute(publish, "повтор"),
+        Err(JournalError::Transition {
+            from: ItemState::Failed,
+            ..
+        })
+    ));
+    for operation in Operation::ALL {
+        let creates = matches!(
+            operation,
+            Operation::GitHubCreateReview
+                | Operation::GitHubCreatePending
+                | Operation::GitHubAddPendingComment
+                | Operation::GitLabCreateDraftNote
+                | Operation::GitLabSummaryNote
+        );
+        assert_eq!(
+            operation.targets_known_object(),
+            !creates,
+            "{}",
+            operation.name()
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn confirm_with_records_remote_ids_in_one_commit_and_spec_survives_reopen() -> TestResult {
+    let fx = Fixture::new()?;
+    let project = ProjectId::new("p1");
+    let (create, publish, draft, submission_id) = {
+        let journal = fx.open()?;
+        let scope = journal.scope(&project);
+        let id = scope.create_session(&session(Provider::GitHub, rev('a', 'a', 'c')?))?;
+        let draft = scope
+            .add_draft(id, line(&held_file()?, Side::New, 2)?, "текст")?
+            .id;
+        let spec = SubmissionSpec {
+            event: Some("APPROVE".to_owned()),
+            summary: "Итог".to_owned(),
+            pending_review: None,
+            pending_foreign: Some(vec![ProviderId::new("PRRC_9")]),
+        };
+        let submission = scope.plan(
+            id,
+            &spec,
+            &[
+                planned(Operation::GitHubCreatePending, &[]),
+                planned(Operation::GitHubAddPendingComment, &[draft]),
+            ],
+        )?;
+        assert_eq!(submission.spec, spec);
+        let (create, publish) = (submission.items[0].id, submission.items[1].id);
+        scope.begin(create)?;
+        scope.confirm_with(
+            create,
+            &Confirmation {
+                remote: Some(ProviderId::new("55")),
+                drafts: Vec::new(),
+                pending_review: Some(ProviderId::new("55")),
+            },
+        )?;
+        scope.begin(publish)?;
+        let foreign = Confirmation {
+            remote: Some(ProviderId::new("x")),
+            drafts: vec![(DraftId(draft.0 + 100), ProviderId::new("PRRC_1"))],
+            pending_review: None,
+        };
+        assert!(matches!(
+            scope.confirm_with(publish, &foreign),
+            Err(JournalError::NotFound { .. })
+        ));
+        assert_eq!(scope.item(publish)?.state, ItemState::InFlight, "откат");
+        (create, publish, draft, submission.id)
+    };
+    let journal = fx.open()?;
+    let scope = journal.scope(&project);
+    let submission = scope.submission(submission_id)?;
+    assert_eq!(submission.spec.event.as_deref(), Some("APPROVE"));
+    assert_eq!(submission.spec.summary, "Итог");
+    assert_eq!(submission.spec.pending_review, Some(ProviderId::new("55")));
+    assert_eq!(
+        submission.spec.pending_foreign,
+        Some(vec![ProviderId::new("PRRC_9")])
+    );
+    assert_eq!(scope.item(create)?.state, ItemState::Confirmed);
+    assert_eq!(scope.item(publish)?.state, ItemState::Unknown);
+    assert_eq!(scope.draft(draft)?.remote_id, None);
+    scope.confirm_with(
+        publish,
+        &Confirmation {
+            remote: Some(ProviderId::new("PRRC_1")),
+            drafts: vec![(draft, ProviderId::new("PRRC_1"))],
+            pending_review: None,
+        },
+    )?;
+    assert_eq!(
+        scope.draft(draft)?.remote_id,
+        Some(ProviderId::new("PRRC_1"))
+    );
+    assert_eq!(scope.submissions(submission.session)?.len(), 1);
+    Ok(())
+}
+
+#[test]
+fn note_reconcile_keeps_unknown_and_records_candidate_and_detail() -> TestResult {
+    let fx = Fixture::new()?;
+    let journal = fx.open()?;
+    let project = ProjectId::new("p1");
+    let scope = journal.scope(&project);
+    let (_, submission) = gitlab_submission(&scope)?;
+    let item = submission.items[3].id;
+    assert!(matches!(
+        scope.note_reconcile(item, None, "рано"),
+        Err(JournalError::Candidate {
+            state: ItemState::Planned,
+            ..
+        })
+    ));
+    scope.begin(item)?;
+    scope.mark_unknown(item, "нет ответа")?;
+    scope.note_reconcile(item, None, "неоднозначно: 2 совпадения")?;
+    let stored = scope.item(item)?;
+    assert_eq!(
+        (
+            stored.state,
+            stored.candidate.clone(),
+            stored.detail.as_deref()
+        ),
+        (ItemState::Unknown, None, Some("неоднозначно: 2 совпадения"))
+    );
+    scope.note_reconcile(item, Some(&ProviderId::new("n7")), "кандидат")?;
+    assert_eq!(scope.item(item)?.candidate, Some(ProviderId::new("n7")));
+    Ok(())
+}

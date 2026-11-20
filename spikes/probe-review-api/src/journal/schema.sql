@@ -57,9 +57,18 @@ CREATE TABLE drafts (
 
 CREATE INDEX drafts_session ON drafts (session_id);
 
+-- Параметры отправки, без которых сверка после переоткрытия не знает ожидаемого итога: итог review
+-- GitHub, текст итога или сводки, `PENDING`, с которым работает отправка, и принятые в нём чужие
+-- комментарии (JSON-массив ID; NULL — `PENDING` создан отправкой). Закрытая отправка не
+-- продолжается: её элементы в planned не отправляются, их черновики свободны.
 CREATE TABLE submissions (
     id INTEGER PRIMARY KEY,
-    session_id INTEGER NOT NULL REFERENCES sessions (id)
+    session_id INTEGER NOT NULL REFERENCES sessions (id),
+    event TEXT,
+    summary TEXT NOT NULL DEFAULT '',
+    pending_review TEXT,
+    pending_foreign TEXT,
+    closed INTEGER NOT NULL DEFAULT 0 CHECK (closed IN (0, 1))
 );
 
 -- Элемент отправки — один запрос записи к провайдеру. Отметка входа в in_flight (мс Unix)

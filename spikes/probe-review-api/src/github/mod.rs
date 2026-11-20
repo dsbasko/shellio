@@ -404,7 +404,9 @@ impl ExistingPending {
 pub struct PendingComment {
     pub id: ProviderId,
     pub database_id: ProviderId,
-    pub thread_id: ProviderId,
+    /// Тред из ответа `addPullRequestReviewThread`; у восстановленного из журнала его нет: REST
+    /// комментария тред не отдаёт.
+    pub thread_id: Option<ProviderId>,
     pub body: String,
     review: ProviderId,
 }
@@ -708,6 +710,65 @@ impl<T: Transport> GitHub<T> {
         }))
     }
 
+    /// Свой `PENDING` после переоткрытия журнала: review читается по записанному числовому ID и
+    /// должен быть `PENDING` аккаунта сессии на head ревизии сессии. Комментарии с node ID из
+    /// журнала (`own`) — свои и снова изменяемы, остальные — чужие ([`PendingReview::foreign`],
+    /// числовые ID). `adopted` — `PENDING` был принят, а не создан отправкой. В отличие от
+    /// [`GitHub::find_pending`] свои комментарии чужими не становятся.
+    pub fn resume_pending(
+        &self,
+        session: &ReviewSession,
+        review_id: &ProviderId,
+        own: &[ProviderId],
+        adopted: bool,
+    ) -> Result<(PendingReview, Vec<PendingComment>), ApiError> {
+        let review = self.review(review_id)?;
+        expect_state(&review, ReviewState::Pending)?;
+        if !review.user.eq_ignore_ascii_case(session.account()) {
+            return Err(ApiError::Unexpected(format!(
+                "PENDING {} принадлежит другому аккаунту",
+                review_id.as_str()
+            )));
+        }
+        let head = session.revision().head_sha();
+        expect_commit(&review, head)?;
+        let comments = self.review_comments(review_id)?;
+        let mut restored = Vec::with_capacity(own.len());
+        for id in own {
+            let comment = comments
+                .iter()
+                .find(|comment| &comment.node_id == id)
+                .ok_or_else(|| {
+                    ApiError::Unexpected(format!(
+                        "свой комментарий {} пропал из PENDING",
+                        id.as_str()
+                    ))
+                })?;
+            restored.push(PendingComment {
+                id: comment.node_id.clone(),
+                database_id: comment.id.clone(),
+                thread_id: None,
+                body: comment.body.clone(),
+                review: review.node_id.clone(),
+            });
+        }
+        let foreign = comments
+            .iter()
+            .filter(|comment| !own.contains(&comment.node_id))
+            .map(|comment| comment.id.clone())
+            .collect();
+        Ok((
+            PendingReview {
+                id: review.id,
+                node_id: review.node_id,
+                commit_id: head.clone(),
+                foreign,
+                adopted,
+            },
+            restored,
+        ))
+    }
+
     /// Чтение перед записью обеих ветвей: `PENDING` аккаунта нет — [`NoPending`], есть —
     /// [`ApiError::PendingExists`] с полным составом. Существующий `PENDING` не перезаписывается.
     pub fn check_no_pending(&self, caps: &Capabilities) -> Result<NoPending, ApiError> {
@@ -845,7 +906,7 @@ impl<T: Transport> GitHub<T> {
         let comment = thread
             .pointer("/comments/nodes/0")
             .ok_or_else(|| ApiError::Unexpected("тред без комментария".to_owned()))?;
-        let comment = pending_comment_of(comment, thread_id)?;
+        let comment = pending_comment_of(comment, Some(thread_id))?;
         if comment.review != pending.node_id {
             return Err(ApiError::Unexpected(format!(
                 "комментарий попал в review {}, ожидался {}",
@@ -886,7 +947,8 @@ impl<T: Transport> GitHub<T> {
             .ok_or_else(|| {
                 ApiError::Unexpected("updatePullRequestReviewComment без комментария".into())
             })?;
-        let updated = pending_comment_of(updated, comment.thread_id.as_str().to_owned())?;
+        let mut updated = pending_comment_of(updated, None)?;
+        updated.thread_id = comment.thread_id.clone();
         if updated.id != comment.id || updated.database_id != comment.database_id {
             return Err(ApiError::Unexpected(format!(
                 "ID комментария сменился: {} → {}",
@@ -1225,11 +1287,14 @@ fn comment_of(value: &Value) -> Result<RemoteComment, ApiError> {
     })
 }
 
-fn pending_comment_of(value: &Value, thread_id: String) -> Result<PendingComment, ApiError> {
+fn pending_comment_of(
+    value: &Value,
+    thread_id: Option<String>,
+) -> Result<PendingComment, ApiError> {
     Ok(PendingComment {
         id: id_field(value, "id")?,
         database_id: id_field(value, "databaseId")?,
-        thread_id: ProviderId::new(thread_id),
+        thread_id: thread_id.map(ProviderId::new),
         body: str_field(value, "body")?,
         review: value
             .get("pullRequestReview")
