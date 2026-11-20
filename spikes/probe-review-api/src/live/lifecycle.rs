@@ -337,7 +337,8 @@ pub struct Cleanup {
 }
 
 /// Уборка по записям журнала: черновики ревьюера, PR/MR, ветки (ветка клетки до цели), затем
-/// чтение каждого объекта. Неудачный шаг не останавливает остальные.
+/// чтение каждого объекта и повторный поиск открытых PR/MR по каждой ветке. Неудачный шаг не
+/// останавливает остальные.
 pub fn cleanup(roles: &Roles<'_>, entries: &[Created]) -> Cleanup {
     let mut report = Cleanup::default();
     let mut branches: Vec<&str> = Vec::new();
@@ -465,6 +466,25 @@ pub fn cleanup(roles: &Roles<'_>, entries: &[Created]) -> Cleanup {
             Err(err) => report
                 .leftovers
                 .push(format!("ветка {branch}: удаление не подтверждено: {err}")),
+        }
+    }
+    // Повторный поиск ловит PR/MR, который не попал в уборку: ответ на создание потерян, а первый
+    // поиск отказал или прошёл раньше, чем создание дошло. MR GitLab переживает удаление ветки.
+    let mut judged = pulls;
+    for branch in &branches {
+        match author.open_pulls_from(branch) {
+            Ok(found) => {
+                for number in found {
+                    if judged.insert(number) {
+                        report.leftovers.push(format!(
+                            "{word} #{number} открыт: найден повторным поиском из ветки {branch}"
+                        ));
+                    }
+                }
+            }
+            Err(err) => report.leftovers.push(format!(
+                "поиск {word} из ветки {branch}: не подтверждено: {err}"
+            )),
         }
     }
     report

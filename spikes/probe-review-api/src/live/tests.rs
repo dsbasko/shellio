@@ -386,6 +386,16 @@ fn gh_cleanup_author(s: Scripted, pull_open: bool) -> Scripted {
         format!("{GH}/git/ref/heads/probe/run1-cell"),
         not_found(),
     )
+    .expect(
+        Method::Get,
+        format!("{GH}/pulls?state=open&head=owner%3Aprobe%2Frun1-cell-base&per_page=100&page=1"),
+        Reply::json(200, &json!([])),
+    )
+    .expect(
+        Method::Get,
+        format!("{GH}/pulls?state=open&head=owner%3Aprobe%2Frun1-cell&per_page=100&page=1"),
+        Reply::json(200, &json!([])),
+    )
 }
 
 #[test]
@@ -572,6 +582,13 @@ fn failed_open_cleans_up_what_was_created() -> Result<(), String> {
             Method::Get,
             format!("{GH}/git/ref/heads/probe/run1-cell-base"),
             not_found(),
+        )
+        .expect(
+            Method::Get,
+            format!(
+                "{GH}/pulls?state=open&head=owner%3Aprobe%2Frun1-cell-base&per_page=100&page=1"
+            ),
+            Reply::json(200, &json!([])),
         );
     let author_g = Guarded::new(&author_t, gh_target(), listed("owner/sandbox"));
     let author = GitHubRepo::new(&author_g)?;
@@ -657,6 +674,18 @@ fn cleanup_continues_past_failed_step_and_reports_leftovers() -> Result<(), Stri
             Method::Get,
             format!("{GH}/git/ref/heads/probe/run1-cell"),
             Reply::json(200, &json!({"object": {"sha": "h1"}})),
+        )
+        .expect(
+            Method::Get,
+            format!(
+                "{GH}/pulls?state=open&head=owner%3Aprobe%2Frun1-cell-base&per_page=100&page=1"
+            ),
+            Reply::json(200, &json!([])),
+        )
+        .expect(
+            Method::Get,
+            format!("{GH}/pulls?state=open&head=owner%3Aprobe%2Frun1-cell&per_page=100&page=1"),
+            Reply::json(200, &json!([{"number": 7}])),
         );
     let author_g = Guarded::new(&author_t, gh_target(), listed("owner/sandbox"));
     let author = GitHubRepo::new(&author_g)?;
@@ -794,6 +823,20 @@ fn gl_close_and_delete(s: Scripted, iid: u64) -> Scripted {
         format!("{GL}/repository/branches/probe%2Frun1-cell"),
         not_found(),
     )
+    .expect(
+        Method::Get,
+        gl_search("probe%2Frun1-cell-base"),
+        Reply::json(200, &json!([])),
+    )
+    .expect(
+        Method::Get,
+        gl_search("probe%2Frun1-cell"),
+        Reply::json(200, &json!([])),
+    )
+}
+
+fn gl_search(branch: &str) -> String {
+    format!("{GL}/merge_requests?state=opened&source_branch={branch}&per_page=100&page=1")
 }
 
 #[test]
@@ -908,6 +951,125 @@ fn lost_mr_response_is_found_by_source_branch_and_closed() -> Result<(), String>
     assert!(run.cleanup.removed.contains(&"MR #5 закрыт".to_owned()));
     assert!(run.cleanup.leftovers.is_empty(), "{:?}", run.cleanup);
     assert_eq!(ledger.entries().len(), 2);
+    author_t.finish()?;
+    Ok(())
+}
+
+fn gl_delete_and_confirm_branches(s: Scripted) -> Scripted {
+    s.expect(
+        Method::Delete,
+        format!("{GL}/repository/branches/probe%2Frun1-cell"),
+        Reply::status(204),
+    )
+    .expect(
+        Method::Delete,
+        format!("{GL}/repository/branches/probe%2Frun1-cell-base"),
+        Reply::status(204),
+    )
+    .expect(
+        Method::Get,
+        format!("{GL}/repository/branches/probe%2Frun1-cell-base"),
+        not_found(),
+    )
+    .expect(
+        Method::Get,
+        format!("{GL}/repository/branches/probe%2Frun1-cell"),
+        not_found(),
+    )
+}
+
+#[test]
+fn lost_mr_response_and_failed_search_leave_the_mr_in_leftovers() -> Result<(), String> {
+    let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+    let author_t = gl_open_author(Scripted::new(), Reply::timeout())
+        .expect(
+            Method::Get,
+            gl_search("probe%2Frun1-cell-base"),
+            Reply::json(200, &json!([])),
+        )
+        .expect(
+            Method::Get,
+            gl_search("probe%2Frun1-cell"),
+            Reply::json(500, &json!({"message": "boom"})),
+        );
+    let author_t = gl_delete_and_confirm_branches(author_t)
+        .expect(
+            Method::Get,
+            gl_search("probe%2Frun1-cell-base"),
+            Reply::json(200, &json!([])),
+        )
+        .expect(
+            Method::Get,
+            gl_search("probe%2Frun1-cell"),
+            Reply::json(200, &json!([{"iid": 5}])),
+        );
+    let author_g = Guarded::new(&author_t, gl_target(), listed("group/sandbox"));
+    let author = GitLabRepo::new(&author_g)?;
+    let roles = Roles {
+        author: &author,
+        reviewer: None,
+    };
+    let mut ledger = ledger_in(dir.path())?;
+    let run = run_cell(&roles, &mut ledger, &names(), "t", |_| Ok(()));
+    let outcome = run.outcome.err().ok_or("ожидалась ошибка создания MR")?;
+    assert!(
+        outcome.starts_with("создание PR/MR: итог неизвестен"),
+        "{outcome}"
+    );
+    assert_eq!(
+        run.cleanup,
+        Cleanup {
+            removed: vec![
+                "ветка probe/run1-cell удалена".to_owned(),
+                "ветка probe/run1-cell-base удалена".to_owned(),
+            ],
+            errors: vec!["поиск MR из ветки probe/run1-cell: код 500: boom".to_owned()],
+            leftovers: vec![
+                "MR #5 открыт: найден повторным поиском из ветки probe/run1-cell".to_owned()
+            ],
+        }
+    );
+    author_t.finish()?;
+
+    let author_t = Scripted::new()
+        .expect(Method::Get, GL, gl_project("private"))
+        .expect(
+            Method::Get,
+            gl_search("probe%2Frun1-cell-base"),
+            Reply::json(200, &json!([])),
+        )
+        .expect(
+            Method::Get,
+            gl_search("probe%2Frun1-cell"),
+            Reply::timeout(),
+        );
+    let author_t = gl_delete_and_confirm_branches(author_t)
+        .expect(
+            Method::Get,
+            gl_search("probe%2Frun1-cell-base"),
+            Reply::json(200, &json!([])),
+        )
+        .expect(
+            Method::Get,
+            gl_search("probe%2Frun1-cell"),
+            Reply::timeout(),
+        );
+    let author_g = Guarded::new(&author_t, gl_target(), listed("group/sandbox"));
+    let author = GitLabRepo::new(&author_g)?;
+    let report = cleanup(
+        &Roles {
+            author: &author,
+            reviewer: None,
+        },
+        ledger.entries(),
+    );
+    assert_eq!(report.errors.len(), 1, "{report:?}");
+    assert_eq!(report.leftovers.len(), 1, "{report:?}");
+    assert!(
+        report.leftovers[0]
+            .starts_with("поиск MR из ветки probe/run1-cell: не подтверждено: итог неизвестен"),
+        "{report:?}"
+    );
     author_t.finish()?;
     Ok(())
 }
