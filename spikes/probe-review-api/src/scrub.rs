@@ -5,12 +5,13 @@
 //!   имён, адрес локального GitLab; значения добавляются и по ходу прогона (токен, выданный при
 //!   настройке GitLab CE). Сравнение без учёта регистра ASCII, вместе с формами `%2F`, `%3A`,
 //!   `%40` и `\/`;
-//! - образцы: префиксы токенов GitHub и GitLab, адреса электронной почты, хеш почты в адресе
-//!   Gravatar (`gravatar.com/avatar/<хеш>`);
-//! - ключи: значение ключа `access_token`, `token`, `password` и подобных в JSON, строке запроса
-//!   и теле формы заменяется целиком, даже если значение не известно заранее; значение ключа
-//!   аватара (`avatar_url`, `avatarUrl`, `gravatar_id`) в JSON — тоже: адрес аватара содержит хеш
-//!   почты или ID аккаунта, а его вид у хоста заранее не известен.
+//! - образцы: префиксы токенов GitHub и GitLab (в том числе `GR1348941` токена регистрации
+//!   раннеров), адреса электронной почты, хеш почты в адресе Gravatar (`gravatar.com/avatar/<хеш>`);
+//! - ключи: значение ключа `access_token`, `token`, `password` и подобных, а также любого ключа с
+//!   окончанием `_token`, `_secret` или `_password` (`runners_token` в ответе `GET /projects/:id`
+//!   владельцу) в JSON, строке запроса и теле формы заменяется целиком, даже если значение не
+//!   известно заранее; значение ключа аватара (`avatar_url`, `avatarUrl`, `gravatar_id`) в JSON —
+//!   тоже: адрес аватара содержит хеш почты или ID аккаунта, а его вид у хоста заранее не известен.
 //!
 //! Совпадения собираются за один проход по исходному тексту, поэтому метка не совпадает со
 //! следующим правилом. При наложении побеждает более раннее начало, затем категория (токен,
@@ -31,8 +32,8 @@ pub const LABEL_GITLAB_CE: &str = "<gitlab-ce>";
 pub const LABEL_AUTHOR: &str = "<author>";
 pub const LABEL_REVIEWER: &str = "<reviewer>";
 
-/// Префиксы токенов GitHub и GitLab.
-const TOKEN_PREFIXES: [&str; 13] = [
+/// Префиксы токенов GitHub и GitLab. `GR1348941` — токен регистрации раннеров GitLab.
+const TOKEN_PREFIXES: [&str; 14] = [
     "github_pat_",
     "ghp_",
     "gho_",
@@ -46,6 +47,7 @@ const TOKEN_PREFIXES: [&str; 13] = [
     "glptt-",
     "glft-",
     "glimt-",
+    "GR1348941",
 ];
 
 /// Ключи, значение которых — секрет, каким бы оно ни было.
@@ -59,6 +61,11 @@ const SECRET_KEYS: [&str; 8] = [
     "client_secret",
     "secret",
 ];
+
+/// Окончания ключа, значение которого — секрет: `runners_token`, `feed_token`, `webhook_secret`.
+/// Ключ, в котором слово стоит не в конце (`runner_token_expiration_interval`,
+/// `ci_job_token_scope_enabled`), секретом не считается.
+const SECRET_KEY_SUFFIXES: [&str; 3] = ["_token", "_secret", "_password"];
 
 /// Ключи JSON с адресом аватара или хешем почты.
 const AVATAR_KEYS: [&str; 3] = ["avatar_url", "avatarUrl", "gravatar_id"];
@@ -314,9 +321,11 @@ impl Scrubber {
 }
 
 fn is_secret_key(key: &str) -> bool {
-    SECRET_KEYS
-        .iter()
-        .any(|secret| secret.eq_ignore_ascii_case(key))
+    let lower = key.to_ascii_lowercase();
+    SECRET_KEYS.contains(&lower.as_str())
+        || SECRET_KEY_SUFFIXES
+            .iter()
+            .any(|suffix| lower.len() > suffix.len() && lower.ends_with(suffix))
 }
 
 fn is_avatar_key(key: &str) -> bool {
@@ -515,6 +524,7 @@ mod tests {
             "ghp_",
             "github_pat_",
             "glpat-",
+            "GR1348941",
         ] {
             assert!(
                 !lower.contains(&original.to_ascii_lowercase()),
@@ -668,6 +678,67 @@ mod tests {
         let text = out.to_string();
         assert_clean(&text);
         assert!(!text.contains("6f1e0b9c2d8a7f3e"));
+    }
+
+    /// Выдуманное значение в форме токена регистрации раннеров GitLab.
+    const RUNNERS_TOKEN: &str = "GR1348941Zx9-AbCdEfGhIjKlMnOp";
+
+    #[test]
+    fn token_suffix_keys_and_runner_registration_prefix() {
+        let s = scrubber();
+        // Поля ответа `GET /projects/:id` владельцу проекта GitLab CE 19.6.1 из серии
+        // `t15-20261121`; значения секретов выдуманы.
+        let body = json!({
+            "id": 7,
+            "path_with_namespace": GROUP_REPO,
+            "runners_token": RUNNERS_TOKEN,
+            "runner_token_expiration_interval": null,
+            "ci_job_token_scope_enabled": false,
+            "ci_push_repository_for_job_token_allowed": true,
+            "ci_id_token_sub_claim_components": ["project_path", "ref_type", "ref"],
+            "token_type": "bearer",
+            "feed_token": "opaque-feed",
+            "Webhook_Secret": "opaque-hook",
+            "encrypted_password": "opaque-pw",
+            "empty_token": "",
+            "nested": [{"incoming_email_token": "opaque-mail"}],
+            "description": format!("runner {RUNNERS_TOKEN} ok"),
+        });
+        let out = s.scrub_body(body.to_string().as_bytes());
+        assert_eq!(
+            out,
+            json!({
+                "id": 7,
+                "path_with_namespace": "<repo>",
+                "runners_token": "<token>",
+                "runner_token_expiration_interval": null,
+                "ci_job_token_scope_enabled": false,
+                "ci_push_repository_for_job_token_allowed": true,
+                "ci_id_token_sub_claim_components": ["project_path", "ref_type", "ref"],
+                "token_type": "bearer",
+                "feed_token": "<token>",
+                "Webhook_Secret": "<token>",
+                "encrypted_password": "<token>",
+                "empty_token": "",
+                "nested": [{"incoming_email_token": "<token>"}],
+                "description": "runner <token> ok",
+            })
+        );
+        let text = out.to_string();
+        assert_clean(&text);
+        assert!(!text.contains("opaque"), "{text}");
+        assert!(s.leaks(&text).is_empty());
+        assert_eq!(s.leaks(&format!("x {RUNNERS_TOKEN} y")), vec!["токен"]);
+        assert_eq!(
+            s.scrub_url(
+                "/api/v4/projects/7?runners_token=opaque&per_page=100&ci_job_token_scope_enabled=1"
+            ),
+            "/api/v4/projects/7?runners_token=<token>&per_page=100&ci_job_token_scope_enabled=1"
+        );
+        assert_eq!(
+            s.scrub_body(b"feed_token=opaque&token_type=bearer"),
+            Value::String("feed_token=<token>&token_type=bearer".to_owned())
+        );
     }
 
     #[test]
