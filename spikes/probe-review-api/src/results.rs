@@ -652,7 +652,7 @@ fn cell_text(cell: &CellSummary) -> String {
     format!("{text}{host}").replace('|', "\\|")
 }
 
-/// Таблица матрицы по всем строкам и столбцам, затем самопроверки стенда, замены и ошибки.
+/// Таблица матрицы по всем строкам и столбцам, затем сценарии вне матрицы, замены и ошибки.
 pub fn render_markdown(summary: &SummaryFile) -> String {
     let lookup: BTreeMap<(&str, Column), &CellSummary> = summary
         .cells
@@ -691,7 +691,10 @@ pub fn render_markdown(summary: &SummaryFile) -> String {
         row(&mut out, scenario);
     }
     if !stand.is_empty() {
-        let _ = writeln!(out, "\nСамопроверки стенда (в матрицу не входят):\n");
+        let _ = writeln!(
+            out,
+            "\nСамопроверка стенда, стоимость и устойчивость (в матрицу не входят):\n"
+        );
         let _ = writeln!(out, "| Сценарий | {} |", header.join(" | "));
         let _ = writeln!(out, "| --- |{}", " --- |".repeat(Column::ALL.len()));
         for scenario in stand {

@@ -1,5 +1,6 @@
-//! Каталог сценариев пробы. Сценарий — строка матрицы возможностей или самопроверка стенда;
-//! процесс сценария идёт в одном столбце и пишет один `result.json`.
+//! Каталог сценариев пробы. Сценарий — строка матрицы возможностей, самопроверка стенда или
+//! сценарий стоимости и устойчивости; процесс сценария идёт в одном столбце и пишет один
+//! `result.json`.
 
 pub mod fake;
 pub mod live;
@@ -49,10 +50,25 @@ pub enum Scenario {
     Partial,
     /// Строка матрицы `capabilities`.
     Capabilities,
+    /// Стоимость: 200 черновиков в одном ревью по ветвям обоих провайдеров.
+    Volume,
+    /// Устойчивость: исчерпание лимита посреди отправки.
+    RateLimit,
+}
+
+/// Место сценария в отчёте.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Group {
+    /// Самопроверка стенда.
+    Stand,
+    /// Строка матрицы возможностей.
+    Row,
+    /// Стоимость и устойчивость: только столбец `fake`, в матрицу не входит.
+    Cost,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 19] = [
+    pub const ALL: [Scenario; 21] = [
         Scenario::Smoke,
         Scenario::GhLocalCreate,
         Scenario::GhPendingCycle,
@@ -72,6 +88,8 @@ impl Scenario {
         Scenario::ReconcilePaged,
         Scenario::Partial,
         Scenario::Capabilities,
+        Scenario::Volume,
+        Scenario::RateLimit,
     ];
 
     pub fn name(self) -> &'static str {
@@ -95,6 +113,8 @@ impl Scenario {
             Scenario::ReconcilePaged => "reconcile-paged",
             Scenario::Partial => "partial",
             Scenario::Capabilities => "capabilities",
+            Scenario::Volume => "volume",
+            Scenario::RateLimit => "rate-limit",
         }
     }
 
@@ -105,7 +125,7 @@ impl Scenario {
     /// Столбцы, в которых сценарий прогоняется.
     pub fn columns(self) -> &'static [Column] {
         match self {
-            Scenario::Smoke => &[Column::Fake],
+            Scenario::Smoke | Scenario::Volume | Scenario::RateLimit => &[Column::Fake],
             // Строки GitHub; строки провайдера другого хоста в столбце — «—» матрицы.
             Scenario::GhLocalCreate
             | Scenario::GhPendingCycle
@@ -135,10 +155,9 @@ impl Scenario {
         }
     }
 
-    /// Самопроверка стенда в матрицу возможностей не входит.
-    pub fn is_stand(self) -> bool {
+    pub fn group(self) -> Group {
         match self {
-            Scenario::Smoke => true,
+            Scenario::Smoke => Group::Stand,
             Scenario::GhLocalCreate
             | Scenario::GhPendingCycle
             | Scenario::GhPendingForeign
@@ -156,7 +175,8 @@ impl Scenario {
             | Scenario::ReconcileDeleted
             | Scenario::ReconcilePaged
             | Scenario::Partial
-            | Scenario::Capabilities => false,
+            | Scenario::Capabilities => Group::Row,
+            Scenario::Volume | Scenario::RateLimit => Group::Cost,
         }
     }
 
@@ -180,7 +200,9 @@ impl Scenario {
             | Scenario::ReconcileDeleted
             | Scenario::ReconcilePaged
             | Scenario::Partial
-            | Scenario::Capabilities => match ctx.column {
+            | Scenario::Capabilities
+            | Scenario::Volume
+            | Scenario::RateLimit => match ctx.column {
                 Column::Fake => fake::run(self, &ctx.state_dir, result),
                 Column::GithubCloud | Column::GitlabCloud | Column::GitlabCe | Column::Ghes => {
                     live::run(self, ctx, result)
@@ -245,7 +267,7 @@ mod tests {
         use crate::results::MATRIX_ROWS;
         let rows: Vec<&str> = Scenario::ALL
             .iter()
-            .filter(|s| !s.is_stand())
+            .filter(|s| s.group() == Group::Row)
             .map(|s| s.name())
             .collect();
         assert_eq!(
@@ -253,7 +275,10 @@ mod tests {
             MATRIX_ROWS.to_vec(),
             "строки матрицы и сценарии в одном порядке"
         );
-        for scenario in Scenario::ALL.into_iter().filter(|s| !s.is_stand()) {
+        for scenario in Scenario::ALL
+            .into_iter()
+            .filter(|s| s.group() == Group::Row)
+        {
             assert!(
                 scenario.columns().contains(&Column::Fake),
                 "{} без столбца fake",
@@ -262,10 +287,58 @@ mod tests {
         }
         let stands: Vec<&str> = Scenario::ALL
             .iter()
-            .filter(|s| s.is_stand())
+            .filter(|s| s.group() == Group::Stand)
             .map(|s| s.name())
             .collect();
         assert_eq!(stands, ["smoke"]);
+    }
+
+    /// Стоимость и устойчивость идут только в столбце `fake` и в матрицу не входят.
+    #[test]
+    fn cost_scenarios_run_only_in_fake_outside_matrix() {
+        use crate::results::MATRIX_ROWS;
+        let cost: Vec<&str> = Scenario::ALL
+            .iter()
+            .filter(|s| s.group() == Group::Cost)
+            .map(|s| s.name())
+            .collect();
+        assert_eq!(cost, ["volume", "rate-limit"]);
+        for scenario in Scenario::ALL
+            .into_iter()
+            .filter(|s| s.group() == Group::Cost)
+        {
+            assert_eq!(scenario.columns(), &[Column::Fake], "{}", scenario.name());
+            assert!(!MATRIX_ROWS.contains(&scenario.name()));
+        }
+    }
+
+    #[test]
+    fn cost_scenario_outside_fake_is_execution_error() -> Result<(), String> {
+        let state = tempfile::tempdir().map_err(|e| e.to_string())?;
+        for column in [
+            Column::GithubCloud,
+            Column::GitlabCloud,
+            Column::GitlabCe,
+            Column::Ghes,
+        ] {
+            for scenario in [Scenario::Volume, Scenario::RateLimit] {
+                let ctx = Context {
+                    column,
+                    out: state.path().to_path_buf(),
+                    state_dir: state.path().to_path_buf(),
+                };
+                let mut result = ResultFile::new("s", "b", scenario.name(), column);
+                scenario.run(&ctx, &mut result);
+                assert!(
+                    !result.execution.is_ok(),
+                    "{} {}",
+                    scenario.name(),
+                    column.name()
+                );
+                assert!(result.trace.is_empty());
+            }
+        }
+        Ok(())
     }
 
     #[test]

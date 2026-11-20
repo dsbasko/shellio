@@ -49,7 +49,7 @@ OUT_BASE="$ROOT/target/probes/review-api"
 # Сценарии по столбцам; совпадают с probe-review --list <столбец> (проверяет тест tests/run_sh.rs).
 FAKE_HOSTS="fake"
 LIVE_HOSTS="github_cloud gitlab_cloud gitlab_ce ghes"
-SCENARIOS_fake="smoke gh-local-create gh-pending-cycle gh-pending-foreign gh-anchors gh-viewed gl-draft-publish gl-foreign-draft gl-approve-sha gl-request-changes gl-anchors head-change journal-crash reconcile-ambiguous reconcile-foreign reconcile-deleted reconcile-paged partial capabilities"
+SCENARIOS_fake="smoke gh-local-create gh-pending-cycle gh-pending-foreign gh-anchors gh-viewed gl-draft-publish gl-foreign-draft gl-approve-sha gl-request-changes gl-anchors head-change journal-crash reconcile-ambiguous reconcile-foreign reconcile-deleted reconcile-paged partial capabilities volume rate-limit"
 SCENARIOS_github_cloud="gh-local-create gh-pending-cycle gh-pending-foreign gh-anchors gh-viewed reconcile-foreign capabilities"
 SCENARIOS_gitlab_cloud="gl-draft-publish gl-foreign-draft gl-approve-sha gl-request-changes gl-anchors head-change journal-crash reconcile-ambiguous reconcile-deleted reconcile-paged partial capabilities"
 SCENARIOS_gitlab_ce="gl-draft-publish gl-foreign-draft gl-request-changes gl-anchors gl-approve-sha head-change journal-crash reconcile-ambiguous reconcile-deleted reconcile-paged partial capabilities"

@@ -1,4 +1,5 @@
-//! Сценарии столбца `fake`: строка матрицы против `forge-fake` в процессе сценария.
+//! Сценарии столбца `fake`: строка матрицы, стоимость (`volume`) и устойчивость (`rate-limit`)
+//! против `forge-fake` в процессе сценария.
 //!
 //! Ожидание проверяется независимо от клиента: по журналу вызовов сервера (ключ, тело, код) и по
 //! его состоянию, включая видимые только оракулу поля, против литералов сценария. Журнал пробы
@@ -10,7 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::{Map, Value, json};
 
@@ -53,6 +54,7 @@ const TOKEN_AUTHOR: &str = "fake-token-author";
 const ACTOR_REVIEWER: &str = "reviewer";
 const ACTOR_REVIEWER2: &str = "reviewer2";
 const ACTOR_REPORTER: &str = "reporter";
+const ACTOR_AUTHOR: &str = "author";
 /// Второй клиент того же пользователя (браузер или другой API-клиент) с тем же токеном.
 const ACTOR_SECOND: &str = "second-client";
 
@@ -411,6 +413,8 @@ pub fn run(scenario: Scenario, state_dir: &Path, result: &mut ResultFile) {
         Scenario::ReconcilePaged => reconcile_paged(&mut stand),
         Scenario::Partial => partial(&mut stand),
         Scenario::Capabilities => capabilities(&mut stand),
+        Scenario::Volume => volume(&mut stand),
+        Scenario::RateLimit => rate_limit(&mut stand),
     };
     stand.finish(outcome, result);
 }
@@ -438,6 +442,10 @@ fn gl_target() -> ReviewTarget {
 }
 
 fn github_fake() -> GithubFake {
+    github_fake_with(DIFF)
+}
+
+fn github_fake_with(diff: &str) -> GithubFake {
     let mut fake = GithubFake::new(GH_OWNER, GH_REPO);
     fake.add_user(REVIEWER, TOKEN_REVIEWER, ghf::Permission::Write);
     fake.add_user(AUTHOR, TOKEN_AUTHOR, ghf::Permission::Write);
@@ -447,13 +455,17 @@ fn github_fake() -> GithubFake {
         BASE,
         FakeCommit {
             sha: HEAD.to_owned(),
-            files: vec![FakeFile::modified(PATH, DIFF)],
+            files: vec![FakeFile::modified(PATH, diff)],
         },
     );
     fake
 }
 
 fn gitlab_fake() -> Result<GitlabFake, String> {
+    gitlab_fake_with(DIFF)
+}
+
+fn gitlab_fake_with(diff: &str) -> Result<GitlabFake, String> {
     let mut fake = GitlabFake::new(GL_PROJECT);
     fake.add_user(REVIEWER, TOKEN_REVIEWER, Some(Access::Developer));
     fake.add_user(AUTHOR, TOKEN_AUTHOR, Some(Access::Developer));
@@ -462,7 +474,7 @@ fn gitlab_fake() -> Result<GitlabFake, String> {
         AUTHOR,
         BASE,
         HEAD,
-        vec![FakeDiff::modified(PATH, DIFF)],
+        vec![FakeDiff::modified(PATH, diff)],
     );
     fake.add_reviewer(GL_IID, REVIEWER)?;
     Ok(fake)
@@ -1080,29 +1092,26 @@ fn gh_anchors(stand: &mut Stand) -> Outcome {
             .item(submission.items.first().ok_or("нет элемента")?.id)?
             .remote_id
             .ok_or("у review нет ID")?;
-        let root = github
+        // Как живая клетка: корень и тред читает автор, тред соединяется с корнем по node ID.
+        let author = stand.gh(&server, TOKEN_AUTHOR, ACTOR_AUTHOR)?;
+        let pull = author.pull()?.node_id;
+        let root = author
             .review_comments(&review)?
             .into_iter()
-            .find(|c| c.body == "старая сторона")
-            .ok_or("нет корня треда")?;
+            .find(|c| c.body == "старая сторона" && c.in_reply_to.is_none())
+            .ok_or("нет корня треда в чтении автора")?;
         github.reply(&root.id, "ответ в треде")?;
-        let root_id: u64 = root.id.as_str().parse()?;
-        let thread = server.with(|f| {
-            let comments = f.comments(GH_NUMBER);
-            let thread = comments
-                .iter()
-                .find(|c| c.id == root_id)
-                .map(|c| c.thread_id);
-            f.threads(GH_NUMBER)
-                .into_iter()
-                .find(|t| Some(t.id) == thread)
-                .map(|t| t.node_id)
-        });
-        stand.notes.push(
-            "node ID треда для resolve взят из состояния forge-fake: чтения тредов у адаптера нет"
-                .to_owned(),
-        );
-        github.set_thread_resolved(&ProviderId::new(thread.ok_or("нет треда")?), true)?;
+        let thread = author
+            .review_threads(&pull)?
+            .into_iter()
+            .find(|t| t.root.as_ref() == Some(&root.node_id))
+            .ok_or("тред корня не найден чтением тредов автором")?;
+        stand.notes.push(format!(
+            "node ID треда для resolve — из чтения тредов PR автором (review_threads) по node ID \
+             корня, comments.totalCount {}",
+            thread.comments
+        ));
+        github.set_thread_resolved(&thread.node_id, true)?;
         submission.id
     };
     stand.after("main", server.with(|f| f.snapshot()));
@@ -2537,9 +2546,635 @@ fn capabilities(stand: &mut Stand) -> Outcome {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------------------------
+// Стоимость и устойчивость (в матрицу не входят)
+
+/// Черновиков в одном ревью сценария `volume`.
+const VOLUME: u32 = 200;
+const GL_DRAFT_GET: &str =
+    "GET /projects/{id}/merge_requests/{merge_request_iid}/draft_notes/{draft_note_id}";
+const GH_REVIEW_COMMENTS: &str =
+    "GET /repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/comments";
+
+/// Diff `volume`: строка контекста и [`VOLUME`] добавленных строк (новая сторона, строки 2–201).
+fn volume_diff() -> String {
+    let mut diff = format!("@@ -1,1 +1,{} @@\n ctx1\n", VOLUME + 1);
+    for index in 1..=VOLUME {
+        diff.push_str(&format!("+volume {index}\n"));
+    }
+    diff
+}
+
+/// Тексты черновиков `volume`, разные.
+fn volume_texts() -> Vec<String> {
+    (1..=VOLUME)
+        .map(|index| format!("черновик {index}"))
+        .collect()
+}
+
+/// Черновик на каждой добавленной строке diff `volume`.
+fn volume_spots(texts: &[String]) -> Vec<(Spot, &str)> {
+    texts
+        .iter()
+        .zip(2..)
+        .map(|(text, line)| (Spot::Line(Side::New, line), text.as_str()))
+        .collect()
+}
+
+/// Замер отправки ветви: время планирования и отправки, вызовы сервера ветви по ключам.
+fn measure_note(branch: &str, planned: Duration, sent: Duration, log: &[Logged]) -> String {
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for call in log {
+        *counts.entry(call.key.as_str()).or_insert(0) += 1;
+    }
+    let written: usize = writes(log).values().sum();
+    let list = counts
+        .iter()
+        .map(|(key, count)| format!("{key}: {count}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "замер {branch}: планирование {} мс, отправка {} мс, вызовов {} (записей {written}, \
+         чтений {}): {list}",
+        planned.as_millis(),
+        sent.as_millis(),
+        log.len(),
+        log.len().saturating_sub(written)
+    )
+}
+
+/// Состав строк diff в запросе: число, первая и последняя строка, разных строк, все ли `RIGHT`.
+fn sent_span(comments: &[Value]) -> (usize, Option<u64>, Option<u64>, usize, bool) {
+    let lines: Vec<u64> = comments.iter().filter_map(|c| c["line"].as_u64()).collect();
+    let distinct: BTreeSet<u64> = lines.iter().copied().collect();
+    (
+        comments.len(),
+        lines.iter().min().copied(),
+        lines.iter().max().copied(),
+        distinct.len(),
+        comments.iter().all(|c| c["side"].as_str() == Some("RIGHT")),
+    )
+}
+
+fn volume(stand: &mut Stand) -> Outcome {
+    let diff = volume_diff();
+    let texts = volume_texts();
+    let spots = volume_spots(&texts);
+    let expected: BTreeSet<String> = texts.iter().cloned().collect();
+    volume_github(stand, &diff, &spots, &expected, false)?;
+    volume_github(stand, &diff, &spots, &expected, true)?;
+    volume_gitlab(stand, &diff, &spots, &expected)
+}
+
+fn volume_github(
+    stand: &mut Stand,
+    diff: &str,
+    spots: &[(Spot, &str)],
+    expected: &BTreeSet<String>,
+    pending: bool,
+) -> Outcome {
+    let branch = if pending {
+        "github-pending"
+    } else {
+        "github-local"
+    };
+    let server = FakeServer::start(github_fake_with(diff))?;
+    stand.before(branch, server.with(|f| f.snapshot()));
+    let github = stand.gh(&server, TOKEN_REVIEWER, ACTOR_REVIEWER)?;
+    let caps = github.capabilities()?;
+    let path = stand.journal_path(branch);
+    let (submission, planned, sent, from) = {
+        let journal = Journal::open(&path)?;
+        let scope = journal.scope(&project());
+        let (session, drafts) = gh_session(&scope, &github, spots)?;
+        stand.eq(
+            &format!("{branch}: черновиков"),
+            drafts.len(),
+            VOLUME as usize,
+        );
+        let started = Instant::now();
+        let submission = if pending {
+            plan_github_pending(&scope, session, ReviewEvent::Comment, SUMMARY, None, &[])?
+        } else {
+            plan_github_local(&scope, session, ReviewEvent::Comment, SUMMARY)?
+        };
+        let planned = started.elapsed();
+        let from = server.logged();
+        let started = Instant::now();
+        run_github(&scope, submission.id, &github, &caps)?;
+        (submission.id, planned, started.elapsed(), from)
+    };
+    stand.after(branch, server.with(|f| f.snapshot()));
+    let log = server.log();
+    stand.notes.push(measure_note(
+        branch,
+        planned,
+        sent,
+        &log[from.min(log.len())..],
+    ));
+    if pending {
+        stand.writes(
+            &format!("{branch}: записи"),
+            &log,
+            &[
+                (GH_CREATE, 1),
+                (GH_ADD_THREAD, VOLUME as usize),
+                (GH_SUBMIT, 1),
+            ],
+        );
+    } else {
+        stand.writes(&format!("{branch}: записи"), &log, &[(GH_CREATE, 1)]);
+        if let [body] = bodies(&log, GH_CREATE)[..] {
+            let comments = body["comments"].as_array().cloned().unwrap_or_default();
+            stand.eq(
+                &format!("{branch}: comments[] Create review (число, строки, разных, RIGHT)"),
+                sent_span(&comments),
+                (
+                    VOLUME as usize,
+                    Some(2),
+                    Some(u64::from(VOLUME) + 1),
+                    VOLUME as usize,
+                    true,
+                ),
+            );
+        }
+    }
+    stand.eq(
+        &format!("{branch}: review на сервере"),
+        server
+            .with(|f| f.reviews(GH_NUMBER))
+            .iter()
+            .map(|r| (r.user.clone(), r.state))
+            .collect::<Vec<_>>(),
+        vec![(REVIEWER.to_owned(), ghf::ReviewState::Commented)],
+    );
+    let stored: Vec<String> = server
+        .with(|f| f.comments(GH_NUMBER))
+        .into_iter()
+        .filter(|c| c.in_reply_to.is_none())
+        .map(|c| c.body)
+        .collect();
+    stand.eq(
+        &format!("{branch}: комментарии review (число, тексты черновиков)"),
+        (
+            stored.len(),
+            stored.into_iter().collect::<BTreeSet<_>>() == *expected,
+        ),
+        (VOLUME as usize, true),
+    );
+    let journal = Journal::open(&path)?;
+    let scope = journal.scope(&project());
+    let done = report(&scope, submission)?;
+    let items = if pending { VOLUME as usize + 2 } else { 1 };
+    stand.eq(
+        &format!("{branch}: журнал (элементов, все confirmed, итог, восстановлено)"),
+        (
+            done.items.len(),
+            done.items.iter().all(|i| i.state == ItemState::Confirmed),
+            done.delivery,
+            journal.recovered().len(),
+        ),
+        (items, true, Delivery::Full, 0),
+    );
+    stand.journal(branch, &journal)?;
+    Ok(())
+}
+
+fn volume_gitlab(
+    stand: &mut Stand,
+    diff: &str,
+    spots: &[(Spot, &str)],
+    expected: &BTreeSet<String>,
+) -> Outcome {
+    let branch = "gitlab";
+    let server = FakeServer::start(gitlab_fake_with(diff)?)?;
+    stand.before(branch, server.with(|f| f.snapshot()));
+    let gitlab = stand.gl(&server, TOKEN_REVIEWER, ACTOR_REVIEWER)?;
+    let caps = gitlab.capabilities()?;
+    let path = stand.journal_path(branch);
+    let (submission, planned, sent, from) = {
+        let journal = Journal::open(&path)?;
+        let scope = journal.scope(&project());
+        let (session, _, drafts) = gl_session(&scope, &gitlab, REVIEWER, spots)?;
+        stand.eq(
+            &format!("{branch}: черновиков"),
+            drafts.len(),
+            VOLUME as usize,
+        );
+        let plan = GitLabPlan {
+            summary: SUMMARY.to_owned(),
+            ..GitLabPlan::default()
+        };
+        let started = Instant::now();
+        let submission = plan_gitlab(&scope, session, &plan)?;
+        let planned = started.elapsed();
+        let from = server.logged();
+        let started = Instant::now();
+        run_gitlab(&scope, submission.id, &gitlab, &caps)?;
+        (submission.id, planned, started.elapsed(), from)
+    };
+    stand.after(branch, server.with(|f| f.snapshot()));
+    let log = server.log();
+    stand.notes.push(measure_note(
+        branch,
+        planned,
+        sent,
+        &log[from.min(log.len())..],
+    ));
+    stand.writes(
+        &format!("{branch}: записи"),
+        &log,
+        &[
+            (glf::DRAFTS, VOLUME as usize),
+            (glf::PUBLISH, VOLUME as usize),
+            (glf::NOTES, 1),
+        ],
+    );
+    let published: BTreeSet<u64> = log
+        .iter()
+        .filter(|c| c.key == glf::PUBLISH)
+        .filter_map(|c| draft_id_in(&c.path))
+        .collect();
+    let last_publish = log
+        .iter()
+        .filter(|c| c.key == glf::PUBLISH)
+        .map(|c| c.seq)
+        .max();
+    let note_seq = log.iter().find(|c| c.key == glf::NOTES).map(|c| c.seq);
+    stand.check(
+        &format!("{branch}: сводка после последней публикации"),
+        matches!((last_publish, note_seq), (Some(p), Some(n)) if n > p),
+        format!("публикация {last_publish:?}, сводка {note_seq:?}"),
+    );
+    let notes = server.with(|f| f.notes(GL_IID));
+    let from_drafts: Vec<&glf::Note> = notes.iter().filter(|n| n.from_draft.is_some()).collect();
+    let sources: BTreeSet<u64> = from_drafts.iter().filter_map(|n| n.from_draft).collect();
+    let bodies: BTreeSet<String> = from_drafts.iter().map(|n| n.body.clone()).collect();
+    stand.eq(
+        &format!("{branch}: заметки из черновиков (число, по ID опубликованных, тексты)"),
+        (
+            from_drafts.len(),
+            sources == published && sources.len() == VOLUME as usize,
+            bodies == *expected,
+        ),
+        (VOLUME as usize, true, true),
+    );
+    stand.eq(
+        &format!("{branch}: сводка — заметка без черновика"),
+        notes
+            .iter()
+            .filter(|n| n.from_draft.is_none())
+            .map(|n| (n.body.clone(), n.position.is_none()))
+            .collect::<Vec<_>>(),
+        vec![(SUMMARY.to_owned(), true)],
+    );
+    stand.eq(
+        &format!("{branch}: черновиков на сервере"),
+        server.with(|f| f.drafts(GL_IID)).len(),
+        0,
+    );
+    let journal = Journal::open(&path)?;
+    let scope = journal.scope(&project());
+    let done = report(&scope, submission)?;
+    stand.eq(
+        &format!("{branch}: журнал (элементов, все confirmed, итог, восстановлено)"),
+        (
+            done.items.len(),
+            done.items.iter().all(|i| i.state == ItemState::Confirmed),
+            done.delivery,
+            journal.recovered().len(),
+        ),
+        (2 * VOLUME as usize + 1, true, Delivery::Full, 0),
+    );
+    stand.journal(branch, &journal)?;
+    Ok(())
+}
+
+/// Ветвь `rate-limit`: явный отказ по лимиту на записи или потерянный ответ и лимит на сверке.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Limit {
+    Refused,
+    Lost,
+}
+
+impl Limit {
+    fn name(self) -> &'static str {
+        match self {
+            Limit::Refused => "refused",
+            Limit::Lost => "lost",
+        }
+    }
+}
+
+/// Заголовки лимита в записанном следе ветви (с вызова `from`) у вызовов с кодом `status`.
+fn limit_headers(stand: &Stand, from: usize, status: u16) -> Vec<BTreeMap<String, String>> {
+    stand
+        .trace
+        .entries(&stand.scrubber)
+        .into_iter()
+        .skip(from)
+        .filter(|entry| entry.status == Some(status))
+        .map(|entry| entry.rate_limit)
+        .collect()
+}
+
+fn rate_limit(stand: &mut Stand) -> Outcome {
+    for limit in [Limit::Refused, Limit::Lost] {
+        rate_limit_gitlab(stand, limit)?;
+    }
+    for limit in [Limit::Refused, Limit::Lost] {
+        rate_limit_github(stand, limit)?;
+    }
+    Ok(())
+}
+
+fn rate_limit_gitlab(stand: &mut Stand, limit: Limit) -> Outcome {
+    let branch = format!("gitlab-{}", limit.name());
+    let server = FakeServer::start(gitlab_fake()?)?;
+    server.inject(match limit {
+        Limit::Refused => Fault::new(glf::PUBLISH, Reply::RateLimited).skip(1),
+        Limit::Lost => Fault::new(glf::PUBLISH, Reply::Status(502))
+            .after_apply()
+            .skip(1),
+    });
+    stand.before(&branch, server.with(|f| f.snapshot()));
+    let gitlab = stand.gl(&server, TOKEN_REVIEWER, ACTOR_REVIEWER)?;
+    let caps = gitlab.capabilities()?;
+    let path = stand.journal_path(&branch);
+    let mark = stand.mark(&server);
+    let (submission, ids, stopped) = {
+        let journal = Journal::open(&path)?;
+        let scope = journal.scope(&project());
+        let (session, _, ids) = gl_session(
+            &scope,
+            &gitlab,
+            REVIEWER,
+            &[
+                (Spot::Line(Side::New, 1), "первый"),
+                (Spot::Line(Side::New, 2), "второй"),
+                (Spot::Line(Side::New, 4), "третий"),
+            ],
+        )?;
+        let submission = plan_gitlab(&scope, session, &GitLabPlan::default())?;
+        run_gitlab(&scope, submission.id, &gitlab, &caps)?;
+        stand.receipt(&server, mark)?;
+        let stopped = scope
+            .submission(submission.id)?
+            .items
+            .iter()
+            .find(|item| item.state != ItemState::Confirmed)
+            .map(|item| item.id)
+            .ok_or("нет неподтверждённого элемента")?;
+        if limit == Limit::Lost {
+            server.inject(Fault::new(GL_DRAFT_GET, Reply::RateLimited));
+            let verdicts = reconcile_gitlab(&scope, submission.id, &gitlab)?;
+            stand.check(
+                &format!("{branch}: сверка «не выяснено» без кандидата из-за лимита"),
+                matches!(&verdicts[..], [Verdict::Unresolved { detail }] if detail.contains("лимит")),
+                format!("{verdicts:?}"),
+            );
+        }
+        let again = server.logged();
+        let rerun = run_gitlab(&scope, submission.id, &gitlab, &caps);
+        let expected_refusal = match (&rerun, limit) {
+            (Err(SubmitError::Closed(_)), Limit::Refused) => true,
+            (Err(SubmitError::Unresolved(item)), Limit::Lost) => *item == stopped,
+            _ => false,
+        };
+        stand.check(
+            &format!("{branch}: повторный запуск отказывает без записей"),
+            expected_refusal && writes(&server.log()[again..]).is_empty(),
+            format!("{rerun:?}"),
+        );
+        (submission.id, ids, stopped)
+    };
+    stand.after(&branch, server.with(|f| f.snapshot()));
+    server.finish()?;
+    let log = server.log();
+    stand.writes(
+        &format!("{branch}: записи"),
+        &log,
+        &[(glf::DRAFTS, 3), (glf::PUBLISH, 2)],
+    );
+    if limit == Limit::Refused {
+        let headers: Vec<(Option<String>, bool)> = limit_headers(stand, mark.trace, 429)
+            .iter()
+            .map(|h| {
+                (
+                    h.get("ratelimit-remaining").cloned(),
+                    h.contains_key("retry-after"),
+                )
+            })
+            .collect();
+        stand.eq(
+            &format!("{branch}: заголовки лимита у отказа 429 в следе"),
+            headers,
+            vec![(Some("0".to_owned()), true)],
+        );
+    }
+    let journal = Journal::open(&path)?;
+    let scope = journal.scope(&project());
+    let remote = |id: DraftId| -> Result<Option<u64>, SubmitError> {
+        Ok(scope
+            .draft(id)?
+            .remote_id
+            .and_then(|r| r.as_str().parse().ok()))
+    };
+    let created: Vec<Option<u64>> = ids.iter().map(|id| remote(*id)).collect::<Result<_, _>>()?;
+    let published = match limit {
+        Limit::Refused => 1,
+        Limit::Lost => 2,
+    };
+    let mut notes: Vec<Option<u64>> = server
+        .with(|f| f.notes(GL_IID))
+        .iter()
+        .map(|n| n.from_draft)
+        .collect();
+    notes.sort();
+    stand.eq(
+        &format!("{branch}: сервер: заметки из черновиков"),
+        notes,
+        created[..published].to_vec(),
+    );
+    let mut left: Vec<Option<u64>> = server
+        .with(|f| f.drafts(GL_IID))
+        .iter()
+        .map(|d| Some(d.id))
+        .collect();
+    left.sort();
+    stand.eq(
+        &format!("{branch}: сервер: остались черновиками"),
+        left,
+        created[published..].to_vec(),
+    );
+    let (second, closed) = match limit {
+        Limit::Refused => (ItemState::Failed, true),
+        Limit::Lost => (ItemState::Unknown, false),
+    };
+    let done = report(&scope, submission)?;
+    let item = scope.item(stopped)?;
+    stand.eq(
+        &format!("{branch}: журнал: состояния, закрыта, итог, кандидат"),
+        (
+            states(&scope, submission)?,
+            done.closed,
+            done.delivery,
+            item.candidate,
+        ),
+        (
+            vec![
+                (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+                (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+                (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+                (Operation::GitLabPublishDraftNote, ItemState::Confirmed),
+                (Operation::GitLabPublishDraftNote, second),
+                (Operation::GitLabPublishDraftNote, ItemState::Planned),
+            ],
+            closed,
+            Delivery::Partial,
+            None,
+        ),
+    );
+    stand.journal(&branch, &journal)?;
+    Ok(())
+}
+
+fn rate_limit_github(stand: &mut Stand, limit: Limit) -> Outcome {
+    let branch = format!("github-{}", limit.name());
+    let server = FakeServer::start(github_fake())?;
+    server.inject(match limit {
+        Limit::Refused => Fault::new(GH_ADD_THREAD, Reply::RateLimited).skip(1),
+        Limit::Lost => Fault::new(GH_ADD_THREAD, Reply::Status(502))
+            .after_apply()
+            .skip(1),
+    });
+    stand.before(&branch, server.with(|f| f.snapshot()));
+    let github = stand.gh(&server, TOKEN_REVIEWER, ACTOR_REVIEWER)?;
+    let caps = github.capabilities()?;
+    let path = stand.journal_path(&branch);
+    let mark = stand.mark(&server);
+    let (submission, stopped) = {
+        let journal = Journal::open(&path)?;
+        let scope = journal.scope(&project());
+        let (session, _) = gh_session(
+            &scope,
+            &github,
+            &[
+                (Spot::Line(Side::New, 1), "первый"),
+                (Spot::Line(Side::New, 2), "второй"),
+                (Spot::Line(Side::New, 4), "третий"),
+            ],
+        )?;
+        let submission =
+            plan_github_pending(&scope, session, ReviewEvent::Comment, SUMMARY, None, &[])?;
+        run_github(&scope, submission.id, &github, &caps)?;
+        stand.receipt(&server, mark)?;
+        let stopped = scope
+            .submission(submission.id)?
+            .items
+            .iter()
+            .find(|item| item.state != ItemState::Confirmed)
+            .map(|item| item.id)
+            .ok_or("нет неподтверждённого элемента")?;
+        if limit == Limit::Lost {
+            server.inject(Fault::new(GH_REVIEW_COMMENTS, Reply::RateLimited));
+            let verdicts = reconcile_github(&scope, submission.id, &github)?;
+            stand.check(
+                &format!("{branch}: сверка «не выяснено» без кандидата из-за лимита"),
+                matches!(&verdicts[..], [Verdict::Unresolved { detail }] if detail.contains("лимит")),
+                format!("{verdicts:?}"),
+            );
+        }
+        let again = server.logged();
+        let rerun = run_github(&scope, submission.id, &github, &caps);
+        let expected_refusal = match (&rerun, limit) {
+            (Err(SubmitError::Closed(_)), Limit::Refused) => true,
+            (Err(SubmitError::Unresolved(item)), Limit::Lost) => *item == stopped,
+            _ => false,
+        };
+        stand.check(
+            &format!("{branch}: повторный запуск отказывает без записей"),
+            expected_refusal && writes(&server.log()[again..]).is_empty(),
+            format!("{rerun:?}"),
+        );
+        (submission.id, stopped)
+    };
+    stand.after(&branch, server.with(|f| f.snapshot()));
+    server.finish()?;
+    let log = server.log();
+    stand.writes(
+        &format!("{branch}: записи"),
+        &log,
+        &[(GH_CREATE, 1), (GH_ADD_THREAD, 2)],
+    );
+    if limit == Limit::Refused {
+        let headers: Vec<Option<String>> = limit_headers(stand, mark.trace, 403)
+            .iter()
+            .map(|h| h.get("x-ratelimit-remaining").cloned())
+            .collect();
+        stand.eq(
+            &format!("{branch}: заголовок лимита у отказа 403 в следе"),
+            headers,
+            vec![Some("0".to_owned())],
+        );
+    }
+    let kept = match limit {
+        Limit::Refused => vec!["первый".to_owned()],
+        Limit::Lost => vec!["первый".to_owned(), "второй".to_owned()],
+    };
+    stand.eq(
+        &format!("{branch}: сервер: PENDING ревьюера и его комментарии"),
+        (
+            server
+                .with(|f| f.reviews(GH_NUMBER))
+                .iter()
+                .map(|r| (r.user.clone(), r.state))
+                .collect::<Vec<_>>(),
+            server
+                .with(|f| f.comments(GH_NUMBER))
+                .into_iter()
+                .map(|c| c.body)
+                .collect::<Vec<_>>(),
+        ),
+        (vec![(REVIEWER.to_owned(), ghf::ReviewState::Pending)], kept),
+    );
+    let (second, closed, delivery) = match limit {
+        Limit::Refused => (ItemState::Failed, true, Delivery::NotSent),
+        Limit::Lost => (ItemState::Unknown, false, Delivery::Partial),
+    };
+    let journal = Journal::open(&path)?;
+    let scope = journal.scope(&project());
+    let done = report(&scope, submission)?;
+    let item = scope.item(stopped)?;
+    stand.eq(
+        &format!("{branch}: журнал: состояния, закрыта, итог, кандидат"),
+        (
+            states(&scope, submission)?,
+            done.closed,
+            done.delivery,
+            item.candidate,
+        ),
+        (
+            vec![
+                (Operation::GitHubCreatePending, ItemState::Confirmed),
+                (Operation::GitHubAddPendingComment, ItemState::Confirmed),
+                (Operation::GitHubAddPendingComment, second),
+                (Operation::GitHubAddPendingComment, ItemState::Planned),
+                (Operation::GitHubSubmitReview, ItemState::Planned),
+            ],
+            closed,
+            delivery,
+            None,
+        ),
+    );
+    stand.journal(&branch, &journal)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scenario::Group;
     use crate::transport::Method;
 
     fn logged(key: &str, method: Method, path: &str, body: Value) -> Logged {
@@ -2699,7 +3334,10 @@ mod tests {
     #[test]
     fn every_matrix_row_passes_against_forge_fake() -> Result<(), String> {
         let mut failures = Vec::new();
-        for scenario in Scenario::ALL.into_iter().filter(|s| !s.is_stand()) {
+        for scenario in Scenario::ALL
+            .into_iter()
+            .filter(|s| s.group() == Group::Row)
+        {
             let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
             let mut result =
                 ResultFile::new("s", "b", scenario.name(), crate::results::Column::Fake);
@@ -2715,6 +3353,120 @@ mod tests {
             }
             if result.journal.is_none() || result.trace.is_empty() {
                 failures.push(format!("{}: нет журнала или следа", scenario.name()));
+            }
+        }
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(failures.join("\n"))
+        }
+    }
+
+    /// Diff `volume`: каждая из 200 добавленных строк держит свой черновик.
+    #[test]
+    fn volume_spots_cover_every_added_line() -> Result<(), String> {
+        let file = FileDiff::parse(PATH, PATH, &volume_diff()).map_err(|e| e.to_string())?;
+        let texts = volume_texts();
+        let spots = volume_spots(&texts);
+        assert_eq!(spots.len(), VOLUME as usize);
+        assert_eq!(
+            texts.iter().collect::<BTreeSet<_>>().len(),
+            VOLUME as usize,
+            "тексты разные"
+        );
+        for (spot, _) in &spots {
+            spot.placement(&file)
+                .map_err(|e| format!("{spot:?}: {e}"))?;
+        }
+        assert!(matches!(spots.first(), Some((Spot::Line(Side::New, 2), _))));
+        assert!(matches!(
+            spots.last(),
+            Some((Spot::Line(Side::New, 201), _))
+        ));
+        assert!(Spot::Line(Side::New, VOLUME + 2).placement(&file).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn measure_note_splits_reads_and_writes() {
+        let log = vec![
+            logged("GET /user", Method::Get, "/user", Value::Null),
+            logged(GH_CREATE, Method::Post, "/x", json!({})),
+            logged(GH_CREATE, Method::Post, "/x", json!({})),
+        ];
+        let note = measure_note(
+            "ветвь",
+            Duration::from_millis(3),
+            Duration::from_millis(42),
+            &log,
+        );
+        assert!(
+            note.starts_with(
+                "замер ветвь: планирование 3 мс, отправка 42 мс, вызовов 3 (записей 2, чтений 1)"
+            ),
+            "{note}"
+        );
+        assert!(note.contains(&format!("{GH_CREATE}: 2")), "{note}");
+        assert!(note.contains("GET /user: 1"), "{note}");
+    }
+
+    /// `volume` и `rate-limit` проходят против `forge-fake`, у каждой ветви свой журнал, у ветвей
+    /// `volume` — замер в заметках.
+    #[test]
+    fn cost_scenarios_pass_against_forge_fake() -> Result<(), String> {
+        let branches = [
+            (
+                Scenario::Volume,
+                vec!["github-local", "github-pending", "gitlab"],
+            ),
+            (
+                Scenario::RateLimit,
+                vec![
+                    "gitlab-refused",
+                    "gitlab-lost",
+                    "github-refused",
+                    "github-lost",
+                ],
+            ),
+        ];
+        let mut failures = Vec::new();
+        for (scenario, names) in branches {
+            assert_eq!(scenario.group(), Group::Cost);
+            let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+            let mut result =
+                ResultFile::new("s", "b", scenario.name(), crate::results::Column::Fake);
+            run(scenario, dir.path(), &mut result);
+            if !result.execution.is_ok() || result.status != Status::Pass {
+                failures.push(format!(
+                    "{}: {:?} {:?} {}",
+                    scenario.name(),
+                    result.execution,
+                    result.status,
+                    result.reason
+                ));
+                continue;
+            }
+            let journals: Vec<String> = result
+                .journal
+                .as_ref()
+                .and_then(Value::as_object)
+                .map(|map| map.keys().cloned().collect())
+                .unwrap_or_default();
+            let mut expected: Vec<String> = names.iter().map(|n| (*n).to_owned()).collect();
+            expected.sort();
+            if journals != expected {
+                failures.push(format!("{}: журналы ветвей {journals:?}", scenario.name()));
+            }
+            if scenario == Scenario::Volume {
+                for name in &names {
+                    let prefix = format!("замер {name}: ");
+                    if !result.notes.iter().any(|n| n.starts_with(&prefix)) {
+                        failures.push(format!("volume: нет замера ветви {name}"));
+                    }
+                }
+            }
+            if result.problems().iter().any(|p| !p.is_empty()) {
+                failures.push(format!("{}: {:?}", scenario.name(), result.problems()));
             }
         }
         if failures.is_empty() {

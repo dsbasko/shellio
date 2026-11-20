@@ -615,7 +615,12 @@ mod tests {
             .map(ToString::to_string)
             .collect();
         assert_eq!(fake.first().map(String::as_str), Some("fake:smoke"));
-        assert_eq!(fake.len(), results::MATRIX_ROWS.len() + 1);
+        // smoke, строки матрицы, volume и rate-limit.
+        assert_eq!(fake.len(), results::MATRIX_ROWS.len() + 3);
+        assert_eq!(
+            fake[fake.len() - 2..],
+            ["fake:volume".to_owned(), "fake:rate-limit".to_owned()]
+        );
         assert!(fake.iter().all(|pair| pair.starts_with("fake:")));
         let ghes: Vec<String> = known_pairs(Some(Column::Ghes))
             .iter()
