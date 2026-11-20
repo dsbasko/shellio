@@ -16,6 +16,9 @@ mod fixture;
 mod proc;
 mod results;
 mod runstate;
+// Сэмплер до сценария `cost` задачи 11 работает только в тестах.
+#[cfg_attr(not(test), expect(dead_code))]
+mod sampler;
 mod scenario;
 mod snapshot;
 mod spans;

@@ -1,17 +1,17 @@
 //! Общее для сценариев задачи 6: стенд фикстур, снимки по атрибуции и проверки состава.
 
-use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use crate::attrib::{self, Attribution, Claims, Note, Owner, OwnerRecord};
+use crate::attrib::{Attribution, Claims, Note, Owner, OwnerRecord};
 use crate::background;
 use crate::fixture::Spec;
 use crate::fixture::bench::Bench;
 use crate::fixture::receipts::{Event, Receipt};
 use crate::proc::units::Timebase;
 use crate::proc::{self, ReadError, Source};
+use crate::sampler;
 use crate::snapshot::{self, Key, Snapshot, Summary};
 
 pub const READY: Duration = Duration::from_secs(30);
@@ -120,20 +120,13 @@ pub fn snap(source: &impl Source, keys: &BTreeSet<Key>) -> Result<Snapshot, Stri
     Snapshot::take(source, background::uptime_ns, |_| keys.clone())
 }
 
-/// Снимок множества атрибуции по тому же списку.
+/// Снимок множества атрибуции по тому же списку: тот же путь, что у прохода сэмплера.
 pub fn snap_claims(
     source: &impl Source,
     claims: &Claims,
 ) -> Result<(Snapshot, Attribution), String> {
-    let found = RefCell::new(None);
-    let snapshot = Snapshot::take(source, background::uptime_ns, |listing| {
-        let attribution = attrib::attribute(listing, claims, |pid| source.session(pid));
-        let all = attribution.all();
-        *found.borrow_mut() = Some(attribution);
-        all
-    })?;
-    let attribution = found.into_inner().ok_or("атрибуция не выполнена")?;
-    Ok((snapshot, attribution))
+    sampler::attributed_snapshot(source, background::uptime_ns, claims)
+        .map(|(snapshot, attribution, _)| (snapshot, attribution))
 }
 
 /// Сводка владельца: объединение его атрибуции на обеих границах.
