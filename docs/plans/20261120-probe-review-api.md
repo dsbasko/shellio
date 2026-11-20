@@ -406,6 +406,7 @@ cd ../shellio-p08 && base=$(cat ../shellio-p07-p08.base) && ralphex docs/plans/2
 - [ ] запрос изменений по разделу «Адаптеры»: только при возможности и правах, итог проверяется повторным чтением состояния ревьюера, разные итоги отказа только там, где ответы различимы; комментарием не подменяется
 - [ ] тесты публикации против встроенного транспорта: только известные ID, нет `bulk_publish`
 - [ ] тесты `approve` с устаревшим `sha` (409) и итогов `mergeRequestRequestChanges`: успех с повторным чтением, нет мутации, нет прав, ошибка при HTTP 200 в `errors` и в `payload.errors`, неразличимый ответ без точной причины
+- [ ] ➕ тесты `forge-fake` GitLab без покрытия (задача 6): `GET …/draft_notes/:id` владельцем (200), `GET …/discussions/:id`, GraphQL `currentUser`, черновик с `in_reply_to_discussion_id` и `resolve_discussion` и его публикация в существующий тред, `PUT` черновика с новой `position`, `unapprove` без одобрения (404), `snapshot()`, `set_visibility` и `set_version`
 - [ ] рубеж: `make check` под замерной блокировкой
 
 ### Task 9: Отправка и сверка
