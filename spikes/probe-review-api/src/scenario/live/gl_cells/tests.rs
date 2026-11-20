@@ -1104,7 +1104,7 @@ fn request_changes_body_passes_against_the_fake() -> TestResult {
     assert_eq!(injections, 2, "{:?}", observed.notes);
     assert!(
         observed.notes.iter().any(|note| note.starts_with(
-            "наблюдение: mergeRequestRequestChanges токеном автора (не ревьюер MR): отказ: "
+            "наблюдение: mergeRequestRequestChanges токеном автора (не ревьюер MR): отказ: вызов: "
         )),
         "{:?}",
         observed.notes
@@ -1415,4 +1415,28 @@ fn anchors_checks_catch_a_wrong_triple_and_a_lost_note() {
         &facts(),
     );
     assert_eq!(lost.verdict().0, Status::Fail);
+}
+
+#[test]
+fn author_observation_refusal_is_a_note_and_its_stand_error_is_an_error() -> TestResult {
+    let scripted = Scripted::new().expect(Method::Get, "/api/v4/user", Reply::status(403));
+    let gitlab = GitLab::new(&scripted, Endpoints::instance(ROOT), &review())?;
+    let note = author_request_changes(&gitlab).map_err(|verdict| format!("{verdict:?}"))?;
+    assert!(
+        note.starts_with(
+            "наблюдение: mergeRequestRequestChanges токеном автора (не ревьюер MR): отказ: \
+             возможности автора: "
+        ),
+        "{note}"
+    );
+    scripted.finish()?;
+
+    let scripted = Scripted::new().expect(Method::Get, "/api/v4/user", Reply::status(502));
+    let gitlab = GitLab::new(&scripted, Endpoints::instance(ROOT), &review())?;
+    assert!(matches!(
+        author_request_changes(&gitlab),
+        Err(Verdict::Error(reason)) if reason.starts_with("наблюдение токеном автора")
+    ));
+    scripted.finish()?;
+    Ok(())
 }

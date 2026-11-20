@@ -1069,18 +1069,17 @@ fn with_reviewer_state(mut value: Value, state: Option<ReviewerState>) -> Value 
 /// Наблюдение `gl-request-changes`: тот же вызов токеном автора (не ревьюер MR). Итог клетки не
 /// меняет; отказ транспорта и 5xx — ошибка исполнения, как у чтений.
 fn author_request_changes<T: Transport>(author: &GitLab<T>) -> Result<String, Verdict> {
-    let caps = author
-        .capabilities()
-        .map_err(|err| read_or_fail("возможности автора", &err))?;
-    let outcome = match author.request_changes(&caps) {
-        Ok(state) => format!("принят, состояние {}", state.graphql()),
-        Err(err) => match classify_read(&err) {
-            Ok(text) => format!("отказ: {text}"),
-            Err(stand) => {
-                return Err(Verdict::Error(format!(
-                    "наблюдение токеном автора: {stand}"
-                )));
-            }
+    let refusal = |what: &str, err: &ApiError| match classify_read(err) {
+        Ok(text) => Ok(format!("отказ: {what}: {text}")),
+        Err(stand) => Err(Verdict::Error(format!(
+            "наблюдение токеном автора: {what}: {stand}"
+        ))),
+    };
+    let outcome = match author.capabilities() {
+        Err(err) => refusal("возможности автора", &err)?,
+        Ok(caps) => match author.request_changes(&caps) {
+            Ok(state) => format!("принят, состояние {}", state.graphql()),
+            Err(err) => refusal("вызов", &err)?,
         },
     };
     Ok(format!(
