@@ -48,6 +48,7 @@ pub const BULK_PUBLISH: &str =
     "POST /projects/{id}/merge_requests/{merge_request_iid}/draft_notes/bulk_publish";
 pub const NOTES: &str = "POST /projects/{id}/merge_requests/{merge_request_iid}/notes";
 pub const APPROVE: &str = "POST /projects/{id}/merge_requests/{merge_request_iid}/approve";
+pub const UNAPPROVE: &str = "POST /projects/{id}/merge_requests/{merge_request_iid}/unapprove";
 pub const REQUEST_CHANGES: &str = "graphql mergeRequestRequestChanges";
 
 /// Уровень доступа участника проекта (`access_level`).

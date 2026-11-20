@@ -1670,3 +1670,216 @@ fn approve_sha_checks_fail_on_an_accepted_or_refused_stale_sha() {
     });
     assert_eq!(checks.verdict().0, Status::Fail);
 }
+
+fn approves_in_fake(server: &FakeServer<GitlabFake>) -> Vec<ApproveCall> {
+    server
+        .log()
+        .iter()
+        .filter(|call| call.key == glf::APPROVE)
+        .map(|call| (call.body["sha"].as_str().map(str::to_owned), call.status))
+        .collect()
+}
+
+fn assert_artifacts(observed: &Observed) {
+    for (what, value) in [
+        ("до", &observed.before),
+        ("после", &observed.after),
+        ("журнал", &observed.journal),
+    ] {
+        assert!(!value.is_null(), "{what}");
+    }
+}
+
+#[test]
+fn refused_unapprove_is_not_run_with_artifacts_before_the_head_moves() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::UNAPPROVE, FakeReply::Status(403)));
+    // `NoHead` уронил бы тело ошибкой исполнения: клетка останавливается до смены head.
+    let observed = cell_body_with(&server, Scenario::GlApproveSha, &NoHead)?
+        .map_err(|verdict| format!("{verdict:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::NotRun(reason))
+            if reason.starts_with("одобрение не снято: ") && reason.contains("403")),
+        "{:?}",
+        observed.verdict
+    );
+    assert_artifacts(&observed);
+    assert_eq!(observed.after["approved_by"], json!([FAKE_REVIEWER]));
+    assert_eq!(
+        server.with(|fake| fake.approved_by(FAKE_IID)),
+        vec![FAKE_REVIEWER.to_owned()]
+    );
+    assert_eq!(approves_in_fake(&server).len(), 1);
+    Ok(())
+}
+
+#[test]
+fn reviewer_left_among_approvers_after_unapprove_is_not_run() -> TestResult {
+    let server = fake_gitlab()?;
+    // Хост ответил 2xx, а снятие не применил: одобривших читает автор.
+    server.inject(Fault::new(glf::UNAPPROVE, FakeReply::Status(201)));
+    let observed = cell_body_with(&server, Scenario::GlApproveSha, &NoHead)?
+        .map_err(|verdict| format!("{verdict:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::NotRun(
+            "одобрение не снято по чтению автора".to_owned()
+        ))
+    );
+    assert_artifacts(&observed);
+    assert_eq!(observed.after["approved_by"], json!([FAKE_REVIEWER]));
+    assert_eq!(approves_in_fake(&server).len(), 1);
+    Ok(())
+}
+
+#[test]
+fn server_error_on_the_stale_approve_is_an_execution_error() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::APPROVE, FakeReply::Status(502)).skip(1));
+    match cell_body(&server, Scenario::GlApproveSha)? {
+        Err(Verdict::Error(reason)) => {
+            assert!(reason.starts_with("approve с прежним sha: "), "{reason}");
+            assert!(reason.contains("502"), "{reason}");
+        }
+        other => return Err(format!("ожидалась ошибка исполнения: {other:?}").into()),
+    }
+    // Исполнитель на прежней ревизии `approve` не отправил: второй вызов — прямой.
+    assert_eq!(
+        approves_in_fake(&server),
+        vec![
+            (Some(HEAD.to_owned()), Some(201)),
+            (Some(HEAD.to_owned()), Some(502)),
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn rate_limited_stale_approve_is_not_run_with_artifacts() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::APPROVE, FakeReply::RateLimited).skip(1));
+    let observed =
+        cell_body(&server, Scenario::GlApproveSha)?.map_err(|verdict| format!("{verdict:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::NotRun(format!(
+            "лимит: код 429 на запись {APPROVE} с прежним sha"
+        )))
+    );
+    assert_artifacts(&observed);
+    assert_eq!(approves_in_fake(&server).len(), 2);
+    Ok(())
+}
+
+#[test]
+fn stale_approve_failures_split_into_errors_and_host_answers() {
+    let errors = [
+        ApiError::Transport(Failure::timeout("срок")),
+        ApiError::NotSent(Failure::not_sent("отказ")),
+        ApiError::Status {
+            status: 503,
+            message: String::new(),
+        },
+    ];
+    for err in &errors {
+        assert!(classify_read(err).is_err(), "{err:?}");
+    }
+    let answers = [
+        ApiError::ShaRejected("SHA does not match HEAD of source branch".to_owned()),
+        ApiError::Status {
+            status: 401,
+            message: "401 Unauthorized".to_owned(),
+        },
+    ];
+    for err in &answers {
+        assert!(classify_read(err).is_ok(), "{err:?}");
+    }
+}
+
+fn approve_report(state: ItemState, detail: &str) -> Report {
+    let mut item = item(1, Operation::GitLabApprove, state);
+    item.detail = Some(detail.to_owned());
+    Report {
+        submission: SubmissionId(1),
+        delivery: Delivery::Partial,
+        closed: true,
+        unresolved: usize::from(matches!(state, ItemState::Unknown | ItemState::InFlight)),
+        items: vec![item],
+    }
+}
+
+fn approve_call(actor: &'static str, outcome: Result<Response, Failure>) -> Call {
+    Call {
+        seq: 7,
+        actor,
+        request: Request::new(Method::Post, format!("{ROOT}{MR}/approve"))
+            .json(&json!({"sha": HEAD})),
+        outcome,
+        duration: Duration::ZERO,
+    }
+}
+
+#[test]
+fn approve_outcome_puts_rights_and_tier_before_the_delivery_rule() {
+    use ItemState::{Confirmed, Failed, InFlight, Unknown};
+    let unobserved = Verdict::NotRun(WRITE_UNOBSERVED.to_owned());
+    for status in [401, 403] {
+        let window = [approve_call("reviewer", Ok(Response::new(status)))];
+        assert!(matches!(
+            approve_outcome(&approve_report(Failed, "отказ"), &window, None),
+            Some(Verdict::Absent(reason)) if reason.contains(&format!("код {status}"))
+        ));
+    }
+    // Код прав берётся у ревьюера: 403 автора — не отказ одобрения.
+    let author = [approve_call("author", Ok(Response::new(403)))];
+    assert!(matches!(
+        approve_outcome(&approve_report(Failed, "отказ"), &author, None),
+        Some(Verdict::Fail(_))
+    ));
+    let tier = "This feature requires GitLab Premium";
+    for state in [Failed, Unknown] {
+        let delivery = (state == Unknown).then_some(&unobserved);
+        assert!(matches!(
+            approve_outcome(&approve_report(state, tier), &[], delivery),
+            Some(Verdict::Absent(reason)) if reason.contains("признак тарифа")
+        ));
+    }
+    let lost = [approve_call("reviewer", Err(Failure::timeout("срок")))];
+    assert_eq!(
+        approve_outcome(
+            &approve_report(Unknown, "итог неизвестен"),
+            &lost,
+            Some(&unobserved)
+        ),
+        Some(unobserved.clone())
+    );
+    let limit = Verdict::NotRun(format!("лимит: код 429 на запись {APPROVE}"));
+    let limited = [approve_call("reviewer", Ok(Response::new(429)))];
+    assert_eq!(
+        approve_outcome(
+            &approve_report(Failed, "Retry later"),
+            &limited,
+            Some(&limit)
+        ),
+        Some(limit.clone())
+    );
+    let refused = [approve_call("reviewer", Ok(Response::new(422)))];
+    assert_eq!(
+        approve_outcome(&approve_report(Failed, "422 Unprocessable"), &refused, None),
+        Some(Verdict::Fail(
+            "approve с актуальным sha: 422 Unprocessable".to_owned()
+        ))
+    );
+    assert_eq!(
+        approve_outcome(&approve_report(Confirmed, ""), &[], None),
+        None
+    );
+    assert!(matches!(
+        approve_outcome(&approve_report(InFlight, ""), &[], None),
+        Some(Verdict::Error(reason)) if reason.contains("InFlight")
+    ));
+    assert!(matches!(
+        approve_outcome(&sent(&[Confirmed]), &[], None),
+        Some(Verdict::Error(reason)) if reason.contains("нет элемента gitlab.approve")
+    ));
+}

@@ -1728,10 +1728,19 @@ fn gl_approve_sha<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Obs
     let (stopped, stale_planned, stale_session, journal) =
         stale_submit(cx, &reviewer, &review, &snapshot, &caps, JOURNAL)?;
     let stale = reviewer.approve(&stale_session).map(|_| ());
-    if let Err(err) = &stale
-        && let Err(text) = classify_read(err)
-    {
-        return Err(Verdict::Error(format!("approve с прежним sha: {text}")));
+    if let Err(err) = &stale {
+        if let ApiError::RateLimited { status, .. } = err {
+            notes.push(format!("смена head: новый head {new_head}"));
+            return early(
+                Verdict::NotRun(format!(
+                    "лимит: код {status} на запись {APPROVE} с прежним sha"
+                )),
+                notes,
+            );
+        }
+        if let Err(text) = classify_read(err) {
+            return Err(Verdict::Error(format!("approve с прежним sha: {text}")));
+        }
     }
     let (_, _, after) = mr_state(&author, &reviewer)?;
     let at_end = approvers(&author, "одобрения после")?;
