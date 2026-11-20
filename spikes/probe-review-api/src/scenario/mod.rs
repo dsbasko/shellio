@@ -117,9 +117,9 @@ impl Scenario {
             Scenario::GlDraftPublish
             | Scenario::GlForeignDraft
             | Scenario::GlRequestChanges
-            | Scenario::GlAnchors => &[Column::Fake, Column::GitlabCloud, Column::GitlabCe],
-            Scenario::GlApproveSha
-            | Scenario::HeadChange
+            | Scenario::GlAnchors
+            | Scenario::GlApproveSha => &[Column::Fake, Column::GitlabCloud, Column::GitlabCe],
+            Scenario::HeadChange
             | Scenario::JournalCrash
             | Scenario::ReconcileAmbiguous
             | Scenario::ReconcileDeleted

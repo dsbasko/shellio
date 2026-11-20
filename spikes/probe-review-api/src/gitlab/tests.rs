@@ -1594,6 +1594,11 @@ fn every_adapter_write_passes_the_write_guard() -> TestResult {
             format!("{MR}/approve"),
             Reply::json(201, &approval(&["bob"], Some(true))),
         )
+        .expect(
+            Method::Post,
+            format!("{MR}/unapprove"),
+            Reply::json(201, &approval(&[], Some(false))),
+        )
         .expect(Method::Post, GRAPHQL, rc_ok())
         .expect(Method::Post, GRAPHQL, reviewers_reply("REQUESTED_CHANGES"));
     let guard = Guarded::new(
@@ -1608,6 +1613,7 @@ fn every_adapter_write_passes_the_write_guard() -> TestResult {
     gitlab.delete_draft(&KnownDraft::recorded(ProviderId::new("502")))?;
     gitlab.summary_note("Итог")?;
     gitlab.approve(&session)?;
+    gitlab.unapprove()?;
     assert_eq!(
         gitlab.request_changes(&caps())?,
         ReviewerState::RequestedChanges
@@ -1620,6 +1626,6 @@ fn every_adapter_write_passes_the_write_guard() -> TestResult {
     );
     let requests = scripted.finish()?;
     let writes = requests.iter().filter(|r| r.method.is_write()).count();
-    assert_eq!(writes, 8, "все записи адаптера дошли до транспорта");
+    assert_eq!(writes, 9, "все записи адаптера дошли до транспорта");
     Ok(())
 }

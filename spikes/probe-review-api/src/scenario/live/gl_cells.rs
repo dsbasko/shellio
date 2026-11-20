@@ -12,7 +12,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-use super::{INJECTION_UNAVAILABLE, MR_NOT_READY, classify_read, mentions_tier, step_verdict};
+use super::step_verdict;
+use super::{INJECTION_UNAVAILABLE, MR_HEAD_STALE, MR_NOT_READY, classify_read, mentions_tier};
 use super::{Verdict, gitlab_adapter, guard_errors, live_repo, read_or_fail, record_cleanup};
 use crate::fake::{GraphqlKind, graphql_root};
 use crate::gitlab::{
@@ -21,7 +22,7 @@ use crate::gitlab::{
 };
 use crate::journal::{ItemState, Journal, Operation, ProjectId};
 use crate::live::guard::Guarded;
-use crate::live::lifecycle::{Cell, CellNames, LEDGER_FILE, Ledger, Roles, run_cell};
+use crate::live::lifecycle::{Cell, CellNames, Fixture, LEDGER_FILE, Ledger, Roles, run_cell};
 use crate::model::anchor::Side;
 use crate::model::{DraftComment, DraftId, Provider, ReviewSession, ReviewTarget};
 use crate::results::{Column, ResultFile};
@@ -36,6 +37,8 @@ pub const DRAFT_CREATE: &str = "POST draft_notes";
 pub const DRAFT_PUBLISH: &str = "PUT draft_notes/{id}/publish";
 pub const BULK_PUBLISH: &str = "POST draft_notes/bulk_publish";
 pub const NOTE: &str = "POST notes";
+pub const APPROVE: &str = "POST approve";
+pub const UNAPPROVE: &str = "POST unapprove";
 pub const REQUEST_CHANGES: &str = "graphql mergeRequestRequestChanges";
 
 /// Проект журнала живой клетки.
@@ -93,6 +96,8 @@ pub struct GlCx<'a, T> {
     pub poll: Poll,
     /// Второй клиент ревьюера (`gl-foreign-draft`).
     pub second: &'a dyn SecondClient,
+    /// Смена head клетки (`gl-approve-sha`).
+    pub head: &'a dyn HeadMover,
 }
 
 impl<T: Transport> GlCx<'_, T> {
@@ -188,6 +193,7 @@ fn cell_verdict<T: Transport>(
             Scenario::GlForeignDraft => gl_foreign_draft(cx, cell),
             Scenario::GlRequestChanges => gl_request_changes(cx, cell),
             Scenario::GlAnchors => gl_anchors(cx, cell),
+            Scenario::GlApproveSha => gl_approve_sha(cx, cell),
             other => Err(Verdict::Error(format!(
                 "сценарий {} в живом столбце GitLab не реализован",
                 other.name()
@@ -322,6 +328,8 @@ pub fn write_key(method: Method, path: &str, body: Option<&Value>) -> Option<Str
         (Method::Post, Some("draft_notes/bulk_publish")) => BULK_PUBLISH,
         (Method::Put, Some(tail)) if publish_id(tail).is_some() => DRAFT_PUBLISH,
         (Method::Post, Some("notes")) => NOTE,
+        (Method::Post, Some("approve")) => APPROVE,
+        (Method::Post, Some("unapprove")) => UNAPPROVE,
         _ => return Some(format!("{method} {path}")),
     };
     Some(key.to_owned())
@@ -1407,6 +1415,349 @@ fn gl_anchors<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Observe
         before,
         after,
         journal: sent.journal,
+        tier: caps.plan,
+        verdict: None,
+    })
+}
+
+/// Смена head клетки: живая — коммит фикстуры автором ([`Cell::move_head`]), тест — `push_head`
+/// `forge-fake`. Возвращает SHA нового head.
+pub trait HeadMover {
+    fn move_head(&self, cell: &mut Cell) -> Result<String, Verdict>;
+}
+
+/// Смена head живой клетки: коммит `Fixture::Moved` (меняется строка 27) в ветку клетки автором
+/// через его сторожа.
+pub struct AuthorCommit<'a, T> {
+    pub author: &'a Guarded<T>,
+}
+
+impl<T: Transport> HeadMover for AuthorCommit<'_, T> {
+    fn move_head(&self, cell: &mut Cell) -> Result<String, Verdict> {
+        let repo = live_repo(self.author).map_err(Verdict::Error)?;
+        cell.move_head(repo.as_ref(), Fixture::Moved)
+            .map_err(|err| step_verdict(&err))
+    }
+}
+
+/// Логины одобривших MR по чтению автором.
+fn approvers<T: Transport>(author: &GitLab<T>, what: &str) -> Result<Vec<String>, Verdict> {
+    author
+        .approvals()
+        .map(|approval| approval.approved_by)
+        .map_err(|err| read_or_fail(what, &err))
+}
+
+fn with_approvers(mut value: Value, approvers: &[String]) -> Value {
+    value["approved_by"] = json!(approvers);
+    value
+}
+
+fn approved(approvers: &[String], login: &str) -> bool {
+    approvers
+        .iter()
+        .any(|name| name.eq_ignore_ascii_case(login))
+}
+
+/// `sha` тела и код ответа `approve`.
+pub type ApproveCall = (Option<String>, Option<u16>);
+
+/// `sha` тела и код ответа каждого `approve` ревьюера в вызовах окна.
+pub fn approve_calls(calls: &[Call]) -> Vec<ApproveCall> {
+    calls
+        .iter()
+        .filter(|call| call.actor == ACTOR_REVIEWER)
+        .filter_map(|call| {
+            let body = call.request.body_json();
+            let key = write_key(call.request.method, call.request.path(), body.as_ref())?;
+            (key == APPROVE).then(|| {
+                (
+                    body.as_ref()
+                        .and_then(|body| body.get("sha"))
+                        .and_then(Value::as_str)
+                        .map(str::to_owned),
+                    call.outcome.as_ref().ok().map(|response| response.status),
+                )
+            })
+        })
+        .collect()
+}
+
+/// Итог первого `approve` исполнителем: элемент `failed` или `unknown` с кодом 401 или 403 у
+/// последнего `approve` ревьюера в окне или с признаком тарифа в тексте — `absent` (исполнитель
+/// свёл `ApiError` к строке, код берётся из следа); затем итог, который оракул записей не судит;
+/// другой отказ — `fail`; `confirmed` судят проверки (`None`).
+pub fn approve_outcome(
+    done: &Report,
+    window: &[Call],
+    delivery: Option<&Verdict>,
+) -> Option<Verdict> {
+    let Some(item) = done
+        .items
+        .iter()
+        .find(|item| item.operation == Operation::GitLabApprove)
+    else {
+        return Some(Verdict::Error(
+            "в отправке нет элемента gitlab.approve".to_owned(),
+        ));
+    };
+    let detail = item.detail.as_deref().unwrap_or("без подробностей");
+    if matches!(item.state, ItemState::Failed | ItemState::Unknown) {
+        if let Some(status @ (401 | 403)) = approve_calls(window).last().and_then(|call| call.1) {
+            return Some(Verdict::Absent(format!(
+                "approve: отказ по правам или тарифу, код {status}: {detail}"
+            )));
+        }
+        if mentions_tier(detail) {
+            return Some(Verdict::Absent(format!(
+                "approve: признак тарифа: {detail}"
+            )));
+        }
+    }
+    if let Some(verdict) = delivery {
+        return Some(verdict.clone());
+    }
+    match item.state {
+        ItemState::Confirmed => None,
+        ItemState::Failed => Some(Verdict::Fail(format!("approve с актуальным sha: {detail}"))),
+        other => Some(Verdict::Error(format!(
+            "элемент gitlab.approve в {other:?}"
+        ))),
+    }
+}
+
+/// Наблюдённое `gl-approve-sha` для оракула.
+#[derive(Clone, Debug)]
+pub struct ApproveFacts<'a> {
+    /// Записи ревьюера за весь ход тела.
+    pub writes: &'a [Write],
+    /// `sha` и код каждого `approve` ревьюера.
+    pub approves: &'a [ApproveCall],
+    /// Head ревизии сессий (до смены head).
+    pub old_head: &'a str,
+    pub reviewer: &'a str,
+    /// Одобрившие по чтению автора после первого `approve` и в конце.
+    pub after_first: &'a [String],
+    pub at_end: &'a [String],
+    /// Исполнитель на прежней ревизии: остановился на шаге 1 (`HeadChanged`) и его итог.
+    pub stopped: (bool, String),
+    /// Прямой `approve` с прежним `sha`.
+    pub stale: &'a Result<(), ApiError>,
+    /// Элементы отправки на прежней ревизии в `planned`, в `in_flight` не входили.
+    pub stale_planned: bool,
+    pub journal: &'a JournalFacts,
+}
+
+/// Оракул `gl-approve-sha` на живом хосте (ожидание — в отчёте).
+pub fn approve_sha_checks(facts: &ApproveFacts<'_>) -> Checks {
+    let mut checks = Checks::default();
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for write in facts.writes {
+        *counts.entry(write.key.clone()).or_insert(0) += 1;
+    }
+    checks.eq(
+        "записи ревьюера",
+        counts,
+        [(APPROVE.to_owned(), 2), (UNAPPROVE.to_owned(), 1)]
+            .into_iter()
+            .collect(),
+    );
+    let class = |status: Option<u16>| match status {
+        Some(200..=299) => "2xx".to_owned(),
+        Some(status) => status.to_string(),
+        None => "нет ответа".to_owned(),
+    };
+    checks.eq(
+        "approve: sha и коды",
+        facts
+            .approves
+            .iter()
+            .map(|(sha, status)| (sha.clone(), class(*status)))
+            .collect::<Vec<_>>(),
+        vec![
+            (Some(facts.old_head.to_owned()), "2xx".to_owned()),
+            (Some(facts.old_head.to_owned()), "409".to_owned()),
+        ],
+    );
+    checks.check(
+        "автор: ревьюер в одобривших после первого approve",
+        approved(facts.after_first, facts.reviewer),
+        format!("{:?}", facts.after_first),
+    );
+    checks.check(
+        "исполнитель на прежней ревизии останавливается на шаге 1",
+        facts.stopped.0,
+        facts.stopped.1.clone(),
+    );
+    checks.check(
+        "approve с устаревшим sha — 409",
+        matches!(facts.stale, Err(ApiError::ShaRejected(_))),
+        format!("{:?}", facts.stale),
+    );
+    checks.check(
+        "автор: ревьюера нет в одобривших в конце",
+        !approved(facts.at_end, facts.reviewer),
+        format!("{:?}", facts.at_end),
+    );
+    checks.check(
+        "журнал: approve confirmed, итог «полностью»",
+        facts.journal.full_confirmed,
+        facts.journal.states.clone(),
+    );
+    checks.check(
+        "журнал: отправка на прежней ревизии в planned, в in_flight не входила",
+        facts.stale_planned,
+        "",
+    );
+    checks.eq("восстановленные элементы", facts.journal.recovered, 0);
+    checks
+}
+
+/// Отправка `approve` исполнителем на прежней ревизии `snapshot` в журнале клетки: итог
+/// исполнителя, признак «элементы в `planned`, в `in_flight` не входили», сессия и дамп журнала.
+fn stale_submit<T: Transport>(
+    cx: &GlCx<'_, T>,
+    reviewer: &GitLab<&Guarded<T>>,
+    review: &ReviewTarget,
+    snapshot: &MergeSnapshot,
+    caps: &Capabilities,
+    journal: &str,
+) -> Result<((bool, String), bool, ReviewSession, Value), Verdict> {
+    let path = cx.state_dir.join(journal);
+    let project = ProjectId::new(LIVE_PROJECT);
+    let session = ReviewSession::new(
+        &cx.reviewer_login,
+        review.clone(),
+        snapshot.revision.clone(),
+    );
+    let (submission, stopped) = {
+        let journal = Journal::open(&path).map_err(|err| stand("журнал", &err))?;
+        let scope = journal.scope(&project);
+        let id = scope
+            .create_session(&session)
+            .map_err(|err| stand("сессия", &err))?;
+        let plan = GitLabPlan {
+            approve: true,
+            ..GitLabPlan::default()
+        };
+        let submission = plan_gitlab(&scope, id, &plan).map_err(|err| stand("план", &err))?;
+        let run = run_gitlab(&scope, submission.id, reviewer, caps);
+        let stopped = match &run {
+            Err(SubmitError::HeadChanged { .. }) => true,
+            Err(other) => return Err(submit_verdict(other)),
+            Ok(_) => false,
+        };
+        (submission.id, (stopped, format!("{run:?}")))
+    };
+    let journal = Journal::open(&path).map_err(|err| stand("журнал после переоткрытия", &err))?;
+    let scope = journal.scope(&project);
+    let planned = scope
+        .submission(submission)
+        .map_err(|err| stand("отправка в журнале", &err))?
+        .items
+        .iter()
+        .all(|item| item.state == ItemState::Planned && item.in_flight_at.is_none());
+    let dump = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
+    Ok((stopped, planned, session, dump))
+}
+
+fn gl_approve_sha<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Observed, Verdict> {
+    const JOURNAL: &str = "journal-gl-approve-sha.db";
+    let review = cx.review(cell.number);
+    let reviewer = gitlab_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let author = gitlab_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_snapshot(&reviewer, &cx.poll, None, MR_NOT_READY)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| read_or_fail("возможности ревьюера", &err))?;
+    let (_, _, before) = mr_state(&author, &reviewer)?;
+    let before = with_approvers(before, &approvers(&author, "одобрения до")?);
+    let start = cx.trace.len();
+    let sent = submit_drafts(
+        cx,
+        &reviewer,
+        Sending {
+            review: &review,
+            snapshot: &snapshot,
+            caps: &caps,
+            journal: JOURNAL,
+            drafts: &[],
+            plan: GitLabPlan {
+                approve: true,
+                ..GitLabPlan::default()
+            },
+        },
+    )?;
+    let after_first = approvers(&author, "одобрения после первого approve")?;
+    let mut notes = vec![format!(
+        "MR клетки: версия {}",
+        snapshot.version_id.as_str()
+    )];
+    let early = |verdict: Verdict, notes: Vec<String>| -> Result<Observed, Verdict> {
+        let (_, _, after) = mr_state(&author, &reviewer)?;
+        let at_end = approvers(&author, "одобрения после")?;
+        Ok(Observed {
+            notes,
+            before: before.clone(),
+            after: with_approvers(after, &at_end),
+            journal: sent.journal.clone(),
+            tier: caps.plan.clone(),
+            verdict: Some(verdict),
+            ..Observed::default()
+        })
+    };
+    if let Some(verdict) = approve_outcome(&sent.done, &sent.window, sent.delivery.as_ref()) {
+        return early(verdict, notes);
+    }
+    if let Err(err) = reviewer.unapprove() {
+        let verdict = match classify_read(&err) {
+            Ok(text) => Verdict::NotRun(format!("одобрение не снято: {text}")),
+            Err(text) => Verdict::Error(format!("снятие одобрения: {text}")),
+        };
+        return early(verdict, notes);
+    }
+    let unapproved = approvers(&author, "одобрения после unapprove")?;
+    if approved(&unapproved, &cx.reviewer_login) {
+        return early(
+            Verdict::NotRun("одобрение не снято по чтению автора".to_owned()),
+            notes,
+        );
+    }
+    let new_head = cx.head.move_head(cell)?;
+    await_snapshot(&reviewer, &cx.poll, Some(&new_head), MR_HEAD_STALE)?;
+    let (stopped, stale_planned, stale_session, journal) =
+        stale_submit(cx, &reviewer, &review, &snapshot, &caps, JOURNAL)?;
+    let stale = reviewer.approve(&stale_session).map(|_| ());
+    if let Err(err) = &stale
+        && let Err(text) = classify_read(err)
+    {
+        return Err(Verdict::Error(format!("approve с прежним sha: {text}")));
+    }
+    let (_, _, after) = mr_state(&author, &reviewer)?;
+    let at_end = approvers(&author, "одобрения после")?;
+    let calls = cx.trace.calls();
+    let window = calls.get(start..).unwrap_or_default();
+    let writes = writes_of(window, ACTOR_REVIEWER);
+    let approves = approve_calls(window);
+    let checks = approve_sha_checks(&ApproveFacts {
+        writes: &writes,
+        approves: &approves,
+        old_head: snapshot.revision.head_sha().as_str(),
+        reviewer: &cx.reviewer_login,
+        after_first: &after_first,
+        at_end: &at_end,
+        stopped,
+        stale: &stale,
+        stale_planned,
+        journal: &sent.facts,
+    });
+    notes.push(format!("смена head: новый head {new_head}"));
+    Ok(Observed {
+        checks,
+        notes,
+        before,
+        after: with_approvers(after, &at_end),
+        journal,
         tier: caps.plan,
         verdict: None,
     })

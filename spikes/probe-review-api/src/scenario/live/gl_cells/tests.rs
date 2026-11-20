@@ -153,6 +153,14 @@ fn writes_are_keyed_by_kind_and_unknown_writes_keep_their_path() {
         Some(NOTE)
     );
     assert_eq!(
+        key(Method::Post, &format!("{mr}approve"), None).as_deref(),
+        Some(APPROVE)
+    );
+    assert_eq!(
+        key(Method::Post, &format!("{mr}unapprove"), None).as_deref(),
+        Some(UNAPPROVE)
+    );
+    assert_eq!(
         key(Method::Delete, &format!("{mr}draft_notes/41"), None),
         Some(format!("DELETE {mr}draft_notes/41"))
     );
@@ -521,6 +529,7 @@ impl Harness {
             state_dir: &self.state,
             poll: NOW,
             second: &NoSecond,
+            head: &NoHead,
         };
         let mut scrubber = Scrubber::new();
         scrubber.add_repo(REPO);
@@ -695,6 +704,16 @@ fn refused_branch_is_not_run_and_cleanup_reaches_the_result() -> TestResult {
 /// Второй клиент, которого тест не ждёт.
 struct NoSecond;
 
+struct NoHead;
+
+impl HeadMover for NoHead {
+    fn move_head(&self, _: &mut Cell) -> Result<String, Verdict> {
+        Err(Verdict::Error(
+            "смена head в этом тесте не нужна".to_owned(),
+        ))
+    }
+}
+
 impl SecondClient for NoSecond {
     fn create_draft(&self, _: u64, _: u32) -> Result<String, Verdict> {
         Err(Verdict::Error(
@@ -761,6 +780,44 @@ fn cell_body(
     server: &FakeServer<GitlabFake>,
     scenario: Scenario,
 ) -> Result<Result<Observed, Verdict>, Box<dyn std::error::Error>> {
+    cell_body_with(server, scenario, &FakePush { server, push: true })
+}
+
+/// Diff `Fixture::Moved` против `Fixture::Base`: как [`FIXTURE_DIFF`], и строка 27 изменена.
+const MOVED_DIFF: &str = "@@ -1,8 +1,7 @@\n line 01\n line 02\n-line 03\n line 04\n-line 05\n\
++line 05 changed\n line 06\n line 07\n line 08\n@@ -22,6 +21,8 @@\n line 22\n line 23\n line 24\n\
++line 24a\n+line 24b\n line 25\n line 26\n-line 27\n+line 27 moved\n";
+
+/// Смена head в `forge-fake`: новая версия MR с head `NEW_HEAD`; без `push` head не сдвигается,
+/// а новый SHA всё равно отдаётся, как коммит, который MR ещё не учёл.
+struct FakePush<'a> {
+    server: &'a FakeServer<GitlabFake>,
+    push: bool,
+}
+
+impl HeadMover for FakePush<'_> {
+    fn move_head(&self, cell: &mut Cell) -> Result<String, Verdict> {
+        if self.push {
+            self.server
+                .with(|fake| {
+                    fake.push_head(
+                        FAKE_IID,
+                        NEW_HEAD,
+                        vec![FakeDiff::modified("probe-review/fixture.txt", MOVED_DIFF)],
+                    )
+                })
+                .map_err(Verdict::Error)?;
+        }
+        cell.head_commit = NEW_HEAD.to_owned();
+        Ok(NEW_HEAD.to_owned())
+    }
+}
+
+fn cell_body_with(
+    server: &FakeServer<GitlabFake>,
+    scenario: Scenario,
+    mover: &dyn HeadMover,
+) -> Result<Result<Observed, Verdict>, Box<dyn std::error::Error>> {
     let state = tempfile::tempdir()?;
     let trace = Trace::new();
     let target = GuardTarget::gitlab(&Endpoints::instance(server.base()), REPO);
@@ -788,6 +845,7 @@ fn cell_body(
         state_dir: state.path(),
         poll: NOW,
         second: &second,
+        head: mover,
     };
     let mut cell = Cell {
         names: CellNames::new(RUN_ID, scenario.name())?,
@@ -806,6 +864,7 @@ fn cell_body(
         Scenario::GlForeignDraft => gl_foreign_draft(&cx, &mut cell),
         Scenario::GlRequestChanges => gl_request_changes(&cx, &mut cell),
         Scenario::GlAnchors => gl_anchors(&cx, &mut cell),
+        Scenario::GlApproveSha => gl_approve_sha(&cx, &mut cell),
         other => return Err(format!("тело {} в тесте не собрано", other.name()).into()),
     };
     let errors = guard_errors(&[("author", &author), ("reviewer", &reviewer)]);
@@ -1439,4 +1498,175 @@ fn author_observation_refusal_is_a_note_and_its_stand_error_is_an_error() -> Tes
     ));
     scripted.finish()?;
     Ok(())
+}
+
+// --- gl-approve-sha ---
+
+#[test]
+fn approve_sha_body_passes_against_the_fake() -> TestResult {
+    let server = fake_gitlab()?;
+    let observed =
+        cell_body(&server, Scenario::GlApproveSha)?.map_err(|verdict| format!("{verdict:?}"))?;
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(
+        status,
+        Status::Pass,
+        "{reason}: {:?}",
+        observed.checks.to_json()
+    );
+    assert!(observed.verdict.is_none());
+    assert_eq!(observed.before["approved_by"], json!([]));
+    assert_eq!(observed.after["approved_by"], json!([]));
+    assert!(!observed.journal.is_null());
+    assert!(server.with(|fake| fake.approved_by(FAKE_IID)).is_empty());
+    let approves: Vec<ApproveCall> = server
+        .log()
+        .iter()
+        .filter(|call| call.key == glf::APPROVE)
+        .map(|call| (call.body["sha"].as_str().map(str::to_owned), call.status))
+        .collect();
+    assert_eq!(
+        approves,
+        vec![
+            (Some(HEAD.to_owned()), Some(201)),
+            (Some(HEAD.to_owned()), Some(409)),
+        ]
+    );
+    assert!(
+        observed
+            .notes
+            .iter()
+            .any(|note| note.ends_with(&format!("новый head {NEW_HEAD}"))),
+        "{:?}",
+        observed.notes
+    );
+    Ok(())
+}
+
+#[test]
+fn refused_first_approve_is_absent_with_artifacts() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::APPROVE, FakeReply::Status(403)));
+    let observed =
+        cell_body(&server, Scenario::GlApproveSha)?.map_err(|verdict| format!("{verdict:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::Absent(reason)) if reason.contains("код 403")),
+        "{:?}",
+        observed.verdict
+    );
+    for (what, value) in [
+        ("до", &observed.before),
+        ("после", &observed.after),
+        ("журнал", &observed.journal),
+    ] {
+        assert!(!value.is_null(), "{what}");
+    }
+    let unapproves = server
+        .log()
+        .iter()
+        .filter(|call| call.key.ends_with("/unapprove"))
+        .count();
+    assert_eq!(unapproves, 0, "после отказа клетка дальше не идёт");
+    Ok(())
+}
+
+#[test]
+fn head_the_mr_did_not_take_is_not_run() -> TestResult {
+    let server = fake_gitlab()?;
+    let verdict = match cell_body_with(
+        &server,
+        Scenario::GlApproveSha,
+        &FakePush {
+            server: &server,
+            push: false,
+        },
+    )? {
+        Ok(observed) => return Err(format!("ожидался not_run: {:?}", observed.checks).into()),
+        Err(verdict) => verdict,
+    };
+    assert!(
+        matches!(&verdict, Verdict::NotRun(reason) if reason.starts_with(MR_HEAD_STALE)
+            && reason.contains(&format!("head {HEAD}"))),
+        "{verdict:?}"
+    );
+    Ok(())
+}
+
+fn approve_facts_pass() -> (Vec<Write>, Vec<ApproveCall>) {
+    (
+        vec![
+            write(1, APPROVE, None, None),
+            write(2, UNAPPROVE, None, None),
+            write(3, APPROVE, None, None),
+        ],
+        vec![
+            (Some(HEAD.to_owned()), Some(201)),
+            (Some(HEAD.to_owned()), Some(409)),
+        ],
+    )
+}
+
+#[test]
+fn approve_sha_checks_fail_on_an_accepted_or_refused_stale_sha() {
+    let (writes, approves) = approve_facts_pass();
+    let reviewer = vec!["Probe-Reviewer".to_owned()];
+    let journal = facts();
+    let rejected = Err(ApiError::ShaRejected("SHA does not match".to_owned()));
+    let base = ApproveFacts {
+        writes: &writes,
+        approves: &approves,
+        old_head: HEAD,
+        reviewer: "probe-reviewer",
+        after_first: &reviewer,
+        at_end: &[],
+        stopped: (true, "HeadChanged".to_owned()),
+        stale: &rejected,
+        stale_planned: true,
+        journal: &journal,
+    };
+    let (status, reason) = approve_sha_checks(&base).verdict();
+    assert_eq!(status, Status::Pass, "{reason}");
+
+    let accepted = Ok(());
+    let stale_accepted = [
+        (Some(HEAD.to_owned()), Some(201)),
+        (Some(HEAD.to_owned()), Some(201)),
+    ];
+    let checks = approve_sha_checks(&ApproveFacts {
+        approves: &stale_accepted,
+        stale: &accepted,
+        at_end: &reviewer,
+        ..base.clone()
+    });
+    let (status, failed) = checks.verdict();
+    assert_eq!(status, Status::Fail);
+    for name in [
+        "approve: sha и коды",
+        "approve с устаревшим sha — 409",
+        "ревьюера нет в одобривших в конце",
+    ] {
+        assert!(failed.contains(name), "{name}: {failed}");
+    }
+
+    let unauthorized = Err(ApiError::Status {
+        status: 401,
+        message: "401 Unauthorized".to_owned(),
+    });
+    let refused = [
+        (Some(HEAD.to_owned()), Some(201)),
+        (Some(HEAD.to_owned()), Some(401)),
+    ];
+    let checks = approve_sha_checks(&ApproveFacts {
+        approves: &refused,
+        stale: &unauthorized,
+        ..base.clone()
+    });
+    assert_eq!(checks.verdict().0, Status::Fail);
+
+    let checks = approve_sha_checks(&ApproveFacts {
+        stopped: (false, "Ok".to_owned()),
+        stale_planned: false,
+        ..base.clone()
+    });
+    assert_eq!(checks.verdict().0, Status::Fail);
 }

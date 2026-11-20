@@ -45,7 +45,7 @@ use super::Scenario;
 
 mod gl_cells;
 
-pub use gl_cells::{GlCx, Poll, ProcessClient, SECOND_FILE, SecondClient};
+pub use gl_cells::{AuthorCommit, GlCx, HeadMover, Poll, ProcessClient, SECOND_FILE, SecondClient};
 
 /// Причина `not_run` каждой клетки столбца `ghes`.
 pub const GHES_REASON: &str = "нет инсталляции GitHub Enterprise Server, передача P4.1";
@@ -648,6 +648,7 @@ fn gitlab_ce(scenario: Scenario, ctx: &Context, result: &mut ResultFile) {
         column: Column::GitlabCe,
         out: ctx.out.clone(),
     };
+    let head = AuthorCommit { author: &author };
     let cx = GlCx {
         author: &author,
         reviewer: &reviewer,
@@ -657,6 +658,7 @@ fn gitlab_ce(scenario: Scenario, ctx: &Context, result: &mut ResultFile) {
         state_dir: &ctx.state_dir,
         poll: Poll::LIVE,
         second: &second,
+        head: &head,
     };
     gl_cells::run_gl_cell(scenario, &cx, &ctx.out, &scrubber, result);
 }

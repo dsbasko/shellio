@@ -877,6 +877,12 @@ impl<T: Transport> GitLab<T> {
         Ok(approval)
     }
 
+    /// Снятие одобрения токена. Тело ответа не читается: снятие подтверждает только чтение
+    /// одобрений.
+    pub fn unapprove(&self) -> Result<(), ApiError> {
+        self.write_empty(Method::Post, &format!("{}/unapprove", self.mr_path()))
+    }
+
     /// Запрос изменений через `mergeRequestRequestChanges(projectPath, iid)` без SHA-предусловия.
     /// Без мутации в схеме — [`ApiError::Absent`], при роли ниже Developer —
     /// [`ApiError::NotPermitted`]; в обоих случаях запросов нет. Итог проверяется отдельным
