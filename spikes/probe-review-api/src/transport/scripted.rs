@@ -121,10 +121,6 @@ impl Scripted {
         self.push(None, None, reply)
     }
 
-    pub fn exchanges(&self) -> Vec<Exchange> {
-        self.lock().exchanges.clone()
-    }
-
     pub fn requests(&self) -> Vec<Request> {
         self.lock()
             .exchanges

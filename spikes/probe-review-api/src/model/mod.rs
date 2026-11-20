@@ -53,15 +53,6 @@ pub struct ReviewTarget {
     pub number: u64,
 }
 
-/// Тред на сервере: ID, якорь (если тред к строке), состояние resolve, ID комментариев.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Thread {
-    pub id: ProviderId,
-    pub anchor: Option<Anchor>,
-    pub resolved: bool,
-    pub comment_ids: Vec<ProviderId>,
-}
-
 /// Локальный ID черновика в журнале.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DraftId(pub u64);

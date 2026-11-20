@@ -185,10 +185,6 @@ impl<T: Transport> Guarded<T> {
         &self.target
     }
 
-    pub fn inner(&self) -> &T {
-        &self.inner
-    }
-
     fn state(&self) -> MutexGuard<'_, State> {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }

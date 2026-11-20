@@ -561,10 +561,6 @@ impl GithubFake {
         self.pulls.get(&number).map(|pull| pull.head().sha.clone())
     }
 
-    pub fn pull_node_id(&self, number: u64) -> Option<String> {
-        self.pulls.get(&number).map(|pull| pull.node_id.clone())
-    }
-
     /// `PENDING` другого клиента того же пользователя (браузер): создаётся в обход HTTP,
     /// счётчики вызовов не меняются. Возвращает ID review и комментариев.
     pub fn plant_pending(

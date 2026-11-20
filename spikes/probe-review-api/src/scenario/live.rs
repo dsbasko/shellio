@@ -989,46 +989,6 @@ pub fn mentions_tier(text: &str) -> bool {
     .any(|word| lower.contains(word))
 }
 
-/// Отказ `approve` GitLab: по правам или тарифу — `absent`, 409 — наблюдение для оракула
-/// клетки (`fail` по умолчанию: вызывающий решает по ветви), отказ транспорта и 5xx — ошибка.
-pub fn approve_verdict(err: &ApiError) -> Verdict {
-    match err {
-        ApiError::Absent(what) => Verdict::Absent(format!("approve: нет возможности: {what}")),
-        ApiError::NotPermitted {
-            access_level,
-            required,
-        } => Verdict::Absent(format!("approve: роль {access_level:?} ниже {required}")),
-        ApiError::Status {
-            status: 401 | 403,
-            message,
-        } => Verdict::Absent(format!("approve: отказ по правам или тарифу: {message}")),
-        ApiError::Status { status, message } if mentions_tier(message) => {
-            Verdict::Absent(format!("approve: код {status}, признак тарифа: {message}"))
-        }
-        other => read_or_fail("approve", other),
-    }
-}
-
-/// Отказ `mergeRequestRequestChanges`: признак тарифа или лицензии и отсутствие в схеме —
-/// `absent`, другой отказ — `fail` с текстом ответа, отказ транспорта и 5xx — ошибка.
-pub fn request_changes_verdict(err: &ApiError) -> Verdict {
-    let text = err.to_string();
-    match err {
-        ApiError::Absent(what) => Verdict::Absent(format!("mergeRequestRequestChanges: {what}")),
-        ApiError::Graphql(_)
-        | ApiError::Payload(_)
-        | ApiError::Unavailable(_)
-        | ApiError::Status { .. }
-            if mentions_tier(&text) =>
-        {
-            Verdict::Absent(format!(
-                "mergeRequestRequestChanges: признак тарифа: {text}"
-            ))
-        }
-        other => read_or_fail("mergeRequestRequestChanges", other),
-    }
-}
-
 /// Отказ действия, не опознанный как отсутствие возможности: явный лимит — `not_run` «лимит»
 /// (запись не принята, повтора с ожиданием нет), неподтверждённое чтение итога — по ошибке
 /// чтения, прочее — по [`classify_read`].
@@ -2018,12 +1978,7 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
             Verdict::Error(_)
         ));
 
-        let status = |status: u16, message: &str| ApiError::Status {
-            status,
-            message: message.to_owned(),
-        };
-        let absent = approve_verdict(&status(401, "401 Unauthorized"));
-        assert!(matches!(absent, Verdict::Absent(_)), "{absent:?}");
+        let absent = Verdict::Absent("approve: отказ по правам или тарифу".to_owned());
         let mut with_version = ResultFile::new("s", "b", "gl-approve-sha", Column::GitlabCloud);
         with_version.host = Host {
             version: Some("GitLab 19.6.1 (CE)".to_owned()),
@@ -2043,48 +1998,32 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
             "absent без версии — ошибка исполнения"
         );
         assert!(matches!(
-            approve_verdict(&ApiError::ShaRejected("409".to_owned())),
+            read_or_fail("approve", &ApiError::ShaRejected("409".to_owned())),
             Verdict::Fail(_)
         ));
         assert!(matches!(
-            approve_verdict(&status(502, "")),
-            Verdict::Error(_)
-        ));
-
-        let licensed = ApiError::Graphql(vec![crate::gitlab::GraphqlError {
-            code: None,
-            message: "This feature requires a Premium license".to_owned(),
-        }]);
-        assert!(matches!(
-            request_changes_verdict(&licensed),
-            Verdict::Absent(_)
-        ));
-        assert!(matches!(
-            request_changes_verdict(&ApiError::Absent("mergeRequestRequestChanges")),
-            Verdict::Absent(_)
-        ));
-        let other = ApiError::Payload(vec!["Reviewer not found".to_owned()]);
-        assert!(matches!(request_changes_verdict(&other), Verdict::Fail(_)));
-        assert!(matches!(
-            request_changes_verdict(&ApiError::Transport(crate::transport::Failure::timeout(
-                "x"
-            ))),
-            Verdict::Error(_)
-        ));
-
-        assert!(matches!(
-            approve_verdict(&ApiError::RateLimited {
-                status: 429,
-                detail: "Retry later".to_owned()
-            }),
+            read_or_fail(
+                "approve",
+                &ApiError::RateLimited {
+                    status: 429,
+                    detail: "Retry later".to_owned()
+                }
+            ),
             Verdict::NotRun(reason) if reason.starts_with("лимит")
         ));
-        let lost = ApiError::Unverified(Box::new(ApiError::Transport(
-            crate::transport::Failure::timeout("x"),
-        )));
-        assert!(matches!(request_changes_verdict(&lost), Verdict::Error(_)));
-        let lost_5xx = ApiError::Unverified(Box::new(status(503, "")));
-        assert!(matches!(approve_verdict(&lost_5xx), Verdict::Error(_)));
+        for lost in [
+            ApiError::Transport(crate::transport::Failure::timeout("x")),
+            ApiError::Status {
+                status: 503,
+                message: String::new(),
+            },
+        ] {
+            let verdict = read_or_fail("approve", &ApiError::Unverified(Box::new(lost)));
+            assert!(
+                matches!(&verdict, Verdict::Error(reason) if reason.starts_with("итог записи не прочитан")),
+                "{verdict:?}"
+            );
+        }
 
         let mut not_run = ResultFile::new("s", "b", "gl-anchors", Column::GitlabCloud);
         Verdict::NotRun(MR_NOT_READY.to_owned()).apply(&mut not_run, &scrubber);

@@ -579,14 +579,6 @@ impl<T: Transport> Traced<T> {
             actor,
         }
     }
-
-    pub fn inner(&self) -> &T {
-        &self.inner
-    }
-
-    pub fn trace(&self) -> &Trace {
-        &self.trace
-    }
 }
 
 impl<T: Transport> Transport for Traced<T> {
