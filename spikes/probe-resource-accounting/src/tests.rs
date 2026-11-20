@@ -136,7 +136,10 @@ fn unknown_modes_and_extra_arguments_are_refused() {
     assert!(dispatch(args(&["--bogus"])).is_err());
     assert!(dispatch(args(&["--list", "extra"])).is_err());
     assert!(dispatch(args(&["--scenario", "nope", "--out", "/nonexistent"])).is_err());
-    assert!(dispatch(args(&["--fixture", "load"])).is_err());
+    assert_eq!(
+        dispatch(args(&["--fixture", "load"])),
+        Ok(fixture::EXIT_USAGE)
+    );
     assert!(dispatch(args(&["--observer"])).is_err());
 }
 

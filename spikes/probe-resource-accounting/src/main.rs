@@ -3,7 +3,7 @@
 //! Режимы:
 //! - `--list` — сценарии: имя, `measured` или `free`, точки оси;
 //! - `--scenario <имя> [--point <точка>] --out <каталог>` — процесс сценария;
-//! - `--fixture <режим>` — фикстура процессов (задача 5);
+//! - `--fixture <режим> --channel <сокет> --name <имя> --out <каталог> …` — фикстура процессов;
 //! - `--observer` — наблюдатель стоимости (задача 11);
 //! - `--aggregate <каталог прогона>` — `summary.json` и `summary.md`;
 //! - служебные режимы `run.sh`: `--params`, `--fingerprint`, `--status-set`, `--status-pending`,
@@ -15,6 +15,7 @@
 )]
 mod attrib;
 mod background;
+mod fixture;
 mod proc;
 mod results;
 mod runstate;
@@ -180,12 +181,7 @@ fn dispatch(mut rest: Vec<String>) -> Result<i32, String> {
             let name = take_positional(&mut args, "--scenario")?;
             run_scenario(args, &name)
         }
-        "--fixture" => {
-            let mode = take_positional(&mut args, "--fixture")?;
-            Err(format!(
-                "неизвестный режим фикстуры «{mode}»: режимы появляются в задаче 5"
-            ))
-        }
+        "--fixture" => Ok(fixture::main(args.rest)),
         "--observer" => Err("наблюдатель появляется в задаче 11".to_owned()),
         "--aggregate" => {
             let run_dir = take_positional(&mut args, "--aggregate")?;
