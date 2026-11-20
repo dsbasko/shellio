@@ -804,6 +804,7 @@ fn cell_body(
     let observed = match scenario {
         Scenario::GlDraftPublish => gl_draft_publish(&cx, &mut cell),
         Scenario::GlForeignDraft => gl_foreign_draft(&cx, &mut cell),
+        Scenario::GlRequestChanges => gl_request_changes(&cx, &mut cell),
         other => return Err(format!("тело {} в тесте не собрано", other.name()).into()),
     };
     let errors = guard_errors(&[("author", &author), ("reviewer", &reviewer)]);
@@ -1049,4 +1050,246 @@ fn second_client_reply_forms() {
             "{code:?} {out:?}"
         );
     }
+}
+
+// --- gl-request-changes ---
+
+fn request_changes_fake(mode: glf::RequestChangesMode) -> Result<FakeServer<GitlabFake>, String> {
+    let server = fake_gitlab()?;
+    server.with(|fake| fake.set_request_changes(mode));
+    Ok(server)
+}
+
+fn mutation_calls(server: &FakeServer<GitlabFake>) -> usize {
+    server
+        .log()
+        .iter()
+        .filter(|call| call.key == glf::REQUEST_CHANGES)
+        .count()
+}
+
+fn request_changes_body(
+    server: &FakeServer<GitlabFake>,
+) -> Result<Observed, Box<dyn std::error::Error>> {
+    cell_body(server, Scenario::GlRequestChanges)?.map_err(|verdict| format!("{verdict:?}").into())
+}
+
+#[test]
+fn request_changes_body_passes_against_the_fake() -> TestResult {
+    let server = request_changes_fake(glf::RequestChangesMode::Available)?;
+    let observed = request_changes_body(&server)?;
+    assert_eq!(observed.verdict, None);
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(
+        status,
+        Status::Pass,
+        "{reason}: {:?}",
+        observed.checks.to_json()
+    );
+    assert_eq!(
+        server.with(|fake| fake.reviewer_state(FAKE_IID, FAKE_REVIEWER)),
+        Some(glf::ReviewerState::RequestedChanges)
+    );
+    assert_eq!(observed.after["reviewer_state"], "REQUESTED_CHANGES");
+    assert_ne!(observed.before["reviewer_state"], "REQUESTED_CHANGES");
+    assert!(server.with(|fake| fake.notes(FAKE_IID)).is_empty());
+    // Вызов ревьюера и вызов-наблюдение автора.
+    assert_eq!(mutation_calls(&server), 2);
+    let injections = observed
+        .notes
+        .iter()
+        .filter(|note| note.ends_with(&format!("not_run «{INJECTION_UNAVAILABLE}»")))
+        .count();
+    assert_eq!(injections, 2, "{:?}", observed.notes);
+    assert!(
+        observed.notes.iter().any(|note| note.starts_with(
+            "наблюдение: mergeRequestRequestChanges токеном автора (не ревьюер MR): отказ: "
+        )),
+        "{:?}",
+        observed.notes
+    );
+    assert!(!observed.journal.is_null());
+    Ok(())
+}
+
+#[test]
+fn request_changes_absent_from_the_schema_is_absent_without_a_call() -> TestResult {
+    let server = request_changes_fake(glf::RequestChangesMode::Absent)?;
+    let observed = request_changes_body(&server)?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::Absent(reason)) if reason.contains("нет в схеме")),
+        "{:?}",
+        observed.verdict
+    );
+    assert_eq!(mutation_calls(&server), 0);
+    assert_eq!(
+        observed
+            .notes
+            .iter()
+            .filter(|note| note.contains(INJECTION_UNAVAILABLE))
+            .count(),
+        1,
+        "{:?}",
+        observed.notes
+    );
+    let mut scrubber = Scrubber::new();
+    scrubber.add_gitlab_ce(server.base());
+    let mut result = ResultFile::new("s", "b", "gl-request-changes", Column::GitlabCe);
+    result.host.version = Some("GitLab 19.6.1 (CE)".to_owned());
+    let verdict = record_observed(&observed, &scrubber, &mut result);
+    assert!(matches!(verdict, Some(Verdict::Absent(_))), "{verdict:?}");
+    assert!(result.server_after.is_some() && result.journal.is_some());
+    Ok(())
+}
+
+#[test]
+fn refused_request_changes_fails_and_an_execution_error_is_not_observed() -> TestResult {
+    for mode in [
+        glf::RequestChangesMode::Forbidden,
+        glf::RequestChangesMode::PayloadError,
+    ] {
+        let server = request_changes_fake(mode)?;
+        let observed = request_changes_body(&server)?;
+        assert!(
+            matches!(&observed.verdict, Some(Verdict::Fail(reason))
+                if reason.starts_with("mergeRequestRequestChanges: ")),
+            "{mode:?}: {:?}",
+            observed.verdict
+        );
+        assert_ne!(
+            server.with(|fake| fake.reviewer_state(FAKE_IID, FAKE_REVIEWER)),
+            Some(glf::ReviewerState::RequestedChanges)
+        );
+        assert!(server.with(|fake| fake.notes(FAKE_IID)).is_empty());
+    }
+    let server = request_changes_fake(glf::RequestChangesMode::ExecutionError)?;
+    let observed = request_changes_body(&server)?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::NotRun(reason)) if reason.starts_with(WRITE_UNOBSERVED)),
+        "{:?}",
+        observed.verdict
+    );
+    Ok(())
+}
+
+fn caps_with(mutations: &[&str]) -> Capabilities {
+    Capabilities {
+        username: FAKE_REVIEWER.to_owned(),
+        host: crate::gitlab::HostVersion {
+            version: "19.6.1".to_owned(),
+            revision: None,
+            enterprise: Some(false),
+            source: "metadata",
+        },
+        plan: None,
+        plan_source: None,
+        visibility: "private".to_owned(),
+        access_level: Some(30),
+        mutations: mutations.iter().map(|name| (*name).to_owned()).collect(),
+        introspection: crate::gitlab::capabilities::FORM_TYPE,
+    }
+}
+
+fn request_changes_report(state: ItemState, detail: &str) -> Report {
+    let mut item = item(1, Operation::GitLabRequestChanges, state);
+    item.detail = Some(detail.to_owned());
+    Report {
+        submission: SubmissionId(1),
+        delivery: Delivery::Partial,
+        closed: true,
+        unresolved: usize::from(state == ItemState::Unknown),
+        items: vec![item],
+    }
+}
+
+#[test]
+fn request_changes_outcome_puts_schema_and_tier_before_the_delivery_rule() {
+    let caps = caps_with(&[capabilities::REQUEST_CHANGES]);
+    let unobserved = Verdict::NotRun(WRITE_UNOBSERVED.to_owned());
+    let tier = "GraphQL: This feature requires GitLab Premium";
+    for state in [ItemState::Failed, ItemState::Unknown] {
+        let delivery = (state == ItemState::Unknown).then_some(&unobserved);
+        assert!(matches!(
+            request_changes_outcome(&caps, &request_changes_report(state, tier), delivery),
+            Some(Verdict::Absent(reason)) if reason.contains("признак тарифа")
+        ));
+    }
+    let schema = ApiError::Absent(capabilities::REQUEST_CHANGES).to_string();
+    assert!(matches!(
+        request_changes_outcome(&caps, &request_changes_report(ItemState::Failed, &schema), None),
+        Some(Verdict::Absent(reason)) if reason.contains("нет в схеме")
+    ));
+    assert!(matches!(
+        request_changes_outcome(
+            &caps_with(&[]),
+            &request_changes_report(ItemState::Failed, "x"),
+            None
+        ),
+        Some(Verdict::Absent(_))
+    ));
+    assert_eq!(
+        request_changes_outcome(
+            &caps,
+            &request_changes_report(ItemState::Unknown, "502"),
+            Some(&unobserved)
+        ),
+        Some(unobserved.clone())
+    );
+    let limit =
+        Verdict::NotRun("лимит: код 429 на запись graphql mergeRequestRequestChanges".to_owned());
+    assert_eq!(
+        request_changes_outcome(
+            &caps,
+            &request_changes_report(ItemState::Failed, "Retry later"),
+            Some(&limit)
+        ),
+        Some(limit.clone())
+    );
+    assert_eq!(
+        request_changes_outcome(
+            &caps,
+            &request_changes_report(ItemState::Failed, "payload.errors: Reviewer not found"),
+            None
+        ),
+        Some(Verdict::Fail(
+            "mergeRequestRequestChanges: payload.errors: Reviewer not found".to_owned()
+        ))
+    );
+    assert_eq!(
+        request_changes_outcome(
+            &caps,
+            &request_changes_report(ItemState::Confirmed, ""),
+            None
+        ),
+        None
+    );
+    assert!(matches!(
+        request_changes_outcome(&caps, &sent(&[ItemState::Confirmed]), None),
+        Some(Verdict::Error(_))
+    ));
+}
+
+#[test]
+fn request_changes_checks_count_writes_and_read_the_state_by_the_author() {
+    let journal = facts();
+    let writes = vec![write(5, REQUEST_CHANGES, None, None)];
+    let pass = request_changes_checks(
+        &writes,
+        true,
+        Some(ReviewerState::RequestedChanges),
+        &journal,
+    );
+    assert_eq!(pass.verdict().0, Status::Pass, "{:?}", pass.to_json());
+    let substituted = vec![
+        write(5, REQUEST_CHANGES, None, None),
+        write(6, NOTE, None, None),
+    ];
+    let fail = request_changes_checks(&substituted, true, Some(ReviewerState::Reviewed), &journal);
+    assert_eq!(fail.verdict().0, Status::Fail);
+    let failed: Vec<String> = fail
+        .to_json()
+        .into_iter()
+        .filter(|line| line.starts_with("НЕТ"))
+        .collect();
+    assert_eq!(failed.len(), 2, "{failed:?}");
 }

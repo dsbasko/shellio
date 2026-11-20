@@ -12,13 +12,14 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-use super::{MR_NOT_READY, classify_read, step_verdict};
+use super::{INJECTION_UNAVAILABLE, MR_NOT_READY, classify_read, mentions_tier, step_verdict};
 use super::{Verdict, gitlab_adapter, guard_errors, live_repo, read_or_fail, record_cleanup};
 use crate::fake::{GraphqlKind, graphql_root};
 use crate::gitlab::{
     ApiError, Capabilities, GitLab, MergeSnapshot, RemoteDraft, RemoteNote, RemotePosition,
+    ReviewerState, capabilities,
 };
-use crate::journal::{ItemState, Journal, ProjectId};
+use crate::journal::{ItemState, Journal, Operation, ProjectId};
 use crate::live::guard::Guarded;
 use crate::live::lifecycle::{Cell, CellNames, LEDGER_FILE, Ledger, Roles, run_cell};
 use crate::model::anchor::Side;
@@ -35,6 +36,7 @@ pub const DRAFT_CREATE: &str = "POST draft_notes";
 pub const DRAFT_PUBLISH: &str = "PUT draft_notes/{id}/publish";
 pub const BULK_PUBLISH: &str = "POST draft_notes/bulk_publish";
 pub const NOTE: &str = "POST notes";
+pub const REQUEST_CHANGES: &str = "graphql mergeRequestRequestChanges";
 
 /// Проект журнала живой клетки.
 const LIVE_PROJECT: &str = "live-gitlab";
@@ -113,6 +115,8 @@ pub struct Observed {
     pub after: Value,
     pub journal: Value,
     pub tier: Option<String>,
+    /// Итог по отказу хоста вместо итога проверок; артефакты пишутся так же.
+    pub verdict: Option<Verdict>,
 }
 
 /// Клетка строки GitLab: ветки и MR от автора, тело сценария, уборка в любом случае, итог.
@@ -182,6 +186,7 @@ fn cell_verdict<T: Transport>(
         Ok(match scenario {
             Scenario::GlDraftPublish => gl_draft_publish(cx, cell),
             Scenario::GlForeignDraft => gl_foreign_draft(cx, cell),
+            Scenario::GlRequestChanges => gl_request_changes(cx, cell),
             other => Err(Verdict::Error(format!(
                 "сценарий {} в живом столбце GitLab не реализован",
                 other.name()
@@ -237,6 +242,9 @@ fn record_observed(
             "нет обязательных артефактов: {}",
             missing.join(", ")
         )));
+    }
+    if let Some(verdict) = &observed.verdict {
+        return Some(verdict.clone());
     }
     let (status, reason) = observed.checks.verdict();
     result.status = status;
@@ -576,6 +584,10 @@ fn stand(what: &str, err: &dyn std::fmt::Display) -> Verdict {
 /// Отправка исполнителем в журнале клетки: записи ревьюера в окне отправки, итог журнала после
 /// переоткрытия и его дамп. Итог, который оракул записей не судит, — по [`delivery_verdict`].
 struct Submitted {
+    /// Итог отправки, который оракул записей не судит ([`delivery_verdict`]).
+    delivery: Option<Verdict>,
+    /// Итог журнала после переоткрытия.
+    done: Report,
     writes: Vec<Write>,
     facts: JournalFacts,
     /// Удалённые ID черновиков и элементов журнала.
@@ -621,9 +633,7 @@ fn submit_drafts<T: Transport>(
     };
     let calls = cx.trace.calls();
     let window = calls.get(start..).unwrap_or_default();
-    if let Some(verdict) = delivery_verdict(&sent, window, ACTOR_REVIEWER) {
-        return Err(verdict);
-    }
+    let delivery = delivery_verdict(&sent, window, ACTOR_REVIEWER);
     let writes = writes_of(window, ACTOR_REVIEWER);
     let journal = Journal::open(&path).map_err(|err| stand("журнал после переоткрытия", &err))?;
     let scope = journal.scope(&project);
@@ -654,12 +664,23 @@ fn submit_drafts<T: Transport>(
         remote_ids: drafts.iter().all(|draft| draft.remote_id.is_some()),
         recovered: journal.recovered().len(),
     };
+    let journal_dump = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
     Ok(Submitted {
+        delivery,
+        done,
         writes,
         facts,
         remote_ids,
-        journal: dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?,
+        journal: journal_dump,
     })
+}
+
+/// Отправка, итог которой судят проверки клетки: итог, который оракул записей не судит, — сразу.
+fn delivered(sent: Submitted) -> Result<Submitted, Verdict> {
+    match sent.delivery {
+        Some(verdict) => Err(verdict),
+        None => Ok(sent),
+    }
 }
 
 fn new_lines<'s>(drafts: &[(Spot, &'s str)]) -> Vec<(u32, &'s str)> {
@@ -681,7 +702,7 @@ fn gl_draft_publish<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<O
         .capabilities()
         .map_err(|err| read_or_fail("возможности ревьюера", &err))?;
     let (_, _, before) = mr_state(&author, &reviewer)?;
-    let sent = submit_drafts(
+    let sent = delivered(submit_drafts(
         cx,
         &reviewer,
         Sending {
@@ -695,7 +716,7 @@ fn gl_draft_publish<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<O
                 ..GitLabPlan::default()
             },
         },
-    )?;
+    )?)?;
     let (notes, drafts, after) = mr_state(&author, &reviewer)?;
     let expected = new_lines(&PUBLISH_DRAFTS);
     let checks = draft_publish_checks(
@@ -716,6 +737,7 @@ fn gl_draft_publish<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<O
         after,
         journal: sent.journal,
         tier: caps.plan,
+        verdict: None,
     })
 }
 
@@ -915,7 +937,7 @@ fn gl_foreign_draft<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<O
         .map_err(|err| read_or_fail("возможности ревьюера", &err))?;
     let foreign = cx.second.create_draft(cell.number, FOREIGN_LINE)?;
     let (_, _, before) = mr_state(&author, &reviewer)?;
-    let sent = submit_drafts(
+    let sent = delivered(submit_drafts(
         cx,
         &reviewer,
         Sending {
@@ -926,7 +948,7 @@ fn gl_foreign_draft<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<O
             drafts: &OWN_DRAFTS,
             plan: GitLabPlan::default(),
         },
-    )?;
+    )?)?;
     let (notes, drafts, after) = mr_state(&author, &reviewer)?;
     let own = new_lines(&OWN_DRAFTS)
         .first()
@@ -951,6 +973,181 @@ fn gl_foreign_draft<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<O
         after,
         journal: sent.journal,
         tier: caps.plan,
+        verdict: None,
+    })
+}
+
+/// Итог `gl-request-changes` по элементу отправки: отказ при мутации, которой нет в схеме, или
+/// с признаком тарифа — `absent`; затем итог, который оракул записей не судит (`delivery`);
+/// другой отказ — `fail` с текстом; `confirmed` судят проверки (`None`).
+pub fn request_changes_outcome(
+    caps: &Capabilities,
+    done: &Report,
+    delivery: Option<&Verdict>,
+) -> Option<Verdict> {
+    let Some(item) = done
+        .items
+        .iter()
+        .find(|item| item.operation == Operation::GitLabRequestChanges)
+    else {
+        return Some(Verdict::Error(
+            "в отправке нет элемента gitlab.request_changes".to_owned(),
+        ));
+    };
+    let detail = item.detail.as_deref().unwrap_or("без подробностей");
+    if matches!(item.state, ItemState::Failed | ItemState::Unknown) {
+        let schema = ApiError::Absent(capabilities::REQUEST_CHANGES).to_string();
+        if !caps.request_changes() || detail == schema {
+            return Some(Verdict::Absent(format!(
+                "{}: нет в схеме: {detail}",
+                capabilities::REQUEST_CHANGES
+            )));
+        }
+        if mentions_tier(detail) {
+            return Some(Verdict::Absent(format!(
+                "{}: признак тарифа: {detail}",
+                capabilities::REQUEST_CHANGES
+            )));
+        }
+    }
+    if let Some(verdict) = delivery {
+        return Some(verdict.clone());
+    }
+    match item.state {
+        ItemState::Confirmed => None,
+        ItemState::Failed => Some(Verdict::Fail(format!(
+            "{}: {detail}",
+            capabilities::REQUEST_CHANGES
+        ))),
+        other => Some(Verdict::Error(format!(
+            "элемент gitlab.request_changes в {other:?}"
+        ))),
+    }
+}
+
+/// Оракул `gl-request-changes` на живом хосте (ожидание — в отчёте).
+pub fn request_changes_checks(
+    writes: &[Write],
+    schema: bool,
+    state_after: Option<ReviewerState>,
+    journal: &JournalFacts,
+) -> Checks {
+    let mut checks = Checks::default();
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for write in writes {
+        *counts.entry(write.key.clone()).or_insert(0) += 1;
+    }
+    let expected: BTreeMap<String, usize> = schema
+        .then(|| (REQUEST_CHANGES.to_owned(), 1))
+        .into_iter()
+        .collect();
+    checks.eq("записи ревьюера", counts, expected);
+    checks.eq(
+        "состояние ревьюера по чтению автора",
+        state_after.map(ReviewerState::graphql),
+        Some(ReviewerState::RequestedChanges.graphql()),
+    );
+    checks.check(
+        "журнал: все элементы confirmed, итог «полностью»",
+        journal.full_confirmed,
+        journal.states.clone(),
+    );
+    checks.eq("восстановленные элементы", journal.recovered, 0);
+    checks
+}
+
+fn with_reviewer_state(mut value: Value, state: Option<ReviewerState>) -> Value {
+    value["reviewer_state"] = json!(state.map(ReviewerState::graphql));
+    value
+}
+
+/// Наблюдение `gl-request-changes`: тот же вызов токеном автора (не ревьюер MR). Итог клетки не
+/// меняет; отказ транспорта и 5xx — ошибка исполнения, как у чтений.
+fn author_request_changes<T: Transport>(author: &GitLab<T>) -> Result<String, Verdict> {
+    let caps = author
+        .capabilities()
+        .map_err(|err| read_or_fail("возможности автора", &err))?;
+    let outcome = match author.request_changes(&caps) {
+        Ok(state) => format!("принят, состояние {}", state.graphql()),
+        Err(err) => match classify_read(&err) {
+            Ok(text) => format!("отказ: {text}"),
+            Err(stand) => {
+                return Err(Verdict::Error(format!(
+                    "наблюдение токеном автора: {stand}"
+                )));
+            }
+        },
+    };
+    Ok(format!(
+        "наблюдение: {} токеном автора (не ревьюер MR): {outcome}",
+        capabilities::REQUEST_CHANGES
+    ))
+}
+
+fn gl_request_changes<T: Transport>(
+    cx: &GlCx<'_, T>,
+    cell: &mut Cell,
+) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = gitlab_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let author = gitlab_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_snapshot(&reviewer, &cx.poll, None, MR_NOT_READY)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| read_or_fail("возможности ревьюера", &err))?;
+    let state = |what: &str| {
+        author
+            .reviewer_state(&cx.reviewer_login)
+            .map_err(|err| read_or_fail(what, &err))
+    };
+    let (_, _, before) = mr_state(&author, &reviewer)?;
+    let before = with_reviewer_state(before, state("состояние ревьюера до")?);
+    let sent = submit_drafts(
+        cx,
+        &reviewer,
+        Sending {
+            review: &review,
+            snapshot: &snapshot,
+            caps: &caps,
+            journal: "journal-gl-request-changes.db",
+            drafts: &[],
+            plan: GitLabPlan {
+                request_changes: true,
+                ..GitLabPlan::default()
+            },
+        },
+    )?;
+    let (_, _, after) = mr_state(&author, &reviewer)?;
+    let state_after = state("состояние ревьюера после")?;
+    let after = with_reviewer_state(after, state_after);
+    let verdict = request_changes_outcome(&caps, &sent.done, sent.delivery.as_ref());
+    let checks = request_changes_checks(
+        &sent.writes,
+        caps.request_changes(),
+        state_after,
+        &sent.facts,
+    );
+    let mut notes = vec![format!(
+        "MR клетки: версия {}",
+        snapshot.version_id.as_str()
+    )];
+    if caps.request_changes() {
+        notes.push(format!(
+            "ветвь «мутации нет в схеме»: not_run «{INJECTION_UNAVAILABLE}»"
+        ));
+    }
+    notes.push(format!(
+        "ветвь «ошибка верхнего уровня при HTTP 200»: not_run «{INJECTION_UNAVAILABLE}»"
+    ));
+    notes.push(author_request_changes(&author)?);
+    Ok(Observed {
+        checks,
+        notes,
+        before,
+        after,
+        journal: sent.journal,
+        tier: caps.plan,
+        verdict,
     })
 }
 
