@@ -181,12 +181,17 @@ fn pace_uses_one_worker_up_to_one_core_and_two_above() {
 }
 
 #[test]
-fn next_period_keeps_the_schedule_and_skips_missed_periods() {
-    assert_eq!(next_period(0, 10), 1);
-    assert_eq!(next_period(9, 10), 1);
-    assert_eq!(next_period(10, 10), 2);
-    assert_eq!(next_period(35, 10), 4);
-    assert_eq!(next_period(5, 0), 6);
+fn next_period_keeps_the_schedule_without_losing_a_period() {
+    // Квота достигнута внутри периода: ждать начала следующего.
+    assert_eq!(next_period(0, 7, 10), 1);
+    assert_eq!(next_period(3, 39, 10), 4);
+    // Занятая фаза дошла до конца периода (доля 1,0 или вытеснение): следующий период уже
+    // начался и доигрывается сразу, а не через целый период простоя.
+    assert_eq!(next_period(0, 10, 10), 1);
+    assert_eq!(next_period(0, 12, 10), 1);
+    // Пропущенные целиком периоды не догоняются.
+    assert_eq!(next_period(0, 35, 10), 3);
+    assert_eq!(next_period(2, 5, 0), 5);
 }
 
 #[test]

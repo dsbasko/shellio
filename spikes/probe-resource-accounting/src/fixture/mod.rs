@@ -306,10 +306,10 @@ impl Pace {
     }
 }
 
-/// Номер следующего периода, начало которого позже `elapsed_ns` от старта: пропущенные
-/// периоды не догоняются, расписание не сдвигается.
-pub fn next_period(elapsed_ns: u64, period_ns: u64) -> u64 {
-    elapsed_ns / period_ns.max(1) + 1
+/// Номер следующего периода после периода `index`: период, идущий в момент `elapsed_ns`,
+/// доигрывается без ожидания, пропущенные целиком не догоняются, расписание не сдвигается.
+pub fn next_period(index: u64, elapsed_ns: u64, period_ns: u64) -> u64 {
+    (elapsed_ns / period_ns.max(1)).max(index + 1)
 }
 
 /// Одинарные кавычки POSIX-оболочки: `'` внутри — `'\''`.
@@ -650,7 +650,7 @@ fn worker(pace: Pace, stop: Arc<Stop>) {
             }
         }
         let elapsed = start.elapsed().as_nanos() as u64;
-        index = next_period(elapsed, period_ns);
+        index = next_period(index, elapsed, period_ns);
         let next = start + Duration::from_nanos(index * period_ns);
         if stop.wait_until(next) {
             return;

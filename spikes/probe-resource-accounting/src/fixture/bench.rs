@@ -121,13 +121,32 @@ impl Bench {
             return false;
         }
         match self.rx.recv_timeout(deadline - now) {
-            Ok(Incoming::Hello { name, writer }) => {
+            Ok(incoming) => self.handle(incoming),
+            Err(RecvTimeoutError::Timeout) => false,
+            Err(RecvTimeoutError::Disconnected) => {
+                self.faults
+                    .push("поток приёма соединений завершился".to_owned());
+                false
+            }
+        }
+    }
+
+    /// Разбирает уже пришедшие события без ожидания.
+    fn drain(&mut self) {
+        while let Ok(incoming) = self.rx.try_recv() {
+            self.handle(incoming);
+        }
+    }
+
+    fn handle(&mut self, incoming: Incoming) -> bool {
+        match incoming {
+            Incoming::Hello { name, writer } => {
                 if self.links.insert(name.clone(), writer).is_some() {
                     self.faults.push(format!("повторное соединение «{name}»"));
                 }
                 self.seen.entry(name).or_default();
             }
-            Ok(Incoming::Event { name, event }) => {
+            Incoming::Event { name, event } => {
                 let event = *event;
                 let seen = self.seen.entry(name).or_default();
                 if let Event::Ready { receipt } = &event {
@@ -135,22 +154,27 @@ impl Bench {
                 }
                 seen.events.push(event);
             }
-            Ok(Incoming::Bad { name, error }) => self.faults.push(match name {
+            Incoming::Bad { name, error } => self.faults.push(match name {
                 Some(name) => format!("«{name}»: {error}"),
                 None => error,
             }),
-            Ok(Incoming::Closed { name }) => {
+            Incoming::Closed { name } => {
                 self.seen.entry(name.clone()).or_default().closed = true;
                 self.links.remove(&name);
             }
-            Err(RecvTimeoutError::Timeout) => return false,
-            Err(RecvTimeoutError::Disconnected) => {
-                self.faults
-                    .push("поток приёма соединений завершился".to_owned());
-                return false;
-            }
         }
         true
+    }
+
+    /// Фикстура вышла: прислала `exit` или закрыла канал.
+    fn gone(&self, name: &str) -> bool {
+        self.seen.get(name).is_some_and(|seen| {
+            seen.closed
+                || seen
+                    .events
+                    .iter()
+                    .any(|event| matches!(event, Event::Exit { .. }))
+        })
     }
 
     /// Ошибка или выход фикстуры до ожидаемого события.
@@ -278,15 +302,7 @@ impl Bench {
         loop {
             let missing: Vec<&str> = names
                 .iter()
-                .filter(|name| {
-                    !self.seen.get(*name).is_some_and(|seen| {
-                        seen.closed
-                            || seen
-                                .events
-                                .iter()
-                                .any(|event| matches!(event, Event::Exit { .. }))
-                    })
-                })
+                .filter(|name| !self.gone(name))
                 .map(String::as_str)
                 .collect();
             if missing.is_empty() {
@@ -302,11 +318,19 @@ impl Bench {
         }
     }
 
-    /// Выход всех соединённых фикстур и сбор детей стенда.
+    /// Выход всех соединённых фикстур и сбор детей стенда. Фикстуры, вышедшие сами
+    /// (`quick-exit`, промежуточный процесс двойного `fork`), команду не получают.
     pub fn finish(&mut self, timeout: Duration) -> Result<(), String> {
-        let names: Vec<String> = self.links.keys().cloned().collect();
+        self.drain();
+        let names: Vec<String> = self
+            .links
+            .keys()
+            .filter(|name| !self.gone(name))
+            .cloned()
+            .collect();
         for name in &names {
-            self.exit(name)?;
+            // Отказ записи — фикстура вышла после разбора очереди; выход подтвердит wait_exit.
+            let _ = self.exit(name);
         }
         self.wait_exit(&names, timeout)?;
         let deadline = Instant::now() + timeout;
@@ -436,5 +460,44 @@ mod tests {
         let long_dir = format!("/tmp/{}", "d".repeat(100));
         let err = socket_path(Path::new(&long_dir), 4242).unwrap_err();
         assert!(err.contains("sun_path"), "{err}");
+    }
+
+    #[test]
+    fn finish_tolerates_a_fixture_that_exited_by_itself() {
+        let base = std::env::temp_dir().join(format!("pfb-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).unwrap();
+        let mut bench = Bench::start(
+            PathBuf::from("/nonexistent"),
+            &base,
+            &base,
+            Duration::from_secs(5),
+        )
+        .unwrap();
+        let mut client = UnixStream::connect(&bench.socket).unwrap();
+        for event in [
+            Event::Hello {
+                name: "quick".to_owned(),
+                mode: receipts::Mode::QuickExit,
+                pid: 1,
+            },
+            Event::Exit {
+                reason: receipts::ExitReason::Done,
+            },
+        ] {
+            client
+                .write_all(&receipts::encode(&event).unwrap())
+                .unwrap();
+        }
+        drop(client);
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !bench.links.contains_key("quick") {
+            assert!(bench.pump(deadline), "hello не пришёл");
+        }
+        bench.finish(Duration::from_secs(10)).unwrap();
+        assert!(bench.gone("quick"));
+        assert!(bench.faults.is_empty(), "{:?}", bench.faults);
+        drop(bench);
+        std::fs::remove_dir_all(&base).unwrap();
     }
 }
