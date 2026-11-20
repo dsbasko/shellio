@@ -365,6 +365,7 @@ cd ../shellio-p08 && base=$(cat ../shellio-p07-p08.base) && ralphex docs/plans/2
 - [ ] GraphQL `mergeRequestRequestChanges` с режимами: есть, нет возможности (ошибка схемы), нет прав, ошибка при HTTP 200
 - [ ] управление сценарием: черновик того же пользователя от другого клиента, смена head, частичный отказ публикации, отказ после принятой записи
 - [ ] тесты сервера через loopback: каждая ручка, режимы GraphQL, счётчик `bulk_publish`
+- [ ] ➕ квитанция сервера вместо срока клиента: `Condvar` в `fake/mod.rs` после записи в журнал и `wait_calls(n, крайний срок)`; тесты потерянного ответа GitHub (`applied_write_with_lost_response_times_out_and_keeps_state`, `silence_on_read_is_a_timeout`) ждут её перед проверкой журнала, парковки и состояния, сценарии задач 9 и 10 — тоже; добавить тесты GitHub без покрытия: `GET …/reviews/{id}` владельцем (200), `node(id:)` для review и треда, `reviewThreads` узла PR, `Status(5xx)` с `after_apply`, сработавшее правило отказа по ключу GraphQL
 - [ ] рубеж: `make check` под замерной блокировкой
 
 ### Task 7: Адаптер GitHub
