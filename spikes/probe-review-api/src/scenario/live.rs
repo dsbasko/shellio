@@ -11,10 +11,17 @@
 //! - прочий отказ чтения (ошибка GraphQL, ответ не той формы, 4xx) — `fail`: возможности не
 //!   определяются чтением;
 //! - наличие `mergeRequestRequestChanges` в схеме и роль автора — наблюдения, не условие итога.
+//!
+//! ⚠️ Повтор после первого прогона: форма ответа introspection (`__type` или `__schema`) и размер
+//! тела записываются в заметки клетки для запроса адаптера с `variables` и для дополнительного
+//! запроса ревьюера с литералом `__type(name: "Mutation")` без `variables`. Это наблюдения, не
+//! условие итога; отказ транспорта и 5xx дополнительного запроса — ошибка исполнения, как у
+//! остальных чтений.
 
 use serde_json::Value;
 
 use super::Context;
+use crate::gitlab::capabilities::{self as gl_caps, IntrospectionReply};
 use crate::gitlab::{ApiError, Capabilities, DEVELOPER, GitLab};
 use crate::live::credential;
 use crate::live::guard::{GuardTarget, Guarded, WriteScope};
@@ -65,6 +72,31 @@ pub fn ce_scrubber(host: &CeHost, tokens: &CeTokens) -> Scrubber {
         .add_login(&host.reviewer.username, LABEL_REVIEWER)
         .add_login(&host.reviewer.name, LABEL_REVIEWER);
     scrubber
+}
+
+/// Запрос introspection `__type` на GraphQL: `Some(true)` — имя в `variables`, `Some(false)` —
+/// литерал без `variables`.
+pub fn introspection_request(request: &crate::transport::Request) -> Option<bool> {
+    let body = request.body_json()?;
+    let query = body.get("query")?.as_str()?;
+    if !query.contains("__type") {
+        return None;
+    }
+    Some(body.get("variables").is_some_and(|v| !v.is_null()))
+}
+
+/// Заметка клетки о форме ответа introspection.
+pub fn describe_reply(how: &str, reply: &IntrospectionReply) -> String {
+    format!(
+        "наблюдение: introspection {how} — ответ {}, {} байт, mergeRequestRequestChanges {}",
+        reply.form,
+        reply.bytes,
+        match reply.request_changes {
+            Some(true) => "есть",
+            Some(false) => "нет",
+            None => "не определяется",
+        }
+    )
 }
 
 /// Как читается отказ возможностей: ошибка стенда или наблюдение.
@@ -143,6 +175,8 @@ fn capabilities_ce(result: &mut ResultFile) {
     };
     let reviewer_caps = read(&reviewer);
     let author_caps = read(&author);
+    let literal =
+        GitLab::new(&reviewer, endpoints.clone(), &review).and_then(|gl| gl.introspect_literal());
 
     let mut errors = Vec::new();
     for (actor, guard) in [("reviewer", &reviewer), ("author", &author)] {
@@ -186,6 +220,19 @@ fn capabilities_ce(result: &mut ResultFile) {
     if let Ok(caps) = &reviewer_caps {
         errors.extend(stand_mismatches(caps, &host, &pin));
     }
+    let literal_note = match &literal {
+        Ok(reply) => Some(describe_reply("с литералом без variables", reply)),
+        Err(err) => match classify_read(err) {
+            Ok(observed) => Some(format!(
+                "наблюдение: introspection ревьюера с литералом без variables не прочитана: \
+{observed}"
+            )),
+            Err(stand) => {
+                errors.push(format!("reviewer: introspection с литералом: {stand}"));
+                None
+            }
+        },
+    };
 
     result.trace = trace
         .entries(&scrubber)
@@ -211,6 +258,30 @@ fn capabilities_ce(result: &mut ResultFile) {
             .ok()
             .and_then(|caps| caps.plan.clone()),
     };
+    for call in trace.calls() {
+        let Some(variables) = introspection_request(&call.request) else {
+            continue;
+        };
+        if !variables {
+            continue;
+        }
+        if let Ok(response) = &call.outcome {
+            let reply = response
+                .body_json()
+                .map(|body| gl_caps::reply_of(&body, response.body.len()))
+                .unwrap_or(IntrospectionReply {
+                    form: "не JSON",
+                    bytes: response.body.len(),
+                    request_changes: None,
+                });
+            result.notes.push(format!(
+                "{} ({})",
+                describe_reply("с variables", &reply),
+                call.actor
+            ));
+        }
+    }
+    result.notes.extend(literal_note);
     result.notes.push(format!(
         "токен root настройки: {}",
         match host.root_token.as_str() {
@@ -221,13 +292,18 @@ fn capabilities_ce(result: &mut ResultFile) {
     ));
     if let Ok(caps) = &reviewer_caps {
         result.notes.push(format!(
-            "наблюдение: mergeRequestRequestChanges в схеме — {}; тариф {}",
+            "наблюдение: mergeRequestRequestChanges в схеме — {} (ответ {}); тариф {}",
             if caps.request_changes() {
                 "есть"
             } else {
                 "нет"
             },
-            caps.plan.as_deref().unwrap_or("не виден токену")
+            caps.introspection,
+            match (&caps.plan, caps.plan_source) {
+                (Some(plan), Some(source)) => format!("{plan} (из {source})"),
+                (Some(plan), None) => plan.clone(),
+                (None, _) => "не виден токену".to_owned(),
+            }
         ));
     }
     if let Ok(caps) = &author_caps {
@@ -309,9 +385,11 @@ mod tests {
                 source: "metadata",
             },
             plan: None,
+            plan_source: None,
             visibility: "private".to_owned(),
             access_level: Some(DEVELOPER),
             mutations: vec![gitlab::capabilities::REQUEST_CHANGES.to_owned()],
+            introspection: gitlab::capabilities::FORM_TYPE,
         }
     }
 
@@ -346,6 +424,34 @@ mod tests {
         caps.username = "someone".to_owned();
         assert_eq!(stand_mismatches(&caps, &host(), &pin).len(), 5);
         Ok(())
+    }
+
+    #[test]
+    fn introspection_requests_and_replies_are_described() {
+        use crate::transport::{Method, Request};
+        use serde_json::json;
+        let url = "http://127.0.0.1:1/api/graphql";
+        let with_variables = Request::new(Method::Post, url)
+            .json(&json!({"query": "query($name: String!) { __type(name: $name) { fields { name } } }", "variables": {"name": "Mutation"}}));
+        let literal =
+            Request::new(Method::Post, url).json(&json!({"query": gl_caps::INTROSPECT_LITERAL}));
+        let other =
+            Request::new(Method::Post, url).json(&json!({"query": "{ currentUser { id } }"}));
+        assert_eq!(introspection_request(&with_variables), Some(true));
+        assert_eq!(introspection_request(&literal), Some(false));
+        assert_eq!(introspection_request(&other), None);
+        let note = describe_reply(
+            "с литералом без variables",
+            &IntrospectionReply {
+                form: gl_caps::FORM_SCHEMA,
+                bytes: 9_400_000,
+                request_changes: Some(true),
+            },
+        );
+        assert!(
+            note.contains("__schema") && note.contains("9400000 байт") && note.contains("есть"),
+            "{note}"
+        );
     }
 
     #[test]

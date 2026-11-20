@@ -106,12 +106,14 @@ fn caps() -> Capabilities {
             source: "metadata",
         },
         plan: None,
+        plan_source: None,
         visibility: "private".to_owned(),
         access_level: Some(DEVELOPER),
         mutations: capabilities::MUTATIONS
             .iter()
             .map(|name| (*name).to_owned())
             .collect(),
+        introspection: capabilities::FORM_TYPE,
     }
 }
 
@@ -331,6 +333,191 @@ fn old_version_hidden_plan_and_missing_rights_are_recorded_and_gate_writes() -> 
         );
     }
     assert!(idle.finish()?.is_empty(), "ни мутации, ни заметки");
+    Ok(())
+}
+
+/// Полная интроспекция, как у GitLab CE 19.6.1 на `__type(name: $name)`: `Mutation` среди
+/// `filler` посторонних типов.
+fn full_schema(mutation_fields: &[&str], filler: usize) -> Value {
+    let mut types: Vec<Value> = (0..filler)
+        .map(|n| json!({"kind": "OBJECT", "name": format!("Type{n}"), "fields": [{"name": "id"}]}))
+        .collect();
+    types.push(json!({
+        "kind": "OBJECT",
+        "name": "Mutation",
+        "fields": mutation_fields.iter().map(|name| json!({"name": name})).collect::<Vec<_>>(),
+    }));
+    json!({"data": {"__schema": {
+        "queryType": {"name": "Query"},
+        "mutationType": {"name": "Mutation"},
+        "types": types,
+    }}})
+}
+
+fn capability_reads(metadata: Value, namespace: Reply, introspection: Value) -> Scripted {
+    Scripted::new()
+        .expect(
+            Method::Get,
+            "/api/v4/user",
+            Reply::json(200, &json!({"username": "bob"})),
+        )
+        .expect(Method::Get, "/api/v4/metadata", Reply::json(200, &metadata))
+        .expect(
+            Method::Get,
+            "/api/v4/projects/group%2Fsub%2Fproj",
+            Reply::json(
+                200,
+                &json!({
+                    "visibility": "private",
+                    "namespace": {"id": 9},
+                    "permissions": {"project_access": {"access_level": 30}},
+                }),
+            ),
+        )
+        .expect(Method::Get, "/api/v4/namespaces/9", namespace)
+        .expect(Method::Post, GRAPHQL, Reply::json(200, &introspection))
+}
+
+#[test]
+fn full_schema_reply_gives_mutations_and_plan_falls_back_to_metadata() -> TestResult {
+    let reply = full_schema(&["createNote", "mergeRequestRequestChanges"], 3000);
+    let raw = reply.to_string().len();
+    let scripted = capability_reads(
+        json!({"version": "19.6.1", "revision": "r", "enterprise": false, "plan": "free"}),
+        Reply::json(404, &json!({"message": "404 Namespace Not Found"})),
+        reply,
+    );
+    let trace = crate::transport::Trace::new();
+    let traced = crate::transport::Traced::new(&scripted, trace.clone(), "reviewer");
+    let gitlab = GitLab::new(traced, Endpoints::instance(ROOT), &target())?;
+    let caps = gitlab.capabilities()?;
+    assert_eq!(caps.introspection, capabilities::FORM_SCHEMA);
+    assert!(caps.request_changes());
+    assert_eq!(caps.plan.as_deref(), Some("free"));
+    assert_eq!(caps.plan_source, Some("metadata"));
+    let json = caps.to_json();
+    assert_eq!(json["plan_source"], "metadata");
+    assert_eq!(json["introspection"], "__schema");
+    scripted.finish()?;
+
+    let entries = trace.entries(&crate::scrub::Scrubber::new());
+    let graphql = entries.last().ok_or("нет записи GraphQL")?;
+    let summary = &graphql.response_body;
+    assert_eq!(summary["summary"], "introspection __schema");
+    assert_eq!(summary["bytes"], raw);
+    assert_eq!(summary["keys"], json!(["data"]));
+    assert_eq!(summary["types"], 3001);
+    assert_eq!(summary["mutation_type"], "Mutation");
+    assert_eq!(summary["mutation_fields"], 2);
+    assert_eq!(summary["mutations"]["mergeRequestRequestChanges"], true);
+    assert_eq!(summary["mutations"]["addPullRequestReviewThread"], false);
+    let written = serde_json::to_string(graphql)?.len();
+    assert!(
+        written < 2_000 && raw > 100_000,
+        "сводка {written} байт вместо тела {raw} байт"
+    );
+    let user = &entries[0].response_body;
+    assert_eq!(user["username"], "bob", "короткие ответы идут телом");
+    Ok(())
+}
+
+#[test]
+fn full_schema_without_the_mutation_is_absent_and_namespace_plan_wins() -> TestResult {
+    let scripted = capability_reads(
+        json!({"version": "19.6.1", "enterprise": false, "plan": "free"}),
+        Reply::json(200, &json!({"id": 9, "plan": "premium"})),
+        full_schema(&["createNote"], 2),
+    );
+    let caps = adapter(&scripted)?.capabilities()?;
+    assert_eq!(caps.introspection, capabilities::FORM_SCHEMA);
+    assert!(!caps.request_changes());
+    assert_eq!(caps.plan.as_deref(), Some("premium"));
+    assert_eq!(caps.plan_source, Some("namespace"));
+    scripted.finish()?;
+
+    let scripted = capability_reads(
+        json!({"version": "19.6.1", "enterprise": false}),
+        Reply::json(200, &json!({"id": 9})),
+        json!({"data": {"__type": {"fields": [{"name": "mergeRequestRequestChanges"}]}}}),
+    );
+    let caps = adapter(&scripted)?.capabilities()?;
+    assert_eq!(caps.introspection, capabilities::FORM_TYPE);
+    assert_eq!((caps.plan, caps.plan_source), (None, None));
+    scripted.finish()?;
+    Ok(())
+}
+
+#[test]
+fn introspection_without_type_and_schema_or_with_broken_schema_is_unexpected() -> TestResult {
+    let scripted = capability_reads(
+        json!({"version": "19.6.1", "enterprise": false}),
+        Reply::json(404, &json!({})),
+        json!({"data": {}}),
+    );
+    let err = adapter(&scripted)?.capabilities();
+    assert!(
+        matches!(&err, Err(ApiError::Unexpected(reason)) if reason.contains("без __type и без __schema")),
+        "{err:?}"
+    );
+    scripted.finish()?;
+
+    let broken = [
+        json!({"__type": null}),
+        json!({"__schema": {"mutationType": null, "types": []}}),
+        json!({"__schema": {"mutationType": {"name": "Mutation"}}}),
+        json!({"__schema": {"mutationType": {"name": "Mutation"}, "types": [{"name": "Query"}]}}),
+        json!({"__schema": {"mutationType": {"name": "Mutation"}, "types": [{"name": "Mutation"}]}}),
+        json!({"__type": {"name": "Mutation"}}),
+    ];
+    for data in broken {
+        let map = data.as_object().ok_or("не объект")?;
+        let result = capabilities::mutation_fields(map);
+        assert!(
+            matches!(result, Err(ApiError::Unexpected(_))),
+            "{data}: {result:?}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn literal_introspection_reports_form_size_and_mutation() -> TestResult {
+    let schema = full_schema(&["mergeRequestRequestChanges"], 5);
+    let scripted = Scripted::new()
+        .expect(Method::Post, GRAPHQL, Reply::json(200, &schema))
+        .expect(
+            Method::Post,
+            GRAPHQL,
+            Reply::json(
+                200,
+                &json!({"data": {"__type": {"fields": [{"name": "x"}]}}}),
+            ),
+        )
+        .expect(
+            Method::Post,
+            GRAPHQL,
+            Reply::json(200, &json!({"errors": [{"message": "boom"}]})),
+        );
+    let gitlab = adapter(&scripted)?;
+    let reply = gitlab.introspect_literal()?;
+    assert_eq!(reply.form, capabilities::FORM_SCHEMA);
+    assert_eq!(reply.bytes, schema.to_string().len());
+    assert_eq!(reply.request_changes, Some(true));
+    let reply = gitlab.introspect_literal()?;
+    assert_eq!(
+        (reply.form, reply.request_changes),
+        (capabilities::FORM_TYPE, Some(false))
+    );
+    let reply = gitlab.introspect_literal()?;
+    assert_eq!((reply.form, reply.request_changes), ("errors", None));
+    let requests = scripted.finish()?;
+    for request in &requests {
+        assert_eq!(
+            request.body_json(),
+            Some(json!({"query": capabilities::INTROSPECT_LITERAL})),
+            "литерал без variables"
+        );
+    }
     Ok(())
 }
 

@@ -7,7 +7,9 @@
 //!
 //! След пишет каждый вызов, в том числе отказавший. Сырой вызов [`Call`] на диск не попадает:
 //! сериализуется только [`TraceEntry`], собранный очистителем ([`crate::scrub`]). Заголовки
-//! запроса в след не входят вовсе, из заголовков ответа — только заголовки лимитов.
+//! запроса в след не входят вовсе, из заголовков ответа — только заголовки лимитов. Тело ответа
+//! с полной интроспекцией `data.__schema` (9,4 МБ у GitLab CE 19.6.1) идёт в след сводкой
+//! [`introspection_summary`].
 
 pub mod http;
 pub mod scripted;
@@ -18,7 +20,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value, json};
 
 use crate::scrub::Scrubber;
 
@@ -397,7 +399,12 @@ impl TraceEntry {
                         )
                     })
                     .collect();
-                (scrubber.scrub_body(&response.body), rate_limit, None, None)
+                (
+                    response_body(&response.body, scrubber),
+                    rate_limit,
+                    None,
+                    None,
+                )
             }
             Err(failure) => (
                 Value::Null,
@@ -424,6 +431,65 @@ impl TraceEntry {
             duration_us: u64::try_from(call.duration.as_micros()).unwrap_or(u64::MAX),
         }
     }
+}
+
+/// Тело ответа для следа: полная интроспекция — сводкой, остальное — через очиститель.
+fn response_body(body: &[u8], scrubber: &Scrubber) -> Value {
+    const MARK: &[u8] = b"\"__schema\"";
+    if body.windows(MARK.len()).any(|window| window == MARK)
+        && let Ok(value) = serde_json::from_slice::<Value>(body)
+        && let Some(summary) = introspection_summary(&value, body.len())
+    {
+        return summary;
+    }
+    scrubber.scrub_body(body)
+}
+
+/// Сводка ответа с полной интроспекцией `data.__schema` вместо тела: ключи верхнего уровня, размер
+/// тела, число типов, имя и число полей типа мутаций и наличие мутаций, которые читают адаптеры.
+/// Ответ без объекта `data.__schema` — `None`. В сводке только имена схемы и числа, очищать нечего.
+pub fn introspection_summary(value: &Value, bytes: usize) -> Option<Value> {
+    let schema = value.get("data")?.get("__schema")?.as_object()?;
+    let keys: Vec<&str> = value.as_object()?.keys().map(String::as_str).collect();
+    let types = schema.get("types").and_then(Value::as_array);
+    let mutation_type = schema
+        .get("mutationType")
+        .and_then(|ty| ty.get("name"))
+        .and_then(Value::as_str);
+    let fields: Option<Vec<&str>> = mutation_type.and_then(|name| {
+        let found = types?
+            .iter()
+            .find(|ty| ty.get("name").and_then(Value::as_str) == Some(name))?;
+        Some(
+            found
+                .get("fields")?
+                .as_array()?
+                .iter()
+                .filter_map(|field| field.get("name").and_then(Value::as_str))
+                .collect(),
+        )
+    });
+    let mut watched = Map::new();
+    for name in crate::gitlab::capabilities::MUTATIONS
+        .iter()
+        .chain(crate::github::capabilities::MUTATIONS.iter())
+    {
+        watched.insert(
+            (*name).to_owned(),
+            fields
+                .as_ref()
+                .map_or(Value::Null, |fields| Value::Bool(fields.contains(name))),
+        );
+    }
+    Some(json!({
+        "summary": "introspection __schema",
+        "bytes": bytes,
+        "keys": keys,
+        "types": types.map(Vec::len),
+        "mutation_type": mutation_type,
+        "mutation_fields": fields.as_ref().map(Vec::len),
+        "mutations": watched,
+    }))
 }
 
 /// Общий след нескольких транспортов одного сценария; клон пишет в тот же след.
