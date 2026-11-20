@@ -362,7 +362,7 @@ impl Journal {
         if !mode.eq_ignore_ascii_case("wal") {
             return Err(JournalError::JournalMode { found: mode });
         }
-        // Фиксация на диске до возврата: отметка in_flight должна пережить и сбой питания.
+        // Каждая фиксация синхронизируется до возврата; без fullfsync macOS кэш накопителя не сбрасывает.
         conn.pragma_update(None, "synchronous", "FULL")?;
         conn.pragma_update(None, "foreign_keys", true)?;
         migrate(&conn)?;
