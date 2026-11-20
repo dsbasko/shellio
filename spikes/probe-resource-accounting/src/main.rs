@@ -9,10 +9,6 @@
 //! - служебные режимы `run.sh`: `--params`, `--fingerprint`, `--status-set`, `--status-pending`,
 //!   `--record`.
 
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "атрибуцию берут сценарии задачи 6")
-)]
 mod attrib;
 mod background;
 mod fixture;
@@ -20,10 +16,6 @@ mod proc;
 mod results;
 mod runstate;
 mod scenario;
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "снимок берут сценарии задачи 6")
-)]
 mod snapshot;
 
 use std::path::{Path, PathBuf};
@@ -83,7 +75,7 @@ fn run_scenario(mut args: Args, name: &str) -> Result<i32, String> {
     let scenario =
         Scenario::from_name(name).ok_or_else(|| format!("неизвестный сценарий «{name}»"))?;
     std::fs::create_dir_all(&out).map_err(|err| format!("создание {}: {err}", out.display()))?;
-    scenario::write_outcome(&out, scenario::run(scenario, point.as_deref()))
+    scenario::write_outcome(&out, scenario::run(scenario, point.as_deref(), &out))
 }
 
 fn aggregate(run_dir: &Path) -> Result<i32, String> {

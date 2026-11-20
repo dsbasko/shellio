@@ -1,5 +1,9 @@
 //! Сценарии пробы: процесс на сценарий и точку осей, окружение и итог процесса.
 
+mod attrib;
+mod formula;
+mod listing;
+mod stand;
 mod units;
 
 use std::path::Path;
@@ -15,15 +19,48 @@ use crate::results::{
 pub enum Scenario {
     Smoke,
     Units,
+    FormulaCpu,
+    FormulaMem,
+    Sessions,
+    GitShared,
+    Reparent,
+    Churn,
+    AttachMove,
+    Login,
+    EpermInject,
+    ListBench,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 2] = [Scenario::Smoke, Scenario::Units];
+    pub const ALL: [Scenario; 12] = [
+        Scenario::Smoke,
+        Scenario::Units,
+        Scenario::FormulaCpu,
+        Scenario::FormulaMem,
+        Scenario::Sessions,
+        Scenario::GitShared,
+        Scenario::Reparent,
+        Scenario::Churn,
+        Scenario::AttachMove,
+        Scenario::Login,
+        Scenario::EpermInject,
+        Scenario::ListBench,
+    ];
 
     pub fn name(self) -> &'static str {
         match self {
             Scenario::Smoke => "smoke",
             Scenario::Units => "units",
+            Scenario::FormulaCpu => "formula-cpu",
+            Scenario::FormulaMem => "formula-mem",
+            Scenario::Sessions => "sessions",
+            Scenario::GitShared => "git-shared",
+            Scenario::Reparent => "reparent",
+            Scenario::Churn => "churn",
+            Scenario::AttachMove => "attach-move",
+            Scenario::Login => "login",
+            Scenario::EpermInject => "eperm-inject",
+            Scenario::ListBench => "list-bench",
         }
     }
 
@@ -34,15 +71,22 @@ impl Scenario {
     /// Замерный сценарий берёт замерную блокировку и проверяет фон.
     pub fn measured(self) -> bool {
         match self {
-            Scenario::Smoke | Scenario::Units => true,
+            Scenario::Smoke | Scenario::Units | Scenario::FormulaCpu => true,
+            Scenario::FormulaMem
+            | Scenario::Sessions
+            | Scenario::GitShared
+            | Scenario::Reparent
+            | Scenario::Churn
+            | Scenario::AttachMove
+            | Scenario::Login
+            | Scenario::EpermInject
+            | Scenario::ListBench => false,
         }
     }
 
     /// Точки оси процесса; пустой список — один процесс без точки.
     pub fn points(self) -> &'static [&'static str] {
-        match self {
-            Scenario::Smoke | Scenario::Units => &[],
-        }
+        &[]
     }
 }
 
@@ -53,7 +97,7 @@ pub enum Outcome {
     NotStarted(NotStartedRecord),
 }
 
-pub fn run(scenario: Scenario, point: Option<&str>) -> Outcome {
+pub fn run(scenario: Scenario, point: Option<&str>, out: &Path) -> Outcome {
     let environment = environment();
     match point {
         Some(point) if !scenario.points().contains(&point) => {
@@ -77,6 +121,18 @@ pub fn run(scenario: Scenario, point: Option<&str>) -> Outcome {
     match scenario {
         Scenario::Smoke => smoke(environment),
         Scenario::Units => measured(Scenario::Units, environment, units::run),
+        Scenario::FormulaCpu => measured(Scenario::FormulaCpu, environment, |before| {
+            formula::run_cpu(before, out)
+        }),
+        Scenario::FormulaMem => free(scenario, environment, || formula::run_mem(out)),
+        Scenario::Sessions => free(scenario, environment, || attrib::run_sessions(out)),
+        Scenario::GitShared => free(scenario, environment, || attrib::run_git_shared(out)),
+        Scenario::Reparent => free(scenario, environment, || attrib::run_reparent(out)),
+        Scenario::Churn => free(scenario, environment, || attrib::run_churn(out)),
+        Scenario::AttachMove => free(scenario, environment, || attrib::run_attach_move(out)),
+        Scenario::Login => free(scenario, environment, || attrib::run_login(out)),
+        Scenario::EpermInject => free(scenario, environment, || attrib::run_eperm_inject(out)),
+        Scenario::ListBench => free(scenario, environment, listing::run),
     }
 }
 
@@ -147,6 +203,24 @@ fn measured(
         Ok(Ok(records)) => records,
     };
     match body(records) {
+        Err(reason) => error(scenario, None, environment, reason),
+        Ok(report) => Outcome::Result(Box::new(ResultFile::new(
+            scenario.name(),
+            None,
+            environment,
+            Execution::Ok,
+            report,
+        ))),
+    }
+}
+
+/// Свободный сценарий без блокировки и проверки фона; отказ тела — ошибка исполнения.
+fn free(
+    scenario: Scenario,
+    environment: Environment,
+    body: impl FnOnce() -> Result<Report, String>,
+) -> Outcome {
+    match body() {
         Err(reason) => error(scenario, None, environment, reason),
         Ok(report) => Outcome::Result(Box::new(ResultFile::new(
             scenario.name(),
@@ -331,8 +405,13 @@ mod tests {
         for scenario in Scenario::ALL {
             assert_eq!(Scenario::from_name(scenario.name()), Some(scenario));
         }
-        assert!(Scenario::Smoke.measured() && Scenario::Units.measured());
-        assert!(Scenario::Smoke.points().is_empty() && Scenario::Units.points().is_empty());
+        let measured: Vec<&str> = Scenario::ALL
+            .iter()
+            .filter(|s| s.measured())
+            .map(|s| s.name())
+            .collect();
+        assert_eq!(measured, ["smoke", "units", "formula-cpu"]);
+        assert!(Scenario::ALL.iter().all(|s| s.points().is_empty()));
         assert_eq!(Scenario::from_name("cost"), None);
     }
 

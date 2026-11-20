@@ -89,10 +89,6 @@ impl Bench {
         })
     }
 
-    pub fn out(&self) -> &Path {
-        &self.out
-    }
-
     /// Запускает фикстуру ребёнком стенда; возвращает PID.
     pub fn spawn(&mut self, spec: &Spec) -> Result<i32, String> {
         spec.validate()?;
@@ -316,6 +312,76 @@ impl Bench {
                 ));
             }
         }
+    }
+
+    /// Ждёт событие фикстуры, для которого `pick` вернул значение.
+    pub fn wait_event<T>(
+        &mut self,
+        name: &str,
+        timeout: Duration,
+        mut pick: impl FnMut(&Event) -> Option<T>,
+    ) -> Result<T, String> {
+        let deadline = Instant::now() + timeout;
+        loop {
+            if let Some(found) = self
+                .seen
+                .get(name)
+                .and_then(|seen| seen.events.iter().find_map(&mut pick))
+            {
+                return Ok(found);
+            }
+            if !self.pump(deadline) {
+                return Err(format!(
+                    "событие «{name}» не пришло за {} с",
+                    timeout.as_secs()
+                ));
+            }
+        }
+    }
+
+    /// Ждёт выхода прямого ребёнка стенда без сбора: он остаётся зомби (`waitid` с `WNOWAIT`).
+    pub fn wait_exited(&mut self, pid: i32, timeout: Duration) -> Result<(), String> {
+        if !self.children.iter().any(|child| child.id() as i32 == pid) {
+            return Err(format!("PID {pid} не ребёнок стенда"));
+        }
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            // SAFETY: siginfo_t — POD, нули допустимы.
+            let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+            // SAFETY: info — действительный выходной буфер; WNOWAIT оставляет ребёнка несобранным.
+            let rc = unsafe {
+                libc::waitid(
+                    libc::P_PID,
+                    pid as libc::id_t,
+                    &mut info,
+                    libc::WEXITED | libc::WNOWAIT,
+                )
+            };
+            let result = if rc == 0 {
+                Ok(())
+            } else {
+                Err(std::io::Error::last_os_error().to_string())
+            };
+            let _ = tx.send(result);
+        });
+        match rx.recv_timeout(timeout) {
+            Ok(result) => result.map_err(|err| format!("waitid({pid}): {err}")),
+            Err(_) => Err(format!("PID {pid} не вышел за {} с", timeout.as_secs())),
+        }
+    }
+
+    /// Собирает вышедшего или выходящего прямого ребёнка стенда.
+    pub fn reap(&mut self, pid: i32) -> Result<(), String> {
+        let index = self
+            .children
+            .iter()
+            .position(|child| child.id() as i32 == pid)
+            .ok_or_else(|| format!("PID {pid} не ребёнок стенда"))?;
+        let mut child = self.children.remove(index);
+        child
+            .wait()
+            .map(|_| ())
+            .map_err(|err| format!("сбор {pid}: {err}"))
     }
 
     /// Выход всех соединённых фикстур и сбор детей стенда. Фикстуры, вышедшие сами

@@ -316,10 +316,6 @@ pub fn decode_request(line: &str) -> Result<Request, String> {
     decode(line, "команда стенда")
 }
 
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "кадры фикстур читает стенд сценариев задачи 6")
-)]
 pub fn decode_event(line: &str) -> Result<Event, String> {
     decode(line, "событие фикстуры")
 }
@@ -430,10 +426,6 @@ pub fn check_log(log: &Log) -> Result<(), String> {
 
 /// CPU% процесса по квитанциям: `100 × Δ(user + system) / Δt` между серединами отметок.
 /// Убывший счётчик или неположительный интервал — нет значения.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "оракул CPU берут сценарии задачи 6")
-)]
 pub fn cpu_pct(earlier: &Receipt, later: &Receipt) -> Option<f64> {
     let cpu = later
         .boundary
