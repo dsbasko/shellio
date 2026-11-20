@@ -24,7 +24,7 @@ use crate::results::ResultFile;
 use crate::scenario::Scenario;
 use crate::scenario::fake::{Checks, Spot, add_drafts, dump_in, states};
 use crate::scrub::Scrubber;
-use crate::submit::{Delivery, GitLabPlan, plan_gitlab, report, run_gitlab};
+use crate::submit::{Delivery, GitLabPlan, Report, SubmitError, plan_gitlab, report, run_gitlab};
 use crate::transport::{Call, Method, Trace, Transport};
 
 /// Ключи записей GitLab в следе, как ключи журнала `forge-fake`.
@@ -43,6 +43,13 @@ const PUBLISH_DRAFTS: [(Spot, &str); 2] = [
     (Spot::Line(Side::New, 4), "первый"),
     (Spot::Line(Side::New, 24), "второй"),
 ];
+
+/// Последний ответ опроса MR, у версии которого diff ещё без файлов.
+pub const DIFF_EMPTY: &str = "в diff версии нет файлов";
+/// Причина `not_run` живой клетки, чья запись осталась `unknown`: естественный сбой засчитывается,
+/// только если серверная запись наблюдена чтением.
+pub const WRITE_UNOBSERVED: &str =
+    "естественный сбой записи на живом хосте, серверная запись не наблюдена чтением";
 
 /// Опрос MR: крайний срок и пауза между попытками. Тесты дают нулевую паузу.
 #[derive(Clone, Copy, Debug)]
@@ -211,9 +218,9 @@ fn cell_verdict<T: Transport>(
     None
 }
 
-/// Снимок MR после асинхронного заполнения `diff_refs` и версии: ответ без них (адаптер даёт
-/// `Unexpected`) или с другим head повторяется до крайнего срока, затем `not_run` с причиной
-/// `late`. Другой отказ чтения — по [`read_or_fail`].
+/// Снимок MR после асинхронного заполнения `diff_refs`, версии и её diff: ответ без них (адаптер
+/// даёт `Unexpected`), с другим head или без файлов в diff версии повторяется до крайнего срока,
+/// затем `not_run` с причиной `late`. Другой отказ чтения — по [`read_or_fail`].
 pub fn await_snapshot<T: Transport>(
     gitlab: &GitLab<T>,
     poll: &Poll,
@@ -226,11 +233,12 @@ pub fn await_snapshot<T: Transport>(
         tries += 1;
         let last = match gitlab.merge_request() {
             Ok(snapshot)
-                if head.is_none_or(|head| snapshot.revision.head_sha().as_str() == head) =>
+                if head.is_some_and(|head| snapshot.revision.head_sha().as_str() != head) =>
             {
-                return Ok(snapshot);
+                format!("head {}", snapshot.revision.head_sha().as_str())
             }
-            Ok(snapshot) => format!("head {}", snapshot.revision.head_sha().as_str()),
+            Ok(snapshot) if snapshot.files.is_empty() => DIFF_EMPTY.to_owned(),
+            Ok(snapshot) => return Ok(snapshot),
             Err(ApiError::Unexpected(reason)) => reason,
             Err(err) => return Err(read_or_fail("снимок MR", &err)),
         };
@@ -336,6 +344,68 @@ pub struct JournalFacts {
     pub recovered: usize,
 }
 
+/// Отказ исполнителя отправки. Отказ хоста на запись исполнитель пишет в элемент (`failed` или
+/// `unknown`) и возвращает итог; `Err` дают журнал, отказ до записи и чтение шага 1 — его отказ
+/// судится как чтение клетки, остальное — ошибка исполнения.
+pub fn submit_verdict(err: &SubmitError) -> Verdict {
+    match err {
+        SubmitError::GitLab(api) => read_or_fail("отправка, шаг 1: снимок MR", api),
+        other => Verdict::Error(format!("отправка: {other}")),
+    }
+}
+
+/// Итог отправки, который оракул записей не судит: элемент `unknown` или `in_flight` —
+/// [`WRITE_UNOBSERVED`]; `failed` после ответа 429 на последнюю запись роли — `not_run` «лимит»
+/// (запись не принята, повтора нет); `failed` после записи, которая не ушла, — ошибка исполнения.
+/// Остальной `failed` — отказ хоста, его судят проверки клетки.
+pub fn delivery_verdict(done: &Report, calls: &[Call], actor: &str) -> Option<Verdict> {
+    if done.unresolved > 0 {
+        let details: Vec<String> = done
+            .items
+            .iter()
+            .filter(|item| matches!(item.state, ItemState::Unknown | ItemState::InFlight))
+            .map(|item| {
+                format!(
+                    "{} {:?}: {}",
+                    item.operation.name(),
+                    item.state,
+                    item.detail.as_deref().unwrap_or("без подробностей")
+                )
+            })
+            .collect();
+        return Some(Verdict::NotRun(format!(
+            "{WRITE_UNOBSERVED}: {}",
+            details.join("; ")
+        )));
+    }
+    if !done
+        .items
+        .iter()
+        .any(|item| item.state == ItemState::Failed)
+    {
+        return None;
+    }
+    let last = calls.iter().rev().find(|call| {
+        call.actor == actor
+            && write_key(
+                call.request.method,
+                call.request.path(),
+                call.request.body_json().as_ref(),
+            )
+            .is_some()
+    })?;
+    let key = format!("{} {}", last.request.method, last.request.path());
+    match &last.outcome {
+        Ok(response) if response.status == 429 => {
+            Some(Verdict::NotRun(format!("лимит: код 429 на запись {key}")))
+        }
+        Err(failure) if !failure.may_have_been_sent() => {
+            Some(Verdict::Error(format!("запись {key} не ушла: {failure}")))
+        }
+        _ => None,
+    }
+}
+
 /// Оракул `gl-draft-publish` на живом хосте (ожидание — в отчёте).
 pub fn draft_publish_checks(
     writes: &[Write],
@@ -433,25 +503,28 @@ fn position_json(position: &RemotePosition) -> Value {
     })
 }
 
-/// Состояние MR: заметки, прочитанные автором, и черновики ревьюера.
+/// Состояние MR: заметки тредов, прочитанные автором, и черновики ревьюера. Заметки читаются
+/// через Discussions API, как в сверке: Notes API не документирует `position` у заметок MR и
+/// отсылает за комментариями к строкам к тредам.
 fn mr_state<T: Transport>(
     author: &GitLab<T>,
     reviewer: &GitLab<T>,
 ) -> Result<(Vec<RemoteNote>, Vec<RemoteDraft>, Value), Verdict> {
-    let notes = author
-        .notes()
-        .map_err(|err| read_or_fail("заметки MR автором", &err))?;
+    let discussions = author
+        .discussions()
+        .map_err(|err| read_or_fail("треды MR автором", &err))?;
     let drafts = reviewer
         .drafts()
         .map_err(|err| read_or_fail("черновики ревьюера", &err))?;
     let value = json!({
-        "notes": notes.iter().map(|note| json!({
+        "notes": discussions.iter().flat_map(|discussion| discussion.notes.iter().map(|note| json!({
+            "discussion": discussion.id.as_str(),
             "id": note.id.as_str(),
             "author": note.author,
             "body": note.body,
             "system": note.system,
             "position": note.position.as_ref().map(position_json),
-        })).collect::<Vec<_>>(),
+        }))).collect::<Vec<_>>(),
         "drafts": drafts.iter().map(|draft| json!({
             "id": draft.id.as_str(),
             "note": draft.note,
@@ -459,6 +532,10 @@ fn mr_state<T: Transport>(
             "position": draft.position.as_ref().map(position_json),
         })).collect::<Vec<_>>(),
     });
+    let notes = discussions
+        .into_iter()
+        .flat_map(|discussion| discussion.notes)
+        .collect();
     Ok((notes, drafts, value))
 }
 
@@ -496,12 +573,17 @@ fn gl_draft_publish<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<O
             ..GitLabPlan::default()
         };
         let submission = plan_gitlab(&scope, id, &plan).map_err(|err| stand("план", &err))?;
-        run_gitlab(&scope, submission.id, &reviewer, &caps)
-            .map_err(|err| stand("отправка", &err))?;
-        submission.id
+        let sent = run_gitlab(&scope, submission.id, &reviewer, &caps)
+            .map_err(|err| submit_verdict(&err))?;
+        (submission.id, sent)
     };
+    let (submission, sent) = submission;
     let calls = cx.trace.calls();
-    let writes = writes_of(calls.get(start..).unwrap_or_default(), ACTOR_REVIEWER);
+    let window = calls.get(start..).unwrap_or_default();
+    if let Some(verdict) = delivery_verdict(&sent, window, ACTOR_REVIEWER) {
+        return Err(verdict);
+    }
+    let writes = writes_of(window, ACTOR_REVIEWER);
     let (notes, drafts, after) = mr_state(&author, &reviewer)?;
     let journal = Journal::open(&path).map_err(|err| stand("журнал после переоткрытия", &err))?;
     let scope = journal.scope(&project);

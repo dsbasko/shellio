@@ -4,10 +4,13 @@ use serde_json::{Value, json};
 
 use super::*;
 use crate::gitlab::Endpoints;
+use crate::journal::{Operation, SubmissionId, SubmitItem};
+use crate::live::guard::{GuardTarget, WriteScope};
+use crate::live::lifecycle::{Created, SWEPT_FILE};
 use crate::model::ProviderId;
-use crate::results::Status;
+use crate::results::{Column, Execution, Status};
 use crate::transport::scripted::{Reply, Scripted};
-use crate::transport::{Request, Response};
+use crate::transport::{Failure, Request, Response, Traced};
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
@@ -43,11 +46,19 @@ fn page(items: Value) -> Reply {
 }
 
 fn ready(scripted: Scripted, head: &str) -> Scripted {
+    ready_with(
+        scripted,
+        head,
+        json!([{
+            "old_path": "f.txt", "new_path": "f.txt",
+            "diff": "@@ -1,2 +1,2 @@\n a\n-b\n+c\n",
+        }]),
+    )
+}
+
+fn ready_with(scripted: Scripted, head: &str, diffs: Value) -> Scripted {
     let mut detail = version_json(5, head);
-    detail["diffs"] = json!([{
-        "old_path": "f.txt", "new_path": "f.txt",
-        "diff": "@@ -1,2 +1,2 @@\n a\n-b\n+c\n",
-    }]);
+    detail["diffs"] = diffs;
     scripted
         .expect(Method::Get, MR, Reply::json(200, &mr_json(Some(head))))
         .expect(
@@ -323,4 +334,341 @@ fn draft_publish_fails_on_bulk_publish_left_drafts_and_early_summary() {
     };
     let checks = draft_publish_checks(&published(), &[], &notes, &EXPECTED, "Итог ревью", &partial);
     assert_eq!(checks.verdict().0, Status::Fail);
+}
+
+#[test]
+fn snapshot_with_an_empty_diff_is_not_ready() -> TestResult {
+    let empty = json!([{"old_path": "f.txt", "new_path": "f.txt", "diff": ""}]);
+    let scripted = ready(ready_with(Scripted::new(), HEAD, empty.clone()), HEAD);
+    let gitlab = GitLab::new(&scripted, Endpoints::instance(ROOT), &review())?;
+    let snapshot =
+        await_snapshot(&gitlab, &RETRY, None, MR_NOT_READY).map_err(|v| format!("{v:?}"))?;
+    assert_eq!(snapshot.files.len(), 1);
+    scripted.finish()?;
+
+    let scripted = ready_with(Scripted::new(), HEAD, json!([]));
+    let gitlab = GitLab::new(&scripted, Endpoints::instance(ROOT), &review())?;
+    match await_snapshot(&gitlab, &NOW, None, MR_NOT_READY) {
+        Err(Verdict::NotRun(reason)) => {
+            assert!(reason.starts_with(MR_NOT_READY), "{reason}");
+            assert!(reason.ends_with(DIFF_EMPTY), "{reason}");
+        }
+        other => panic!("{other:?}"),
+    }
+    scripted.finish()?;
+    Ok(())
+}
+
+fn item(seq: u32, operation: Operation, state: ItemState) -> SubmitItem {
+    SubmitItem {
+        id: crate::journal::ItemId(u64::from(seq)),
+        submission: SubmissionId(1),
+        seq,
+        operation,
+        drafts: Vec::new(),
+        state,
+        remote_id: None,
+        candidate: None,
+        detail: Some("подробности".to_owned()),
+        in_flight_at: None,
+    }
+}
+
+fn sent(states: &[ItemState]) -> Report {
+    let items: Vec<SubmitItem> = states
+        .iter()
+        .zip(1..)
+        .map(|(state, seq)| item(seq, Operation::GitLabPublishDraftNote, *state))
+        .collect();
+    Report {
+        submission: SubmissionId(1),
+        delivery: Delivery::Partial,
+        closed: false,
+        unresolved: items
+            .iter()
+            .filter(|item| matches!(item.state, ItemState::Unknown | ItemState::InFlight))
+            .count(),
+        items,
+    }
+}
+
+fn publish_call(actor: &'static str, outcome: Result<Response, Failure>) -> Call {
+    Call {
+        seq: 7,
+        actor,
+        request: Request::new(Method::Put, format!("{ROOT}{MR}/draft_notes/41/publish")),
+        outcome,
+        duration: Duration::ZERO,
+    }
+}
+
+#[test]
+fn unknown_rate_limited_and_unsent_writes_are_not_judged_by_the_oracle() {
+    use ItemState::{Confirmed, Failed, Unknown};
+    let refused = [publish_call("reviewer", Ok(Response::new(403)))];
+    assert_eq!(
+        delivery_verdict(&sent(&[Confirmed, Confirmed]), &refused, "reviewer"),
+        None
+    );
+    match delivery_verdict(&sent(&[Confirmed, Unknown]), &[], "reviewer") {
+        Some(Verdict::NotRun(reason)) => {
+            assert!(reason.starts_with(WRITE_UNOBSERVED), "{reason}");
+            assert!(reason.contains("подробности"), "{reason}");
+        }
+        other => panic!("{other:?}"),
+    }
+    assert_eq!(
+        delivery_verdict(&sent(&[Confirmed, Failed]), &refused, "reviewer"),
+        None,
+        "отказ хоста судят проверки клетки"
+    );
+    let limited = [
+        publish_call("reviewer", Ok(Response::new(429))),
+        publish_call("author", Ok(Response::new(200))),
+    ];
+    assert!(matches!(
+        delivery_verdict(&sent(&[Failed]), &limited, "reviewer"),
+        Some(Verdict::NotRun(reason)) if reason.starts_with("лимит: код 429")
+    ));
+    let unsent = [publish_call("reviewer", Err(Failure::not_sent("отказ")))];
+    assert!(matches!(
+        delivery_verdict(&sent(&[Failed]), &unsent, "reviewer"),
+        Some(Verdict::Error(_))
+    ));
+    let lost = [publish_call("reviewer", Err(Failure::timeout("срок")))];
+    assert_eq!(delivery_verdict(&sent(&[Failed]), &lost, "reviewer"), None);
+}
+
+#[test]
+fn submit_errors_split_into_reads_and_stand_errors() {
+    let status = |status| {
+        SubmitError::GitLab(ApiError::Status {
+            status,
+            message: String::new(),
+        })
+    };
+    assert!(matches!(submit_verdict(&status(403)), Verdict::Fail(_)));
+    assert!(matches!(submit_verdict(&status(502)), Verdict::Error(_)));
+    assert!(matches!(
+        submit_verdict(&SubmitError::Empty),
+        Verdict::Error(_)
+    ));
+}
+
+// --- обвязка клетки над сторожем ---
+
+const REPO: &str = "probe-author/shellio-review-sandbox";
+const PROJECT: &str = "/api/v4/projects/probe-author%2Fshellio-review-sandbox";
+const RUN_ID: &str = "20261120-101010-77";
+
+fn project(visibility: &str) -> Reply {
+    Reply::json(
+        200,
+        &json!({"path_with_namespace": REPO, "visibility": visibility, "default_branch": "main"}),
+    )
+}
+
+fn branch_reply() -> Reply {
+    Reply::json(200, &json!({"name": "x", "commit": {"id": "abc"}}))
+}
+
+struct Harness {
+    _root: tempfile::TempDir,
+    out: std::path::PathBuf,
+    state: std::path::PathBuf,
+}
+
+impl Harness {
+    fn new() -> Result<Harness, Box<dyn std::error::Error>> {
+        let root = tempfile::tempdir()?;
+        let out = root.path().join(RUN_ID).join("gl-draft-publish-gitlab_ce");
+        let state = root.path().join("state");
+        std::fs::create_dir_all(&out)?;
+        std::fs::create_dir_all(&state)?;
+        Ok(Harness {
+            _root: root,
+            out,
+            state,
+        })
+    }
+
+    fn run(&self, author: &Scripted, reviewer: &Scripted) -> ResultFile {
+        let trace = Trace::new();
+        let target = GuardTarget::gitlab(&Endpoints::instance(ROOT), REPO);
+        let guard = |scripted, actor| {
+            Guarded::new(
+                Traced::new(scripted, trace.clone(), actor),
+                target.clone(),
+                WriteScope::Loopback,
+            )
+        };
+        let author = guard(author, "author");
+        let reviewer = guard(reviewer, "reviewer");
+        let cx = GlCx {
+            author: &author,
+            reviewer: &reviewer,
+            trace: &trace,
+            host_url: ROOT.to_owned(),
+            reviewer_login: "probe-reviewer".to_owned(),
+            state_dir: &self.state,
+            poll: NOW,
+        };
+        let mut scrubber = Scrubber::new();
+        scrubber.add_repo(REPO);
+        let mut result = ResultFile::new("s", "b", "gl-draft-publish", Column::GitlabCe);
+        run_gl_cell(
+            Scenario::GlDraftPublish,
+            &cx,
+            &self.out,
+            &scrubber,
+            &mut result,
+        );
+        result
+    }
+
+    fn ledger(&self) -> Result<Vec<Created>, String> {
+        Ledger::load(&self.out.join(LEDGER_FILE))
+    }
+}
+
+fn target_entry() -> Created {
+    Created::Target {
+        rest: format!("{ROOT}/api/v4"),
+        repo: REPO.to_owned(),
+    }
+}
+
+#[test]
+fn denied_repository_read_by_the_author_guard_is_not_run() -> TestResult {
+    let harness = Harness::new()?;
+    let author = Scripted::new().expect(
+        Method::Get,
+        PROJECT,
+        Reply::json(404, &json!({"message": "404 Project Not Found"})),
+    );
+    let reviewer = Scripted::new();
+    let result = harness.run(&author, &reviewer);
+    assert!(result.execution.is_ok(), "{:?}", result.execution);
+    assert_eq!(result.status, Status::NotRun);
+    assert!(
+        result
+            .reason
+            .starts_with("сторож автора: токен без прав или нет репозитория: код 404"),
+        "{}",
+        result.reason
+    );
+    assert_eq!(harness.ledger()?, [target_entry()], "журнал начат целью");
+    assert!(harness.out.join(SWEPT_FILE).exists(), "убирать нечего");
+    assert_eq!(result.trace.len(), 1);
+    assert!(result.leftovers.is_empty());
+    author.finish()?;
+    reviewer.finish()?;
+    Ok(())
+}
+
+#[test]
+fn guard_refusal_of_the_reviewer_outranks_the_open_error() -> TestResult {
+    let harness = Harness::new()?;
+    let author = Scripted::new()
+        .expect(Method::Get, PROJECT, project("private"))
+        .expect(
+            Method::Get,
+            format!("{PROJECT}/repository/branches/main"),
+            branch_reply(),
+        );
+    let reviewer = Scripted::new().expect(Method::Get, PROJECT, project("public"));
+    let result = harness.run(&author, &reviewer);
+    match &result.execution {
+        Execution::Error { reason } => assert!(
+            reason.starts_with("reviewer: сторож записи: репозиторий не приватный"),
+            "{reason}"
+        ),
+        Execution::Ok => panic!("ожидалась ошибка исполнения"),
+    }
+    assert_eq!(harness.ledger()?, [target_entry()]);
+    author.finish()?;
+    reviewer.finish()?;
+    Ok(())
+}
+
+#[test]
+fn refused_branch_is_not_run_and_cleanup_reaches_the_result() -> TestResult {
+    let harness = Harness::new()?;
+    let base = format!("probe/{RUN_ID}-gl-draft-publish-base");
+    let encoded = format!("{PROJECT}/repository/branches/probe%2F{RUN_ID}-gl-draft-publish-base");
+    let author = Scripted::new()
+        .expect(Method::Get, PROJECT, project("private"))
+        .expect(
+            Method::Get,
+            format!("{PROJECT}/repository/branches/main"),
+            branch_reply(),
+        )
+        .expect(
+            Method::Post,
+            format!("{PROJECT}/repository/branches"),
+            Reply::json(403, &json!({"message": "403 Forbidden"})),
+        )
+        .expect(
+            Method::Get,
+            format!("{PROJECT}/merge_requests"),
+            Reply::json(200, &json!([])),
+        )
+        .expect(
+            Method::Delete,
+            encoded.clone(),
+            Reply::json(500, &json!({"message": "500 Internal Server Error"})),
+        )
+        .expect(Method::Get, encoded, branch_reply())
+        .expect(
+            Method::Get,
+            format!("{PROJECT}/merge_requests"),
+            Reply::json(200, &json!([])),
+        );
+    let reviewer = Scripted::new()
+        .expect(Method::Get, PROJECT, project("private"))
+        .expect(
+            Method::Get,
+            "/api/v4/user",
+            Reply::json(
+                200,
+                &json!({"username": "probe-reviewer", "id": 2, "name": "Probe Reviewer"}),
+            ),
+        );
+    let result = harness.run(&author, &reviewer);
+    assert!(result.execution.is_ok(), "{:?}", result.execution);
+    assert_eq!(result.status, Status::NotRun);
+    assert!(
+        result.reason.starts_with("токен без прав: ветка цели"),
+        "{}",
+        result.reason
+    );
+    assert_eq!(
+        harness.ledger()?,
+        [target_entry(), Created::Branch { name: base.clone() }],
+        "run-id веток — имя каталога прогона"
+    );
+    let delivered = author.finish()?;
+    let created = delivered
+        .iter()
+        .find(|request| request.method == Method::Post)
+        .and_then(Request::body_json)
+        .ok_or("нет запроса создания ветки")?;
+    assert_eq!(created["branch"], json!(base));
+    assert_eq!(result.leftovers, [format!("ветка {base}")]);
+    assert!(
+        result
+            .notes
+            .iter()
+            .any(|note| note.starts_with(&format!("уборка: удаление ветки {base}: код 500"))),
+        "{:?}",
+        result.notes
+    );
+    let text = format!("{:?} {:?}", result.notes, result.trace);
+    assert!(!text.contains(REPO), "путь репозитория очищен: {text}");
+    assert!(
+        !harness.out.join(SWEPT_FILE).exists(),
+        "не убранное не отмечается"
+    );
+    reviewer.finish()?;
+    Ok(())
 }
