@@ -140,14 +140,62 @@ pub fn run_gl_cell<T: Transport>(
     scrubber: &Scrubber,
     result: &mut ResultFile,
 ) {
-    let verdict = cell_verdict(scenario, cx, out, scrubber, result);
-    result.trace = cx
+    let roles = LiveRoles {
+        author: cx.author,
+        reviewer: cx.reviewer,
+        trace: cx.trace,
+    };
+    run_live_cell(
+        scenario,
+        &roles,
+        out,
+        scrubber,
+        result,
+        |cell| match scenario {
+            Scenario::GlDraftPublish => gl_draft_publish(cx, cell),
+            Scenario::GlForeignDraft => gl_foreign_draft(cx, cell),
+            Scenario::GlRequestChanges => gl_request_changes(cx, cell),
+            Scenario::GlAnchors => gl_anchors(cx, cell),
+            Scenario::GlApproveSha => gl_approve_sha(cx, cell),
+            Scenario::HeadChange => gl_head_change(cx, cell),
+            Scenario::Partial => gl_partial(cx, cell),
+            Scenario::ReconcileDeleted => gl_reconcile_deleted(cx, cell),
+            Scenario::ReconcileAmbiguous => gl_reconcile_ambiguous(cx, cell),
+            Scenario::JournalCrash => gl_journal_crash(cx, cell),
+            Scenario::ReconcilePaged => gl_reconcile_paged(cx, cell),
+            other => Err(Verdict::Error(format!(
+                "сценарий {} в живом столбце GitLab не реализован",
+                other.name()
+            ))),
+        },
+    );
+}
+
+/// Сторожа ролей живой клетки над общим следом.
+pub struct LiveRoles<'a, T> {
+    pub author: &'a Guarded<T>,
+    pub reviewer: &'a Guarded<T>,
+    pub trace: &'a Trace,
+}
+
+/// Обвязка живой клетки любого провайдера: ветки и PR/MR от автора, тело, уборка в любом случае,
+/// след и итог в `result.json`.
+pub fn run_live_cell<T: Transport>(
+    scenario: Scenario,
+    roles: &LiveRoles<'_, T>,
+    out: &Path,
+    scrubber: &Scrubber,
+    result: &mut ResultFile,
+    body: impl FnOnce(&mut Cell) -> Result<Observed, Verdict>,
+) {
+    let verdict = cell_verdict(scenario, roles, out, scrubber, result, body);
+    result.trace = roles
         .trace
         .entries(scrubber)
         .iter()
         .filter_map(|entry| serde_json::to_value(entry).ok())
         .collect();
-    result.calls = cx
+    result.calls = roles
         .trace
         .counts(scrubber)
         .into_iter()
@@ -164,10 +212,11 @@ pub fn run_gl_cell<T: Transport>(
 /// Итог клетки или `None`, если итог записан проверками тела.
 fn cell_verdict<T: Transport>(
     scenario: Scenario,
-    cx: &GlCx<'_, T>,
+    live: &LiveRoles<'_, T>,
     out: &Path,
     scrubber: &Scrubber,
     result: &mut ResultFile,
+    body: impl FnOnce(&mut Cell) -> Result<Observed, Verdict>,
 ) -> Option<Verdict> {
     let run_id = match out
         .parent()
@@ -181,11 +230,11 @@ fn cell_verdict<T: Transport>(
         Ok(names) => names,
         Err(err) => return Some(Verdict::Error(err)),
     };
-    let mut ledger = match Ledger::create_for(&out.join(LEDGER_FILE), cx.author.target()) {
+    let mut ledger = match Ledger::create_for(&out.join(LEDGER_FILE), live.author.target()) {
         Ok(ledger) => ledger,
         Err(err) => return Some(Verdict::Error(err)),
     };
-    let (author_repo, reviewer_repo) = match (live_repo(cx.author), live_repo(cx.reviewer)) {
+    let (author_repo, reviewer_repo) = match (live_repo(live.author), live_repo(live.reviewer)) {
         (Ok(author), Ok(reviewer)) => (author, reviewer),
         (Err(err), _) | (_, Err(err)) => return Some(Verdict::Error(err)),
     };
@@ -194,27 +243,9 @@ fn cell_verdict<T: Transport>(
         reviewer: Some(reviewer_repo.as_ref()),
     };
     let title = format!("probe-review {}", scenario.name());
-    let run = run_cell(&roles, &mut ledger, &names, &title, |cell| {
-        Ok(match scenario {
-            Scenario::GlDraftPublish => gl_draft_publish(cx, cell),
-            Scenario::GlForeignDraft => gl_foreign_draft(cx, cell),
-            Scenario::GlRequestChanges => gl_request_changes(cx, cell),
-            Scenario::GlAnchors => gl_anchors(cx, cell),
-            Scenario::GlApproveSha => gl_approve_sha(cx, cell),
-            Scenario::HeadChange => gl_head_change(cx, cell),
-            Scenario::Partial => gl_partial(cx, cell),
-            Scenario::ReconcileDeleted => gl_reconcile_deleted(cx, cell),
-            Scenario::ReconcileAmbiguous => gl_reconcile_ambiguous(cx, cell),
-            Scenario::JournalCrash => gl_journal_crash(cx, cell),
-            Scenario::ReconcilePaged => gl_reconcile_paged(cx, cell),
-            other => Err(Verdict::Error(format!(
-                "сценарий {} в живом столбце GitLab не реализован",
-                other.name()
-            ))),
-        })
-    });
+    let run = run_cell(&roles, &mut ledger, &names, &title, |cell| Ok(body(cell)));
     record_cleanup(result, &run.cleanup, scrubber);
-    let errors = guard_errors(&[("author", cx.author), ("reviewer", cx.reviewer)]);
+    let errors = guard_errors(&[("author", live.author), ("reviewer", live.reviewer)]);
     if !errors.is_empty() {
         return Some(Verdict::Error(errors.join("; ")));
     }
@@ -231,7 +262,7 @@ fn cell_verdict<T: Transport>(
 
 /// Наблюдённое телом — в `result.json` через очиститель: итог проверок (`None`) или ошибка
 /// исполнения, если нет обязательного артефакта.
-fn record_observed(
+pub(super) fn record_observed(
     observed: &Observed,
     scrubber: &Scrubber,
     result: &mut ResultFile,
@@ -599,7 +630,7 @@ fn mr_state<T: Transport>(
     Ok((notes, drafts, value))
 }
 
-fn stand(what: &str, err: &dyn std::fmt::Display) -> Verdict {
+pub(super) fn stand(what: &str, err: &dyn std::fmt::Display) -> Verdict {
     Verdict::Error(format!("{what}: {err}"))
 }
 

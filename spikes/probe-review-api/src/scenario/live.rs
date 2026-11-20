@@ -43,6 +43,7 @@ use crate::transport::{Trace, Traced, Transport};
 
 use super::Scenario;
 
+mod gh_cells;
 mod gl_cells;
 
 pub use gl_cells::{
@@ -239,6 +240,17 @@ fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveE
     match reviewer_account {
         Some(account) if gitlab_rows => {
             gitlab_cloud(
+                scenario,
+                ctx,
+                &host,
+                secrets,
+                account.login,
+                &scrubber,
+                result,
+            );
+        }
+        Some(account) if ctx.column == Column::GithubCloud && gh_cells::implemented(scenario) => {
+            github_cloud(
                 scenario,
                 ctx,
                 &host,
@@ -618,6 +630,35 @@ fn gitlab_cloud(
             head: &head,
         };
         gl_cells::run_gl_cell(scenario, &cx, &ctx.out, scrubber, result);
+    });
+}
+
+/// Клетка строки GitHub на github.com: обвязка `run_live_cell` над своим следом, как у
+/// [`gitlab_cloud`].
+fn github_cloud(
+    scenario: Scenario,
+    ctx: &Context,
+    host: &CloudHost,
+    (author_secret, reviewer_secret): (&Secret, &Secret),
+    reviewer_login: String,
+    scrubber: &Scrubber,
+    result: &mut ResultFile,
+) {
+    let column = Column::GithubCloud;
+    result.host.version = Some("github.com".to_owned());
+    in_cell_trace(result, |trace, result| {
+        let author = cloud_guard(column, host, author_secret, trace, "author");
+        let reviewer = cloud_guard(column, host, reviewer_secret, trace, "reviewer");
+        let cx = gh_cells::GhCx {
+            author: &author,
+            reviewer: &reviewer,
+            trace,
+            host_url: "github.com".to_owned(),
+            reviewer_login,
+            state_dir: &ctx.state_dir,
+            poll: Poll::LIVE,
+        };
+        gh_cells::run_gh_cell(scenario, &cx, &ctx.out, scrubber, result);
     });
 }
 

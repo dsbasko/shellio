@@ -1122,7 +1122,7 @@ impl<T: Transport> GitHub<T> {
 
 /// Явный отказ по лимиту REST: 429, или 403 при `x-ratelimit-remaining: 0`, `retry-after` или
 /// сообщении о лимите (вторичный лимит).
-fn is_rate_limited(response: &Response, message: &str) -> bool {
+pub fn is_rate_limited(response: &Response, message: &str) -> bool {
     match response.status {
         429 => true,
         403 => {
