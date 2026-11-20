@@ -2654,6 +2654,48 @@ pub fn deleted_checks(facts: &DeletedFacts<'_>) -> Checks {
     checks
 }
 
+/// Ключ чтения GitLab для причины без пути репозитория: хвост после `merge_requests/<iid>/` с
+/// числовыми ID, заменёнными на `{id}`, или `graphql`.
+pub fn read_key(method: Method, path: &str) -> String {
+    let path = path.split_once('?').map_or(path, |(path, _)| path);
+    if path.ends_with("/api/graphql") {
+        return format!("{method} graphql");
+    }
+    let tail = path
+        .split_once("/merge_requests/")
+        .and_then(|(_, rest)| rest.split_once('/'))
+        .map(|(_, tail)| tail);
+    match tail {
+        Some(tail) => {
+            let segments: Vec<&str> = tail
+                .split('/')
+                .map(|segment| {
+                    if !segment.is_empty() && segment.bytes().all(|byte| byte.is_ascii_digit()) {
+                        "{id}"
+                    } else {
+                        segment
+                    }
+                })
+                .collect();
+            format!("{method} {}", segments.join("/"))
+        }
+        None => format!("{method} вне MR"),
+    }
+}
+
+/// Итог «не выяснено» сверки из-за неудачного чтения: 429 на последнем вызове роли в окне сверки —
+/// `not_run` «лимит» по общему правилу строк GitLab, иначе ошибка исполнения (сверка не
+/// различает отказ транспорта, 5xx и лимит, различает след).
+pub fn unread_verdict(detail: &str, window: &[Call], actor: &str) -> Verdict {
+    match window.iter().rev().find(|call| call.actor == actor) {
+        Some(call) if call.status() == Some(429) => Verdict::NotRun(format!(
+            "лимит: код 429 на чтение сверки {}",
+            read_key(call.request.method, call.request.path())
+        )),
+        _ => Verdict::Error(format!("сверка: {detail}")),
+    }
+}
+
 fn gl_reconcile_deleted<T: Transport>(
     cx: &GlCx<'_, T>,
     cell: &mut Cell,
@@ -2701,19 +2743,25 @@ fn gl_reconcile_deleted<T: Transport>(
             Some(Ok(draft)) => {
                 let deleted = cx.second.delete_draft(cell.number, &draft);
                 let reconciled = match &deleted {
-                    Ok(_) => reconcile_gitlab(&scope, submission.id, &reviewer)
-                        .map_err(|err| stand("сверка", &err))?,
-                    Err(_) => Vec::new(),
+                    Ok(_) => {
+                        let at = cx.trace.len();
+                        let verdicts = reconcile_gitlab(&scope, submission.id, &reviewer)
+                            .map_err(|err| stand("сверка", &err))?;
+                        (verdicts, at)
+                    }
+                    Err(_) => (Vec::new(), cx.trace.len()),
                 };
                 (Some(deleted), reconciled)
             }
             Some(Err(verdict)) => return Err(verdict),
-            None => (None, Vec::new()),
+            None => (None, (Vec::new(), cx.trace.len())),
         };
         (submission.id, lost, sent, deleted, reconciled)
     };
+    let (reconciled, reconcile_start) = reconciled;
     let calls = cx.trace.calls();
     let window = calls.get(start..).unwrap_or_default();
+    let reconcile_window = calls.get(reconcile_start..).unwrap_or_default();
     let journal = Journal::open(&path).map_err(|err| stand("журнал после переоткрытия", &err))?;
     let scope = journal.scope(&project);
     let dump = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
@@ -2753,7 +2801,10 @@ fn gl_reconcile_deleted<T: Transport>(
     if let [Reconciled::Unresolved { detail }] = &reconciled[..]
         && detail.starts_with("чтение ")
     {
-        return Ok(early(Verdict::Error(format!("сверка: {detail}")), notes));
+        return Ok(early(
+            unread_verdict(detail, reconcile_window, ACTOR_REVIEWER),
+            notes,
+        ));
     }
     if let Some(draft) = &dropped {
         notes.push(format!(

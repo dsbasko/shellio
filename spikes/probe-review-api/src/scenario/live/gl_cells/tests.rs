@@ -2333,6 +2333,123 @@ fn reconcile_deleted_rate_limited_create_is_not_run_without_the_injection() -> T
     Ok(())
 }
 
+const FAKE_DRAFT_READ: &str =
+    "GET /projects/{id}/merge_requests/{merge_request_iid}/draft_notes/{draft_note_id}";
+
+#[test]
+fn reconcile_deleted_reads_the_draft_once_as_the_reviewer() -> TestResult {
+    let server = fake_gitlab()?;
+    let observed = cell_body(&server, Scenario::ReconcileDeleted)?.map_err(|v| format!("{v:?}"))?;
+    pass(&observed);
+    let reads: Vec<Option<String>> = server
+        .log()
+        .iter()
+        .filter(|call| call.key == FAKE_DRAFT_READ)
+        .map(|call| call.user.clone())
+        .collect();
+    assert_eq!(reads, vec![Some(FAKE_REVIEWER.to_owned())]);
+    Ok(())
+}
+
+#[test]
+fn reconcile_deleted_failed_draft_read_is_a_stand_error() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(FAKE_DRAFT_READ, FakeReply::Status(502)));
+    let observed = cell_body(&server, Scenario::ReconcileDeleted)?.map_err(|v| format!("{v:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::Error(reason))
+            if reason.starts_with("сверка: чтение черновика не удалось")),
+        "{:?}",
+        observed.verdict
+    );
+    assert_artifacts(&observed);
+    server.finish()?;
+    assert_eq!(writes_in_fake(&server, glf::PUBLISH), 0);
+    assert_eq!(writes_in_fake(&server, FAKE_DRAFT_DELETE), 1);
+    Ok(())
+}
+
+#[test]
+fn reconcile_deleted_rate_limited_draft_read_is_not_run() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(FAKE_DRAFT_READ, FakeReply::RateLimited));
+    let observed = cell_body(&server, Scenario::ReconcileDeleted)?.map_err(|v| format!("{v:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::NotRun(
+            "лимит: код 429 на чтение сверки GET draft_notes/{id}".to_owned()
+        ))
+    );
+    assert_artifacts(&observed);
+    server.finish()?;
+    assert_eq!(writes_in_fake(&server, glf::PUBLISH), 0);
+    assert_eq!(writes_in_fake(&server, FAKE_DRAFT_DELETE), 1);
+    Ok(())
+}
+
+#[test]
+fn unread_verdict_splits_the_limit_from_stand_errors() {
+    let read = |actor: &'static str, outcome: Result<Response, Failure>| Call {
+        seq: 9,
+        actor,
+        request: Request::new(Method::Get, format!("{ROOT}{MR}/draft_notes/41")),
+        outcome,
+        duration: Duration::ZERO,
+    };
+    let detail = "чтение черновика не удалось: x";
+    let limited = [read("reviewer", Ok(Response::new(429)))];
+    assert_eq!(
+        unread_verdict(detail, &limited, "reviewer"),
+        Verdict::NotRun("лимит: код 429 на чтение сверки GET draft_notes/{id}".to_owned())
+    );
+    let later_author = [
+        read("reviewer", Ok(Response::new(429))),
+        read("author", Ok(Response::new(200))),
+    ];
+    assert!(matches!(
+        unread_verdict(detail, &later_author, "reviewer"),
+        Verdict::NotRun(_)
+    ));
+    let error = Verdict::Error(format!("сверка: {detail}"));
+    for outcome in [
+        Ok(Response::new(502)),
+        Err(Failure::timeout("срок")),
+        Err(Failure::not_sent("отказ")),
+    ] {
+        assert_eq!(
+            unread_verdict(detail, &[read("reviewer", outcome)], "reviewer"),
+            error
+        );
+    }
+    let author_limited = [read("author", Ok(Response::new(429)))];
+    assert_eq!(unread_verdict(detail, &author_limited, "reviewer"), error);
+    assert_eq!(unread_verdict(detail, &[], "reviewer"), error);
+    let earlier = [
+        read("reviewer", Ok(Response::new(429))),
+        read("reviewer", Ok(Response::new(502))),
+    ];
+    assert_eq!(unread_verdict(detail, &earlier, "reviewer"), error);
+}
+
+#[test]
+fn read_keys_carry_no_repository_path() {
+    let path = format!("{ROOT}{MR}/draft_notes/41?per_page=100");
+    assert_eq!(read_key(Method::Get, &path), "GET draft_notes/{id}");
+    assert_eq!(
+        read_key(Method::Get, &format!("{ROOT}{MR}/discussions")),
+        "GET discussions"
+    );
+    assert_eq!(
+        read_key(Method::Post, &format!("{ROOT}/api/graphql")),
+        "POST graphql"
+    );
+    let outside = read_key(
+        Method::Get,
+        &format!("{ROOT}/api/v4/projects/probe-author%2Fshellio-review-sandbox"),
+    );
+    assert_eq!(outside, "GET вне MR");
+}
+
 #[test]
 fn deleted_checks_catch_a_retry_a_candidate_and_a_confirmed_item() {
     let writes = vec![write(1, DRAFT_CREATE, None, Some("21"))];
