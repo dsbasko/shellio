@@ -1159,12 +1159,15 @@ pub fn second_client_in(
     env: impl FnOnce() -> LiveEnv,
 ) -> (Value, bool) {
     let trace = Trace::new();
-    let (done, scrubber) = match column {
-        Column::GitlabCe => second_ce(iid, op, &trace),
-        Column::GitlabCloud => second_cloud(iid, op, &trace, &env()),
-        Column::Fake | Column::GithubCloud | Column::Ghes => (
+    let (done, scrubber) = match (column, op.provider()) {
+        (Column::GitlabCe, Provider::GitLab) => second_ce(iid, op, &trace),
+        (Column::GitlabCloud, Provider::GitLab) | (Column::GithubCloud, Provider::GitHub) => {
+            second_cloud(column, iid, op, &trace, &env())
+        }
+        _ => (
             Err(Verdict::Error(format!(
-                "второй клиент в столбце {} не реализован",
+                "второй клиент: операция {} в столбце {} не реализована",
+                op.name(),
                 column.name()
             ))),
             Scrubber::new(),
@@ -1207,6 +1210,9 @@ fn second_op<T: Transport>(
         SecondOp::CreateDraft { line } => gl_cells::foreign_draft(guard, review, login, *line),
         SecondOp::DeleteDraft { draft } => gl_cells::foreign_delete(guard, review, draft),
         SecondOp::PlantNotes { count } => gl_cells::foreign_notes(guard, review, *count),
+        SecondOp::GhCreatePending { count } => {
+            gh_cells::foreign_pending(guard, review, login, *count)
+        }
     }
 }
 
@@ -1235,17 +1241,18 @@ fn second_ce(iid: u64, op: &SecondOp, trace: &Trace) -> (Result<String, Verdict>
     (done, scrubber)
 }
 
-/// Второй клиент на gitlab.com: предусловия — как у клетки (`sandbox.toml`, токены обеих ролей).
-/// Токен автора нужен очистителю: ответ о MR несёт логин и имя автора, а файла хоста с ними, как
-/// у `gitlab_ce`, у облачного столбца нет.
+/// Второй клиент на gitlab.com или github.com: предусловия — как у клетки (`sandbox.toml`, токены
+/// обеих ролей). Токен автора нужен очистителю: ответ о MR или PR несёт логин и имя автора, а
+/// файла хоста с ними, как у `gitlab_ce`, у облачного столбца нет.
 fn second_cloud(
+    column: Column,
     iid: u64,
     op: &SecondOp,
     trace: &Trace,
     env: &LiveEnv,
 ) -> (Result<String, Verdict>, Scrubber) {
     let mut scrubber = Scrubber::new();
-    let host = match cloud_host(Column::GitlabCloud, env) {
+    let host = match cloud_host(column, env) {
         Ok(host) => host,
         Err(verdict) => return (Err(verdict), scrubber),
     };
@@ -1259,7 +1266,6 @@ fn second_cloud(
     };
     host.accounts.register(&mut scrubber);
     scrubber.add_repo(&host.host.repo);
-    let column = Column::GitlabCloud;
     let author = cloud_guard(column, &host, author_secret, trace, gl_cells::ACTOR_SECOND);
     let reviewer = cloud_guard(
         column,
@@ -1294,10 +1300,14 @@ pub fn second_cloud_op<T: Transport>(
         return Err(denied);
     }
     let account = opened?;
+    let target = reviewer.target();
     let review = ReviewTarget {
-        provider: Provider::GitLab,
-        host: gitlab_root(reviewer.target()),
-        repo: reviewer.target().repo.clone(),
+        provider: target.provider,
+        host: match target.provider {
+            Provider::GitLab => gitlab_root(target),
+            Provider::GitHub => "github.com".to_owned(),
+        },
+        repo: target.repo.clone(),
         number: iid,
     };
     let done = second_op(reviewer, &review, &account.login, op);
@@ -2337,6 +2347,37 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
                 reply["error"]
                     .as_str()
                     .is_some_and(|e| e.contains("не реализован"))
+            );
+        }
+
+        let pending = SecondOp::GhCreatePending { count: 2 };
+        let (reply, ok) = second_client_in(
+            Column::GithubCloud,
+            FAKE_IID,
+            &pending,
+            dir.path(),
+            untouched_cloud,
+        );
+        assert!(ok);
+        assert!(reply["not_run"].is_string(), "{reply}");
+        for column in [
+            Column::GitlabCe,
+            Column::GitlabCloud,
+            Column::Ghes,
+            Column::Fake,
+        ] {
+            let (reply, ok) = second_client_in(column, FAKE_IID, &pending, dir.path(), || {
+                panic!(
+                    "операция GitHub в столбце {} не читает предусловий",
+                    column.name()
+                )
+            });
+            assert!(!ok);
+            assert!(
+                reply["error"]
+                    .as_str()
+                    .is_some_and(|e| e.contains("gh-create-pending")),
+                "{reply}"
             );
         }
         Ok(())

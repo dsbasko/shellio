@@ -811,6 +811,32 @@ impl<T: Transport> GitHub<T> {
         body: &str,
     ) -> Result<RemoteReview, ApiError> {
         event.check_body(body)?;
+        let review = self.post_review(session, drafts, Some(event), body)?;
+        expect_state(&review, event.state())?;
+        Ok(review)
+    }
+
+    /// Запись второго клиента пробы, а не ветвь отправки: `PENDING` с `comments[]` одним запросом
+    /// Create review без `event`, как черновик веб-интерфейса. Продуктовая отправка так не пишет:
+    /// `PENDING` ветви отправки создаёт [`GitHub::start_pending`] без комментариев.
+    pub fn create_pending_with_comments(
+        &self,
+        session: &ReviewSession,
+        drafts: &[DraftComment],
+        body: &str,
+    ) -> Result<RemoteReview, ApiError> {
+        let review = self.post_review(session, drafts, None, body)?;
+        expect_state(&review, ReviewState::Pending)?;
+        Ok(review)
+    }
+
+    fn post_review(
+        &self,
+        session: &ReviewSession,
+        drafts: &[DraftComment],
+        event: Option<ReviewEvent>,
+        body: &str,
+    ) -> Result<RemoteReview, ApiError> {
         let head = session.revision().head_sha();
         let mut comments = Vec::with_capacity(drafts.len());
         for draft in drafts {
@@ -838,7 +864,9 @@ impl<T: Transport> GitHub<T> {
         if !body.is_empty() {
             request.insert("body".to_owned(), json!(body));
         }
-        request.insert("event".to_owned(), json!(event.name()));
+        if let Some(event) = event {
+            request.insert("event".to_owned(), json!(event.name()));
+        }
         if !comments.is_empty() {
             request.insert("comments".to_owned(), Value::Array(comments));
         }
@@ -848,7 +876,6 @@ impl<T: Transport> GitHub<T> {
             &Value::Object(request),
         )?;
         let review = review_of(&value)?;
-        expect_state(&review, event.state())?;
         expect_commit(&review, head)?;
         Ok(review)
     }

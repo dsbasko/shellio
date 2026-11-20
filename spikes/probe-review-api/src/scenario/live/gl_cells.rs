@@ -818,6 +818,8 @@ pub enum SecondOp {
     DeleteDraft { draft: String },
     /// `gl-plant-notes --count <число>`.
     PlantNotes { count: u32 },
+    /// `gh-create-pending --count <число>`: `PENDING` ревьюера на PR `--mr`.
+    GhCreatePending { count: u32 },
 }
 
 impl SecondOp {
@@ -826,6 +828,18 @@ impl SecondOp {
             SecondOp::CreateDraft { .. } => "gl-create-draft",
             SecondOp::DeleteDraft { .. } => "gl-delete-draft",
             SecondOp::PlantNotes { .. } => "gl-plant-notes",
+            SecondOp::GhCreatePending { .. } => "gh-create-pending",
+        }
+    }
+
+    /// Провайдер операции: операция другого провайдера в столбце — ошибка исполнения до чтения
+    /// предусловий.
+    pub fn provider(&self) -> Provider {
+        match self {
+            SecondOp::CreateDraft { .. }
+            | SecondOp::DeleteDraft { .. }
+            | SecondOp::PlantNotes { .. } => Provider::GitLab,
+            SecondOp::GhCreatePending { .. } => Provider::GitHub,
         }
     }
 }
@@ -844,7 +858,9 @@ impl ProcessClient {
         let (flag, value) = match op {
             SecondOp::CreateDraft { line } => ("--line", line.to_string()),
             SecondOp::DeleteDraft { draft } => ("--draft", draft.clone()),
-            SecondOp::PlantNotes { count } => ("--count", count.to_string()),
+            SecondOp::PlantNotes { count } | SecondOp::GhCreatePending { count } => {
+                ("--count", count.to_string())
+            }
         };
         let output = Command::new(&self.exe)
             .args(["--second-client", op.name(), "--column"])

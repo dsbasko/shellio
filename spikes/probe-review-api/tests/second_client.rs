@@ -170,6 +170,34 @@ fn cloud_gitlab_second_client_without_sandbox_is_not_run() -> TestResult {
 }
 
 #[test]
+fn github_second_client_without_sandbox_is_not_run() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let host = host_file(dir.path(), "http://127.0.0.1:1")?;
+    let output = second_client_op(
+        &host,
+        dir.path(),
+        "github_cloud",
+        ["gh-create-pending", "--count", "101"],
+    )?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "{stdout}");
+    let reply: Value = serde_json::from_str(stdout.trim())?;
+    assert!(reply["not_run"].is_string(), "{reply}");
+    let record: Value = serde_json::from_str(&std::fs::read_to_string(
+        dir.path().join("second-client.json"),
+    )?)?;
+    assert_eq!(record["trace"], json!([]));
+    let wrong = second_client_op(
+        &host,
+        dir.path(),
+        "gitlab_ce",
+        ["gh-create-pending", "--count", "101"],
+    )?;
+    assert_eq!(wrong.status.code(), Some(3));
+    Ok(())
+}
+
+#[test]
 fn second_client_process_deletes_a_reviewer_draft_by_id() -> TestResult {
     let server = fake(true)?;
     let dir = tempfile::tempdir()?;

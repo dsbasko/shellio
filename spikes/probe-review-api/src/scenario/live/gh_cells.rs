@@ -13,8 +13,10 @@ use serde_json::{Value, json};
 
 use super::INJECTION_UNAVAILABLE;
 use super::Verdict;
-use super::github_adapter;
-use super::gl_cells::{LiveRoles, Observed, Poll, WRITE_UNOBSERVED, run_live_cell, stand};
+use super::gl_cells::{
+    ACTOR_SECOND, LiveRoles, Observed, Poll, WRITE_UNOBSERVED, run_live_cell, stand,
+};
+use super::{github_adapter, guard_errors};
 use crate::fake::{GraphqlKind, graphql_root};
 use crate::github::{
     ApiError, Capabilities, GitHub, PullSnapshot, RemoteComment, RemoteReview, RemoteThread,
@@ -24,7 +26,7 @@ use crate::journal::{ItemState, Journal, Operation, ProjectId};
 use crate::live::guard::Guarded;
 use crate::live::lifecycle::Cell;
 use crate::model::anchor::Side;
-use crate::model::{Provider, ProviderId, ReviewSession, ReviewTarget};
+use crate::model::{DraftComment, DraftId, Provider, ProviderId, ReviewSession, ReviewTarget};
 use crate::results::ResultFile;
 use crate::scenario::Scenario;
 use crate::scenario::fake::{Checks, Spot, add_drafts, dump_in};
@@ -1892,3 +1894,67 @@ fn gh_viewed<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<Observed
 
 #[cfg(test)]
 mod tests;
+
+/// Текст `PENDING` второго клиента GitHub.
+pub const FOREIGN_PENDING_BODY: &str = "черновик браузера";
+/// Новые строки фикстуры, на которые второй клиент кладёт комментарии `PENDING` по очереди.
+pub const FOREIGN_PENDING_LINES: [u32; 2] = [4, 24];
+
+/// Текст комментария `index` в `PENDING` второго клиента.
+pub fn foreign_comment_body(index: u32) -> String {
+    format!("браузер {index}")
+}
+
+/// `PENDING` второго клиента GitHub от имени ревьюера: свой снимок PR, `count` комментариев на
+/// новых строках [`FOREIGN_PENDING_LINES`] из своей ревизии, один Create review без `event` через
+/// своего сторожа; ответ — ID review. Отказ хоста — `not_run` «второй клиент не создал
+/// PENDING», лимит — `not_run` «лимит», отказ транспорта, 5xx и сторожа — ошибка исполнения.
+pub fn foreign_pending<T: Transport>(
+    guard: &Guarded<T>,
+    review: &ReviewTarget,
+    login: &str,
+    count: u32,
+) -> Result<String, Verdict> {
+    let refused = |what: &str, err: &ApiError| match gh_read_or_fail(what, err) {
+        Verdict::Fail(reason) => {
+            Verdict::NotRun(format!("второй клиент не создал PENDING: {reason}"))
+        }
+        Verdict::Error(reason) => Verdict::Error(format!("второй клиент: {reason}")),
+        other => other,
+    };
+    let created = (|| {
+        let github = github_adapter(guard, review)
+            .map_err(|err| Verdict::Error(format!("второй клиент: {err}")))?;
+        let pull = github.pull().map_err(|err| refused("снимок PR", &err))?;
+        let file = pull.files.first().ok_or_else(|| {
+            Verdict::NotRun(format!("второй клиент не создал PENDING: {PR_NOT_READY}"))
+        })?;
+        let session = ReviewSession::new(login, review.clone(), pull.revision.clone());
+        let drafts = (0..count)
+            .map(|index| {
+                let line = FOREIGN_PENDING_LINES[index as usize % FOREIGN_PENDING_LINES.len()];
+                let placement = Spot::Line(Side::New, line)
+                    .placement(file)
+                    .map_err(|err| Verdict::Error(format!("второй клиент: якорь: {err}")))?;
+                Ok(DraftComment::new(
+                    DraftId(u64::from(index)),
+                    &session,
+                    placement,
+                    foreign_comment_body(index),
+                ))
+            })
+            .collect::<Result<Vec<_>, Verdict>>()?;
+        github
+            .create_pending_with_comments(&session, &drafts, FOREIGN_PENDING_BODY)
+            .map(|created| created.id.as_str().to_owned())
+            .map_err(|err| refused("PENDING", &err))
+    })();
+    let errors = guard_errors(&[(ACTOR_SECOND, guard)]);
+    if !errors.is_empty() {
+        return Err(Verdict::Error(errors.join("; ")));
+    }
+    if let Some(err) = guard.refusal() {
+        return Err(Verdict::Error(format!("второй клиент: сторож: {err}")));
+    }
+    created
+}

@@ -1404,3 +1404,152 @@ fn replied_root_reads_the_comment_id() {
     );
     assert_eq!(replied_root("/repos/o/r/pulls/5/comments/11"), None);
 }
+
+// --- второй клиент GitHub: PENDING ревьюера одним Create review без event ---
+
+fn second_guard(
+    server: &FakeServer<GithubFake>,
+    token: &str,
+    trace: &Trace,
+) -> Guarded<Traced<HttpTransport>> {
+    Guarded::new(
+        Traced::new(
+            HttpTransport::new(
+                HttpConfig::default(),
+                Some(Credential::bearer(Secret::new(token))),
+            ),
+            trace.clone(),
+            ACTOR_SECOND,
+        ),
+        GuardTarget::github(&Endpoints::single(server.base()), REPO),
+        WriteScope::Loopback,
+    )
+}
+
+fn second_pending(
+    server: &FakeServer<GithubFake>,
+    count: u32,
+) -> (Result<String, Verdict>, Trace, Scrubber) {
+    let trace = Trace::new();
+    let author = second_guard(server, AUTHOR_TOKEN, &trace);
+    let reviewer = second_guard(server, REVIEWER_TOKEN, &trace);
+    let mut scrubber = Scrubber::new();
+    scrubber
+        .add_token(AUTHOR_TOKEN)
+        .add_token(REVIEWER_TOKEN)
+        .add_repo(REPO);
+    let done = crate::scenario::live::second_cloud_op(
+        crate::results::Column::GithubCloud,
+        &author,
+        &reviewer,
+        NUMBER,
+        &super::super::SecondOp::GhCreatePending { count },
+        &mut scrubber,
+    );
+    if !matches!(done, Err(Verdict::Error(_))) {
+        assert!(author.refused_writes().is_empty() && reviewer.refused_writes().is_empty());
+    }
+    (done, trace, scrubber)
+}
+
+#[test]
+fn second_client_creates_the_reviewer_pending_with_all_comments_in_one_request() -> TestResult {
+    let server = fake_github(true)?;
+    let (done, trace, scrubber) = second_pending(&server, 101);
+    let id = done.map_err(|v| format!("{v:?}"))?;
+    let reviews = server.with(|f| f.reviews(NUMBER));
+    assert_eq!(
+        reviews
+            .iter()
+            .map(|r| (r.id.to_string(), r.user.as_str(), r.state, r.body.as_str()))
+            .collect::<Vec<_>>(),
+        vec![(
+            id.clone(),
+            FAKE_REVIEWER,
+            ghf::ReviewState::Pending,
+            FOREIGN_PENDING_BODY
+        )]
+    );
+    let comments = server.with(|f| f.comments(NUMBER));
+    assert_eq!(comments.len(), 101);
+    for (index, comment) in comments.iter().enumerate() {
+        let index = u32::try_from(index)?;
+        assert_eq!(comment.body, foreign_comment_body(index));
+        assert_eq!(comment.line, FOREIGN_PENDING_LINES[index as usize % 2]);
+        assert_eq!(comment.review_id.to_string(), id);
+    }
+    let calls = trace.calls();
+    let writes: Vec<&Call> = calls
+        .iter()
+        .filter(|c| c.request.method.is_write())
+        .collect();
+    assert_eq!(writes.len(), 1, "один Create review");
+    let body = writes[0].request.body_json().ok_or("тело Create review")?;
+    assert!(body.get("event").is_none(), "без event: {body}");
+    assert_eq!(body["comments"].as_array().map(Vec::len), Some(101));
+    assert!(calls.iter().all(|c| c.actor == ACTOR_SECOND));
+    let text = serde_json::to_string(&trace.entries(&scrubber))?;
+    for secret in [
+        FAKE_AUTHOR,
+        FAKE_REVIEWER,
+        REPO,
+        AUTHOR_TOKEN,
+        REVIEWER_TOKEN,
+    ] {
+        assert!(!text.contains(secret), "{secret} в следе");
+    }
+    Ok(())
+}
+
+#[test]
+fn second_client_pending_refusals_split_not_run_limit_and_error() -> TestResult {
+    for (code, expect) in [
+        (403, "второй клиент не создал PENDING"),
+        (422, "второй клиент не создал PENDING"),
+        (429, "лимит"),
+    ] {
+        let server = fake_github(true)?;
+        server.inject(Fault::new(FAKE_CREATE, FakeReply::Status(code)));
+        let (done, _, _) = second_pending(&server, 3);
+        assert!(
+            matches!(&done, Err(Verdict::NotRun(reason)) if reason.contains(expect)),
+            "{code}: {done:?}"
+        );
+        assert!(server.with(|f| f.reviews(NUMBER)).is_empty());
+    }
+    let server = fake_github(true)?;
+    server.inject(Fault::new(FAKE_CREATE, FakeReply::Status(502)));
+    let (done, _, _) = second_pending(&server, 3);
+    assert!(matches!(&done, Err(Verdict::Error(_))), "{done:?}");
+    Ok(())
+}
+
+#[test]
+fn second_client_meets_an_existing_pending_with_the_hosts_refusal() -> TestResult {
+    let server = fake_github(true)?;
+    let (first, _, _) = second_pending(&server, 2);
+    first.map_err(|v| format!("{v:?}"))?;
+    let (again, _, _) = second_pending(&server, 2);
+    assert!(
+        matches!(&again, Err(Verdict::NotRun(reason))
+            if reason.contains("второй клиент не создал PENDING") && reason.contains("422")),
+        "{again:?}"
+    );
+    assert_eq!(server.with(|f| f.reviews(NUMBER)).len(), 1);
+    Ok(())
+}
+
+#[test]
+fn second_client_refuses_a_public_repository_without_writes() -> TestResult {
+    let server = fake_github_with(true, |f| f.set_private(false))?;
+    let (done, trace, _) = second_pending(&server, 2);
+    assert!(matches!(&done, Err(Verdict::Error(_))), "{done:?}");
+    assert!(server.with(|f| f.reviews(NUMBER)).is_empty());
+    assert!(
+        trace
+            .calls()
+            .iter()
+            .all(|call| !call.request.method.is_write())
+    );
+    Ok(())
+}

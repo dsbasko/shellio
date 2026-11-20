@@ -1601,6 +1601,11 @@ fn every_adapter_write_passes_the_write_guard() -> TestResult {
         )
         .expect(
             Method::Post,
+            REVIEWS,
+            Reply::json(200, &review(602, "bob", "PENDING", HEAD)),
+        )
+        .expect(
+            Method::Post,
             "/graphql",
             thread_reply("PRRT_1", "PRRC_1", 701, "added", "PRR_601"),
         )
@@ -1640,6 +1645,7 @@ fn every_adapter_write_passes_the_write_guard() -> TestResult {
     let clear = github.check_no_pending(&caps())?;
     github.create_review(&session, &clear, &drafts, ReviewEvent::Comment, "Итог")?;
     let pending = github.start_pending(&session, &caps(), &clear)?;
+    github.create_pending_with_comments(&session, &drafts, "черновик второго клиента")?;
     let first = github.add_pending_comment(&session, &pending, &drafts[0])?;
     github.update_pending_comment(&pending, &first, "added v2")?;
     github.submit_pending(&pending, ReviewEvent::Comment, "Итог")?;
@@ -1654,6 +1660,6 @@ fn every_adapter_write_passes_the_write_guard() -> TestResult {
     );
     let requests = scripted.finish()?;
     let writes = requests.iter().filter(|r| r.method.is_write()).count();
-    assert_eq!(writes, 8, "все записи адаптера дошли до транспорта");
+    assert_eq!(writes, 9, "все записи адаптера дошли до транспорта");
     Ok(())
 }

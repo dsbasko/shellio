@@ -197,6 +197,14 @@ pub fn parse_args(args: &[String]) -> Result<Mode, String> {
                     }
                     SecondOp::PlantNotes { count }
                 }
+                "gh-create-pending" => {
+                    let count = u32::try_from(number("--count")?)
+                        .map_err(|_| "--count вне u32".to_owned())?;
+                    if count == 0 {
+                        return Err("--count — ноль".to_owned());
+                    }
+                    SecondOp::GhCreatePending { count }
+                }
                 other => return Err(format!("неизвестная операция второго клиента {other}")),
             };
             let out = PathBuf::from(option("--out").ok_or("не задан --out")?);
@@ -550,6 +558,25 @@ mod tests {
         let mut no_count = full;
         no_count[1] = "gl-plant-notes";
         assert!(parse_args(&args(&no_count)).is_err());
+        let mut pending = plant;
+        pending[1] = "gh-create-pending";
+        pending[3] = "github_cloud";
+        pending[7] = "101";
+        assert_eq!(
+            parse_args(&args(&pending)),
+            Ok(Mode::SecondClient {
+                column: Column::GithubCloud,
+                mr: 7,
+                op: SecondOp::GhCreatePending { count: 101 },
+                out: PathBuf::from("/tmp/p"),
+            })
+        );
+        let mut zero_pending = pending;
+        zero_pending[7] = "0";
+        assert!(parse_args(&args(&zero_pending)).is_err());
+        let mut pending_no_count = full;
+        pending_no_count[1] = "gh-create-pending";
+        assert!(parse_args(&args(&pending_no_count)).is_err());
         let mut other = full;
         other[1] = "gl-publish-draft";
         assert!(parse_args(&args(&other)).is_err());
