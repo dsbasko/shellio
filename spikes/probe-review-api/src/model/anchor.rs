@@ -114,6 +114,28 @@ impl Anchor {
         Ok(anchor)
     }
 
+    /// Якорь из журнала. Блоков diff в журнале нет, поэтому проверяется только порядок: счётчики
+    /// строк diff не убывают, и у более поздней строки хотя бы один больше.
+    pub(crate) fn restore(
+        old_path: String,
+        new_path: String,
+        start: Option<LinePoint>,
+        end: LinePoint,
+    ) -> Result<Anchor, ModelError> {
+        if let Some(start) = start {
+            let (a, b) = (start.line, end.line);
+            if a.old > b.old || a.new > b.new || (a.old, a.new) == (b.old, b.new) {
+                return Err(ModelError::RangeOrder);
+            }
+        }
+        Ok(Anchor {
+            old_path,
+            new_path,
+            start,
+            end,
+        })
+    }
+
     pub fn old_path(&self) -> &str {
         &self.old_path
     }

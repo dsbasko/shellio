@@ -108,6 +108,26 @@ impl DraftComment {
         }
     }
 
+    /// Черновик из журнала с записанными ревизией и состоянием якоря. Отправку по-прежнему сверяет
+    /// сессия: черновик другой ревизии или с устаревшим якорем она отклонит.
+    pub(crate) fn restore(
+        id: DraftId,
+        body: String,
+        remote_id: Option<ProviderId>,
+        placement: Placement,
+        revision: Revision,
+        state: AnchorState,
+    ) -> DraftComment {
+        DraftComment {
+            id,
+            body,
+            remote_id,
+            placement,
+            revision,
+            state,
+        }
+    }
+
     pub fn placement(&self) -> &Placement {
         &self.placement
     }
