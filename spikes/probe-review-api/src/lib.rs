@@ -9,6 +9,7 @@ pub mod fake;
 pub mod github;
 pub mod gitlab;
 pub mod journal;
+pub mod live;
 pub mod model;
 pub mod results;
 pub mod scenario;
