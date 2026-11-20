@@ -1,0 +1,700 @@
+{
+  "schema": 1,
+  "scenario": "churn",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832,
+      "logical_cpus": 11
+    },
+    "build": {
+      "commit": "b779167a1c76",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "binary_sha256": "606e4b3fb4bdad5ad7f640c5c9a01365e475ff0e425b2dd6a2793ee88f9b452a",
+      "probe_version": "0.1.0"
+    },
+    "power": {
+      "source": "AC Power",
+      "low_power_mode": false
+    },
+    "process": {
+      "pid": 1322,
+      "state_dir": "<tmpdir>/shellio-probe-resources.qUqKk6"
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "background": [],
+  "cells": [
+    {
+      "id": "churn-fresh",
+      "status": "pass",
+      "oracle": "у a2 CPU — «свежий» без повторного PID, память измерена",
+      "reason": "a2: Some((Some(Measured(1311128)), Missing(Fresh { reused_pid: false })))"
+    },
+    {
+      "id": "churn-exited",
+      "status": "pass",
+      "oracle": "у c/p/c1 и a1 CPU — «вышел», в памяти не ожидаются; у q2 заметка «вышел», в множестве его нет",
+      "reason": "c/p/c1 и a1 — «вышел» без памяти, q2 — заметка «вышел»"
+    },
+    {
+      "id": "churn-partial",
+      "status": "pass",
+      "oracle": "partial истинен; CPU учтён ровно у хоста, программы и c/p/c2; у неучтённых своя причина",
+      "reason": "partial true, CPU 3/7 (доля 0.43), память 4/5, учтены [1334, 1336, 1338], ожидались [1334, 1336, 1338]; причины: PID 1335: Exited; PID 1337: Exited; PID 1339: Fresh { reused_pid: false }; PID 1340: Unread { unread: Unconfirmed { error: Exited } }"
+    },
+    {
+      "id": "churn-zombie",
+      "status": "pass",
+      "oracle": "наблюдение: зомби q1 в списке S1, итоги вызовов и запись сводки записаны",
+      "reason": "q1 PID 1340 в списке зомби; чтение снимка Some((Err(Unconfirmed { error: Exited }), Err(Exited), Err(Exited))); запись сводки Some((Some(Missing(Unread { unread: Unconfirmed { error: Exited } })), Missing(Unread { unread: Unconfirmed { error: Exited } })))"
+    }
+  ],
+  "metrics": [],
+  "raw": {
+    "attribution": [
+      {
+        "notes": [
+          {
+            "error": {
+              "kind": "exited"
+            },
+            "key": {
+              "pid": 23621,
+              "start": {
+                "sec": 1795171200,
+                "usec": 476251
+              }
+            },
+            "kind": "session_unknown"
+          }
+        ],
+        "shares": [
+          {
+            "members": [],
+            "owner": {
+              "kind": "git"
+            },
+            "requested_by": []
+          },
+          {
+            "members": [
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1334,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 953040
+                  }
+                },
+                "origins": [
+                  "record"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1335,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 953206
+                  }
+                },
+                "origins": [
+                  "root"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1336,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 955314
+                  }
+                },
+                "origins": [
+                  "record",
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1337,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 957981
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1338,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 958290
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              }
+            ],
+            "owner": {
+              "id": "c",
+              "kind": "panel"
+            },
+            "requested_by": []
+          }
+        ]
+      },
+      {
+        "notes": [
+          {
+            "key": {
+              "pid": 1341,
+              "start": {
+                "sec": 1795192881,
+                "usec": 966705
+              }
+            },
+            "kind": "exited",
+            "owner": {
+              "id": "c",
+              "kind": "panel"
+            },
+            "role": "surface"
+          },
+          {
+            "error": {
+              "kind": "exited"
+            },
+            "key": {
+              "pid": 1340,
+              "start": {
+                "sec": 1795192881,
+                "usec": 964253
+              }
+            },
+            "kind": "session_unknown"
+          },
+          {
+            "error": {
+              "kind": "exited"
+            },
+            "key": {
+              "pid": 23621,
+              "start": {
+                "sec": 1795171200,
+                "usec": 476251
+              }
+            },
+            "kind": "session_unknown"
+          }
+        ],
+        "shares": [
+          {
+            "members": [],
+            "owner": {
+              "kind": "git"
+            },
+            "requested_by": []
+          },
+          {
+            "members": [
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1334,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 953040
+                  }
+                },
+                "origins": [
+                  "record"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1336,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 955314
+                  }
+                },
+                "origins": [
+                  "record",
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1338,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 958290
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1339,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 962159
+                  }
+                },
+                "origins": [
+                  "root"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1340,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 964253
+                  }
+                },
+                "origins": [
+                  "root"
+                ]
+              }
+            ],
+            "owner": {
+              "id": "c",
+              "kind": "panel"
+            },
+            "requested_by": []
+          }
+        ]
+      }
+    ],
+    "claims": [
+      {
+        "git": [],
+        "panels": [
+          {
+            "id": "c",
+            "record": {
+              "group": {
+                "pid": 1336,
+                "start": {
+                  "sec": 1795192881,
+                  "usec": 955314
+                }
+              },
+              "host": {
+                "pid": 1334,
+                "start": {
+                  "sec": 1795192881,
+                  "usec": 953040
+                }
+              },
+              "programs": [
+                {
+                  "pid": 1336,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 955314
+                  }
+                }
+              ],
+              "session": {
+                "pid": 1336,
+                "start": {
+                  "sec": 1795192881,
+                  "usec": 955314
+                }
+              }
+            },
+            "surface": [
+              {
+                "pid": 1335,
+                "start": {
+                  "sec": 1795192881,
+                  "usec": 953206
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "git": [],
+        "panels": [
+          {
+            "id": "c",
+            "record": {
+              "group": {
+                "pid": 1336,
+                "start": {
+                  "sec": 1795192881,
+                  "usec": 955314
+                }
+              },
+              "host": {
+                "pid": 1334,
+                "start": {
+                  "sec": 1795192881,
+                  "usec": 953040
+                }
+              },
+              "programs": [
+                {
+                  "pid": 1336,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 955314
+                  }
+                }
+              ],
+              "session": {
+                "pid": 1336,
+                "start": {
+                  "sec": 1795192881,
+                  "usec": 955314
+                }
+              }
+            },
+            "surface": [
+              {
+                "pid": 1339,
+                "start": {
+                  "sec": 1795192881,
+                  "usec": 962159
+                }
+              },
+              {
+                "pid": 1340,
+                "start": {
+                  "sec": 1795192881,
+                  "usec": 964253
+                }
+              },
+              {
+                "pid": 1341,
+                "start": {
+                  "sec": 1795192881,
+                  "usec": 966705
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "keys": {
+      "a1": {
+        "pid": 1335,
+        "start": {
+          "sec": 1795192881,
+          "usec": 953206
+        }
+      },
+      "a2": {
+        "pid": 1339,
+        "start": {
+          "sec": 1795192881,
+          "usec": 962159
+        }
+      },
+      "c1": {
+        "pid": 1337,
+        "start": {
+          "sec": 1795192881,
+          "usec": 957981
+        }
+      },
+      "q1": {
+        "pid": 1340,
+        "start": {
+          "sec": 1795192881,
+          "usec": 964253
+        }
+      },
+      "q2": {
+        "pid": 1341,
+        "start": {
+          "sec": 1795192881,
+          "usec": 966705
+        }
+      },
+      "with_base": [
+        {
+          "pid": 1334,
+          "start": {
+            "sec": 1795192881,
+            "usec": 953040
+          }
+        },
+        {
+          "pid": 1336,
+          "start": {
+            "sec": 1795192881,
+            "usec": 955314
+          }
+        },
+        {
+          "pid": 1338,
+          "start": {
+            "sec": 1795192881,
+            "usec": 958290
+          }
+        }
+      ]
+    },
+    "summary": {
+      "base": {
+        "collect_end_ns": 793745012814583,
+        "collect_start_ns": 793745012333291
+      },
+      "boundary": {
+        "collect_end_ns": 793745021458208,
+        "collect_start_ns": 793745021066291
+      },
+      "cpu": {
+        "coverage": {
+          "counted": 3,
+          "expected": 7
+        },
+        "delta_mach": 4604,
+        "delta_ns": 191833,
+        "interval_ns": 8688312,
+        "pct": 2.207943269072289
+      },
+      "entries": [
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1334,
+            "start_abstime": 19049880120604
+          },
+          "key": {
+            "pid": 1334,
+            "start": {
+              "sec": 1795192881,
+              "usec": 953040
+            }
+          },
+          "memory": {
+            "measured": 1360304
+          }
+        },
+        {
+          "cpu": {
+            "missing": {
+              "kind": "exited"
+            }
+          },
+          "identity": null,
+          "key": {
+            "pid": 1335,
+            "start": {
+              "sec": 1795192881,
+              "usec": 953206
+            }
+          },
+          "memory": null
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 4604,
+              "ns": 191833,
+              "pct": 2.207943269072289
+            }
+          },
+          "identity": {
+            "pid": 1336,
+            "start_abstime": 19049880175165
+          },
+          "key": {
+            "pid": 1336,
+            "start": {
+              "sec": 1795192881,
+              "usec": 955314
+            }
+          },
+          "memory": {
+            "measured": 1425816
+          }
+        },
+        {
+          "cpu": {
+            "missing": {
+              "kind": "exited"
+            }
+          },
+          "identity": null,
+          "key": {
+            "pid": 1337,
+            "start": {
+              "sec": 1795192881,
+              "usec": 957981
+            }
+          },
+          "memory": null
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1338,
+            "start_abstime": 19049880246581
+          },
+          "key": {
+            "pid": 1338,
+            "start": {
+              "sec": 1795192881,
+              "usec": 958290
+            }
+          },
+          "memory": {
+            "measured": 1327512
+          }
+        },
+        {
+          "cpu": {
+            "missing": {
+              "kind": "fresh",
+              "reused_pid": false
+            }
+          },
+          "identity": {
+            "pid": 1339,
+            "start_abstime": 19049880339443
+          },
+          "key": {
+            "pid": 1339,
+            "start": {
+              "sec": 1795192881,
+              "usec": 962159
+            }
+          },
+          "memory": {
+            "measured": 1311128
+          }
+        },
+        {
+          "cpu": {
+            "missing": {
+              "kind": "unread",
+              "unread": {
+                "error": {
+                  "kind": "exited"
+                },
+                "kind": "unconfirmed"
+              }
+            }
+          },
+          "identity": null,
+          "key": {
+            "pid": 1340,
+            "start": {
+              "sec": 1795192881,
+              "usec": 964253
+            }
+          },
+          "memory": {
+            "missing": {
+              "kind": "unread",
+              "unread": {
+                "error": {
+                  "kind": "exited"
+                },
+                "kind": "unconfirmed"
+              }
+            }
+          }
+        }
+      ],
+      "memory": {
+        "bytes": 5424760,
+        "coverage": {
+          "counted": 4,
+          "expected": 5
+        }
+      },
+      "partial": true
+    },
+    "zombie_calls": {
+      "getsid": {
+        "Err": {
+          "kind": "exited"
+        }
+      },
+      "pid": 1340,
+      "proc_pid_rusage": {
+        "Ok": {
+          "phys_footprint": 0,
+          "start_abstime": 19049880389713,
+          "system_mach": 23531,
+          "user_mach": 21503
+        }
+      },
+      "proc_pidinfo": {
+        "Err": {
+          "kind": "exited"
+        }
+      }
+    },
+    "zombie_listed": {
+      "comm": "probe-resources",
+      "pgid": 975,
+      "pid": 1340,
+      "ppid": 1322,
+      "ruid": 501,
+      "start": {
+        "sec": 1795192881,
+        "usec": 964253
+      },
+      "uid": 501,
+      "zombie": true
+    }
+  },
+  "notes": []
+}

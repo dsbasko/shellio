@@ -1,0 +1,194 @@
+{
+  "binary_sha256": "606e4b3fb4bdad5ad7f640c5c9a01365e475ff0e425b2dd6a2793ee88f9b452a",
+  "profile": "release",
+  "params": {
+    "background_foreign_pct": 10.0,
+    "background_system_pct": 30.0,
+    "background_window_s": 10,
+    "cost_protocol": {
+      "points": [
+        {
+          "name": "pids-8",
+          "panels": 4,
+          "pids": 8,
+          "visibility": "visible",
+          "work": true
+        },
+        {
+          "name": "pids-32",
+          "panels": 4,
+          "pids": 32,
+          "visibility": "visible",
+          "work": true
+        },
+        {
+          "name": "pids-128",
+          "panels": 4,
+          "pids": 128,
+          "visibility": "visible",
+          "work": true
+        },
+        {
+          "name": "panels-16",
+          "panels": 16,
+          "pids": 32,
+          "visibility": "visible",
+          "work": true
+        },
+        {
+          "name": "background",
+          "panels": 4,
+          "pids": 32,
+          "visibility": "background",
+          "work": true
+        },
+        {
+          "name": "idle",
+          "panels": 4,
+          "pids": 32,
+          "visibility": "visible",
+          "work": false
+        }
+      ],
+      "protocol": {
+        "attempt_ns": 1500000000000,
+        "op_cpu_ns": 500000,
+        "ops_per_s": 200,
+        "ops_tolerance": 0.01,
+        "polls": 4,
+        "rules": {
+          "blocks": 5,
+          "guard_ns": 180000000000,
+          "max_repeats": 2,
+          "min_clean": 3
+        },
+        "sampler_budget_pp": 0.5,
+        "spans_budget_pp": 1.0,
+        "warmup_ns": 10000000000,
+        "window_ns": 30000000000,
+        "workers": 2
+      }
+    },
+    "not_started_limit": 3,
+    "quiet_deadline_s": 300,
+    "sampler_steps": {
+      "background_ns": 10000000000,
+      "visible_ns": 2000000000
+    },
+    "scenarios": [
+      {
+        "measured": true,
+        "name": "smoke",
+        "points": []
+      },
+      {
+        "measured": true,
+        "name": "units",
+        "points": []
+      },
+      {
+        "measured": true,
+        "name": "formula-cpu",
+        "points": []
+      },
+      {
+        "measured": false,
+        "name": "formula-mem",
+        "points": []
+      },
+      {
+        "measured": false,
+        "name": "sessions",
+        "points": []
+      },
+      {
+        "measured": false,
+        "name": "git-shared",
+        "points": []
+      },
+      {
+        "measured": false,
+        "name": "reparent",
+        "points": []
+      },
+      {
+        "measured": false,
+        "name": "churn",
+        "points": []
+      },
+      {
+        "measured": false,
+        "name": "attach-move",
+        "points": []
+      },
+      {
+        "measured": false,
+        "name": "login",
+        "points": []
+      },
+      {
+        "measured": false,
+        "name": "eperm-inject",
+        "points": []
+      },
+      {
+        "measured": false,
+        "name": "list-bench",
+        "points": []
+      },
+      {
+        "measured": false,
+        "name": "clock-bench",
+        "points": []
+      },
+      {
+        "measured": true,
+        "name": "span-busy",
+        "points": []
+      },
+      {
+        "measured": true,
+        "name": "span-wait",
+        "points": []
+      },
+      {
+        "measured": true,
+        "name": "span-migrate",
+        "points": []
+      },
+      {
+        "measured": true,
+        "name": "span-nested",
+        "points": []
+      },
+      {
+        "measured": true,
+        "name": "span-parallel",
+        "points": []
+      },
+      {
+        "measured": true,
+        "name": "span-blocking",
+        "points": []
+      },
+      {
+        "measured": false,
+        "name": "arena",
+        "points": []
+      },
+      {
+        "measured": true,
+        "name": "cost",
+        "points": [
+          "pids-8",
+          "pids-32",
+          "pids-128",
+          "panels-16",
+          "background",
+          "idle"
+        ]
+      }
+    ],
+    "schema": 1
+  }
+}

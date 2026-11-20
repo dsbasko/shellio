@@ -1,0 +1,3457 @@
+{
+  "schema": 1,
+  "scenario": "smoke",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832,
+      "logical_cpus": 11
+    },
+    "build": {
+      "commit": "d13266a0873e",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "binary_sha256": "606e4b3fb4bdad5ad7f640c5c9a01365e475ff0e425b2dd6a2793ee88f9b452a",
+      "probe_version": "0.1.0"
+    },
+    "power": {
+      "source": "AC Power",
+      "low_power_mode": false
+    },
+    "process": {
+      "pid": 35602,
+      "state_dir": "<tmpdir>/shellio-probe-resources.mdNI6q"
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "background": [
+    {
+      "label": "attempt-1/before:1",
+      "check": {
+        "window_s": 10.006536833,
+        "system_busy_pct": 127.81644852213576,
+        "stand_pct": 0.028098702347523753,
+        "background_pct": 127.78834981978824,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.3525634852375106
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 803,
+          "listed_end": 816,
+          "foreign_read_both": 528,
+          "failed_by_errno": {
+            "1": 273,
+            "3": 1
+          },
+          "appeared": 12,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:2",
+      "check": {
+        "window_s": 10.008186,
+        "system_busy_pct": 112.0083099974361,
+        "stand_pct": 0.0537514090965136,
+        "background_pct": 111.95455858833958,
+        "busiest": {
+          "pid": 22758,
+          "name": "Yandex Helper (Renderer)",
+          "pct": 3.06194099510141
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 815,
+          "listed_end": 808,
+          "foreign_read_both": 529,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 3,
+          "exited": 11
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:3",
+      "check": {
+        "window_s": 10.005922209,
+        "system_busy_pct": 85.54933589530168,
+        "stand_pct": 0.07182412425249347,
+        "background_pct": 85.4775117710492,
+        "busiest": {
+          "pid": 89709,
+          "name": "workspace-service",
+          "pct": 2.300393488897651
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 808,
+          "listed_end": 807,
+          "foreign_read_both": 530,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 1,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:4",
+      "check": {
+        "window_s": 10.01008575,
+        "system_busy_pct": 92.20700232263243,
+        "stand_pct": 0.0696922101791186,
+        "background_pct": 92.13731011245332,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.5226561221016515
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 807,
+          "listed_end": 807,
+          "foreign_read_both": 531,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 0,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:5",
+      "check": {
+        "window_s": 10.000115417,
+        "system_busy_pct": 93.49892086350506,
+        "stand_pct": 0.06795754565439532,
+        "background_pct": 93.43096331785068,
+        "busiest": {
+          "pid": 89709,
+          "name": "workspace-service",
+          "pct": 3.5817569904353435
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 807,
+          "listed_end": 799,
+          "foreign_read_both": 518,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 5,
+          "exited": 13
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:6",
+      "check": {
+        "window_s": 10.01010475,
+        "system_busy_pct": 81.81732563787607,
+        "stand_pct": 0.06266708647579337,
+        "background_pct": 81.75465855140027,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.481039576533902
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 799,
+          "listed_end": 798,
+          "foreign_read_both": 523,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 0,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:7",
+      "check": {
+        "window_s": 10.000986542,
+        "system_busy_pct": 87.79133901568248,
+        "stand_pct": 0.0612364587661496,
+        "background_pct": 87.73010255691634,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.0336302996296944
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 798,
+          "foreign_read_both": 522,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:8",
+      "check": {
+        "window_s": 10.010079625,
+        "system_busy_pct": 91.9073608268126,
+        "stand_pct": 0.05386778329448104,
+        "background_pct": 91.85349304351811,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.6350606177121194
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 798,
+          "foreign_read_both": 521,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 2,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:9",
+      "check": {
+        "window_s": 10.000220833,
+        "system_busy_pct": 81.4982002507944,
+        "stand_pct": 0.0649868948749044,
+        "background_pct": 81.43321335591949,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.5644179458891756
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 797,
+          "foreign_read_both": 521,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 1,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:10",
+      "check": {
+        "window_s": 10.010051334,
+        "system_busy_pct": 93.20631521948197,
+        "stand_pct": 0.05296841967224221,
+        "background_pct": 93.15334679980973,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.384643115557473
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 797,
+          "listed_end": 796,
+          "foreign_read_both": 521,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 0,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:11",
+      "check": {
+        "window_s": 10.004979708,
+        "system_busy_pct": 100.44997884367524,
+        "stand_pct": 0.06525666408677938,
+        "background_pct": 100.38472217958844,
+        "busiest": {
+          "pid": 99899,
+          "name": "workspace-service",
+          "pct": 3.121903713110459
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 796,
+          "listed_end": 796,
+          "foreign_read_both": 518,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 3,
+          "exited": 3
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:12",
+      "check": {
+        "window_s": 10.006277125,
+        "system_busy_pct": 89.5437922423121,
+        "stand_pct": 0.06066358071209226,
+        "background_pct": 89.4831286616,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.5178282777172236
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 796,
+          "listed_end": 797,
+          "foreign_read_both": 521,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 1,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:13",
+      "check": {
+        "window_s": 10.003568958,
+        "system_busy_pct": 89.26814057555478,
+        "stand_pct": 0.06631924094144881,
+        "background_pct": 89.20182133461333,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.448320364744768
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 797,
+          "listed_end": 797,
+          "foreign_read_both": 521,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:14",
+      "check": {
+        "window_s": 10.003406083,
+        "system_busy_pct": 87.57017287228726,
+        "stand_pct": 0.0595013933315697,
+        "background_pct": 87.51067147895569,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 1.9547167072653568
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 797,
+          "listed_end": 798,
+          "foreign_read_both": 520,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:15",
+      "check": {
+        "window_s": 10.006229209,
+        "system_busy_pct": 90.84341174019973,
+        "stand_pct": 0.06178442319149957,
+        "background_pct": 90.78162731700824,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.631162233153678
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 798,
+          "foreign_read_both": 521,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:16",
+      "check": {
+        "window_s": 10.00972625,
+        "system_busy_pct": 95.4072045676574,
+        "stand_pct": 0.04714580481159512,
+        "background_pct": 95.3600587628458,
+        "busiest": {
+          "pid": 57303,
+          "name": "dataaccessd",
+          "pct": 3.629681760777424
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 799,
+          "foreign_read_both": 522,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 1,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:17",
+      "check": {
+        "window_s": 10.002237125,
+        "system_busy_pct": 101.97718642868108,
+        "stand_pct": 0.061566226865472355,
+        "background_pct": 101.9156202018156,
+        "busiest": {
+          "pid": 57303,
+          "name": "dataaccessd",
+          "pct": 4.0894742934821195
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 799,
+          "listed_end": 799,
+          "foreign_read_both": 520,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 3,
+          "exited": 3
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:18",
+      "check": {
+        "window_s": 10.010054875,
+        "system_busy_pct": 86.31321314309977,
+        "stand_pct": 0.06739056962462456,
+        "background_pct": 86.24582257347515,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.404822810724102
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 799,
+          "listed_end": 797,
+          "foreign_read_both": 522,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 0,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:19",
+      "check": {
+        "window_s": 10.010076917,
+        "system_busy_pct": 90.1091977093746,
+        "stand_pct": 0.05309774384423943,
+        "background_pct": 90.05609996553036,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.317038469565638
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 797,
+          "listed_end": 797,
+          "foreign_read_both": 521,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:20",
+      "check": {
+        "window_s": 10.001685083,
+        "system_busy_pct": 87.18530855187095,
+        "stand_pct": 0.06101387865503143,
+        "background_pct": 87.12429467321591,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 1.9122844242025612
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 797,
+          "listed_end": 798,
+          "foreign_read_both": 520,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 3,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:21",
+      "check": {
+        "window_s": 10.001984625,
+        "system_busy_pct": 88.68239986921596,
+        "stand_pct": 0.047646793898165986,
+        "background_pct": 88.63475307531779,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.237257238335337
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 797,
+          "foreign_read_both": 521,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 1,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:22",
+      "check": {
+        "window_s": 10.008038917,
+        "system_busy_pct": 90.52722591446334,
+        "stand_pct": 0.07223983699463066,
+        "background_pct": 90.45498607746872,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.5613799462206868
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 797,
+          "listed_end": 798,
+          "foreign_read_both": 522,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 1,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:23",
+      "check": {
+        "window_s": 10.01006725,
+        "system_busy_pct": 93.10626759275767,
+        "stand_pct": 0.06224067076072841,
+        "background_pct": 93.04402692199696,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.380838150712724
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 798,
+          "foreign_read_both": 520,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 3,
+          "exited": 3
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:24",
+      "check": {
+        "window_s": 10.010070417,
+        "system_busy_pct": 95.30402487277529,
+        "stand_pct": 0.06171368174901821,
+        "background_pct": 95.24231119102626,
+        "busiest": {
+          "pid": 94555,
+          "name": "workspace-service",
+          "pct": 3.144636549862944
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 798,
+          "foreign_read_both": 523,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 0,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:25",
+      "check": {
+        "window_s": 10.010072875,
+        "system_busy_pct": 83.71567424777615,
+        "stand_pct": 0.05743048099437538,
+        "background_pct": 83.65824376678178,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.028734391206917
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 799,
+          "foreign_read_both": 522,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:26",
+      "check": {
+        "window_s": 10.01007025,
+        "system_busy_pct": 98.50080722460464,
+        "stand_pct": 0.057874628801930735,
+        "background_pct": 98.44293259580272,
+        "busiest": {
+          "pid": 77316,
+          "name": "Mail",
+          "pct": 3.4051688198691714
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 799,
+          "listed_end": 798,
+          "foreign_read_both": 520,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 3
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:27",
+      "check": {
+        "window_s": 10.010077875,
+        "system_busy_pct": 90.80848434458358,
+        "stand_pct": 0.061137546345012825,
+        "background_pct": 90.74734679823857,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.408279216309294
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 798,
+          "foreign_read_both": 521,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:28",
+      "check": {
+        "window_s": 10.001726041,
+        "system_busy_pct": 90.48438202467658,
+        "stand_pct": 0.06175225130823997,
+        "background_pct": 90.42262977336834,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.797411735265105
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 798,
+          "foreign_read_both": 522,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 0,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-1/before:29",
+      "check": {
+        "window_s": 10.004557167,
+        "system_busy_pct": 104.8522170936384,
+        "stand_pct": 0.06114338593793354,
+        "background_pct": 104.79107370770046,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.2708402534734597
+        },
+        "stand_pids": [
+          1982,
+          1984
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 799,
+          "foreign_read_both": 519,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 4,
+          "exited": 3
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:1",
+      "check": {
+        "window_s": 10.010072583,
+        "system_busy_pct": 308.88886912279844,
+        "stand_pct": 0.025509715127706983,
+        "background_pct": 308.8633594076707,
+        "busiest": {
+          "pid": 62074,
+          "name": "contactsd",
+          "pct": 30.81452139756178
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 807,
+          "foreign_read_both": 519,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 12,
+          "exited": 3
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:2",
+      "check": {
+        "window_s": 10.002684334,
+        "system_busy_pct": 132.76436161101392,
+        "stand_pct": 0.06612433002126966,
+        "background_pct": 132.69823728099266,
+        "busiest": {
+          "pid": 775,
+          "name": "CalendarWidgetExtension",
+          "pct": 8.692297107133722
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 807,
+          "listed_end": 807,
+          "foreign_read_both": 531,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 0,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:3",
+      "check": {
+        "window_s": 10.0101095,
+        "system_busy_pct": 111.48729192223122,
+        "stand_pct": 0.06558869311069974,
+        "background_pct": 111.42170322912052,
+        "busiest": {
+          "pid": 57303,
+          "name": "dataaccessd",
+          "pct": 6.06377232936363
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 807,
+          "listed_end": 807,
+          "foreign_read_both": 530,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:4",
+      "check": {
+        "window_s": 10.010060208,
+        "system_busy_pct": 103.59578049003478,
+        "stand_pct": 0.07301154886320341,
+        "background_pct": 103.52276894117158,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.811905553725317
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 807,
+          "listed_end": 808,
+          "foreign_read_both": 530,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 3,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:5",
+      "check": {
+        "window_s": 10.010065541,
+        "system_busy_pct": 154.44454321180754,
+        "stand_pct": 0.04867766329842855,
+        "background_pct": 154.3958655485091,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.1741883377145013
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 807,
+          "listed_end": 806,
+          "foreign_read_both": 531,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 0,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:6",
+      "check": {
+        "window_s": 10.003442792,
+        "system_busy_pct": 119.55883837877003,
+        "stand_pct": 0.06390507881059115,
+        "background_pct": 119.49493329995944,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.167925708271497
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 806,
+          "listed_end": 806,
+          "foreign_read_both": 530,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:7",
+      "check": {
+        "window_s": 10.010076584,
+        "system_busy_pct": 92.50678476127833,
+        "stand_pct": 0.06364045216379735,
+        "background_pct": 92.44314430911452,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.449822246035276
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 806,
+          "listed_end": 807,
+          "foreign_read_both": 529,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 3,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:8",
+      "check": {
+        "window_s": 10.002509542,
+        "system_busy_pct": 87.37807210581714,
+        "stand_pct": 0.06283631096385112,
+        "background_pct": 87.3152357948533,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.285024063614135
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 807,
+          "listed_end": 807,
+          "foreign_read_both": 532,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 0,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:9",
+      "check": {
+        "window_s": 10.009614958,
+        "system_busy_pct": 109.1950094570261,
+        "stand_pct": 0.02432494167074833,
+        "background_pct": 109.17068451535536,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.4478376643666295
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 807,
+          "listed_end": 808,
+          "foreign_read_both": 526,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 7,
+          "exited": 6
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:10",
+      "check": {
+        "window_s": 10.007917291,
+        "system_busy_pct": 92.1270603254429,
+        "stand_pct": 0.060047039011845486,
+        "background_pct": 92.06701328643103,
+        "busiest": {
+          "pid": 17724,
+          "name": "workspace-service",
+          "pct": 3.66788186119513
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 808,
+          "listed_end": 810,
+          "foreign_read_both": 527,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 8,
+          "exited": 6
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:11",
+      "check": {
+        "window_s": 10.008462083,
+        "system_busy_pct": 85.92728761602284,
+        "stand_pct": 0.05270498060795821,
+        "background_pct": 85.87458263541488,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.4747896041961757
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 810,
+          "listed_end": 812,
+          "foreign_read_both": 535,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 1,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:12",
+      "check": {
+        "window_s": 10.006479917,
+        "system_busy_pct": 93.6393224962288,
+        "stand_pct": 0.07292732369953948,
+        "background_pct": 93.56639517252928,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.3833159693333945
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 812,
+          "listed_end": 811,
+          "foreign_read_both": 533,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 3
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:13",
+      "check": {
+        "window_s": 10.00915975,
+        "system_busy_pct": 92.21553287727274,
+        "stand_pct": 0.06423616128216957,
+        "background_pct": 92.15129671599055,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.0232174683794013
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 811,
+          "listed_end": 808,
+          "foreign_read_both": 528,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 4,
+          "exited": 7
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:14",
+      "check": {
+        "window_s": 10.003937375,
+        "system_busy_pct": 90.36442013912549,
+        "stand_pct": 0.06520223743403832,
+        "background_pct": 90.29921790169143,
+        "busiest": {
+          "pid": 17724,
+          "name": "workspace-service",
+          "pct": 4.069349824373526
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 808,
+          "listed_end": 808,
+          "foreign_read_both": 531,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:15",
+      "check": {
+        "window_s": 10.010056208,
+        "system_busy_pct": 96.20325600473392,
+        "stand_pct": 0.05870596406145575,
+        "background_pct": 96.14455004067246,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.3537132661822913
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 808,
+          "listed_end": 804,
+          "foreign_read_both": 526,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 6
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:16",
+      "check": {
+        "window_s": 10.0100705,
+        "system_busy_pct": 103.59567397652194,
+        "stand_pct": 0.04794254945557077,
+        "background_pct": 103.54773142706637,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.257683479851615
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 804,
+          "listed_end": 802,
+          "foreign_read_both": 525,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 2,
+          "exited": 3
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:17",
+      "check": {
+        "window_s": 10.010076333,
+        "system_busy_pct": 87.21212216154636,
+        "stand_pct": 0.06175568291742816,
+        "background_pct": 87.15036647862894,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.372184707694776
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 802,
+          "listed_end": 803,
+          "foreign_read_both": 527,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 1,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:18",
+      "check": {
+        "window_s": 10.010059916,
+        "system_busy_pct": 228.47016093724648,
+        "stand_pct": 0.06064107558734417,
+        "background_pct": 228.4095198616591,
+        "busiest": {
+          "pid": 41676,
+          "name": "deleted",
+          "pct": 33.82019092202205
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 803,
+          "listed_end": 805,
+          "foreign_read_both": 524,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 6,
+          "exited": 4
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:19",
+      "check": {
+        "window_s": 10.002198917,
+        "system_busy_pct": 86.88089561216631,
+        "stand_pct": 0.06630957907393115,
+        "background_pct": 86.81458603309238,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.4756114635867323
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 805,
+          "listed_end": 804,
+          "foreign_read_both": 528,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 1,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:20",
+      "check": {
+        "window_s": 10.0061965,
+        "system_busy_pct": 82.54884860596131,
+        "stand_pct": 0.05631593383160125,
+        "background_pct": 82.49253267212971,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.1952846918407007
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 804,
+          "listed_end": 800,
+          "foreign_read_both": 524,
+          "failed_by_errno": {
+            "1": 273
+          },
+          "appeared": 1,
+          "exited": 5
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:21",
+      "check": {
+        "window_s": 10.008410417,
+        "system_busy_pct": 99.61621860615593,
+        "stand_pct": 0.05250666970125312,
+        "background_pct": 99.56371193645464,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.457701508844909
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 800,
+          "listed_end": 803,
+          "foreign_read_both": 524,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 3,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:22",
+      "check": {
+        "window_s": 10.010093083,
+        "system_busy_pct": 81.91732016883984,
+        "stand_pct": 0.056531272517438586,
+        "background_pct": 81.8607888963224,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.280585685938321
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 803,
+          "listed_end": 802,
+          "foreign_read_both": 524,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 3
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:23",
+      "check": {
+        "window_s": 10.010076333,
+        "system_busy_pct": 88.01131686634862,
+        "stand_pct": 0.062104921013492936,
+        "background_pct": 87.94921194533512,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.3016745061218704
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 802,
+          "listed_end": 802,
+          "foreign_read_both": 526,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 0,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:24",
+      "check": {
+        "window_s": 10.006919458,
+        "system_busy_pct": 95.23410316230007,
+        "stand_pct": 0.062388910255582075,
+        "background_pct": 95.1717142520445,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.249314006620238
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 802,
+          "listed_end": 803,
+          "foreign_read_both": 524,
+          "failed_by_errno": {
+            "1": 275
+          },
+          "appeared": 2,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:25",
+      "check": {
+        "window_s": 10.010056167,
+        "system_busy_pct": 86.01350338457097,
+        "stand_pct": 0.0680715461164305,
+        "background_pct": 85.94543183845454,
+        "busiest": {
+          "pid": 17724,
+          "name": "workspace-service",
+          "pct": 3.6721538807325658
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 803,
+          "listed_end": 802,
+          "foreign_read_both": 524,
+          "failed_by_errno": {
+            "1": 275
+          },
+          "appeared": 1,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:26",
+      "check": {
+        "window_s": 10.008494875,
+        "system_busy_pct": 87.02607243928873,
+        "stand_pct": 0.06229374224463496,
+        "background_pct": 86.96377869704409,
+        "busiest": {
+          "pid": 99899,
+          "name": "workspace-service",
+          "pct": 2.322971244964543
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 802,
+          "listed_end": 802,
+          "foreign_read_both": 524,
+          "failed_by_errno": {
+            "1": 275
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:27",
+      "check": {
+        "window_s": 10.009880667,
+        "system_busy_pct": 101.59961280585364,
+        "stand_pct": 0.06366709266585106,
+        "background_pct": 101.5359457131878,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.899104924264528
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 802,
+          "listed_end": 802,
+          "foreign_read_both": 524,
+          "failed_by_errno": {
+            "1": 275
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:28",
+      "check": {
+        "window_s": 10.007427667,
+        "system_busy_pct": 80.7400289951054,
+        "stand_pct": 0.05512113785433569,
+        "background_pct": 80.68490785725108,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.427365363839007
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 802,
+          "listed_end": 801,
+          "foreign_read_both": 523,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-2/before:29",
+      "check": {
+        "window_s": 10.008859417,
+        "system_busy_pct": 91.11927363581232,
+        "stand_pct": 0.05442927883218164,
+        "background_pct": 91.06484435698012,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.320439226127258
+        },
+        "stand_pids": [
+          20297,
+          20302
+        ],
+        "coverage": {
+          "listed_start": 801,
+          "listed_end": 801,
+          "foreign_read_both": 525,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 0,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:1",
+      "check": {
+        "window_s": 10.0100725,
+        "system_busy_pct": 122.1769372799248,
+        "stand_pct": 0.028408885150432227,
+        "background_pct": 122.14852839477436,
+        "busiest": {
+          "pid": 35134,
+          "name": "workspace-service",
+          "pct": 5.165412967788195
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 797,
+          "listed_end": 807,
+          "foreign_read_both": 520,
+          "failed_by_errno": {
+            "1": 275
+          },
+          "appeared": 10,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:2",
+      "check": {
+        "window_s": 10.007369,
+        "system_busy_pct": 106.92120976052746,
+        "stand_pct": 0.041138015396454355,
+        "background_pct": 106.880071745131,
+        "busiest": {
+          "pid": 35134,
+          "name": "workspace-service",
+          "pct": 5.825340636484974
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 807,
+          "listed_end": 807,
+          "foreign_read_both": 529,
+          "failed_by_errno": {
+            "1": 275
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:3",
+      "check": {
+        "window_s": 10.008977542,
+        "system_busy_pct": 102.70779364688076,
+        "stand_pct": 0.0660015768072147,
+        "background_pct": 102.64179207007356,
+        "busiest": {
+          "pid": 35134,
+          "name": "workspace-service",
+          "pct": 5.284099507473948
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 807,
+          "listed_end": 808,
+          "foreign_read_both": 529,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 3,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:4",
+      "check": {
+        "window_s": 10.008996833,
+        "system_busy_pct": 96.71298893895852,
+        "stand_pct": 0.06475549056655397,
+        "background_pct": 96.64823344839198,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 3.0096697503870615
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 808,
+          "listed_end": 808,
+          "foreign_read_both": 531,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:5",
+      "check": {
+        "window_s": 10.010085625,
+        "system_busy_pct": 93.40579441846684,
+        "stand_pct": 0.061724826654517256,
+        "background_pct": 93.34406959181231,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.282439267346427
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 808,
+          "listed_end": 798,
+          "foreign_read_both": 520,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 12
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:6",
+      "check": {
+        "window_s": 10.010080708,
+        "system_busy_pct": 88.91037205011914,
+        "stand_pct": 0.0506318694908169,
+        "background_pct": 88.85974018062832,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.3777376521028546
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 798,
+          "foreign_read_both": 520,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:7",
+      "check": {
+        "window_s": 10.009549958,
+        "system_busy_pct": 87.21670840977883,
+        "stand_pct": 0.061910036175474574,
+        "background_pct": 87.15479837360336,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 2.6190151015778564
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 798,
+          "foreign_read_both": 521,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:8",
+      "check": {
+        "window_s": 10.001600667,
+        "system_busy_pct": 98.18428396567376,
+        "stand_pct": 0.06262330609405044,
+        "background_pct": 98.1216606595797,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.6967795187018138
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 798,
+          "foreign_read_both": 520,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:9",
+      "check": {
+        "window_s": 10.002420625,
+        "system_busy_pct": 85.37933286523831,
+        "stand_pct": 0.06218785665194919,
+        "background_pct": 85.31714500858637,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 2.8234003106623
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 797,
+          "foreign_read_both": 519,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 3
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:10",
+      "check": {
+        "window_s": 10.007842583,
+        "system_busy_pct": 96.2245351096766,
+        "stand_pct": 0.06235275933096679,
+        "background_pct": 96.16218235034565,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.5012983360192007
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 797,
+          "listed_end": 798,
+          "foreign_read_both": 520,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:11",
+      "check": {
+        "window_s": 10.0062145,
+        "system_busy_pct": 97.53938414972016,
+        "stand_pct": 0.07307749599011694,
+        "background_pct": 97.46630665373004,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 2.394511091082447
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 798,
+          "listed_end": 799,
+          "foreign_read_both": 520,
+          "failed_by_errno": {
+            "1": 275
+          },
+          "appeared": 2,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:12",
+      "check": {
+        "window_s": 10.004162834,
+        "system_busy_pct": 91.4619259185081,
+        "stand_pct": 0.05846981998453945,
+        "background_pct": 91.40345609852356,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 2.75143087500049
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 799,
+          "listed_end": 799,
+          "foreign_read_both": 520,
+          "failed_by_errno": {
+            "1": 275
+          },
+          "appeared": 2,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:13",
+      "check": {
+        "window_s": 10.004957792,
+        "system_busy_pct": 159.72081374273927,
+        "stand_pct": 0.06103889818388951,
+        "background_pct": 159.6597748445554,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 2.6529942806179507
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 799,
+          "listed_end": 816,
+          "foreign_read_both": 521,
+          "failed_by_errno": {
+            "1": 275
+          },
+          "appeared": 18,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:14",
+      "check": {
+        "window_s": 10.010076291,
+        "system_busy_pct": 101.19802992018974,
+        "stand_pct": 0.02041567856817846,
+        "background_pct": 101.17761424162155,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 3.3262758476612695
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 816,
+          "listed_end": 809,
+          "foreign_read_both": 530,
+          "failed_by_errno": {
+            "1": 275
+          },
+          "appeared": 2,
+          "exited": 9
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:15",
+      "check": {
+        "window_s": 10.01004825,
+        "system_busy_pct": 164.73447068549345,
+        "stand_pct": 0.05824022876213409,
+        "background_pct": 164.6762304567313,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 3.789571304014444
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 809,
+          "listed_end": 815,
+          "foreign_read_both": 530,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 9,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:16",
+      "check": {
+        "window_s": 10.006123625,
+        "system_busy_pct": 205.87393052521875,
+        "stand_pct": 0.021521401101018276,
+        "background_pct": 205.85240912411777,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 2.7256246796571033
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 815,
+          "listed_end": 808,
+          "foreign_read_both": 531,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 1,
+          "exited": 8
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:17",
+      "check": {
+        "window_s": 10.010080875,
+        "system_busy_pct": 101.59758074881688,
+        "stand_pct": 0.05906171062778751,
+        "background_pct": 101.5385190381891,
+        "busiest": {
+          "pid": 77316,
+          "name": "Mail",
+          "pct": 3.728141706946998
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 808,
+          "listed_end": 807,
+          "foreign_read_both": 529,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 3
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:18",
+      "check": {
+        "window_s": 10.008862166,
+        "system_busy_pct": 90.81951423887756,
+        "stand_pct": 0.03359522735184003,
+        "background_pct": 90.78591901152572,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 2.7616775555064628
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 807,
+          "listed_end": 806,
+          "foreign_read_both": 528,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 3
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:19",
+      "check": {
+        "window_s": 10.008378666,
+        "system_busy_pct": 148.2757646891775,
+        "stand_pct": 0.030130164941143324,
+        "background_pct": 148.24563452423635,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 2.581798457304693
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 806,
+          "listed_end": 807,
+          "foreign_read_both": 529,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 0
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:20",
+      "check": {
+        "window_s": 10.009018334,
+        "system_busy_pct": 247.07717754890865,
+        "stand_pct": 0.06811856839985682,
+        "background_pct": 247.0090589805088,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.1063758099416425
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 807,
+          "listed_end": 806,
+          "foreign_read_both": 518,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 12,
+          "exited": 13
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:21",
+      "check": {
+        "window_s": 10.004950833,
+        "system_busy_pct": 129.3359679221924,
+        "stand_pct": 0.06035719815915661,
+        "background_pct": 129.27561072403324,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.2144123481271283
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 806,
+          "listed_end": 810,
+          "foreign_read_both": 528,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 6,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:22",
+      "check": {
+        "window_s": 10.010064875,
+        "system_busy_pct": 119.97924239227272,
+        "stand_pct": 0.018337793240326028,
+        "background_pct": 119.9609045990324,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 3.6005419295546774
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 810,
+          "listed_end": 806,
+          "foreign_read_both": 529,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 1,
+          "exited": 5
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:23",
+      "check": {
+        "window_s": 10.003147542,
+        "system_busy_pct": 91.17130344931984,
+        "stand_pct": 0.06906159257367875,
+        "background_pct": 91.10224185674618,
+        "busiest": {
+          "pid": 63221,
+          "name": "workspace-service",
+          "pct": 2.3383910615921213
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 806,
+          "listed_end": 806,
+          "foreign_read_both": 528,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 2,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:24",
+      "check": {
+        "window_s": 10.004433625,
+        "system_busy_pct": 276.3774645963529,
+        "stand_pct": 0.07267610813900523,
+        "background_pct": 276.30478848821394,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 6.878056777551962
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 806,
+          "listed_end": 809,
+          "foreign_read_both": 518,
+          "failed_by_errno": {
+            "1": 275
+          },
+          "appeared": 14,
+          "exited": 12
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:25",
+      "check": {
+        "window_s": 10.006406958,
+        "system_busy_pct": 140.909719734387,
+        "stand_pct": 0.07665671636378393,
+        "background_pct": 140.83306301802324,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 5.448490834805801
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 809,
+          "listed_end": 812,
+          "foreign_read_both": 531,
+          "failed_by_errno": {
+            "1": 276
+          },
+          "appeared": 3,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:26",
+      "check": {
+        "window_s": 10.008108875,
+        "system_busy_pct": 97.82067843461586,
+        "stand_pct": 0.06317959845335915,
+        "background_pct": 97.7574988361625,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 4.676444589537901
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 812,
+          "listed_end": 811,
+          "foreign_read_both": 532,
+          "failed_by_errno": {
+            "1": 275
+          },
+          "appeared": 2,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:27",
+      "check": {
+        "window_s": 10.010084291,
+        "system_busy_pct": 85.6136646891698,
+        "stand_pct": 0.06450785839841236,
+        "background_pct": 85.54915683077138,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 4.422289184897334
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 811,
+          "listed_end": 811,
+          "foreign_read_both": 532,
+          "failed_by_errno": {
+            "1": 275
+          },
+          "appeared": 2,
+          "exited": 2
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:28",
+      "check": {
+        "window_s": 10.010060875,
+        "system_busy_pct": 95.60381419758347,
+        "stand_pct": 0.06601733078871011,
+        "background_pct": 95.53779686679478,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 6.249084953741603
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 811,
+          "listed_end": 811,
+          "foreign_read_both": 533,
+          "failed_by_errno": {
+            "1": 275
+          },
+          "appeared": 1,
+          "exited": 1
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    },
+    {
+      "label": "attempt-3/before:29",
+      "check": {
+        "window_s": 10.006583833,
+        "system_busy_pct": 104.63111262278872,
+        "stand_pct": 0.06598238829745084,
+        "background_pct": 104.56513023449128,
+        "busiest": {
+          "pid": 31620,
+          "name": "workspace-service",
+          "pct": 6.696353312807948
+        },
+        "stand_pids": [
+          35602,
+          35605
+        ],
+        "coverage": {
+          "listed_start": 811,
+          "listed_end": 800,
+          "foreign_read_both": 521,
+          "failed_by_errno": {
+            "1": 274
+          },
+          "appeared": 3,
+          "exited": 13
+        },
+        "thresholds": {
+          "system_pct": 30.0,
+          "foreign_pct": 10.0
+        },
+        "units": {
+          "mach_numer": 125,
+          "mach_denom": 3,
+          "clk_tck": 100
+        },
+        "quiet": false
+      }
+    }
+  ],
+  "cells": [
+    {
+      "id": "smoke",
+      "status": "not_run",
+      "not_run_cause": "noisy",
+      "oracle": "замерная блокировка и проверка фона",
+      "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+    }
+  ],
+  "metrics": [],
+  "raw": {
+    "attempts": [
+      {
+        "attempt": 1,
+        "cause": "noisy",
+        "environment": {
+          "build": {
+            "binary_sha256": "606e4b3fb4bdad5ad7f640c5c9a01365e475ff0e425b2dd6a2793ee88f9b452a",
+            "commit": "b779167a1c76",
+            "probe_version": "0.1.0",
+            "profile": "release",
+            "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
+          },
+          "hardware": {
+            "cpu": "Apple M3 Pro",
+            "logical_cpus": 11,
+            "memory_bytes": 19327352832,
+            "model": "Mac15,6"
+          },
+          "os": {
+            "build": "26A434",
+            "product_version": "27.0.1"
+          },
+          "power": {
+            "low_power_mode": false,
+            "source": "AC Power"
+          },
+          "process": {
+            "pid": 1982,
+            "state_dir": "<tmpdir>/shellio-probe-resources.2qb2fv"
+          }
+        },
+        "reason": "тишины фона не было 300 с: 29 окон проверки",
+        "windows": 29
+      },
+      {
+        "attempt": 2,
+        "cause": "noisy",
+        "environment": {
+          "build": {
+            "binary_sha256": "606e4b3fb4bdad5ad7f640c5c9a01365e475ff0e425b2dd6a2793ee88f9b452a",
+            "commit": "dc1c939ce2ee",
+            "probe_version": "0.1.0",
+            "profile": "release",
+            "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
+          },
+          "hardware": {
+            "cpu": "Apple M3 Pro",
+            "logical_cpus": 11,
+            "memory_bytes": 19327352832,
+            "model": "Mac15,6"
+          },
+          "os": {
+            "build": "26A434",
+            "product_version": "27.0.1"
+          },
+          "power": {
+            "low_power_mode": false,
+            "source": "AC Power"
+          },
+          "process": {
+            "pid": 20297,
+            "state_dir": "<tmpdir>/shellio-probe-resources.0G5Tp3"
+          }
+        },
+        "reason": "тишины фона не было 300 с: 29 окон проверки",
+        "windows": 29
+      },
+      {
+        "attempt": 3,
+        "cause": "noisy",
+        "environment": {
+          "build": {
+            "binary_sha256": "606e4b3fb4bdad5ad7f640c5c9a01365e475ff0e425b2dd6a2793ee88f9b452a",
+            "commit": "d13266a0873e",
+            "probe_version": "0.1.0",
+            "profile": "release",
+            "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
+          },
+          "hardware": {
+            "cpu": "Apple M3 Pro",
+            "logical_cpus": 11,
+            "memory_bytes": 19327352832,
+            "model": "Mac15,6"
+          },
+          "os": {
+            "build": "26A434",
+            "product_version": "27.0.1"
+          },
+          "power": {
+            "low_power_mode": false,
+            "source": "AC Power"
+          },
+          "process": {
+            "pid": 35602,
+            "state_dir": "<tmpdir>/shellio-probe-resources.mdNI6q"
+          }
+        },
+        "reason": "тишины фона не было 300 с: 29 окон проверки",
+        "windows": 29
+      }
+    ]
+  },
+  "notes": []
+}

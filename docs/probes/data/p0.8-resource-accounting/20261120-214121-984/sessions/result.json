@@ -1,0 +1,1306 @@
+{
+  "schema": 1,
+  "scenario": "sessions",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832,
+      "logical_cpus": 11
+    },
+    "build": {
+      "commit": "b779167a1c76",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "binary_sha256": "606e4b3fb4bdad5ad7f640c5c9a01365e475ff0e425b2dd6a2793ee88f9b452a",
+      "probe_version": "0.1.0"
+    },
+    "power": {
+      "source": "AC Power",
+      "low_power_mode": false
+    },
+    "process": {
+      "pid": 1226,
+      "state_dir": "<tmpdir>/shellio-probe-resources.vdZsQO"
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "background": [],
+  "cells": [
+    {
+      "id": "sessions-s1",
+      "status": "pass",
+      "oracle": "итог панели = {attach, хост, программа, ребёнок, внук} по ключам квитанций на обеих границах; каждый ключ в одном итоге; все члены прочитаны",
+      "reason": "членов 5, память 6670352 байт, покрытие памяти 5/5, CPU 5/5"
+    },
+    {
+      "id": "sessions-s2",
+      "status": "pass",
+      "oracle": "итог панели = {attach, хост, программа, ребёнок, внук} по ключам квитанций на обеих границах; каждый ключ в одном итоге; все члены прочитаны",
+      "reason": "членов 5, память 6653968 байт, покрытие памяти 5/5, CPU 5/5"
+    },
+    {
+      "id": "sessions-foreign",
+      "status": "pass",
+      "oracle": "посторонний процесс не входит ни в один итог и в уникальное множество",
+      "reason": "PID 1240 ни в одном итоге"
+    }
+  ],
+  "metrics": [],
+  "raw": {
+    "attribution": [
+      {
+        "notes": [
+          {
+            "error": {
+              "kind": "exited"
+            },
+            "key": {
+              "pid": 23621,
+              "start": {
+                "sec": 1795171200,
+                "usec": 476251
+              }
+            },
+            "kind": "session_unknown"
+          }
+        ],
+        "shares": [
+          {
+            "members": [],
+            "owner": {
+              "kind": "git"
+            },
+            "requested_by": []
+          },
+          {
+            "members": [
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1236,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 747901
+                  }
+                },
+                "origins": [
+                  "record"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1238,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 748178
+                  }
+                },
+                "origins": [
+                  "root"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1242,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 750315
+                  }
+                },
+                "origins": [
+                  "record",
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1244,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 753429
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1246,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 755462
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              }
+            ],
+            "owner": {
+              "id": "s1",
+              "kind": "panel"
+            },
+            "requested_by": []
+          },
+          {
+            "members": [
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1237,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 748051
+                  }
+                },
+                "origins": [
+                  "record"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1239,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 748320
+                  }
+                },
+                "origins": [
+                  "root"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1241,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 750306
+                  }
+                },
+                "origins": [
+                  "record",
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1243,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 753419
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1245,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 755363
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              }
+            ],
+            "owner": {
+              "id": "s2",
+              "kind": "panel"
+            },
+            "requested_by": []
+          }
+        ]
+      },
+      {
+        "notes": [
+          {
+            "error": {
+              "kind": "exited"
+            },
+            "key": {
+              "pid": 23621,
+              "start": {
+                "sec": 1795171200,
+                "usec": 476251
+              }
+            },
+            "kind": "session_unknown"
+          }
+        ],
+        "shares": [
+          {
+            "members": [],
+            "owner": {
+              "kind": "git"
+            },
+            "requested_by": []
+          },
+          {
+            "members": [
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1236,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 747901
+                  }
+                },
+                "origins": [
+                  "record"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1238,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 748178
+                  }
+                },
+                "origins": [
+                  "root"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1242,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 750315
+                  }
+                },
+                "origins": [
+                  "record",
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1244,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 753429
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1246,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 755462
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              }
+            ],
+            "owner": {
+              "id": "s1",
+              "kind": "panel"
+            },
+            "requested_by": []
+          },
+          {
+            "members": [
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1237,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 748051
+                  }
+                },
+                "origins": [
+                  "record"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1239,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 748320
+                  }
+                },
+                "origins": [
+                  "root"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1241,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 750306
+                  }
+                },
+                "origins": [
+                  "record",
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1243,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 753419
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1245,
+                  "start": {
+                    "sec": 1795192881,
+                    "usec": 755363
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              }
+            ],
+            "owner": {
+              "id": "s2",
+              "kind": "panel"
+            },
+            "requested_by": []
+          }
+        ]
+      }
+    ],
+    "claims": {
+      "git": [],
+      "panels": [
+        {
+          "id": "s1",
+          "record": {
+            "group": {
+              "pid": 1242,
+              "start": {
+                "sec": 1795192881,
+                "usec": 750315
+              }
+            },
+            "host": {
+              "pid": 1236,
+              "start": {
+                "sec": 1795192881,
+                "usec": 747901
+              }
+            },
+            "programs": [
+              {
+                "pid": 1242,
+                "start": {
+                  "sec": 1795192881,
+                  "usec": 750315
+                }
+              }
+            ],
+            "session": {
+              "pid": 1242,
+              "start": {
+                "sec": 1795192881,
+                "usec": 750315
+              }
+            }
+          },
+          "surface": [
+            {
+              "pid": 1238,
+              "start": {
+                "sec": 1795192881,
+                "usec": 748178
+              }
+            }
+          ]
+        },
+        {
+          "id": "s2",
+          "record": {
+            "group": {
+              "pid": 1241,
+              "start": {
+                "sec": 1795192881,
+                "usec": 750306
+              }
+            },
+            "host": {
+              "pid": 1237,
+              "start": {
+                "sec": 1795192881,
+                "usec": 748051
+              }
+            },
+            "programs": [
+              {
+                "pid": 1241,
+                "start": {
+                  "sec": 1795192881,
+                  "usec": 750306
+                }
+              }
+            ],
+            "session": {
+              "pid": 1241,
+              "start": {
+                "sec": 1795192881,
+                "usec": 750306
+              }
+            }
+          },
+          "surface": [
+            {
+              "pid": 1239,
+              "start": {
+                "sec": 1795192881,
+                "usec": 748320
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ready": {
+      "foreign": {
+        "allocated_bytes": 0,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 1294744,
+              "start_abstime": 19049875210701,
+              "system_mach": 20204,
+              "user_mach": 24320
+            }
+          },
+          "rusage": {
+            "system_ns": 839000,
+            "user_ns": 1013000
+          },
+          "t_begin_ns": 793744802495750,
+          "t_end_ns": 793744802498916
+        },
+        "label": "ready",
+        "mode": "idle",
+        "name": "foreign",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1240,
+              "start": {
+                "sec": 1795192881,
+                "usec": 748461
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1240,
+          "ppid": 1226,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 1,
+        "workers": 0
+      },
+      "s1": {
+        "allocated_bytes": 0,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 1376688,
+              "start_abstime": 19049875197247,
+              "system_mach": 39359,
+              "user_mach": 27538
+            }
+          },
+          "rusage": {
+            "system_ns": 1639000,
+            "user_ns": 1147000
+          },
+          "t_begin_ns": 793744803531583,
+          "t_end_ns": 793744803536125
+        },
+        "label": "ready",
+        "mode": "host",
+        "name": "s1",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1236,
+              "start": {
+                "sec": 1795192881,
+                "usec": 747901
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1236,
+          "ppid": 1226,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 1,
+        "workers": 0
+      },
+      "s1-attach": {
+        "allocated_bytes": 0,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 1311128,
+              "start_abstime": 19049875203908,
+              "system_mach": 20277,
+              "user_mach": 24337
+            }
+          },
+          "rusage": {
+            "system_ns": 843000,
+            "user_ns": 1013000
+          },
+          "t_begin_ns": 793744802255791,
+          "t_end_ns": 793744802260541
+        },
+        "label": "ready",
+        "mode": "idle",
+        "name": "s1-attach",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1238,
+              "start": {
+                "sec": 1795192881,
+                "usec": 748178
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1238,
+          "ppid": 1226,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 1,
+        "workers": 0
+      },
+      "s1/p": {
+        "allocated_bytes": 0,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 1343896,
+              "start_abstime": 19049875255191,
+              "system_mach": 34150,
+              "user_mach": 24832
+            }
+          },
+          "rusage": {
+            "system_ns": 1422000,
+            "user_ns": 1034000
+          },
+          "t_begin_ns": 793744805741666,
+          "t_end_ns": 793744805744666
+        },
+        "label": "ready",
+        "mode": "tree",
+        "name": "s1/p",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1242,
+              "start": {
+                "sec": 1795192881,
+                "usec": 750315
+              }
+            }
+          },
+          "pgid": 1242,
+          "pid": 1242,
+          "ppid": 1236,
+          "sid": {
+            "Ok": 1242
+          },
+          "uid": 501
+        },
+        "seq": 1,
+        "workers": 0
+      },
+      "s1/p/c1": {
+        "allocated_bytes": 0,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 1327512,
+              "start_abstime": 19049875329922,
+              "system_mach": 25914,
+              "user_mach": 23315
+            }
+          },
+          "rusage": {
+            "system_ns": 1079000,
+            "user_ns": 971000
+          },
+          "t_begin_ns": 793744807754791,
+          "t_end_ns": 793744807758083
+        },
+        "label": "ready",
+        "mode": "tree",
+        "name": "s1/p/c1",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1244,
+              "start": {
+                "sec": 1795192881,
+                "usec": 753429
+              }
+            }
+          },
+          "pgid": 1242,
+          "pid": 1244,
+          "ppid": 1242,
+          "sid": {
+            "Ok": 1242
+          },
+          "uid": 501
+        },
+        "seq": 1,
+        "workers": 0
+      },
+      "s1/p/c1/c1": {
+        "allocated_bytes": 0,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 1294744,
+              "start_abstime": 19049875378727,
+              "system_mach": 17779,
+              "user_mach": 23105
+            }
+          },
+          "rusage": {
+            "system_ns": 740000,
+            "user_ns": 961000
+          },
+          "t_begin_ns": 793744809310541,
+          "t_end_ns": 793744809313041
+        },
+        "label": "ready",
+        "mode": "tree",
+        "name": "s1/p/c1/c1",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1246,
+              "start": {
+                "sec": 1795192881,
+                "usec": 755462
+              }
+            }
+          },
+          "pgid": 1242,
+          "pid": 1246,
+          "ppid": 1244,
+          "sid": {
+            "Ok": 1242
+          },
+          "uid": 501
+        },
+        "seq": 1,
+        "workers": 0
+      },
+      "s2": {
+        "allocated_bytes": 0,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 1360304,
+              "start_abstime": 19049875200864,
+              "system_mach": 41265,
+              "user_mach": 27710
+            }
+          },
+          "rusage": {
+            "system_ns": 1718000,
+            "user_ns": 1154000
+          },
+          "t_begin_ns": 793744803732250,
+          "t_end_ns": 793744803736541
+        },
+        "label": "ready",
+        "mode": "host",
+        "name": "s2",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1237,
+              "start": {
+                "sec": 1795192881,
+                "usec": 748051
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1237,
+          "ppid": 1226,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 1,
+        "workers": 0
+      },
+      "s2-attach": {
+        "allocated_bytes": 0,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 1294744,
+              "start_abstime": 19049875207308,
+              "system_mach": 19691,
+              "user_mach": 25274
+            }
+          },
+          "rusage": {
+            "system_ns": 819000,
+            "user_ns": 1053000
+          },
+          "t_begin_ns": 793744802369375,
+          "t_end_ns": 793744802371958
+        },
+        "label": "ready",
+        "mode": "idle",
+        "name": "s2-attach",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1239,
+              "start": {
+                "sec": 1795192881,
+                "usec": 748320
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1239,
+          "ppid": 1226,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 1,
+        "workers": 0
+      },
+      "s2/p": {
+        "allocated_bytes": 0,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 1327512,
+              "start_abstime": 19049875254967,
+              "system_mach": 33177,
+              "user_mach": 24254
+            }
+          },
+          "rusage": {
+            "system_ns": 1381000,
+            "user_ns": 1009000
+          },
+          "t_begin_ns": 793744805721250,
+          "t_end_ns": 793744805723958
+        },
+        "label": "ready",
+        "mode": "tree",
+        "name": "s2/p",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1241,
+              "start": {
+                "sec": 1795192881,
+                "usec": 750306
+              }
+            }
+          },
+          "pgid": 1241,
+          "pid": 1241,
+          "ppid": 1237,
+          "sid": {
+            "Ok": 1241
+          },
+          "uid": 501
+        },
+        "seq": 1,
+        "workers": 0
+      },
+      "s2/p/c1": {
+        "allocated_bytes": 0,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 1343896,
+              "start_abstime": 19049875329678,
+              "system_mach": 24541,
+              "user_mach": 22502
+            }
+          },
+          "rusage": {
+            "system_ns": 1021000,
+            "user_ns": 937000
+          },
+          "t_begin_ns": 793744807643416,
+          "t_end_ns": 793744807646291
+        },
+        "label": "ready",
+        "mode": "tree",
+        "name": "s2/p/c1",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1243,
+              "start": {
+                "sec": 1795192881,
+                "usec": 753419
+              }
+            }
+          },
+          "pgid": 1241,
+          "pid": 1243,
+          "ppid": 1241,
+          "sid": {
+            "Ok": 1241
+          },
+          "uid": 501
+        },
+        "seq": 1,
+        "workers": 0
+      },
+      "s2/p/c1/c1": {
+        "allocated_bytes": 0,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 1311128,
+              "start_abstime": 19049875376332,
+              "system_mach": 18112,
+              "user_mach": 23043
+            }
+          },
+          "rusage": {
+            "system_ns": 753000,
+            "user_ns": 958000
+          },
+          "t_begin_ns": 793744809289500,
+          "t_end_ns": 793744809292958
+        },
+        "label": "ready",
+        "mode": "tree",
+        "name": "s2/p/c1/c1",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1245,
+              "start": {
+                "sec": 1795192881,
+                "usec": 755363
+              }
+            }
+          },
+          "pgid": 1241,
+          "pid": 1245,
+          "ppid": 1243,
+          "sid": {
+            "Ok": 1241
+          },
+          "uid": 501
+        },
+        "seq": 1,
+        "workers": 0
+      }
+    },
+    "summary.s1": {
+      "base": {
+        "collect_end_ns": 793744810016666,
+        "collect_start_ns": 793744809508625
+      },
+      "boundary": {
+        "collect_end_ns": 793744810327333,
+        "collect_start_ns": 793744810059250
+      },
+      "cpu": {
+        "coverage": {
+          "counted": 5,
+          "expected": 5
+        },
+        "delta_mach": 0,
+        "delta_ns": 0,
+        "interval_ns": 430646,
+        "pct": 0.0
+      },
+      "entries": [
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1236,
+            "start_abstime": 19049875197247
+          },
+          "key": {
+            "pid": 1236,
+            "start": {
+              "sec": 1795192881,
+              "usec": 747901
+            }
+          },
+          "memory": {
+            "measured": 1376688
+          }
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1238,
+            "start_abstime": 19049875203908
+          },
+          "key": {
+            "pid": 1238,
+            "start": {
+              "sec": 1795192881,
+              "usec": 748178
+            }
+          },
+          "memory": {
+            "measured": 1311128
+          }
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1242,
+            "start_abstime": 19049875255191
+          },
+          "key": {
+            "pid": 1242,
+            "start": {
+              "sec": 1795192881,
+              "usec": 750315
+            }
+          },
+          "memory": {
+            "measured": 1343896
+          }
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1244,
+            "start_abstime": 19049875329922
+          },
+          "key": {
+            "pid": 1244,
+            "start": {
+              "sec": 1795192881,
+              "usec": 753429
+            }
+          },
+          "memory": {
+            "measured": 1327512
+          }
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1246,
+            "start_abstime": 19049875378727
+          },
+          "key": {
+            "pid": 1246,
+            "start": {
+              "sec": 1795192881,
+              "usec": 755462
+            }
+          },
+          "memory": {
+            "measured": 1311128
+          }
+        }
+      ],
+      "memory": {
+        "bytes": 6670352,
+        "coverage": {
+          "counted": 5,
+          "expected": 5
+        }
+      },
+      "partial": false
+    },
+    "summary.s2": {
+      "base": {
+        "collect_end_ns": 793744810016666,
+        "collect_start_ns": 793744809508625
+      },
+      "boundary": {
+        "collect_end_ns": 793744810327333,
+        "collect_start_ns": 793744810059250
+      },
+      "cpu": {
+        "coverage": {
+          "counted": 5,
+          "expected": 5
+        },
+        "delta_mach": 0,
+        "delta_ns": 0,
+        "interval_ns": 430646,
+        "pct": 0.0
+      },
+      "entries": [
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1237,
+            "start_abstime": 19049875200864
+          },
+          "key": {
+            "pid": 1237,
+            "start": {
+              "sec": 1795192881,
+              "usec": 748051
+            }
+          },
+          "memory": {
+            "measured": 1360304
+          }
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1239,
+            "start_abstime": 19049875207308
+          },
+          "key": {
+            "pid": 1239,
+            "start": {
+              "sec": 1795192881,
+              "usec": 748320
+            }
+          },
+          "memory": {
+            "measured": 1294744
+          }
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1241,
+            "start_abstime": 19049875254967
+          },
+          "key": {
+            "pid": 1241,
+            "start": {
+              "sec": 1795192881,
+              "usec": 750306
+            }
+          },
+          "memory": {
+            "measured": 1327512
+          }
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1243,
+            "start_abstime": 19049875329678
+          },
+          "key": {
+            "pid": 1243,
+            "start": {
+              "sec": 1795192881,
+              "usec": 753419
+            }
+          },
+          "memory": {
+            "measured": 1343896
+          }
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1245,
+            "start_abstime": 19049875376332
+          },
+          "key": {
+            "pid": 1245,
+            "start": {
+              "sec": 1795192881,
+              "usec": 755363
+            }
+          },
+          "memory": {
+            "measured": 1327512
+          }
+        }
+      ],
+      "memory": {
+        "bytes": 6653968,
+        "coverage": {
+          "counted": 5,
+          "expected": 5
+        }
+      },
+      "partial": false
+    }
+  },
+  "notes": []
+}

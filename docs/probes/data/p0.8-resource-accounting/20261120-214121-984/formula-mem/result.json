@@ -1,0 +1,738 @@
+{
+  "schema": 1,
+  "scenario": "formula-mem",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832,
+      "logical_cpus": 11
+    },
+    "build": {
+      "commit": "b779167a1c76",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "binary_sha256": "606e4b3fb4bdad5ad7f640c5c9a01365e475ff0e425b2dd6a2793ee88f9b452a",
+      "probe_version": "0.1.0"
+    },
+    "power": {
+      "source": "AC Power",
+      "low_power_mode": false
+    },
+    "process": {
+      "pid": 1185,
+      "state_dir": "<tmpdir>/shellio-probe-resources.Ibsgai"
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "background": [],
+  "cells": [
+    {
+      "id": "formula-mem-16",
+      "status": "pass",
+      "oracle": "собственное чтение ri_phys_footprint фикстурой в квитанции m0; ±1 МиБ; m0 и m1 расходятся больше 1 МиБ — не подтверждено",
+      "reason": "снимок 18137496 байт, m0 18121112 байт, разница +16384 байт, допуск 1048576, m1 18153880 байт"
+    },
+    {
+      "id": "formula-mem-128",
+      "status": "pass",
+      "oracle": "собственное чтение ri_phys_footprint фикстурой в квитанции m0; ±1 МиБ; m0 и m1 расходятся больше 1 МиБ — не подтверждено",
+      "reason": "снимок 135627256 байт, m0 135610872 байт, разница +16384 байт, допуск 1048576, m1 135643640 байт"
+    },
+    {
+      "id": "formula-mem-512",
+      "status": "pass",
+      "oracle": "собственное чтение ri_phys_footprint фикстурой в квитанции m0; ±1 МиБ; m0 и m1 расходятся больше 1 МиБ — не подтверждено",
+      "reason": "снимок 538493720 байт, m0 538477336 байт, разница +16384 байт, допуск 1048576, m1 538493720 байт"
+    },
+    {
+      "id": "formula-mem-sum",
+      "status": "pass",
+      "oracle": "память сводки = Σ footprint записей; покрытие памяти полное, partial ложен",
+      "reason": "сводка 692258472 байт, Σ записей 692258472 байт, покрытие памяти 3/3, partial false"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "formula-mem.growth_ratio",
+      "unit": "прирост footprint / N МиБ",
+      "samples": [
+        1.001953125,
+        1.0007331371307373,
+        1.0005500316619873
+      ],
+      "min": 1.0005500316619873,
+      "median": 1.0007331371307373,
+      "max": 1.001953125
+    }
+  ],
+  "raw": {
+    "before": {
+      "mem-128": {
+        "allocated_bytes": 0,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 1294744,
+              "start_abstime": 19049872833937,
+              "system_mach": 27122,
+              "user_mach": 24498
+            }
+          },
+          "rusage": {
+            "system_ns": 1122000,
+            "user_ns": 1020000
+          },
+          "t_begin_ns": 793744703721541,
+          "t_end_ns": 793744703744875
+        },
+        "label": "before",
+        "mode": "memory",
+        "name": "mem-128",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1197,
+              "start": {
+                "sec": 1795192881,
+                "usec": 649430
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1197,
+          "ppid": 1185,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 1,
+        "workers": 0
+      },
+      "mem-16": {
+        "allocated_bytes": 0,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 1311128,
+              "start_abstime": 19049872829721,
+              "system_mach": 26899,
+              "user_mach": 25477
+            }
+          },
+          "rusage": {
+            "system_ns": 1119000,
+            "user_ns": 1061000
+          },
+          "t_begin_ns": 793744703688375,
+          "t_end_ns": 793744703710958
+        },
+        "label": "before",
+        "mode": "memory",
+        "name": "mem-16",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1196,
+              "start": {
+                "sec": 1795192881,
+                "usec": 649254
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1196,
+          "ppid": 1185,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 1,
+        "workers": 0
+      },
+      "mem-512": {
+        "allocated_bytes": 0,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 1311128,
+              "start_abstime": 19049872837099,
+              "system_mach": 23132,
+              "user_mach": 24097
+            }
+          },
+          "rusage": {
+            "system_ns": 963000,
+            "user_ns": 1003000
+          },
+          "t_begin_ns": 793744703708750,
+          "t_end_ns": 793744703711833
+        },
+        "label": "before",
+        "mode": "memory",
+        "name": "mem-512",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1198,
+              "start": {
+                "sec": 1795192881,
+                "usec": 649561
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1198,
+          "ppid": 1185,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 1,
+        "workers": 0
+      }
+    },
+    "keys": {
+      "mem-128": {
+        "pid": 1197,
+        "start": {
+          "sec": 1795192881,
+          "usec": 649430
+        }
+      },
+      "mem-16": {
+        "pid": 1196,
+        "start": {
+          "sec": 1795192881,
+          "usec": 649254
+        }
+      },
+      "mem-512": {
+        "pid": 1198,
+        "start": {
+          "sec": 1795192881,
+          "usec": 649561
+        }
+      }
+    },
+    "m0": {
+      "mem-128": {
+        "allocated_bytes": 134217728,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 135610872,
+              "start_abstime": 19049872833937,
+              "system_mach": 194329,
+              "user_mach": 78041
+            }
+          },
+          "rusage": {
+            "system_ns": 8096000,
+            "user_ns": 3251000
+          },
+          "t_begin_ns": 793744737173041,
+          "t_end_ns": 793744737174666
+        },
+        "label": "m0",
+        "mode": "memory",
+        "name": "mem-128",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1197,
+              "start": {
+                "sec": 1795192881,
+                "usec": 649430
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1197,
+          "ppid": 1185,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 3,
+        "workers": 0
+      },
+      "mem-16": {
+        "allocated_bytes": 16777216,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 18121112,
+              "start_abstime": 19049872829721,
+              "system_mach": 56179,
+              "user_mach": 32130
+            }
+          },
+          "rusage": {
+            "system_ns": 2339000,
+            "user_ns": 1338000
+          },
+          "t_begin_ns": 793744736899958,
+          "t_end_ns": 793744736902166
+        },
+        "label": "m0",
+        "mode": "memory",
+        "name": "mem-16",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1196,
+              "start": {
+                "sec": 1795192881,
+                "usec": 649254
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1196,
+          "ppid": 1185,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 3,
+        "workers": 0
+      },
+      "mem-512": {
+        "allocated_bytes": 536870912,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 538477336,
+              "start_abstime": 19049872837099,
+              "system_mach": 608748,
+              "user_mach": 221780
+            }
+          },
+          "rusage": {
+            "system_ns": 25364000,
+            "user_ns": 9240000
+          },
+          "t_begin_ns": 793744737386875,
+          "t_end_ns": 793744737388208
+        },
+        "label": "m0",
+        "mode": "memory",
+        "name": "mem-512",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1198,
+              "start": {
+                "sec": 1795192881,
+                "usec": 649561
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1198,
+          "ppid": 1185,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 3,
+        "workers": 0
+      }
+    },
+    "m1": {
+      "mem-128": {
+        "allocated_bytes": 134217728,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 135643640,
+              "start_abstime": 19049872833937,
+              "system_mach": 198470,
+              "user_mach": 78607
+            }
+          },
+          "rusage": {
+            "system_ns": 8268000,
+            "user_ns": 3275000
+          },
+          "t_begin_ns": 793744737962333,
+          "t_end_ns": 793744737964458
+        },
+        "label": "m1",
+        "mode": "memory",
+        "name": "mem-128",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1197,
+              "start": {
+                "sec": 1795192881,
+                "usec": 649430
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1197,
+          "ppid": 1185,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 4,
+        "workers": 0
+      },
+      "mem-16": {
+        "allocated_bytes": 16777216,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 18153880,
+              "start_abstime": 19049872829721,
+              "system_mach": 61358,
+              "user_mach": 32720
+            }
+          },
+          "rusage": {
+            "system_ns": 2556000,
+            "user_ns": 1363000
+          },
+          "t_begin_ns": 793744737757708,
+          "t_end_ns": 793744737758958
+        },
+        "label": "m1",
+        "mode": "memory",
+        "name": "mem-16",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1196,
+              "start": {
+                "sec": 1795192881,
+                "usec": 649254
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1196,
+          "ppid": 1185,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 4,
+        "workers": 0
+      },
+      "mem-512": {
+        "allocated_bytes": 536870912,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 538493720,
+              "start_abstime": 19049872837099,
+              "system_mach": 612270,
+              "user_mach": 222243
+            }
+          },
+          "rusage": {
+            "system_ns": 25510000,
+            "user_ns": 9260000
+          },
+          "t_begin_ns": 793744738187041,
+          "t_end_ns": 793744738188833
+        },
+        "label": "m1",
+        "mode": "memory",
+        "name": "mem-512",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1198,
+              "start": {
+                "sec": 1795192881,
+                "usec": 649561
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1198,
+          "ppid": 1185,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 4,
+        "workers": 0
+      }
+    },
+    "ready": {
+      "mem-128": {
+        "allocated_bytes": 134217728,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 135610872,
+              "start_abstime": 19049872833937,
+              "system_mach": 186313,
+              "user_mach": 77290
+            }
+          },
+          "rusage": {
+            "system_ns": 7761000,
+            "user_ns": 3220000
+          },
+          "t_begin_ns": 793744712554208,
+          "t_end_ns": 793744712562458
+        },
+        "label": "ready",
+        "mode": "memory",
+        "name": "mem-128",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1197,
+              "start": {
+                "sec": 1795192881,
+                "usec": 649430
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1197,
+          "ppid": 1185,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 2,
+        "workers": 0
+      },
+      "mem-16": {
+        "allocated_bytes": 16777216,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 18121112,
+              "start_abstime": 19049872829721,
+              "system_mach": 51620,
+              "user_mach": 31577
+            }
+          },
+          "rusage": {
+            "system_ns": 2150000,
+            "user_ns": 1315000
+          },
+          "t_begin_ns": 793744704966708,
+          "t_end_ns": 793744704968791
+        },
+        "label": "ready",
+        "mode": "memory",
+        "name": "mem-16",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1196,
+              "start": {
+                "sec": 1795192881,
+                "usec": 649254
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1196,
+          "ppid": 1185,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 2,
+        "workers": 0
+      },
+      "mem-512": {
+        "allocated_bytes": 536870912,
+        "boundary": {
+          "own": {
+            "Ok": {
+              "phys_footprint": 538477336,
+              "start_abstime": 19049872837099,
+              "system_mach": 601200,
+              "user_mach": 220961
+            }
+          },
+          "rusage": {
+            "system_ns": 25047000,
+            "user_ns": 9206000
+          },
+          "t_begin_ns": 793744735966875,
+          "t_end_ns": 793744735972875
+        },
+        "label": "ready",
+        "mode": "memory",
+        "name": "mem-512",
+        "process": {
+          "argv0": "<repo>/target/release/probe-resources",
+          "euid": 501,
+          "key": {
+            "Ok": {
+              "pid": 1198,
+              "start": {
+                "sec": 1795192881,
+                "usec": 649561
+              }
+            }
+          },
+          "pgid": 975,
+          "pid": 1198,
+          "ppid": 1185,
+          "sid": {
+            "Ok": 975
+          },
+          "uid": 501
+        },
+        "seq": 2,
+        "workers": 0
+      }
+    },
+    "summary": {
+      "base": {
+        "collect_end_ns": 793744736769750,
+        "collect_start_ns": 793744736372750
+      },
+      "boundary": {
+        "collect_end_ns": 793744737714416,
+        "collect_start_ns": 793744737554291
+      },
+      "cpu": {
+        "coverage": {
+          "counted": 3,
+          "expected": 3
+        },
+        "delta_mach": 15754,
+        "delta_ns": 656416,
+        "interval_ns": 1063103,
+        "pct": 61.74528714527191
+      },
+      "entries": [
+        {
+          "cpu": {
+            "measured": {
+              "mach": 6648,
+              "ns": 277000,
+              "pct": 26.055800801991904
+            }
+          },
+          "identity": {
+            "pid": 1196,
+            "start_abstime": 19049872829721
+          },
+          "key": {
+            "pid": 1196,
+            "start": {
+              "sec": 1795192881,
+              "usec": 649254
+            }
+          },
+          "memory": {
+            "measured": 18137496
+          }
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 4879,
+              "ns": 203291,
+              "pct": 19.122418053565834
+            }
+          },
+          "identity": {
+            "pid": 1197,
+            "start_abstime": 19049872833937
+          },
+          "key": {
+            "pid": 1197,
+            "start": {
+              "sec": 1795192881,
+              "usec": 649430
+            }
+          },
+          "memory": {
+            "measured": 135627256
+          }
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 4227,
+              "ns": 176125,
+              "pct": 16.567068289714168
+            }
+          },
+          "identity": {
+            "pid": 1198,
+            "start_abstime": 19049872837099
+          },
+          "key": {
+            "pid": 1198,
+            "start": {
+              "sec": 1795192881,
+              "usec": 649561
+            }
+          },
+          "memory": {
+            "measured": 538493720
+          }
+        }
+      ],
+      "memory": {
+        "bytes": 692258472,
+        "coverage": {
+          "counted": 3,
+          "expected": 3
+        }
+      },
+      "partial": false
+    }
+  },
+  "notes": [
+    "прирост footprint после касания N МиБ — наблюдение без вердикта (порядок: 16, 128, 512 МиБ)"
+  ]
+}

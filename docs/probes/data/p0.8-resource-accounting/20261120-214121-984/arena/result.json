@@ -1,0 +1,225 @@
+{
+  "schema": 1,
+  "scenario": "arena",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832,
+      "logical_cpus": 11
+    },
+    "build": {
+      "commit": "b779167a1c76",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "binary_sha256": "606e4b3fb4bdad5ad7f640c5c9a01365e475ff0e425b2dd6a2793ee88f9b452a",
+      "probe_version": "0.1.0"
+    },
+    "power": {
+      "source": "AC Power",
+      "low_power_mode": false
+    },
+    "process": {
+      "pid": 1567,
+      "state_dir": "<tmpdir>/shellio-probe-resources.95kne0"
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "background": [],
+  "cells": [
+    {
+      "id": "arena-grow",
+      "status": "pass",
+      "oracle": "известные размеры арен: занятые байты, ёмкость, число долей и запросившие совпадают точно",
+      "reason": "A Usage { used_bytes: 100000, capacity_bytes: 131072, leases: 1, requested_by: {} }, B Usage { used_bytes: 6000, capacity_bytes: 8192, leases: 1, requested_by: {} }"
+    },
+    {
+      "id": "arena-reuse",
+      "status": "pass",
+      "oracle": "известные размеры арен: занятые байты, ёмкость, число долей и запросившие совпадают точно",
+      "reason": "A Usage { used_bytes: 50000, capacity_bytes: 131072, leases: 1, requested_by: {} }"
+    },
+    {
+      "id": "arena-release",
+      "status": "pass",
+      "oracle": "известные размеры арен: занятые байты, ёмкость, число долей и запросившие совпадают точно",
+      "reason": "освобождено 65536, A после большого выделения Usage { used_bytes: 250000, capacity_bytes: 265536, leases: 1, requested_by: {} }"
+    },
+    {
+      "id": "arena-git",
+      "status": "pass",
+      "oracle": "известные размеры арен: занятые байты, ёмкость, число долей и запросившие совпадают точно",
+      "reason": "Git Usage { used_bytes: 10000, capacity_bytes: 32768, leases: 1, requested_by: {\"A\", \"B\"} }"
+    }
+  ],
+  "metrics": [],
+  "raw": {
+    "final": [
+      {
+        "owner": {
+          "kind": "git"
+        },
+        "usage": {
+          "capacity_bytes": 0,
+          "leases": 0,
+          "requested_by": [
+            "A",
+            "B"
+          ],
+          "used_bytes": 0
+        }
+      },
+      {
+        "owner": {
+          "id": "A",
+          "kind": "panel"
+        },
+        "usage": {
+          "capacity_bytes": 0,
+          "leases": 0,
+          "requested_by": [],
+          "used_bytes": 0
+        }
+      },
+      {
+        "owner": {
+          "id": "B",
+          "kind": "panel"
+        },
+        "usage": {
+          "capacity_bytes": 0,
+          "leases": 0,
+          "requested_by": [],
+          "used_bytes": 0
+        }
+      }
+    ],
+    "steps": {
+      "git": [
+        {
+          "owner": {
+            "kind": "git"
+          },
+          "usage": {
+            "capacity_bytes": 32768,
+            "leases": 1,
+            "requested_by": [
+              "A",
+              "B"
+            ],
+            "used_bytes": 10000
+          }
+        },
+        {
+          "owner": {
+            "id": "A",
+            "kind": "panel"
+          },
+          "usage": {
+            "capacity_bytes": 0,
+            "leases": 0,
+            "requested_by": [],
+            "used_bytes": 0
+          }
+        },
+        {
+          "owner": {
+            "id": "B",
+            "kind": "panel"
+          },
+          "usage": {
+            "capacity_bytes": 8192,
+            "leases": 1,
+            "requested_by": [],
+            "used_bytes": 6000
+          }
+        }
+      ],
+      "grow": [
+        {
+          "owner": {
+            "id": "A",
+            "kind": "panel"
+          },
+          "usage": {
+            "capacity_bytes": 131072,
+            "leases": 1,
+            "requested_by": [],
+            "used_bytes": 100000
+          }
+        },
+        {
+          "owner": {
+            "id": "B",
+            "kind": "panel"
+          },
+          "usage": {
+            "capacity_bytes": 8192,
+            "leases": 1,
+            "requested_by": [],
+            "used_bytes": 6000
+          }
+        }
+      ],
+      "release": [
+        {
+          "owner": {
+            "id": "A",
+            "kind": "panel"
+          },
+          "usage": {
+            "capacity_bytes": 0,
+            "leases": 0,
+            "requested_by": [],
+            "used_bytes": 0
+          }
+        },
+        {
+          "owner": {
+            "id": "B",
+            "kind": "panel"
+          },
+          "usage": {
+            "capacity_bytes": 8192,
+            "leases": 1,
+            "requested_by": [],
+            "used_bytes": 6000
+          }
+        }
+      ],
+      "reuse": [
+        {
+          "owner": {
+            "id": "A",
+            "kind": "panel"
+          },
+          "usage": {
+            "capacity_bytes": 131072,
+            "leases": 1,
+            "requested_by": [],
+            "used_bytes": 50000
+          }
+        },
+        {
+          "owner": {
+            "id": "B",
+            "kind": "panel"
+          },
+          "usage": {
+            "capacity_bytes": 8192,
+            "leases": 1,
+            "requested_by": [],
+            "used_bytes": 6000
+          }
+        }
+      ]
+    }
+  },
+  "notes": []
+}

@@ -1,0 +1,556 @@
+{
+  "schema": 1,
+  "scenario": "attach-move",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832,
+      "logical_cpus": 11
+    },
+    "build": {
+      "commit": "b779167a1c76",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "binary_sha256": "606e4b3fb4bdad5ad7f640c5c9a01365e475ff0e425b2dd6a2793ee88f9b452a",
+      "probe_version": "0.1.0"
+    },
+    "power": {
+      "source": "AC Power",
+      "low_power_mode": false
+    },
+    "process": {
+      "pid": 1356,
+      "state_dir": "<tmpdir>/shellio-probe-resources.Y4c6Q4"
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "background": [],
+  "cells": [
+    {
+      "id": "attach-closed",
+      "status": "pass",
+      "oracle": "на S1 итог панели {хост, программа, ребёнок}, у всех трёх дельта CPU от S0, у x1 — «вышел»",
+      "reason": "сессия из 3 процессов осталась у панели, x1 — «вышел»"
+    },
+    {
+      "id": "attach-move",
+      "status": "pass",
+      "oracle": "на S2 итог {x2, хост, программа, ребёнок}, у хоста и программ дельта CPU от S1, у x2 — «свежий»",
+      "reason": "после переноса сессия та же, x2 — «свежий»"
+    }
+  ],
+  "metrics": [],
+  "raw": {
+    "attribution": [
+      {
+        "notes": [
+          {
+            "error": {
+              "kind": "exited"
+            },
+            "key": {
+              "pid": 23621,
+              "start": {
+                "sec": 1795171200,
+                "usec": 476251
+              }
+            },
+            "kind": "session_unknown"
+          }
+        ],
+        "shares": [
+          {
+            "members": [],
+            "owner": {
+              "kind": "git"
+            },
+            "requested_by": []
+          },
+          {
+            "members": [
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1366,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 29622
+                  }
+                },
+                "origins": [
+                  "record"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1367,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 29778
+                  }
+                },
+                "origins": [
+                  "root"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1368,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 31864
+                  }
+                },
+                "origins": [
+                  "record",
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1369,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 34470
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              }
+            ],
+            "owner": {
+              "id": "m",
+              "kind": "panel"
+            },
+            "requested_by": []
+          }
+        ]
+      },
+      {
+        "notes": [
+          {
+            "error": {
+              "kind": "exited"
+            },
+            "key": {
+              "pid": 23621,
+              "start": {
+                "sec": 1795171200,
+                "usec": 476251
+              }
+            },
+            "kind": "session_unknown"
+          }
+        ],
+        "shares": [
+          {
+            "members": [],
+            "owner": {
+              "kind": "git"
+            },
+            "requested_by": []
+          },
+          {
+            "members": [
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1366,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 29622
+                  }
+                },
+                "origins": [
+                  "record"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1368,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 31864
+                  }
+                },
+                "origins": [
+                  "record",
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1369,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 34470
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              }
+            ],
+            "owner": {
+              "id": "m",
+              "kind": "panel"
+            },
+            "requested_by": []
+          }
+        ]
+      },
+      {
+        "notes": [
+          {
+            "error": {
+              "kind": "exited"
+            },
+            "key": {
+              "pid": 23621,
+              "start": {
+                "sec": 1795171200,
+                "usec": 476251
+              }
+            },
+            "kind": "session_unknown"
+          }
+        ],
+        "shares": [
+          {
+            "members": [],
+            "owner": {
+              "kind": "git"
+            },
+            "requested_by": []
+          },
+          {
+            "members": [
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1366,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 29622
+                  }
+                },
+                "origins": [
+                  "record"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1368,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 31864
+                  }
+                },
+                "origins": [
+                  "record",
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1369,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 34470
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1370,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 37836
+                  }
+                },
+                "origins": [
+                  "root"
+                ]
+              }
+            ],
+            "owner": {
+              "id": "m",
+              "kind": "panel"
+            },
+            "requested_by": []
+          }
+        ]
+      }
+    ],
+    "summaries": [
+      {
+        "base": {
+          "collect_end_ns": 793745088956500,
+          "collect_start_ns": 793745088479916
+        },
+        "boundary": {
+          "collect_end_ns": 793745089753625,
+          "collect_start_ns": 793745089481375
+        },
+        "cpu": {
+          "coverage": {
+            "counted": 3,
+            "expected": 4
+          },
+          "delta_mach": 0,
+          "delta_ns": 0,
+          "interval_ns": 899292,
+          "pct": 0.0
+        },
+        "entries": [
+          {
+            "cpu": {
+              "measured": {
+                "mach": 0,
+                "ns": 0,
+                "pct": 0.0
+              }
+            },
+            "identity": {
+              "pid": 1366,
+              "start_abstime": 19049881958555
+            },
+            "key": {
+              "pid": 1366,
+              "start": {
+                "sec": 1795192882,
+                "usec": 29622
+              }
+            },
+            "memory": {
+              "measured": 1376712
+            }
+          },
+          {
+            "cpu": {
+              "missing": {
+                "kind": "exited"
+              }
+            },
+            "identity": null,
+            "key": {
+              "pid": 1367,
+              "start": {
+                "sec": 1795192882,
+                "usec": 29778
+              }
+            },
+            "memory": null
+          },
+          {
+            "cpu": {
+              "measured": {
+                "mach": 0,
+                "ns": 0,
+                "pct": 0.0
+              }
+            },
+            "identity": {
+              "pid": 1368,
+              "start_abstime": 19049882012378
+            },
+            "key": {
+              "pid": 1368,
+              "start": {
+                "sec": 1795192882,
+                "usec": 31864
+              }
+            },
+            "memory": {
+              "measured": 1327512
+            }
+          },
+          {
+            "cpu": {
+              "measured": {
+                "mach": 0,
+                "ns": 0,
+                "pct": 0.0
+              }
+            },
+            "identity": {
+              "pid": 1369,
+              "start_abstime": 19049882074910
+            },
+            "key": {
+              "pid": 1369,
+              "start": {
+                "sec": 1795192882,
+                "usec": 34470
+              }
+            },
+            "memory": {
+              "measured": 1311128
+            }
+          }
+        ],
+        "memory": {
+          "bytes": 4015352,
+          "coverage": {
+            "counted": 3,
+            "expected": 3
+          }
+        },
+        "partial": true
+      },
+      {
+        "base": {
+          "collect_end_ns": 793745089753625,
+          "collect_start_ns": 793745089481375
+        },
+        "boundary": {
+          "collect_end_ns": 793745092108333,
+          "collect_start_ns": 793745091818791
+        },
+        "cpu": {
+          "coverage": {
+            "counted": 3,
+            "expected": 4
+          },
+          "delta_mach": 0,
+          "delta_ns": 0,
+          "interval_ns": 2346062,
+          "pct": 0.0
+        },
+        "entries": [
+          {
+            "cpu": {
+              "measured": {
+                "mach": 0,
+                "ns": 0,
+                "pct": 0.0
+              }
+            },
+            "identity": {
+              "pid": 1366,
+              "start_abstime": 19049881958555
+            },
+            "key": {
+              "pid": 1366,
+              "start": {
+                "sec": 1795192882,
+                "usec": 29622
+              }
+            },
+            "memory": {
+              "measured": 1376712
+            }
+          },
+          {
+            "cpu": {
+              "measured": {
+                "mach": 0,
+                "ns": 0,
+                "pct": 0.0
+              }
+            },
+            "identity": {
+              "pid": 1368,
+              "start_abstime": 19049882012378
+            },
+            "key": {
+              "pid": 1368,
+              "start": {
+                "sec": 1795192882,
+                "usec": 31864
+              }
+            },
+            "memory": {
+              "measured": 1327512
+            }
+          },
+          {
+            "cpu": {
+              "measured": {
+                "mach": 0,
+                "ns": 0,
+                "pct": 0.0
+              }
+            },
+            "identity": {
+              "pid": 1369,
+              "start_abstime": 19049882074910
+            },
+            "key": {
+              "pid": 1369,
+              "start": {
+                "sec": 1795192882,
+                "usec": 34470
+              }
+            },
+            "memory": {
+              "measured": 1311128
+            }
+          },
+          {
+            "cpu": {
+              "missing": {
+                "kind": "fresh",
+                "reused_pid": false
+              }
+            },
+            "identity": {
+              "pid": 1370,
+              "start_abstime": 19049882155708
+            },
+            "key": {
+              "pid": 1370,
+              "start": {
+                "sec": 1795192882,
+                "usec": 37836
+              }
+            },
+            "memory": {
+              "measured": 1327512
+            }
+          }
+        ],
+        "memory": {
+          "bytes": 5342864,
+          "coverage": {
+            "counted": 4,
+            "expected": 4
+          }
+        },
+        "partial": true
+      }
+    ]
+  },
+  "notes": []
+}

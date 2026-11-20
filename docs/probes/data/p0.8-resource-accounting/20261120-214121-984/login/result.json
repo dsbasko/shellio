@@ -1,0 +1,471 @@
+{
+  "schema": 1,
+  "scenario": "login",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832,
+      "logical_cpus": 11
+    },
+    "build": {
+      "commit": "b779167a1c76",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "binary_sha256": "606e4b3fb4bdad5ad7f640c5c9a01365e475ff0e425b2dd6a2793ee88f9b452a",
+      "probe_version": "0.1.0"
+    },
+    "power": {
+      "source": "AC Power",
+      "low_power_mode": false
+    },
+    "process": {
+      "pid": 1386,
+      "state_dir": "<tmpdir>/shellio-probe-resources.B5E8vf"
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "background": [],
+  "cells": [
+    {
+      "id": "login",
+      "status": "pass",
+      "oracle": "login в итоге панели (record), на S1 proc_pid_rusage login отказал с errno 1 (EPERM), ребёнок прочитан, partial истинен, покрытие памяти на один меньше; оба живы после чтения",
+      "reason": "login PID 1397 не прочитан (errno 1), ребёнок PID 1398 прочитан, покрытие памяти 2/3, partial"
+    }
+  ],
+  "metrics": [],
+  "raw": {
+    "attribution": [
+      {
+        "notes": [
+          {
+            "error": {
+              "kind": "exited"
+            },
+            "key": {
+              "pid": 23621,
+              "start": {
+                "sec": 1795171200,
+                "usec": 476251
+              }
+            },
+            "kind": "session_unknown"
+          }
+        ],
+        "shares": [
+          {
+            "members": [],
+            "owner": {
+              "kind": "git"
+            },
+            "requested_by": []
+          },
+          {
+            "members": [
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1396,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 99489
+                  }
+                },
+                "origins": [
+                  "record"
+                ]
+              },
+              {
+                "comm": "login",
+                "key": {
+                  "pid": 1397,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 102692
+                  }
+                },
+                "origins": [
+                  "record",
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1398,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 131586
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              }
+            ],
+            "owner": {
+              "id": "l",
+              "kind": "panel"
+            },
+            "requested_by": []
+          }
+        ]
+      },
+      {
+        "notes": [
+          {
+            "error": {
+              "kind": "exited"
+            },
+            "key": {
+              "pid": 23621,
+              "start": {
+                "sec": 1795171200,
+                "usec": 476251
+              }
+            },
+            "kind": "session_unknown"
+          }
+        ],
+        "shares": [
+          {
+            "members": [],
+            "owner": {
+              "kind": "git"
+            },
+            "requested_by": []
+          },
+          {
+            "members": [
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1396,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 99489
+                  }
+                },
+                "origins": [
+                  "record"
+                ]
+              },
+              {
+                "comm": "login",
+                "key": {
+                  "pid": 1397,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 102692
+                  }
+                },
+                "origins": [
+                  "record",
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1398,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 131586
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              }
+            ],
+            "owner": {
+              "id": "l",
+              "kind": "panel"
+            },
+            "requested_by": []
+          }
+        ]
+      }
+    ],
+    "child_calls": {
+      "getsid": {
+        "Ok": 1397
+      },
+      "pid": 1398,
+      "proc_pid_rusage": {
+        "Ok": {
+          "phys_footprint": 1311128,
+          "start_abstime": 19049884405699,
+          "system_mach": 55380,
+          "user_mach": 41686
+        }
+      },
+      "proc_pidinfo": {
+        "Ok": {
+          "name": "probe-resources",
+          "pgid": 1397,
+          "pid": 1398,
+          "ppid": 1397,
+          "ruid": 501,
+          "start": {
+            "sec": 1795192882,
+            "usec": 131586
+          },
+          "uid": 501
+        }
+      }
+    },
+    "child_ready": {
+      "allocated_bytes": 0,
+      "boundary": {
+        "own": {
+          "Ok": {
+            "phys_footprint": 1294744,
+            "start_abstime": 19049884405699,
+            "system_mach": 51334,
+            "user_mach": 41296
+          }
+        },
+        "rusage": {
+          "system_ns": 2137000,
+          "user_ns": 1720000
+        },
+        "t_begin_ns": 793745189082000,
+        "t_end_ns": 793745189086333
+      },
+      "label": "ready",
+      "mode": "login-child",
+      "name": "l/p/c",
+      "process": {
+        "argv0": "-<repo>/target/release/probe-resources",
+        "euid": 501,
+        "key": {
+          "Ok": {
+            "pid": 1398,
+            "start": {
+              "sec": 1795192882,
+              "usec": 131586
+            }
+          }
+        },
+        "pgid": 1397,
+        "pid": 1398,
+        "ppid": 1397,
+        "sid": {
+          "Ok": 1397
+        },
+        "uid": 501
+      },
+      "seq": 1,
+      "workers": 0
+    },
+    "host_events": [
+      {
+        "child": {
+          "argv": [
+            "/usr/bin/login",
+            "-flp",
+            "<user>",
+            "/bin/bash",
+            "--noprofile",
+            "--norc",
+            "-c",
+            "exec -l '<repo>/target/release/probe-resources' '--fixture' 'login-child' '--channel' '<tmpdir>/shellio-probe-resources.B5E8vf/fx-1386.sock' '--name' 'l/p/c' '--out' '<repo>/target/probes/resource-accounting/20261120-214121-984/login' '--lifetime-s' '600'"
+          ],
+          "key": {
+            "Ok": {
+              "key": {
+                "pid": 1397,
+                "start": {
+                  "sec": 1795192882,
+                  "usec": 102692
+                }
+              },
+              "source": {
+                "kind": "list",
+                "pidinfo": {
+                  "kind": "denied"
+                }
+              }
+            }
+          },
+          "name": "l/p",
+          "pid": 1397,
+          "role": "login"
+        },
+        "kind": "spawned"
+      }
+    ],
+    "login_calls": {
+      "getsid": {
+        "Ok": 1397
+      },
+      "pid": 1397,
+      "proc_pid_rusage": {
+        "Err": {
+          "kind": "denied"
+        }
+      },
+      "proc_pidinfo": {
+        "Err": {
+          "kind": "denied"
+        }
+      }
+    },
+    "login_listed": {
+      "comm": "login",
+      "pgid": 1397,
+      "pid": 1397,
+      "ppid": 1396,
+      "ruid": 501,
+      "start": {
+        "sec": 1795192882,
+        "usec": 102692
+      },
+      "uid": 0,
+      "zombie": false
+    },
+    "seen": {
+      "child": {
+        "pid": 1398,
+        "start": {
+          "sec": 1795192882,
+          "usec": 131586
+        }
+      },
+      "child_alive_after": true,
+      "login": {
+        "pid": 1397,
+        "start": {
+          "sec": 1795192882,
+          "usec": 102692
+        }
+      },
+      "login_alive_after": true
+    },
+    "summary": {
+      "base": {
+        "collect_end_ns": 793745189765666,
+        "collect_start_ns": 793745189296000
+      },
+      "boundary": {
+        "collect_end_ns": 793745190048208,
+        "collect_start_ns": 793745189806750
+      },
+      "cpu": {
+        "coverage": {
+          "counted": 2,
+          "expected": 3
+        },
+        "delta_mach": 0,
+        "delta_ns": 0,
+        "interval_ns": 396646,
+        "pct": 0.0
+      },
+      "entries": [
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1396,
+            "start_abstime": 19049883635363
+          },
+          "key": {
+            "pid": 1396,
+            "start": {
+              "sec": 1795192882,
+              "usec": 99489
+            }
+          },
+          "memory": {
+            "measured": 2277832
+          }
+        },
+        {
+          "cpu": {
+            "missing": {
+              "kind": "unread",
+              "unread": {
+                "error": {
+                  "kind": "denied"
+                },
+                "kind": "failed"
+              }
+            }
+          },
+          "identity": null,
+          "key": {
+            "pid": 1397,
+            "start": {
+              "sec": 1795192882,
+              "usec": 102692
+            }
+          },
+          "memory": {
+            "missing": {
+              "kind": "unread",
+              "unread": {
+                "error": {
+                  "kind": "denied"
+                },
+                "kind": "failed"
+              }
+            }
+          }
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1398,
+            "start_abstime": 19049884405699
+          },
+          "key": {
+            "pid": 1398,
+            "start": {
+              "sec": 1795192882,
+              "usec": 131586
+            }
+          },
+          "memory": {
+            "measured": 1311128
+          }
+        }
+      ],
+      "memory": {
+        "bytes": 3588960,
+        "coverage": {
+          "counted": 2,
+          "expected": 3
+        }
+      },
+      "partial": true
+    }
+  },
+  "notes": []
+}

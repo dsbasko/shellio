@@ -1,0 +1,550 @@
+{
+  "schema": 1,
+  "units": [
+    {
+      "unit": "arena",
+      "scenario": "arena",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "arena-grow",
+          "status": "pass",
+          "oracle": "известные размеры арен: занятые байты, ёмкость, число долей и запросившие совпадают точно",
+          "reason": "A Usage { used_bytes: 100000, capacity_bytes: 131072, leases: 1, requested_by: {} }, B Usage { used_bytes: 6000, capacity_bytes: 8192, leases: 1, requested_by: {} }"
+        },
+        {
+          "id": "arena-reuse",
+          "status": "pass",
+          "oracle": "известные размеры арен: занятые байты, ёмкость, число долей и запросившие совпадают точно",
+          "reason": "A Usage { used_bytes: 50000, capacity_bytes: 131072, leases: 1, requested_by: {} }"
+        },
+        {
+          "id": "arena-release",
+          "status": "pass",
+          "oracle": "известные размеры арен: занятые байты, ёмкость, число долей и запросившие совпадают точно",
+          "reason": "освобождено 65536, A после большого выделения Usage { used_bytes: 250000, capacity_bytes: 265536, leases: 1, requested_by: {} }"
+        },
+        {
+          "id": "arena-git",
+          "status": "pass",
+          "oracle": "известные размеры арен: занятые байты, ёмкость, число долей и запросившие совпадают точно",
+          "reason": "Git Usage { used_bytes: 10000, capacity_bytes: 32768, leases: 1, requested_by: {\"A\", \"B\"} }"
+        }
+      ]
+    },
+    {
+      "unit": "attach-move",
+      "scenario": "attach-move",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "attach-closed",
+          "status": "pass",
+          "oracle": "на S1 итог панели {хост, программа, ребёнок}, у всех трёх дельта CPU от S0, у x1 — «вышел»",
+          "reason": "сессия из 3 процессов осталась у панели, x1 — «вышел»"
+        },
+        {
+          "id": "attach-move",
+          "status": "pass",
+          "oracle": "на S2 итог {x2, хост, программа, ребёнок}, у хоста и программ дельта CPU от S1, у x2 — «свежий»",
+          "reason": "после переноса сессия та же, x2 — «свежий»"
+        }
+      ]
+    },
+    {
+      "unit": "churn",
+      "scenario": "churn",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "churn-fresh",
+          "status": "pass",
+          "oracle": "у a2 CPU — «свежий» без повторного PID, память измерена",
+          "reason": "a2: Some((Some(Measured(1311128)), Missing(Fresh { reused_pid: false })))"
+        },
+        {
+          "id": "churn-exited",
+          "status": "pass",
+          "oracle": "у c/p/c1 и a1 CPU — «вышел», в памяти не ожидаются; у q2 заметка «вышел», в множестве его нет",
+          "reason": "c/p/c1 и a1 — «вышел» без памяти, q2 — заметка «вышел»"
+        },
+        {
+          "id": "churn-partial",
+          "status": "pass",
+          "oracle": "partial истинен; CPU учтён ровно у хоста, программы и c/p/c2; у неучтённых своя причина",
+          "reason": "partial true, CPU 3/7 (доля 0.43), память 4/5, учтены [1334, 1336, 1338], ожидались [1334, 1336, 1338]; причины: PID 1335: Exited; PID 1337: Exited; PID 1339: Fresh { reused_pid: false }; PID 1340: Unread { unread: Unconfirmed { error: Exited } }"
+        },
+        {
+          "id": "churn-zombie",
+          "status": "pass",
+          "oracle": "наблюдение: зомби q1 в списке S1, итоги вызовов и запись сводки записаны",
+          "reason": "q1 PID 1340 в списке зомби; чтение снимка Some((Err(Unconfirmed { error: Exited }), Err(Exited), Err(Exited))); запись сводки Some((Some(Missing(Unread { unread: Unconfirmed { error: Exited } })), Missing(Unread { unread: Unconfirmed { error: Exited } })))"
+        }
+      ]
+    },
+    {
+      "unit": "clock-bench",
+      "scenario": "clock-bench",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "clock-accuracy-clock_gettime",
+          "status": "pass",
+          "oracle": "getrusage(RUSAGE_SELF) однопоточного процесса на зеркальных границах участка; |часы − оракул| ≤ 0,2 мс + 2% оракула во всех участках, отказов чтения нет",
+          "reason": "участков 30, вне допуска 0, отказов чтения 0, худший — System 500 мкс: часы 500.2 мкс, оракул 504.0 мкс, доля допуска 0.018"
+        },
+        {
+          "id": "clock-accuracy-thread_info",
+          "status": "pass",
+          "oracle": "getrusage(RUSAGE_SELF) однопоточного процесса на зеркальных границах участка; |часы − оракул| ≤ 0,2 мс + 2% оракула во всех участках, отказов чтения нет",
+          "reason": "участков 30, вне допуска 0, отказов чтения 0, худший — User 500 мкс: часы 499.0 мкс, оракул 502.0 мкс, доля допуска 0.014"
+        },
+        {
+          "id": "clock-cost",
+          "status": "pass",
+          "oracle": "медиана CPU процесса на чтение: clock_gettime не дороже thread_info",
+          "reason": "медиана CPU на чтение: clock_gettime 92.9 нс, thread_info 406.3 нс, партий по 50000: 100"
+        }
+      ]
+    },
+    {
+      "unit": "cost-background",
+      "scenario": "cost",
+      "point": "background",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "cost/background",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    },
+    {
+      "unit": "cost-idle",
+      "scenario": "cost",
+      "point": "idle",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "cost/idle",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    },
+    {
+      "unit": "cost-panels-16",
+      "scenario": "cost",
+      "point": "panels-16",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "cost/panels-16",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    },
+    {
+      "unit": "cost-pids-128",
+      "scenario": "cost",
+      "point": "pids-128",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "cost/pids-128",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    },
+    {
+      "unit": "cost-pids-32",
+      "scenario": "cost",
+      "point": "pids-32",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "cost/pids-32",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    },
+    {
+      "unit": "cost-pids-8",
+      "scenario": "cost",
+      "point": "pids-8",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "cost/pids-8",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    },
+    {
+      "unit": "eperm-inject",
+      "scenario": "eperm-inject",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "eperm-inject",
+          "status": "pass",
+          "oracle": "у e/p/c1 память и CPU — отказ EPERM, partial истинен, покрытие памяти на один меньше, память = Σ остальных; в контрольной сводке e/p/c1 прочитан",
+          "reason": "e/p/c1 PID 1425 — отказ EPERM в памяти и CPU, покрытие памяти 2/3, partial, контроль прочитан"
+        }
+      ]
+    },
+    {
+      "unit": "formula-cpu",
+      "scenario": "formula-cpu",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "formula-cpu",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    },
+    {
+      "unit": "formula-mem",
+      "scenario": "formula-mem",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "formula-mem-16",
+          "status": "pass",
+          "oracle": "собственное чтение ri_phys_footprint фикстурой в квитанции m0; ±1 МиБ; m0 и m1 расходятся больше 1 МиБ — не подтверждено",
+          "reason": "снимок 18137496 байт, m0 18121112 байт, разница +16384 байт, допуск 1048576, m1 18153880 байт"
+        },
+        {
+          "id": "formula-mem-128",
+          "status": "pass",
+          "oracle": "собственное чтение ri_phys_footprint фикстурой в квитанции m0; ±1 МиБ; m0 и m1 расходятся больше 1 МиБ — не подтверждено",
+          "reason": "снимок 135627256 байт, m0 135610872 байт, разница +16384 байт, допуск 1048576, m1 135643640 байт"
+        },
+        {
+          "id": "formula-mem-512",
+          "status": "pass",
+          "oracle": "собственное чтение ri_phys_footprint фикстурой в квитанции m0; ±1 МиБ; m0 и m1 расходятся больше 1 МиБ — не подтверждено",
+          "reason": "снимок 538493720 байт, m0 538477336 байт, разница +16384 байт, допуск 1048576, m1 538493720 байт"
+        },
+        {
+          "id": "formula-mem-sum",
+          "status": "pass",
+          "oracle": "память сводки = Σ footprint записей; покрытие памяти полное, partial ложен",
+          "reason": "сводка 692258472 байт, Σ записей 692258472 байт, покрытие памяти 3/3, partial false"
+        }
+      ]
+    },
+    {
+      "unit": "git-shared",
+      "scenario": "git-shared",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "git-shared-group",
+          "status": "pass",
+          "oracle": "итог группы «Git» = {git-work, git-work/c1}, запросившие {A, B}, оба прочитаны, ключ регистрации = ключ квитанции",
+          "reason": "группа «Git»: 2 процесса, память 2655024 байт, запросившие A и B"
+        },
+        {
+          "id": "git-shared-once",
+          "status": "pass",
+          "oracle": "каждый процесс группы встречается в итогах один раз и не начислен ни A, ни B",
+          "reason": "каждый процесс группы учтён один раз, панелям A и B не начислен"
+        }
+      ]
+    },
+    {
+      "unit": "list-bench",
+      "scenario": "list-bench",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "list-fields",
+          "status": "fail",
+          "oracle": "proc_pidinfo(PROC_PIDTBSDINFO) отвечает для каждого PID proc_listallpids: тот же набор полей, что у записи sysctl",
+          "reason": "PID 801, proc_pidinfo ответил 527, отказы по errno {1: 273, 3: 1}"
+        },
+        {
+          "id": "list-cost",
+          "status": "pass",
+          "oracle": "медиана CPU потока на вызов: sysctl(KERN_PROC_ALL) не дороже proc_listallpids + proc_pidinfo",
+          "reason": "медиана CPU потока: sysctl 129.5 мкс, proc_listallpids + proc_pidinfo 373.6 мкс, пар 100"
+        }
+      ]
+    },
+    {
+      "unit": "login",
+      "scenario": "login",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "login",
+          "status": "pass",
+          "oracle": "login в итоге панели (record), на S1 proc_pid_rusage login отказал с errno 1 (EPERM), ребёнок прочитан, partial истинен, покрытие памяти на один меньше; оба живы после чтения",
+          "reason": "login PID 1397 не прочитан (errno 1), ребёнок PID 1398 прочитан, покрытие памяти 2/3, partial"
+        }
+      ]
+    },
+    {
+      "unit": "reparent",
+      "scenario": "reparent",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "reparent",
+          "status": "pass",
+          "oracle": "родитель сироты в списке — 1, промежуточного процесса нет; сирота в итоге панели один раз, источники включают session и group, без tree; сирота прочитан",
+          "reason": "сирота PID 1307, родитель 1, источники {Session, Group}"
+        }
+      ]
+    },
+    {
+      "unit": "sessions",
+      "scenario": "sessions",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "sessions-s1",
+          "status": "pass",
+          "oracle": "итог панели = {attach, хост, программа, ребёнок, внук} по ключам квитанций на обеих границах; каждый ключ в одном итоге; все члены прочитаны",
+          "reason": "членов 5, память 6670352 байт, покрытие памяти 5/5, CPU 5/5"
+        },
+        {
+          "id": "sessions-s2",
+          "status": "pass",
+          "oracle": "итог панели = {attach, хост, программа, ребёнок, внук} по ключам квитанций на обеих границах; каждый ключ в одном итоге; все члены прочитаны",
+          "reason": "членов 5, память 6653968 байт, покрытие памяти 5/5, CPU 5/5"
+        },
+        {
+          "id": "sessions-foreign",
+          "status": "pass",
+          "oracle": "посторонний процесс не входит ни в один итог и в уникальное множество",
+          "reason": "PID 1240 ни в одном итоге"
+        }
+      ]
+    },
+    {
+      "unit": "smoke",
+      "scenario": "smoke",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "smoke",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    },
+    {
+      "unit": "span-blocking",
+      "scenario": "span-blocking",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "span-blocking",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    },
+    {
+      "unit": "span-busy",
+      "scenario": "span-busy",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "span-busy",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    },
+    {
+      "unit": "span-migrate",
+      "scenario": "span-migrate",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "span-migrate",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    },
+    {
+      "unit": "span-nested",
+      "scenario": "span-nested",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "span-nested",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    },
+    {
+      "unit": "span-parallel",
+      "scenario": "span-parallel",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "span-parallel",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    },
+    {
+      "unit": "span-wait",
+      "scenario": "span-wait",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "span-wait",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    },
+    {
+      "unit": "units",
+      "scenario": "units",
+      "execution": {
+        "status": "ok"
+      },
+      "cells": [
+        {
+          "id": "units",
+          "status": "not_run",
+          "not_run_cause": "noisy",
+          "oracle": "замерная блокировка и проверка фона",
+          "reason": "3 попытки подряд не начаты: шумно, шумно, шумно; окон проверки фона 87"
+        }
+      ]
+    }
+  ],
+  "pending": [],
+  "errors": [],
+  "counts": {
+    "fail": 1,
+    "not_run": 19,
+    "pass": 26
+  },
+  "cost": [],
+  "handoffs": [
+    {
+      "id": "surface-redraw",
+      "status": "not_run",
+      "not_run_cause": "no_surface",
+      "oracle": "кадры поверхности libghostty в окнах с проходами сэмплера и обновлением чисел индикатора против окон без них",
+      "reason": "проба headless и не создаёт поверхность libghostty: утверждение ADR-0011 «обновление чисел не вызывает перерисовку терминала» не наблюдается; передача P2.4, замер на продуктовом сэмплере"
+    },
+    {
+      "id": "surface-memory",
+      "status": "not_run",
+      "not_run_cause": "no_surface",
+      "oracle": "прирост `ri_phys_footprint` процесса GUI на открытую поверхность libghostty",
+      "reason": "поверхности в пробе нет; P0.3 мерил сводный `phys_footprint` процесса без приписывания ресурсам GPU: +107,5 МиБ первая поверхность, +12,6 МиБ каждая следующая (docs/probes/p0.3-ghostty-surface.md, раздел «Остаток для следующих шагов», строка P0.8); передача P2.4"
+    },
+    {
+      "id": "surface-gpu",
+      "status": "not_run",
+      "not_run_cause": "no_surface",
+      "oracle": "ресурсы GPU поверхности (swap chain, текстуры целей рендера), приписанные поверхности записью Instruments",
+      "reason": "поверхности и записи Instruments в пробе нет; P0.3 ресурсы GPU поверхности не приписал (docs/probes/p0.3-ghostty-surface.md, раздел «Остаток для следующих шагов», строка P0.8); по ADR-0011 шрифты и Metal общие, без замера панель показывает их как «общее», а из footprint GUI в измеренной сводке ничего не вычитается; передача P2.4"
+    },
+    {
+      "id": "surface-remainder",
+      "status": "not_run",
+      "not_run_cause": "no_surface",
+      "oracle": "остаток `ri_phys_footprint` процесса GUI над состоянием до первой поверхности после закрытия всех поверхностей, по циклам",
+      "reason": "поверхности в пробе нет; необъяснённый остаток P0.3 после циклов +24,7 МиБ разово, дальше около +3 МиБ за цикл (docs/probes/p0.3-ghostty-surface.md, раздел «Остаток для следующих шагов», строка P0.8); по ADR-0011 он «общее» и панелям не начисляется, `footprint − арены` не считается; передача P2.4"
+    }
+  ]
+}

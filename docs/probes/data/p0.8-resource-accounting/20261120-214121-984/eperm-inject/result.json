@@ -1,0 +1,497 @@
+{
+  "schema": 1,
+  "scenario": "eperm-inject",
+  "environment": {
+    "os": {
+      "product_version": "27.0.1",
+      "build": "26A434"
+    },
+    "hardware": {
+      "model": "Mac15,6",
+      "cpu": "Apple M3 Pro",
+      "memory_bytes": 19327352832,
+      "logical_cpus": 11
+    },
+    "build": {
+      "commit": "b779167a1c76",
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "profile": "release",
+      "binary_sha256": "606e4b3fb4bdad5ad7f640c5c9a01365e475ff0e425b2dd6a2793ee88f9b452a",
+      "probe_version": "0.1.0"
+    },
+    "power": {
+      "source": "AC Power",
+      "low_power_mode": false
+    },
+    "process": {
+      "pid": 1413,
+      "state_dir": "<tmpdir>/shellio-probe-resources.QuBKX3"
+    }
+  },
+  "execution": {
+    "status": "ok"
+  },
+  "background": [],
+  "cells": [
+    {
+      "id": "eperm-inject",
+      "status": "pass",
+      "oracle": "у e/p/c1 память и CPU — отказ EPERM, partial истинен, покрытие памяти на один меньше, память = Σ остальных; в контрольной сводке e/p/c1 прочитан",
+      "reason": "e/p/c1 PID 1425 — отказ EPERM в памяти и CPU, покрытие памяти 2/3, partial, контроль прочитан"
+    }
+  ],
+  "metrics": [],
+  "raw": {
+    "attribution": [
+      {
+        "notes": [
+          {
+            "error": {
+              "kind": "exited"
+            },
+            "key": {
+              "pid": 23621,
+              "start": {
+                "sec": 1795171200,
+                "usec": 476251
+              }
+            },
+            "kind": "session_unknown"
+          }
+        ],
+        "shares": [
+          {
+            "members": [],
+            "owner": {
+              "kind": "git"
+            },
+            "requested_by": []
+          },
+          {
+            "members": [
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1423,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 197923
+                  }
+                },
+                "origins": [
+                  "record"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1424,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 200026
+                  }
+                },
+                "origins": [
+                  "record",
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1425,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 202637
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              }
+            ],
+            "owner": {
+              "id": "e",
+              "kind": "panel"
+            },
+            "requested_by": []
+          }
+        ]
+      },
+      {
+        "notes": [
+          {
+            "error": {
+              "kind": "exited"
+            },
+            "key": {
+              "pid": 23621,
+              "start": {
+                "sec": 1795171200,
+                "usec": 476251
+              }
+            },
+            "kind": "session_unknown"
+          }
+        ],
+        "shares": [
+          {
+            "members": [],
+            "owner": {
+              "kind": "git"
+            },
+            "requested_by": []
+          },
+          {
+            "members": [
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1423,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 197923
+                  }
+                },
+                "origins": [
+                  "record"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1424,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 200026
+                  }
+                },
+                "origins": [
+                  "record",
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1425,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 202637
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              }
+            ],
+            "owner": {
+              "id": "e",
+              "kind": "panel"
+            },
+            "requested_by": []
+          }
+        ]
+      },
+      {
+        "notes": [
+          {
+            "error": {
+              "kind": "exited"
+            },
+            "key": {
+              "pid": 23621,
+              "start": {
+                "sec": 1795171200,
+                "usec": 476251
+              }
+            },
+            "kind": "session_unknown"
+          }
+        ],
+        "shares": [
+          {
+            "members": [],
+            "owner": {
+              "kind": "git"
+            },
+            "requested_by": []
+          },
+          {
+            "members": [
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1423,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 197923
+                  }
+                },
+                "origins": [
+                  "record"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1424,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 200026
+                  }
+                },
+                "origins": [
+                  "record",
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              },
+              {
+                "comm": "probe-resources",
+                "key": {
+                  "pid": 1425,
+                  "start": {
+                    "sec": 1795192882,
+                    "usec": 202637
+                  }
+                },
+                "origins": [
+                  "tree",
+                  "session",
+                  "group"
+                ]
+              }
+            ],
+            "owner": {
+              "id": "e",
+              "kind": "panel"
+            },
+            "requested_by": []
+          }
+        ]
+      }
+    ],
+    "control": {
+      "base": {
+        "collect_end_ns": 793745257473916,
+        "collect_start_ns": 793745257226583
+      },
+      "boundary": {
+        "collect_end_ns": 793745257752791,
+        "collect_start_ns": 793745257506625
+      },
+      "cpu": {
+        "coverage": {
+          "counted": 2,
+          "expected": 3
+        },
+        "delta_mach": 0,
+        "delta_ns": 0,
+        "interval_ns": 279459,
+        "pct": 0.0
+      },
+      "entries": [
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1423,
+            "start_abstime": 19049885997793
+          },
+          "key": {
+            "pid": 1423,
+            "start": {
+              "sec": 1795192882,
+              "usec": 197923
+            }
+          },
+          "memory": {
+            "measured": 1376688
+          }
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1424,
+            "start_abstime": 19049886048266
+          },
+          "key": {
+            "pid": 1424,
+            "start": {
+              "sec": 1795192882,
+              "usec": 200026
+            }
+          },
+          "memory": {
+            "measured": 1343896
+          }
+        },
+        {
+          "cpu": {
+            "missing": {
+              "kind": "base_unread",
+              "unread": {
+                "error": {
+                  "kind": "denied"
+                },
+                "kind": "failed"
+              }
+            }
+          },
+          "identity": {
+            "pid": 1425,
+            "start_abstime": 19049886110918
+          },
+          "key": {
+            "pid": 1425,
+            "start": {
+              "sec": 1795192882,
+              "usec": 202637
+            }
+          },
+          "memory": {
+            "measured": 1311128
+          }
+        }
+      ],
+      "memory": {
+        "bytes": 4031712,
+        "coverage": {
+          "counted": 3,
+          "expected": 3
+        }
+      },
+      "partial": true
+    },
+    "summary": {
+      "base": {
+        "collect_end_ns": 793745257185166,
+        "collect_start_ns": 793745256736875
+      },
+      "boundary": {
+        "collect_end_ns": 793745257473916,
+        "collect_start_ns": 793745257226583
+      },
+      "cpu": {
+        "coverage": {
+          "counted": 2,
+          "expected": 3
+        },
+        "delta_mach": 0,
+        "delta_ns": 0,
+        "interval_ns": 389229,
+        "pct": 0.0
+      },
+      "entries": [
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1423,
+            "start_abstime": 19049885997793
+          },
+          "key": {
+            "pid": 1423,
+            "start": {
+              "sec": 1795192882,
+              "usec": 197923
+            }
+          },
+          "memory": {
+            "measured": 1376688
+          }
+        },
+        {
+          "cpu": {
+            "measured": {
+              "mach": 0,
+              "ns": 0,
+              "pct": 0.0
+            }
+          },
+          "identity": {
+            "pid": 1424,
+            "start_abstime": 19049886048266
+          },
+          "key": {
+            "pid": 1424,
+            "start": {
+              "sec": 1795192882,
+              "usec": 200026
+            }
+          },
+          "memory": {
+            "measured": 1343896
+          }
+        },
+        {
+          "cpu": {
+            "missing": {
+              "kind": "unread",
+              "unread": {
+                "error": {
+                  "kind": "denied"
+                },
+                "kind": "failed"
+              }
+            }
+          },
+          "identity": null,
+          "key": {
+            "pid": 1425,
+            "start": {
+              "sec": 1795192882,
+              "usec": 202637
+            }
+          },
+          "memory": {
+            "missing": {
+              "kind": "unread",
+              "unread": {
+                "error": {
+                  "kind": "denied"
+                },
+                "kind": "failed"
+              }
+            }
+          }
+        }
+      ],
+      "memory": {
+        "bytes": 2720584,
+        "coverage": {
+          "counted": 2,
+          "expected": 3
+        }
+      },
+      "partial": true
+    }
+  },
+  "notes": []
+}
