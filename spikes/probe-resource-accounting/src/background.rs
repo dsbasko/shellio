@@ -5,14 +5,17 @@
 //! `proc_pid_rusage`. Отказавшие чтения посторонних процессов не скрываются: записываются
 //! покрытие и системная дельта. Правило вердикта чистое и отделено от чтения.
 //!
-//! `ri_user_time` и `ri_system_time` переводятся из тиков Mach через `mach_timebase_info`;
-//! калибровку этого перевода проводит сценарий `units` (задача 2).
+//! `ri_user_time` и `ri_system_time` переводятся из тиков Mach через [`Timebase::ticks_to_ns`];
+//! калибровку этого перевода проводит сценарий `units`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
+
+pub use crate::proc::Identity;
+use crate::proc::units::Timebase;
 
 pub const WINDOW: Duration = Duration::from_secs(10);
 pub const QUIET_DEADLINE: Duration = Duration::from_secs(5 * 60);
@@ -29,13 +32,6 @@ pub const THRESHOLDS: Thresholds = Thresholds {
     system_pct: 30.0,
     foreign_pct: 10.0,
 };
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct Identity {
-    pub pid: i32,
-    /// `ri_proc_start_abstime`.
-    pub start_abstime: u64,
-}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProcReading {
@@ -69,11 +65,17 @@ pub struct Units {
 }
 
 impl Units {
-    pub fn mach_to_ns(self, ticks: u64) -> f64 {
-        if self.mach_denom == 0 {
-            return f64::NAN;
+    pub fn timebase(self) -> Timebase {
+        Timebase {
+            numer: self.mach_numer,
+            denom: self.mach_denom,
         }
-        (u128::from(ticks) * u128::from(self.mach_numer) / u128::from(self.mach_denom)) as f64
+    }
+
+    pub fn mach_to_ns(self, ticks: u64) -> f64 {
+        self.timebase()
+            .ticks_to_ns(ticks)
+            .map_or(f64::NAN, |ns| ns as f64)
     }
 }
 
@@ -254,16 +256,13 @@ pub fn uptime_ns() -> u64 {
     (ts.tv_sec as u64) * 1_000_000_000 + ts.tv_nsec as u64
 }
 
-#[allow(deprecated)]
 pub fn current_units() -> Units {
-    let mut info = libc::mach_timebase_info { numer: 0, denom: 0 };
-    // SAFETY: info — действительный выходной буфер.
-    unsafe { libc::mach_timebase_info(&mut info) };
+    let timebase = Timebase::current();
     // SAFETY: sysconf без побочных эффектов.
     let clk_tck = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };
     Units {
-        mach_numer: info.numer,
-        mach_denom: info.denom,
+        mach_numer: timebase.numer,
+        mach_denom: timebase.denom,
         clk_tck: u64::try_from(clk_tck).unwrap_or(0),
     }
 }
@@ -318,55 +317,6 @@ pub fn list_pids() -> Result<Vec<i32>, String> {
     Ok(pids)
 }
 
-fn c_name(raw: &[libc::c_char]) -> String {
-    let bytes: Vec<u8> = raw
-        .iter()
-        .take_while(|c| **c != 0)
-        .map(|c| *c as u8)
-        .collect();
-    String::from_utf8_lossy(&bytes).into_owned()
-}
-
-fn bsd_info(pid: i32) -> Option<(i32, String)> {
-    // SAFETY: proc_bsdinfo — POD, нули допустимы.
-    let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
-    let size = size_of::<libc::proc_bsdinfo>() as libc::c_int;
-    // SAFETY: буфер proc_bsdinfo размера size.
-    let got = unsafe {
-        libc::proc_pidinfo(
-            pid,
-            libc::PROC_PIDTBSDINFO,
-            0,
-            (&mut info as *mut libc::proc_bsdinfo).cast(),
-            size,
-        )
-    };
-    if got != size {
-        return None;
-    }
-    let name = c_name(&info.pbi_name);
-    let name = if name.is_empty() {
-        c_name(&info.pbi_comm)
-    } else {
-        name
-    };
-    Some((info.pbi_ppid as i32, name))
-}
-
-fn rusage(pid: i32) -> Result<libc::rusage_info_v4, i32> {
-    // SAFETY: rusage_info_v4 — POD, нули допустимы.
-    let mut info: libc::rusage_info_v4 = unsafe { std::mem::zeroed() };
-    // SAFETY: буфер rusage_info_v4 для RUSAGE_INFO_V4.
-    let rc = unsafe {
-        libc::proc_pid_rusage(
-            pid,
-            libc::RUSAGE_INFO_V4,
-            (&mut info as *mut libc::rusage_info_v4).cast(),
-        )
-    };
-    if rc == 0 { Ok(info) } else { Err(errno()) }
-}
-
 pub fn sample_bound() -> Result<Bound, String> {
     let host_ticks = host_ticks()?;
     let uptime_ns = uptime_ns();
@@ -376,20 +326,20 @@ pub fn sample_bound() -> Result<Bound, String> {
         ..Bound::default()
     };
     for pid in list_pids()? {
-        let info = bsd_info(pid);
+        let info = crate::proc::bsd_info(pid).ok();
         bound
             .parents
-            .insert(pid, info.as_ref().map(|(ppid, _)| *ppid));
-        match rusage(pid) {
+            .insert(pid, info.as_ref().map(|info| info.ppid));
+        match crate::proc::usage(pid) {
             Ok(usage) => bound.procs.push(ProcReading {
                 identity: Identity {
                     pid,
-                    start_abstime: usage.ri_proc_start_abstime,
+                    start_abstime: usage.start_abstime,
                 },
-                name: info.map(|(_, name)| name).unwrap_or_default(),
-                cpu_mach: usage.ri_user_time.saturating_add(usage.ri_system_time),
+                name: info.map(|info| info.name).unwrap_or_default(),
+                cpu_mach: usage.cpu_mach(),
             }),
-            Err(errno) => bound.failures.push((pid, errno)),
+            Err(error) => bound.failures.push((pid, error.errno().unwrap_or(0))),
         }
     }
     Ok(bound)

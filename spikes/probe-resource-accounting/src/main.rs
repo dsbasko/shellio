@@ -10,6 +10,7 @@
 //!   `--record`.
 
 mod background;
+mod proc;
 mod results;
 mod runstate;
 mod scenario;

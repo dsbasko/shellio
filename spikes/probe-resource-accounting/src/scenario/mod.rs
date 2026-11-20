@@ -1,5 +1,7 @@
 //! Сценарии пробы: процесс на сценарий и точку осей, окружение и итог процесса.
 
+mod units;
+
 use std::path::Path;
 use std::process::Command;
 
@@ -12,14 +14,16 @@ use crate::results::{
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Scenario {
     Smoke,
+    Units,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 1] = [Scenario::Smoke];
+    pub const ALL: [Scenario; 2] = [Scenario::Smoke, Scenario::Units];
 
     pub fn name(self) -> &'static str {
         match self {
             Scenario::Smoke => "smoke",
+            Scenario::Units => "units",
         }
     }
 
@@ -30,14 +34,14 @@ impl Scenario {
     /// Замерный сценарий берёт замерную блокировку и проверяет фон.
     pub fn measured(self) -> bool {
         match self {
-            Scenario::Smoke => true,
+            Scenario::Smoke | Scenario::Units => true,
         }
     }
 
     /// Точки оси процесса; пустой список — один процесс без точки.
     pub fn points(self) -> &'static [&'static str] {
         match self {
-            Scenario::Smoke => &[],
+            Scenario::Smoke | Scenario::Units => &[],
         }
     }
 }
@@ -72,6 +76,7 @@ pub fn run(scenario: Scenario, point: Option<&str>) -> Outcome {
     }
     match scenario {
         Scenario::Smoke => smoke(environment),
+        Scenario::Units => measured(Scenario::Units, environment, units::run),
     }
 }
 
@@ -128,6 +133,29 @@ pub fn quiet_or_not_started(
             environment: Some(Box::new(environment.clone())),
         }),
     })
+}
+
+/// Замерный сценарий: тихое окно фона, затем тело сценария; отказ тела — ошибка исполнения.
+fn measured(
+    scenario: Scenario,
+    environment: Environment,
+    body: impl FnOnce(Vec<BackgroundRecord>) -> Result<Report, String>,
+) -> Outcome {
+    let records = match quiet_or_not_started(scenario, None, &environment) {
+        Err(reason) => return error(scenario, None, environment, reason),
+        Ok(Err(not_started)) => return Outcome::NotStarted(not_started),
+        Ok(Ok(records)) => records,
+    };
+    match body(records) {
+        Err(reason) => error(scenario, None, environment, reason),
+        Ok(report) => Outcome::Result(Box::new(ResultFile::new(
+            scenario.name(),
+            None,
+            environment,
+            Execution::Ok,
+            report,
+        ))),
+    }
 }
 
 /// Пустой прогон стенда: блокировка, проверка фона, `result.json` и агрегирование.
@@ -303,8 +331,8 @@ mod tests {
         for scenario in Scenario::ALL {
             assert_eq!(Scenario::from_name(scenario.name()), Some(scenario));
         }
-        assert!(Scenario::Smoke.measured());
-        assert!(Scenario::Smoke.points().is_empty());
+        assert!(Scenario::Smoke.measured() && Scenario::Units.measured());
+        assert!(Scenario::Smoke.points().is_empty() && Scenario::Units.points().is_empty());
         assert_eq!(Scenario::from_name("cost"), None);
     }
 
