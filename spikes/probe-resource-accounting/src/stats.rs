@@ -79,6 +79,15 @@ pub enum Stop {
     Deadline,
 }
 
+impl Stop {
+    pub fn name(self) -> &'static str {
+        match self {
+            Stop::Complete => "все слоты пройдены",
+            Stop::Deadline => "срок попытки",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Next {
     Block {
@@ -287,6 +296,10 @@ pub fn effect_verdict(effect: Effect, blocks: &[BlockValues], min_clean: usize) 
                 match e.verdict {
                     Verdict::Pass => "не выше бюджета во всех блоках",
                     Verdict::Fail => "выше бюджета во всех блоках",
+                    Verdict::Unconfirmed if e.samples.is_empty() => "нет чистых блоков",
+                    Verdict::Unconfirmed if e.samples.iter().any(|v| !v.is_finite()) => {
+                        "в блоке нет значения окна"
+                    }
                     Verdict::Unconfirmed => "по обе стороны бюджета",
                 }
             )

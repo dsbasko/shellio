@@ -105,10 +105,14 @@ fn fewer_than_three_clean_blocks_is_noisy() {
         effect_verdict(Effect::Sampler, &over, 3).verdict,
         Verdict::Unconfirmed
     );
-    assert_eq!(
-        effect_verdict(Effect::Sampler, &[], 3).verdict,
-        Verdict::Unconfirmed
+    let empty = effect_verdict(Effect::Sampler, &[], 3);
+    assert_eq!(empty.verdict, Verdict::Unconfirmed);
+    assert!(
+        empty.reason.contains("нет чистых блоков"),
+        "{}",
+        empty.reason
     );
+    assert!(!empty.reason.contains("по обе стороны"), "{}", empty.reason);
 }
 
 #[test]

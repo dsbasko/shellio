@@ -677,13 +677,13 @@ pub fn run_point(
         })
         .collect();
     let tail = format!(
-        "точка {}: {} PID, {} панелей, шаг {} с; блоков {}, остановка {:?}{}",
+        "точка {}: {} PID, {} панелей, шаг {} с; блоков {}, остановка: {}{}",
         point.name,
         point.pids,
         point.panels,
         step_ns / SECOND,
         blocks.len(),
-        stop,
+        stop.name(),
         if contaminated.is_empty() {
             String::new()
         } else {

@@ -42,8 +42,10 @@ pub struct Reading {
     pub background: Option<BackgroundCheck>,
 }
 
+/// Внешняя метка: внутренняя (`tag = "kind"`) буферизует содержимое, и через буфер ключи
+/// `failed_by_errno` (`BTreeMap<i32, _>`, в JSON строки) не читаются.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum Reply {
     Reading(Box<Reading>),
     Error { index: u64, reason: String },
@@ -199,6 +201,23 @@ mod tests {
         assert!(second.stand_cpu_mach >= first.stand_cpu_mach);
         let check = second.background.unwrap();
         assert!(check.stand_pids.contains(&pid));
+    }
+
+    #[test]
+    fn reading_with_failed_foreign_reads_round_trips() {
+        let mut previous = None;
+        let pid = std::process::id() as i32;
+        read(&Mark { index: 0, ops: 0 }, pid, &mut previous).unwrap();
+        let mut reading = read(&Mark { index: 1, ops: 0 }, pid, &mut previous).unwrap();
+        let check = reading.background.as_mut().unwrap();
+        check.coverage.failed_by_errno.insert(libc::EPERM, 223);
+        let line = serde_json::to_string(&Reply::Reading(Box::new(reading))).unwrap();
+        let Reply::Reading(parsed) = serde_json::from_str::<Reply>(&line).unwrap() else {
+            panic!("ожидался Reading: {line}");
+        };
+        assert_eq!(parsed.index, 1);
+        let coverage = &parsed.background.unwrap().coverage;
+        assert_eq!(coverage.failed_by_errno.get(&libc::EPERM), Some(&223));
     }
 
     #[test]
