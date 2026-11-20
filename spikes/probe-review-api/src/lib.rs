@@ -9,6 +9,8 @@ pub mod journal;
 pub mod model;
 pub mod results;
 pub mod scenario;
+pub mod scrub;
+pub mod transport;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
