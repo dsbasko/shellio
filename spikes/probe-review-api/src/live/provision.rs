@@ -281,6 +281,10 @@ pub struct CeHost {
     pub reviewer: CeAccount,
     /// Как получен токен root: `password_grant` или `rails_runner`.
     pub root_token: String,
+    /// Адрес, который хост сам сообщает в `web_url` (без `external_url` — имя контейнера), если
+    /// он не совпадает с `url`: тоже адрес локального GitLab для очистителя.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub web_host: Option<String>,
 }
 
 impl CeHost {
@@ -473,12 +477,33 @@ pub fn provision<T: Transport>(
             author,
             reviewer,
             root_token: root_token.to_owned(),
+            web_host: project
+                .get("web_url")
+                .and_then(Value::as_str)
+                .and_then(web_authority)
+                .filter(|host| {
+                    !host.eq_ignore_ascii_case(root_url.split("://").nth(1).unwrap_or_default())
+                }),
         },
         CeTokens {
             author: author_token,
             reviewer: reviewer_token,
         },
     ))
+}
+
+/// Хост и порт адреса `web_url`: `http://95b8b759b74e/…` → `95b8b759b74e`; также
+/// `git@host:…` и `ssh://git@host:порт/…`.
+pub fn web_authority(url: &str) -> Option<String> {
+    let rest = match url.split_once("://") {
+        Some((_, rest)) => rest,
+        None => url
+            .split_once('@')
+            .map(|(_, rest)| rest.split(':').next().unwrap_or(rest))?,
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let authority = authority.rsplit('@').next().unwrap_or_default();
+    (!authority.is_empty()).then(|| authority.to_owned())
 }
 
 /// OAuth password grant root: `POST /oauth/token`. 400 и 401 — отказ в гранте.

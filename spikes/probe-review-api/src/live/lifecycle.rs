@@ -21,8 +21,11 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use super::repo::{Account, FileChange, LiveError, LiveRepo};
+use crate::results::Column;
 
 pub const LEDGER_FILE: &str = "live-objects.jsonl";
+/// Отметка рядом с журналом: его уборка подтверждена чтением, повторно журнал не читается.
+pub const SWEPT_FILE: &str = "live-objects.swept";
 pub const FIXTURE_PATH: &str = "probe-review/fixture.txt";
 const BRANCH_ROOT: &str = "probe/";
 
@@ -495,10 +498,81 @@ pub fn resume_cleanup(roles: &Roles<'_>, ledger: &Path) -> Result<Cleanup, Strin
     Ledger::load(ledger).map(|entries| cleanup(roles, &entries))
 }
 
+/// Журналы созданного прежних процессов столбца без отметки [`SWEPT_FILE`]: каталоги
+/// `<корень прогонов>/<прогон>/<сценарий>-<столбец>/`, кроме своего. Журналы `gitlab_ce` не
+/// возвращаются: контейнер прежнего подъёма удалён вместе с объектами, а номера MR нового
+/// подъёма начинаются заново.
+pub fn stale_ledgers(runs_root: &Path, own: &Path, column: Column) -> Vec<PathBuf> {
+    if column == Column::GitlabCe {
+        return Vec::new();
+    }
+    let suffix = format!("-{}", column.name());
+    let mut found = Vec::new();
+    let Ok(runs) = std::fs::read_dir(runs_root) else {
+        return found;
+    };
+    for run in runs.flatten() {
+        let Ok(procs) = std::fs::read_dir(run.path()) else {
+            continue;
+        };
+        for proc in procs.flatten() {
+            let dir = proc.path();
+            let name = proc.file_name();
+            if dir == own || !name.to_string_lossy().ends_with(&suffix) {
+                continue;
+            }
+            let ledger = dir.join(LEDGER_FILE);
+            if ledger.is_file() && !dir.join(SWEPT_FILE).exists() {
+                found.push(ledger);
+            }
+        }
+    }
+    found.sort();
+    found
+}
+
+/// Уборка по журналу прежнего процесса.
+#[derive(Debug)]
+pub struct Swept {
+    /// `<прогон>/<процесс>` без абсолютного пути.
+    pub source: String,
+    pub cleanup: Result<Cleanup, String>,
+}
+
+/// Продолжение уборки по журналам прежних процессов столбца ([`stale_ledgers`]): журнал, уборка
+/// которого прошла без ошибок и не убранного, получает отметку [`SWEPT_FILE`].
+pub fn sweep_stale(roles: &Roles<'_>, runs_root: &Path, own: &Path, column: Column) -> Vec<Swept> {
+    stale_ledgers(runs_root, own, column)
+        .into_iter()
+        .map(|ledger| {
+            let dir = ledger.parent().unwrap_or(runs_root);
+            let source = dir.strip_prefix(runs_root).map_or_else(
+                |_| dir.display().to_string(),
+                |rel| rel.display().to_string(),
+            );
+            let cleanup = resume_cleanup(roles, &ledger);
+            if let Ok(report) = &cleanup
+                && report.errors.is_empty()
+                && report.leftovers.is_empty()
+                && let Err(err) = std::fs::write(dir.join(SWEPT_FILE), b"")
+            {
+                return Swept {
+                    source,
+                    cleanup: Err(format!("отметка уборки не записана: {}", err.kind())),
+                };
+            }
+            Swept { source, cleanup }
+        })
+        .collect()
+}
+
 /// Итог клетки: итог сценария (ошибка открытия, ошибка или паника тела) и уборка.
 #[derive(Debug)]
 pub struct CellRun<R> {
     pub outcome: Result<R, String>,
+    /// Ошибка открытия клетки с типом: отказ сторожа и 401/403 шага — `not_run` «токен без
+    /// прав», а не ошибка исполнения (решает сценарий).
+    pub open_error: Option<StepError>,
     pub cleanup: Cleanup,
 }
 
@@ -511,15 +585,24 @@ pub fn run_cell<R>(
     title: &str,
     body: impl FnOnce(&mut Cell) -> Result<R, String>,
 ) -> CellRun<R> {
+    let mut open_error = None;
     let outcome = match open_cell(roles, ledger, names, title) {
         Ok(mut cell) => match catch_unwind(AssertUnwindSafe(|| body(&mut cell))) {
             Ok(result) => result,
             Err(panic) => Err(format!("паника сценария: {}", panic_message(&*panic))),
         },
-        Err(err) => Err(err.to_string()),
+        Err(err) => {
+            let text = err.to_string();
+            open_error = Some(err);
+            Err(text)
+        }
     };
     let cleanup = cleanup(roles, ledger.entries());
-    CellRun { outcome, cleanup }
+    CellRun {
+        outcome,
+        open_error,
+        cleanup,
+    }
 }
 
 fn panic_message(panic: &(dyn std::any::Any + Send)) -> String {

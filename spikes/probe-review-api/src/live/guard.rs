@@ -87,6 +87,20 @@ impl GuardTarget {
         }
     }
 
+    /// Адреса API цели для адаптера GitHub: адаптер, построенный от них, пишет туда, куда
+    /// пропускает сторож (GraphQL сравнивается точным равенством).
+    pub fn github_endpoints(&self) -> github::Endpoints {
+        github::Endpoints::new(self.rest.clone(), self.graphql.clone())
+    }
+
+    /// Адреса API цели для адаптера GitLab, как [`GuardTarget::github_endpoints`].
+    pub fn gitlab_endpoints(&self) -> gitlab::Endpoints {
+        gitlab::Endpoints {
+            rest: self.rest.clone(),
+            graphql: self.graphql.clone(),
+        }
+    }
+
     /// Адрес репозитория REST без `/` в конце.
     pub fn repo_url(&self) -> String {
         match self.provider {
@@ -108,8 +122,11 @@ pub enum GuardError {
     NotListed,
     /// Адрес API локального GitLab CE не на `127.0.0.1`. Запросов не было.
     NotLoopback,
-    /// Чтение репозитория не удалось: нет репозитория, нет доступа, отказ транспорта.
+    /// Чтение репозитория не удалось: отказ транспорта, ответ не JSON, прочий код.
     Read(String),
+    /// Чтение репозитория получило 401, 403 или 404: токен без прав или репозитория нет —
+    /// нарушение предусловия, а не наблюдение.
+    Denied(u16),
     /// Репозиторий не приватный или приватность не подтверждена ответом.
     NotPrivate(String),
     /// Имя репозитория в ответе другое.
@@ -125,6 +142,9 @@ impl fmt::Display for GuardError {
             GuardError::NotListed => f.write_str("репозиторий не перечислен в sandbox.toml"),
             GuardError::NotLoopback => f.write_str("адрес API локального GitLab не 127.0.0.1"),
             GuardError::Read(detail) => write!(f, "репозиторий не прочитан: {detail}"),
+            GuardError::Denied(status) => {
+                write!(f, "нет доступа к репозиторию или его нет (код {status})")
+            }
             GuardError::NotPrivate(seen) => write!(f, "репозиторий не приватный ({seen})"),
             GuardError::Mismatch => f.write_str("имя репозитория в ответе не совпадает"),
             GuardError::NoDefaultBranch => f.write_str("у репозитория нет ветки по умолчанию"),
@@ -232,6 +252,9 @@ impl<T: Transport> Guarded<T> {
             .inner
             .send(&request)
             .map_err(|failure| GuardError::Read(failure.to_string()))?;
+        if matches!(response.status, 401 | 403 | 404) {
+            return Err(GuardError::Denied(response.status));
+        }
         if !response.is_success() {
             return Err(GuardError::Read(format!("код {}", response.status)));
         }

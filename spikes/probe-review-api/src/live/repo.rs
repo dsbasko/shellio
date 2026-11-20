@@ -14,11 +14,33 @@ use crate::transport::{Failure, Request, Response, Transport};
 
 use super::guard::{GuardError, RepoInfo};
 
-/// Аккаунт токена: логин и числовой ID (ID нужен назначению ревьюера MR).
+/// Аккаунт токена: логин, числовой ID (ID нужен назначению ревьюера MR) и отображаемое имя
+/// профиля, если оно задано.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Account {
     pub login: String,
     pub id: u64,
+    pub name: Option<String>,
+}
+
+impl Account {
+    /// Логин и отображаемое имя — в очиститель под меткой роли до первой записи следа: имя
+    /// профиля — те же персональные данные, что логин.
+    pub fn register(&self, scrubber: &mut crate::scrub::Scrubber, label: &'static str) {
+        scrubber.add_login(&self.login, label);
+        if let Some(name) = self.name.as_deref().filter(|name| !name.trim().is_empty()) {
+            scrubber.add_login(name.trim(), label);
+        }
+    }
+}
+
+/// Отображаемое имя из ответа `GET /user`: `null` и пустая строка — имени нет.
+pub(super) fn display_name(user: &Value) -> Option<String> {
+    user.get("name")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned)
 }
 
 /// Изменение одного файла одним коммитом.

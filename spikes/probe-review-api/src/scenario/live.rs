@@ -18,23 +18,28 @@
 //! условие итога; отказ транспорта и 5xx дополнительного запроса — ошибка исполнения, как у
 //! остальных чтений.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
 use super::Context;
+use crate::github::GitHub;
 use crate::gitlab::capabilities::{self as gl_caps, IntrospectionReply};
 use crate::gitlab::{ApiError, Capabilities, DEVELOPER, GitLab};
-use crate::live::guard::{GuardTarget, Guarded, WriteScope};
+use crate::live::github::GitHubRepo;
+use crate::live::gitlab::GitLabRepo;
+use crate::live::guard::{GuardError, GuardTarget, Guarded, WriteScope};
 use crate::live::keychain::Keychain;
+use crate::live::lifecycle::{Cleanup, Roles, StepError, Swept, sweep_stale};
 use crate::live::provision::{self, CeHost, CeTokens, Pin};
+use crate::live::repo::{LiveError, LiveRepo};
 use crate::live::sandbox::{self, Sandbox, SandboxError};
 use crate::live::{Preflight, credential, preflight};
 use crate::model::{Provider, ReviewTarget};
 use crate::results::{Column, Execution, Host, ResultFile, Status};
 use crate::scrub::{LABEL_AUTHOR, LABEL_REVIEWER, Scrubber};
 use crate::transport::http::{HttpConfig, HttpTransport, Secret};
-use crate::transport::{Trace, Traced};
+use crate::transport::{Trace, Traced, Transport};
 
 use super::Scenario;
 
@@ -120,16 +125,103 @@ fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveE
             return;
         }
     };
-    if let Err(reason) = host
+    let (author_secret, reviewer_secret) = match host
         .accounts
         .author()
-        .and_then(|_| host.accounts.reviewer())
+        .and_then(|author| Ok((author, host.accounts.reviewer()?)))
     {
-        result.status = Status::NotRun;
-        result.reason = reason;
+        Ok(secrets) => secrets,
+        Err(reason) => {
+            result.status = Status::NotRun;
+            result.reason = reason;
+            return;
+        }
+    };
+    let mut scrubber = Scrubber::new();
+    host.accounts.register(&mut scrubber);
+    scrubber.add_repo(&host.host.repo);
+    let trace = Trace::new();
+    let guarded = |secret: &Secret, actor: &'static str| {
+        let http = HttpTransport::new(
+            HttpConfig::default(),
+            Some(credential(ctx.column, secret.clone())),
+        );
+        Guarded::new(
+            Traced::new(http, trace.clone(), actor),
+            host.target.clone(),
+            host.scope.clone(),
+        )
+    };
+    let author = guarded(author_secret, "author");
+    let reviewer = guarded(reviewer_secret, "reviewer");
+    let runs_root = ctx.out.parent().and_then(Path::parent);
+    let opened = open_roles(
+        ctx.column,
+        &author,
+        &reviewer,
+        runs_root.map(|root| (root, ctx.out.as_path())),
+        &mut scrubber,
+        result,
+    );
+    result.trace = trace
+        .entries(&scrubber)
+        .iter()
+        .filter_map(|entry| serde_json::to_value(entry).ok())
+        .collect();
+    let mut errors = guard_errors(&[("author", &author), ("reviewer", &reviewer)]);
+    if let Err(verdict) = opened {
+        if errors.is_empty() {
+            verdict.apply(result, &scrubber);
+            return;
+        }
+        errors.push(format!("{verdict:?}"));
+    }
+    if !errors.is_empty() {
+        Verdict::Error(errors.join("; ")).apply(result, &scrubber);
         return;
     }
     not_implemented(scenario, ctx, result);
+}
+
+/// Роли живой клетки до её записей: аккаунты обеих ролей (логин и отображаемое имя) — в
+/// очиститель, затем уборка по журналам прежних процессов столбца (`runs`: корень прогонов и
+/// свой каталог процесса). Сценарии строк продолжают с теми же сторожами.
+pub fn open_roles<T: Transport>(
+    column: Column,
+    author: &Guarded<T>,
+    reviewer: &Guarded<T>,
+    runs: Option<(&Path, &Path)>,
+    scrubber: &mut Scrubber,
+    result: &mut ResultFile,
+) -> Result<(), Verdict> {
+    let author_repo = live_repo(author).map_err(Verdict::Error)?;
+    let reviewer_repo = live_repo(reviewer).map_err(Verdict::Error)?;
+    for (repo, label, role) in [
+        (&author_repo, LABEL_AUTHOR, "автора"),
+        (&reviewer_repo, LABEL_REVIEWER, "ревьюера"),
+    ] {
+        match repo.whoami() {
+            Ok(account) => account.register(scrubber, label),
+            Err(LiveError::Status {
+                status: status @ (401 | 403),
+                ..
+            }) => {
+                return Err(Verdict::NotRun(format!(
+                    "токен без прав: аккаунт {role} не прочитан, код {status}"
+                )));
+            }
+            Err(err) => return Err(Verdict::Error(format!("аккаунт {role}: {err}"))),
+        }
+    }
+    if let Some((root, own)) = runs {
+        let roles = Roles {
+            author: author_repo.as_ref(),
+            reviewer: Some(reviewer_repo.as_ref()),
+        };
+        let swept = sweep_stale(&roles, root, own, column);
+        record_swept(result, &swept, scrubber);
+    }
+    Ok(())
 }
 
 /// Хост и токены из окружения процесса, которое задаёт `run.sh`.
@@ -156,6 +248,9 @@ pub fn ce_scrubber(host: &CeHost, tokens: &CeTokens) -> Scrubber {
         .add_login(&host.author.name, LABEL_AUTHOR)
         .add_login(&host.reviewer.username, LABEL_REVIEWER)
         .add_login(&host.reviewer.name, LABEL_REVIEWER);
+    if let Some(web_host) = &host.web_host {
+        scrubber.add_gitlab_ce(web_host);
+    }
     scrubber
 }
 
@@ -188,6 +283,239 @@ pub fn describe_reply(how: &str, reply: &IntrospectionReply) -> String {
 pub fn scrub_notes(scrubber: &Scrubber, notes: &mut [String]) {
     for note in notes {
         *note = scrubber.scrub_text(note);
+    }
+}
+
+/// Причина `not_run` ветви, которой нужен серверный отказ: живой хост его не даёт.
+pub const INJECTION_UNAVAILABLE: &str = "инъекция недоступна на живом хосте";
+/// Причина `not_run` клетки GitLab, чей новый MR не заполнил `diff_refs` и версию в срок.
+pub const MR_NOT_READY: &str = "MR не готов за 120 с";
+/// Причина `not_run` клетки GitLab, чей MR не учёл смену head в срок.
+pub const MR_HEAD_STALE: &str = "MR не обновил diff_refs за 120 с";
+
+/// Адаптер GitLab поверх сторожа роли с адресами его цели: сторож сравнивает адрес GraphQL
+/// точным равенством, другой вид того же адреса он бы не пропустил.
+pub fn gitlab_adapter<'a, T: Transport>(
+    guard: &'a Guarded<T>,
+    review: &ReviewTarget,
+) -> Result<GitLab<&'a Guarded<T>>, ApiError> {
+    GitLab::new(guard, guard.target().gitlab_endpoints(), review)
+}
+
+/// Адаптер GitHub поверх сторожа роли с адресами его цели, как [`gitlab_adapter`].
+pub fn github_adapter<'a, T: Transport>(
+    guard: &'a Guarded<T>,
+    review: &ReviewTarget,
+) -> Result<GitHub<&'a Guarded<T>>, crate::github::ApiError> {
+    GitHub::new(guard, guard.target().github_endpoints(), review)
+}
+
+/// Репозиторий жизненного цикла поверх того же сторожа, что и адаптер ревью роли.
+pub fn live_repo<'a, T: Transport>(
+    guard: &'a Guarded<T>,
+) -> Result<Box<dyn LiveRepo + 'a>, String> {
+    match guard.target().provider {
+        Provider::GitHub => GitHubRepo::new(guard).map(|repo| Box::new(repo) as Box<dyn LiveRepo>),
+        Provider::GitLab => GitLabRepo::new(guard).map(|repo| Box::new(repo) as Box<dyn LiveRepo>),
+    }
+}
+
+/// Отказ сторожа каждой роли: причина проверки и записи, которые он не пропустил. Любая строка
+/// — ошибка исполнения клетки.
+pub fn guard_errors<T: Transport>(guards: &[(&str, &Guarded<T>)]) -> Vec<String> {
+    let mut errors = Vec::new();
+    for (actor, guard) in guards {
+        if let Some(refusal) = guard.refusal() {
+            errors.push(format!("{actor}: {refusal}"));
+        }
+        let refused = guard.refused_writes();
+        if !refused.is_empty() {
+            errors.push(format!(
+                "{actor}: сторож не пропустил {}",
+                refused.join(", ")
+            ));
+        }
+    }
+    errors
+}
+
+/// Уборка клетки в `result.json` через очиститель: не убранное — `leftovers`, ошибки шагов —
+/// заметки «уборка: …» (что осталось, решает чтение после уборки).
+pub fn record_cleanup(result: &mut ResultFile, cleanup: &Cleanup, scrubber: &Scrubber) {
+    result.leftovers.extend(
+        cleanup
+            .leftovers
+            .iter()
+            .map(|item| scrubber.scrub_text(item)),
+    );
+    result.notes.extend(
+        cleanup
+            .errors
+            .iter()
+            .map(|err| scrubber.scrub_text(&format!("уборка: {err}"))),
+    );
+}
+
+/// Уборка по журналам прежних процессов в `result.json` через очиститель: не убранное —
+/// `leftovers` с источником, нечитаемый журнал — тоже `leftovers`: что в нём, не известно.
+pub fn record_swept(result: &mut ResultFile, swept: &[Swept], scrubber: &Scrubber) {
+    for item in swept {
+        match &item.cleanup {
+            Ok(cleanup) => {
+                result
+                    .leftovers
+                    .extend(cleanup.leftovers.iter().map(|left| {
+                        scrubber.scrub_text(&format!("прежний процесс {}: {left}", item.source))
+                    }));
+                result.notes.extend(cleanup.errors.iter().map(|err| {
+                    scrubber.scrub_text(&format!("уборка прежнего процесса {}: {err}", item.source))
+                }));
+                result.notes.push(scrubber.scrub_text(&format!(
+                    "уборка прежнего процесса {}: убрано {}, осталось {}",
+                    item.source,
+                    cleanup.removed.len(),
+                    cleanup.leftovers.len()
+                )));
+            }
+            Err(err) => result.leftovers.push(scrubber.scrub_text(&format!(
+                "прежний процесс {}: уборка не выполнена: {err}",
+                item.source
+            ))),
+        }
+    }
+}
+
+/// Итог клетки по отказу хоста или стенда.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Verdict {
+    NotRun(String),
+    /// Возможности нет у проверенной роли или редакции: клетка несёт версию и тариф хоста.
+    Absent(String),
+    Fail(String),
+    /// Ошибка исполнения.
+    Error(String),
+}
+
+impl Verdict {
+    /// Итог в `result.json` через очиститель. `absent` без версии хоста — ошибка исполнения:
+    /// версию клетка записывает до итога.
+    pub fn apply(self, result: &mut ResultFile, scrubber: &Scrubber) {
+        match self {
+            Verdict::NotRun(reason) => {
+                result.status = Status::NotRun;
+                result.reason = scrubber.scrub_text(&reason);
+            }
+            Verdict::Absent(reason) => {
+                if result
+                    .host
+                    .version
+                    .as_deref()
+                    .is_none_or(|v| v.trim().is_empty())
+                {
+                    result.execution = Execution::error(
+                        scrubber.scrub_text(&format!("absent без версии хоста: {reason}")),
+                    );
+                    return;
+                }
+                result.status = Status::Absent;
+                result.reason = scrubber.scrub_text(&reason);
+            }
+            Verdict::Fail(reason) => {
+                result.status = Status::Fail;
+                result.reason = scrubber.scrub_text(&reason);
+            }
+            Verdict::Error(reason) => {
+                result.execution = Execution::error(scrubber.scrub_text(&reason));
+            }
+        }
+    }
+}
+
+/// Отказ сторожа: 401, 403 или 404 на чтение репозитория — предусловие (токен без прав или нет
+/// песочницы), остальное — ошибка исполнения.
+pub fn guard_verdict(err: &GuardError) -> Verdict {
+    match err {
+        GuardError::Denied(status) => Verdict::NotRun(format!(
+            "токен без прав или нет репозитория: код {status} на чтение репозитория сторожем"
+        )),
+        other => Verdict::Error(other.to_string()),
+    }
+}
+
+/// Шаг жизненного цикла клетки: отказ сторожа по [`guard_verdict`], 401 и 403 — `not_run`
+/// «токен без прав», остальное — ошибка исполнения.
+pub fn step_verdict(err: &StepError) -> Verdict {
+    match &err.error {
+        LiveError::Guard(guard) => match guard_verdict(guard) {
+            Verdict::NotRun(reason) => Verdict::NotRun(format!("{}: {reason}", err.step)),
+            other => other,
+        },
+        LiveError::Status {
+            status: 401 | 403, ..
+        } => Verdict::NotRun(format!("токен без прав: {err}")),
+        _ => Verdict::Error(err.to_string()),
+    }
+}
+
+/// Признак тарифа или лицензии в тексте отказа GitLab.
+pub fn mentions_tier(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    [
+        "licens",
+        "premium",
+        "ultimate",
+        "tier",
+        "subscription",
+        "paid plan",
+    ]
+    .iter()
+    .any(|word| lower.contains(word))
+}
+
+/// Отказ `approve` GitLab: по правам или тарифу — `absent`, 409 — наблюдение для оракула
+/// клетки (`fail` по умолчанию: вызывающий решает по ветви), отказ транспорта и 5xx — ошибка.
+pub fn approve_verdict(err: &ApiError) -> Verdict {
+    match err {
+        ApiError::Absent(what) => Verdict::Absent(format!("approve: нет возможности: {what}")),
+        ApiError::NotPermitted {
+            access_level,
+            required,
+        } => Verdict::Absent(format!("approve: роль {access_level:?} ниже {required}")),
+        ApiError::Status {
+            status: 401 | 403,
+            message,
+        } => Verdict::Absent(format!("approve: отказ по правам или тарифу: {message}")),
+        ApiError::Status { status, message } if mentions_tier(message) => {
+            Verdict::Absent(format!("approve: код {status}, признак тарифа: {message}"))
+        }
+        other => read_or_fail("approve", other),
+    }
+}
+
+/// Отказ `mergeRequestRequestChanges`: признак тарифа или лицензии и отсутствие в схеме —
+/// `absent`, другой отказ — `fail` с текстом ответа, отказ транспорта и 5xx — ошибка.
+pub fn request_changes_verdict(err: &ApiError) -> Verdict {
+    let text = err.to_string();
+    match err {
+        ApiError::Absent(what) => Verdict::Absent(format!("mergeRequestRequestChanges: {what}")),
+        ApiError::Graphql(_)
+        | ApiError::Payload(_)
+        | ApiError::Unavailable(_)
+        | ApiError::Status { .. }
+            if mentions_tier(&text) =>
+        {
+            Verdict::Absent(format!(
+                "mergeRequestRequestChanges: признак тарифа: {text}"
+            ))
+        }
+        other => read_or_fail("mergeRequestRequestChanges", other),
+    }
+}
+
+fn read_or_fail(what: &str, err: &ApiError) -> Verdict {
+    match classify_read(err) {
+        Ok(observed) => Verdict::Fail(format!("{what}: {observed}")),
+        Err(stand) => Verdict::Error(format!("{what}: {stand}")),
     }
 }
 
@@ -263,26 +591,13 @@ fn capabilities_ce(result: &mut ResultFile) {
     let reviewer = guarded(&tokens.reviewer, "reviewer");
     let author = guarded(&tokens.author, "author");
     let read = |transport: &Guarded<Traced<HttpTransport>>| {
-        GitLab::new(transport, endpoints.clone(), &review).and_then(|gl| gl.capabilities())
+        gitlab_adapter(transport, &review).and_then(|gl| gl.capabilities())
     };
     let reviewer_caps = read(&reviewer);
     let author_caps = read(&author);
-    let literal =
-        GitLab::new(&reviewer, endpoints.clone(), &review).and_then(|gl| gl.introspect_literal());
+    let literal = gitlab_adapter(&reviewer, &review).and_then(|gl| gl.introspect_literal());
 
-    let mut errors = Vec::new();
-    for (actor, guard) in [("reviewer", &reviewer), ("author", &author)] {
-        if let Some(refusal) = guard.refusal() {
-            errors.push(format!("{actor}: {refusal}"));
-        }
-        let refused = guard.refused_writes();
-        if !refused.is_empty() {
-            errors.push(format!(
-                "{actor}: сторож не пропустил {}",
-                refused.join(", ")
-            ));
-        }
-    }
+    let mut errors = guard_errors(&[("reviewer", &reviewer), ("author", &author)]);
     let writes: Vec<String> = trace
         .calls()
         .iter()
@@ -465,6 +780,7 @@ mod tests {
                 name: "Probe Reviewer".to_owned(),
             },
             root_token: "password_grant".to_owned(),
+            web_host: Some("95b8b759b74e".to_owned()),
         }
     }
 
@@ -582,10 +898,12 @@ mod tests {
         let scrubber = ce_scrubber(&host(), &tokens);
         let text = scrubber.scrub_text(
             "http://127.0.0.1:55001/api/v4/projects/probe-author%2Fshellio-review-sandbox \
-glpat-authorsecret1 glpat-reviewersecret2 Probe Author probe-reviewer Probe Reviewer",
+glpat-authorsecret1 glpat-reviewersecret2 Probe Author probe-reviewer Probe Reviewer \
+http://95b8b759b74e/x git@95b8b759b74e:x.git",
         );
         for secret in [
             "55001",
+            "95b8b759b74e",
             "probe-author",
             "probe-reviewer",
             "Probe Author",
@@ -750,6 +1068,330 @@ glpat-authorsecret1 glpat-reviewersecret2 Probe Author probe-reviewer Probe Revi
         Scenario::Capabilities.run(&ctx, &mut result);
         assert!(!result.execution.is_ok());
         assert!(result.trace.is_empty());
+        Ok(())
+    }
+
+    // --- общий сток живой клетки, сторож, очистка, итоги отказов ---
+
+    use crate::live::lifecycle::{CellNames, LEDGER_FILE, Ledger, SWEPT_FILE, run_cell};
+    use crate::transport::scripted::{Reply, Scripted};
+    use crate::transport::{Method, Request};
+    use serde_json::json;
+
+    fn gh_target() -> GuardTarget {
+        GuardTarget::github(
+            &crate::github::Endpoints::new("https://gh.test", "https://gh.test/graphql"),
+            "owner/sandbox",
+        )
+    }
+
+    fn listed() -> WriteScope {
+        WriteScope::Listed(vec!["owner/sandbox".to_owned()])
+    }
+
+    fn gh_repo(private: bool) -> Reply {
+        Reply::json(
+            200,
+            &json!({"full_name": "owner/sandbox", "private": private, "default_branch": "main"}),
+        )
+    }
+
+    #[test]
+    fn adapters_take_endpoints_from_the_guard_target() -> Result<(), String> {
+        let scripted = Scripted::new()
+            .expect(Method::Get, "/repos/owner/sandbox", gh_repo(true))
+            .expect(
+                Method::Post,
+                "/graphql",
+                Reply::json(200, &json!({"data": {}})),
+            );
+        let guard = Guarded::new(&scripted, gh_target(), listed());
+        let endpoints = guard.target().github_endpoints();
+        assert_eq!(endpoints.graphql, "https://gh.test/graphql");
+        guard
+            .send(&Request::new(Method::Post, endpoints.graphql.clone()).json(&json!({})))
+            .map_err(|f| f.to_string())?;
+        assert!(guard_errors(&[("reviewer", &guard)]).is_empty());
+        // Тот же адрес в другом виде сторож не пропускает: отсюда общий источник адресов.
+        let other = format!("{}/", endpoints.graphql);
+        assert!(
+            guard
+                .send(&Request::new(Method::Post, other).json(&json!({})))
+                .is_err()
+        );
+        let errors = guard_errors(&[("reviewer", &guard)]);
+        assert_eq!(errors.len(), 1, "{errors:?}");
+        assert!(
+            errors[0].starts_with("reviewer: сторож не пропустил POST"),
+            "{errors:?}"
+        );
+        scripted.finish()?;
+
+        let ce = crate::gitlab::Endpoints::instance("http://127.0.0.1:55001");
+        let target = GuardTarget::gitlab(&ce, "probe-author/shellio-review-sandbox");
+        assert_eq!(target.gitlab_endpoints().rest, ce.rest);
+        assert_eq!(target.gitlab_endpoints().graphql, ce.graphql);
+        let review = ReviewTarget {
+            provider: Provider::GitLab,
+            host: "http://127.0.0.1:55001".to_owned(),
+            repo: target.repo.clone(),
+            number: 1,
+        };
+        let idle = Scripted::new();
+        let guard = Guarded::new(&idle, target, WriteScope::Loopback);
+        assert!(gitlab_adapter(&guard, &review).is_ok());
+        assert!(live_repo(&guard).is_ok());
+        idle.finish()?;
+        Ok(())
+    }
+
+    #[test]
+    fn guard_refusal_is_listed_for_the_cell() -> Result<(), String> {
+        let scripted = Scripted::new().expect(Method::Get, "/repos/owner/sandbox", gh_repo(false));
+        let guard = Guarded::new(&scripted, gh_target(), listed());
+        assert!(
+            guard
+                .send(&Request::new(
+                    Method::Post,
+                    "https://gh.test/repos/owner/sandbox/pulls"
+                ))
+                .is_err()
+        );
+        let errors = guard_errors(&[("author", &guard)]);
+        assert_eq!(errors.len(), 2, "{errors:?}");
+        assert!(errors[0].contains("не приватный"), "{errors:?}");
+        let mut result = ResultFile::new("s", "b", "gh-viewed", Column::GithubCloud);
+        Verdict::Error(errors.join("; ")).apply(&mut result, &Scrubber::new());
+        assert!(!result.execution.is_ok());
+        scripted.finish()?;
+        Ok(())
+    }
+
+    fn cloud_scrubber() -> Scrubber {
+        let mut scrubber = Scrubber::new();
+        scrubber
+            .add_token("ghp_secretvalue123")
+            .add_repo("owner/sandbox")
+            .add_login("alice", LABEL_AUTHOR)
+            .add_login("Alice Liddell", LABEL_AUTHOR);
+        scrubber
+    }
+
+    #[test]
+    fn cleanup_leftovers_errors_and_sweeps_pass_through_scrubber() {
+        let scrubber = cloud_scrubber();
+        let mut result = ResultFile::new("s", "b", "gh-viewed", Column::GithubCloud);
+        record_cleanup(
+            &mut result,
+            &Cleanup {
+                removed: vec!["PR #4 закрыт".to_owned()],
+                errors: vec![
+                    "удаление ветки: код 403: alice has no access to owner/sandbox".to_owned(),
+                ],
+                leftovers: vec!["PR #4 открыт в owner/sandbox, автор Alice Liddell".to_owned()],
+            },
+            &scrubber,
+        );
+        record_swept(
+            &mut result,
+            &[Swept {
+                source: "old/gh-viewed-github_cloud".to_owned(),
+                cleanup: Err("token ghp_secretvalue123 rejected".to_owned()),
+            }],
+            &scrubber,
+        );
+        let text = format!("{:?} {:?}", result.leftovers, result.notes);
+        for secret in [
+            "alice",
+            "Alice Liddell",
+            "owner/sandbox",
+            "ghp_secretvalue123",
+        ] {
+            assert!(
+                !text.to_lowercase().contains(&secret.to_lowercase()),
+                "{secret} в {text}"
+            );
+        }
+        assert_eq!(result.leftovers.len(), 2);
+        assert!(result.leftovers[1].starts_with("прежний процесс old/gh-viewed-github_cloud"));
+        assert!(
+            result.notes[0].starts_with("уборка: "),
+            "{:?}",
+            result.notes
+        );
+    }
+
+    #[test]
+    fn host_refusals_build_not_run_and_absent_cells() {
+        let scrubber = Scrubber::new();
+        assert!(matches!(
+            guard_verdict(&GuardError::Denied(404)),
+            Verdict::NotRun(_)
+        ));
+        assert!(matches!(
+            guard_verdict(&GuardError::NotPrivate("private: false".to_owned())),
+            Verdict::Error(_)
+        ));
+
+        let status = |status: u16, message: &str| ApiError::Status {
+            status,
+            message: message.to_owned(),
+        };
+        let absent = approve_verdict(&status(401, "401 Unauthorized"));
+        assert!(matches!(absent, Verdict::Absent(_)), "{absent:?}");
+        let mut with_version = ResultFile::new("s", "b", "gl-approve-sha", Column::GitlabCloud);
+        with_version.host = Host {
+            version: Some("GitLab 19.6.1 (CE)".to_owned()),
+            tier: Some("free".to_owned()),
+        };
+        absent.clone().apply(&mut with_version, &scrubber);
+        assert_eq!(with_version.status, Status::Absent);
+        assert!(
+            with_version.problems().is_empty(),
+            "{:?}",
+            with_version.problems()
+        );
+        let mut without = ResultFile::new("s", "b", "gl-approve-sha", Column::GitlabCloud);
+        absent.apply(&mut without, &scrubber);
+        assert!(
+            !without.execution.is_ok(),
+            "absent без версии — ошибка исполнения"
+        );
+        assert!(matches!(
+            approve_verdict(&ApiError::ShaRejected("409".to_owned())),
+            Verdict::Fail(_)
+        ));
+        assert!(matches!(
+            approve_verdict(&status(502, "")),
+            Verdict::Error(_)
+        ));
+
+        let licensed = ApiError::Graphql(vec![crate::gitlab::GraphqlError {
+            code: None,
+            message: "This feature requires a Premium license".to_owned(),
+        }]);
+        assert!(matches!(
+            request_changes_verdict(&licensed),
+            Verdict::Absent(_)
+        ));
+        assert!(matches!(
+            request_changes_verdict(&ApiError::Absent("mergeRequestRequestChanges")),
+            Verdict::Absent(_)
+        ));
+        let other = ApiError::Payload(vec!["Reviewer not found".to_owned()]);
+        assert!(matches!(request_changes_verdict(&other), Verdict::Fail(_)));
+        assert!(matches!(
+            request_changes_verdict(&ApiError::Transport(crate::transport::Failure::timeout(
+                "x"
+            ))),
+            Verdict::Error(_)
+        ));
+
+        let mut not_run = ResultFile::new("s", "b", "gl-anchors", Column::GitlabCloud);
+        Verdict::NotRun(MR_NOT_READY.to_owned()).apply(&mut not_run, &scrubber);
+        assert_eq!(not_run.status, Status::NotRun);
+        assert_eq!(not_run.reason, MR_NOT_READY);
+    }
+
+    #[test]
+    fn denied_repository_read_opens_no_cell_and_is_not_run() -> Result<(), String> {
+        let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let scripted = Scripted::new().expect(
+            Method::Get,
+            "/repos/owner/sandbox",
+            Reply::json(404, &json!({"message": "Not Found"})),
+        );
+        let guard = Guarded::new(&scripted, gh_target(), listed());
+        let author = live_repo(&guard)?;
+        let roles = Roles {
+            author: author.as_ref(),
+            reviewer: None,
+        };
+        let mut ledger = Ledger::create(&dir.path().join(LEDGER_FILE))?;
+        let names = CellNames::new("run1", "gh-viewed")?;
+        let run = run_cell(&roles, &mut ledger, &names, "t", |_| Ok(()));
+        let open = run.open_error.ok_or("ожидалась ошибка открытия")?;
+        let verdict = step_verdict(&open);
+        assert!(
+            matches!(&verdict, Verdict::NotRun(reason) if reason.starts_with("сторож автора: токен без прав")),
+            "{verdict:?}"
+        );
+        assert!(scripted.delivered().iter().all(|r| !r.method.is_write()));
+        scripted.finish()?;
+        Ok(())
+    }
+
+    #[test]
+    fn open_roles_registers_names_and_sweeps_stale_ledgers() -> Result<(), String> {
+        let root = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let stale = root.path().join("old").join("gh-viewed-github_cloud");
+        let own = root.path().join("new").join("gh-viewed-github_cloud");
+        for dir in [&stale, &own] {
+            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        }
+        Ledger::create(&stale.join(LEDGER_FILE))?;
+        Ledger::create(&own.join(LEDGER_FILE))?;
+        let author_t = Scripted::new().expect(
+            Method::Get,
+            "/user",
+            Reply::json(
+                200,
+                &json!({"login": "alice", "id": 1, "name": "Alice Liddell"}),
+            ),
+        );
+        let reviewer_t = Scripted::new().expect(
+            Method::Get,
+            "/user",
+            Reply::json(200, &json!({"login": "bob", "id": 2, "name": null})),
+        );
+        let author = Guarded::new(&author_t, gh_target(), listed());
+        let reviewer = Guarded::new(&reviewer_t, gh_target(), listed());
+        let mut scrubber = Scrubber::new();
+        let mut result = ResultFile::new("s", "b", "gh-viewed", Column::GithubCloud);
+        open_roles(
+            Column::GithubCloud,
+            &author,
+            &reviewer,
+            Some((root.path(), own.as_path())),
+            &mut scrubber,
+            &mut result,
+        )
+        .map_err(|v| format!("{v:?}"))?;
+        assert_eq!(
+            scrubber.scrub_text("alice Alice Liddell bob"),
+            "<author> <author> <reviewer>"
+        );
+        assert!(
+            stale.join(SWEPT_FILE).exists(),
+            "пустой журнал убран и отмечен"
+        );
+        assert!(!own.join(SWEPT_FILE).exists(), "свой журнал не трогается");
+        assert!(result.leftovers.is_empty(), "{:?}", result.leftovers);
+        assert_eq!(
+            result.notes,
+            ["уборка прежнего процесса old/gh-viewed-github_cloud: убрано 0, осталось 0"]
+        );
+        author_t.finish()?;
+        reviewer_t.finish()?;
+
+        let denied = Scripted::new().expect(Method::Get, "/user", Reply::json(401, &json!({})));
+        let idle = Scripted::new();
+        let author = Guarded::new(&denied, gh_target(), listed());
+        let reviewer = Guarded::new(&idle, gh_target(), listed());
+        let verdict = open_roles(
+            Column::GithubCloud,
+            &author,
+            &reviewer,
+            None,
+            &mut Scrubber::new(),
+            &mut result,
+        );
+        assert!(
+            matches!(&verdict, Err(Verdict::NotRun(reason)) if reason.starts_with("токен без прав")),
+            "{verdict:?}"
+        );
+        denied.finish()?;
+        idle.finish()?;
         Ok(())
     }
 }

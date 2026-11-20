@@ -8,7 +8,8 @@ use crate::transport::{Method, Request, Transport, percent_encode};
 
 use super::guard::{GuardError, Guarded, RepoInfo};
 use super::repo::{
-    Account, FileChange, LiveError, LiveRepo, call, id_of, json, pages, str_of, u64_of,
+    Account, FileChange, LiveError, LiveRepo, call, display_name, id_of, json, pages, str_of,
+    u64_of,
 };
 
 const ACCEPT: &str = "application/json";
@@ -55,6 +56,7 @@ impl<T: Transport> LiveRepo for GitLabRepo<'_, T> {
         Ok(Account {
             login: str_of(&user, "/username")?,
             id: u64_of(&user, "/id")?,
+            name: display_name(&user),
         })
     }
 

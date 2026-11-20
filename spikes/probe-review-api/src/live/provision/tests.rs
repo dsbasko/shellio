@@ -211,6 +211,7 @@ fn author_ok(level: u64) -> Scripted {
                     "path_with_namespace": "probe-author/shellio-review-sandbox",
                     "visibility": "private",
                     "default_branch": "main",
+                    "web_url": "http://95b8b759b74e/probe-author/shellio-review-sandbox",
                 }),
             ),
         )
@@ -318,6 +319,7 @@ fn provisions_users_tokens_and_private_project() -> Result<(), String> {
     assert_eq!(host.author.username, "probe-author");
     assert_eq!(host.reviewer.id, 3);
     assert_eq!(host.root_token, "password_grant");
+    assert_eq!(host.web_host.as_deref(), Some("95b8b759b74e"));
     assert_eq!(host.image, pin().reference());
     assert_eq!(tokens.author.expose(), "pat-author-token");
     assert_eq!(tokens.reviewer.expose(), "pat-reviewer-token");
@@ -621,4 +623,26 @@ fn host_file_round_trip_and_loopback_check() -> Result<(), String> {
     assert!(CeHost::load(&path).is_err());
     assert!(CeHost::load(&dir.path().join("missing.json")).is_err());
     Ok(())
+}
+
+#[test]
+fn web_authority_takes_host_from_web_url_forms() {
+    use super::web_authority;
+    assert_eq!(
+        web_authority("http://95b8b759b74e/probe-author/shellio-review-sandbox").as_deref(),
+        Some("95b8b759b74e")
+    );
+    assert_eq!(
+        web_authority("http://127.0.0.1:55001/a/b").as_deref(),
+        Some("127.0.0.1:55001")
+    );
+    assert_eq!(
+        web_authority("git@95b8b759b74e:probe-author/shellio-review-sandbox.git").as_deref(),
+        Some("95b8b759b74e")
+    );
+    assert_eq!(
+        web_authority("ssh://git@95b8b759b74e:2222/a/b.git").as_deref(),
+        Some("95b8b759b74e:2222")
+    );
+    assert_eq!(web_authority("no-authority"), None);
 }

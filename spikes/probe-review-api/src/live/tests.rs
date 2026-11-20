@@ -199,11 +199,7 @@ fn guard_fails_closed_on_unconfirmed_privacy_and_names() -> Result<(), String> {
             ),
             GuardError::NoDefaultBranch,
         ),
-        (
-            gl_target(),
-            not_found(),
-            GuardError::Read("код 404".to_owned()),
-        ),
+        (gl_target(), not_found(), GuardError::Denied(404)),
     ];
     for (target, reply, expected) in cases {
         let scripted = Scripted::new().then(reply);
@@ -1268,4 +1264,32 @@ fn live_repos_reject_wrong_provider() {
     assert!(GitHubRepo::new(&gl).is_err());
     let repo: &dyn LiveRepo = &GitHubRepo::new(&gh).unwrap_or_else(|e| panic!("{e}"));
     assert_eq!(repo.pull_word(), "PR");
+}
+
+#[test]
+fn stale_ledgers_skip_own_swept_other_columns_and_gitlab_ce() -> Result<(), String> {
+    use super::lifecycle::{LEDGER_FILE, SWEPT_FILE, stale_ledgers};
+    let root = tempfile::tempdir().map_err(|e| e.to_string())?;
+    let make = |run: &str, proc: &str, swept: bool| -> Result<PathBuf, String> {
+        let dir = root.path().join(run).join(proc);
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        std::fs::write(dir.join(LEDGER_FILE), "").map_err(|e| e.to_string())?;
+        if swept {
+            std::fs::write(dir.join(SWEPT_FILE), "").map_err(|e| e.to_string())?;
+        }
+        Ok(dir)
+    };
+    let stale = make("r1", "gh-viewed-github_cloud", false)?;
+    make("r1", "gh-anchors-github_cloud", true)?;
+    make("r1", "gl-anchors-gitlab_cloud", false)?;
+    let ce = make("r1", "gl-anchors-gitlab_ce", false)?;
+    let own = make("r2", "gh-viewed-github_cloud", false)?;
+    let same_run = make("r2", "gh-anchors-github_cloud", false)?;
+    assert_eq!(
+        stale_ledgers(root.path(), &own, Column::GithubCloud),
+        vec![stale.join(LEDGER_FILE), same_run.join(LEDGER_FILE)]
+    );
+    assert!(stale_ledgers(root.path(), &ce, Column::GitlabCe).is_empty());
+    assert!(stale_ledgers(&root.path().join("нет"), &own, Column::GithubCloud).is_empty());
+    Ok(())
 }
