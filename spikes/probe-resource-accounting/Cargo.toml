@@ -1,0 +1,20 @@
+[package]
+name = "probe-resource-accounting"
+description = "Проба P0.8: учёт CPU и памяти процессов и исполняемых участков"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "probe-resources"
+path = "src/main.rs"
+
+[dependencies]
+libc = "0.2.191"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "sync", "time"] }
+
+[lints]
+workspace = true

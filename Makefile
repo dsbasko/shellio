@@ -23,13 +23,14 @@ PROBE_GHOSTTY := spikes/probe-ghostty-surface/run.sh
 PROBE_SESSION := spikes/probe-session-survival/run.sh
 PROBE_UPDATE := spikes/probe-update-lifecycle/run.sh
 PROBE_DIFF := spikes/probe-diff-view/run.sh
+PROBE_RESOURCES := spikes/probe-resource-accounting/run.sh
 
 # Цели, читающие vendor/ghostty/, выполняют весь рецепт под одной блокировкой набора: рецепт цели X
 # лежит во внутренней цели locked-X и запускается вложенным make. Вторая такая цель сразу получает отказ.
 LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run test-bundle \
 	probe-ghostty probe-ghostty-demo probe-session-surface
 
-.PHONY: setup test-scripts probe-appkit probe-appkit-demo probe-session probe-update probe-update-tcc-grant probe-diff probe-diff-demo $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
+.PHONY: setup test-scripts probe-appkit probe-appkit-demo probe-session probe-update probe-update-tcc-grant probe-diff probe-diff-demo probe-resources $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
 
 # Под make -j цели одного вызова иначе столкнулись бы на собственной блокировке.
 .NOTPARALLEL:
@@ -154,3 +155,10 @@ probe-diff:
 
 probe-diff-demo:
 	CARGO=$(CARGO) $(PROBE_DIFF) demo $(ARGS)
+
+# Проба P0.8 probe-resources headless, набор ghostty не читает и vendor/ghostty.lock не берёт. Замерные
+# сценарии run.sh запускает под машинной замерной блокировкой measure.lock в SHELLIO_CACHE_DIR с
+# проверкой фона, процесс без блокировки или тишины даёт код 3 «не начат». SCENARIOS и POINTS сужают
+# оси, RUN продолжает прогон по его status (ADR-0034).
+probe-resources:
+	CARGO=$(CARGO) POINTS="$(POINTS)" RUN="$(RUN)" $(PROBE_RESOURCES) scenarios $(SCENARIOS)
