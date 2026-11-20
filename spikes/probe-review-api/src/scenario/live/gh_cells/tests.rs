@@ -9,6 +9,7 @@ use crate::live::lifecycle::CellNames;
 use crate::live::repo::Account;
 use crate::results::Status;
 use crate::scenario::live::guard_errors;
+use crate::scrub::LABEL_REPO;
 use crate::transport::Traced;
 use crate::transport::http::{Credential, HttpConfig, HttpTransport, Secret};
 
@@ -1471,6 +1472,14 @@ fn second_pending(
     server: &FakeServer<GithubFake>,
     count: u32,
 ) -> (Result<String, Verdict>, Trace, Scrubber) {
+    second_run(server, &super::super::SecondOp::GhCreatePending { count })
+}
+
+/// Операция второго клиента путём живого процесса (`second_cloud_op`) над сторожами обеих ролей.
+fn second_run(
+    server: &FakeServer<GithubFake>,
+    op: &super::super::SecondOp,
+) -> (Result<String, Verdict>, Trace, Scrubber) {
     let trace = Trace::new();
     let author = second_guard(server, AUTHOR_TOKEN, &trace);
     let reviewer = second_guard(server, REVIEWER_TOKEN, &trace);
@@ -1484,7 +1493,7 @@ fn second_pending(
         &author,
         &reviewer,
         NUMBER,
-        &super::super::SecondOp::GhCreatePending { count },
+        op,
         &mut scrubber,
     );
     if !matches!(done, Err(Verdict::Error(_))) {
@@ -2184,6 +2193,135 @@ fn reconcile_foreign_oracle_catches_its_own_claims() {
     let (status, reason) = run(Some(&dropped), &[], &candidate, item, &moved);
     assert_eq!(status, Status::Fail, "{reason}");
     assert!(reason.contains("якоре"), "{reason}");
+}
+
+const SECOND_REVIEW: super::super::SecondOp = super::super::SecondOp::GhCreateReview {
+    line: FOREIGN_SAME_LINE,
+};
+
+#[test]
+fn second_client_creates_a_comment_review_through_the_process_path() -> TestResult {
+    let server = fake_github(true)?;
+    let (done, trace, scrubber) = second_run(&server, &SECOND_REVIEW);
+    let id = done.map_err(|v| format!("{v:?}"))?;
+    let reviews = server.with(|f| f.reviews(NUMBER));
+    assert_eq!(
+        reviews
+            .iter()
+            .map(|r| (r.id.to_string(), r.user.as_str(), r.state, r.body.as_str()))
+            .collect::<Vec<_>>(),
+        vec![(
+            id.clone(),
+            FAKE_REVIEWER,
+            ghf::ReviewState::Commented,
+            SUMMARY
+        )]
+    );
+    let comments = server.with(|f| f.comments(NUMBER));
+    assert_eq!(
+        comments
+            .iter()
+            .map(|c| (
+                c.review_id.to_string(),
+                c.body.as_str(),
+                c.path.as_str(),
+                c.line,
+                c.side,
+                c.commit_id.as_str()
+            ))
+            .collect::<Vec<_>>(),
+        vec![(
+            id,
+            FOREIGN_SAME_BODY,
+            PATH,
+            FOREIGN_SAME_LINE,
+            ghf::DiffSide::Right,
+            HEAD
+        )]
+    );
+
+    let calls = trace.calls();
+    assert!(calls.iter().all(|c| c.actor == ACTOR_SECOND));
+    let (graphql, rest): (Vec<&Call>, Vec<&Call>) = calls
+        .iter()
+        .partition(|c| c.request.path().ends_with("/graphql"));
+    assert!(!graphql.is_empty(), "чтение схемы в возможностях");
+    for call in &graphql {
+        let query = call.request.body_json().ok_or("тело GraphQL")?["query"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
+        assert!(!query.trim_start().starts_with("mutation"), "{query}");
+    }
+    let writes: Vec<&&Call> = rest
+        .iter()
+        .filter(|c| c.request.method.is_write())
+        .collect();
+    assert_eq!(writes.len(), 1, "один Create review");
+    let body = writes[0].request.body_json().ok_or("тело Create review")?;
+    assert_eq!(body["event"], json!("COMMENT"));
+    assert_eq!(body["body"], json!(SUMMARY));
+    assert_eq!(body["comments"].as_array().map(Vec::len), Some(1));
+
+    let counts = trace.counts(&scrubber);
+    for key in [
+        "GET /user".to_owned(),
+        "GET /versions".to_owned(),
+        format!("GET /repos/{LABEL_REPO}"),
+        "POST /graphql".to_owned(),
+        format!("GET /repos/{LABEL_REPO}/pulls/{NUMBER}/reviews"),
+    ] {
+        assert!(counts.contains_key(&key), "{key}: {counts:?}");
+    }
+    let raw = serde_json::to_string(&trace.entries(&Scrubber::new()))?;
+    for value in [FAKE_AUTHOR, FAKE_REVIEWER, REPO] {
+        assert!(raw.contains(value), "{value} не в неочищенном следе");
+    }
+    let text = serde_json::to_string(&trace.entries(&scrubber))?;
+    for secret in [
+        FAKE_AUTHOR,
+        FAKE_REVIEWER,
+        REPO,
+        AUTHOR_TOKEN,
+        REVIEWER_TOKEN,
+    ] {
+        assert!(!text.contains(secret), "{secret} в следе");
+    }
+    assert_eq!(scrubber.leaks(&text), Vec::<&str>::new());
+    Ok(())
+}
+
+#[test]
+fn second_client_review_refusals_split_not_run_limit_and_error() -> TestResult {
+    for (code, expect) in [
+        (403, SECOND_NO_REVIEW),
+        (422, SECOND_NO_REVIEW),
+        (429, "лимит"),
+    ] {
+        let server = fake_github(true)?;
+        server.inject(Fault::new(FAKE_CREATE, FakeReply::Status(code)));
+        let (done, _, _) = second_run(&server, &SECOND_REVIEW);
+        assert!(
+            matches!(&done, Err(Verdict::NotRun(reason)) if reason.contains(expect)),
+            "{code}: {done:?}"
+        );
+        assert!(server.with(|f| f.reviews(NUMBER)).is_empty());
+    }
+    let server = fake_github(true)?;
+    server.inject(Fault::new(FAKE_CREATE, FakeReply::Status(502)));
+    let (done, _, _) = second_run(&server, &SECOND_REVIEW);
+    assert!(matches!(&done, Err(Verdict::Error(_))), "{done:?}");
+    let server = fake_github_with(true, |f| f.set_private(false))?;
+    let (done, trace, _) = second_run(&server, &SECOND_REVIEW);
+    assert!(matches!(&done, Err(Verdict::Error(_))), "{done:?}");
+    assert!(server.with(|f| f.reviews(NUMBER)).is_empty());
+    assert!(
+        trace
+            .calls()
+            .iter()
+            .all(|call| !call.request.method.is_write())
+    );
+    Ok(())
 }
 
 #[test]
