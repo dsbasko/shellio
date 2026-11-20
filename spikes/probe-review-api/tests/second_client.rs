@@ -1,6 +1,7 @@
 //! Процесс второго клиента `probe-review --second-client gl-create-draft`, `gl-delete-draft` и
 //! `gl-plant-notes`
-//! против `forge-fake`: хост и токены — окружением, как у процесса сценария `gitlab_ce`, ID
+//! против `forge-fake`: хост и токены — окружением, как у процесса сценария `gitlab_ce` (облачный
+//! столбец без файла песочниц — `not_run`), ID
 //! черновика — в stdout, очищенный след — в `second-client.json`, токена нет ни в аргументах, ни
 //! в следе.
 
@@ -85,6 +86,9 @@ fn second_client_op(
             "--out",
         ])
         .arg(out)
+        // Облачный столбец читает `~/.config/shellio-probe-review/sandbox.toml`: временный HOME
+        // без файла песочниц не пускает тест ни в Keychain, ни в сеть.
+        .env("HOME", out)
         .env(ENV_HOST, host)
         .env(
             ENV_TOKENS,
@@ -141,11 +145,27 @@ fn second_client_refuses_to_write_to_a_public_project() -> TestResult {
 }
 
 #[test]
-fn second_client_outside_gitlab_ce_is_an_execution_error() -> TestResult {
+fn second_client_of_github_is_an_execution_error() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let host = host_file(dir.path(), "http://127.0.0.1:1")?;
+    let output = second_client(&host, dir.path(), "github_cloud")?;
+    assert_eq!(output.status.code(), Some(3));
+    Ok(())
+}
+
+#[test]
+fn cloud_gitlab_second_client_without_sandbox_is_not_run() -> TestResult {
     let dir = tempfile::tempdir()?;
     let host = host_file(dir.path(), "http://127.0.0.1:1")?;
     let output = second_client(&host, dir.path(), "gitlab_cloud")?;
-    assert_eq!(output.status.code(), Some(3));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "{stdout}");
+    let reply: Value = serde_json::from_str(stdout.trim())?;
+    assert!(reply["not_run"].is_string(), "{reply}");
+    let record: Value = serde_json::from_str(&std::fs::read_to_string(
+        dir.path().join("second-client.json"),
+    )?)?;
+    assert_eq!(record["trace"], json!([]));
     Ok(())
 }
 

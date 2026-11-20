@@ -32,9 +32,9 @@ use crate::live::guard::{GuardError, GuardTarget, Guarded, WriteScope};
 use crate::live::keychain::Keychain;
 use crate::live::lifecycle::{Cleanup, Roles, StepError, Swept, sweep_stale};
 use crate::live::provision::{self, CeHost, CeTokens, Pin};
-use crate::live::repo::{LiveError, LiveRepo};
+use crate::live::repo::{Account, LiveError, LiveRepo};
 use crate::live::sandbox::{self, Sandbox, SandboxError};
-use crate::live::{Preflight, credential, preflight};
+use crate::live::{CloudHost, Preflight, credential, preflight};
 use crate::model::{Provider, ReviewTarget};
 use crate::results::{Column, Execution, Host, ResultFile, Status};
 use crate::scrub::{LABEL_AUTHOR, LABEL_REVIEWER, Scrubber};
@@ -112,22 +112,55 @@ fn not_implemented(scenario: Scenario, ctx: &Context, result: &mut ResultFile) {
     ));
 }
 
-/// Предусловия облачного столбца: файл песочниц, хост, токены обеих ролей. Без них клетка —
-/// `not_run` с причиной, испорченный файл — ошибка исполнения.
-fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveEnv) {
+/// Файл песочниц и запись хоста облачного столбца: нет предусловия — `not_run`, испорченный файл —
+/// ошибка исполнения.
+fn cloud_host(column: Column, env: &LiveEnv) -> Result<Box<CloudHost>, Verdict> {
     let sandbox = match &env.sandbox {
         Some(path) => Sandbox::load(path),
         None => Err(SandboxError::Missing),
     };
-    let host = match preflight(ctx.column, sandbox, &env.keychain) {
-        Preflight::Ready(host) => host,
-        Preflight::NotRun(reason) => {
-            result.status = Status::NotRun;
-            result.reason = reason;
-            return;
-        }
-        Preflight::Error(err) => {
-            result.execution = Execution::error(err);
+    match preflight(column, sandbox, &env.keychain) {
+        Preflight::Ready(host) => Ok(host),
+        Preflight::NotRun(reason) => Err(Verdict::NotRun(reason)),
+        Preflight::Error(err) => Err(Verdict::Error(err)),
+    }
+}
+
+/// Сторож роли облачного хоста над HTTP с меткой следа `actor`.
+fn cloud_guard(
+    column: Column,
+    host: &CloudHost,
+    secret: &Secret,
+    trace: &Trace,
+    actor: &'static str,
+) -> Guarded<Traced<HttpTransport>> {
+    let http = HttpTransport::new(
+        HttpConfig::default(),
+        Some(credential(column, secret.clone())),
+    );
+    Guarded::new(
+        Traced::new(http, trace.clone(), actor),
+        host.target.clone(),
+        host.scope.clone(),
+    )
+}
+
+/// Корень инсталляции GitLab из адреса REST цели (`<корень>/api/v4`).
+pub fn gitlab_root(target: &GuardTarget) -> String {
+    target
+        .rest
+        .strip_suffix("/api/v4")
+        .unwrap_or(&target.rest)
+        .to_owned()
+}
+
+/// Предусловия облачного столбца: файл песочниц, хост, токены обеих ролей. Без них клетка —
+/// `not_run` с причиной, испорченный файл — ошибка исполнения.
+fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveEnv) {
+    let host = match cloud_host(ctx.column, env) {
+        Ok(host) => host,
+        Err(verdict) => {
+            verdict.apply(result, &Scrubber::new());
             return;
         }
     };
@@ -147,19 +180,8 @@ fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveE
     host.accounts.register(&mut scrubber);
     scrubber.add_repo(&host.host.repo);
     let trace = Trace::new();
-    let guarded = |secret: &Secret, actor: &'static str| {
-        let http = HttpTransport::new(
-            HttpConfig::default(),
-            Some(credential(ctx.column, secret.clone())),
-        );
-        Guarded::new(
-            Traced::new(http, trace.clone(), actor),
-            host.target.clone(),
-            host.scope.clone(),
-        )
-    };
-    let author = guarded(author_secret, "author");
-    let reviewer = guarded(reviewer_secret, "reviewer");
+    let author = cloud_guard(ctx.column, &host, author_secret, &trace, "author");
+    let reviewer = cloud_guard(ctx.column, &host, reviewer_secret, &trace, "reviewer");
     let runs_root = ctx.out.parent().and_then(Path::parent);
     let opened = open_roles(
         ctx.column,
@@ -169,19 +191,41 @@ fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveE
         &mut scrubber,
         result,
     );
+    let gitlab_rows = ctx.column == Column::GitlabCloud && scenario != Scenario::Capabilities;
+    let host_read = match &opened {
+        Ok(_) if gitlab_rows => Some(gitlab_host(&reviewer)),
+        _ => None,
+    };
     result.trace = trace
         .entries(&scrubber)
         .iter()
         .filter_map(|entry| serde_json::to_value(entry).ok())
         .collect();
+    result.calls = trace
+        .counts(&scrubber)
+        .into_iter()
+        .map(|(key, count)| (key, count as u64))
+        .collect();
     let guards = [("author", &author), ("reviewer", &reviewer)];
     let mut errors = guard_errors(&guards);
-    if let Err(verdict) = opened {
-        if errors.is_empty() {
+    let reviewer_account = match opened {
+        Ok(account) => Some(account),
+        Err(verdict) if errors.is_empty() => {
             verdict.apply(result, &scrubber);
             return;
         }
-        errors.push(format!("{verdict:?}"));
+        Err(verdict) => {
+            errors.push(format!("{verdict:?}"));
+            None
+        }
+    };
+    match host_read {
+        Some(Ok((read, note))) => {
+            result.host = read;
+            result.notes.extend(note);
+        }
+        Some(Err(err)) => errors.push(err),
+        None => {}
     }
     if !errors.is_empty() {
         Verdict::Error(errors.join("; ")).apply(result, &scrubber);
@@ -191,12 +235,118 @@ fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveE
         denied.apply(result, &scrubber);
         return;
     }
-    not_implemented(scenario, ctx, result);
+    match reviewer_account {
+        Some(account) if gitlab_rows => {
+            let secrets = (author_secret, reviewer_secret);
+            gitlab_cloud(
+                scenario,
+                ctx,
+                &host,
+                secrets,
+                account.login,
+                &scrubber,
+                result,
+            );
+        }
+        _ => not_implemented(scenario, ctx, result),
+    }
+}
+
+/// Версия и тариф облачного GitLab чтением возможностей ревьюера до записей клетки: `absent`
+/// без версии — ошибка исполнения. Отказ хоста на чтение — заметка, версия не записывается;
+/// отказ транспорта и 5xx — ошибка исполнения.
+pub fn gitlab_host<T: Transport>(reviewer: &Guarded<T>) -> Result<(Host, Option<String>), String> {
+    let review = ReviewTarget {
+        provider: Provider::GitLab,
+        host: gitlab_root(reviewer.target()),
+        repo: reviewer.target().repo.clone(),
+        number: 0,
+    };
+    match gitlab_adapter(reviewer, &review).and_then(|gl| gl.capabilities()) {
+        Ok(caps) => Ok((
+            Host {
+                version: Some(format!(
+                    "GitLab {} ({})",
+                    caps.host.version,
+                    match caps.host.enterprise {
+                        Some(true) => "EE",
+                        Some(false) => "CE",
+                        None => "редакция не видна",
+                    }
+                )),
+                tier: caps.plan.clone(),
+            },
+            None,
+        )),
+        Err(err) => match classify_read(&err) {
+            Ok(observed) => Ok((
+                Host::default(),
+                Some(format!("наблюдение: версия хоста не прочитана: {observed}")),
+            )),
+            Err(stand) => Err(format!("reviewer: версия хоста: {stand}")),
+        },
+    }
+}
+
+/// Клетка строки GitLab на gitlab.com: та же обвязка, что у `gitlab_ce`, над своим следом.
+/// Вызовы открытия ролей идут в `result.json` перед вызовами клетки: уборка прежних процессов
+/// пишет, а оракулы строк судят записи следа клетки.
+fn gitlab_cloud(
+    scenario: Scenario,
+    ctx: &Context,
+    host: &CloudHost,
+    (author_secret, reviewer_secret): (&Secret, &Secret),
+    reviewer_login: String,
+    scrubber: &Scrubber,
+    result: &mut ResultFile,
+) {
+    let open_trace = std::mem::take(&mut result.trace);
+    let open_calls = std::mem::take(&mut result.calls);
+    let exe = match std::env::current_exe() {
+        Ok(exe) => exe,
+        Err(err) => {
+            result.execution = Execution::error(format!("бинарь пробы: {}", err.kind()));
+            return;
+        }
+    };
+    let trace = Trace::new();
+    let author = cloud_guard(Column::GitlabCloud, host, author_secret, &trace, "author");
+    let reviewer = cloud_guard(
+        Column::GitlabCloud,
+        host,
+        reviewer_secret,
+        &trace,
+        "reviewer",
+    );
+    let second = ProcessClient {
+        exe,
+        column: Column::GitlabCloud,
+        out: ctx.out.clone(),
+    };
+    let head = AuthorCommit { author: &author };
+    let cx = GlCx {
+        author: &author,
+        reviewer: &reviewer,
+        trace: &trace,
+        host_url: gitlab_root(&host.target),
+        reviewer_login,
+        state_dir: &ctx.state_dir,
+        poll: Poll::LIVE,
+        second: &second,
+        head: &head,
+    };
+    gl_cells::run_gl_cell(scenario, &cx, &ctx.out, scrubber, result);
+    let cell_trace = std::mem::replace(&mut result.trace, open_trace);
+    result.trace.extend(cell_trace);
+    for (key, count) in open_calls {
+        *result.calls.entry(key).or_default() += count;
+    }
 }
 
 /// Роли живой клетки до её записей: аккаунты обеих ролей (логин и отображаемое имя) — в
 /// очиститель, затем уборка по журналам прежних процессов столбца (`runs`: корень прогонов и
-/// свой каталог процесса). Сценарии строк продолжают с теми же сторожами.
+/// свой каталог процесса). Сценарии строк продолжают с теми же сторожами. Ответ — аккаунт
+/// ревьюера: его логин ведёт сессию журнала и черновики второго клиента.
 pub fn open_roles<T: Transport>(
     column: Column,
     author: &Guarded<T>,
@@ -204,15 +354,21 @@ pub fn open_roles<T: Transport>(
     runs: Option<(&Path, &Path)>,
     scrubber: &mut Scrubber,
     result: &mut ResultFile,
-) -> Result<(), Verdict> {
+) -> Result<Account, Verdict> {
     let author_repo = live_repo(author).map_err(Verdict::Error)?;
     let reviewer_repo = live_repo(reviewer).map_err(Verdict::Error)?;
+    let mut reviewer_account = None;
     for (repo, label, role) in [
         (&author_repo, LABEL_AUTHOR, "автора"),
         (&reviewer_repo, LABEL_REVIEWER, "ревьюера"),
     ] {
         match repo.whoami() {
-            Ok(account) => account.register(scrubber, label),
+            Ok(account) => {
+                account.register(scrubber, label);
+                if label == LABEL_REVIEWER {
+                    reviewer_account = Some(account);
+                }
+            }
             Err(LiveError::Status {
                 status: status @ (401 | 403),
                 ..
@@ -232,7 +388,7 @@ pub fn open_roles<T: Transport>(
         let swept = sweep_stale(&roles, root, own, column, author.target());
         record_swept(result, &swept, scrubber);
     }
-    Ok(())
+    reviewer_account.ok_or_else(|| Verdict::Error("аккаунт ревьюера не прочитан".to_owned()))
 }
 
 /// Хост и токены из окружения процесса, которое задаёт `run.sh`.
@@ -671,40 +827,29 @@ fn gitlab_ce(scenario: Scenario, ctx: &Context, result: &mut ResultFile) {
 /// заметки, `not_run` или `error`, текст очищен) и признак
 /// ошибки исполнения; очищенный след и ответ — в `<out>/second-client.json`.
 pub fn second_client(column: Column, iid: u64, op: &SecondOp, out: &Path) -> (Value, bool) {
-    let error = |text: String| (serde_json::json!({ "error": text }), false);
-    if column != Column::GitlabCe {
-        return error(format!(
-            "второй клиент в столбце {} не реализован",
-            column.name()
-        ));
-    }
-    let (host, tokens, _) = match prepared() {
-        Ok(prepared) => prepared,
-        Err(err) => return error(err),
-    };
-    let scrubber = ce_scrubber(&host, &tokens);
+    second_client_in(column, iid, op, out, LiveEnv::system)
+}
+
+/// [`second_client`] с подставляемыми предусловиями облачного столбца: `gitlab_ce` берёт хост и
+/// токены из окружения `run.sh`, `gitlab_cloud` — из `sandbox.toml` и Keychain.
+pub fn second_client_in(
+    column: Column,
+    iid: u64,
+    op: &SecondOp,
+    out: &Path,
+    env: impl FnOnce() -> LiveEnv,
+) -> (Value, bool) {
     let trace = Trace::new();
-    let http = HttpTransport::new(
-        HttpConfig::default(),
-        Some(credential(Column::GitlabCe, tokens.reviewer.clone())),
-    );
-    let guard = Guarded::new(
-        Traced::new(http, trace.clone(), gl_cells::ACTOR_SECOND),
-        GuardTarget::gitlab(&host.endpoints(), &host.project),
-        WriteScope::Loopback,
-    );
-    let review = ReviewTarget {
-        provider: Provider::GitLab,
-        host: host.url.clone(),
-        repo: host.project.clone(),
-        number: iid,
-    };
-    let done = match op {
-        SecondOp::CreateDraft { line } => {
-            gl_cells::foreign_draft(&guard, &review, &host.reviewer.username, *line)
-        }
-        SecondOp::DeleteDraft { draft } => gl_cells::foreign_delete(&guard, &review, draft),
-        SecondOp::PlantNotes { count } => gl_cells::foreign_notes(&guard, &review, *count),
+    let (done, scrubber) = match column {
+        Column::GitlabCe => second_ce(iid, op, &trace),
+        Column::GitlabCloud => second_cloud(iid, op, &trace, &env()),
+        Column::Fake | Column::GithubCloud | Column::Ghes => (
+            Err(Verdict::Error(format!(
+                "второй клиент в столбце {} не реализован",
+                column.name()
+            ))),
+            Scrubber::new(),
+        ),
     };
     let (reply, ok) = match done {
         Ok(id) => (serde_json::json!({ "id": id }), true),
@@ -723,8 +868,125 @@ pub fn second_client(column: Column, iid: u64, op: &SecondOp, out: &Path) -> (Va
     });
     match crate::results::write_json(out, SECOND_FILE, &record) {
         Ok(_) => (reply, ok),
-        Err(err) => error(scrubber.scrub_text(&format!("след второго клиента: {err}"))),
+        Err(err) => (
+            serde_json::json!({
+                "error": scrubber.scrub_text(&format!("след второго клиента: {err}"))
+            }),
+            false,
+        ),
     }
+}
+
+/// Операция второго клиента от имени ревьюера через его сторожа.
+fn second_op<T: Transport>(
+    guard: &Guarded<T>,
+    review: &ReviewTarget,
+    login: &str,
+    op: &SecondOp,
+) -> Result<String, Verdict> {
+    match op {
+        SecondOp::CreateDraft { line } => gl_cells::foreign_draft(guard, review, login, *line),
+        SecondOp::DeleteDraft { draft } => gl_cells::foreign_delete(guard, review, draft),
+        SecondOp::PlantNotes { count } => gl_cells::foreign_notes(guard, review, *count),
+    }
+}
+
+fn second_ce(iid: u64, op: &SecondOp, trace: &Trace) -> (Result<String, Verdict>, Scrubber) {
+    let (host, tokens, _) = match prepared() {
+        Ok(prepared) => prepared,
+        Err(err) => return (Err(Verdict::Error(err)), Scrubber::new()),
+    };
+    let scrubber = ce_scrubber(&host, &tokens);
+    let http = HttpTransport::new(
+        HttpConfig::default(),
+        Some(credential(Column::GitlabCe, tokens.reviewer.clone())),
+    );
+    let guard = Guarded::new(
+        Traced::new(http, trace.clone(), gl_cells::ACTOR_SECOND),
+        GuardTarget::gitlab(&host.endpoints(), &host.project),
+        WriteScope::Loopback,
+    );
+    let review = ReviewTarget {
+        provider: Provider::GitLab,
+        host: host.url.clone(),
+        repo: host.project.clone(),
+        number: iid,
+    };
+    let done = second_op(&guard, &review, &host.reviewer.username, op);
+    (done, scrubber)
+}
+
+/// Второй клиент на gitlab.com: предусловия — как у клетки (`sandbox.toml`, токены обеих ролей).
+/// Токен автора нужен очистителю: ответ о MR несёт логин и имя автора, а файла хоста с ними, как
+/// у `gitlab_ce`, у облачного столбца нет.
+fn second_cloud(
+    iid: u64,
+    op: &SecondOp,
+    trace: &Trace,
+    env: &LiveEnv,
+) -> (Result<String, Verdict>, Scrubber) {
+    let mut scrubber = Scrubber::new();
+    let host = match cloud_host(Column::GitlabCloud, env) {
+        Ok(host) => host,
+        Err(verdict) => return (Err(verdict), scrubber),
+    };
+    let (author_secret, reviewer_secret) = match host
+        .accounts
+        .author()
+        .and_then(|author| Ok((author, host.accounts.reviewer()?)))
+    {
+        Ok(secrets) => secrets,
+        Err(reason) => return (Err(Verdict::NotRun(reason)), scrubber),
+    };
+    host.accounts.register(&mut scrubber);
+    scrubber.add_repo(&host.host.repo);
+    let column = Column::GitlabCloud;
+    let author = cloud_guard(column, &host, author_secret, trace, gl_cells::ACTOR_SECOND);
+    let reviewer = cloud_guard(
+        column,
+        &host,
+        reviewer_secret,
+        trace,
+        gl_cells::ACTOR_SECOND,
+    );
+    let done = second_cloud_op(column, &author, &reviewer, iid, op, &mut scrubber);
+    (done, scrubber)
+}
+
+/// Операция второго клиента облачного столбца над сторожами обеих ролей: аккаунты ролей — в
+/// очиститель и логин ревьюера (без уборки прежних процессов), затем операция ревьюера. Отказ
+/// сторожа — ошибка исполнения, нет доступа к репозиторию — `not_run`.
+pub fn second_cloud_op<T: Transport>(
+    column: Column,
+    author: &Guarded<T>,
+    reviewer: &Guarded<T>,
+    iid: u64,
+    op: &SecondOp,
+    scrubber: &mut Scrubber,
+) -> Result<String, Verdict> {
+    let mut scratch = ResultFile::new("", "", "second-client", column);
+    let opened = open_roles(column, author, reviewer, None, scrubber, &mut scratch);
+    let guards = [("author", author), ("reviewer", reviewer)];
+    let errors = guard_errors(&guards);
+    if !errors.is_empty() {
+        return Err(Verdict::Error(errors.join("; ")));
+    }
+    if let Some(denied) = guard_denied(&guards) {
+        return Err(denied);
+    }
+    let account = opened?;
+    let review = ReviewTarget {
+        provider: Provider::GitLab,
+        host: gitlab_root(reviewer.target()),
+        repo: reviewer.target().repo.clone(),
+        number: iid,
+    };
+    let done = second_op(reviewer, &review, &account.login, op);
+    let errors = guard_errors(&guards);
+    if !errors.is_empty() {
+        return Err(Verdict::Error(errors.join("; ")));
+    }
+    done
 }
 
 fn capabilities_ce(result: &mut ResultFile) {
@@ -1598,6 +1860,212 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
         );
         denied.finish()?;
         idle.finish()?;
+        Ok(())
+    }
+
+    // --- облачный GitLab: второй клиент и версия хоста против forge-fake ---
+
+    const FAKE_REPO: &str = "probe-author/shellio-review-sandbox";
+    const FAKE_AUTHOR: &str = "probe-author";
+    const FAKE_REVIEWER: &str = "probe-reviewer";
+    const FAKE_AUTHOR_TOKEN: &str = "sentinel-cloud-author-7e1a";
+    const FAKE_REVIEWER_TOKEN: &str = "sentinel-cloud-reviewer-3b9c";
+    const FAKE_IID: u64 = 4;
+    const FAKE_DIFF: &str = "@@ -1,8 +1,7 @@\n line 01\n line 02\n-line 03\n line 04\n-line 05\n\
++line 05 changed\n line 06\n line 07\n line 08\n@@ -22,6 +21,8 @@\n line 22\n line 23\n line 24\n\
++line 24a\n+line 24b\n line 25\n line 26\n line 27\n";
+
+    fn cloud_fake(
+        private: bool,
+    ) -> Result<crate::fake::FakeServer<crate::fake::gitlab::GitlabFake>, String> {
+        use crate::fake::gitlab::{Access, FakeDiff, GitlabFake};
+        let mut fake = GitlabFake::new(FAKE_REPO);
+        if !private {
+            fake.set_visibility("public");
+        }
+        fake.add_user(FAKE_AUTHOR, FAKE_AUTHOR_TOKEN, Some(Access::Developer));
+        fake.add_user(FAKE_REVIEWER, FAKE_REVIEWER_TOKEN, Some(Access::Developer));
+        fake.add_mr(
+            FAKE_IID,
+            FAKE_AUTHOR,
+            "1111111111111111111111111111111111111111",
+            "2222222222222222222222222222222222222222",
+            vec![FakeDiff::modified("probe-review/fixture.txt", FAKE_DIFF)],
+        );
+        fake.add_reviewer(FAKE_IID, FAKE_REVIEWER)?;
+        crate::fake::FakeServer::start(fake)
+    }
+
+    fn fake_guard(base: &str, token: &str, trace: &Trace) -> Guarded<Traced<HttpTransport>> {
+        let credential = crate::transport::http::Credential::private_token(Secret::new(token));
+        Guarded::new(
+            Traced::new(
+                HttpTransport::new(HttpConfig::default(), Some(credential)),
+                trace.clone(),
+                gl_cells::ACTOR_SECOND,
+            ),
+            GuardTarget::gitlab(&gitlab::Endpoints::instance(base), FAKE_REPO),
+            WriteScope::Loopback,
+        )
+    }
+
+    fn cloud_scrubber_for_fake() -> Scrubber {
+        let mut scrubber = Scrubber::new();
+        scrubber
+            .add_token(FAKE_AUTHOR_TOKEN)
+            .add_token(FAKE_REVIEWER_TOKEN)
+            .add_repo(FAKE_REPO);
+        scrubber
+    }
+
+    #[test]
+    fn cloud_second_client_registers_both_roles_and_creates_the_reviewer_draft()
+    -> Result<(), String> {
+        let server = cloud_fake(true)?;
+        let trace = Trace::new();
+        let author = fake_guard(server.base(), FAKE_AUTHOR_TOKEN, &trace);
+        let reviewer = fake_guard(server.base(), FAKE_REVIEWER_TOKEN, &trace);
+        let mut scrubber = cloud_scrubber_for_fake();
+        let id = second_cloud_op(
+            Column::GitlabCloud,
+            &author,
+            &reviewer,
+            FAKE_IID,
+            &SecondOp::CreateDraft { line: 24 },
+            &mut scrubber,
+        )
+        .map_err(|v| format!("{v:?}"))?;
+        let drafts = server.with(|fake| fake.drafts(FAKE_IID));
+        assert_eq!(drafts.len(), 1);
+        assert_eq!(drafts[0].id.to_string(), id);
+        assert_eq!(drafts[0].author, FAKE_REVIEWER, "черновик ревьюера");
+        assert!(author.refused_writes().is_empty() && reviewer.refused_writes().is_empty());
+
+        let text = serde_json::to_string(&trace.entries(&scrubber)).map_err(|e| e.to_string())?;
+        for secret in [
+            FAKE_AUTHOR,
+            FAKE_REVIEWER,
+            FAKE_REPO,
+            FAKE_AUTHOR_TOKEN,
+            FAKE_REVIEWER_TOKEN,
+        ] {
+            assert!(!text.contains(secret), "{secret} в следе: {text}");
+        }
+        assert!(
+            text.contains(LABEL_AUTHOR),
+            "автор MR очищен меткой: {text}"
+        );
+        assert!(
+            trace
+                .calls()
+                .iter()
+                .all(|call| call.actor == gl_cells::ACTOR_SECOND)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn cloud_second_client_refuses_a_public_project_without_writes() -> Result<(), String> {
+        let server = cloud_fake(false)?;
+        let trace = Trace::new();
+        let author = fake_guard(server.base(), FAKE_AUTHOR_TOKEN, &trace);
+        let reviewer = fake_guard(server.base(), FAKE_REVIEWER_TOKEN, &trace);
+        let done = second_cloud_op(
+            Column::GitlabCloud,
+            &author,
+            &reviewer,
+            FAKE_IID,
+            &SecondOp::CreateDraft { line: 24 },
+            &mut cloud_scrubber_for_fake(),
+        );
+        assert!(matches!(&done, Err(Verdict::Error(_))), "{done:?}");
+        assert!(server.with(|fake| fake.drafts(FAKE_IID)).is_empty());
+        assert!(
+            trace
+                .calls()
+                .iter()
+                .all(|call| !call.request.method.is_write())
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn second_client_without_cloud_preconditions_is_not_run_and_github_is_an_error()
+    -> Result<(), String> {
+        let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let op = SecondOp::CreateDraft { line: 24 };
+        let (reply, ok) = second_client_in(
+            Column::GitlabCloud,
+            FAKE_IID,
+            &op,
+            dir.path(),
+            untouched_cloud,
+        );
+        assert!(ok);
+        assert!(reply["not_run"].is_string(), "{reply}");
+        let record =
+            std::fs::read_to_string(dir.path().join(SECOND_FILE)).map_err(|e| e.to_string())?;
+        let record: Value = serde_json::from_str(&record).map_err(|e| e.to_string())?;
+        assert_eq!(record["reply"], reply);
+        assert_eq!(record["trace"], serde_json::json!([]));
+
+        for column in [Column::GithubCloud, Column::Ghes, Column::Fake] {
+            let (reply, ok) = second_client_in(column, FAKE_IID, &op, dir.path(), || {
+                panic!("предусловия облачного GitLab не читаются")
+            });
+            assert!(!ok);
+            assert!(
+                reply["error"]
+                    .as_str()
+                    .is_some_and(|e| e.contains("не реализован"))
+            );
+        }
+        Ok(())
+    }
+
+    /// Предусловия без файла песочниц и с командой `security`, которой нет: до неё не доходит.
+    fn untouched_cloud() -> LiveEnv {
+        LiveEnv {
+            sandbox: None,
+            keychain: Keychain::with_program(
+                std::path::Path::new("/nonexistent/security"),
+                std::time::Duration::from_secs(1),
+            ),
+        }
+    }
+
+    #[test]
+    fn gitlab_host_reads_version_through_the_reviewer_guard() -> Result<(), String> {
+        let server = cloud_fake(true)?;
+        let trace = Trace::new();
+        let reviewer = fake_guard(server.base(), FAKE_REVIEWER_TOKEN, &trace);
+        let (host, note) = gitlab_host(&reviewer)?;
+        assert!(
+            host.version
+                .as_deref()
+                .is_some_and(|v| v.starts_with("GitLab ")),
+            "{host:?}"
+        );
+        assert_eq!(note, None);
+        assert!(reviewer.refused_writes().is_empty());
+        assert_eq!(
+            gitlab_root(&GuardTarget::gitlab(&gitlab::Endpoints::cloud(), "a/b")),
+            "https://gitlab.com"
+        );
+
+        let silent = Scripted::new();
+        let guard = Guarded::new(
+            &silent,
+            GuardTarget::gitlab(
+                &gitlab::Endpoints::instance("http://127.0.0.1:1"),
+                FAKE_REPO,
+            ),
+            WriteScope::Loopback,
+        );
+        assert!(
+            gitlab_host(&guard).is_err(),
+            "отказ транспорта — ошибка исполнения"
+        );
         Ok(())
     }
 }
