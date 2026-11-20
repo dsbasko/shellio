@@ -686,8 +686,8 @@ mod tests {
     #[test]
     fn token_suffix_keys_and_runner_registration_prefix() {
         let s = scrubber();
-        // Поля ответа `GET /projects/:id` владельцу проекта GitLab CE 19.6.1 из серии
-        // `t15-20261121`; значения секретов выдуманы.
+        // `runners_token` и четыре ключа со словом не в конце — из ответа `GET /projects/:id`
+        // владельцу в серии `t15-20261121`, остальные ключи придуманы; значения выдуманы.
         let body = json!({
             "id": 7,
             "path_with_namespace": GROUP_REPO,
