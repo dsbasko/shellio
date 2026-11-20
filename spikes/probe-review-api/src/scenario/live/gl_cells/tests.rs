@@ -835,3 +835,51 @@ fn rate_limited_publish_is_not_run_against_the_fake() -> TestResult {
     }
     Ok(())
 }
+
+#[test]
+fn observed_pass_reaches_the_result_scrubbed() -> TestResult {
+    let server = fake_gitlab()?;
+    let observed = publish_body(&server)?.map_err(|verdict| format!("{verdict:?}"))?;
+    let mut scrubber = Scrubber::new();
+    scrubber
+        .add_repo(REPO)
+        .add_login(FAKE_AUTHOR, crate::scrub::LABEL_AUTHOR)
+        .add_login(FAKE_REVIEWER, crate::scrub::LABEL_REVIEWER)
+        .add_gitlab_ce(server.base());
+    let mut result = ResultFile::new("s", "b", "gl-draft-publish", Column::GitlabCe);
+    assert_eq!(record_observed(&observed, &scrubber, &mut result), None);
+    assert!(result.execution.is_ok(), "{:?}", result.execution);
+    assert_eq!(
+        result.status,
+        Status::Pass,
+        "{}: {:?}",
+        result.reason,
+        result.notes
+    );
+    for (what, value) in [
+        ("до", &result.server_before),
+        ("после", &result.server_after),
+        ("журнал", &result.journal),
+    ] {
+        assert!(
+            value.as_ref().is_some_and(|value| !value.is_null()),
+            "{what}"
+        );
+    }
+    let text = serde_json::to_string(&result)?;
+    let address = server.base().trim_start_matches("http://");
+    for raw in [REPO, FAKE_AUTHOR, FAKE_REVIEWER, address] {
+        assert!(!text.contains(raw), "{raw} очищен: {text}");
+    }
+
+    let mut result = ResultFile::new("s", "b", "gl-draft-publish", Column::GitlabCe);
+    let empty = Observed {
+        after: Value::Null,
+        ..Observed::default()
+    };
+    assert!(matches!(
+        record_observed(&empty, &scrubber, &mut result),
+        Some(Verdict::Error(reason)) if reason.contains("снимок сервера после")
+    ));
+    Ok(())
+}

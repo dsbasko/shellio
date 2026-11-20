@@ -185,6 +185,16 @@ fn cell_verdict<T: Transport>(
         Ok(Err(verdict)) => return Some(verdict),
         Ok(Ok(observed)) => observed,
     };
+    record_observed(&observed, scrubber, result)
+}
+
+/// Наблюдённое телом — в `result.json` через очиститель: итог проверок (`None`) или ошибка
+/// исполнения, если нет обязательного артефакта.
+fn record_observed(
+    observed: &Observed,
+    scrubber: &Scrubber,
+    result: &mut ResultFile,
+) -> Option<Verdict> {
     let missing: Vec<&str> = [
         (observed.before.is_null(), "снимок сервера до"),
         (observed.after.is_null(), "снимок сервера после"),
