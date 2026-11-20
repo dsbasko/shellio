@@ -374,6 +374,49 @@ pub struct Summary {
     /// Таблица стоимости: `raw.cost_row` процессов `cost`.
     #[serde(default)]
     pub cost: Vec<crate::stats::CostRow>,
+    /// Клетки, которые проба не наблюдает ни одним процессом: [`handoff_cells`].
+    #[serde(default)]
+    pub handoffs: Vec<Cell>,
+}
+
+const P03_REPORT: &str =
+    "docs/probes/p0.3-ghostty-surface.md, раздел «Остаток для следующих шагов», строка P0.8";
+
+/// Передачи, которые headless-проба без поверхности libghostty не наблюдает. Числа P0.3
+/// цитируются по тексту его отчёта, артефакты P0.3 не читаются (ADR-0034).
+pub fn handoff_cells() -> Vec<Cell> {
+    vec![
+        Cell::not_run(
+            "surface-redraw",
+            NotRunCause::NoSurface,
+            "кадры поверхности libghostty в окнах с проходами сэмплера и обновлением чисел индикатора против окон без них",
+            "проба headless и не создаёт поверхность libghostty: утверждение ADR-0011 «обновление чисел не вызывает перерисовку терминала» не наблюдается; передача P2.4, замер на продуктовом сэмплере",
+        ),
+        Cell::not_run(
+            "surface-memory",
+            NotRunCause::NoSurface,
+            "прирост `ri_phys_footprint` процесса GUI на открытую поверхность libghostty",
+            format!(
+                "поверхности в пробе нет; P0.3 мерил сводный `phys_footprint` процесса без приписывания ресурсам GPU: +107,5 МиБ первая поверхность, +12,6 МиБ каждая следующая ({P03_REPORT}); передача P2.4"
+            ),
+        ),
+        Cell::not_run(
+            "surface-gpu",
+            NotRunCause::NoSurface,
+            "ресурсы GPU поверхности (swap chain, текстуры целей рендера), приписанные поверхности записью Instruments",
+            format!(
+                "поверхности и записи Instruments в пробе нет; P0.3 ресурсы GPU поверхности не приписал ({P03_REPORT}); по ADR-0011 шрифты и Metal общие, без замера панель показывает их как «общее», а из footprint GUI в измеренной сводке ничего не вычитается; передача P2.4"
+            ),
+        ),
+        Cell::not_run(
+            "surface-remainder",
+            NotRunCause::NoSurface,
+            "остаток `ri_phys_footprint` процесса GUI над состоянием до первой поверхности после закрытия всех поверхностей, по циклам",
+            format!(
+                "поверхности в пробе нет; необъяснённый остаток P0.3 после циклов +24,7 МиБ разово, дальше около +3 МиБ за цикл ({P03_REPORT}); по ADR-0011 он «общее» и панелям не начисляется, `footprint − арены` не считается; передача P2.4"
+            ),
+        ),
+    ]
 }
 
 impl Summary {
@@ -399,7 +442,17 @@ pub fn aggregate(run_dir: &Path) -> Result<Summary, String> {
         errors: Vec::new(),
         counts: BTreeMap::new(),
         cost: Vec::new(),
+        handoffs: handoff_cells(),
     };
+    for cell in &summary.handoffs {
+        for problem in cell.problems() {
+            summary.errors.push(format!("передача: {problem}"));
+        }
+        *summary
+            .counts
+            .entry(cell.status.name().to_owned())
+            .or_default() += 1;
+    }
     for dir in dirs {
         let unit = dir
             .file_name()
@@ -452,24 +505,31 @@ pub fn aggregate(run_dir: &Path) -> Result<Summary, String> {
     Ok(summary)
 }
 
+fn status_label(cell: &Cell) -> String {
+    match cell.not_run_cause {
+        Some(cause) => format!("{} ({})", cell.status.name(), cause.label()),
+        None => cell.status.name().to_owned(),
+    }
+}
+
+fn table_text(text: &str) -> String {
+    text.replace('|', "\\|").replace('\n', " ")
+}
+
 pub fn summary_markdown(summary: &Summary) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "| Сценарий | Точка | Клетка | Итог | Основание |");
     let _ = writeln!(out, "| --- | --- | --- | --- | --- |");
     for unit in &summary.units {
         for cell in &unit.cells {
-            let status = match cell.not_run_cause {
-                Some(cause) => format!("{} ({})", cell.status.name(), cause.label()),
-                None => cell.status.name().to_owned(),
-            };
             let _ = writeln!(
                 out,
                 "| `{}` | {} | `{}` | {} | {} |",
                 unit.scenario,
                 unit.point.as_deref().unwrap_or("—"),
                 cell.id,
-                status,
-                cell.reason.replace('|', "\\|").replace('\n', " ")
+                status_label(cell),
+                table_text(&cell.reason)
             );
         }
     }
@@ -478,6 +538,21 @@ pub fn summary_markdown(summary: &Summary) -> String {
             out,
             "| `{unit}` | — | — | не начат | повтор следующим вызовом |"
         );
+    }
+    if !summary.handoffs.is_empty() {
+        let _ = writeln!(out);
+        let _ = writeln!(out, "| Передача | Итог | Оракул | Основание |");
+        let _ = writeln!(out, "| --- | --- | --- | --- |");
+        for cell in &summary.handoffs {
+            let _ = writeln!(
+                out,
+                "| `{}` | {} | {} | {} |",
+                cell.id,
+                status_label(cell),
+                table_text(&cell.oracle),
+                table_text(&cell.reason)
+            );
+        }
     }
     if !summary.cost.is_empty() {
         out.push_str(&cost_markdown(&summary.cost));
@@ -670,7 +745,10 @@ mod tests {
                 .any(|e| e.starts_with("e: нет result.json"))
         );
         assert_eq!(summary.counts.get("fail"), Some(&1));
-        assert_eq!(summary.counts.get("not_run"), Some(&1));
+        assert_eq!(
+            summary.counts.get("not_run"),
+            Some(&(1 + handoff_cells().len()))
+        );
         assert!(summary.failed());
 
         let md = summary_markdown(&summary);
@@ -736,6 +814,60 @@ mod tests {
                 .iter()
                 .any(|e| e.starts_with("cost-bad: cost_row"))
         );
+        fs::remove_dir_all(&run).unwrap();
+    }
+
+    #[test]
+    fn aggregate_reports_unobserved_handoffs_as_not_run() {
+        let run = temp_dir("handoffs");
+        let summary = aggregate(&run).unwrap();
+        assert!(summary.errors.is_empty(), "{:?}", summary.errors);
+        assert!(!summary.failed());
+        assert!(summary.units.is_empty());
+        let ids: Vec<&str> = summary.handoffs.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            [
+                "surface-redraw",
+                "surface-memory",
+                "surface-gpu",
+                "surface-remainder"
+            ]
+        );
+        for cell in &summary.handoffs {
+            assert_eq!(cell.status, Status::NotRun, "{}", cell.id);
+            assert_eq!(
+                cell.not_run_cause,
+                Some(NotRunCause::NoSurface),
+                "{}",
+                cell.id
+            );
+            assert!(cell.problems().is_empty(), "{:?}", cell.problems());
+            assert!(cell.reason.contains("передача P2.4"), "{}", cell.id);
+        }
+        for id in ["surface-memory", "surface-gpu", "surface-remainder"] {
+            let cell = summary.handoffs.iter().find(|c| c.id == id).unwrap();
+            assert!(
+                cell.reason.contains("docs/probes/p0.3-ghostty-surface.md"),
+                "{id}"
+            );
+        }
+        for id in ["surface-gpu", "surface-remainder"] {
+            let cell = summary.handoffs.iter().find(|c| c.id == id).unwrap();
+            assert!(cell.reason.contains("«общее»"), "{id}");
+        }
+        assert_eq!(summary.counts.get("not_run"), Some(&4));
+
+        write_summary(&run, &summary).unwrap();
+        let back: Summary = read_json(&run.join(SUMMARY_FILE)).unwrap();
+        assert_eq!(back.handoffs, summary.handoffs);
+        let md = fs::read_to_string(run.join(SUMMARY_MD_FILE)).unwrap();
+        for id in ids {
+            assert!(
+                md.contains(&format!("| `{id}` | not_run (нет поверхности) |")),
+                "{md}"
+            );
+        }
         fs::remove_dir_all(&run).unwrap();
     }
 
