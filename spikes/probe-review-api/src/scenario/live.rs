@@ -45,7 +45,7 @@ use super::Scenario;
 
 mod gl_cells;
 
-pub use gl_cells::{GlCx, Poll};
+pub use gl_cells::{GlCx, Poll, ProcessClient, SECOND_FILE, SecondClient};
 
 /// Причина `not_run` каждой клетки столбца `ghes`.
 pub const GHES_REASON: &str = "нет инсталляции GitHub Enterprise Server, передача P4.1";
@@ -636,6 +636,18 @@ fn gitlab_ce(scenario: Scenario, ctx: &Context, result: &mut ResultFile) {
         version: Some(format!("GitLab {} (CE, образ {})", host.version, host.tag)),
         tier: None,
     };
+    let exe = match std::env::current_exe() {
+        Ok(exe) => exe,
+        Err(err) => {
+            result.execution = Execution::error(format!("бинарь пробы: {}", err.kind()));
+            return;
+        }
+    };
+    let second = ProcessClient {
+        exe,
+        column: Column::GitlabCe,
+        out: ctx.out.clone(),
+    };
     let cx = GlCx {
         author: &author,
         reviewer: &reviewer,
@@ -644,8 +656,63 @@ fn gitlab_ce(scenario: Scenario, ctx: &Context, result: &mut ResultFile) {
         reviewer_login: host.reviewer.username.clone(),
         state_dir: &ctx.state_dir,
         poll: Poll::LIVE,
+        second: &second,
     };
     gl_cells::run_gl_cell(scenario, &cx, &ctx.out, &scrubber, result);
+}
+
+/// Процесс второго клиента ревьюера (`--second-client gl-create-draft`): черновик на новой строке
+/// `line` MR `iid`. Ответ — строка JSON для stdout (`id`, `not_run` или `error`, текст очищен) и
+/// признак ошибки исполнения; очищенный след и ответ — в `<out>/second-client.json`.
+pub fn second_client(column: Column, iid: u64, line: u32, out: &Path) -> (Value, bool) {
+    let error = |text: String| (serde_json::json!({ "error": text }), false);
+    if column != Column::GitlabCe {
+        return error(format!(
+            "второй клиент в столбце {} не реализован",
+            column.name()
+        ));
+    }
+    let (host, tokens, _) = match prepared() {
+        Ok(prepared) => prepared,
+        Err(err) => return error(err),
+    };
+    let scrubber = ce_scrubber(&host, &tokens);
+    let trace = Trace::new();
+    let http = HttpTransport::new(
+        HttpConfig::default(),
+        Some(credential(Column::GitlabCe, tokens.reviewer.clone())),
+    );
+    let guard = Guarded::new(
+        Traced::new(http, trace.clone(), gl_cells::ACTOR_SECOND),
+        GuardTarget::gitlab(&host.endpoints(), &host.project),
+        WriteScope::Loopback,
+    );
+    let review = ReviewTarget {
+        provider: Provider::GitLab,
+        host: host.url.clone(),
+        repo: host.project.clone(),
+        number: iid,
+    };
+    let (reply, ok) = match gl_cells::foreign_draft(&guard, &review, &host.reviewer.username, line)
+    {
+        Ok(id) => (serde_json::json!({ "id": id }), true),
+        Err(Verdict::Error(err)) => (
+            serde_json::json!({ "error": scrubber.scrub_text(&err) }),
+            false,
+        ),
+        Err(Verdict::NotRun(reason) | Verdict::Absent(reason) | Verdict::Fail(reason)) => (
+            serde_json::json!({ "not_run": scrubber.scrub_text(&reason) }),
+            true,
+        ),
+    };
+    let record = serde_json::json!({
+        "reply": reply,
+        "trace": trace.entries(&scrubber),
+    });
+    match crate::results::write_json(out, SECOND_FILE, &record) {
+        Ok(_) => (reply, ok),
+        Err(err) => error(scrubber.scrub_text(&format!("след второго клиента: {err}"))),
+    }
 }
 
 fn capabilities_ce(result: &mut ResultFile) {

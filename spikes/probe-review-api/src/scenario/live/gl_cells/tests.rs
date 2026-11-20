@@ -520,6 +520,7 @@ impl Harness {
             reviewer_login: "probe-reviewer".to_owned(),
             state_dir: &self.state,
             poll: NOW,
+            second: &NoSecond,
         };
         let mut scrubber = Scrubber::new();
         scrubber.add_repo(REPO);
@@ -691,6 +692,17 @@ fn refused_branch_is_not_run_and_cleanup_reaches_the_result() -> TestResult {
     Ok(())
 }
 
+/// Второй клиент, которого тест не ждёт.
+struct NoSecond;
+
+impl SecondClient for NoSecond {
+    fn create_draft(&self, _: u64, _: u32) -> Result<String, Verdict> {
+        Err(Verdict::Error(
+            "второй клиент в этом тесте не нужен".to_owned(),
+        ))
+    }
+}
+
 // --- тело клетки против forge-fake ---
 
 const FAKE_AUTHOR: &str = "probe-author";
@@ -719,10 +731,35 @@ fn fake_gitlab() -> Result<FakeServer<GitlabFake>, String> {
     FakeServer::start(fake)
 }
 
-/// `gl_draft_publish` над сторожами (`WriteScope::Loopback`) против `forge-fake`, клетка собрана
+/// Второй клиент в процессе теста: свой сторож с токеном ревьюера против `forge-fake`, тот же
+/// [`foreign_draft`], что у процесса `--second-client`.
+struct InProcess<'a> {
+    server: &'a FakeServer<GitlabFake>,
+}
+
+impl SecondClient for InProcess<'_> {
+    fn create_draft(&self, iid: u64, line: u32) -> Result<String, Verdict> {
+        let credential = Credential::private_token(Secret::new(REVIEWER_TOKEN));
+        let guard = Guarded::new(
+            HttpTransport::new(HttpConfig::default(), Some(credential)),
+            GuardTarget::gitlab(&Endpoints::instance(self.server.base()), REPO),
+            WriteScope::Loopback,
+        );
+        let review = ReviewTarget {
+            provider: Provider::GitLab,
+            host: self.server.base().to_owned(),
+            repo: REPO.to_owned(),
+            number: iid,
+        };
+        foreign_draft(&guard, &review, FAKE_REVIEWER, line)
+    }
+}
+
+/// Тело клетки строки над сторожами (`WriteScope::Loopback`) против `forge-fake`, клетка собрана
 /// вручную, как после `open_cell`.
-fn publish_body(
+fn cell_body(
     server: &FakeServer<GitlabFake>,
+    scenario: Scenario,
 ) -> Result<Result<Observed, Verdict>, Box<dyn std::error::Error>> {
     let state = tempfile::tempdir()?;
     let trace = Trace::new();
@@ -741,6 +778,7 @@ fn publish_body(
     };
     let author = guard(AUTHOR_TOKEN, "author");
     let reviewer = guard(REVIEWER_TOKEN, "reviewer");
+    let second = InProcess { server };
     let cx = GlCx {
         author: &author,
         reviewer: &reviewer,
@@ -749,9 +787,10 @@ fn publish_body(
         reviewer_login: FAKE_REVIEWER.to_owned(),
         state_dir: state.path(),
         poll: NOW,
+        second: &second,
     };
     let mut cell = Cell {
-        names: CellNames::new(RUN_ID, Scenario::GlDraftPublish.name())?,
+        names: CellNames::new(RUN_ID, scenario.name())?,
         default_branch: "main".to_owned(),
         number: FAKE_IID,
         base_commit: BASE.to_owned(),
@@ -762,11 +801,21 @@ fn publish_body(
             name: None,
         }),
     };
-    let observed = gl_draft_publish(&cx, &mut cell);
+    let observed = match scenario {
+        Scenario::GlDraftPublish => gl_draft_publish(&cx, &mut cell),
+        Scenario::GlForeignDraft => gl_foreign_draft(&cx, &mut cell),
+        other => return Err(format!("тело {} в тесте не собрано", other.name()).into()),
+    };
     let errors = guard_errors(&[("author", &author), ("reviewer", &reviewer)]);
     assert!(errors.is_empty(), "{errors:?}");
     assert!(reviewer.refusal().is_none() && author.refusal().is_none());
     Ok(observed)
+}
+
+fn publish_body(
+    server: &FakeServer<GitlabFake>,
+) -> Result<Result<Observed, Verdict>, Box<dyn std::error::Error>> {
+    cell_body(server, Scenario::GlDraftPublish)
 }
 
 fn bulk_publishes(server: &FakeServer<GitlabFake>) -> usize {
@@ -882,4 +931,122 @@ fn observed_pass_reaches_the_result_scrubbed() -> TestResult {
         Some(Verdict::Error(reason)) if reason.contains("снимок сервера после")
     ));
     Ok(())
+}
+
+#[test]
+fn foreign_draft_body_passes_against_the_fake() -> TestResult {
+    let server = fake_gitlab()?;
+    let observed =
+        cell_body(&server, Scenario::GlForeignDraft)?.map_err(|verdict| format!("{verdict:?}"))?;
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(
+        status,
+        Status::Pass,
+        "{reason}: {:?}",
+        observed.checks.to_json()
+    );
+    let drafts = server.with(|fake| fake.drafts(FAKE_IID));
+    assert_eq!(
+        drafts
+            .iter()
+            .map(|draft| draft.note.as_str())
+            .collect::<Vec<_>>(),
+        vec![FOREIGN_NOTE]
+    );
+    assert_eq!(server.with(|fake| fake.notes(FAKE_IID)).len(), 1);
+    assert_eq!(bulk_publishes(&server), 0);
+    assert!(
+        observed
+            .notes
+            .iter()
+            .any(|note| note.starts_with("второй клиент: черновик ")),
+        "{:?}",
+        observed.notes
+    );
+    Ok(())
+}
+
+#[test]
+fn second_client_refusal_is_not_run_and_its_transport_failure_is_an_error() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::DRAFTS, FakeReply::Status(403)));
+    match cell_body(&server, Scenario::GlForeignDraft)? {
+        Err(Verdict::NotRun(reason)) => {
+            assert!(
+                reason.starts_with("второй клиент не создал черновик"),
+                "{reason}"
+            );
+        }
+        other => panic!("{other:?}"),
+    }
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::DRAFTS, FakeReply::Status(502)));
+    assert!(matches!(
+        cell_body(&server, Scenario::GlForeignDraft)?,
+        Err(Verdict::Error(reason)) if reason.starts_with("второй клиент")
+    ));
+    Ok(())
+}
+
+#[test]
+fn foreign_draft_checks_catch_a_published_foreign_draft() {
+    let writes = vec![
+        write(1, DRAFT_CREATE, None, Some("2")),
+        write(2, DRAFT_PUBLISH, Some("2"), None),
+        write(3, DRAFT_PUBLISH, Some("1"), None),
+    ];
+    let notes = vec![
+        note(10, "свой", false, Some(position(4))),
+        note(11, FOREIGN_NOTE, false, Some(position(24))),
+    ];
+    let mut ids = BTreeSet::new();
+    ids.insert("1".to_owned());
+    let checks = foreign_draft_checks(&writes, "1", &[], &notes, (4, "свой"), &facts(), &ids);
+    let failed: Vec<String> = checks
+        .to_json()
+        .into_iter()
+        .filter(|line| line.starts_with("НЕТ "))
+        .collect();
+    assert_eq!(checks.verdict().0, Status::Fail);
+    for what in [
+        "записи ревьюера",
+        "ID второго клиента не опубликован",
+        "черновики ревьюера после отправки",
+        "автор не видит текста чужого черновика",
+        "ID второго клиента нет в журнале",
+    ] {
+        assert!(
+            failed
+                .iter()
+                .any(|line| line.starts_with(&format!("НЕТ {what}:"))),
+            "{what}: {failed:?}"
+        );
+    }
+}
+
+#[test]
+fn second_client_reply_forms() {
+    assert_eq!(
+        second_reply(Some(0), b"{\"id\":\"7\"}\n", b""),
+        Ok("7".to_owned())
+    );
+    assert_eq!(
+        second_reply(Some(0), b"{\"not_run\":\"x\"}", b""),
+        Err(Verdict::NotRun("x".to_owned()))
+    );
+    assert_eq!(
+        second_reply(Some(3), b"{\"error\":\"y\"}", b""),
+        Err(Verdict::Error("второй клиент: y".to_owned()))
+    );
+    for (code, out) in [
+        (Some(0), &b"{\"error\":\"y\"}"[..]),
+        (Some(3), &b"{\"id\":\"7\"}"[..]),
+        (None, &b""[..]),
+        (Some(0), &b"{\"id\":\"\"}"[..]),
+    ] {
+        assert!(
+            matches!(second_reply(code, out, b"stderr"), Err(Verdict::Error(_))),
+            "{code:?} {out:?}"
+        );
+    }
 }

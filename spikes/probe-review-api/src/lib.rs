@@ -40,7 +40,8 @@ pub const USAGE: &str = "использование:
   probe-review --aggregate --pairs \"<столбец>:<сценарий> …\" [--out <каталог>] <каталог прогона>…
   probe-review --list [<столбец>]
   probe-review --gitlab-ce-image
-  probe-review --gitlab-ce-provision --url http://127.0.0.1:<порт> --out <каталог подъёма>";
+  probe-review --gitlab-ce-provision --url http://127.0.0.1:<порт> --out <каталог подъёма>
+  probe-review --second-client gl-create-draft --column <столбец> --mr <iid> --line <строка> --out <каталог процесса>";
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Mode {
@@ -64,6 +65,13 @@ pub enum Mode {
         url: String,
         out: PathBuf,
     },
+    /// Второй клиент ревьюера отдельным процессом: черновик на новой строке MR (`gl-foreign-draft`).
+    SecondClient {
+        column: Column,
+        mr: u64,
+        line: u32,
+        out: PathBuf,
+    },
 }
 
 pub fn parse_args(args: &[String]) -> Result<Mode, String> {
@@ -73,7 +81,7 @@ pub fn parse_args(args: &[String]) -> Result<Mode, String> {
     let mut positional: Vec<&str> = Vec::new();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
-            "--column" | "--out" | "--pairs" | "--url" => {
+            "--column" | "--out" | "--pairs" | "--url" | "--mr" | "--line" => {
                 let value = iter.next().ok_or_else(|| format!("у {arg} нет значения"))?;
                 options.push((arg.as_str(), value.as_str()));
             }
@@ -149,6 +157,29 @@ pub fn parse_args(args: &[String]) -> Result<Mode, String> {
             let out = PathBuf::from(option("--out").ok_or("не задан --out")?);
             Ok(Mode::GitlabCeProvision { url, out })
         }
+        "--second-client" => {
+            let ["gl-create-draft"] = positional[..] else {
+                return Err("--second-client ждёт операцию gl-create-draft".to_owned());
+            };
+            let column = option("--column").ok_or("не задан --column")?;
+            let column = Column::from_name(column)
+                .ok_or_else(|| format!("неизвестный столбец «{column}»"))?;
+            let number = |name: &str| {
+                option(name)
+                    .ok_or_else(|| format!("не задан {name}"))?
+                    .parse::<u64>()
+                    .map_err(|_| format!("{name} — не число"))
+            };
+            let mr = number("--mr")?;
+            let line = u32::try_from(number("--line")?).map_err(|_| "--line вне u32".to_owned())?;
+            let out = PathBuf::from(option("--out").ok_or("не задан --out")?);
+            Ok(Mode::SecondClient {
+                column,
+                mr,
+                line,
+                out,
+            })
+        }
         other => Err(format!("неизвестный режим {other}")),
     }
 }
@@ -206,6 +237,20 @@ pub fn main() -> ExitCode {
             }
         },
         Mode::GitlabCeProvision { url, out } => run_gitlab_ce_provision(&url, &out),
+        Mode::SecondClient {
+            column,
+            mr,
+            line,
+            out,
+        } => {
+            let (reply, ok) = scenario::live::second_client(column, mr, line, &out);
+            println!("{reply}");
+            if ok {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(EXIT_EXECUTION)
+            }
+        }
     }
 }
 
@@ -413,6 +458,38 @@ mod tests {
         );
         assert!(parse_args(&args(&["--gitlab-ce-provision", "--out", "/tmp/ce"])).is_err());
         assert!(parse_args(&args(&["--gitlab-ce-provision", "--url", "u"])).is_err());
+    }
+
+    #[test]
+    fn parses_second_client_mode() {
+        let full = [
+            "--second-client",
+            "gl-create-draft",
+            "--column",
+            "gitlab_ce",
+            "--mr",
+            "7",
+            "--line",
+            "24",
+            "--out",
+            "/tmp/p",
+        ];
+        assert_eq!(
+            parse_args(&args(&full)),
+            Ok(Mode::SecondClient {
+                column: Column::GitlabCe,
+                mr: 7,
+                line: 24,
+                out: PathBuf::from("/tmp/p"),
+            })
+        );
+        let mut other = full;
+        other[1] = "gl-delete-draft";
+        assert!(parse_args(&args(&other)).is_err());
+        let mut bad = full;
+        bad[5] = "x";
+        assert!(parse_args(&args(&bad)).is_err());
+        assert!(parse_args(&args(&full[..8])).is_err());
     }
 
     #[test]

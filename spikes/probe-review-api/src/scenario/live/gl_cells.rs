@@ -6,21 +6,24 @@
 //! черновиков. Системные заметки MR (назначение ревьюера, новый коммит) в оракул не входят.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-use super::{MR_NOT_READY, step_verdict};
+use super::{MR_NOT_READY, classify_read, step_verdict};
 use super::{Verdict, gitlab_adapter, guard_errors, live_repo, read_or_fail, record_cleanup};
 use crate::fake::{GraphqlKind, graphql_root};
-use crate::gitlab::{ApiError, GitLab, MergeSnapshot, RemoteDraft, RemoteNote, RemotePosition};
+use crate::gitlab::{
+    ApiError, Capabilities, GitLab, MergeSnapshot, RemoteDraft, RemoteNote, RemotePosition,
+};
 use crate::journal::{ItemState, Journal, ProjectId};
 use crate::live::guard::Guarded;
 use crate::live::lifecycle::{Cell, CellNames, LEDGER_FILE, Ledger, Roles, run_cell};
 use crate::model::anchor::Side;
-use crate::model::{Provider, ReviewSession, ReviewTarget};
-use crate::results::ResultFile;
+use crate::model::{DraftComment, DraftId, Provider, ReviewSession, ReviewTarget};
+use crate::results::{Column, ResultFile};
 use crate::scenario::Scenario;
 use crate::scenario::fake::{Checks, Spot, add_drafts, dump_in, states};
 use crate::scrub::Scrubber;
@@ -43,6 +46,16 @@ const PUBLISH_DRAFTS: [(Spot, &str); 2] = [
     (Spot::Line(Side::New, 4), "первый"),
     (Spot::Line(Side::New, 24), "второй"),
 ];
+
+/// Черновик второго клиента `gl-foreign-draft`: текст и новая строка 24 (добавленная 24a).
+pub const FOREIGN_NOTE: &str = "черновик второго клиента";
+pub const FOREIGN_LINE: u32 = 24;
+/// Свой черновик `gl-foreign-draft`: новая строка 4 («line 05 changed»).
+const OWN_DRAFTS: [(Spot, &str); 1] = [(Spot::Line(Side::New, 4), "свой")];
+/// Роль следа второго клиента: не `reviewer`, иначе его запись вошла бы в записи пробы.
+pub const ACTOR_SECOND: &str = "second-client";
+/// Очищенный след второго клиента в каталоге процесса сценария.
+pub const SECOND_FILE: &str = "second-client.json";
 
 /// Последний ответ опроса MR, у версии которого diff ещё без файлов.
 pub const DIFF_EMPTY: &str = "в diff версии нет файлов";
@@ -76,6 +89,8 @@ pub struct GlCx<'a, T> {
     pub reviewer_login: String,
     pub state_dir: &'a Path,
     pub poll: Poll,
+    /// Второй клиент ревьюера (`gl-foreign-draft`).
+    pub second: &'a dyn SecondClient,
 }
 
 impl<T: Transport> GlCx<'_, T> {
@@ -166,6 +181,7 @@ fn cell_verdict<T: Transport>(
     let run = run_cell(&roles, &mut ledger, &names, &title, |cell| {
         Ok(match scenario {
             Scenario::GlDraftPublish => gl_draft_publish(cx, cell),
+            Scenario::GlForeignDraft => gl_foreign_draft(cx, cell),
             other => Err(Verdict::Error(format!(
                 "сценарий {} в живом столбце GitLab не реализован",
                 other.name()
@@ -557,48 +573,58 @@ fn stand(what: &str, err: &dyn std::fmt::Display) -> Verdict {
     Verdict::Error(format!("{what}: {err}"))
 }
 
-fn gl_draft_publish<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Observed, Verdict> {
-    let review = cx.review(cell.number);
-    let reviewer = gitlab_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
-    let author = gitlab_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
-    let snapshot = await_snapshot(&reviewer, &cx.poll, None, MR_NOT_READY)?;
-    let caps = reviewer
-        .capabilities()
-        .map_err(|err| read_or_fail("возможности ревьюера", &err))?;
-    let (_, _, before) = mr_state(&author, &reviewer)?;
-    let path = cx.state_dir.join("journal-gl-draft-publish.db");
+/// Отправка исполнителем в журнале клетки: записи ревьюера в окне отправки, итог журнала после
+/// переоткрытия и его дамп. Итог, который оракул записей не судит, — по [`delivery_verdict`].
+struct Submitted {
+    writes: Vec<Write>,
+    facts: JournalFacts,
+    /// Удалённые ID черновиков и элементов журнала.
+    remote_ids: BTreeSet<String>,
+    journal: Value,
+}
+
+struct Sending<'s> {
+    review: &'s ReviewTarget,
+    snapshot: &'s MergeSnapshot,
+    caps: &'s Capabilities,
+    journal: &'s str,
+    drafts: &'s [(Spot, &'s str)],
+    plan: GitLabPlan,
+}
+
+fn submit_drafts<T: Transport>(
+    cx: &GlCx<'_, T>,
+    reviewer: &GitLab<&Guarded<T>>,
+    sending: Sending<'_>,
+) -> Result<Submitted, Verdict> {
+    let path = cx.state_dir.join(sending.journal);
     let project = ProjectId::new(LIVE_PROJECT);
     let start = cx.trace.len();
-    let submission = {
+    let (submission, sent) = {
         let journal = Journal::open(&path).map_err(|err| stand("журнал", &err))?;
         let scope = journal.scope(&project);
         let session = ReviewSession::new(
             &cx.reviewer_login,
-            review.clone(),
-            snapshot.revision.clone(),
+            sending.review.clone(),
+            sending.snapshot.revision.clone(),
         );
         let id = scope
             .create_session(&session)
             .map_err(|err| stand("сессия", &err))?;
-        add_drafts(&scope, id, &snapshot.files, &PUBLISH_DRAFTS)
+        add_drafts(&scope, id, &sending.snapshot.files, sending.drafts)
             .map_err(|err| stand("черновики", &err))?;
-        let plan = GitLabPlan {
-            summary: SUMMARY.to_owned(),
-            ..GitLabPlan::default()
-        };
-        let submission = plan_gitlab(&scope, id, &plan).map_err(|err| stand("план", &err))?;
-        let sent = run_gitlab(&scope, submission.id, &reviewer, &caps)
+        let submission =
+            plan_gitlab(&scope, id, &sending.plan).map_err(|err| stand("план", &err))?;
+        let sent = run_gitlab(&scope, submission.id, reviewer, sending.caps)
             .map_err(|err| submit_verdict(&err))?;
         (submission.id, sent)
     };
-    let (submission, sent) = submission;
     let calls = cx.trace.calls();
     let window = calls.get(start..).unwrap_or_default();
     if let Some(verdict) = delivery_verdict(&sent, window, ACTOR_REVIEWER) {
         return Err(verdict);
     }
     let writes = writes_of(window, ACTOR_REVIEWER);
-    let (notes, drafts, after) = mr_state(&author, &reviewer)?;
     let journal = Journal::open(&path).map_err(|err| stand("журнал после переоткрытия", &err))?;
     let scope = journal.scope(&project);
     let done = report(&scope, submission).map_err(|err| stand("итог отправки", &err))?;
@@ -606,6 +632,15 @@ fn gl_draft_publish<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<O
         .submission(submission)
         .map_err(|err| stand("отправка в журнале", &err))?
         .session;
+    let drafts = scope
+        .drafts(session)
+        .map_err(|err| stand("черновики журнала", &err))?;
+    let remote_ids = drafts
+        .iter()
+        .filter_map(|draft| draft.remote_id.as_ref())
+        .chain(done.items.iter().filter_map(|item| item.remote_id.as_ref()))
+        .map(|id| id.as_str().to_owned())
+        .collect();
     let facts = JournalFacts {
         full_confirmed: done.delivery == Delivery::Full
             && done
@@ -616,21 +651,61 @@ fn gl_draft_publish<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<O
             "{:?}",
             states(&scope, submission).map_err(|err| stand("состояния", &err))?
         ),
-        remote_ids: scope
-            .drafts(session)
-            .map_err(|err| stand("черновики журнала", &err))?
-            .iter()
-            .all(|draft| draft.remote_id.is_some()),
+        remote_ids: drafts.iter().all(|draft| draft.remote_id.is_some()),
         recovered: journal.recovered().len(),
     };
-    let expected: Vec<(u32, &str)> = PUBLISH_DRAFTS
+    Ok(Submitted {
+        writes,
+        facts,
+        remote_ids,
+        journal: dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?,
+    })
+}
+
+fn new_lines<'s>(drafts: &[(Spot, &'s str)]) -> Vec<(u32, &'s str)> {
+    drafts
         .iter()
         .filter_map(|(spot, body)| match spot {
             Spot::Line(Side::New, line) => Some((*line, *body)),
             _ => None,
         })
-        .collect();
-    let checks = draft_publish_checks(&writes, &drafts, &notes, &expected, SUMMARY, &facts);
+        .collect()
+}
+
+fn gl_draft_publish<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = gitlab_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let author = gitlab_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_snapshot(&reviewer, &cx.poll, None, MR_NOT_READY)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| read_or_fail("возможности ревьюера", &err))?;
+    let (_, _, before) = mr_state(&author, &reviewer)?;
+    let sent = submit_drafts(
+        cx,
+        &reviewer,
+        Sending {
+            review: &review,
+            snapshot: &snapshot,
+            caps: &caps,
+            journal: "journal-gl-draft-publish.db",
+            drafts: &PUBLISH_DRAFTS,
+            plan: GitLabPlan {
+                summary: SUMMARY.to_owned(),
+                ..GitLabPlan::default()
+            },
+        },
+    )?;
+    let (notes, drafts, after) = mr_state(&author, &reviewer)?;
+    let expected = new_lines(&PUBLISH_DRAFTS);
+    let checks = draft_publish_checks(
+        &sent.writes,
+        &drafts,
+        &notes,
+        &expected,
+        SUMMARY,
+        &sent.facts,
+    );
     Ok(Observed {
         checks,
         notes: vec![format!(
@@ -639,7 +714,242 @@ fn gl_draft_publish<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<O
         )],
         before,
         after,
-        journal: dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?,
+        journal: sent.journal,
+        tier: caps.plan,
+    })
+}
+
+/// Второй клиент ревьюера: создаёт черновик на новой строке MR и отдаёт его ID. Отказ хоста —
+/// `not_run` «второй клиент не создал черновик», отказ транспорта, 5xx и сторожа — ошибка
+/// исполнения.
+pub trait SecondClient {
+    fn create_draft(&self, iid: u64, line: u32) -> Result<String, Verdict>;
+}
+
+/// Второй клиент отдельным процессом `probe-review --second-client`: хост и токен ревьюера он
+/// берёт из унаследованного окружения `run.sh`, токена в аргументах нет.
+pub struct ProcessClient {
+    pub exe: PathBuf,
+    pub column: Column,
+    /// Каталог процесса сценария: туда второй клиент пишет свой очищенный след.
+    pub out: PathBuf,
+}
+
+impl SecondClient for ProcessClient {
+    fn create_draft(&self, iid: u64, line: u32) -> Result<String, Verdict> {
+        let output = Command::new(&self.exe)
+            .args(["--second-client", "gl-create-draft", "--column"])
+            .arg(self.column.name())
+            .arg("--mr")
+            .arg(iid.to_string())
+            .arg("--line")
+            .arg(line.to_string())
+            .arg("--out")
+            .arg(&self.out)
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|err| Verdict::Error(format!("второй клиент не запущен: {}", err.kind())))?;
+        second_reply(output.status.code(), &output.stdout, &output.stderr)
+    }
+}
+
+/// Ответ процесса второго клиента — строка JSON в stdout: код 0 с `id` или `not_run`, ошибка
+/// исполнения — `error`. Другая форма — ошибка исполнения.
+pub fn second_reply(code: Option<i32>, stdout: &[u8], stderr: &[u8]) -> Result<String, Verdict> {
+    let value: Option<Value> = serde_json::from_slice(stdout).ok();
+    let text = |key: &str| {
+        value
+            .as_ref()
+            .and_then(|value| value.get(key))
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+    };
+    match (code, text("id"), text("not_run"), text("error")) {
+        (Some(0), Some(id), None, None) if !id.is_empty() => Ok(id),
+        (Some(0), None, Some(reason), None) => Err(Verdict::NotRun(reason)),
+        (Some(code), None, None, Some(err)) if code != 0 => {
+            Err(Verdict::Error(format!("второй клиент: {err}")))
+        }
+        _ => Err(Verdict::Error(format!(
+            "второй клиент: код {code:?}, ответ «{}», stderr «{}»",
+            String::from_utf8_lossy(stdout).trim(),
+            String::from_utf8_lossy(stderr).trim()
+        ))),
+    }
+}
+
+/// Черновик второго клиента: свой снимок MR, позиция на новой строке `line` из своей ревизии,
+/// запись через своего сторожа. Отказ его сторожа — ошибка исполнения.
+pub fn foreign_draft<T: Transport>(
+    guard: &Guarded<T>,
+    review: &ReviewTarget,
+    login: &str,
+    line: u32,
+) -> Result<String, Verdict> {
+    let refused = |what: &str, err: &ApiError| match classify_read(err) {
+        Ok(observed) => Verdict::NotRun(format!(
+            "второй клиент не создал черновик: {what}: {observed}"
+        )),
+        Err(stand) => Verdict::Error(format!("второй клиент: {what}: {stand}")),
+    };
+    let created = (|| {
+        let gitlab = gitlab_adapter(guard, review).map_err(|err| stand("второй клиент", &err))?;
+        let snapshot = gitlab
+            .merge_request()
+            .map_err(|err| refused("снимок MR", &err))?;
+        let file = snapshot.files.first().ok_or_else(|| {
+            Verdict::NotRun(format!("второй клиент не создал черновик: {DIFF_EMPTY}"))
+        })?;
+        let session = ReviewSession::new(login, review.clone(), snapshot.revision.clone());
+        let placement = Spot::Line(Side::New, line)
+            .placement(file)
+            .map_err(|err| stand("второй клиент: якорь", &err))?;
+        let draft = DraftComment::new(DraftId(0), &session, placement, FOREIGN_NOTE);
+        gitlab
+            .create_draft(&session, &draft, false)
+            .map(|(known, _)| known.id().as_str().to_owned())
+            .map_err(|err| refused("черновик", &err))
+    })();
+    let errors = guard_errors(&[(ACTOR_SECOND, guard)]);
+    if !errors.is_empty() {
+        return Err(Verdict::Error(errors.join("; ")));
+    }
+    if let Some(err) = guard.refusal() {
+        return Err(Verdict::Error(format!("второй клиент: сторож: {err}")));
+    }
+    created
+}
+
+/// Оракул `gl-foreign-draft` на живом хосте (ожидание — в отчёте).
+pub fn foreign_draft_checks(
+    writes: &[Write],
+    foreign: &str,
+    drafts_after: &[RemoteDraft],
+    notes_after: &[RemoteNote],
+    own: (u32, &str),
+    journal: &JournalFacts,
+    journal_ids: &BTreeSet<String>,
+) -> Checks {
+    let mut checks = Checks::default();
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for write in writes {
+        *counts.entry(write.key.clone()).or_insert(0) += 1;
+    }
+    checks.eq(
+        "записи ревьюера",
+        counts,
+        [(DRAFT_CREATE.to_owned(), 1), (DRAFT_PUBLISH.to_owned(), 1)]
+            .into_iter()
+            .collect(),
+    );
+    let created: BTreeSet<&str> = writes
+        .iter()
+        .filter_map(|write| write.created.as_deref())
+        .collect();
+    let published: BTreeSet<&str> = writes
+        .iter()
+        .filter(|write| write.key == DRAFT_PUBLISH)
+        .filter_map(|write| write.draft.as_deref())
+        .collect();
+    checks.eq(
+        "публикации по ID из ответа на создание",
+        (published.len(), published == created),
+        (1, true),
+    );
+    checks.check(
+        "ID второго клиента не опубликован",
+        !published.contains(foreign),
+        format!("опубликованы {published:?}, второй клиент {foreign}"),
+    );
+    checks.eq(
+        "черновики ревьюера после отправки",
+        drafts_after
+            .iter()
+            .map(|draft| (draft.id.as_str().to_owned(), draft.note.clone()))
+            .collect::<Vec<_>>(),
+        vec![(foreign.to_owned(), FOREIGN_NOTE.to_owned())],
+    );
+    let user_notes: Vec<&RemoteNote> = notes_after.iter().filter(|note| !note.system).collect();
+    checks.eq(
+        "автор: заметки",
+        user_notes
+            .iter()
+            .map(|note| {
+                (
+                    note.position
+                        .as_ref()
+                        .and_then(|position| position.new_line),
+                    note.body.clone(),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![(Some(own.0), own.1.to_owned())],
+    );
+    checks.check(
+        "автор не видит текста чужого черновика",
+        !user_notes.iter().any(|note| note.body == FOREIGN_NOTE),
+        "",
+    );
+    checks.check(
+        "журнал: все элементы confirmed, итог «полностью»",
+        journal.full_confirmed,
+        journal.states.clone(),
+    );
+    checks.check("журнал: у черновиков ID GitLab", journal.remote_ids, "");
+    checks.check(
+        "ID второго клиента нет в журнале",
+        !journal_ids.contains(foreign),
+        format!("{journal_ids:?}"),
+    );
+    checks.eq("восстановленные элементы", journal.recovered, 0);
+    checks
+}
+
+fn gl_foreign_draft<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = gitlab_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let author = gitlab_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_snapshot(&reviewer, &cx.poll, None, MR_NOT_READY)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| read_or_fail("возможности ревьюера", &err))?;
+    let foreign = cx.second.create_draft(cell.number, FOREIGN_LINE)?;
+    let (_, _, before) = mr_state(&author, &reviewer)?;
+    let sent = submit_drafts(
+        cx,
+        &reviewer,
+        Sending {
+            review: &review,
+            snapshot: &snapshot,
+            caps: &caps,
+            journal: "journal-gl-foreign-draft.db",
+            drafts: &OWN_DRAFTS,
+            plan: GitLabPlan::default(),
+        },
+    )?;
+    let (notes, drafts, after) = mr_state(&author, &reviewer)?;
+    let own = new_lines(&OWN_DRAFTS)
+        .first()
+        .copied()
+        .ok_or_else(|| Verdict::Error("свой черновик не на новой стороне".to_owned()))?;
+    let checks = foreign_draft_checks(
+        &sent.writes,
+        &foreign,
+        &drafts,
+        &notes,
+        own,
+        &sent.facts,
+        &sent.remote_ids,
+    );
+    Ok(Observed {
+        checks,
+        notes: vec![
+            format!("MR клетки: версия {}", snapshot.version_id.as_str()),
+            format!("второй клиент: черновик {foreign}, след — {SECOND_FILE}"),
+        ],
+        before,
+        after,
+        journal: sent.journal,
         tier: caps.plan,
     })
 }
