@@ -81,6 +81,11 @@ fn caps() -> Capabilities {
     }
 }
 
+/// Итог проверки `PENDING` для тестов, где само чтение не проверяется.
+fn clear() -> NoPending {
+    NoPending { _checked: () }
+}
+
 fn adapter(scripted: &Scripted) -> Result<GitHub<&Scripted>, ApiError> {
     GitHub::new(scripted, Endpoints::single(API), &target())
 }
@@ -273,7 +278,7 @@ fn missing_versions_and_mutations_are_recorded_and_gate_branches() -> TestResult
     let idle = Scripted::new();
     let github = adapter(&idle)?;
     let session = session_on(HEAD)?;
-    let absent = github.start_pending(&session, &caps);
+    let absent = github.start_pending(&session, &caps, &clear());
     assert!(matches!(absent, Err(ApiError::Absent(_))), "{absent:?}");
     let viewed = github.set_viewed(&caps, &ProviderId::new("PR_7"), PATH, true);
     assert!(matches!(viewed, Err(ApiError::Absent(_))), "{viewed:?}");
@@ -293,9 +298,10 @@ fn local_branch_is_one_create_review_with_comments_and_event() -> TestResult {
             Reply::json(200, &review(501, "bob", "CHANGES_REQUESTED", HEAD)),
         );
     let github = adapter(&scripted)?;
+    let clear = github.check_no_pending(&caps())?;
     let submitted = github.create_review(
         &session,
-        &caps(),
+        &clear,
         &drafts,
         ReviewEvent::RequestChanges,
         "Итог",
@@ -345,17 +351,16 @@ fn local_branch_each_event_and_optional_body() -> TestResult {
         ),
     ];
     for (event, body, state, expected) in cases {
-        let scripted = Scripted::new()
-            .expect(Method::Get, REVIEWS_PAGE_1, empty_page())
-            .expect(
-                Method::Post,
-                REVIEWS,
-                Reply::json(200, &review(502, "bob", state, HEAD)),
-            );
-        let submitted = adapter(&scripted)?.create_review(&session, &caps(), &[], event, body)?;
+        let scripted = Scripted::new().expect(
+            Method::Post,
+            REVIEWS,
+            Reply::json(200, &review(502, "bob", state, HEAD)),
+        );
+        let submitted = adapter(&scripted)?.create_review(&session, &clear(), &[], event, body)?;
         assert_eq!(submitted.state, event.state());
         let requests = scripted.finish()?;
-        assert_eq!(requests[1].body_json(), Some(expected));
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].body_json(), Some(expected));
     }
     Ok(())
 }
@@ -381,13 +386,13 @@ fn local_branch_refuses_bad_input_before_any_request() -> TestResult {
     );
     let scripted = Scripted::new();
     let github = adapter(&scripted)?;
-    let blank = github.create_review(&session, &caps(), &[], ReviewEvent::Comment, " ");
+    let blank = github.create_review(&session, &clear(), &[], ReviewEvent::Comment, " ");
     assert!(matches!(blank, Err(ApiError::Invalid(_))), "{blank:?}");
-    let blank = github.create_review(&session, &caps(), &[], ReviewEvent::RequestChanges, "");
+    let blank = github.create_review(&session, &clear(), &[], ReviewEvent::RequestChanges, "");
     assert!(matches!(blank, Err(ApiError::Invalid(_))), "{blank:?}");
-    let replied = github.create_review(&session, &caps(), &[reply], ReviewEvent::Approve, "");
+    let replied = github.create_review(&session, &clear(), &[reply], ReviewEvent::Approve, "");
     assert_eq!(replied, Err(ApiError::Model(ModelError::NotAnchored)));
-    let mixed = github.create_review(&session, &caps(), &[other], ReviewEvent::Approve, "");
+    let mixed = github.create_review(&session, &clear(), &[other], ReviewEvent::Approve, "");
     assert!(
         matches!(
             mixed,
@@ -406,8 +411,7 @@ fn local_branch_refuses_bad_input_before_any_request() -> TestResult {
 }
 
 #[test]
-fn local_branch_refuses_existing_pending_without_writing() -> TestResult {
-    let session = session_on(HEAD)?;
+fn pending_check_refuses_existing_pending_without_writing() -> TestResult {
     let scripted = Scripted::new()
         .expect(
             Method::Get,
@@ -419,13 +423,7 @@ fn local_branch_refuses_existing_pending_without_writing() -> TestResult {
             "/repos/o/r/pulls/7/reviews/77/comments?per_page=100&page=1",
             Reply::json(200, &json!([rest_comment(78, 77, 2, "из браузера")])),
         );
-    let refused = adapter(&scripted)?.create_review(
-        &session,
-        &caps(),
-        &drafts(&session)?,
-        ReviewEvent::Comment,
-        "Итог",
-    );
+    let refused = adapter(&scripted)?.check_no_pending(&caps());
     let Err(ApiError::PendingExists(existing)) = &refused else {
         panic!("ожидался PendingExists: {refused:?}");
     };
@@ -442,6 +440,29 @@ fn local_branch_refuses_existing_pending_without_writing() -> TestResult {
 }
 
 #[test]
+fn failed_pending_check_is_a_read_error_and_sends_no_write() -> TestResult {
+    for reply in [
+        Reply::timeout(),
+        Reply::status(502),
+        Reply::json(200, &json!({})),
+    ] {
+        let scripted = Scripted::new().expect(Method::Get, REVIEWS_PAGE_1, reply);
+        let checked = adapter(&scripted)?.check_no_pending(&caps());
+        assert!(
+            matches!(
+                checked,
+                Err(ApiError::Transport(_) | ApiError::Status { .. } | ApiError::Unexpected(_))
+            ),
+            "{checked:?}"
+        );
+        let requests = scripted.finish()?;
+        assert_eq!(requests.len(), 1);
+        assert!(requests.iter().all(|request| !request.method.is_write()));
+    }
+    Ok(())
+}
+
+#[test]
 fn local_branch_unexpected_answer_is_unknown() -> TestResult {
     let session = session_on(HEAD)?;
     let cases = [
@@ -451,11 +472,9 @@ fn local_branch_unexpected_answer_is_unknown() -> TestResult {
         Reply::json(200, &json!({"state": "COMMENTED"})),
     ];
     for reply in cases {
-        let scripted = Scripted::new()
-            .expect(Method::Get, REVIEWS_PAGE_1, empty_page())
-            .expect(Method::Post, REVIEWS, reply);
+        let scripted = Scripted::new().expect(Method::Post, REVIEWS, reply);
         let result =
-            adapter(&scripted)?.create_review(&session, &caps(), &[], ReviewEvent::Comment, "x");
+            adapter(&scripted)?.create_review(&session, &clear(), &[], ReviewEvent::Comment, "x");
         assert!(matches!(result, Err(ApiError::Unexpected(_))), "{result:?}");
         assert_eq!(
             result.err().map(|e| e.write_fate()),
@@ -498,7 +517,8 @@ fn server_pending_cycle_keeps_ids_and_submits_without_comments() -> TestResult {
             Reply::json(200, &review(601, "bob", "COMMENTED", HEAD)),
         );
     let github = adapter(&scripted)?;
-    let pending = github.start_pending(&session, &caps())?;
+    let clear = github.check_no_pending(&caps())?;
+    let pending = github.start_pending(&session, &caps(), &clear)?;
     assert_eq!(pending.id(), &ProviderId::new("601"));
     assert_eq!(pending.node_id(), &ProviderId::new("PRR_601"));
     assert!(!pending.is_adopted() && pending.foreign().is_empty());
@@ -645,7 +665,7 @@ fn existing_pending_is_read_across_pages_refused_and_adopted_explicitly() -> Tes
             Reply::json(200, &review(77, "bob", "APPROVED", HEAD)),
         );
     let github = adapter(&scripted)?;
-    let refused = github.start_pending(&session, &caps());
+    let refused = github.check_no_pending(&caps());
     let Err(ApiError::PendingExists(existing)) = refused else {
         panic!("ожидался PendingExists: {refused:?}");
     };
@@ -979,6 +999,19 @@ fn graphql_errors_at_http_200_classify_the_write_fate() -> TestResult {
             "rate",
         ),
         (
+            Reply::Respond(
+                Response::json(
+                    200,
+                    &errors(
+                        json!([{"message": "Something went wrong while executing your query"}]),
+                    ),
+                )
+                .with_header("x-ratelimit-remaining", "0"),
+            ),
+            WriteFate::Unknown,
+            "graphql",
+        ),
+        (
             Reply::json(
                 200,
                 &errors(json!([{"type": "RATE_LIMITED", "message": "limit"}])),
@@ -1211,7 +1244,8 @@ fn adapter_drives_forge_fake_through_both_branches() -> TestResult {
     let session = ReviewSession::new("bob", target(), snapshot.revision.clone());
     let drafts = drafts(&session)?;
 
-    let local = github.create_review(&session, &caps, &drafts, ReviewEvent::Comment, "Итог")?;
+    let clear = github.check_no_pending(&caps)?;
+    let local = github.create_review(&session, &clear, &drafts, ReviewEvent::Comment, "Итог")?;
     assert_eq!(local.state, ReviewState::Commented);
 
     let (planted, planted_comments) = server.with(|fake| {
@@ -1222,7 +1256,7 @@ fn adapter_drives_forge_fake_through_both_branches() -> TestResult {
             &[CommentSpec::line(PATH, DiffSide::Right, 3, "чужой")],
         )
     })?;
-    let refused = github.start_pending(&session, &caps);
+    let refused = github.check_no_pending(&caps);
     let Err(ApiError::PendingExists(existing)) = refused else {
         panic!("ожидался PendingExists: {refused:?}");
     };
@@ -1234,7 +1268,8 @@ fn adapter_drives_forge_fake_through_both_branches() -> TestResult {
     let submitted = github.submit_pending(&adopted, ReviewEvent::Approve, "")?;
     assert_eq!(submitted.state, ReviewState::Approved);
 
-    let pending = github.start_pending(&session, &caps)?;
+    let clear = github.check_no_pending(&caps)?;
+    let pending = github.start_pending(&session, &caps, &clear)?;
     github.add_pending_comment(&session, &pending, &drafts[2])?;
     github.submit_pending(&pending, ReviewEvent::RequestChanges, "Правки")?;
 
@@ -1299,7 +1334,7 @@ fn absent_mutation_on_forge_fake_gates_the_pending_branch() -> TestResult {
     assert!(!caps.server_pending());
     assert!(caps.viewed());
     let session = session_on(HEAD)?;
-    let absent = github.start_pending(&session, &caps);
+    let absent = github.start_pending(&session, &caps, &clear());
     assert!(matches!(absent, Err(ApiError::Absent(_))), "{absent:?}");
     assert_eq!(
         server.count("POST /repos/{owner}/{repo}/pulls/{number}/reviews"),

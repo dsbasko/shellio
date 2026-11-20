@@ -1,17 +1,19 @@
 //! Адаптер GitHub по ADR-0015: две ветви отправки, существующий `PENDING`, просмотренные файлы.
 //!
-//! Адаптер строит запросы и разбирает ответы; журнал он не трогает. Каждая запись — один запрос,
-//! её итог для журнала задаёт [`ApiError::write_fate`]: отказ сервера и отказ по лимиту значат,
-//! что запись не принята, а отказ транспорта после отправки, 5xx и успешный ответ без ожидаемых
-//! полей — что итог неизвестен и нужна сверка.
+//! Адаптер строит запросы и разбирает ответы; журнал он не трогает. Каждый метод записи — ровно
+//! один запрос, итог его ошибки для журнала задаёт [`ApiError::write_fate`]: отказ сервера и отказ
+//! по лимиту значат, что запись не принята, а отказ транспорта после отправки, 5xx и успешный
+//! ответ без ожидаемых полей — что итог неизвестен и нужна сверка. Чтения идут отдельными
+//! методами, их ошибки к итогу записи не относятся.
 //!
 //! - Только локальные черновики: один REST Create review с `commit_id` ревизии сессии, `event`,
 //!   верхнеуровневым `body` и `comments[]`.
 //! - Серверный `PENDING`: REST Create review без `event`, комментарии — GraphQL
 //!   `addPullRequestReviewThread` по node ID review и `updatePullRequestReviewComment` по node ID
 //!   комментария, Submit — REST `…/reviews/{id}/events` без `comments[]`.
-//! - Существующий `PENDING` того же аккаунта обе ветви сначала ищут и читают целиком; он
-//!   возвращается ошибкой [`ApiError::PendingExists`] и в работу идёт только через
+//! - Запись обеих ветвей требует [`NoPending`] — итога отдельного чтения
+//!   [`GitHub::check_no_pending`]. Существующий `PENDING` того же аккаунта это чтение возвращает
+//!   целиком ошибкой [`ApiError::PendingExists`]; в работу он идёт только через
 //!   [`ExistingPending::adopt`]. Submit принятого `PENDING` отправляет весь его состав.
 //!
 //! Страницы списков адаптер строит сам (`per_page=100&page=N`), заголовок `Link` только говорит,
@@ -422,6 +424,14 @@ impl PendingComment {
     }
 }
 
+/// Итог чтения [`GitHub::check_no_pending`]: у аккаунта не было `PENDING`. Без него методы
+/// создания review не вызываются, поэтому существующий `PENDING` нельзя обойти, а метод записи
+/// остаётся одним запросом.
+#[derive(Debug, PartialEq, Eq)]
+pub struct NoPending {
+    _checked: (),
+}
+
 /// Снимок PR: ревизия и diff одного head.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PullSnapshot {
@@ -583,12 +593,14 @@ impl<T: Transport> GitHub<T> {
             .filter(|errors| !errors.is_empty())
         {
             let errors: Vec<GraphqlError> = errors.iter().map(graphql_error).collect();
+            // `x-ratelimit-remaining: 0` бывает и у запроса, который потратил последнее очко:
+            // без явного признака лимита его ошибка остаётся обычной ошибкой GraphQL.
             let exhausted = response.header("x-ratelimit-remaining") == Some("0");
-            if exhausted
-                || errors
-                    .iter()
-                    .any(|error| error.kind.as_deref() == Some("RATE_LIMITED"))
-            {
+            let explicit = errors.iter().any(|error| {
+                error.kind.as_deref() == Some("RATE_LIMITED")
+                    || (exhausted && error.message.to_ascii_lowercase().contains("rate limit"))
+            });
+            if explicit {
                 let detail = errors
                     .iter()
                     .map(|error| error.message.as_str())
@@ -704,19 +716,21 @@ impl<T: Transport> GitHub<T> {
         }))
     }
 
-    fn refuse_existing(&self, caps: &Capabilities) -> Result<(), ApiError> {
+    /// Чтение перед записью обеих ветвей: `PENDING` аккаунта нет — [`NoPending`], есть —
+    /// [`ApiError::PendingExists`] с полным составом. Существующий `PENDING` не перезаписывается.
+    pub fn check_no_pending(&self, caps: &Capabilities) -> Result<NoPending, ApiError> {
         match self.find_pending(&caps.login)? {
             Some(existing) => Err(ApiError::PendingExists(Box::new(existing))),
-            None => Ok(()),
+            None => Ok(NoPending { _checked: () }),
         }
     }
 
-    /// Ветвь «только локальные черновики»: один Create review с `comments[]` и `event`.
-    /// Черновики без якоря (ответ в треде), устаревшие и другой ревизии отвергаются до запросов.
+    /// Ветвь «только локальные черновики»: один запрос Create review с `comments[]` и `event`.
+    /// Черновики без якоря (ответ в треде), устаревшие и другой ревизии отвергаются до запроса.
     pub fn create_review(
         &self,
         session: &ReviewSession,
-        caps: &Capabilities,
+        _clear: &NoPending,
         drafts: &[DraftComment],
         event: ReviewEvent,
         body: &str,
@@ -744,7 +758,6 @@ impl<T: Transport> GitHub<T> {
             comment.insert("body".to_owned(), json!(draft.body));
             comments.push(Value::Object(comment));
         }
-        self.refuse_existing(caps)?;
         let mut request = Map::new();
         request.insert("commit_id".to_owned(), json!(head.as_str()));
         if !body.is_empty() {
@@ -765,20 +778,19 @@ impl<T: Transport> GitHub<T> {
         Ok(review)
     }
 
-    /// Ветвь «серверный `PENDING`»: Create review без `event` с `commit_id` ревизии сессии.
-    /// Существующий `PENDING` аккаунта не перезаписывается: он приходит в
-    /// [`ApiError::PendingExists`] целиком.
+    /// Ветвь «серверный `PENDING`»: один запрос Create review без `event` с `commit_id` ревизии
+    /// сессии. Существующий `PENDING` аккаунта отсекает [`GitHub::check_no_pending`].
     pub fn start_pending(
         &self,
         session: &ReviewSession,
         caps: &Capabilities,
+        _clear: &NoPending,
     ) -> Result<PendingReview, ApiError> {
         if !caps.server_pending() {
             return Err(ApiError::Absent(
                 "addPullRequestReviewThread и updatePullRequestReviewComment",
             ));
         }
-        self.refuse_existing(caps)?;
         let head = session.revision().head_sha();
         let value = self.write_json(
             Method::Post,
