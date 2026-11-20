@@ -105,17 +105,30 @@ fn guard_opens_for_listed_private_repo_and_scopes_writes() -> Result<(), String>
             ))
             .is_ok()
     );
-    let foreign = guard.send(&Request::new(
-        Method::Post,
+    for outside in [
         "https://gh.test/repos/owner/other/pulls",
-    ));
-    assert!(foreign.is_err_and(|failure| !failure.may_have_been_sent()));
+        "https://gh.test/repos/owner/sandbox-x/pulls",
+        "https://gh.test/repos/owner/sandbox",
+    ] {
+        let refused = guard.send(&Request::new(Method::Post, outside));
+        assert!(
+            refused.is_err_and(|failure| !failure.may_have_been_sent()),
+            "{outside}"
+        );
+    }
     assert!(
         guard
             .send(&Request::new(Method::Post, "https://gh.test/graphql"))
             .is_ok()
     );
-    assert_eq!(guard.refused_writes(), ["POST /repos/owner/other/pulls"]);
+    assert_eq!(
+        guard.refused_writes(),
+        [
+            "POST /repos/owner/other/pulls",
+            "POST /repos/owner/sandbox-x/pulls",
+            "POST /repos/owner/sandbox",
+        ]
+    );
     scripted.finish()?;
     Ok(())
 }
@@ -207,6 +220,36 @@ fn guard_fails_closed_on_unconfirmed_privacy_and_names() -> Result<(), String> {
         let guard = Guarded::new(&scripted, target, listed(&repo));
         assert_eq!(guard.check(), Err(expected));
         assert_eq!(scripted.delivered().len(), 1);
+        scripted.finish()?;
+    }
+    Ok(())
+}
+
+#[test]
+fn guard_stays_closed_when_the_repo_read_fails_or_is_denied() -> Result<(), String> {
+    let cases = [
+        (Reply::timeout(), None),
+        (Reply::status(502), None),
+        (Reply::status(200), None),
+        (Reply::status(401), Some(401)),
+        (Reply::status(403), Some(403)),
+    ];
+    for (reply, denied) in cases {
+        let scripted = Scripted::new().then(reply);
+        let guard = Guarded::new(&scripted, gh_target(), listed("owner/sandbox"));
+        let write = guard.send(&Request::new(
+            Method::Post,
+            format!("https://gh.test{GH}/pulls"),
+        ));
+        assert!(write.is_err_and(|failure| !failure.may_have_been_sent()));
+        match (guard.refusal(), denied) {
+            (Some(GuardError::Denied(code)), Some(expected)) => assert_eq!(code, expected),
+            (Some(GuardError::Read(_)), None) => {}
+            (other, _) => return Err(format!("{denied:?}: {other:?}")),
+        }
+        let delivered = scripted.delivered();
+        assert_eq!(delivered.len(), 1, "{denied:?}");
+        assert_eq!(delivered[0].method, Method::Get);
         scripted.finish()?;
     }
     Ok(())
