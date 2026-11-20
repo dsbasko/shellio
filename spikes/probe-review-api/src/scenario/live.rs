@@ -277,9 +277,9 @@ fn in_cell_trace(result: &mut ResultFile, body: impl FnOnce(&Trace, &mut ResultF
 /// `capabilities` облачного столбца над сторожами обеих ролей: возможности ревьюера и автора
 /// читаются адаптером провайдера, записей нет (POST GraphQL — чтение). Итог: прочитано —
 /// `pass`, наличие мутаций — наблюдения, как у `gitlab_ce`; отказ транспорта, 5xx, отказ сторожа,
-/// записи и не приватный репозиторий — ошибка исполнения; лимит — `not_run` «лимит»; роль
-/// ревьюера GitLab ниже Developer — `not_run` по предусловию песочницы; прочий отказ чтения —
-/// `fail`.
+/// записи и не приватный репозиторий — ошибка исполнения; 401, 403 и 404 — `not_run` «токен без
+/// прав…»; лимит — `not_run` «лимит»; роль ревьюера GitLab ниже Developer — `not_run` по
+/// предусловию песочницы; прочий отказ чтения — `fail`.
 pub fn capabilities_cloud<T: Transport>(
     author: &Guarded<T>,
     reviewer: &Guarded<T>,
@@ -327,6 +327,8 @@ pub fn capabilities_cloud<T: Transport>(
         Some(Verdict::Error(read.errors.join("; ")))
     } else if let Some(denied) = guard_denied(&guards) {
         Some(denied)
+    } else if let Some(denied) = read.denied {
+        Some(Verdict::NotRun(denied))
     } else if let Some(limit) = read.limited {
         Some(Verdict::NotRun(limit))
     } else if !read.failed.is_empty() {
@@ -357,8 +359,15 @@ struct CapsRead {
     failed: Vec<String>,
     notes: Vec<String>,
     limited: Option<String>,
+    /// 401, 403 или 404 на чтение возможностей: токен без прав — предусловие, а не наблюдение.
+    denied: Option<String>,
     precondition: Option<String>,
     pass: Option<String>,
+}
+
+/// Причина `not_run` отказа 401, 403 или 404 на чтение возможностей роли.
+fn caps_denied(status: u16, actor: &str) -> String {
+    format!("токен без прав или нет репозитория: код {status} на чтение возможностей {actor}")
 }
 
 fn gitlab_cloud_caps<T: Transport>(
@@ -386,6 +395,10 @@ fn gitlab_cloud_caps<T: Transport>(
                     "лимит: код {status} на чтение возможностей {actor}"
                 ));
             }
+            Err(ApiError::Status {
+                status: status @ (401 | 403 | 404),
+                ..
+            }) => read.denied = Some(caps_denied(*status, actor)),
             Err(err) => match classify_read(err) {
                 Ok(observed) => read.failed.push(format!("{actor}: {observed}")),
                 Err(stand) => read.errors.push(format!("{actor}: {stand}")),
@@ -477,6 +490,10 @@ fn github_cloud_caps<T: Transport>(
             Err(err @ GhError::Status { status, .. }) if *status >= 500 => {
                 read.errors.push(format!("{actor}: {err}"));
             }
+            Err(GhError::Status {
+                status: status @ (401 | 403 | 404),
+                ..
+            }) => read.denied = Some(caps_denied(*status, actor)),
             Err(err) => read.failed.push(format!("{actor}: {err}")),
         }
     }
@@ -2456,6 +2473,27 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
         assert!(
             !result.execution.is_ok(),
             "публичный репозиторий: {result:?}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn cloud_capabilities_of_a_token_without_access_are_not_run() -> Result<(), String> {
+        use crate::fake::gitlab::{Access, GitlabFake};
+        let mut fake = GitlabFake::new(FAKE_REPO);
+        fake.add_user(FAKE_AUTHOR, FAKE_AUTHOR_TOKEN, Some(Access::Developer));
+        fake.add_user(FAKE_REVIEWER, FAKE_REVIEWER_TOKEN, None);
+        let server = crate::fake::FakeServer::start(fake)?;
+        let trace = Trace::new();
+        let author = fake_guard(server.base(), FAKE_AUTHOR_TOKEN, &trace);
+        let reviewer = fake_guard(server.base(), FAKE_REVIEWER_TOKEN, &trace);
+        let result = caps_cell(&author, &reviewer, &trace, Column::GitlabCloud);
+        assert!(result.execution.is_ok(), "{:?}", result.execution);
+        assert_eq!(result.status, Status::NotRun, "{result:?}");
+        assert!(
+            result.reason.starts_with("токен без прав"),
+            "{}",
+            result.reason
         );
         Ok(())
     }
