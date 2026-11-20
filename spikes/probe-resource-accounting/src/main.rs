@@ -14,6 +14,11 @@ mod proc;
 mod results;
 mod runstate;
 mod scenario;
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "снимок берут сценарии задачи 6")
+)]
+mod snapshot;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;

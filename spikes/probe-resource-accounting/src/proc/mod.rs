@@ -490,6 +490,8 @@ pub mod fake {
 
     #[derive(Default)]
     pub struct FakeSource {
+        /// Отказ `list`: весь проход не состоялся.
+        pub list_error: Option<String>,
         pub listed: Vec<Listed>,
         pub usage: BTreeMap<i32, Result<Usage, ReadError>>,
         pub session: BTreeMap<i32, Result<i32, ReadError>>,
@@ -537,10 +539,13 @@ pub mod fake {
     impl FakeSource {
         /// Процесс, который все вызовы читают согласованно.
         pub fn add(&mut self, listed: Listed, start_abstime: u64, cpu_mach: u64) {
+            self.add_usage(listed, usage_of(start_abstime, cpu_mach));
+        }
+
+        pub fn add_usage(&mut self, listed: Listed, usage: Usage) {
             let pid = listed.pid;
             self.info.insert(pid, Ok(info_of(&listed)));
-            self.usage
-                .insert(pid, Ok(usage_of(start_abstime, cpu_mach)));
+            self.usage.insert(pid, Ok(usage));
             self.session.insert(pid, Ok(1));
             self.listed.push(listed);
         }
@@ -548,7 +553,10 @@ pub mod fake {
 
     impl Source for FakeSource {
         fn list(&self) -> Result<Vec<Listed>, String> {
-            Ok(self.listed.clone())
+            match &self.list_error {
+                Some(error) => Err(error.clone()),
+                None => Ok(self.listed.clone()),
+            }
         }
 
         fn usage(&self, pid: i32) -> Result<Usage, ReadError> {
