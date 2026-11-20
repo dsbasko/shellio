@@ -353,7 +353,7 @@ cd ../shellio-p08 && base=$(cat ../shellio-p07-p08.base) && ralphex docs/plans/2
 - Create: `spikes/probe-resource-accounting/src/scenario/attrib.rs`
 - Modify: `docs/probes/p0.8-resource-accounting.md`
 
-- [ ] записать ожидания и допуски таблиц «Оракулы» и «Сценарии атрибуции и формул» в отчёт до первого прогона
+- [x] записать ожидания и допуски таблиц «Оракулы» и «Сценарии атрибуции и формул» в отчёт до первого прогона
 - [ ] сценарии `formula-cpu`, `formula-mem`, `sessions`, `git-shared`, `reparent`, `churn`, `attach-move`, `login`, `eperm-inject`
 - [ ] микрозамер списка процессов по правилу выбора, итог — в отчёт
 - [ ] тесты сравнения с оракулом и сборки итога
