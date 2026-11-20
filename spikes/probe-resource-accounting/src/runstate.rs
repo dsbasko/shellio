@@ -655,15 +655,19 @@ mod tests {
             record_attempt(&context, Attempt::LockBusy).unwrap(),
             Decision::Retry(2)
         );
-        let other = base.join("cost-idle-attempt-x.json");
+        // Посторонние записи в каталоге счёта: не копия попытки и чужой процесс.
+        let other = counters.join("cost-idle-attempt-x.json");
+        let neighbour = counters.join("cost-pids8-attempt-1.json");
         fs::write(&other, "{}").unwrap();
+        fs::write(&neighbour, "{}").unwrap();
         assert!(counters.join("cost-idle-attempt-2.json").exists());
         assert_eq!(
             record_attempt(&context, Attempt::Started).unwrap(),
             Decision::Reset
         );
-        assert_eq!(fs::read_dir(&counters).unwrap().count(), 0);
+        assert_eq!(fs::read_dir(&counters).unwrap().count(), 2);
         assert!(other.exists());
+        assert!(neighbour.exists());
         assert_eq!(
             record_attempt(&context, Attempt::LockBusy).unwrap(),
             Decision::Retry(1)
