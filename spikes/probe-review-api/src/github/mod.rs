@@ -42,10 +42,10 @@ const MAX_PAGES: usize = 100;
 
 const ADD_THREAD: &str = "mutation($input: AddPullRequestReviewThreadInput!) { \
 addPullRequestReviewThread(input: $input) { thread { id comments(first: 1) { nodes { \
-id databaseId body pullRequestReview { id } } } } } }";
+id fullDatabaseId body pullRequestReview { id } } } } } }";
 const UPDATE_COMMENT: &str = "mutation($input: UpdatePullRequestReviewCommentInput!) { \
 updatePullRequestReviewComment(input: $input) { pullRequestReviewComment { \
-id databaseId body pullRequestReview { id } } } }";
+id fullDatabaseId body pullRequestReview { id } } } }";
 const MARK_VIEWED: &str = "mutation($input: MarkFileAsViewedInput!) { \
 markFileAsViewed(input: $input) { pullRequest { id } } }";
 const UNMARK_VIEWED: &str = "mutation($input: UnmarkFileAsViewedInput!) { \
@@ -409,7 +409,10 @@ impl ExistingPending {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PendingComment {
     pub id: ProviderId,
-    pub database_id: ProviderId,
+    /// Числовой ID: REST `id` или GraphQL `fullDatabaseId` (`databaseId` устарел). Поле GraphQL
+    /// допускает `null`, а записи адаптера числовой ID не нужен, поэтому его отсутствие в ответе
+    /// 2xx не делает итог записи неизвестным.
+    pub database_id: Option<ProviderId>,
     /// Тред из ответа `addPullRequestReviewThread`; у восстановленного из журнала его нет: REST
     /// комментария тред не отдаёт.
     pub thread_id: Option<ProviderId>,
@@ -765,7 +768,7 @@ impl<T: Transport> GitHub<T> {
                 })?;
             restored.push(PendingComment {
                 id: comment.node_id.clone(),
-                database_id: comment.id.clone(),
+                database_id: Some(comment.id.clone()),
                 thread_id: None,
                 body: comment.body.clone(),
                 review: review.node_id.clone(),
@@ -968,7 +971,11 @@ impl<T: Transport> GitHub<T> {
             })?;
         let mut updated = pending_comment_of(updated, None)?;
         updated.thread_id = comment.thread_id.clone();
-        if updated.id != comment.id || updated.database_id != comment.database_id {
+        let numeric_changed = matches!(
+            (&updated.database_id, &comment.database_id),
+            (Some(new), Some(old)) if new != old
+        );
+        if updated.id != comment.id || numeric_changed {
             return Err(ApiError::Unexpected(format!(
                 "ID комментария сменился: {} → {}",
                 comment.id.as_str(),
@@ -1376,7 +1383,7 @@ fn pending_comment_of(
 ) -> Result<PendingComment, ApiError> {
     Ok(PendingComment {
         id: id_field(value, "id")?,
-        database_id: id_field(value, "databaseId")?,
+        database_id: optional_id(value, "fullDatabaseId"),
         thread_id: thread_id.map(ProviderId::new),
         body: str_field(value, "body")?,
         review: value

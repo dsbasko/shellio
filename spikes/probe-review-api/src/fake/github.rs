@@ -1649,11 +1649,11 @@ fn comment_gql(pull: &Pull, comment: &Comment) -> Value {
         pull.comments
             .iter()
             .find(|c| c.id == parent)
-            .map(|c| json!({"id": c.node_id, "databaseId": c.id}))
+            .map(|c| json!({"id": c.node_id, "fullDatabaseId": c.id.to_string()}))
     });
     json!({
         "id": comment.node_id,
-        "databaseId": comment.id,
+        "fullDatabaseId": comment.id.to_string(),
         "body": comment.body,
         "path": comment.path,
         "line": comment.line,

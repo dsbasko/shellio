@@ -90,9 +90,9 @@ impl Client {
 }
 
 const ADD_THREAD: &str = "mutation($input: AddPullRequestReviewThreadInput!) { \
-    addPullRequestReviewThread(input: $input) { thread { id comments(first: 1) { nodes { id databaseId body } } } } }";
+    addPullRequestReviewThread(input: $input) { thread { id comments(first: 1) { nodes { id fullDatabaseId body } } } } }";
 const UPDATE_COMMENT: &str = "mutation($input: UpdatePullRequestReviewCommentInput!) { \
-    updatePullRequestReviewComment(input: $input) { pullRequestReviewComment { id databaseId body } } }";
+    updatePullRequestReviewComment(input: $input) { pullRequestReviewComment { id fullDatabaseId body } } }";
 
 fn spec(line: u32, body: &str) -> CommentSpec {
     CommentSpec::line("src/a.rs", DiffSide::Right, line, body)
@@ -313,7 +313,11 @@ fn pending_cycle_with_graphql_threads_and_submit_without_comments() {
     );
     let comment = &added["data"]["addPullRequestReviewThread"]["thread"]["comments"]["nodes"][0];
     let comment_node = comment["id"].as_str().expect("id").to_owned();
-    let comment_id = comment["databaseId"].as_u64().expect("databaseId");
+    let comment_id = comment["fullDatabaseId"]
+        .as_str()
+        .and_then(|id| id.parse::<u64>().ok())
+        .expect("fullDatabaseId строкой, как BigInt");
+    assert!(comment.get("databaseId").is_none(), "устаревший databaseId");
     assert_eq!(comment["body"], "первый");
 
     let updated = reviewer.graphql(
@@ -321,7 +325,10 @@ fn pending_cycle_with_graphql_threads_and_submit_without_comments() {
         json!({"input": {"pullRequestReviewCommentId": comment_node, "body": "исправленный"}}),
     );
     let after = &updated["data"]["updatePullRequestReviewComment"]["pullRequestReviewComment"];
-    assert_eq!(after["databaseId"].as_u64(), Some(comment_id));
+    assert_eq!(
+        after["fullDatabaseId"].as_str(),
+        Some(comment_id.to_string().as_str())
+    );
     assert_eq!(after["body"], "исправленный");
 
     let bad_line = reviewer.graphql(
@@ -842,8 +849,8 @@ fn node_reads_review_thread_and_pull_threads_with_visibility() {
     assert_eq!(review["commit"]["oid"], "head1");
     assert_eq!(review["comments"]["totalCount"], 2);
     assert_eq!(
-        review["comments"]["nodes"][1]["databaseId"].as_u64(),
-        Some(ids[1])
+        review["comments"]["nodes"][1]["fullDatabaseId"].as_str(),
+        Some(ids[1].to_string().as_str())
     );
     assert_eq!(review["comments"]["nodes"][1]["state"], "PENDING");
     assert_eq!(review["comments"]["pageInfo"]["hasNextPage"], false);

@@ -124,7 +124,7 @@ fn thread_reply(thread: &str, id: &str, database_id: u64, body: &str, review: &s
             "id": thread,
             "comments": {"nodes": [{
                 "id": id,
-                "databaseId": database_id,
+                "fullDatabaseId": database_id.to_string(),
                 "body": body,
                 "pullRequestReview": {"id": review},
             }]},
@@ -132,12 +132,14 @@ fn thread_reply(thread: &str, id: &str, database_id: u64, body: &str, review: &s
     )
 }
 
+/// `fullDatabaseId` числом, а в [`thread_reply`] — строкой, как справочник кодирует `BigInt`:
+/// разбор принимает обе формы, и тесты сравнивают их между собой.
 fn update_reply(id: &str, database_id: u64, body: &str, review: &str) -> Reply {
     Reply::json(
         200,
         &json!({"data": {"updatePullRequestReviewComment": {"pullRequestReviewComment": {
             "id": id,
-            "databaseId": database_id,
+            "fullDatabaseId": database_id,
             "body": body,
             "pullRequestReview": {"id": review},
         }}}}),
@@ -524,7 +526,7 @@ fn server_pending_cycle_keeps_ids_and_submits_without_comments() -> TestResult {
     assert!(!pending.is_adopted() && pending.foreign().is_empty());
     let first = github.add_pending_comment(&session, &pending, &drafts[0])?;
     assert_eq!(first.id, ProviderId::new("PRRC_1"));
-    assert_eq!(first.database_id, ProviderId::new("701"));
+    assert_eq!(first.database_id, Some(ProviderId::new("701")));
     assert_eq!(first.thread_id, Some(ProviderId::new("PRRT_1")));
     let range = github.add_pending_comment(&session, &pending, &drafts[2])?;
     assert_eq!(range.id, ProviderId::new("PRRC_2"));
@@ -605,7 +607,7 @@ fn pending_comment_answers_without_ids_or_with_other_ids_are_unknown() -> TestRe
     }
     let comment = PendingComment {
         id: ProviderId::new("PRRC_1"),
-        database_id: ProviderId::new("701"),
+        database_id: Some(ProviderId::new("701")),
         thread_id: Some(ProviderId::new("PRRT_1")),
         body: "added".to_owned(),
         review: ProviderId::new("PRR_601"),
@@ -625,6 +627,57 @@ fn pending_comment_answers_without_ids_or_with_other_ids_are_unknown() -> TestRe
         );
         scripted.finish()?;
     }
+    Ok(())
+}
+
+#[test]
+fn pending_comment_mutations_select_full_database_id_and_accept_null() -> TestResult {
+    for query in [ADD_THREAD, UPDATE_COMMENT] {
+        assert!(query.contains("fullDatabaseId"), "{query}");
+        assert!(
+            !query.replace("fullDatabaseId", "").contains("databaseId"),
+            "устаревший databaseId: {query}"
+        );
+    }
+    let session = session_on(HEAD)?;
+    let drafts = drafts(&session)?;
+    let pending = PendingReview {
+        id: ProviderId::new("601"),
+        node_id: ProviderId::new("PRR_601"),
+        commit_id: Sha::parse(HEAD)?,
+        foreign: Vec::new(),
+        adopted: false,
+    };
+    let comment = json!({
+        "id": "PRRC_1",
+        "fullDatabaseId": null,
+        "body": "added",
+        "pullRequestReview": {"id": "PRR_601"},
+    });
+    let scripted = Scripted::new()
+        .expect(
+            Method::Post,
+            "/graphql",
+            Reply::json(
+                200,
+                &json!({"data": {"addPullRequestReviewThread": {"thread": {
+                    "id": "PRRT_1", "comments": {"nodes": [comment]},
+                }}}}),
+            ),
+        )
+        .expect(
+            Method::Post,
+            "/graphql",
+            update_reply("PRRC_1", 701, "v2", "PRR_601"),
+        );
+    let github = adapter(&scripted)?;
+    let added = github.add_pending_comment(&session, &pending, &drafts[0])?;
+    assert_eq!(added.id, ProviderId::new("PRRC_1"));
+    assert_eq!(added.database_id, None);
+    let updated = github.update_pending_comment(&pending, &added, "v2")?;
+    assert_eq!(updated.id, added.id);
+    assert_eq!(updated.database_id, Some(ProviderId::new("701")));
+    scripted.finish()?;
     Ok(())
 }
 
@@ -729,7 +782,7 @@ fn adopted_pending_on_another_commit_takes_no_comment() -> TestResult {
     };
     let comment = PendingComment {
         id: ProviderId::new("PRRC_1"),
-        database_id: ProviderId::new("701"),
+        database_id: Some(ProviderId::new("701")),
         thread_id: Some(ProviderId::new("PRRT_1")),
         body: "x".to_owned(),
         review: ProviderId::new("PRR_77"),
@@ -1031,7 +1084,7 @@ fn graphql_errors_at_http_200_classify_the_write_fate() -> TestResult {
     };
     let comment = PendingComment {
         id: ProviderId::new("PRRC_1"),
-        database_id: ProviderId::new("701"),
+        database_id: Some(ProviderId::new("701")),
         thread_id: Some(ProviderId::new("PRRT_1")),
         body: "x".to_owned(),
         review: ProviderId::new("PRR_601"),
@@ -1489,7 +1542,7 @@ fn own_pending_is_resumed_from_recorded_ids_without_becoming_foreign() -> TestRe
     assert_eq!(own[0].database_id, first.database_id);
     assert_eq!(own[0].thread_id, None);
     let (unlisted, _) = github.resume_pending(&session, &recorded_review, &[], false)?;
-    assert_eq!(unlisted.foreign(), std::slice::from_ref(&first.database_id));
+    assert_eq!(unlisted.foreign(), first.database_id.as_slice());
 
     let edited = github.update_pending_comment(&resumed, &own[0], "после переоткрытия")?;
     assert_eq!(edited.id, recorded_comment);
