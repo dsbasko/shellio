@@ -424,6 +424,18 @@ mod tests {
         assert_eq!(fake.first().map(String::as_str), Some("fake:smoke"));
         assert_eq!(fake.len(), results::MATRIX_ROWS.len() + 1);
         assert!(fake.iter().all(|pair| pair.starts_with("fake:")));
-        assert!(known_pairs(Some(Column::Ghes)).is_empty());
+        let ghes: Vec<String> = known_pairs(Some(Column::Ghes))
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        assert!(
+            ghes.contains(&"ghes:gh-local-create".to_owned()),
+            "{ghes:?}"
+        );
+        assert!(ghes.contains(&"ghes:capabilities".to_owned()), "{ghes:?}");
+        assert!(
+            !ghes.iter().any(|pair| pair.starts_with("ghes:gl-")),
+            "{ghes:?}"
+        );
     }
 }

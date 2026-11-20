@@ -106,12 +106,15 @@ impl Scenario {
     pub fn columns(self) -> &'static [Column] {
         match self {
             Scenario::Smoke => &[Column::Fake],
+            // Строки GitHub; строки провайдера другого хоста в столбце — «—» матрицы.
             Scenario::GhLocalCreate
             | Scenario::GhPendingCycle
             | Scenario::GhPendingForeign
             | Scenario::GhAnchors
             | Scenario::GhViewed
-            | Scenario::GlDraftPublish
+            | Scenario::ReconcileForeign => &[Column::Fake, Column::GithubCloud, Column::Ghes],
+            // Строки GitLab; столбец `gitlab_ce` добавляется вместе с их живыми сценариями.
+            Scenario::GlDraftPublish
             | Scenario::GlForeignDraft
             | Scenario::GlApproveSha
             | Scenario::GlRequestChanges
@@ -119,11 +122,16 @@ impl Scenario {
             | Scenario::HeadChange
             | Scenario::JournalCrash
             | Scenario::ReconcileAmbiguous
-            | Scenario::ReconcileForeign
             | Scenario::ReconcileDeleted
             | Scenario::ReconcilePaged
-            | Scenario::Partial => &[Column::Fake],
-            Scenario::Capabilities => &[Column::Fake, Column::GitlabCe],
+            | Scenario::Partial => &[Column::Fake, Column::GitlabCloud],
+            Scenario::Capabilities => &[
+                Column::Fake,
+                Column::GithubCloud,
+                Column::GitlabCloud,
+                Column::GitlabCe,
+                Column::Ghes,
+            ],
         }
     }
 

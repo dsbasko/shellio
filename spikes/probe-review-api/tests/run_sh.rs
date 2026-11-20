@@ -76,7 +76,7 @@ fn live_pairs_without_live_scenario_are_refused_before_lock() -> TestResult {
     let output = run(cache.path(), &[], &["live", "smoke"])?;
     assert_eq!(code(&output), Some(EXIT_USAGE), "{}", stderr(&output));
     assert!(stderr(&output).contains("пустое пересечение"));
-    let output = run(cache.path(), &[("HOSTS", "ghes")], &["live"])?;
+    let output = run(cache.path(), &[("HOSTS", "ghes")], &["live", "gl-anchors"])?;
     assert_eq!(code(&output), Some(EXIT_USAGE), "{}", stderr(&output));
     assert!(stderr(&output).contains("пустое пересечение"));
     assert!(!cache.path().join("measure.lock").exists());

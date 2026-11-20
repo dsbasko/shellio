@@ -50,10 +50,10 @@ OUT_BASE="$ROOT/target/probes/review-api"
 FAKE_HOSTS="fake"
 LIVE_HOSTS="github_cloud gitlab_cloud gitlab_ce ghes"
 SCENARIOS_fake="smoke gh-local-create gh-pending-cycle gh-pending-foreign gh-anchors gh-viewed gl-draft-publish gl-foreign-draft gl-approve-sha gl-request-changes gl-anchors head-change journal-crash reconcile-ambiguous reconcile-foreign reconcile-deleted reconcile-paged partial capabilities"
-SCENARIOS_github_cloud=""
-SCENARIOS_gitlab_cloud=""
+SCENARIOS_github_cloud="gh-local-create gh-pending-cycle gh-pending-foreign gh-anchors gh-viewed reconcile-foreign capabilities"
+SCENARIOS_gitlab_cloud="gl-draft-publish gl-foreign-draft gl-approve-sha gl-request-changes gl-anchors head-change journal-crash reconcile-ambiguous reconcile-deleted reconcile-paged partial capabilities"
 SCENARIOS_gitlab_ce="capabilities"
-SCENARIOS_ghes=""
+SCENARIOS_ghes="gh-local-create gh-pending-cycle gh-pending-foreign gh-anchors gh-viewed reconcile-foreign capabilities"
 
 EXIT_ERROR=1
 EXIT_USAGE=2

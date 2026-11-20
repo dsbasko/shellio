@@ -18,14 +18,18 @@
 //! условие итога; отказ транспорта и 5xx дополнительного запроса — ошибка исполнения, как у
 //! остальных чтений.
 
+use std::path::PathBuf;
+
 use serde_json::Value;
 
 use super::Context;
 use crate::gitlab::capabilities::{self as gl_caps, IntrospectionReply};
 use crate::gitlab::{ApiError, Capabilities, DEVELOPER, GitLab};
-use crate::live::credential;
 use crate::live::guard::{GuardTarget, Guarded, WriteScope};
+use crate::live::keychain::Keychain;
 use crate::live::provision::{self, CeHost, CeTokens, Pin};
+use crate::live::sandbox::{self, Sandbox, SandboxError};
+use crate::live::{Preflight, credential, preflight};
 use crate::model::{Provider, ReviewTarget};
 use crate::results::{Column, Execution, Host, ResultFile, Status};
 use crate::scrub::{LABEL_AUTHOR, LABEL_REVIEWER, Scrubber};
@@ -34,17 +38,98 @@ use crate::transport::{Trace, Traced};
 
 use super::Scenario;
 
-pub fn run(scenario: Scenario, ctx: &Context, result: &mut ResultFile) {
-    match (scenario, ctx.column) {
-        (Scenario::Capabilities, Column::GitlabCe) => capabilities_ce(result),
-        _ => {
-            result.execution = Execution::error(format!(
-                "сценарий {} в столбце {} не реализован",
-                scenario.name(),
-                ctx.column.name()
-            ));
+/// Причина `not_run` каждой клетки столбца `ghes`.
+pub const GHES_REASON: &str = "нет инсталляции GitHub Enterprise Server, передача P4.1";
+
+/// Откуда живой процесс берёт предусловия облачных столбцов. Тесты подставляют файл песочниц и
+/// команду `security`, чтобы не читать настоящие `~/.config` и Keychain.
+pub struct LiveEnv {
+    /// Путь `sandbox.toml`; `None` — файла нет.
+    pub sandbox: Option<PathBuf>,
+    pub keychain: Keychain,
+}
+
+impl LiveEnv {
+    pub fn system() -> LiveEnv {
+        LiveEnv {
+            sandbox: sandbox::default_path(),
+            keychain: Keychain::system(),
         }
     }
+}
+
+pub fn run(scenario: Scenario, ctx: &Context, result: &mut ResultFile) {
+    run_in(scenario, ctx, result, LiveEnv::system);
+}
+
+/// Клетка живого столбца; предусловия облачного хоста читаются только у облачного столбца.
+pub fn run_in(
+    scenario: Scenario,
+    ctx: &Context,
+    result: &mut ResultFile,
+    env: impl FnOnce() -> LiveEnv,
+) {
+    if !scenario.columns().contains(&ctx.column) {
+        result.execution = Execution::error(format!(
+            "сценарий {} не идёт в столбце {}",
+            scenario.name(),
+            ctx.column.name()
+        ));
+        return;
+    }
+    match ctx.column {
+        Column::Fake => {
+            result.execution = Execution::error("столбец fake не живой".to_owned());
+        }
+        Column::Ghes => {
+            result.status = Status::NotRun;
+            result.reason = GHES_REASON.to_owned();
+        }
+        Column::GithubCloud | Column::GitlabCloud => cloud(scenario, ctx, result, &env()),
+        Column::GitlabCe => match scenario {
+            Scenario::Capabilities => capabilities_ce(result),
+            _ => not_implemented(scenario, ctx, result),
+        },
+    }
+}
+
+fn not_implemented(scenario: Scenario, ctx: &Context, result: &mut ResultFile) {
+    result.execution = Execution::error(format!(
+        "сценарий {} в столбце {} не реализован",
+        scenario.name(),
+        ctx.column.name()
+    ));
+}
+
+/// Предусловия облачного столбца: файл песочниц, хост, токены обеих ролей. Без них клетка —
+/// `not_run` с причиной, испорченный файл — ошибка исполнения.
+fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveEnv) {
+    let sandbox = match &env.sandbox {
+        Some(path) => Sandbox::load(path),
+        None => Err(SandboxError::Missing),
+    };
+    let host = match preflight(ctx.column, sandbox, &env.keychain) {
+        Preflight::Ready(host) => host,
+        Preflight::NotRun(reason) => {
+            result.status = Status::NotRun;
+            result.reason = reason;
+            return;
+        }
+        Preflight::Error(err) => {
+            result.execution = Execution::error(err);
+            return;
+        }
+    };
+    if let Err(reason) = host
+        .accounts
+        .author()
+        .and_then(|_| host.accounts.reviewer())
+    {
+        result.status = Status::NotRun;
+        result.reason = reason;
+        return;
+    }
+    not_implemented(scenario, ctx, result);
 }
 
 /// Хост и токены из окружения процесса, которое задаёт `run.sh`.
@@ -510,6 +595,121 @@ glpat-authorsecret1 glpat-reviewersecret2 Probe Author probe-reviewer Probe Revi
             assert!(!text.contains(secret), "{secret} в «{text}»");
         }
         assert!(text.contains("<gitlab-ce>"), "{text}");
+    }
+
+    fn ctx(column: Column, dir: &std::path::Path) -> Context {
+        Context {
+            column,
+            out: dir.to_path_buf(),
+            state_dir: dir.to_path_buf(),
+        }
+    }
+
+    fn untouched() -> LiveEnv {
+        panic!("предусловия облачного хоста не должны читаться")
+    }
+
+    /// Подставной `security`: токен есть только у `author`, остальные — код 44.
+    fn stub_env(dir: &std::path::Path, sandbox: Option<&str>) -> Result<LiveEnv, String> {
+        use std::os::unix::fs::PermissionsExt;
+        let program = dir.join("security");
+        std::fs::write(
+            &program,
+            "#!/bin/sh\ncase \"$5\" in\n  github-author|gitlab-author) printf 'tok-author\\n' ;;\n  *) exit 44 ;;\nesac\n",
+        )
+        .map_err(|e| e.to_string())?;
+        std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755))
+            .map_err(|e| e.to_string())?;
+        let path = dir.join("sandbox.toml");
+        if let Some(text) = sandbox {
+            std::fs::write(&path, text).map_err(|e| e.to_string())?;
+        }
+        Ok(LiveEnv {
+            sandbox: Some(path),
+            keychain: Keychain::with_program(&program, std::time::Duration::from_secs(10)),
+        })
+    }
+
+    fn cell(scenario: Scenario, column: Column, env: impl FnOnce() -> LiveEnv) -> ResultFile {
+        let dir = std::env::temp_dir();
+        let mut result = ResultFile::new("s", "b", scenario.name(), column);
+        run_in(scenario, &ctx(column, &dir), &mut result, env);
+        result
+    }
+
+    #[test]
+    fn ghes_cells_are_not_run_without_reading_preconditions() {
+        for scenario in Scenario::ALL
+            .into_iter()
+            .filter(|s| s.columns().contains(&Column::Ghes))
+        {
+            let result = cell(scenario, Column::Ghes, untouched);
+            assert!(result.execution.is_ok(), "{}", scenario.name());
+            assert_eq!(result.status, Status::NotRun);
+            assert_eq!(result.reason, GHES_REASON);
+            assert!(result.trace.is_empty());
+            assert!(result.problems().is_empty(), "{:?}", result.problems());
+        }
+    }
+
+    #[test]
+    fn scenario_outside_its_columns_is_execution_error_before_preconditions() {
+        let result = cell(Scenario::Partial, Column::GithubCloud, untouched);
+        assert!(!result.execution.is_ok());
+        let result = cell(Scenario::GhAnchors, Column::GitlabCloud, untouched);
+        assert!(!result.execution.is_ok());
+    }
+
+    #[test]
+    fn cloud_cells_without_preconditions_are_not_run() -> Result<(), String> {
+        let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let missing = cell(Scenario::GhLocalCreate, Column::GithubCloud, || {
+            stub_env(dir.path(), None).unwrap_or_else(|_| untouched())
+        });
+        assert!(missing.execution.is_ok());
+        assert_eq!(missing.status, Status::NotRun);
+        assert_eq!(missing.reason, "нет sandbox.toml");
+
+        let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let env = stub_env(dir.path(), Some("[gitlab_cloud]\nrepo = \"g/p\"\n"))?;
+        let no_host = cell(Scenario::GhViewed, Column::GithubCloud, || env);
+        assert_eq!(no_host.status, Status::NotRun);
+        assert_eq!(no_host.reason, "нет хоста github_cloud в sandbox.toml");
+
+        let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let env = stub_env(dir.path(), Some("[gitlab_cloud]\nrepo = \"g/p\"\n"))?;
+        let no_reviewer = cell(Scenario::GlDraftPublish, Column::GitlabCloud, || env);
+        assert!(no_reviewer.execution.is_ok());
+        assert_eq!(no_reviewer.status, Status::NotRun);
+        assert!(
+            no_reviewer.reason.starts_with("нет ревьюера: ")
+                && no_reviewer.reason.contains("gitlab-reviewer"),
+            "{}",
+            no_reviewer.reason
+        );
+        assert!(no_reviewer.problems().is_empty());
+
+        let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let env = stub_env(
+            dir.path(),
+            Some("[gitlab_cloud]\nrepo = \"g/p\"\nauthor = \"nobody\"\n"),
+        )?;
+        let no_author = cell(Scenario::Capabilities, Column::GitlabCloud, || env);
+        assert!(
+            no_author.reason.starts_with("нет автора: "),
+            "{}",
+            no_author.reason
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn broken_sandbox_is_execution_error() -> Result<(), String> {
+        let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let env = stub_env(dir.path(), Some("[github_cloud]\nrepo = 5\n"))?;
+        let result = cell(Scenario::Capabilities, Column::GithubCloud, || env);
+        assert!(!result.execution.is_ok());
+        Ok(())
     }
 
     #[test]
