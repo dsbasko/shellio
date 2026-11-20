@@ -124,7 +124,9 @@ run_unit() {
     local dir="$RUN_DIR/$unit" state_dir status=0 attempt
     reset_unit_dir "$dir"
     state_dir="$(mktemp -d "${TMPDIR:-/tmp}/shellio-probe-resources.XXXXXX")"
-    set -- /usr/bin/env SHELLIO_STATE_DIR="$state_dir" /usr/bin/caffeinate -i \
+    # Отметка до захвата блокировки: от неё сценарий cost считает общий срок попытки 25 минут.
+    set -- /usr/bin/env SHELLIO_STATE_DIR="$state_dir" SHELLIO_PROBE_UNIT_START="$(date +%s)" \
+        /usr/bin/caffeinate -i \
         "$BIN" --scenario "$scenario" --out "$dir"
     if [ -n "$point" ]; then
         set -- "$@" --point "$point"

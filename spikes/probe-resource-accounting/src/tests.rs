@@ -140,7 +140,8 @@ fn unknown_modes_and_extra_arguments_are_refused() {
         dispatch(args(&["--fixture", "load"])),
         Ok(fixture::EXIT_USAGE)
     );
-    assert!(dispatch(args(&["--observer"])).is_err());
+    assert_eq!(dispatch(args(&["--observer"])), Ok(2));
+    assert_eq!(dispatch(args(&["--observer", "--stand", "1"])), Ok(2));
 }
 
 #[test]

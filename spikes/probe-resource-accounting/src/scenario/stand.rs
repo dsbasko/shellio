@@ -27,6 +27,11 @@ pub struct Stand {
 
 impl Stand {
     pub fn start(out: &Path) -> Result<Stand, String> {
+        Stand::start_with(out, LIFETIME)
+    }
+
+    /// Стенд с собственным сроком фикстур `lifetime`.
+    pub fn start_with(out: &Path, lifetime: Duration) -> Result<Stand, String> {
         let exe = std::env::current_exe().map_err(|err| format!("current_exe: {err}"))?;
         let socket_dir = std::env::var("SHELLIO_STATE_DIR")
             .ok()
@@ -38,7 +43,7 @@ impl Stand {
             .ticks_to_ns(0)
             .ok_or_else(|| format!("mach_timebase_info: {}/{}", timebase.numer, timebase.denom))?;
         Ok(Stand {
-            bench: Bench::start(exe, &socket_dir, out, LIFETIME)?,
+            bench: Bench::start(exe, &socket_dir, out, lifetime)?,
             timebase,
         })
     }

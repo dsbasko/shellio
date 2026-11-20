@@ -595,6 +595,9 @@ impl Sampler {
         })
     }
 
+    // Управление видимостью, заявками и ожидание итога проверяют тесты; сценарий `cost` запускает
+    // сэмплер на окно и останавливает его.
+    #[cfg_attr(not(test), expect(dead_code))]
     /// То же значение поток не будит.
     pub fn set_visibility(&self, visibility: Visibility) {
         let mut requested = lock(&self.shared.requested);
@@ -604,6 +607,9 @@ impl Sampler {
         }
     }
 
+    // Управление видимостью, заявками и ожидание итога проверяют тесты; сценарий `cost` запускает
+    // сэмплер на окно и останавливает его.
+    #[cfg_attr(not(test), expect(dead_code))]
     /// Те же заявки поток не будят.
     pub fn set_claims(&self, claims: Claims) {
         let mut requested = lock(&self.shared.requested);
@@ -614,6 +620,9 @@ impl Sampler {
         }
     }
 
+    // Управление видимостью, заявками и ожидание итога проверяют тесты; сценарий `cost` запускает
+    // сэмплер на окно и останавливает его.
+    #[cfg_attr(not(test), expect(dead_code))]
     /// Ждёт опубликованный итог, для которого `accept` истинно.
     pub fn wait_published(
         &self,

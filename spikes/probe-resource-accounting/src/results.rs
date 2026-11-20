@@ -371,6 +371,9 @@ pub struct Summary {
     /// Ошибки исполнения: они роняют цель.
     pub errors: Vec<String>,
     pub counts: BTreeMap<String, usize>,
+    /// Таблица стоимости: `raw.cost_row` процессов `cost`.
+    #[serde(default)]
+    pub cost: Vec<crate::stats::CostRow>,
 }
 
 impl Summary {
@@ -395,6 +398,7 @@ pub fn aggregate(run_dir: &Path) -> Result<Summary, String> {
         pending: Vec::new(),
         errors: Vec::new(),
         counts: BTreeMap::new(),
+        cost: Vec::new(),
     };
     for dir in dirs {
         let unit = dir
@@ -410,6 +414,12 @@ pub fn aggregate(run_dir: &Path) -> Result<Summary, String> {
                     summary
                         .errors
                         .push(format!("{unit}: ошибка исполнения: {reason}"));
+                }
+                if let Some(row) = result.raw.get("cost_row") {
+                    match serde_json::from_value::<crate::stats::CostRow>(row.clone()) {
+                        Ok(row) => summary.cost.push(row),
+                        Err(err) => summary.errors.push(format!("{unit}: cost_row: {err}")),
+                    }
                 }
                 for cell in &result.cells {
                     *summary
@@ -467,6 +477,58 @@ pub fn summary_markdown(summary: &Summary) -> String {
         let _ = writeln!(
             out,
             "| `{unit}` | — | — | не начат | повтор следующим вызовом |"
+        );
+    }
+    if !summary.cost.is_empty() {
+        out.push_str(&cost_markdown(&summary.cost));
+    }
+    out
+}
+
+fn opt(value: Option<f64>, digits: usize) -> String {
+    value.map_or("—".to_owned(), |v| format!("{v:.digits$}"))
+}
+
+/// Таблица стоимости по числу PID и панелей.
+pub fn cost_markdown(rows: &[crate::stats::CostRow]) -> String {
+    let mut out = String::new();
+    let _ = writeln!(out);
+    let _ = writeln!(
+        out,
+        "| Точка | PID | Панели | Шаг, с | Блоки (чистые) | Сэмплер 10−00 / 11−01, п. п. | Итог | Учёт 01−00 / 11−10, п. п. | Итог | CPU на операцию 00/10/01/11, мкс | Проход, мкс | Пробуждений в минуту | Footprint, МиБ |"
+    );
+    let _ = writeln!(
+        out,
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    );
+    for row in rows {
+        let spans = row.spans.as_ref();
+        let _ = writeln!(
+            out,
+            "| `{}` | {} | {} | {} | {} ({}) | {} / {} | {} | {} | {} | {} | {} | {} | {} |",
+            row.point,
+            row.pids,
+            row.panels,
+            row.step_s,
+            row.blocks_run,
+            row.clean_blocks,
+            opt(row.sampler.medians[0], 3),
+            opt(row.sampler.medians[1], 3),
+            row.sampler.verdict.status().name(),
+            spans.map_or("—".to_owned(), |s| format!(
+                "{} / {}",
+                opt(s.medians[0], 3),
+                opt(s.medians[1], 3)
+            )),
+            spans.map_or("—".to_owned(), |s| s.verdict.status().name().to_owned()),
+            row.cpu_per_op_us.map_or("—".to_owned(), |values| values
+                .iter()
+                .map(|v| opt(*v, 1))
+                .collect::<Vec<_>>()
+                .join(" / ")),
+            opt(row.pass_duration_median_us, 0),
+            opt(row.wakeups_per_minute, 1),
+            opt(row.footprint_max_mib, 1),
         );
     }
     out
@@ -616,6 +678,64 @@ mod tests {
         assert!(md.contains("| `d` | — | — | не начат |"));
         write_summary(&run, &summary).unwrap();
         assert!(run.join(SUMMARY_FILE).exists() && run.join(SUMMARY_MD_FILE).exists());
+        fs::remove_dir_all(&run).unwrap();
+    }
+
+    #[test]
+    fn aggregate_collects_cost_rows_into_the_table() {
+        let run = temp_dir("cost");
+        let dir = run.join("cost-idle");
+        fs::create_dir_all(&dir).unwrap();
+        let sampler = crate::stats::EffectRow {
+            verdict: crate::stats::Verdict::Unconfirmed,
+            budget_pp: 0.5,
+            medians: [Some(0.2), None],
+            interaction_median: None,
+        };
+        let row = crate::stats::CostRow {
+            point: "idle".to_owned(),
+            pids: 32,
+            panels: 4,
+            step_s: 2.0,
+            work: false,
+            blocks_run: 7,
+            clean_blocks: 2,
+            stop: crate::stats::Stop::Complete,
+            sampler,
+            spans: None,
+            cpu_per_op_us: None,
+            pass_duration_median_us: Some(850.0),
+            wakeups_per_minute: Some(33.0),
+            set_size: Some(32),
+            partial_reads: 0,
+            footprint_max_mib: Some(9.5),
+        };
+        let mut file = result(
+            "cost",
+            vec![Cell::new("cost-sampler", Status::Unconfirmed, "о", "шумно")],
+            Execution::Ok,
+        );
+        file.raw
+            .insert("cost_row".to_owned(), serde_json::to_value(&row).unwrap());
+        write_json(&dir, RESULT_FILE, &file).unwrap();
+        let summary = aggregate(&run).unwrap();
+        assert!(summary.errors.is_empty(), "{:?}", summary.errors);
+        assert_eq!(summary.cost, vec![row]);
+        let md = summary_markdown(&summary);
+        assert!(md.contains("| `idle` | 32 | 4 | 2 | 7 (2) | 0.200 / — | не подтверждено | — | — | — | 850 | 33.0 | 9.5 |"), "{md}");
+
+        let broken = run.join("cost-bad");
+        fs::create_dir_all(&broken).unwrap();
+        file.raw
+            .insert("cost_row".to_owned(), serde_json::json!({ "point": 1 }));
+        write_json(&broken, RESULT_FILE, &file).unwrap();
+        let summary = aggregate(&run).unwrap();
+        assert!(
+            summary
+                .errors
+                .iter()
+                .any(|e| e.starts_with("cost-bad: cost_row"))
+        );
         fs::remove_dir_all(&run).unwrap();
     }
 

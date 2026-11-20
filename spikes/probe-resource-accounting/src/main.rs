@@ -4,7 +4,7 @@
 //! - `--list` — сценарии: имя, `measured` или `free`, точки оси;
 //! - `--scenario <имя> [--point <точка>] --out <каталог>` — процесс сценария;
 //! - `--fixture <режим> --channel <сокет> --name <имя> --out <каталог> …` — фикстура процессов;
-//! - `--observer` — наблюдатель стоимости (задача 11);
+//! - `--observer --stand <pid> --out <каталог>` — наблюдатель стоимости;
 //! - `--aggregate <каталог прогона>` — `summary.json` и `summary.md`;
 //! - служебные режимы `run.sh`: `--params`, `--fingerprint`, `--status-set`, `--status-pending`,
 //!   `--record`.
@@ -13,15 +13,15 @@ mod arena;
 mod attrib;
 mod background;
 mod fixture;
+mod observer;
 mod proc;
 mod results;
 mod runstate;
-// Сэмплер до сценария `cost` задачи 11 работает только в тестах.
-#[cfg_attr(not(test), expect(dead_code))]
 mod sampler;
 mod scenario;
 mod snapshot;
 mod spans;
+mod stats;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -37,6 +37,8 @@ fn params() -> serde_json::Value {
         "background_system_pct": background::THRESHOLDS.system_pct,
         "background_foreign_pct": background::THRESHOLDS.foreign_pct,
         "not_started_limit": runstate::NOT_STARTED_LIMIT,
+        "sampler_steps": sampler::STEPS,
+        "cost_protocol": scenario::cost_protocol(),
         "scenarios": Scenario::ALL
             .iter()
             .map(|s| serde_json::json!({ "name": s.name(), "measured": s.measured(), "points": s.points() }))
@@ -179,7 +181,7 @@ fn dispatch(mut rest: Vec<String>) -> Result<i32, String> {
             run_scenario(args, &name)
         }
         "--fixture" => Ok(fixture::main(args.rest)),
-        "--observer" => Err("наблюдатель появляется в задаче 11".to_owned()),
+        "--observer" => Ok(observer::main(args.rest)),
         "--aggregate" => {
             let run_dir = take_positional(&mut args, "--aggregate")?;
             args.finish()?;

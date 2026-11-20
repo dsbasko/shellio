@@ -2,6 +2,7 @@
 
 mod attrib;
 mod clock;
+mod cost;
 mod formula;
 mod listing;
 mod spans;
@@ -39,10 +40,11 @@ pub enum Scenario {
     SpanParallel,
     SpanBlocking,
     Arena,
+    Cost,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 20] = [
+    pub const ALL: [Scenario; 21] = [
         Scenario::Smoke,
         Scenario::Units,
         Scenario::FormulaCpu,
@@ -63,6 +65,7 @@ impl Scenario {
         Scenario::SpanParallel,
         Scenario::SpanBlocking,
         Scenario::Arena,
+        Scenario::Cost,
     ];
 
     pub fn name(self) -> &'static str {
@@ -87,6 +90,7 @@ impl Scenario {
             Scenario::SpanParallel => "span-parallel",
             Scenario::SpanBlocking => "span-blocking",
             Scenario::Arena => "arena",
+            Scenario::Cost => "cost",
         }
     }
 
@@ -105,7 +109,8 @@ impl Scenario {
             | Scenario::SpanMigrate
             | Scenario::SpanNested
             | Scenario::SpanParallel
-            | Scenario::SpanBlocking => true,
+            | Scenario::SpanBlocking
+            | Scenario::Cost => true,
             Scenario::FormulaMem
             | Scenario::Sessions
             | Scenario::GitShared
@@ -122,8 +127,16 @@ impl Scenario {
 
     /// Точки оси процесса; пустой список — один процесс без точки.
     pub fn points(self) -> &'static [&'static str] {
-        &[]
+        match self {
+            Scenario::Cost => cost::POINT_NAMES,
+            _ => &[],
+        }
     }
+}
+
+/// Протокол `cost` для параметров прогона: точки и постоянные протокола.
+pub fn cost_protocol() -> serde_json::Value {
+    serde_json::json!({ "protocol": cost::PROTOCOL, "points": cost::POINTS })
 }
 
 /// Итог процесса сценария.
@@ -177,6 +190,12 @@ pub fn run(scenario: Scenario, point: Option<&str>, out: &Path) -> Outcome {
         Scenario::SpanParallel => measured(scenario, environment, spans::run_parallel),
         Scenario::SpanBlocking => measured(scenario, environment, spans::run_blocking),
         Scenario::Arena => free(scenario, environment, spans::run_arena),
+        Scenario::Cost => {
+            let point = point.unwrap_or_default();
+            measured_at(scenario, Some(point), environment, |before| {
+                cost::run(point, before, out)
+            })
+        }
     }
 }
 
@@ -241,16 +260,26 @@ fn measured(
     environment: Environment,
     body: impl FnOnce(Vec<BackgroundRecord>) -> Result<Report, String>,
 ) -> Outcome {
-    let records = match quiet_or_not_started(scenario, None, &environment) {
-        Err(reason) => return error(scenario, None, environment, reason),
+    measured_at(scenario, None, environment, body)
+}
+
+/// Замерный сценарий в точке оси.
+fn measured_at(
+    scenario: Scenario,
+    point: Option<&str>,
+    environment: Environment,
+    body: impl FnOnce(Vec<BackgroundRecord>) -> Result<Report, String>,
+) -> Outcome {
+    let records = match quiet_or_not_started(scenario, point, &environment) {
+        Err(reason) => return error(scenario, point, environment, reason),
         Ok(Err(not_started)) => return Outcome::NotStarted(not_started),
         Ok(Ok(records)) => records,
     };
     match body(records) {
-        Err(reason) => error(scenario, None, environment, reason),
+        Err(reason) => error(scenario, point, environment, reason),
         Ok(report) => Outcome::Result(Box::new(ResultFile::new(
             scenario.name(),
-            None,
+            point,
             environment,
             Execution::Ok,
             report,
@@ -465,11 +494,17 @@ mod tests {
                 "span-migrate",
                 "span-nested",
                 "span-parallel",
-                "span-blocking"
+                "span-blocking",
+                "cost"
             ]
         );
-        assert!(Scenario::ALL.iter().all(|s| s.points().is_empty()));
-        assert_eq!(Scenario::from_name("cost"), None);
+        assert!(
+            Scenario::ALL
+                .iter()
+                .filter(|s| **s != Scenario::Cost)
+                .all(|s| s.points().is_empty())
+        );
+        assert!(Scenario::Cost.points().contains(&"idle"));
     }
 
     #[test]
