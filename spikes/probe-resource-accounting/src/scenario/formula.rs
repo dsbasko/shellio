@@ -38,7 +38,7 @@ pub struct CpuWindow {
     pub oracle: Option<f64>,
 }
 
-fn noisy(cell: Cell, during_quiet: bool) -> Cell {
+pub(super) fn noisy(cell: Cell, during_quiet: bool) -> Cell {
     if during_quiet || cell.status == Status::NotRun {
         return cell;
     }

@@ -413,9 +413,15 @@ cd ../shellio-p08 && base=$(cat ../shellio-p07-p08.base) && ralphex docs/plans/2
 - Create: `spikes/probe-resource-accounting/src/scenario/spans.rs`
 - Modify: `docs/probes/p0.8-resource-accounting.md`
 
-- [ ] записать ожидания таблицы «Сценарии учёта участков и арен» в отчёт до первого прогона
-- [ ] сценарии `span-busy`, `span-wait`, `span-migrate`, `span-nested`, `span-parallel`, `span-blocking`, `arena`
-- [ ] тесты сравнения с оракулом
+- [x] записать ожидания таблицы «Сценарии учёта участков и арен» в отчёт до первого прогона
+- [x] сценарии `span-busy`, `span-wait`, `span-migrate`, `span-nested`, `span-parallel`, `span-blocking`, `arena`
+- [x] тесты сравнения с оракулом
+- ⚠️ Решения исполнителя (итерация 15):
+  - Ожидания, размеры серий и клетки записаны в отчёт до первого прогона, раздел «Ожидания», «Сценарии учёта участков и арен (задача 9)». Сценарии лежат в `scenario/spans.rs`, тесты — в `scenario/spans/tests.rs`. Вне списка файлов задачи тронуты `scenario/mod.rs` (сценарии и `measured`), `main.rs` (сняты `expect(dead_code)` с `spans` и `arena`), `scenario/clock.rs` (`thread_count` открыт соседям), `scenario/formula.rs` (`noisy` открыт соседям) и `fixture/receipts.rs` (устаревшие причины `expect(dead_code)` задачи 6 заменены настоящими: эти чтения нужны только тестам).
+  - Однопоточные `span-busy`, `span-wait`, `span-nested` идут без рантайма, future опрашивается вручную на главном потоке, предусловие `pti_threadnum` = 1 до и после серии. Оракул — скобка `getrusage` вокруг каждого `poll`.
+  - Многопоточные `span-migrate-tokio` и `span-parallel` сравнивают сумму владельца со скобкой процесса вокруг серии, допуск 0,2 мс + 2% берётся один раз от оракула серии. Управляемая часть `span-migrate` и `span-blocking` сравнивают каждый участок: в момент участка работает один поток, остальные ждут в канале или в `block_on`. Процесс при этом не однопоточный, это отступление от строки оракулов записано в ожиданиях.
+  - `span-migrate` даёт две клетки: `span-migrate-threads` и `span-migrate-tokio`. У `span-wait` тоже две: `span-wait-idle` и `span-wait-busy`. У `arena` четыре: `arena-grow`, `arena-reuse`, `arena-release`, `arena-git`.
+  - Проверка тел вне рубежа (итерация 15). Временный тест в репозиторий не вошёл. Он вызвал тела в `release` с `--test-threads=1`, без блокировки и проверки фона. Все клетки — `pass`, худшая доля допуска: `span-busy` — 0,028, `span-wait-idle` — 0,004 (CPU между `poll` A — 70,1 мс, не начислен), `span-wait-busy` — 0,005, `span-nested` — 0,015, `span-migrate-threads` — 0,036, `span-migrate-tokio` — 0,040 (смены потока были), `span-parallel` — 0,021 (160,4 мс CPU за 82,2 мс, части на 2 потоках), `span-blocking` — 0,035. Тест `arena_scenario_matches_known_sizes` гоняет `arena` в `make check`. Это проверка кода, а не прогон пробы: в отчёт как результат не идёт.
 - [ ] рубеж: `make check`, `make probe-resources SCENARIOS="<сценарии задачи>"` без ошибок исполнения
 
 ### Task 10: Сэмплер

@@ -151,7 +151,10 @@ impl Receipt {
     /// `ri_proc_start_abstime` собственного чтения.
     #[cfg_attr(
         not(test),
-        expect(dead_code, reason = "квитанции сверяют сценарии задачи 6")
+        expect(
+            dead_code,
+            reason = "сценарии сверяют ключ квитанции, это чтение нужно только тестам"
+        )
     )]
     pub fn start_abstime(&self) -> Option<u64> {
         self.boundary
@@ -336,7 +339,10 @@ pub fn log_file_name(name: &str) -> String {
 /// Читает файл фикстуры и проверяет его.
 #[cfg_attr(
     not(test),
-    expect(dead_code, reason = "файлы фикстур читают сценарии задачи 6")
+    expect(
+        dead_code,
+        reason = "сценарии берут события из канала, файл фикстуры проверяют только тесты"
+    )
 )]
 pub fn read_log(out: &Path, name: &str) -> Result<Log, String> {
     let path = out.join(LOG_DIR).join(log_file_name(name));

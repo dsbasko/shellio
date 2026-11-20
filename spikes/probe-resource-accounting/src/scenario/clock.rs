@@ -140,7 +140,7 @@ pub fn choose(accurate: [bool; 2], median_ns: [Option<f64>; 2]) -> Choice {
 }
 
 /// Число потоков процесса по `proc_pidinfo(PROC_PIDTASKINFO)`.
-fn thread_count() -> Result<i32, String> {
+pub(super) fn thread_count() -> Result<i32, String> {
     // SAFETY: proc_taskinfo — POD, нули допустимы.
     let mut info: libc::proc_taskinfo = unsafe { std::mem::zeroed() };
     let size = std::mem::size_of::<libc::proc_taskinfo>() as libc::c_int;

@@ -4,6 +4,7 @@ mod attrib;
 mod clock;
 mod formula;
 mod listing;
+mod spans;
 mod stand;
 mod units;
 
@@ -31,10 +32,17 @@ pub enum Scenario {
     EpermInject,
     ListBench,
     ClockBench,
+    SpanBusy,
+    SpanWait,
+    SpanMigrate,
+    SpanNested,
+    SpanParallel,
+    SpanBlocking,
+    Arena,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 13] = [
+    pub const ALL: [Scenario; 20] = [
         Scenario::Smoke,
         Scenario::Units,
         Scenario::FormulaCpu,
@@ -48,6 +56,13 @@ impl Scenario {
         Scenario::EpermInject,
         Scenario::ListBench,
         Scenario::ClockBench,
+        Scenario::SpanBusy,
+        Scenario::SpanWait,
+        Scenario::SpanMigrate,
+        Scenario::SpanNested,
+        Scenario::SpanParallel,
+        Scenario::SpanBlocking,
+        Scenario::Arena,
     ];
 
     pub fn name(self) -> &'static str {
@@ -65,6 +80,13 @@ impl Scenario {
             Scenario::EpermInject => "eperm-inject",
             Scenario::ListBench => "list-bench",
             Scenario::ClockBench => "clock-bench",
+            Scenario::SpanBusy => "span-busy",
+            Scenario::SpanWait => "span-wait",
+            Scenario::SpanMigrate => "span-migrate",
+            Scenario::SpanNested => "span-nested",
+            Scenario::SpanParallel => "span-parallel",
+            Scenario::SpanBlocking => "span-blocking",
+            Scenario::Arena => "arena",
         }
     }
 
@@ -75,7 +97,15 @@ impl Scenario {
     /// Замерный сценарий берёт замерную блокировку и проверяет фон.
     pub fn measured(self) -> bool {
         match self {
-            Scenario::Smoke | Scenario::Units | Scenario::FormulaCpu => true,
+            Scenario::Smoke
+            | Scenario::Units
+            | Scenario::FormulaCpu
+            | Scenario::SpanBusy
+            | Scenario::SpanWait
+            | Scenario::SpanMigrate
+            | Scenario::SpanNested
+            | Scenario::SpanParallel
+            | Scenario::SpanBlocking => true,
             Scenario::FormulaMem
             | Scenario::Sessions
             | Scenario::GitShared
@@ -85,7 +115,8 @@ impl Scenario {
             | Scenario::Login
             | Scenario::EpermInject
             | Scenario::ListBench
-            | Scenario::ClockBench => false,
+            | Scenario::ClockBench
+            | Scenario::Arena => false,
         }
     }
 
@@ -139,6 +170,13 @@ pub fn run(scenario: Scenario, point: Option<&str>, out: &Path) -> Outcome {
         Scenario::EpermInject => free(scenario, environment, || attrib::run_eperm_inject(out)),
         Scenario::ListBench => free(scenario, environment, listing::run),
         Scenario::ClockBench => free(scenario, environment, clock::run),
+        Scenario::SpanBusy => measured(scenario, environment, spans::run_busy),
+        Scenario::SpanWait => measured(scenario, environment, spans::run_wait),
+        Scenario::SpanMigrate => measured(scenario, environment, spans::run_migrate),
+        Scenario::SpanNested => measured(scenario, environment, spans::run_nested),
+        Scenario::SpanParallel => measured(scenario, environment, spans::run_parallel),
+        Scenario::SpanBlocking => measured(scenario, environment, spans::run_blocking),
+        Scenario::Arena => free(scenario, environment, spans::run_arena),
     }
 }
 
@@ -416,7 +454,20 @@ mod tests {
             .filter(|s| s.measured())
             .map(|s| s.name())
             .collect();
-        assert_eq!(measured, ["smoke", "units", "formula-cpu"]);
+        assert_eq!(
+            measured,
+            [
+                "smoke",
+                "units",
+                "formula-cpu",
+                "span-busy",
+                "span-wait",
+                "span-migrate",
+                "span-nested",
+                "span-parallel",
+                "span-blocking"
+            ]
+        );
         assert!(Scenario::ALL.iter().all(|s| s.points().is_empty()));
         assert_eq!(Scenario::from_name("cost"), None);
     }
