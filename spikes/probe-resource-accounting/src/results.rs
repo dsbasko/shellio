@@ -308,6 +308,12 @@ pub struct NotStartedRecord {
     pub reason: String,
     #[serde(default)]
     pub background: Vec<BackgroundRecord>,
+    /// Номер попытки подряд; проставляет учёт попыток `run.sh`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attempt: Option<u32>,
+    /// Окружение процесса сценария, а при занятой блокировке — вызова учёта попыток.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub environment: Option<Box<Environment>>,
 }
 
 /// Пишет JSON через временный файл и переименование: оборванная запись не оставляет полупустой

@@ -75,6 +75,57 @@ fn start_marker_separates_busy_lock_from_command_code_75() {
     std::fs::remove_dir_all(&base).unwrap();
 }
 
+fn reset_unit(dir: &Path) {
+    let status = Command::new("/bin/bash")
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("run.sh"))
+        .arg("reset-unit")
+        .arg(dir)
+        .status()
+        .unwrap();
+    assert!(status.success());
+}
+
+fn names(dir: &Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    names
+}
+
+#[test]
+fn new_attempt_keeps_earlier_not_started_records_and_drops_the_rest() {
+    let base = temp_dir("reset-unit");
+    let dir = base.join("smoke");
+    reset_unit(&dir);
+    assert!(names(&dir).is_empty());
+
+    std::fs::write(dir.join("not-started.json"), "first").unwrap();
+    std::fs::write(dir.join("result.json"), "stale").unwrap();
+    std::fs::write(dir.join(".measure-lock-start"), "").unwrap();
+    std::fs::write(dir.join(".result.json.partial"), "").unwrap();
+    std::fs::create_dir_all(dir.join("nested")).unwrap();
+    reset_unit(&dir);
+    assert_eq!(names(&dir), ["not-started-1.json"]);
+
+    std::fs::write(dir.join("not-started.json"), "second").unwrap();
+    reset_unit(&dir);
+    assert_eq!(names(&dir), ["not-started-1.json", "not-started-2.json"]);
+    assert_eq!(
+        std::fs::read_to_string(dir.join("not-started-1.json")).unwrap(),
+        "first"
+    );
+    assert_eq!(
+        std::fs::read_to_string(dir.join("not-started-2.json")).unwrap(),
+        "second"
+    );
+
+    reset_unit(&dir);
+    assert_eq!(names(&dir), ["not-started-1.json", "not-started-2.json"]);
+    std::fs::remove_dir_all(&base).unwrap();
+}
+
 fn args(list: &[&str]) -> Vec<String> {
     list.iter().map(|s| (*s).to_owned()).collect()
 }
@@ -110,7 +161,22 @@ fn record_mode_reports_retry_then_not_run() {
         ]))
         .unwrap()
     };
+    let process_record = || {
+        let record = results::NotStartedRecord {
+            schema: results::SCHEMA,
+            scenario: "smoke".to_owned(),
+            point: None,
+            cause: results::NotRunCause::Noisy,
+            reason: "шумно".to_owned(),
+            background: Vec::new(),
+            attempt: None,
+            environment: None,
+        };
+        results::write_json(&out, results::NOT_STARTED_FILE, &record).unwrap();
+    };
+    process_record();
     assert_eq!(call("noisy"), runstate::EXIT_NOT_STARTED);
+    process_record();
     assert_eq!(call("noisy"), runstate::EXIT_NOT_STARTED);
     assert_eq!(call("lock-busy"), 0);
     let result: results::ResultFile = results::read_json(&out.join(results::RESULT_FILE)).unwrap();
@@ -118,6 +184,8 @@ fn record_mode_reports_retry_then_not_run() {
         result.cells[0].not_run_cause,
         Some(results::NotRunCause::LockBusy)
     );
+    assert_ne!(result.environment, results::Environment::default());
+    assert!(result.environment.hardware.logical_cpus.is_some());
     std::fs::remove_dir_all(&base).unwrap();
 }
 

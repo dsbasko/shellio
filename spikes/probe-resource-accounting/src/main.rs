@@ -112,14 +112,15 @@ fn record(mut args: Args, counter_dir: &str) -> Result<i32, String> {
     let scenario = args.required("--scenario")?;
     let point = args.value("--point")?;
     args.finish()?;
-    let decision = runstate::record_attempt(
-        Path::new(counter_dir),
-        &unit,
-        attempt,
-        &out,
-        &scenario,
-        point.as_deref(),
-    )?;
+    let context = runstate::AttemptContext {
+        counter_dir: Path::new(counter_dir),
+        unit: &unit,
+        out: &out,
+        scenario: &scenario,
+        point: point.as_deref(),
+        environment: scenario::environment(),
+    };
+    let decision = runstate::record_attempt(&context, attempt)?;
     Ok(match decision {
         runstate::Decision::Reset => 0,
         runstate::Decision::Retry(count) => {

@@ -11,6 +11,8 @@
 #   run.sh measure-exec <каталог> <команда …>
 #                                      команда под замерной блокировкой; печатает lock-busy или
 #                                      exit:<код> (проверяет тест логики маркера)
+#   run.sh reset-unit <каталог>       подготовка каталога процесса к новой попытке с сохранением
+#                                      записей «не начат» прежних попыток (проверяет тест)
 # Код выхода: 0 — все процессы дали итог, 1 — ошибка исполнения, 3 — есть процессы «не начат»:
 # повтор следующим вызовом с тем же RUN.
 set -euo pipefail
@@ -98,11 +100,29 @@ prepare_run() {
 ERRORS=0
 PENDING=0
 
+# Каталог процесса перед новой попыткой: запись «не начат» прежней попытки сохраняется под
+# следующим свободным номером not-started-<n>.json, остальное стирается, чтобы устаревший
+# result.json или not-started.json не выдавался за итог новой попытки.
+reset_unit_dir() {
+    local dir="$1" n=1 entry
+    mkdir -p "$dir"
+    if [ -f "$dir/not-started.json" ]; then
+        while [ -e "$dir/not-started-$n.json" ]; do n=$((n + 1)); done
+        mv "$dir/not-started.json" "$dir/not-started-$n.json"
+    fi
+    for entry in "$dir"/* "$dir"/.[!.]* "$dir"/..?*; do
+        [ -e "$entry" ] || [ -L "$entry" ] || continue
+        case "${entry##*/}" in
+            not-started-[0-9]*.json) ;;
+            *) rm -rf -- "$entry" ;;
+        esac
+    done
+}
+
 run_unit() {
     local unit="$1" scenario="$2" kind="$3" point="$4"
     local dir="$RUN_DIR/$unit" state_dir status=0 attempt
-    rm -rf "$dir"
-    mkdir -p "$dir"
+    reset_unit_dir "$dir"
     state_dir="$(mktemp -d "${TMPDIR:-/tmp}/shellio-probe-resources.XXXXXX")"
     set -- /usr/bin/env SHELLIO_STATE_DIR="$state_dir" /usr/bin/caffeinate -i \
         "$BIN" --scenario "$scenario" --out "$dir"
@@ -236,7 +256,12 @@ case "${1:-}" in
         measure_exec "$@"
         echo "$MEASURE_OUTCOME"
         ;;
+    reset-unit)
+        shift
+        [ $# -eq 1 ] || die "reset-unit: нужен каталог процесса"
+        reset_unit_dir "$1"
+        ;;
     *)
-        die "использование: run.sh scenarios [сценарий …] | run.sh measure-exec <каталог> <команда …>"
+        die "использование: run.sh scenarios [сценарий …] | run.sh measure-exec <каталог> <команда …> | run.sh reset-unit <каталог>"
         ;;
 esac

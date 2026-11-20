@@ -94,6 +94,7 @@ fn error(
 pub fn quiet_or_not_started(
     scenario: Scenario,
     point: Option<&str>,
+    environment: &Environment,
 ) -> Result<Result<Vec<BackgroundRecord>, NotStartedRecord>, String> {
     let outcome = background::wait_for_quiet(
         background::QUIET_DEADLINE,
@@ -123,13 +124,15 @@ pub fn quiet_or_not_started(
                 checks.len()
             ),
             background: label(checks),
+            attempt: None,
+            environment: Some(Box::new(environment.clone())),
         }),
     })
 }
 
 /// Пустой прогон стенда: блокировка, проверка фона, `result.json` и агрегирование.
 fn smoke(environment: Environment) -> Outcome {
-    let records = match quiet_or_not_started(Scenario::Smoke, None) {
+    let records = match quiet_or_not_started(Scenario::Smoke, None, &environment) {
         Err(reason) => return error(Scenario::Smoke, None, environment, reason),
         Ok(Err(not_started)) => return Outcome::NotStarted(not_started),
         Ok(Ok(records)) => records,
@@ -373,6 +376,8 @@ mod tests {
             cause: NotRunCause::Noisy,
             reason: "шумно".to_owned(),
             background: Vec::new(),
+            attempt: None,
+            environment: None,
         });
         assert_eq!(
             write_outcome(&dir, not_started).unwrap(),
