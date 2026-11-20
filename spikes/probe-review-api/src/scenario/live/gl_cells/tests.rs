@@ -3,12 +3,16 @@ use std::time::Duration;
 use serde_json::{Value, json};
 
 use super::*;
+use crate::fake::gitlab::{self as glf, Access, FakeDiff, GitlabFake};
+use crate::fake::{FakeServer, Fault, Reply as FakeReply};
 use crate::gitlab::Endpoints;
 use crate::journal::{Operation, SubmissionId, SubmitItem};
 use crate::live::guard::{GuardTarget, WriteScope};
 use crate::live::lifecycle::{Created, SWEPT_FILE};
+use crate::live::repo::Account;
 use crate::model::ProviderId;
 use crate::results::{Column, Execution, Status};
+use crate::transport::http::{Credential, HttpConfig, HttpTransport, Secret};
 use crate::transport::scripted::{Reply, Scripted};
 use crate::transport::{Failure, Request, Response, Traced};
 
@@ -684,5 +688,150 @@ fn refused_branch_is_not_run_and_cleanup_reaches_the_result() -> TestResult {
         "не убранное не отмечается"
     );
     reviewer.finish()?;
+    Ok(())
+}
+
+// --- тело клетки против forge-fake ---
+
+const FAKE_AUTHOR: &str = "probe-author";
+const FAKE_REVIEWER: &str = "probe-reviewer";
+const FAKE_IID: u64 = 4;
+const AUTHOR_TOKEN: &str = "fake-author-token";
+const REVIEWER_TOKEN: &str = "fake-reviewer-token";
+/// Diff `Fixture::Head` против `Fixture::Base`: строка 03 удалена, 05 изменена, после 24 добавлены
+/// две; черновики клетки — на новых строках 4 («line 05 changed») и 24 («line 24a»).
+const FIXTURE_DIFF: &str = "@@ -1,8 +1,7 @@\n line 01\n line 02\n-line 03\n line 04\n-line 05\n\
++line 05 changed\n line 06\n line 07\n line 08\n@@ -22,6 +21,8 @@\n line 22\n line 23\n line 24\n\
++line 24a\n+line 24b\n line 25\n line 26\n line 27\n";
+
+fn fake_gitlab() -> Result<FakeServer<GitlabFake>, String> {
+    let mut fake = GitlabFake::new(REPO);
+    fake.add_user(FAKE_AUTHOR, AUTHOR_TOKEN, Some(Access::Developer));
+    fake.add_user(FAKE_REVIEWER, REVIEWER_TOKEN, Some(Access::Developer));
+    fake.add_mr(
+        FAKE_IID,
+        FAKE_AUTHOR,
+        BASE,
+        HEAD,
+        vec![FakeDiff::modified("probe-review/fixture.txt", FIXTURE_DIFF)],
+    );
+    fake.add_reviewer(FAKE_IID, FAKE_REVIEWER)?;
+    FakeServer::start(fake)
+}
+
+/// `gl_draft_publish` над сторожами (`WriteScope::Loopback`) против `forge-fake`, клетка собрана
+/// вручную, как после `open_cell`.
+fn publish_body(
+    server: &FakeServer<GitlabFake>,
+) -> Result<Result<Observed, Verdict>, Box<dyn std::error::Error>> {
+    let state = tempfile::tempdir()?;
+    let trace = Trace::new();
+    let target = GuardTarget::gitlab(&Endpoints::instance(server.base()), REPO);
+    let guard = |token: &str, actor| {
+        let credential = Credential::private_token(Secret::new(token));
+        Guarded::new(
+            Traced::new(
+                HttpTransport::new(HttpConfig::default(), Some(credential)),
+                trace.clone(),
+                actor,
+            ),
+            target.clone(),
+            WriteScope::Loopback,
+        )
+    };
+    let author = guard(AUTHOR_TOKEN, "author");
+    let reviewer = guard(REVIEWER_TOKEN, "reviewer");
+    let cx = GlCx {
+        author: &author,
+        reviewer: &reviewer,
+        trace: &trace,
+        host_url: server.base().to_owned(),
+        reviewer_login: FAKE_REVIEWER.to_owned(),
+        state_dir: state.path(),
+        poll: NOW,
+    };
+    let mut cell = Cell {
+        names: CellNames::new(RUN_ID, Scenario::GlDraftPublish.name())?,
+        default_branch: "main".to_owned(),
+        number: FAKE_IID,
+        base_commit: BASE.to_owned(),
+        head_commit: HEAD.to_owned(),
+        reviewer: Some(Account {
+            login: FAKE_REVIEWER.to_owned(),
+            id: 2,
+            name: None,
+        }),
+    };
+    let observed = gl_draft_publish(&cx, &mut cell);
+    let errors = guard_errors(&[("author", &author), ("reviewer", &reviewer)]);
+    assert!(errors.is_empty(), "{errors:?}");
+    assert!(reviewer.refusal().is_none() && author.refusal().is_none());
+    Ok(observed)
+}
+
+fn bulk_publishes(server: &FakeServer<GitlabFake>) -> usize {
+    server
+        .log()
+        .iter()
+        .filter(|call| call.key.ends_with("bulk_publish"))
+        .count()
+}
+
+#[test]
+fn draft_publish_body_passes_against_the_fake() -> TestResult {
+    let server = fake_gitlab()?;
+    let observed = publish_body(&server)?.map_err(|verdict| format!("{verdict:?}"))?;
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(
+        status,
+        Status::Pass,
+        "{reason}: {:?}",
+        observed.checks.to_json()
+    );
+    for (what, value) in [
+        ("до", &observed.before),
+        ("после", &observed.after),
+        ("журнал", &observed.journal),
+    ] {
+        assert!(!value.is_null(), "{what}");
+    }
+    assert_eq!(
+        observed.after["notes"].as_array().map(|notes| notes
+            .iter()
+            .filter(|note| !note["position"].is_null())
+            .count()),
+        Some(2)
+    );
+    assert!(server.with(|fake| fake.drafts(FAKE_IID)).is_empty());
+    assert_eq!(bulk_publishes(&server), 0);
+    Ok(())
+}
+
+#[test]
+fn refused_publish_fails_the_body_against_the_fake() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::PUBLISH, FakeReply::Status(403)).skip(1));
+    let observed = publish_body(&server)?.map_err(|verdict| format!("{verdict:?}"))?;
+    assert_eq!(
+        observed.checks.verdict().0,
+        Status::Fail,
+        "{:?}",
+        observed.checks.to_json()
+    );
+    assert_eq!(server.with(|fake| fake.drafts(FAKE_IID)).len(), 1);
+    assert_eq!(bulk_publishes(&server), 0);
+    Ok(())
+}
+
+#[test]
+fn rate_limited_publish_is_not_run_against_the_fake() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::PUBLISH, FakeReply::RateLimited));
+    match publish_body(&server)? {
+        Err(Verdict::NotRun(reason)) => {
+            assert_eq!(reason, format!("лимит: код 429 на запись {DRAFT_PUBLISH}"));
+        }
+        other => panic!("{other:?}"),
+    }
     Ok(())
 }
