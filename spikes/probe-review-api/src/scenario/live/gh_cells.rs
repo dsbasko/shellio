@@ -4,19 +4,21 @@
 //! Оракул живой клетки не видит полей `forge-fake` (`origin`): записи пробы берутся из следа
 //! ревьюера в окне отправки, состояние — из чтения автором reviews PR и их комментариев.
 
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::Instant;
 
 use serde_json::{Value, json};
 
+use super::INJECTION_UNAVAILABLE;
 use super::Verdict;
 use super::github_adapter;
 use super::gl_cells::{LiveRoles, Observed, Poll, WRITE_UNOBSERVED, run_live_cell, stand};
 use crate::fake::{GraphqlKind, graphql_root};
 use crate::github::{
     ApiError, Capabilities, GitHub, PullSnapshot, RemoteComment, RemoteReview, ReviewEvent,
-    ViewedState, is_rate_limited,
+    ReviewState, ViewedState, is_rate_limited,
 };
 use crate::journal::{ItemState, Journal, Operation, ProjectId};
 use crate::live::guard::Guarded;
@@ -27,8 +29,10 @@ use crate::results::ResultFile;
 use crate::scenario::Scenario;
 use crate::scenario::fake::{Checks, Spot, add_drafts, dump_in};
 use crate::scrub::Scrubber;
-use crate::submit::{Delivery, Report, SubmitError, plan_github_local, report, run_github};
-use crate::transport::{Call, Method, Trace, Transport};
+use crate::submit::{
+    Delivery, Report, SubmitError, plan_github_local, plan_github_pending, report, run_github,
+};
+use crate::transport::{Call, Failure, Method, Request, Response, Trace, Transport};
 
 /// Ключ записи Create review в следе.
 pub const GH_CREATE: &str = "POST reviews";
@@ -75,7 +79,10 @@ impl<T: Transport> GhCx<'_, T> {
 /// Строки GitHub, у которых есть тело живой клетки. Остальные до открытия ветки и PR дают ошибку
 /// «не реализован»: клетка без тела не пишет в песочницу.
 pub fn implemented(scenario: Scenario) -> bool {
-    matches!(scenario, Scenario::GhLocalCreate | Scenario::GhViewed)
+    matches!(
+        scenario,
+        Scenario::GhLocalCreate | Scenario::GhPendingCycle | Scenario::GhViewed
+    )
 }
 
 /// Клетка строки GitHub: ветки и PR от автора, тело сценария, уборка в любом случае, итог.
@@ -99,6 +106,7 @@ pub fn run_gh_cell<T: Transport>(
         result,
         |cell| match scenario {
             Scenario::GhLocalCreate => gh_local_create(cx, cell),
+            Scenario::GhPendingCycle => gh_pending_cycle(cx, cell),
             Scenario::GhViewed => gh_viewed(cx, cell),
             other => Err(Verdict::Error(format!(
                 "сценарий {} в живом столбце GitHub не реализован",
@@ -281,14 +289,22 @@ pub type ReviewRead = (RemoteReview, Vec<RemoteComment>);
 
 /// Reviews PR и их комментарии, прочитанные автором (`PENDING` ревьюера автору не виден).
 fn pr_state<T: Transport>(author: &GitHub<T>) -> Result<(Vec<ReviewRead>, Value), Verdict> {
-    let reviews = author
+    pr_state_by(author, "автором")
+}
+
+/// Reviews PR и их комментарии, видимые токену роли `who` (`PENDING` — только своему).
+fn pr_state_by<T: Transport>(
+    github: &GitHub<T>,
+    who: &str,
+) -> Result<(Vec<ReviewRead>, Value), Verdict> {
+    let reviews = github
         .reviews()
-        .map_err(|err| gh_read_or_fail("reviews PR автором", &err))?;
+        .map_err(|err| gh_read_or_fail(&format!("reviews PR {who}"), &err))?;
     let mut state = Vec::new();
     for review in reviews {
-        let comments = author
+        let comments = github
             .review_comments(&review.id)
-            .map_err(|err| gh_read_or_fail("комментарии review автором", &err))?;
+            .map_err(|err| gh_read_or_fail(&format!("комментарии review {who}"), &err))?;
         state.push((review, comments));
     }
     let value = json!({
@@ -601,6 +617,503 @@ fn gh_local_create<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<Ob
         before,
         after,
         journal: Value::Object(journals),
+        tier: caps.plan,
+        verdict: None,
+    })
+}
+
+/// Ключи записей `gh-pending-cycle`.
+pub const GH_ADD_THREAD: &str = "graphql addPullRequestReviewThread";
+pub const GH_UPDATE_COMMENT: &str = "graphql updatePullRequestReviewComment";
+pub const GH_SUBMIT: &str = "POST reviews/{id}/events";
+/// Черновики `gh-pending-cycle` — те же строки, что у `gh-local-create`.
+const PENDING_DRAFTS: [(Spot, &str); 2] = LOCAL_DRAFTS;
+const PENDING_UPDATED: &str = "первый, исправлен";
+
+/// Транспорт ревьюера `gh-pending-cycle` с клиентской инъекцией: первый Submit
+/// ([`GH_SUBMIT`]) не отправляется, исполнителю отдаётся отказ `not_sent`, остальные запросы идут
+/// как есть. Стоит над сторожем, поэтому не отправленный запрос в след не попадает: ID review из
+/// его пути фиксирует [`SubmitDrop::dropped`].
+pub struct SubmitDrop<R> {
+    inner: R,
+    dropped: RefCell<Option<String>>,
+}
+
+impl<R> SubmitDrop<R> {
+    pub fn new(inner: R) -> SubmitDrop<R> {
+        SubmitDrop {
+            inner,
+            dropped: RefCell::new(None),
+        }
+    }
+
+    /// ID review в пути не отправленного Submit, если инъекция сработала.
+    pub fn dropped(&self) -> Option<String> {
+        self.dropped.borrow().clone()
+    }
+}
+
+/// ID review в пути `…/reviews/{id}/events`.
+fn submitted_review(path: &str) -> Option<String> {
+    let path = path.split_once('?').map_or(path, |(path, _)| path);
+    path.rsplit_once("/reviews/")
+        .and_then(|(_, rest)| rest.strip_suffix("/events"))
+        .map(str::to_owned)
+}
+
+impl<R: Transport> Transport for SubmitDrop<R> {
+    fn send(&self, request: &Request) -> Result<Response, Failure> {
+        let body = request.body_json();
+        let submit = gh_write_key(request.method, request.path(), body.as_ref()).as_deref()
+            == Some(GH_SUBMIT);
+        if !submit || self.dropped.borrow().is_some() {
+            return self.inner.send(request);
+        }
+        *self.dropped.borrow_mut() = Some(submitted_review(request.path()).unwrap_or_default());
+        Err(Failure::not_sent(
+            "инъекция пробы: Submit не отправлен, клиенту отдан отказ «запрос не ушёл»",
+        ))
+    }
+}
+
+/// Отказ исполнителя ветви «серверный `PENDING`» без записи в элемент. Чтение шага 1 (последний
+/// вызов роли в окне — снимок PR или его файлы) — [`gh_submit_verdict`]. Чтение `PENDING`
+/// (последний вызов — путь `…/reviews…`): неожиданный ответ — `fail` с текстом адаптера, прочий
+/// отказ — [`gh_read_or_fail`]. Остановка до записи — `fail`: это наблюдение о сохранении ID
+/// комментариев, а не неготовность PR.
+pub fn gh_pending_submit_verdict(err: &SubmitError, window: &[Call], actor: &str) -> Verdict {
+    let pending_read = window
+        .iter()
+        .rev()
+        .find(|call| call.actor == actor)
+        .is_some_and(|call| call.request.path().contains("/reviews"));
+    match err {
+        SubmitError::GitHub(ApiError::Unexpected(reason)) if pending_read => {
+            Verdict::Fail(format!("отправка: чтение PENDING: {reason}"))
+        }
+        SubmitError::GitHub(api) if pending_read => {
+            gh_read_or_fail("отправка: чтение PENDING", api)
+        }
+        SubmitError::Refused(reason) => {
+            Verdict::Fail(format!("отправка остановлена до записи: {reason}"))
+        }
+        other => gh_submit_verdict(other),
+    }
+}
+
+/// Запись роли в окне клетки: ключ, путь, тело, код и тело ответа 2xx.
+#[derive(Clone, Debug)]
+pub struct WriteCall {
+    pub key: String,
+    pub path: String,
+    pub body: Value,
+    pub status: Option<u16>,
+    pub response: Option<Value>,
+}
+
+/// Записи роли `actor` в окне по ключу [`gh_write_key`].
+pub fn write_calls(window: &[Call], actor: &str) -> Vec<WriteCall> {
+    window
+        .iter()
+        .filter(|call| call.actor == actor)
+        .filter_map(|call| {
+            let body = call.request.body_json();
+            let key = gh_write_key(call.request.method, call.request.path(), body.as_ref())?;
+            let response = call.outcome.as_ref().ok();
+            Some(WriteCall {
+                key,
+                path: call.request.path().to_owned(),
+                body: body.unwrap_or(Value::Null),
+                status: response.map(|response| response.status),
+                response: response
+                    .filter(|response| response.is_success())
+                    .and_then(|response| response.body_json().ok()),
+            })
+        })
+        .collect()
+}
+
+/// Факты `gh-pending-cycle` для оракула.
+pub struct PendingFacts<'a> {
+    pub head: &'a str,
+    pub path: &'a str,
+    pub reviewer: &'a str,
+    /// Записи ревьюера в окне обеих отправок.
+    pub writes: &'a [WriteCall],
+    /// ID review в пути не отправленного Submit.
+    pub dropped: Option<&'a str>,
+    /// Чтения между отправками: ревьюер (свой `PENDING`) и автор.
+    pub reviewer_between: &'a [ReviewRead],
+    pub author_between: &'a [ReviewRead],
+    /// Чтение автора после второй отправки.
+    pub after: &'a [ReviewRead],
+    pub first: &'a Report,
+    pub second: Option<&'a Report>,
+    pub recovered: usize,
+}
+
+fn item_states(report: &Report) -> Vec<(Operation, ItemState)> {
+    report
+        .items
+        .iter()
+        .map(|item| (item.operation, item.state))
+        .collect()
+}
+
+fn lines_and_bodies(comments: &[RemoteComment]) -> Vec<(Option<u32>, String)> {
+    let mut seen: Vec<(Option<u32>, String)> = comments
+        .iter()
+        .map(|comment| (comment.line, comment.body.clone()))
+        .collect();
+    seen.sort();
+    seen
+}
+
+/// Оракул `gh-pending-cycle` на живом хосте (ожидание — в отчёте).
+pub fn pending_cycle_checks(facts: &PendingFacts<'_>) -> Checks {
+    let mut checks = Checks::default();
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for write in facts.writes {
+        *counts.entry(write.key.as_str()).or_insert(0) += 1;
+    }
+    checks.eq(
+        "записи ревьюера",
+        counts,
+        [
+            (GH_CREATE, 1),
+            (GH_ADD_THREAD, 2),
+            (GH_UPDATE_COMMENT, 1),
+            (GH_SUBMIT, 1),
+        ]
+        .into_iter()
+        .collect(),
+    );
+    for (index, write) in facts.writes.iter().enumerate() {
+        checks.check(
+            &format!("запись {index} {}: принята", write.key),
+            write
+                .status
+                .is_some_and(|status| (200..300).contains(&status)),
+            format!("{:?}", write.status),
+        );
+    }
+    let of = |key: &'static str| facts.writes.iter().filter(move |write| write.key == key);
+    let create = of(GH_CREATE).next();
+    let created = create.and_then(|write| write.response.as_ref());
+    let created_id = created.and_then(|value| value.get("id")).map(id_text);
+    let created_node = created
+        .and_then(|value| value.get("node_id"))
+        .and_then(Value::as_str);
+    if let Some(create) = create {
+        checks.check(
+            "создание PENDING без event и comments",
+            create.body.get("event").is_none_or(Value::is_null)
+                && create.body.get("comments").is_none_or(Value::is_null),
+            create.body.to_string(),
+        );
+        checks.eq(
+            "commit_id создания PENDING",
+            create.body["commit_id"].as_str(),
+            Some(facts.head),
+        );
+    }
+    checks.eq(
+        "addPullRequestReviewThread в созданный review",
+        of(GH_ADD_THREAD)
+            .map(|write| {
+                write
+                    .body
+                    .pointer("/variables/input/pullRequestReviewId")
+                    .and_then(Value::as_str)
+            })
+            .collect::<Vec<_>>(),
+        vec![created_node; 2],
+    );
+    let own_between: Vec<&ReviewRead> = facts
+        .reviewer_between
+        .iter()
+        .filter(|(review, _)| review.user.eq_ignore_ascii_case(facts.reviewer))
+        .collect();
+    checks.eq(
+        "ревьюер между отправками: свои reviews (ID, состояние)",
+        own_between
+            .iter()
+            .map(|(review, _)| (Some(review.id.as_str().to_owned()), review.state.name()))
+            .collect::<Vec<_>>(),
+        vec![(created_id.clone(), ReviewState::Pending.name())],
+    );
+    let between_comments: &[RemoteComment] = own_between
+        .first()
+        .map_or(&[], |(_, comments)| comments.as_slice());
+    let wanted: Vec<(Option<u32>, String)> = PENDING_DRAFTS
+        .iter()
+        .filter_map(|(spot, body)| match spot {
+            Spot::Line(_, line) => Some((Some(*line), (*body).to_owned())),
+            _ => None,
+        })
+        .collect();
+    checks.eq(
+        "ревьюер между отправками: комментарии PENDING (строка, текст)",
+        lines_and_bodies(between_comments),
+        wanted.clone(),
+    );
+    let first_line = wanted.first().and_then(|(line, _)| *line);
+    let first_before = between_comments
+        .iter()
+        .find(|comment| comment.line == first_line && comment.path == facts.path);
+    checks.eq(
+        "updatePullRequestReviewComment по node ID первого комментария",
+        of(GH_UPDATE_COMMENT)
+            .map(|write| {
+                write
+                    .body
+                    .pointer("/variables/input/pullRequestReviewCommentId")
+                    .and_then(Value::as_str)
+            })
+            .collect::<Vec<_>>(),
+        vec![first_before.map(|comment| comment.node_id.as_str())],
+    );
+    checks.eq(
+        "инъекция: не отправленный Submit созданного review",
+        facts.dropped.map(str::to_owned),
+        created_id.clone(),
+    );
+    for submit in of(GH_SUBMIT) {
+        checks.eq(
+            "Submit созданного review",
+            submitted_review(&submit.path),
+            created_id.clone(),
+        );
+        checks.check(
+            "Submit с event COMMENT и body, без comments[]",
+            submit.body["event"].as_str() == Some(ReviewEvent::Comment.name())
+                && submit.body["body"]
+                    .as_str()
+                    .is_some_and(|body| !body.trim().is_empty())
+                && submit.body.get("comments").is_none(),
+            submit.body.to_string(),
+        );
+    }
+    checks.eq(
+        "автор между отправками: reviews ревьюера",
+        facts
+            .author_between
+            .iter()
+            .filter(|(review, _)| review.user.eq_ignore_ascii_case(facts.reviewer))
+            .map(|(review, _)| review.id.as_str().to_owned())
+            .collect::<Vec<_>>(),
+        Vec::<String>::new(),
+    );
+    let own_after: Vec<&ReviewRead> = facts
+        .after
+        .iter()
+        .filter(|(review, _)| review.user.eq_ignore_ascii_case(facts.reviewer))
+        .collect();
+    checks.eq(
+        "автор после: reviews ревьюера (ID, состояние)",
+        own_after
+            .iter()
+            .map(|(review, _)| (Some(review.id.as_str().to_owned()), review.state.name()))
+            .collect::<Vec<_>>(),
+        vec![(created_id, ReviewState::Commented.name())],
+    );
+    let after_comments: &[RemoteComment] = own_after
+        .first()
+        .map_or(&[], |(_, comments)| comments.as_slice());
+    let mut wanted_after = wanted;
+    if let Some(first) = wanted_after.first_mut() {
+        first.1 = PENDING_UPDATED.to_owned();
+    }
+    checks.eq(
+        "автор после: комментарии review (строка, текст)",
+        lines_and_bodies(after_comments),
+        wanted_after,
+    );
+    let first_after = after_comments
+        .iter()
+        .find(|comment| comment.line == first_line && comment.path == facts.path);
+    checks.eq(
+        "первый комментарий: прежние ID и node ID",
+        first_after.map(|comment| (comment.id.as_str(), comment.node_id.as_str())),
+        first_before.map(|comment| (comment.id.as_str(), comment.node_id.as_str())),
+    );
+    checks.eq(
+        "первая отправка: закрыта, итог",
+        (facts.first.closed, facts.first.delivery),
+        (true, Delivery::NotSent),
+    );
+    checks.eq(
+        "первая отправка: элементы",
+        item_states(facts.first),
+        vec![
+            (Operation::GitHubCreatePending, ItemState::Confirmed),
+            (Operation::GitHubAddPendingComment, ItemState::Confirmed),
+            (Operation::GitHubAddPendingComment, ItemState::Confirmed),
+            (Operation::GitHubSubmitReview, ItemState::Failed),
+        ],
+    );
+    checks.eq(
+        "вторая отправка: элементы, итог",
+        facts
+            .second
+            .map(|report| (item_states(report), report.delivery)),
+        Some((
+            vec![
+                (Operation::GitHubUpdatePendingComment, ItemState::Confirmed),
+                (Operation::GitHubSubmitReview, ItemState::Confirmed),
+            ],
+            Delivery::Full,
+        )),
+    );
+    checks.eq("восстановленные элементы", facts.recovered, 0);
+    checks
+}
+
+fn gh_pending_cycle<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = GitHub::new(
+        SubmitDrop::new(cx.reviewer),
+        cx.reviewer.target().github_endpoints(),
+        &review,
+    )
+    .map_err(|err| stand("адаптер", &err))?;
+    let author = github_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_pull(&reviewer, &cx.poll)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| gh_read_or_fail("возможности ревьюера", &err))?;
+    let (_, before) = pr_state(&author)?;
+    let path = snapshot
+        .files
+        .first()
+        .map(|file| file.new_path().to_owned())
+        .ok_or_else(|| Verdict::Error("в diff PR нет файлов".to_owned()))?;
+    let journal_path = cx.state_dir.join("journal-gh-pending-cycle.db");
+    let project = ProjectId::new(LIVE_PROJECT);
+    let mut notes = vec![format!(
+        "ветвь «первый Submit получает 422»: not_run «{INJECTION_UNAVAILABLE}»"
+    )];
+    let window = |from: usize| cx.trace.calls().get(from..).unwrap_or_default().to_vec();
+    let dump = || -> Result<(Value, usize), Verdict> {
+        let journal =
+            Journal::open(&journal_path).map_err(|err| stand("журнал после переоткрытия", &err))?;
+        let value = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
+        Ok((value, journal.recovered().len()))
+    };
+    let start = cx.trace.len();
+    let (first, second, between) = {
+        let journal = Journal::open(&journal_path).map_err(|err| stand("журнал", &err))?;
+        let scope = journal.scope(&project);
+        let session = ReviewSession::new(
+            &cx.reviewer_login,
+            review.clone(),
+            snapshot.revision.clone(),
+        );
+        let session = scope
+            .create_session(&session)
+            .map_err(|err| stand("сессия", &err))?;
+        let ids = add_drafts(&scope, session, &snapshot.files, &PENDING_DRAFTS)
+            .map_err(|err| stand("черновики", &err))?;
+        if !caps.server_pending() {
+            drop(scope);
+            drop(journal);
+            let (journal, _) = dump()?;
+            return Ok(Observed {
+                checks: Checks::default(),
+                notes,
+                after: before.clone(),
+                before,
+                journal,
+                tier: caps.plan,
+                verdict: Some(Verdict::Absent(
+                    "addPullRequestReviewThread и updatePullRequestReviewComment нет в схеме по \
+                     introspection"
+                        .to_owned(),
+                )),
+            });
+        }
+        let first = plan_github_pending(&scope, session, ReviewEvent::Comment, SUMMARY, None, &[])
+            .map_err(|err| stand("план", &err))?;
+        let sent = run_github(&scope, first.id, &reviewer, &caps)
+            .map_err(|err| gh_pending_submit_verdict(&err, &window(start), ACTOR_REVIEWER))?;
+        if let Some(verdict) = gh_delivery_verdict(&sent, &window(start), ACTOR_REVIEWER) {
+            return Err(verdict);
+        }
+        let between = (pr_state_by(&reviewer, "ревьюером")?, pr_state(&author)?);
+        let mut second = None;
+        if let Some(id) = reviewer.transport().dropped() {
+            notes.push(format!(
+                "инъекция: Submit review {id} не отправлен, клиенту отдан отказ «запрос не ушёл»"
+            ));
+            let first_draft = *ids
+                .first()
+                .ok_or_else(|| Verdict::Error("нет черновика".to_owned()))?;
+            scope
+                .update_draft_body(first_draft, PENDING_UPDATED)
+                .map_err(|err| stand("изменение черновика", &err))?;
+            let plan = plan_github_pending(
+                &scope,
+                session,
+                ReviewEvent::Comment,
+                SUMMARY,
+                None,
+                &[first_draft],
+            )
+            .map_err(|err| stand("план", &err))?;
+            let from = cx.trace.len();
+            let sent = run_github(&scope, plan.id, &reviewer, &caps)
+                .map_err(|err| gh_pending_submit_verdict(&err, &window(from), ACTOR_REVIEWER))?;
+            if let Some(verdict) = gh_delivery_verdict(&sent, &window(from), ACTOR_REVIEWER) {
+                return Err(verdict);
+            }
+            second = Some(plan.id);
+        } else {
+            notes.push(
+                "инъекция не сработала: Submit не дошёл до обёртки, вторая отправка не шла"
+                    .to_owned(),
+            );
+        }
+        (first.id, second, between)
+    };
+    let ((reviewer_between, reviewer_between_value), (author_between, author_between_value)) =
+        between;
+    let (after_state, after_value) = pr_state(&author)?;
+    let writes = write_calls(&window(start), ACTOR_REVIEWER);
+    let (first_report, second_report) = {
+        let journal =
+            Journal::open(&journal_path).map_err(|err| stand("журнал после переоткрытия", &err))?;
+        let scope = journal.scope(&project);
+        let first = report(&scope, first).map_err(|err| stand("итог отправки", &err))?;
+        let second = second
+            .map(|id| report(&scope, id))
+            .transpose()
+            .map_err(|err| stand("итог отправки", &err))?;
+        (first, second)
+    };
+    let (journal, recovered) = dump()?;
+    let dropped = reviewer.transport().dropped();
+    let checks = pending_cycle_checks(&PendingFacts {
+        head: snapshot.revision.head_sha().as_str(),
+        path: &path,
+        reviewer: &cx.reviewer_login,
+        writes: &writes,
+        dropped: dropped.as_deref(),
+        reviewer_between: &reviewer_between,
+        author_between: &author_between,
+        after: &after_state,
+        first: &first_report,
+        second: second_report.as_ref(),
+        recovered,
+    });
+    Ok(Observed {
+        checks,
+        notes,
+        before,
+        after: json!({
+            "between": {"reviewer": reviewer_between_value, "author": author_between_value},
+            "author": after_value,
+        }),
+        journal,
         tier: caps.plan,
         verdict: None,
     })

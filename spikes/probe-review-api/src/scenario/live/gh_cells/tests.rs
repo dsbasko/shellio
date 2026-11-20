@@ -111,6 +111,7 @@ fn cell_body(
     };
     let observed = match scenario {
         Scenario::GhLocalCreate => gh_local_create(&cx, &mut cell),
+        Scenario::GhPendingCycle => gh_pending_cycle(&cx, &mut cell),
         Scenario::GhViewed => gh_viewed(&cx, &mut cell),
         other => return Err(format!("тело {} в тесте не собрано", other.name()).into()),
     };
@@ -246,8 +247,8 @@ fn write_keys_hide_ids_and_name_mutations() {
 fn only_rows_with_a_body_open_a_live_cell() {
     assert!(implemented(Scenario::GhLocalCreate));
     assert!(implemented(Scenario::GhViewed));
+    assert!(implemented(Scenario::GhPendingCycle));
     for scenario in [
-        Scenario::GhPendingCycle,
         Scenario::GhPendingForeign,
         Scenario::GhAnchors,
         Scenario::ReconcileForeign,
@@ -448,4 +449,234 @@ fn write_verdicts_split_limit_unsent_unknown_and_refusal() {
         gh_write_verdict(GH_MARK, &unknown),
         Some(Verdict::NotRun(reason)) if reason.starts_with(WRITE_UNOBSERVED)
     ));
+    let unsent = ApiError::NotSent(Failure::not_sent("соединение не установлено"));
+    assert!(matches!(
+        gh_write_verdict(GH_MARK, &unsent),
+        Some(Verdict::Error(reason)) if reason.starts_with(&format!("запись {GH_MARK} не ушла"))
+    ));
+}
+
+/// Ключи `forge-fake` для `gh-pending-cycle`.
+const FAKE_SUBMIT: &str = "POST /repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/events";
+const FAKE_ADD_THREAD: &str = "graphql addPullRequestReviewThread";
+const FAKE_REVIEW: &str = "GET /repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}";
+
+fn fake_writes(server: &FakeServer<GithubFake>, key: &str) -> usize {
+    crate::scenario::fake::writes(&server.log())
+        .get(key)
+        .copied()
+        .unwrap_or(0)
+}
+
+#[test]
+fn pending_cycle_body_passes_against_the_fake() -> TestResult {
+    let server = fake_github(true)?;
+    let observed =
+        cell_body(&server, Scenario::GhPendingCycle)?.map_err(|verdict| format!("{verdict:?}"))?;
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(
+        status,
+        Status::Pass,
+        "{reason}: {:?}",
+        observed.checks.to_json()
+    );
+    assert_eq!(observed.verdict, None);
+    for (what, value) in [
+        ("до", &observed.before),
+        ("между", &observed.after["between"]),
+        ("после", &observed.after["author"]),
+        ("журнал", &observed.journal),
+    ] {
+        assert!(!value.is_null(), "{what}");
+    }
+    // След не доказывает, что первый Submit не ушёл: до сервера дошёл ровно один.
+    assert_eq!(fake_writes(&server, FAKE_SUBMIT), 1);
+    let reviews = server.with(|fake| fake.reviews(NUMBER));
+    assert_eq!(
+        reviews
+            .iter()
+            .map(|review| review.state)
+            .collect::<Vec<_>>(),
+        vec![ghf::ReviewState::Commented]
+    );
+    let bodies: Vec<String> = server
+        .with(|fake| fake.comments(NUMBER))
+        .iter()
+        .map(|comment| comment.body.clone())
+        .collect();
+    assert_eq!(
+        bodies,
+        vec![PENDING_UPDATED.to_owned(), "второй".to_owned()]
+    );
+    let notes = observed.notes.join("\n");
+    assert!(notes.contains(INJECTION_UNAVAILABLE), "{notes}");
+    assert!(
+        notes.contains(&format!(
+            "инъекция: Submit review {} не отправлен",
+            reviews[0].id
+        )),
+        "{notes}"
+    );
+    assert_eq!(
+        observed.after["between"]["author"]["reviews"]
+            .as_array()
+            .map(Vec::len),
+        Some(0)
+    );
+    Ok(())
+}
+
+#[test]
+fn refused_thread_skips_the_second_submission_and_fails() -> TestResult {
+    let server = fake_github(true)?;
+    server.inject(Fault::new(FAKE_ADD_THREAD, FakeReply::Status(422)).skip(1));
+    let observed =
+        cell_body(&server, Scenario::GhPendingCycle)?.map_err(|verdict| format!("{verdict:?}"))?;
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(status, Status::Fail, "{reason}");
+    assert!(!observed.journal.is_null() && !observed.after["author"].is_null());
+    let notes = observed.notes.join("\n");
+    assert!(notes.contains("инъекция не сработала"), "{notes}");
+    assert_eq!(fake_writes(&server, FAKE_SUBMIT), 0);
+    assert_eq!(
+        server
+            .with(|fake| fake.reviews(NUMBER))
+            .iter()
+            .map(|review| review.state)
+            .collect::<Vec<_>>(),
+        vec![ghf::ReviewState::Pending]
+    );
+    Ok(())
+}
+
+#[test]
+fn rate_limited_second_submit_is_not_run() -> TestResult {
+    let server = fake_github(true)?;
+    server.inject(Fault::new(FAKE_SUBMIT, FakeReply::Status(429)));
+    let verdict = cell_body(&server, Scenario::GhPendingCycle)?
+        .err()
+        .ok_or("ожидался итог без проверок")?;
+    assert_eq!(
+        verdict,
+        Verdict::NotRun(format!("лимит: код 429 на запись {GH_SUBMIT}"))
+    );
+    Ok(())
+}
+
+#[test]
+fn refused_pending_read_on_resume_fails_with_its_label() -> TestResult {
+    let server = fake_github(true)?;
+    server.inject(Fault::new(FAKE_REVIEW, FakeReply::Status(404)));
+    let verdict = cell_body(&server, Scenario::GhPendingCycle)?
+        .err()
+        .ok_or("ожидался итог без проверок")?;
+    match verdict {
+        Verdict::Fail(reason) => assert!(reason.contains("чтение PENDING"), "{reason}"),
+        other => return Err(format!("{other:?}").into()),
+    }
+    Ok(())
+}
+
+#[test]
+fn pending_without_mutations_is_absent_without_writes() -> TestResult {
+    let server = fake_github_with(true, |fake| {
+        fake.remove_mutation("addPullRequestReviewThread");
+    })?;
+    let observed =
+        cell_body(&server, Scenario::GhPendingCycle)?.map_err(|verdict| format!("{verdict:?}"))?;
+    match &observed.verdict {
+        Some(Verdict::Absent(reason)) => {
+            assert!(reason.contains("addPullRequestReviewThread"), "{reason}");
+        }
+        other => return Err(format!("{other:?}").into()),
+    }
+    assert!(!observed.journal.is_null() && !observed.before.is_null());
+    assert!(crate::scenario::fake::writes(&server.log()).is_empty());
+    Ok(())
+}
+
+fn call(actor: &'static str, method: Method, path: &str) -> Call {
+    Call {
+        seq: 0,
+        actor,
+        request: Request::new(method, format!("http://127.0.0.1:1{path}")),
+        outcome: Ok(Response::new(200)),
+        duration: Duration::ZERO,
+    }
+}
+
+#[test]
+fn pending_submit_verdict_splits_pull_reads_from_pending_reads() {
+    let unexpected = SubmitError::GitHub(ApiError::Unexpected("свой комментарий пропал".into()));
+    let pull = [
+        call("reviewer", Method::Get, "/repos/o/r/pulls/5/files"),
+        call("author", Method::Get, "/repos/o/r/pulls/5/reviews"),
+    ];
+    match gh_pending_submit_verdict(&unexpected, &pull, "reviewer") {
+        Verdict::NotRun(reason) => assert!(reason.starts_with(PR_NOT_READY), "{reason}"),
+        other => panic!("{other:?}"),
+    }
+    let pending = [call(
+        "reviewer",
+        Method::Get,
+        "/repos/o/r/pulls/5/reviews/7/comments",
+    )];
+    assert_eq!(
+        gh_pending_submit_verdict(&unexpected, &pending, "reviewer"),
+        Verdict::Fail("отправка: чтение PENDING: свой комментарий пропал".to_owned())
+    );
+    let limit = SubmitError::GitHub(ApiError::RateLimited {
+        status: 429,
+        detail: "rate limit".to_owned(),
+    });
+    assert!(matches!(
+        gh_pending_submit_verdict(&limit, &pending, "reviewer"),
+        Verdict::NotRun(reason) if reason.starts_with("лимит: отправка: чтение PENDING")
+    ));
+    let transport = SubmitError::GitHub(ApiError::Transport(Failure::timeout("срок")));
+    assert!(matches!(
+        gh_pending_submit_verdict(&transport, &pending, "reviewer"),
+        Verdict::Error(_)
+    ));
+    let refused = SubmitError::Refused("в PENDING чужие комментарии, не принятые явно: 9".into());
+    assert!(matches!(
+        gh_pending_submit_verdict(&refused, &pull, "reviewer"),
+        Verdict::Fail(reason) if reason.contains("чужие комментарии")
+    ));
+    assert!(matches!(
+        gh_pending_submit_verdict(&SubmitError::Empty, &pending, "reviewer"),
+        Verdict::Error(_)
+    ));
+}
+
+#[test]
+fn submit_drop_fires_once_on_submit_only() -> TestResult {
+    use crate::transport::scripted::{Reply, Scripted};
+    let scripted = Scripted::new()
+        .expect(
+            Method::Post,
+            "/repos/o/r/pulls/5/reviews",
+            Reply::status(200),
+        )
+        .expect(
+            Method::Post,
+            "/repos/o/r/pulls/5/reviews/7/events",
+            Reply::status(200),
+        );
+    let hook = SubmitDrop::new(&scripted);
+    let send = |path: &str| {
+        hook.send(&Request::new(
+            Method::Post,
+            format!("http://127.0.0.1:1{path}"),
+        ))
+    };
+    assert!(send("/repos/o/r/pulls/5/reviews").is_ok());
+    let dropped = send("/repos/o/r/pulls/5/reviews/7/events")
+        .err()
+        .ok_or("первый Submit ушёл")?;
+    assert!(!dropped.may_have_been_sent());
+    assert_eq!(hook.dropped().as_deref(), Some("7"));
+    assert!(send("/repos/o/r/pulls/5/reviews/7/events").is_ok());
+    scripted.finish()?;
+    Ok(())
 }
