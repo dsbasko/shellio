@@ -43,7 +43,8 @@ pub const USAGE: &str = "использование:
   probe-review --gitlab-ce-image
   probe-review --gitlab-ce-provision --url http://127.0.0.1:<порт> --out <каталог подъёма>
   probe-review --second-client gl-create-draft --column <столбец> --mr <iid> --line <строка> --out <каталог процесса>
-  probe-review --second-client gl-delete-draft --column <столбец> --mr <iid> --draft <ID> --out <каталог процесса>";
+  probe-review --second-client gl-delete-draft --column <столбец> --mr <iid> --draft <ID> --out <каталог процесса>
+  probe-review --second-client gl-plant-notes --column <столбец> --mr <iid> --count <число> --out <каталог процесса>";
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Mode {
@@ -83,7 +84,8 @@ pub fn parse_args(args: &[String]) -> Result<Mode, String> {
     let mut positional: Vec<&str> = Vec::new();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
-            "--column" | "--out" | "--pairs" | "--url" | "--mr" | "--line" | "--draft" => {
+            "--column" | "--out" | "--pairs" | "--url" | "--mr" | "--line" | "--draft"
+            | "--count" => {
                 let value = iter.next().ok_or_else(|| format!("у {arg} нет значения"))?;
                 options.push((arg.as_str(), value.as_str()));
             }
@@ -186,6 +188,14 @@ pub fn parse_args(args: &[String]) -> Result<Mode, String> {
                     SecondOp::DeleteDraft {
                         draft: draft.to_owned(),
                     }
+                }
+                "gl-plant-notes" => {
+                    let count = u32::try_from(number("--count")?)
+                        .map_err(|_| "--count вне u32".to_owned())?;
+                    if count == 0 {
+                        return Err("--count — ноль".to_owned());
+                    }
+                    SecondOp::PlantNotes { count }
                 }
                 other => return Err(format!("неизвестная операция второго клиента {other}")),
             };
@@ -521,6 +531,25 @@ mod tests {
         let mut bad_draft = delete;
         bad_draft[7] = "31/../x";
         assert!(parse_args(&args(&bad_draft)).is_err());
+        let mut plant = full;
+        plant[1] = "gl-plant-notes";
+        plant[6] = "--count";
+        plant[7] = "100";
+        assert_eq!(
+            parse_args(&args(&plant)),
+            Ok(Mode::SecondClient {
+                column: Column::GitlabCe,
+                mr: 7,
+                op: SecondOp::PlantNotes { count: 100 },
+                out: PathBuf::from("/tmp/p"),
+            })
+        );
+        let mut zero = plant;
+        zero[7] = "0";
+        assert!(parse_args(&args(&zero)).is_err());
+        let mut no_count = full;
+        no_count[1] = "gl-plant-notes";
+        assert!(parse_args(&args(&no_count)).is_err());
         let mut other = full;
         other[1] = "gl-publish-draft";
         assert!(parse_args(&args(&other)).is_err());

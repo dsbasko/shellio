@@ -33,7 +33,7 @@ use crate::results::{Column, ResultFile};
 use crate::scenario::Scenario;
 use crate::scenario::fake::{Checks, Spot, add_drafts, dump_in, states};
 use crate::scrub::Scrubber;
-use crate::submit::reconcile::Verdict as Reconciled;
+use crate::submit::reconcile::{Verdict as Reconciled, normalize_body};
 use crate::submit::{
     Delivery, GitLabPlan, Report, SubmitError, plan_gitlab, reconcile_gitlab, report, run_gitlab,
 };
@@ -206,6 +206,7 @@ fn cell_verdict<T: Transport>(
             Scenario::ReconcileDeleted => gl_reconcile_deleted(cx, cell),
             Scenario::ReconcileAmbiguous => gl_reconcile_ambiguous(cx, cell),
             Scenario::JournalCrash => gl_journal_crash(cx, cell),
+            Scenario::ReconcilePaged => gl_reconcile_paged(cx, cell),
             other => Err(Verdict::Error(format!(
                 "сценарий {} в живом столбце GitLab не реализован",
                 other.name()
@@ -773,6 +774,8 @@ fn gl_draft_publish<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<O
 pub trait SecondClient {
     fn create_draft(&self, iid: u64, line: u32) -> Result<String, Verdict>;
     fn delete_draft(&self, iid: u64, draft: &str) -> Result<String, Verdict>;
+    /// `count` заметок MR с другими текстами; ответ — ID последней.
+    fn plant_notes(&self, iid: u64, count: u32) -> Result<String, Verdict>;
 }
 
 /// Операция процесса второго клиента.
@@ -782,6 +785,8 @@ pub enum SecondOp {
     CreateDraft { line: u32 },
     /// `gl-delete-draft --draft <ID>`.
     DeleteDraft { draft: String },
+    /// `gl-plant-notes --count <число>`.
+    PlantNotes { count: u32 },
 }
 
 impl SecondOp {
@@ -789,6 +794,7 @@ impl SecondOp {
         match self {
             SecondOp::CreateDraft { .. } => "gl-create-draft",
             SecondOp::DeleteDraft { .. } => "gl-delete-draft",
+            SecondOp::PlantNotes { .. } => "gl-plant-notes",
         }
     }
 }
@@ -807,6 +813,7 @@ impl ProcessClient {
         let (flag, value) = match op {
             SecondOp::CreateDraft { line } => ("--line", line.to_string()),
             SecondOp::DeleteDraft { draft } => ("--draft", draft.clone()),
+            SecondOp::PlantNotes { count } => ("--count", count.to_string()),
         };
         let output = Command::new(&self.exe)
             .args(["--second-client", op.name(), "--column"])
@@ -836,6 +843,10 @@ impl SecondClient for ProcessClient {
                 draft: draft.to_owned(),
             },
         )
+    }
+
+    fn plant_notes(&self, iid: u64, count: u32) -> Result<String, Verdict> {
+        self.run(iid, &SecondOp::PlantNotes { count })
     }
 }
 
@@ -934,6 +945,53 @@ pub fn foreign_delete<T: Transport>(
         return Err(Verdict::Error(format!("второй клиент: сторож: {err}")));
     }
     deleted
+}
+
+/// Текст заметок второго клиента `reconcile-paged`: «другая заметка N».
+pub const PLANTED_NOTE: &str = "другая заметка";
+/// Число заметок второго клиента `reconcile-paged`: одна полная страница по 100.
+pub const PLANTED_COUNT: u32 = 100;
+
+/// Заметки MR вторым клиентом через своего сторожа: `count` штук с текстами «другая заметка N»,
+/// ответ — ID последней. Отказ хоста — `not_run`, 429 — `not_run` «лимит», отказ транспорта, 5xx
+/// и его сторожа — ошибка исполнения.
+pub fn foreign_notes<T: Transport>(
+    guard: &Guarded<T>,
+    review: &ReviewTarget,
+    count: u32,
+) -> Result<String, Verdict> {
+    let planted = gitlab_adapter(guard, review)
+        .map_err(|err| stand("второй клиент", &err))
+        .and_then(|gitlab| {
+            let mut last = None;
+            for index in 0..count {
+                let note = gitlab
+                    .summary_note(&format!("{PLANTED_NOTE} {index}"))
+                    .map_err(|err| match &err {
+                        ApiError::RateLimited { status, .. } => Verdict::NotRun(format!(
+                            "лимит: код {status} на заметку второго клиента {index}"
+                        )),
+                        _ => match classify_read(&err) {
+                            Ok(observed) => Verdict::NotRun(format!(
+                                "второй клиент не опубликовал заметки: заметка {index}: {observed}"
+                            )),
+                            Err(stand) => {
+                                Verdict::Error(format!("второй клиент: заметка {index}: {stand}"))
+                            }
+                        },
+                    })?;
+                last = Some(note.id.as_str().to_owned());
+            }
+            last.ok_or_else(|| Verdict::Error("второй клиент: число заметок 0".to_owned()))
+        });
+    let errors = guard_errors(&[(ACTOR_SECOND, guard)]);
+    if !errors.is_empty() {
+        return Err(Verdict::Error(errors.join("; ")));
+    }
+    if let Some(err) = guard.refusal() {
+        return Err(Verdict::Error(format!("второй клиент: сторож: {err}")));
+    }
+    planted
 }
 
 /// Оракул `gl-foreign-draft` на живом хосте (ожидание — в отчёте).
@@ -3463,6 +3521,369 @@ fn gl_journal_crash<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<O
         before: json!({ "before-request": initial, "after-delivery": between }),
         after: json!({ "before-request": between, "after-delivery": last }),
         journal: json!({ "before-request": before.dump, "after-delivery": after.dump }),
+        tier: caps.plan,
+        verdict: None,
+    })
+}
+
+/// Черновик `reconcile-paged`: текст с хвостовыми пробелами и `\r\n` на новой строке 4
+/// («line 05 changed»).
+pub const PAGED_BODY: &str = "текст ревью  \r\n";
+pub const PAGED_LINE: u32 = 4;
+pub const PAGED_DRAFTS: [(Spot, &str); 1] = [(Spot::Line(Side::New, PAGED_LINE), PAGED_BODY)];
+/// Размер страницы списков адаптера GitLab.
+const PAGE_SIZE: usize = 100;
+
+/// Наблюдённое `reconcile-paged` для оракула.
+#[derive(Clone, Debug)]
+pub struct PagedFacts<'a> {
+    /// Записи ревьюера от отправки до конца сверки.
+    pub writes: &'a [Write],
+    /// ID в пути публикации, ответ на которую отброшен.
+    pub lost: Option<&'a str>,
+    /// Ответы на чтение второй страницы тредов ревьюером в окне сверки.
+    pub second_pages: &'a [PageRead],
+    pub reconciled: &'a [Reconciled],
+    pub states: &'a [(Operation, ItemState)],
+    /// Элемент публикации после переоткрытия: состояние и кандидат.
+    pub item: Option<(ItemState, Option<String>)>,
+    pub delivery: Delivery,
+    pub notes_after: &'a [RemoteNote],
+    pub drafts_after: &'a [RemoteDraft],
+    pub recovered: usize,
+}
+
+/// Ответ на чтение страницы тредов: число тредов и ID их заметок.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PageRead {
+    pub threads: usize,
+    pub notes: BTreeSet<String>,
+}
+
+/// Не системные заметки автора на новой строке `line`, текст которых после нормализации сверки
+/// совпадает с `body`.
+fn normalized_at<'n>(notes: &'n [RemoteNote], line: u32, body: &str) -> Vec<&'n RemoteNote> {
+    let wanted = normalize_body(body);
+    notes
+        .iter()
+        .filter(|note| {
+            !note.system
+                && normalize_body(&note.body) == wanted
+                && note
+                    .position
+                    .as_ref()
+                    .and_then(|position| position.new_line)
+                    == Some(line)
+        })
+        .collect()
+}
+
+/// Ответы на чтение страницы `page` тредов MR (`GET …/discussions?…&page=N`) участником `actor`.
+pub fn discussion_pages(calls: &[Call], actor: &str, page: u32) -> Vec<PageRead> {
+    let wanted = format!("page={page}");
+    calls
+        .iter()
+        .filter(|call| call.actor == actor && call.request.method == Method::Get)
+        .filter(|call| {
+            call.request
+                .path()
+                .split_once('?')
+                .is_some_and(|(path, query)| {
+                    path.ends_with("/discussions") && query.split('&').any(|pair| pair == wanted)
+                })
+        })
+        .filter_map(|call| call.outcome.as_ref().ok())
+        .filter(|response| response.is_success())
+        .filter_map(|response| response.body_json().ok())
+        .filter_map(|value| value.as_array().cloned())
+        .map(|threads| PageRead {
+            threads: threads.len(),
+            notes: threads
+                .iter()
+                .filter_map(|thread| thread.get("notes").and_then(Value::as_array))
+                .flatten()
+                .filter_map(|note| note.get("id"))
+                .map(id_text)
+                .collect(),
+        })
+        .collect()
+}
+
+/// Как хост сохранил текст черновика `reconcile-paged`.
+pub fn body_form(seen: Option<&str>) -> &'static str {
+    match seen {
+        None => "не прочитан",
+        Some(text) if text == PAGED_BODY => "как есть",
+        Some(text) if text == normalize_body(PAGED_BODY) => {
+            "нормализован (без \\r и хвостовых пробелов)"
+        }
+        Some(_) => "изменён иначе",
+    }
+}
+
+/// Оракул `reconcile-paged` на живом хосте (ожидание — в отчёте).
+pub fn paged_checks(facts: &PagedFacts<'_>) -> Checks {
+    let mut checks = Checks::default();
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for write in facts.writes {
+        *counts.entry(write.key.clone()).or_insert(0) += 1;
+    }
+    checks.eq(
+        "записи ревьюера: создание 1, публикация 1, повторов нет",
+        counts,
+        [(DRAFT_CREATE.to_owned(), 1), (DRAFT_PUBLISH.to_owned(), 1)]
+            .into_iter()
+            .collect(),
+    );
+    let created: Vec<&str> = facts
+        .writes
+        .iter()
+        .filter_map(|write| write.created.as_deref())
+        .collect();
+    let published: Vec<&str> = facts
+        .writes
+        .iter()
+        .filter(|write| write.key == DRAFT_PUBLISH)
+        .filter_map(|write| write.draft.as_deref())
+        .collect();
+    checks.eq(
+        "публикация по ID из ответа на создание",
+        published,
+        created.clone(),
+    );
+    checks.eq(
+        "инъекция: отброшен ответ на публикацию",
+        facts.lost,
+        created.first().copied(),
+    );
+    checks.check(
+        "сверка читает вторую страницу тредов",
+        !facts.second_pages.is_empty(),
+        format!("{:?}", facts.second_pages),
+    );
+    let ours: Vec<&str> = normalized_at(facts.notes_after, PAGED_LINE, PAGED_BODY)
+        .iter()
+        .map(|note| note.id.as_str())
+        .collect();
+    let single = match ours[..] {
+        [id] => Some(id.to_owned()),
+        _ => None,
+    };
+    checks.check(
+        "сверка: кандидат — заметка автора с текстом черновика",
+        matches!(facts.reconciled, [Reconciled::Candidate { remote, .. }]
+            if single.as_deref() == Some(remote.as_str())),
+        format!("{:?}, заметки {ours:?}", facts.reconciled),
+    );
+    checks.eq(
+        "журнал: состояния",
+        facts.states.to_vec(),
+        vec![
+            (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+            (Operation::GitLabPublishDraftNote, ItemState::Unknown),
+        ],
+    );
+    checks.eq(
+        "журнал: публикация unknown с кандидатом, итог «частично»",
+        (facts.item.clone(), facts.delivery),
+        (Some((ItemState::Unknown, single)), Delivery::Partial),
+    );
+    let visible: Vec<&RemoteNote> = facts.notes_after.iter().filter(|n| !n.system).collect();
+    let planted = visible
+        .iter()
+        .filter(|note| note.position.is_none() && note.body.starts_with(PLANTED_NOTE))
+        .count();
+    checks.eq(
+        "автор: 100 заметок второго клиента и одна своя, других нет",
+        (planted, ours.len(), visible.len()),
+        (PLANTED_COUNT as usize, 1, PLANTED_COUNT as usize + 1),
+    );
+    checks.eq(
+        "черновиков ревьюера после отправки",
+        facts.drafts_after.len(),
+        0,
+    );
+    checks.eq("восстановленные элементы", facts.recovered, 0);
+    checks
+}
+
+fn gl_reconcile_paged<T: Transport>(
+    cx: &GlCx<'_, T>,
+    cell: &mut Cell,
+) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = gitlab_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let author = gitlab_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_snapshot(&reviewer, &cx.poll, None, MR_NOT_READY)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| read_or_fail("возможности ревьюера", &err))?;
+    let planted = cx.second.plant_notes(cell.number, PLANTED_COUNT)?;
+    let (_, _, before) = mr_state(&author, &reviewer)?;
+    let path = cx.state_dir.join("journal-reconcile-paged.db");
+    let project = ProjectId::new(LIVE_PROJECT);
+    let mut notes = vec![
+        format!("MR клетки: версия {}", snapshot.version_id.as_str()),
+        format!("второй клиент: заметок {PLANTED_COUNT}, последняя {planted}"),
+    ];
+    let start = cx.trace.len();
+    let hook = hooked(cx, &review, OnPublish::LoseResponse, 0)?;
+    let (submission, lost, sent, fired, reconciled, reconcile_start) = {
+        let journal = Journal::open(&path).map_err(|err| stand("журнал", &err))?;
+        let scope = journal.scope(&project);
+        let session = ReviewSession::new(
+            &cx.reviewer_login,
+            review.clone(),
+            snapshot.revision.clone(),
+        );
+        let id = scope
+            .create_session(&session)
+            .map_err(|err| stand("сессия", &err))?;
+        add_drafts(&scope, id, &snapshot.files, &PAGED_DRAFTS)
+            .map_err(|err| stand("черновики", &err))?;
+        let submission =
+            plan_gitlab(&scope, id, &GitLabPlan::default()).map_err(|err| stand("план", &err))?;
+        let sent =
+            run_gitlab(&scope, submission.id, &hook, &caps).map_err(|err| submit_verdict(&err))?;
+        let lost = sent
+            .items
+            .iter()
+            .find(|item| item.operation == Operation::GitLabPublishDraftNote)
+            .map(|item| item.id);
+        let fired = match hook.transport().fired.borrow_mut().take() {
+            Some(Fired { outcome: Ok(draft) }) => Some(draft),
+            Some(Fired {
+                outcome: Err(verdict),
+            }) => return Err(verdict),
+            None => None,
+        };
+        let at = cx.trace.len();
+        let reconciled = match fired {
+            Some(_) => reconcile_gitlab(&scope, submission.id, &reviewer)
+                .map_err(|err| stand("сверка", &err))?,
+            None => Vec::new(),
+        };
+        (submission.id, lost, sent, fired, reconciled, at)
+    };
+    let calls = cx.trace.calls();
+    let window = calls.get(start..).unwrap_or_default();
+    let reconcile_window = calls.get(reconcile_start..).unwrap_or_default();
+    let journal = Journal::open(&path).map_err(|err| stand("журнал после переоткрытия", &err))?;
+    let scope = journal.scope(&project);
+    let dump = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
+    let done = report(&scope, submission).map_err(|err| stand("итог отправки", &err))?;
+    let item_states = states(&scope, submission).map_err(|err| stand("состояния", &err))?;
+    let item = item_facts(&scope, lost)?;
+    let (notes_after, drafts_after, after) = mr_state(&author, &reviewer)?;
+    let early = |verdict: Verdict, notes: Vec<String>| Observed {
+        notes,
+        before: before.clone(),
+        after: after.clone(),
+        journal: dump.clone(),
+        tier: caps.plan.clone(),
+        verdict: Some(verdict),
+        ..Observed::default()
+    };
+    // Инъекция не сработала (публикация не получила 2xx): итог по общему правилу, прочий отказ
+    // хоста судят проверки.
+    if fired.is_none()
+        && let Some(verdict) = delivery_verdict(&sent, window, ACTOR_REVIEWER)
+    {
+        return Ok(early(verdict, notes));
+    }
+    let second_pages = discussion_pages(reconcile_window, ACTOR_REVIEWER, 2);
+    if let Some(lost_draft) = &fired {
+        let ours = normalized_at(&notes_after, PAGED_LINE, PAGED_BODY);
+        let Some(own) = ours.first() else {
+            return Ok(early(
+                Verdict::NotRun(
+                    "публикация с потерянным ответом не наблюдена чтением автора: заметки с текстом черновика на новой строке 4 нет"
+                        .to_owned(),
+                ),
+                notes,
+            ));
+        };
+        if let Some(verdict) = unread_of(&reconciled, reconcile_window) {
+            return Ok(early(verdict, notes));
+        }
+        let created_body = window
+            .iter()
+            .filter(|call| call.actor == ACTOR_REVIEWER)
+            .find(|call| {
+                write_key(
+                    call.request.method,
+                    call.request.path(),
+                    call.request.body_json().as_ref(),
+                )
+                .as_deref()
+                    == Some(DRAFT_CREATE)
+            })
+            .and_then(|call| call.outcome.as_ref().ok())
+            .and_then(|response| response.body_json().ok())
+            .and_then(|value| value.get("note").and_then(Value::as_str).map(str::to_owned));
+        notes.push(format!(
+            "текст черновика: в ответе на создание — {}, в заметке автора — {}",
+            body_form(created_body.as_deref()),
+            body_form(Some(&own.body))
+        ));
+        notes.push(format!(
+            "вторая страница тредов в сверке: {}",
+            if second_pages.is_empty() {
+                "не прочитана".to_owned()
+            } else {
+                second_pages
+                    .iter()
+                    .map(|page| {
+                        format!(
+                            "тредов {}, заметка автора {}",
+                            page.threads,
+                            if page.notes.contains(own.id.as_str()) {
+                                "есть"
+                            } else {
+                                "нет"
+                            }
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            }
+        ));
+        if !second_pages.is_empty()
+            && !second_pages
+                .iter()
+                .any(|page| page.threads < PAGE_SIZE && page.notes.contains(own.id.as_str()))
+        {
+            let last = notes.last().cloned().unwrap_or_default();
+            return Ok(early(
+                Verdict::NotRun(format!(
+                    "кандидат не на неполной второй странице: {}",
+                    last.trim_start_matches("вторая страница тредов в сверке: ")
+                )),
+                notes,
+            ));
+        }
+        notes.push(format!(
+            "инъекция: ответ на публикацию черновика {lost_draft} получен и отброшен, клиенту отдан таймаут"
+        ));
+    }
+    let checks = paged_checks(&PagedFacts {
+        writes: &writes_of(window, ACTOR_REVIEWER),
+        lost: fired.as_deref(),
+        second_pages: &second_pages,
+        reconciled: &reconciled,
+        states: &item_states,
+        item,
+        delivery: done.delivery,
+        notes_after: &notes_after,
+        drafts_after: &drafts_after,
+        recovered: journal.recovered().len(),
+    });
+    Ok(Observed {
+        checks,
+        notes,
+        before,
+        after,
+        journal: dump,
         tier: caps.plan,
         verdict: None,
     })

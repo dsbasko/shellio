@@ -1,4 +1,5 @@
-//! Процесс второго клиента `probe-review --second-client gl-create-draft` и `gl-delete-draft`
+//! Процесс второго клиента `probe-review --second-client gl-create-draft`, `gl-delete-draft` и
+//! `gl-plant-notes`
 //! против `forge-fake`: хост и токены — окружением, как у процесса сценария `gitlab_ce`, ID
 //! черновика — в stdout, очищенный след — в `second-client.json`, токена нет ни в аргументах, ни
 //! в следе.
@@ -201,5 +202,49 @@ fn second_client_process_deletes_a_reviewer_draft_by_id() -> TestResult {
             .is_some_and(|reason| reason.starts_with("второй клиент не удалил черновик")),
         "{reply}"
     );
+    Ok(())
+}
+
+#[test]
+fn second_client_process_plants_reviewer_notes() -> TestResult {
+    let server = fake(true)?;
+    let dir = tempfile::tempdir()?;
+    let host = host_file(dir.path(), server.base())?;
+    let output = second_client_op(
+        &host,
+        dir.path(),
+        "gitlab_ce",
+        ["gl-plant-notes", "--count", "3"],
+    )?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        output.status.success(),
+        "{stdout} {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let reply: Value = serde_json::from_str(stdout.trim())?;
+    let notes = server.with(|fake| fake.notes(IID));
+    assert_eq!(
+        notes.iter().map(|n| n.body.as_str()).collect::<Vec<_>>(),
+        vec!["другая заметка 0", "другая заметка 1", "другая заметка 2"]
+    );
+    assert_eq!(
+        reply["id"].as_str(),
+        notes.last().map(|n| n.id.to_string()).as_deref()
+    );
+    let record = std::fs::read_to_string(dir.path().join("second-client.json"))?;
+    let value: Value = serde_json::from_str(&record)?;
+    let trace = value["trace"].as_array().ok_or("нет следа")?;
+    assert_eq!(
+        trace
+            .iter()
+            .filter(|entry| entry["method"] == "POST" && entry["actor"] == "second-client")
+            .count(),
+        3,
+        "{record}"
+    );
+    for raw in [REVIEWER_TOKEN, AUTHOR_TOKEN, REPO, REVIEWER] {
+        assert!(!record.contains(raw), "{raw} очищен: {record}");
+    }
     Ok(())
 }

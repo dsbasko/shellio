@@ -726,6 +726,11 @@ impl SecondClient for NoSecond {
             "второй клиент в этом тесте не нужен".to_owned(),
         ))
     }
+    fn plant_notes(&self, _: u64, _: u32) -> Result<String, Verdict> {
+        Err(Verdict::Error(
+            "второй клиент в этом тесте не нужен".to_owned(),
+        ))
+    }
 }
 
 // --- тело клетки против forge-fake ---
@@ -789,6 +794,10 @@ impl SecondClient for InProcess<'_> {
 
     fn delete_draft(&self, iid: u64, draft: &str) -> Result<String, Verdict> {
         foreign_delete(&self.guard(), &self.review(iid), draft)
+    }
+
+    fn plant_notes(&self, iid: u64, count: u32) -> Result<String, Verdict> {
+        foreign_notes(&self.guard(), &self.review(iid), count)
     }
 }
 
@@ -888,6 +897,7 @@ fn cell_body_with(
         Scenario::ReconcileDeleted => gl_reconcile_deleted(&cx, &mut cell),
         Scenario::ReconcileAmbiguous => gl_reconcile_ambiguous(&cx, &mut cell),
         Scenario::JournalCrash => gl_journal_crash(&cx, &mut cell),
+        Scenario::ReconcilePaged => gl_reconcile_paged(&cx, &mut cell),
         other => return Err(format!("тело {} в тесте не собрано", other.name()).into()),
     };
     let errors = guard_errors(&[("author", &author), ("reviewer", &reviewer)]);
@@ -2826,4 +2836,250 @@ fn refused_create_or_publish_without_the_injection_is_judged_by_the_checks() -> 
     assert_eq!(observed.checks.verdict().0, Status::Fail);
     assert_artifacts(&observed);
     Ok(())
+}
+
+// --- reconcile-paged ---
+
+const FAKE_DISCUSSIONS_READ: &str =
+    "GET /projects/{id}/merge_requests/{merge_request_iid}/discussions";
+
+#[test]
+fn reconcile_paged_body_passes_against_the_fake() -> TestResult {
+    let server = fake_gitlab()?;
+    let observed = cell_body(&server, Scenario::ReconcilePaged)?.map_err(|v| format!("{v:?}"))?;
+    pass(&observed);
+    assert_eq!(observed.verdict, None);
+    assert_eq!(writes_in_fake(&server, glf::DRAFTS), 1);
+    assert_eq!(writes_in_fake(&server, glf::PUBLISH), 1);
+    assert_eq!(writes_in_fake(&server, glf::NOTES), PLANTED_COUNT as usize);
+    let notes = server.with(|fake| fake.notes(FAKE_IID));
+    assert_eq!(notes.len(), PLANTED_COUNT as usize + 1);
+    assert_eq!(
+        notes
+            .last()
+            .map(|n| (n.body.as_str(), n.from_draft.is_some())),
+        Some(("текст ревью", true))
+    );
+    for wanted in [
+        "в заметке автора — нормализован",
+        "вторая страница тредов в сверке: тредов 1, заметка автора есть",
+        "инъекция: ответ на публикацию черновика",
+    ] {
+        assert!(
+            observed.notes.iter().any(|note| note.contains(wanted)),
+            "{wanted}: {:?}",
+            observed.notes
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn reconcile_paged_refused_or_failed_publish_is_judged_without_the_injection() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::PUBLISH, FakeReply::RateLimited));
+    let observed = cell_body(&server, Scenario::ReconcilePaged)?.map_err(|v| format!("{v:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::NotRun(format!(
+            "лимит: код 429 на запись {DRAFT_PUBLISH}"
+        )))
+    );
+    assert_artifacts(&observed);
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::PUBLISH, FakeReply::Status(502)));
+    let observed = cell_body(&server, Scenario::ReconcilePaged)?.map_err(|v| format!("{v:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::NotRun(reason)) if reason.starts_with(WRITE_UNOBSERVED)),
+        "{:?}",
+        observed.verdict
+    );
+    assert_artifacts(&observed);
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::PUBLISH, FakeReply::Status(400)));
+    let observed = cell_body(&server, Scenario::ReconcilePaged)?.map_err(|v| format!("{v:?}"))?;
+    assert_eq!(observed.verdict, None);
+    assert_eq!(observed.checks.verdict().0, Status::Fail);
+    assert_artifacts(&observed);
+    Ok(())
+}
+
+#[test]
+fn reconcile_paged_failed_second_page_read_splits_errors_and_the_limit() -> TestResult {
+    // Чтения тредов: снимок «до» (одна страница), затем две страницы сверки; отказ — на второй.
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(FAKE_DISCUSSIONS_READ, FakeReply::Status(502)).skip(2));
+    let observed = cell_body(&server, Scenario::ReconcilePaged)?.map_err(|v| format!("{v:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::Error(reason))
+            if reason.starts_with("сверка: чтение тредов не удалось")),
+        "{:?}",
+        observed.verdict
+    );
+    assert_artifacts(&observed);
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(FAKE_DISCUSSIONS_READ, FakeReply::RateLimited).skip(2));
+    let observed = cell_body(&server, Scenario::ReconcilePaged)?.map_err(|v| format!("{v:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::NotRun(
+            "лимит: код 429 на чтение сверки GET discussions".to_owned()
+        ))
+    );
+    assert_artifacts(&observed);
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(FAKE_DRAFT_READ, FakeReply::Status(502)));
+    let observed = cell_body(&server, Scenario::ReconcilePaged)?.map_err(|v| format!("{v:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::Error(reason))
+            if reason.starts_with("сверка: чтение черновика не удалось")),
+        "{:?}",
+        observed.verdict
+    );
+    Ok(())
+}
+
+#[test]
+fn reconcile_paged_candidate_on_a_full_second_page_is_not_run() -> TestResult {
+    let server = fake_gitlab()?;
+    server.with(|fake| -> Result<(), String> {
+        for index in 0..99 {
+            fake.plant_discussion(FAKE_IID, FAKE_REVIEWER, &format!("лишняя {index}"), None)?;
+        }
+        Ok(())
+    })?;
+    let observed = cell_body(&server, Scenario::ReconcilePaged)?.map_err(|v| format!("{v:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::NotRun(
+            "кандидат не на неполной второй странице: тредов 100, заметка автора есть".to_owned()
+        ))
+    );
+    assert_artifacts(&observed);
+    Ok(())
+}
+
+#[test]
+fn reconcile_paged_second_client_refusal_is_not_run_and_failure_an_error() -> TestResult {
+    for (reply, wanted) in [
+        (
+            FakeReply::Status(403),
+            Verdict::NotRun("второй клиент не опубликовал заметки: заметка 0: ".to_owned()),
+        ),
+        (
+            FakeReply::RateLimited,
+            Verdict::NotRun("лимит: код 429 на заметку второго клиента 0".to_owned()),
+        ),
+        (
+            FakeReply::Status(502),
+            Verdict::Error("второй клиент: заметка 0: ".to_owned()),
+        ),
+    ] {
+        let server = fake_gitlab()?;
+        server.inject(Fault::new(glf::NOTES, reply));
+        let verdict = match cell_body(&server, Scenario::ReconcilePaged)? {
+            Err(verdict) => verdict,
+            Ok(observed) => return Err(format!("{:?}", observed.verdict).into()),
+        };
+        let same = match (&verdict, &wanted) {
+            (Verdict::NotRun(got), Verdict::NotRun(prefix))
+            | (Verdict::Error(got), Verdict::Error(prefix)) => got.starts_with(prefix.as_str()),
+            _ => false,
+        };
+        assert!(same, "{verdict:?} против {wanted:?}");
+        assert_eq!(writes_in_fake(&server, glf::DRAFTS), 0);
+    }
+    Ok(())
+}
+
+#[test]
+fn body_form_names_how_the_host_kept_the_text() {
+    assert_eq!(body_form(Some(PAGED_BODY)), "как есть");
+    assert!(body_form(Some("текст ревью")).starts_with("нормализован"));
+    assert_eq!(body_form(Some("другое")), "изменён иначе");
+    assert_eq!(body_form(None), "не прочитан");
+}
+
+#[test]
+fn paged_checks_catch_a_retry_a_foreign_candidate_and_an_unread_second_page() {
+    let writes = vec![
+        write(1, DRAFT_CREATE, None, Some("31")),
+        write(2, DRAFT_PUBLISH, Some("31"), None),
+    ];
+    let mut notes: Vec<RemoteNote> = (0..100)
+        .map(|index| note(100 + index, &format!("{PLANTED_NOTE} {index}"), false, None))
+        .collect();
+    notes.push(note(7, "назначен ревьюер", true, None));
+    notes.push(note(41, "текст ревью", false, Some(position(PAGED_LINE))));
+    let candidate = vec![Reconciled::Candidate {
+        remote: ProviderId::new("41"),
+        detail: String::new(),
+    }];
+    let pages = vec![PageRead {
+        threads: 2,
+        notes: ["41".to_owned(), "199".to_owned()].into_iter().collect(),
+    }];
+    let states = vec![
+        (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+        (Operation::GitLabPublishDraftNote, ItemState::Unknown),
+    ];
+    let facts = PagedFacts {
+        writes: &writes,
+        lost: Some("31"),
+        second_pages: &pages,
+        reconciled: &candidate,
+        states: &states,
+        item: Some((ItemState::Unknown, Some("41".to_owned()))),
+        delivery: Delivery::Partial,
+        notes_after: &notes,
+        drafts_after: &[],
+        recovered: 0,
+    };
+    assert_eq!(paged_checks(&facts).verdict().0, Status::Pass);
+    let mut retried = writes.clone();
+    retried.push(write(3, DRAFT_PUBLISH, Some("31"), None));
+    let foreign = vec![Reconciled::Candidate {
+        remote: ProviderId::new("150"),
+        detail: String::new(),
+    }];
+    let ambiguous = vec![Reconciled::Ambiguous {
+        candidates: vec![ProviderId::new("41"), ProviderId::new("150")],
+    }];
+    let fewer: Vec<RemoteNote> = notes[1..].to_vec();
+    for wrong in [
+        PagedFacts {
+            writes: &retried,
+            ..facts.clone()
+        },
+        PagedFacts {
+            second_pages: &[],
+            ..facts.clone()
+        },
+        PagedFacts {
+            reconciled: &foreign,
+            ..facts.clone()
+        },
+        PagedFacts {
+            reconciled: &ambiguous,
+            ..facts.clone()
+        },
+        PagedFacts {
+            item: Some((ItemState::Confirmed, Some("41".to_owned()))),
+            ..facts.clone()
+        },
+        PagedFacts {
+            item: Some((ItemState::Unknown, None)),
+            ..facts.clone()
+        },
+        PagedFacts {
+            notes_after: &fewer,
+            ..facts.clone()
+        },
+        PagedFacts {
+            lost: None,
+            ..facts.clone()
+        },
+    ] {
+        assert_eq!(paged_checks(&wrong).verdict().0, Status::Fail);
+    }
 }

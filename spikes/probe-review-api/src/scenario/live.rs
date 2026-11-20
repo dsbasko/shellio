@@ -665,9 +665,10 @@ fn gitlab_ce(scenario: Scenario, ctx: &Context, result: &mut ResultFile) {
     gl_cells::run_gl_cell(scenario, &cx, &ctx.out, &scrubber, result);
 }
 
-/// Процесс второго клиента ревьюера (`--second-client gl-create-draft` или `gl-delete-draft`):
-/// черновик на новой строке MR `iid` или удаление черновика по ID. Ответ — строка JSON для stdout
-/// (`id` созданного или удалённого черновика, `not_run` или `error`, текст очищен) и признак
+/// Процесс второго клиента ревьюера (`--second-client gl-create-draft`, `gl-delete-draft` или
+/// `gl-plant-notes`): черновик на новой строке MR `iid`, удаление черновика по ID или заметки MR.
+/// Ответ — строка JSON для stdout (`id` созданного или удалённого черновика либо последней
+/// заметки, `not_run` или `error`, текст очищен) и признак
 /// ошибки исполнения; очищенный след и ответ — в `<out>/second-client.json`.
 pub fn second_client(column: Column, iid: u64, op: &SecondOp, out: &Path) -> (Value, bool) {
     let error = |text: String| (serde_json::json!({ "error": text }), false);
@@ -703,6 +704,7 @@ pub fn second_client(column: Column, iid: u64, op: &SecondOp, out: &Path) -> (Va
             gl_cells::foreign_draft(&guard, &review, &host.reviewer.username, *line)
         }
         SecondOp::DeleteDraft { draft } => gl_cells::foreign_delete(&guard, &review, draft),
+        SecondOp::PlantNotes { count } => gl_cells::foreign_notes(&guard, &review, *count),
     };
     let (reply, ok) = match done {
         Ok(id) => (serde_json::json!({ "id": id }), true),
