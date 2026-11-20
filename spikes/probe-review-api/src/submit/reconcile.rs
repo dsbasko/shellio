@@ -108,13 +108,23 @@ fn event_of(submission: &Submission) -> Option<ReviewEvent> {
     }
 }
 
+/// Сессия на ревизии черновика: черновик, который держит элемент, при смене head остаётся на
+/// прежней ревизии, и якорь отправленного запроса строится из неё.
+fn at_draft(session: &ReviewSession, draft: &DraftComment) -> ReviewSession {
+    ReviewSession::new(
+        session.account(),
+        session.target().clone(),
+        draft.revision().clone(),
+    )
+}
+
 /// Комментарий стоит на якоре черновика с его текстом.
 fn github_matches(
     session: &ReviewSession,
     draft: &DraftComment,
     comment: &github::RemoteComment,
 ) -> bool {
-    let Ok(anchor) = session.github_anchor(draft) else {
+    let Ok(anchor) = at_draft(session, draft).github_anchor(draft) else {
         return false;
     };
     comment.path == anchor.path()
@@ -139,7 +149,12 @@ pub fn reconcile_github<T: Transport>(github: &GitHub<T>, ledger: &GitHubLedger<
                 Ok(reviews) => reviews,
                 Err(err) => return unread("reviews", err),
             };
-            let head = ledger.session.revision().head_sha().as_str();
+            let head = ledger
+                .drafts
+                .first()
+                .map_or(ledger.session.revision(), DraftComment::revision)
+                .head_sha()
+                .as_str();
             let mut candidates = Vec::new();
             for review in reviews.iter().filter(|review| {
                 review.user.eq_ignore_ascii_case(account)
@@ -256,6 +271,7 @@ fn gitlab_position_matches(
     draft: &DraftComment,
     remote: Option<&RemotePosition>,
 ) -> bool {
+    let session = at_draft(session, draft);
     let (Ok(position), Some(remote)) = (session.gitlab_position(draft), remote) else {
         return false;
     };
@@ -306,13 +322,38 @@ pub fn reconcile_gitlab<T: Transport>(gitlab: &GitLab<T>, ledger: &GitLabLedger<
             };
             let read = gitlab.draft(known);
             if ledger.item.operation == Operation::GitLabUpdateDraftNote {
+                if let Placement::Line(_) = draft.placement()
+                    && at_draft(ledger.session, draft)
+                        .gitlab_position(draft)
+                        .is_err()
+                {
+                    return Verdict::Unresolved {
+                        detail: "позиция черновика не строится".to_owned(),
+                    };
+                }
                 return match read {
-                    Ok(remote) if same_body(&remote.note, &draft.body) => Verdict::Confirmed {
-                        remote: Some(known.clone()),
-                    },
-                    Ok(_) => Verdict::Refuted {
-                        detail: "у известного черновика прежний текст".to_owned(),
-                    },
+                    Ok(remote) => {
+                        let placed = match draft.placement() {
+                            Placement::Line(_) => gitlab_position_matches(
+                                ledger.session,
+                                draft,
+                                remote.position.as_ref(),
+                            ),
+                            Placement::Reply { thread } => {
+                                remote.discussion_id.as_ref() == Some(thread)
+                            }
+                        };
+                        if placed && same_body(&remote.note, &draft.body) {
+                            Verdict::Confirmed {
+                                remote: Some(known.clone()),
+                            }
+                        } else {
+                            Verdict::Refuted {
+                                detail: "у известного черновика прежний текст или позиция"
+                                    .to_owned(),
+                            }
+                        }
+                    }
                     Err(err) => unread("черновика", err),
                 };
             }
