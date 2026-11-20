@@ -187,6 +187,13 @@ pub fn writes(log: &[Logged]) -> BTreeMap<String, usize> {
     counts
 }
 
+/// Отметка квитанции: длина следа клиентов и журнала сервера ветви перед ожидаемыми вызовами.
+#[derive(Clone, Copy, Debug)]
+struct Mark {
+    trace: usize,
+    logged: usize,
+}
+
 /// Стенд процесса: след всех ролей, очиститель, журналы ветвей, снимки серверов, проверки.
 struct Stand {
     trace: Trace,
@@ -288,9 +295,27 @@ impl Stand {
         Ok(())
     }
 
-    /// Квитанция: сервер записал все вызовы, отправленные клиентами с отметки `mark` следа.
-    fn receipt<F: Forge>(&self, server: &FakeServer<F>, mark: usize) -> Result<(), String> {
-        server.wait_calls(self.trace.len().saturating_sub(mark), RECEIPT)
+    fn mark<F: Forge>(&self, server: &FakeServer<F>) -> Mark {
+        Mark {
+            trace: self.trace.len(),
+            logged: server.logged(),
+        }
+    }
+
+    /// Квитанция: журнал сервера ветви дорос до своей длины на отметке плюс вызовы, отправленные
+    /// клиентами с неё.
+    fn receipt<F: Forge>(&self, server: &FakeServer<F>, mark: Mark) -> Result<(), String> {
+        self.receipt_within(server, mark, RECEIPT)
+    }
+
+    fn receipt_within<F: Forge>(
+        &self,
+        server: &FakeServer<F>,
+        mark: Mark,
+        timeout: Duration,
+    ) -> Result<(), String> {
+        let sent = self.trace.len().saturating_sub(mark.trace);
+        server.wait_calls(mark.logged + sent, timeout)
     }
 
     fn check(&mut self, what: &str, ok: bool, observed: impl Into<String>) {
@@ -1261,7 +1286,7 @@ fn reconcile_foreign(stand: &mut Stand) -> Outcome {
     let second = stand.gh(&server, TOKEN_REVIEWER, ACTOR_SECOND)?;
     let caps = github.capabilities()?;
     let path = stand.journal_path("main");
-    let mark = stand.trace.len();
+    let mark = stand.mark(&server);
     let (submission, foreign) = {
         let journal = Journal::open(&path)?;
         let scope = journal.scope(&project());
@@ -1800,7 +1825,8 @@ fn gl_anchors(stand: &mut Stand) -> Outcome {
             range.pointer("/start/line_code").and_then(Value::as_str),
             range.pointer("/end/line_code").and_then(Value::as_str),
             range.pointer("/end/type").and_then(Value::as_str),
-            // Начало — неизменённая строка: у неё `type` по контракту оракула нет.
+            // Начало — неизменённая строка: Discussions API велит не передавать её `type`
+            // («Omit for an unchanged line»), так же строят модель и оракул.
             range.pointer("/start/type").and_then(Value::as_str),
         ),
         (
@@ -2059,7 +2085,7 @@ fn journal_crash(stand: &mut Stand) -> Outcome {
         )?;
         plan_gitlab(&scope, session, &GitLabPlan::default())?
     };
-    let mark = stand.trace.len();
+    let mark = stand.mark(&server);
     let transport = PanicAfter {
         inner: stand.client(TOKEN_REVIEWER, ACTOR_REVIEWER, true),
         path: "/draft_notes",
@@ -2124,7 +2150,7 @@ fn reconcile_ambiguous(stand: &mut Stand) -> Outcome {
     let gitlab = stand.gl(&server, TOKEN_REVIEWER, ACTOR_REVIEWER)?;
     let caps = gitlab.capabilities()?;
     let path = stand.journal_path("main");
-    let mark = stand.trace.len();
+    let mark = stand.mark(&server);
     let (submission, lost) = {
         let journal = Journal::open(&path)?;
         let scope = journal.scope(&project());
@@ -2188,7 +2214,7 @@ fn reconcile_deleted(stand: &mut Stand) -> Outcome {
     let second = stand.gl(&server, TOKEN_REVIEWER, ACTOR_SECOND)?;
     let caps = gitlab.capabilities()?;
     let path = stand.journal_path("main");
-    let mark = stand.trace.len();
+    let mark = stand.mark(&server);
     let (submission, lost) = {
         let journal = Journal::open(&path)?;
         let scope = journal.scope(&project());
@@ -2266,7 +2292,7 @@ fn reconcile_paged(stand: &mut Stand) -> Outcome {
     let gitlab = stand.gl(&server, TOKEN_REVIEWER, ACTOR_REVIEWER)?;
     let caps = gitlab.capabilities()?;
     let path = stand.journal_path("main");
-    let mark = stand.trace.len();
+    let mark = stand.mark(&server);
     let (submission, lost, reads_from) = {
         let journal = Journal::open(&path)?;
         let scope = journal.scope(&project());
@@ -2625,6 +2651,39 @@ mod tests {
             }
             Execution::Ok => return Err("ожидалась ошибка исполнения".to_owned()),
         }
+        Ok(())
+    }
+
+    /// Порог квитанции включает журнал сервера до отметки: вызов, отправленный клиентом с отметки,
+    /// но не записанный сервером ветви, квитанцию не выполняет, даже если до отметки сервер записал
+    /// больше вызовов, чем отправлено с неё.
+    #[test]
+    fn receipt_threshold_adds_server_log_at_the_mark() -> Result<(), String> {
+        let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let stand = Stand::new(dir.path());
+        let server = FakeServer::start(github_fake())?;
+        let other = FakeServer::start(github_fake())?;
+        let client = stand.client(TOKEN_REVIEWER, ACTOR_REVIEWER, false);
+        let get_user = |base: &str| -> Result<(), String> {
+            client
+                .send(&Request::get(format!("{base}/user")))
+                .map(drop)
+                .map_err(|e| e.to_string())
+        };
+        get_user(server.base())?;
+        get_user(server.base())?;
+        let mark = stand.mark(&server);
+        get_user(other.base())?;
+        assert!(
+            stand
+                .receipt_within(&server, mark, Duration::from_millis(200))
+                .is_err(),
+            "вызов к другому серверу засчитан серверу ветви"
+        );
+        let mark = stand.mark(&server);
+        get_user(server.base())?;
+        stand.receipt_within(&server, mark, RECEIPT)?;
+        assert_eq!(server.logged(), 3);
         Ok(())
     }
 

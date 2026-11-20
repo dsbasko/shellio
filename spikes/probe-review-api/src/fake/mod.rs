@@ -262,6 +262,11 @@ impl<F: Forge> FakeServer<F> {
             .count()
     }
 
+    /// Длина журнала — отметка, от которой квитанция считает новые вызовы.
+    pub fn logged(&self) -> usize {
+        lock(&self.shared).log.len()
+    }
+
     pub fn parked(&self) -> usize {
         lock(&self.shared).parked.len()
     }
