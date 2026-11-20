@@ -12,6 +12,7 @@ const REVIEWER: &str = "bob";
 const PATCH: &str = "@@ -1,4 +1,4 @@\n ctx1\n-old2\n+new2\n ctx3\n ctx4\n@@ -10,2 +10,3 @@\n ctx10\n+add11\n ctx11\n";
 const PULL: u64 = 7;
 const REVIEWS: &str = "/repos/o/r/pulls/7/reviews";
+const RECEIPT: Duration = Duration::from_secs(10);
 
 fn fake() -> FakeServer<GithubFake> {
     let mut github = GithubFake::new("o", "r");
@@ -264,6 +265,13 @@ fn pending_review_is_visible_only_to_its_owner() {
     let id = pending["id"].as_u64().expect("id");
 
     assert_eq!(reviewer.get(REVIEWS).1.as_array().map(Vec::len), Some(1));
+    let (status, own) = reviewer.get(&format!("{REVIEWS}/{id}"));
+    assert_eq!(status, 200, "{own}");
+    assert_eq!(
+        (own["id"].as_u64(), own["state"].as_str()),
+        (Some(id), Some("PENDING"))
+    );
+    assert!(own.get("submitted_at").is_none());
     assert_eq!(author.get(REVIEWS).1, json!([]));
     assert_eq!(author.get(&format!("{REVIEWS}/{id}")).0, 404);
     assert_eq!(author.get(&format!("{REVIEWS}/{id}/comments")).0, 404);
@@ -596,6 +604,7 @@ fn applied_write_with_lost_response_times_out_and_keeps_state() {
         .json(&json!({"event": "COMMENT", "body": "дошло"}));
     let failure = reviewer.http.send(&request).expect_err("ответа нет");
     assert!(failure.may_have_been_sent(), "{failure}");
+    server.wait_calls(1, RECEIPT).expect("квитанция сервера");
     assert_eq!(server.parked(), 1);
     let reviews = server.with(|github| github.reviews(PULL));
     assert_eq!(reviews.len(), 1, "запись принята");
@@ -670,6 +679,8 @@ fn silence_on_read_is_a_timeout() {
         )))
         .expect_err("молчание");
     assert_eq!(failure.kind, FailureKind::Timeout, "{failure}");
+    server.wait_calls(1, RECEIPT).expect("квитанция сервера");
+    assert_eq!(server.parked(), 1);
     assert!(!server.log()[0].applied);
 }
 
@@ -749,4 +760,150 @@ fn hunk_scanner_counts_both_sides() {
     assert_eq!(lines.hunk(DiffSide::Left, 11), Some(2));
     assert_eq!(lines.hunk(DiffSide::Right, 12), Some(2));
     assert_eq!(lines.hunk(DiffSide::Left, 12), None);
+}
+
+const NODE: &str = "query($id: ID!) { node(id: $id) { __typename id } }";
+
+#[test]
+fn node_reads_review_thread_and_pull_threads_with_visibility() {
+    let server = fake();
+    let (review_id, ids) = server
+        .with(|github| {
+            github.plant_pending(PULL, REVIEWER, "итог", &[spec(2, "раз"), spec(3, "два")])
+        })
+        .expect("подложен");
+    let (review_node, thread_node) = server.with(|github| {
+        (
+            github.reviews(PULL)[0].node_id.clone(),
+            github.threads(PULL)[0].node_id.clone(),
+        )
+    });
+    let reviewer = Client::new(&server, "tok-reviewer");
+    let author = Client::new(&server, "tok-author");
+
+    let review = reviewer.graphql(NODE, json!({"id": review_node}));
+    let review = &review["data"]["node"];
+    assert_eq!(review["__typename"], "PullRequestReview");
+    assert_eq!(review["databaseId"].as_u64(), Some(review_id));
+    assert_eq!(review["state"], "PENDING");
+    assert_eq!(review["body"], "итог");
+    assert_eq!(review["commit"]["oid"], "head1");
+    assert_eq!(review["comments"]["totalCount"], 2);
+    assert_eq!(
+        review["comments"]["nodes"][1]["databaseId"].as_u64(),
+        Some(ids[1])
+    );
+    assert_eq!(review["comments"]["nodes"][1]["state"], "PENDING");
+    assert_eq!(review["comments"]["pageInfo"]["hasNextPage"], false);
+
+    let thread = reviewer.graphql(NODE, json!({"id": thread_node}));
+    let thread = &thread["data"]["node"];
+    assert_eq!(thread["__typename"], "PullRequestReviewThread");
+    assert_eq!(thread["isResolved"], false);
+    assert_eq!(thread["path"], "src/a.rs");
+    assert_eq!(thread["line"], 2);
+    assert_eq!(thread["diffSide"], "RIGHT");
+    assert_eq!(
+        thread["comments"]["nodes"][0]["pullRequestReview"]["databaseId"].as_u64(),
+        Some(review_id)
+    );
+
+    let pull = reviewer.graphql(NODE, json!({"id": "PR_fake7"}));
+    let pull = &pull["data"]["node"];
+    assert_eq!(pull["__typename"], "PullRequest");
+    assert_eq!(pull["headRefOid"], "head1");
+    assert_eq!(pull["reviewThreads"]["totalCount"], 2);
+    assert_eq!(
+        pull["reviewThreads"]["nodes"][0]["id"],
+        thread_node.as_str()
+    );
+
+    for id in [review_node.as_str(), thread_node.as_str()] {
+        let hidden = author.graphql(NODE, json!({"id": id}));
+        assert_eq!(hidden["errors"][0]["type"], "NOT_FOUND", "{id}");
+        assert_eq!(hidden["data"]["node"], Value::Null);
+    }
+    let theirs = author.graphql(NODE, json!({"id": "PR_fake7"}));
+    assert_eq!(theirs["data"]["node"]["reviewThreads"]["totalCount"], 0);
+
+    let (status, _) = reviewer.post(
+        &format!("{REVIEWS}/{review_id}/events"),
+        json!({"event": "COMMENT", "body": "итог"}),
+    );
+    assert_eq!(status, 200);
+    let published = author.graphql(NODE, json!({"id": "PR_fake7"}));
+    assert_eq!(published["data"]["node"]["reviewThreads"]["totalCount"], 2);
+    let thread = author.graphql(NODE, json!({"id": thread_node}));
+    assert_eq!(
+        thread["data"]["node"]["comments"]["nodes"][0]["state"],
+        "SUBMITTED"
+    );
+}
+
+#[test]
+fn server_error_after_apply_keeps_the_write() {
+    let server = fake();
+    let key = format!("POST {}", Route::Reviews(PULL).template());
+    server.inject(Fault::new(&key, Reply::Status(502)).after_apply());
+    let reviewer = Client::new(&server, "tok-reviewer");
+    let (status, body) = reviewer.post(REVIEWS, json!({"event": "COMMENT", "body": "принято"}));
+    assert_eq!(status, 502, "{body}");
+    assert!(
+        body["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("injected 502"))
+    );
+    let reviews = server.with(|github| github.reviews(PULL));
+    assert_eq!(reviews.len(), 1, "запись применена до ответа 502");
+    assert_eq!(reviews[0].state, ReviewState::Commented);
+    let log = server.log();
+    assert_eq!(
+        (log[0].status, log[0].applied, log[0].fault),
+        (Some(502), true, Some(Reply::Status(502)))
+    );
+    assert!(server.finish().is_ok());
+}
+
+#[test]
+fn graphql_fault_rule_fires_by_field_key() {
+    let server = fake();
+    let (_, pending) = Client::new(&server, "tok-reviewer").post(REVIEWS, json!({}));
+    let review_node = pending["node_id"].as_str().expect("node_id").to_owned();
+    server.inject(Fault::new(
+        "graphql addPullRequestReviewThread",
+        Reply::Status(503),
+    ));
+    server
+        .inject(Fault::new("graphql addPullRequestReviewThread", Reply::Status(500)).after_apply());
+    let reviewer = Client::new(&server, "tok-reviewer");
+    let input = json!({"input": {"pullRequestReviewId": review_node, "path": "src/a.rs", "line": 2, "body": "x"}});
+    let (status, _) = reviewer.post(
+        "/graphql",
+        json!({"query": ADD_THREAD, "variables": input.clone()}),
+    );
+    assert_eq!(status, 503);
+    assert!(
+        server.with(|github| github.comments(PULL).is_empty()),
+        "запись не применена"
+    );
+    let (status, _) = reviewer.post("/graphql", json!({"query": ADD_THREAD, "variables": input}));
+    assert_eq!(status, 500);
+    assert_eq!(
+        server.with(|github| github.comments(PULL).len()),
+        1,
+        "запись применена до ответа 500"
+    );
+    assert_eq!(server.count("graphql addPullRequestReviewThread"), 2);
+    assert!(server.finish().is_ok());
+}
+
+#[test]
+fn receipt_times_out_without_calls() {
+    let server = fake();
+    let err = server
+        .wait_calls(1, Duration::from_millis(50))
+        .expect_err("вызовов не было");
+    assert!(err.contains("0 из 1"), "{err}");
+    Client::new(&server, "tok-reviewer").get("/user");
+    server.wait_calls(1, RECEIPT).expect("вызов записан");
 }

@@ -9,14 +9,20 @@
 //! видит клиент ([`Reply`]). Молчание не роняет запрос `tiny_http` (его `Drop` ответил бы 500):
 //! запрос паркуется до [`FakeServer::release_parked`] или остановки сервера, клиент получает
 //! отказ по своему сроку.
+//!
+//! Квитанция сервера — [`FakeServer::wait_calls`]: вызов записан в журнал, запись применена или
+//! нет, молчащий запрос припаркован. Срок клиента не говорит, что сервер закончил обработку, поэтому
+//! проверки журнала, парковки и состояния после отказа клиента ждут квитанцию.
 
 pub mod github;
+pub mod gitlab;
 
 use std::collections::BTreeMap;
 use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread::JoinHandle;
+use std::time::Duration;
 
 use serde_json::{Value, json};
 
@@ -154,6 +160,12 @@ struct Shared<F> {
     parked: Vec<tiny_http::Request>,
 }
 
+/// Состояние под замком и квитанция о записи вызова в журнал.
+struct Guarded<F> {
+    state: Mutex<Shared<F>>,
+    logged: Condvar,
+}
+
 impl<F> Shared<F> {
     fn take_fault(&mut self, key: &str) -> Option<Fault> {
         let index = self.faults.iter().position(|fault| fault.key == key)?;
@@ -168,14 +180,14 @@ impl<F> Shared<F> {
 
 pub struct FakeServer<F: Forge> {
     base: String,
-    shared: Arc<Mutex<Shared<F>>>,
+    shared: Arc<Guarded<F>>,
     server: Arc<tiny_http::Server>,
     stop: Arc<AtomicBool>,
     worker: Option<JoinHandle<()>>,
 }
 
-fn lock<F>(shared: &Mutex<Shared<F>>) -> MutexGuard<'_, Shared<F>> {
-    shared.lock().unwrap_or_else(PoisonError::into_inner)
+fn lock<F>(shared: &Guarded<F>) -> MutexGuard<'_, Shared<F>> {
+    shared.state.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 impl<F: Forge> FakeServer<F> {
@@ -189,12 +201,15 @@ impl<F: Forge> FakeServer<F> {
             .ok_or("forge-fake: адрес не IP")?;
         let base = format!("http://{address}");
         let server = Arc::new(server);
-        let shared = Arc::new(Mutex::new(Shared {
-            forge,
-            faults: Vec::new(),
-            log: Vec::new(),
-            parked: Vec::new(),
-        }));
+        let shared = Arc::new(Guarded {
+            state: Mutex::new(Shared {
+                forge,
+                faults: Vec::new(),
+                log: Vec::new(),
+                parked: Vec::new(),
+            }),
+            logged: Condvar::new(),
+        });
         let stop = Arc::new(AtomicBool::new(false));
         let worker = {
             let (server, shared, stop, base) =
@@ -251,6 +266,25 @@ impl<F: Forge> FakeServer<F> {
         lock(&self.shared).parked.len()
     }
 
+    /// Квитанция: ждёт, пока в журнале будет не меньше `count` вызовов, но не дольше `timeout`.
+    /// Вызов попадает в журнал после обработчика провайдера и парковки молчащего запроса.
+    pub fn wait_calls(&self, count: usize, timeout: Duration) -> Result<(), String> {
+        let guard = lock(&self.shared);
+        let (guard, _) = self
+            .shared
+            .logged
+            .wait_timeout_while(guard, timeout, |shared| shared.log.len() < count)
+            .unwrap_or_else(PoisonError::into_inner);
+        let logged = guard.log.len();
+        if logged >= count {
+            Ok(())
+        } else {
+            Err(format!(
+                "forge-fake: за {timeout:?} записано вызовов {logged} из {count}"
+            ))
+        }
+    }
+
     /// Отпустить запросы без ответа. `tiny_http` ответит на них 500 уже ушедшему клиенту.
     pub fn release_parked(&self) {
         let parked = std::mem::take(&mut lock(&self.shared).parked);
@@ -293,12 +327,7 @@ enum Outcome {
     Park,
 }
 
-fn serve<F: Forge>(
-    server: &tiny_http::Server,
-    shared: &Mutex<Shared<F>>,
-    stop: &AtomicBool,
-    base: &str,
-) {
+fn serve<F: Forge>(server: &tiny_http::Server, shared: &Guarded<F>, stop: &AtomicBool, base: &str) {
     loop {
         let mut request = match server.recv() {
             Ok(request) => request,
@@ -348,9 +377,14 @@ fn serve<F: Forge>(
         match outcome {
             Outcome::Respond(response) => {
                 drop(guard);
+                shared.logged.notify_all();
                 let _ = request.respond(to_tiny(response));
             }
-            Outcome::Park => guard.parked.push(request),
+            Outcome::Park => {
+                guard.parked.push(request);
+                drop(guard);
+                shared.logged.notify_all();
+            }
         }
     }
 }
