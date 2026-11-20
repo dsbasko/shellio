@@ -235,9 +235,9 @@ fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveE
         denied.apply(result, &scrubber);
         return;
     }
+    let secrets = (author_secret, reviewer_secret);
     match reviewer_account {
         Some(account) if gitlab_rows => {
-            let secrets = (author_secret, reviewer_secret);
             gitlab_cloud(
                 scenario,
                 ctx,
@@ -248,8 +248,280 @@ fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveE
                 result,
             );
         }
+        Some(_) if scenario == Scenario::Capabilities => {
+            in_cell_trace(result, |trace, result| {
+                let author = cloud_guard(ctx.column, &host, secrets.0, trace, "author");
+                let reviewer = cloud_guard(ctx.column, &host, secrets.1, trace, "reviewer");
+                capabilities_cloud(&author, &reviewer, trace, &scrubber, result);
+            });
+        }
         _ => not_implemented(scenario, ctx, result),
     }
+}
+
+/// Тело клетки над своим следом: вызовы открытия ролей (`result.trace` и `result.calls` до
+/// вызова) остаются в `result.json` перед вызовами клетки, но в след, по которому судит клетка,
+/// не входят.
+fn in_cell_trace(result: &mut ResultFile, body: impl FnOnce(&Trace, &mut ResultFile)) {
+    let open_trace = std::mem::take(&mut result.trace);
+    let open_calls = std::mem::take(&mut result.calls);
+    let trace = Trace::new();
+    body(&trace, result);
+    let cell_trace = std::mem::replace(&mut result.trace, open_trace);
+    result.trace.extend(cell_trace);
+    for (key, count) in open_calls {
+        *result.calls.entry(key).or_default() += count;
+    }
+}
+
+/// `capabilities` облачного столбца над сторожами обеих ролей: возможности ревьюера и автора
+/// читаются адаптером провайдера, записей нет (POST GraphQL — чтение). Итог: прочитано —
+/// `pass`, наличие мутаций — наблюдения, как у `gitlab_ce`; отказ транспорта, 5xx, отказ сторожа,
+/// записи и не приватный репозиторий — ошибка исполнения; лимит — `not_run` «лимит»; роль
+/// ревьюера GitLab ниже Developer — `not_run` по предусловию песочницы; прочий отказ чтения —
+/// `fail`.
+pub fn capabilities_cloud<T: Transport>(
+    author: &Guarded<T>,
+    reviewer: &Guarded<T>,
+    trace: &Trace,
+    scrubber: &Scrubber,
+    result: &mut ResultFile,
+) {
+    let target = reviewer.target().clone();
+    let mut read = CapsRead::default();
+    match target.provider {
+        Provider::GitLab => gitlab_cloud_caps(author, reviewer, &mut read, result),
+        Provider::GitHub => github_cloud_caps(author, reviewer, &mut read, result),
+    }
+    let guards = [("reviewer", reviewer), ("author", author)];
+    read.errors.extend(guard_errors(&guards));
+    let writes: Vec<String> = trace
+        .calls()
+        .iter()
+        .filter(|call| call.request.method.is_write() && call.request.url != target.graphql)
+        .map(|call| format!("{} {}", call.request.method, call.request.path()))
+        .collect();
+    if !writes.is_empty() {
+        read.errors.push(format!(
+            "записи при чтении возможностей: {}",
+            writes.join(", ")
+        ));
+    }
+    result.trace = trace
+        .entries(scrubber)
+        .iter()
+        .filter_map(|entry| serde_json::to_value(entry).ok())
+        .collect();
+    result.calls = trace
+        .counts(scrubber)
+        .into_iter()
+        .map(|(key, count)| (key, count as u64))
+        .collect();
+    result.server_before = Some(scrubber.scrub_json(&Value::Object(read.state)));
+    result.notes.extend(read.notes);
+    if result.trace.is_empty() {
+        read.errors.push("нет следа вызовов".to_owned());
+    }
+    scrub_notes(scrubber, &mut result.notes);
+    let verdict = if !read.errors.is_empty() {
+        Some(Verdict::Error(read.errors.join("; ")))
+    } else if let Some(denied) = guard_denied(&guards) {
+        Some(denied)
+    } else if let Some(limit) = read.limited {
+        Some(Verdict::NotRun(limit))
+    } else if !read.failed.is_empty() {
+        Some(Verdict::Fail(format!(
+            "возможности не определились чтением: {}",
+            read.failed.join("; ")
+        )))
+    } else {
+        read.precondition.map(Verdict::NotRun)
+    };
+    match (verdict, read.pass) {
+        (Some(verdict), _) => verdict.apply(result, scrubber),
+        (None, Some(reason)) => {
+            result.status = Status::Pass;
+            result.reason = scrubber.scrub_text(&reason);
+        }
+        (None, None) => {
+            Verdict::Error("capabilities: итог не собран".to_owned()).apply(result, scrubber)
+        }
+    }
+}
+
+/// Собранное чтением возможностей облачного столбца.
+#[derive(Default)]
+struct CapsRead {
+    state: serde_json::Map<String, Value>,
+    errors: Vec<String>,
+    failed: Vec<String>,
+    notes: Vec<String>,
+    limited: Option<String>,
+    precondition: Option<String>,
+    pass: Option<String>,
+}
+
+fn gitlab_cloud_caps<T: Transport>(
+    author: &Guarded<T>,
+    reviewer: &Guarded<T>,
+    read: &mut CapsRead,
+    result: &mut ResultFile,
+) {
+    let review = ReviewTarget {
+        provider: Provider::GitLab,
+        host: gitlab_root(reviewer.target()),
+        repo: reviewer.target().repo.clone(),
+        number: 0,
+    };
+    let caps = |guard| gitlab_adapter(guard, &review).and_then(|gl| gl.capabilities());
+    let reviewer_caps = caps(reviewer);
+    let author_caps = caps(author);
+    for (actor, caps) in [("reviewer", &reviewer_caps), ("author", &author_caps)] {
+        match caps {
+            Ok(caps) => {
+                read.state.insert(actor.to_owned(), caps.to_json());
+            }
+            Err(ApiError::RateLimited { status, .. }) => {
+                read.limited = Some(format!(
+                    "лимит: код {status} на чтение возможностей {actor}"
+                ));
+            }
+            Err(err) => match classify_read(err) {
+                Ok(observed) => read.failed.push(format!("{actor}: {observed}")),
+                Err(stand) => read.errors.push(format!("{actor}: {stand}")),
+            },
+        }
+    }
+    let Ok(caps) = &reviewer_caps else {
+        return;
+    };
+    let edition = match caps.host.enterprise {
+        Some(true) => "EE",
+        Some(false) => "CE",
+        None => "редакция не видна",
+    };
+    result.host = Host {
+        version: Some(format!("GitLab {} ({edition})", caps.host.version)),
+        tier: caps.plan.clone(),
+    };
+    if !caps.private() {
+        read.errors.push(format!(
+            "проект песочницы не приватный: {}",
+            caps.visibility
+        ));
+    }
+    if !caps.can_review() {
+        read.precondition = Some(format!(
+            "предусловие: роль ревьюера {:?}, нужна Developer или выше",
+            caps.access_level
+        ));
+    }
+    if let Ok(author) = &author_caps {
+        read.notes.push(format!(
+            "наблюдение: роль автора в своём проекте {:?}",
+            author.access_level
+        ));
+    }
+    let tier = match (&caps.plan, caps.plan_source) {
+        (Some(plan), Some(source)) => format!("{plan} (из {source})"),
+        (Some(plan), None) => plan.clone(),
+        (None, _) => "не виден токену".to_owned(),
+    };
+    let request_changes = if caps.request_changes() {
+        "есть"
+    } else {
+        "нет"
+    };
+    read.notes.push(format!(
+        "наблюдение: mergeRequestRequestChanges в схеме — {request_changes} (ответ {}); тариф \
+{tier}",
+        caps.introspection
+    ));
+    read.pass = Some(format!(
+        "возможности прочитаны через сторожа без записей: GitLab {} {edition}, проект приватный, \
+роль ревьюера не ниже Developer, mergeRequestRequestChanges в схеме — {request_changes}, тариф \
+{tier}",
+        caps.host.version
+    ));
+}
+
+fn github_cloud_caps<T: Transport>(
+    author: &Guarded<T>,
+    reviewer: &Guarded<T>,
+    read: &mut CapsRead,
+    result: &mut ResultFile,
+) {
+    use crate::github::ApiError as GhError;
+    let review = ReviewTarget {
+        provider: Provider::GitHub,
+        host: reviewer.target().rest.clone(),
+        repo: reviewer.target().repo.clone(),
+        number: 0,
+    };
+    let caps = |guard| github_adapter(guard, &review).and_then(|gh| gh.capabilities());
+    let reviewer_caps = caps(reviewer);
+    let author_caps = caps(author);
+    for (actor, caps) in [("reviewer", &reviewer_caps), ("author", &author_caps)] {
+        match caps {
+            Ok(caps) => {
+                read.state.insert(actor.to_owned(), caps.to_json());
+            }
+            Err(GhError::RateLimited { status, .. }) => {
+                read.limited = Some(format!(
+                    "лимит: код {status} на чтение возможностей {actor}"
+                ));
+            }
+            Err(err @ (GhError::NotSent(_) | GhError::Transport(_))) => {
+                read.errors.push(format!("{actor}: {err}"));
+            }
+            Err(err @ GhError::Status { status, .. }) if *status >= 500 => {
+                read.errors.push(format!("{actor}: {err}"));
+            }
+            Err(err) => read.failed.push(format!("{actor}: {err}")),
+        }
+    }
+    let Ok(caps) = &reviewer_caps else {
+        return;
+    };
+    let versions = match &caps.api.supported {
+        Some(list) if list.contains(&caps.api.requested) => {
+            format!("версия API {} есть в списке хоста", caps.api.requested)
+        }
+        Some(list) => format!(
+            "версии API {} нет в списке хоста ({})",
+            caps.api.requested,
+            list.join(", ")
+        ),
+        None => format!(
+            "версии не читаются (GET /versions — 404), запрошена {}",
+            caps.api.requested
+        ),
+    };
+    result.host = Host {
+        version: Some(format!("github.com, REST API {}", caps.api.requested)),
+        tier: caps.plan.clone(),
+    };
+    if !caps.repo_private {
+        read.errors
+            .push("репозиторий песочницы не приватный".to_owned());
+    }
+    let has = |yes: bool| if yes { "есть" } else { "нет" };
+    let observed = format!(
+        "серверный PENDING — {}, просмотренные файлы — {}, resolve — {}; {versions}",
+        has(caps.server_pending()),
+        has(caps.viewed()),
+        has(caps.resolve())
+    );
+    read.notes.push(format!("наблюдение: {observed}"));
+    if let Ok(author) = &author_caps {
+        read.notes.push(format!(
+            "наблюдение: право записи автора — {}",
+            has(author.can_push)
+        ));
+    }
+    read.pass = Some(format!(
+        "возможности прочитаны через сторожа без записей: репозиторий приватный, {observed}"
+    ));
 }
 
 /// Версия и тариф облачного GitLab чтением возможностей ревьюера до записей клетки: `absent`
@@ -300,8 +572,6 @@ fn gitlab_cloud(
     scrubber: &Scrubber,
     result: &mut ResultFile,
 ) {
-    let open_trace = std::mem::take(&mut result.trace);
-    let open_calls = std::mem::take(&mut result.calls);
     let exe = match std::env::current_exe() {
         Ok(exe) => exe,
         Err(err) => {
@@ -309,38 +579,29 @@ fn gitlab_cloud(
             return;
         }
     };
-    let trace = Trace::new();
-    let author = cloud_guard(Column::GitlabCloud, host, author_secret, &trace, "author");
-    let reviewer = cloud_guard(
-        Column::GitlabCloud,
-        host,
-        reviewer_secret,
-        &trace,
-        "reviewer",
-    );
-    let second = ProcessClient {
-        exe,
-        column: Column::GitlabCloud,
-        out: ctx.out.clone(),
-    };
-    let head = AuthorCommit { author: &author };
-    let cx = GlCx {
-        author: &author,
-        reviewer: &reviewer,
-        trace: &trace,
-        host_url: gitlab_root(&host.target),
-        reviewer_login,
-        state_dir: &ctx.state_dir,
-        poll: Poll::LIVE,
-        second: &second,
-        head: &head,
-    };
-    gl_cells::run_gl_cell(scenario, &cx, &ctx.out, scrubber, result);
-    let cell_trace = std::mem::replace(&mut result.trace, open_trace);
-    result.trace.extend(cell_trace);
-    for (key, count) in open_calls {
-        *result.calls.entry(key).or_default() += count;
-    }
+    let column = Column::GitlabCloud;
+    in_cell_trace(result, |trace, result| {
+        let author = cloud_guard(column, host, author_secret, trace, "author");
+        let reviewer = cloud_guard(column, host, reviewer_secret, trace, "reviewer");
+        let second = ProcessClient {
+            exe,
+            column,
+            out: ctx.out.clone(),
+        };
+        let head = AuthorCommit { author: &author };
+        let cx = GlCx {
+            author: &author,
+            reviewer: &reviewer,
+            trace,
+            host_url: gitlab_root(&host.target),
+            reviewer_login,
+            state_dir: &ctx.state_dir,
+            poll: Poll::LIVE,
+            second: &second,
+            head: &head,
+        };
+        gl_cells::run_gl_cell(scenario, &cx, &ctx.out, scrubber, result);
+    });
 }
 
 /// Роли живой клетки до её записей: аккаунты обеих ролей (логин и отображаемое имя) — в
@@ -2065,6 +2326,136 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
         assert!(
             gitlab_host(&guard).is_err(),
             "отказ транспорта — ошибка исполнения"
+        );
+        Ok(())
+    }
+
+    fn caps_cell(
+        author: &Guarded<Traced<HttpTransport>>,
+        reviewer: &Guarded<Traced<HttpTransport>>,
+        trace: &Trace,
+        column: Column,
+    ) -> ResultFile {
+        let mut result = ResultFile::new("s", "b", "capabilities", column);
+        result.trace = vec![serde_json::json!({"open": true})];
+        result.calls.insert("GET /user".to_owned(), 2);
+        in_cell_trace(&mut result, |cell_trace, result| {
+            assert!(cell_trace.calls().is_empty());
+            capabilities_cloud(author, reviewer, trace, &cloud_scrubber_for_fake(), result);
+        });
+        result
+    }
+
+    #[test]
+    fn gitlab_cloud_capabilities_read_without_writes_and_record_the_version() -> Result<(), String>
+    {
+        let server = cloud_fake(true)?;
+        let trace = Trace::new();
+        let author = fake_guard(server.base(), FAKE_AUTHOR_TOKEN, &trace);
+        let reviewer = fake_guard(server.base(), FAKE_REVIEWER_TOKEN, &trace);
+        let result = caps_cell(&author, &reviewer, &trace, Column::GitlabCloud);
+        assert_eq!(result.status, Status::Pass, "{result:?}");
+        assert!(result.execution.is_ok(), "{:?}", result.execution);
+        assert!(
+            result
+                .host
+                .version
+                .as_deref()
+                .is_some_and(|v| v.starts_with("GitLab "))
+        );
+        assert_eq!(
+            result.trace[0],
+            serde_json::json!({"open": true}),
+            "открытие ролей первым"
+        );
+        assert!(result.trace.len() > 1);
+        assert!(result.calls.get("GET /user").is_some_and(|n| *n >= 2));
+        assert!(result.server_before.is_some());
+        let text = serde_json::to_string(&result).map_err(|e| e.to_string())?;
+        for secret in [FAKE_REPO, FAKE_AUTHOR_TOKEN, FAKE_REVIEWER_TOKEN] {
+            assert!(!text.contains(secret), "{secret}: {text}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn gitlab_cloud_reporter_reviewer_is_not_run_by_precondition() -> Result<(), String> {
+        use crate::fake::gitlab::{Access, GitlabFake};
+        let mut fake = GitlabFake::new(FAKE_REPO);
+        fake.add_user(FAKE_AUTHOR, FAKE_AUTHOR_TOKEN, Some(Access::Developer));
+        fake.add_user(FAKE_REVIEWER, FAKE_REVIEWER_TOKEN, Some(Access::Reporter));
+        let server = crate::fake::FakeServer::start(fake)?;
+        let trace = Trace::new();
+        let author = fake_guard(server.base(), FAKE_AUTHOR_TOKEN, &trace);
+        let reviewer = fake_guard(server.base(), FAKE_REVIEWER_TOKEN, &trace);
+        let result = caps_cell(&author, &reviewer, &trace, Column::GitlabCloud);
+        assert_eq!(result.status, Status::NotRun, "{result:?}");
+        assert!(
+            result.reason.starts_with("предусловие: роль ревьюера"),
+            "{}",
+            result.reason
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn github_cloud_capabilities_read_without_writes() -> Result<(), String> {
+        use crate::fake::github::{GithubFake, Permission};
+        let mut fake = GithubFake::new("probe-author", "shellio-review-sandbox");
+        fake.add_user(FAKE_AUTHOR, FAKE_AUTHOR_TOKEN, Permission::Write);
+        fake.add_user(FAKE_REVIEWER, FAKE_REVIEWER_TOKEN, Permission::Write);
+        let server = crate::fake::FakeServer::start(fake)?;
+        let trace = Trace::new();
+        let guard = |token: &str| {
+            let credential = crate::transport::http::Credential::bearer(Secret::new(token));
+            Guarded::new(
+                Traced::new(
+                    HttpTransport::new(HttpConfig::default(), Some(credential)),
+                    trace.clone(),
+                    "role",
+                ),
+                GuardTarget::github(&crate::github::Endpoints::single(server.base()), FAKE_REPO),
+                WriteScope::Loopback,
+            )
+        };
+        let author = guard(FAKE_AUTHOR_TOKEN);
+        let reviewer = guard(FAKE_REVIEWER_TOKEN);
+        let result = caps_cell(&author, &reviewer, &trace, Column::GithubCloud);
+        assert_eq!(result.status, Status::Pass, "{result:?}");
+        assert!(
+            result.reason.contains("серверный PENDING — есть"),
+            "{}",
+            result.reason
+        );
+        assert!(result.host.version.is_some());
+
+        let mut public = GithubFake::new("probe-author", "shellio-review-sandbox");
+        public.set_private(false);
+        public.add_user(FAKE_AUTHOR, FAKE_AUTHOR_TOKEN, Permission::Write);
+        public.add_user(FAKE_REVIEWER, FAKE_REVIEWER_TOKEN, Permission::Write);
+        let server = crate::fake::FakeServer::start(public)?;
+        let trace = Trace::new();
+        let guard = |token: &str| {
+            let credential = crate::transport::http::Credential::bearer(Secret::new(token));
+            Guarded::new(
+                Traced::new(
+                    HttpTransport::new(HttpConfig::default(), Some(credential)),
+                    trace.clone(),
+                    "role",
+                ),
+                GuardTarget::github(&crate::github::Endpoints::single(server.base()), FAKE_REPO),
+                WriteScope::Loopback,
+            )
+        };
+        let result = caps_cell(
+            &guard(FAKE_AUTHOR_TOKEN),
+            &guard(FAKE_REVIEWER_TOKEN),
+            &trace,
+            Column::GithubCloud,
+        );
+        assert!(
+            !result.execution.is_ok(),
+            "публичный репозиторий: {result:?}"
         );
         Ok(())
     }
