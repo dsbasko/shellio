@@ -1474,7 +1474,7 @@ fn every_adapter_write_passes_the_write_guard() -> TestResult {
         GuardTarget::github(&Endpoints::single(API), "o/r"),
         WriteScope::Listed(vec!["o/r".to_owned()]),
     );
-    let github = GitHub::new(&guard, guard.target().github_endpoints(), &target())?;
+    let github = crate::scenario::live::github_adapter(&guard, &target())?;
     let clear = github.check_no_pending(&caps())?;
     github.create_review(&session, &clear, &drafts, ReviewEvent::Comment, "Итог")?;
     let pending = github.start_pending(&session, &caps(), &clear)?;

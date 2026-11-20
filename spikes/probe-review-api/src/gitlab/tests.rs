@@ -1601,7 +1601,7 @@ fn every_adapter_write_passes_the_write_guard() -> TestResult {
         GuardTarget::gitlab(&Endpoints::instance(ROOT), PROJECT),
         WriteScope::Listed(vec![PROJECT.to_owned()]),
     );
-    let gitlab = GitLab::new(&guard, guard.target().gitlab_endpoints(), &target())?;
+    let gitlab = crate::scenario::live::gitlab_adapter(&guard, &target())?;
     let (known, _) = gitlab.create_draft(&session, &drafts[0], false)?;
     gitlab.update_draft(&session, &known, &drafts[0])?;
     gitlab.publish_draft(&known)?;
