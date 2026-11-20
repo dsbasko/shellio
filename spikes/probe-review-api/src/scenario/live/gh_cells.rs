@@ -65,6 +65,23 @@ pub struct GhCx<'a, T> {
     pub reviewer_login: String,
     pub state_dir: &'a Path,
     pub poll: Poll,
+    /// Второй клиент ревьюера: процесс в живом коде, вызов в процессе теста против `forge-fake`.
+    pub second: &'a dyn GhSecond,
+}
+
+/// Второй клиент GitHub от имени ревьюера: `PENDING` с `count` комментариями, ответ — ID review.
+/// Отказ хоста — `not_run`, отказ транспорта, 5xx и сторожа — ошибка исполнения.
+pub trait GhSecond {
+    fn create_pending(&self, number: u64, count: u32) -> Result<String, Verdict>;
+}
+
+impl GhSecond for super::gl_cells::ProcessClient {
+    fn create_pending(&self, number: u64, count: u32) -> Result<String, Verdict> {
+        self.run(
+            number,
+            &super::gl_cells::SecondOp::GhCreatePending { count },
+        )
+    }
 }
 
 impl<T: Transport> GhCx<'_, T> {
@@ -85,6 +102,7 @@ pub fn implemented(scenario: Scenario) -> bool {
         scenario,
         Scenario::GhLocalCreate
             | Scenario::GhPendingCycle
+            | Scenario::GhPendingForeign
             | Scenario::GhAnchors
             | Scenario::GhViewed
     )
@@ -112,6 +130,7 @@ pub fn run_gh_cell<T: Transport>(
         |cell| match scenario {
             Scenario::GhLocalCreate => gh_local_create(cx, cell),
             Scenario::GhPendingCycle => gh_pending_cycle(cx, cell),
+            Scenario::GhPendingForeign => gh_pending_foreign(cx, cell),
             Scenario::GhAnchors => gh_anchors(cx, cell),
             Scenario::GhViewed => gh_viewed(cx, cell),
             other => Err(Verdict::Error(format!(
@@ -1957,4 +1976,334 @@ pub fn foreign_pending<T: Transport>(
         return Err(Verdict::Error(format!("второй клиент: сторож: {err}")));
     }
     created
+}
+
+/// Число комментариев `PENDING` второго клиента у `gh-pending-foreign`: две страницы REST по 100.
+pub const FOREIGN_PENDING_COUNT: u32 = 101;
+/// Наш черновик `gh-pending-foreign`: строка 05 после правки (новая сторона, 4).
+const FOREIGN_OURS: [(Spot, &str); 1] = [(Spot::Line(Side::New, 4), "наш")];
+/// Причина `not_run`, если хост принял второй `PENDING` того же аккаунта.
+pub const SECOND_PENDING_ACCEPTED: &str = "второй PENDING того же аккаунта принят хостом";
+
+/// Факты `gh-pending-foreign` для оракула.
+pub struct ForeignFacts<'a> {
+    /// ID review из ответа второго клиента.
+    pub planted: &'a str,
+    /// `PENDING`, найденный отправкой без принятия (`PendingExists`), или `None`.
+    pub found: Option<&'a crate::github::ExistingPending>,
+    /// Записи ревьюера до принятия и после.
+    pub before_adopt: &'a [WriteCall],
+    pub after_adopt: &'a [WriteCall],
+    pub after: &'a [ReviewRead],
+    pub reviewer: &'a str,
+    pub first: &'a Report,
+    pub first_closed: bool,
+    pub second: Option<&'a Report>,
+    pub foreign_in_spec: Option<usize>,
+}
+
+/// Оракул `gh-pending-foreign` по чтениям ревьюера и автора, следу ревьюера и журналу.
+pub fn pending_foreign_checks(facts: &ForeignFacts<'_>) -> Checks {
+    let mut checks = Checks::default();
+    let expected: std::collections::BTreeSet<String> = (0..FOREIGN_PENDING_COUNT)
+        .map(foreign_comment_body)
+        .collect();
+    checks.check(
+        "отправка без принятия: «PENDING существует»",
+        facts.found.is_some(),
+        if facts.found.is_some() {
+            "PendingExists"
+        } else {
+            "отправка не остановилась"
+        },
+    );
+    let read_ids: Vec<String> = facts
+        .found
+        .map(|found| {
+            found
+                .comments
+                .iter()
+                .map(|c| c.id.as_str().to_owned())
+                .collect()
+        })
+        .unwrap_or_default();
+    if let Some(found) = facts.found {
+        let bodies: std::collections::BTreeSet<String> =
+            found.comments.iter().map(|c| c.body.clone()).collect();
+        checks.eq(
+            "найденный PENDING прочитан целиком",
+            (
+                found.id().as_str().to_owned(),
+                found.comments.len(),
+                bodies == expected,
+            ),
+            (
+                facts.planted.to_owned(),
+                FOREIGN_PENDING_COUNT as usize,
+                true,
+            ),
+        );
+    }
+    checks.eq("записи до принятия", facts.before_adopt.len(), 0);
+    let keys: Vec<(&str, Option<u16>)> = facts
+        .after_adopt
+        .iter()
+        .map(|w| (w.key.as_str(), w.status))
+        .collect();
+    let ok = |status: Option<u16>| status.is_some_and(|s| (200..300).contains(&s));
+    checks.check(
+        "записи после принятия: один тред и Submit, оба 2xx",
+        matches!(&keys[..], [(GH_ADD_THREAD, a), (GH_SUBMIT, b)] if ok(*a) && ok(*b)),
+        format!("{keys:?}"),
+    );
+    let node = facts.found.map(|found| found.node_id().as_str().to_owned());
+    for write in facts.after_adopt.iter().filter(|w| w.key == GH_ADD_THREAD) {
+        checks.eq(
+            "addPullRequestReviewThread в принятый PENDING",
+            write
+                .body
+                .pointer("/variables/input/pullRequestReviewId")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+            node.clone(),
+        );
+    }
+    for write in facts.after_adopt.iter().filter(|w| w.key == GH_SUBMIT) {
+        checks.check(
+            "Submit принятого PENDING без comments[]",
+            submitted_review(&write.path).as_deref() == Some(facts.planted)
+                && write.body.get("comments").is_none(),
+            format!("{} {}", write.path, write.body),
+        );
+    }
+    let ours: Vec<&ReviewRead> = facts
+        .after
+        .iter()
+        .filter(|(review, _)| review.user == facts.reviewer)
+        .collect();
+    checks.eq(
+        "автор после Submit: один review ревьюера COMMENTED с ID PENDING",
+        ours.iter()
+            .map(|(review, _)| (review.id.as_str().to_owned(), review.state))
+            .collect::<Vec<_>>(),
+        vec![(facts.planted.to_owned(), ReviewState::Commented)],
+    );
+    let comments: Vec<&RemoteComment> = ours.iter().flat_map(|(_, c)| c.iter()).collect();
+    let kept = facts.found.is_some_and(|found| {
+        found.comments.iter().all(|read| {
+            comments
+                .iter()
+                .any(|c| c.id == read.id && c.body == read.body)
+        })
+    });
+    checks.eq(
+        "чужие комментарии с прежними ID на месте, наш добавлен",
+        (
+            comments.len(),
+            kept && read_ids.len() == FOREIGN_PENDING_COUNT as usize,
+            comments
+                .iter()
+                .filter(|c| c.body == FOREIGN_OURS[0].1)
+                .count(),
+        ),
+        (FOREIGN_PENDING_COUNT as usize + 1, true, 1),
+    );
+    checks.check(
+        "первая отправка закрыта без записей",
+        facts.first_closed
+            && facts
+                .first
+                .items
+                .iter()
+                .all(|item| item.state == ItemState::Planned),
+        format!("{:?}", item_states(facts.first)),
+    );
+    checks.eq(
+        "вторая отправка: итог и чужие комментарии в плане",
+        (facts.second.map(|r| r.delivery), facts.foreign_in_spec),
+        (Some(Delivery::Full), Some(FOREIGN_PENDING_COUNT as usize)),
+    );
+    checks
+}
+
+fn gh_pending_foreign<T: Transport>(
+    cx: &GhCx<'_, T>,
+    cell: &mut Cell,
+) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = github_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let author = github_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_pull(&reviewer, &cx.poll)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| gh_read_or_fail("возможности ревьюера", &err))?;
+    let journal_path = cx.state_dir.join("journal-gh-pending-foreign.db");
+    let project = ProjectId::new(LIVE_PROJECT);
+    let dump = || -> Result<Value, Verdict> {
+        let journal =
+            Journal::open(&journal_path).map_err(|err| stand("журнал после переоткрытия", &err))?;
+        dump_in(&journal, &project).map_err(|err| stand("журнал", &err))
+    };
+    if !caps.server_pending() {
+        let (_, before) = pr_state_by(&reviewer, "ревьюером")?;
+        return Ok(Observed {
+            checks: Checks::default(),
+            notes: vec!["второй клиент не запускался: принять PENDING нечем".to_owned()],
+            after: before.clone(),
+            before,
+            journal: dump()?,
+            tier: caps.plan,
+            verdict: Some(Verdict::Absent(
+                "addPullRequestReviewThread и updatePullRequestReviewComment нет в схеме по \
+                 introspection"
+                    .to_owned(),
+            )),
+        });
+    }
+    let planted = cx
+        .second
+        .create_pending(cell.number, FOREIGN_PENDING_COUNT)?;
+    let mut notes = vec![format!(
+        "второй клиент: PENDING {planted} с {FOREIGN_PENDING_COUNT} комментариями"
+    )];
+    let second_try = cx.second.create_pending(cell.number, 1);
+    let (_, before) = pr_state_by(&reviewer, "ревьюером")?;
+    match second_try {
+        Err(Verdict::NotRun(reason)) => notes.push(format!(
+            "второй PENDING того же аккаунта: отказ хоста (гипотеза 422): {reason}"
+        )),
+        Ok(id) => {
+            notes.push(format!("второй PENDING того же аккаунта: review {id}"));
+            return Ok(Observed {
+                checks: Checks::default(),
+                notes,
+                after: before.clone(),
+                before,
+                journal: dump()?,
+                tier: caps.plan,
+                verdict: Some(Verdict::NotRun(format!(
+                    "{SECOND_PENDING_ACCEPTED}: review {id}"
+                ))),
+            });
+        }
+        Err(other) => return Err(other),
+    }
+    let window = |from: usize, to: usize| {
+        cx.trace
+            .calls()
+            .get(from..to.max(from))
+            .unwrap_or_default()
+            .to_vec()
+    };
+    let start = cx.trace.len();
+    let (first, second, found, adopt_at) = {
+        let journal = Journal::open(&journal_path).map_err(|err| stand("журнал", &err))?;
+        let scope = journal.scope(&project);
+        let session = ReviewSession::new(
+            &cx.reviewer_login,
+            review.clone(),
+            snapshot.revision.clone(),
+        );
+        let session = scope
+            .create_session(&session)
+            .map_err(|err| stand("сессия", &err))?;
+        add_drafts(&scope, session, &snapshot.files, &FOREIGN_OURS)
+            .map_err(|err| stand("черновики", &err))?;
+        let first = plan_github_pending(&scope, session, ReviewEvent::Comment, SUMMARY, None, &[])
+            .map_err(|err| stand("план", &err))?;
+        let found = match run_github(&scope, first.id, &reviewer, &caps) {
+            Err(SubmitError::GitHub(ApiError::PendingExists(existing))) => Some(*existing),
+            Err(err) => {
+                return Err(gh_pending_submit_verdict(
+                    &err,
+                    &window(start, cx.trace.len()),
+                    ACTOR_REVIEWER,
+                ));
+            }
+            Ok(_) => {
+                notes.push("отправка без принятия не остановилась на чтении".to_owned());
+                None
+            }
+        };
+        scope
+            .close_submission(first.id)
+            .map_err(|err| stand("закрытие отправки", &err))?;
+        let adopt_at = cx.trace.len();
+        let mut second = None;
+        if found.is_some() {
+            let existing = reviewer
+                .find_pending(&caps.login)
+                .map_err(|err| gh_read_or_fail("PENDING при принятии", &err))?
+                .ok_or_else(|| Verdict::Fail("PENDING не найден при принятии".to_owned()))?;
+            let pending = existing.adopt();
+            let plan = plan_github_pending(
+                &scope,
+                session,
+                ReviewEvent::Comment,
+                SUMMARY,
+                Some(&pending),
+                &[],
+            )
+            .map_err(|err| stand("план", &err))?;
+            let from = cx.trace.len();
+            let sent = run_github(&scope, plan.id, &reviewer, &caps).map_err(|err| {
+                gh_pending_submit_verdict(&err, &window(from, cx.trace.len()), ACTOR_REVIEWER)
+            })?;
+            if let Some(verdict) =
+                gh_delivery_verdict(&sent, &window(from, cx.trace.len()), ACTOR_REVIEWER)
+            {
+                return Err(verdict);
+            }
+            second = Some(plan.id);
+        }
+        (first.id, second, found, adopt_at)
+    };
+    let (after_state, after_value) = pr_state(&author)?;
+    let before_adopt = write_calls(&window(start, adopt_at), ACTOR_REVIEWER);
+    let after_adopt = write_calls(&window(adopt_at, cx.trace.len()), ACTOR_REVIEWER);
+    let (first_report, first_closed, second_report, foreign_in_spec, journal) = {
+        let journal =
+            Journal::open(&journal_path).map_err(|err| stand("журнал после переоткрытия", &err))?;
+        let scope = journal.scope(&project);
+        let first_report = report(&scope, first).map_err(|err| stand("итог отправки", &err))?;
+        let first_closed = scope
+            .submission(first)
+            .map_err(|err| stand("отправка", &err))?
+            .closed;
+        let (second_report, foreign) = match second {
+            Some(id) => {
+                let sub = scope
+                    .submission(id)
+                    .map_err(|err| stand("отправка", &err))?;
+                (
+                    Some(report(&scope, id).map_err(|err| stand("итог отправки", &err))?),
+                    sub.spec.pending_foreign.as_ref().map(Vec::len),
+                )
+            }
+            None => (None, None),
+        };
+        let value = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
+        (first_report, first_closed, second_report, foreign, value)
+    };
+    let checks = pending_foreign_checks(&ForeignFacts {
+        planted: &planted,
+        found: found.as_ref(),
+        before_adopt: &before_adopt,
+        after_adopt: &after_adopt,
+        after: &after_state,
+        reviewer: &cx.reviewer_login,
+        first: &first_report,
+        first_closed,
+        second: second_report.as_ref(),
+        foreign_in_spec,
+    });
+    Ok(Observed {
+        checks,
+        notes,
+        before,
+        after: after_value,
+        journal,
+        tier: caps.plan,
+        verdict: None,
+    })
 }

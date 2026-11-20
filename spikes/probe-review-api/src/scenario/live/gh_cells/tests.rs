@@ -143,6 +143,23 @@ impl<T: Transport> Transport for AuthorThreads<T> {
 
 /// Тело клетки строки над сторожами (`WriteScope::Loopback`) против `forge-fake`, клетка собрана
 /// вручную, как после `open_cell`.
+/// Второй клиент в процессе теста: та же операция, что у процесса `--second-client`.
+struct InProcess {
+    guard: Guarded<Traced<HttpTransport>>,
+}
+
+impl GhSecond for InProcess {
+    fn create_pending(&self, number: u64, count: u32) -> Result<String, Verdict> {
+        let review = ReviewTarget {
+            provider: Provider::GitHub,
+            host: "github.com".to_owned(),
+            repo: REPO.to_owned(),
+            number,
+        };
+        foreign_pending(&self.guard, &review, FAKE_REVIEWER, count)
+    }
+}
+
 fn cell_body(
     server: &FakeServer<GithubFake>,
     scenario: Scenario,
@@ -176,6 +193,9 @@ fn cell_body_with(
     };
     let author = guard(AUTHOR_TOKEN, "author", author_threads);
     let reviewer = guard(REVIEWER_TOKEN, "reviewer", ThreadsReply::Keep);
+    let second = InProcess {
+        guard: second_guard(server, REVIEWER_TOKEN, &Trace::new()),
+    };
     let cx = GhCx {
         author: &author,
         reviewer: &reviewer,
@@ -184,6 +204,7 @@ fn cell_body_with(
         reviewer_login: FAKE_REVIEWER.to_owned(),
         state_dir: state.path(),
         poll: NOW,
+        second: &second,
     };
     let mut cell = Cell {
         names: CellNames::new(RUN_ID, scenario.name())?,
@@ -200,6 +221,7 @@ fn cell_body_with(
     let observed = match scenario {
         Scenario::GhLocalCreate => gh_local_create(&cx, &mut cell),
         Scenario::GhPendingCycle => gh_pending_cycle(&cx, &mut cell),
+        Scenario::GhPendingForeign => gh_pending_foreign(&cx, &mut cell),
         Scenario::GhAnchors => gh_anchors(&cx, &mut cell),
         Scenario::GhViewed => gh_viewed(&cx, &mut cell),
         other => return Err(format!("тело {} в тесте не собрано", other.name()).into()),
@@ -338,11 +360,8 @@ fn only_rows_with_a_body_open_a_live_cell() {
     assert!(implemented(Scenario::GhViewed));
     assert!(implemented(Scenario::GhPendingCycle));
     assert!(implemented(Scenario::GhAnchors));
-    for scenario in [
-        Scenario::GhPendingForeign,
-        Scenario::ReconcileForeign,
-        Scenario::Capabilities,
-    ] {
+    assert!(implemented(Scenario::GhPendingForeign));
+    for scenario in [Scenario::ReconcileForeign, Scenario::Capabilities] {
         assert!(!implemented(scenario), "{}", scenario.name());
     }
 }
@@ -1552,4 +1571,113 @@ fn second_client_refuses_a_public_repository_without_writes() -> TestResult {
             .all(|call| !call.request.method.is_write())
     );
     Ok(())
+}
+
+// --- gh-pending-foreign: тело против forge-fake ---
+
+#[test]
+fn pending_foreign_body_passes_against_the_fake() -> TestResult {
+    let server = fake_github(true)?;
+    let observed = cell_body(&server, Scenario::GhPendingForeign)?.map_err(|v| format!("{v:?}"))?;
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(status, Status::Pass, "{reason}; {:?}", observed.notes);
+    assert!(observed.verdict.is_none());
+    assert!(
+        observed
+            .notes
+            .iter()
+            .any(|n| n.contains("гипотеза 422") && n.contains("422")),
+        "{:?}",
+        observed.notes
+    );
+    let reviews = server.with(|f| f.reviews(NUMBER));
+    assert_eq!(reviews.len(), 1);
+    assert_eq!(reviews[0].state, ghf::ReviewState::Commented);
+    assert_eq!(server.with(|f| f.comments(NUMBER)).len(), 102);
+    assert!(observed.journal.is_object() || observed.journal.is_array());
+    Ok(())
+}
+
+#[test]
+fn pending_foreign_second_client_refusal_is_not_run_before_writes() -> TestResult {
+    let server = fake_github(true)?;
+    server.inject(Fault::new(FAKE_CREATE, FakeReply::Status(403)));
+    let done = cell_body(&server, Scenario::GhPendingForeign)?;
+    assert!(
+        matches!(&done, Err(Verdict::NotRun(reason)) if reason.contains("второй клиент не создал PENDING")),
+        "{:?}",
+        done.as_ref().err()
+    );
+    assert!(server.with(|f| f.reviews(NUMBER)).is_empty());
+    let server = fake_github(true)?;
+    server.inject(Fault::new(FAKE_CREATE, FakeReply::Status(429)));
+    let done = cell_body(&server, Scenario::GhPendingForeign)?;
+    assert!(
+        matches!(&done, Err(Verdict::NotRun(reason)) if reason.contains("лимит")),
+        "{:?}",
+        done.as_ref().err()
+    );
+    Ok(())
+}
+
+#[test]
+fn pending_foreign_submit_limit_is_not_run() -> TestResult {
+    let server = fake_github(true)?;
+    server.inject(Fault::new(FAKE_SUBMIT, FakeReply::Status(429)));
+    let done = cell_body(&server, Scenario::GhPendingForeign)?;
+    assert!(
+        matches!(&done, Err(Verdict::NotRun(reason)) if reason.contains("лимит")),
+        "{:?}",
+        done.as_ref().err()
+    );
+    Ok(())
+}
+
+#[test]
+fn pending_foreign_without_server_pending_is_absent_without_writes() -> TestResult {
+    let server = fake_github_with(true, |f| f.remove_mutation("addPullRequestReviewThread"))?;
+    let observed = cell_body(&server, Scenario::GhPendingForeign)?.map_err(|v| format!("{v:?}"))?;
+    assert!(
+        matches!(observed.verdict, Some(Verdict::Absent(_))),
+        "{:?}",
+        observed.verdict
+    );
+    assert!(
+        server.with(|f| f.reviews(NUMBER)).is_empty(),
+        "второй клиент не запускался"
+    );
+    Ok(())
+}
+
+#[test]
+fn pending_foreign_checks_catch_a_partial_read_and_an_overwrite() {
+    let report = submit_report(Delivery::Full, true, &[]);
+    let facts = ForeignFacts {
+        planted: "9",
+        found: None,
+        before_adopt: &[],
+        after_adopt: &[],
+        after: &[],
+        reviewer: FAKE_REVIEWER,
+        first: &report,
+        first_closed: true,
+        second: None,
+        foreign_in_spec: None,
+    };
+    let (status, reason) = pending_foreign_checks(&facts).verdict();
+    assert_eq!(status, Status::Fail);
+    assert!(reason.contains("PENDING существует"), "{reason}");
+    let write = WriteCall {
+        key: GH_CREATE.to_owned(),
+        path: "/repos/o/r/pulls/5/reviews".to_owned(),
+        body: json!({}),
+        status: Some(200),
+        response: None,
+    };
+    let facts = ForeignFacts {
+        before_adopt: std::slice::from_ref(&write),
+        ..facts
+    };
+    let (_, reason) = pending_foreign_checks(&facts).verdict();
+    assert!(reason.contains("записи до принятия"), "{reason}");
 }

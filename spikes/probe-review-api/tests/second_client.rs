@@ -223,7 +223,8 @@ fn second_client_process_deletes_a_reviewer_draft_by_id() -> TestResult {
     let reply: Value = serde_json::from_str(stdout.trim())?;
     assert_eq!(reply["id"].as_str(), Some(id.as_str()));
     assert!(server.with(|fake| fake.drafts(IID)).is_empty());
-    let record = std::fs::read_to_string(dir.path().join("second-client.json"))?;
+    // Второй вызов в том же каталоге пишет свой след рядом, а не поверх следа создания.
+    let record = std::fs::read_to_string(dir.path().join("second-client-2.json"))?;
     let value: Value = serde_json::from_str(&record)?;
     let trace = value["trace"].as_array().ok_or("нет следа")?;
     assert!(

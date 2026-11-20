@@ -646,9 +646,21 @@ fn github_cloud(
 ) {
     let column = Column::GithubCloud;
     result.host.version = Some("github.com".to_owned());
+    let exe = match std::env::current_exe() {
+        Ok(exe) => exe,
+        Err(err) => {
+            result.execution = Execution::error(format!("бинарь пробы: {}", err.kind()));
+            return;
+        }
+    };
     in_cell_trace(result, |trace, result| {
         let author = cloud_guard(column, host, author_secret, trace, "author");
         let reviewer = cloud_guard(column, host, reviewer_secret, trace, "reviewer");
+        let second = ProcessClient {
+            exe,
+            column,
+            out: ctx.out.clone(),
+        };
         let cx = gh_cells::GhCx {
             author: &author,
             reviewer: &reviewer,
@@ -657,6 +669,7 @@ fn github_cloud(
             reviewer_login,
             state_dir: &ctx.state_dir,
             poll: Poll::LIVE,
+            second: &second,
         };
         gh_cells::run_gh_cell(scenario, &cx, &ctx.out, scrubber, result);
     });
@@ -1188,7 +1201,7 @@ pub fn second_client_in(
         "reply": reply,
         "trace": trace.entries(&scrubber),
     });
-    match crate::results::write_json(out, SECOND_FILE, &record) {
+    match crate::results::write_json(out, &second_file_in(out), &record) {
         Ok(_) => (reply, ok),
         Err(err) => (
             serde_json::json!({
@@ -1197,6 +1210,18 @@ pub fn second_client_in(
             false,
         ),
     }
+}
+
+/// Свободное имя файла следа второго клиента: [`SECOND_FILE`], затем `second-client-<N>.json`,
+/// чтобы второй вызов в той же клетке не перезаписал след первого.
+fn second_file_in(out: &Path) -> String {
+    (1..)
+        .map(|n: u32| match n {
+            1 => SECOND_FILE.to_owned(),
+            n => format!("second-client-{n}.json"),
+        })
+        .find(|name| !out.join(name).exists())
+        .unwrap_or_else(|| SECOND_FILE.to_owned())
 }
 
 /// Операция второго клиента от имени ревьюера через его сторожа.
@@ -2337,6 +2362,20 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
         let record: Value = serde_json::from_str(&record).map_err(|e| e.to_string())?;
         assert_eq!(record["reply"], reply);
         assert_eq!(record["trace"], serde_json::json!([]));
+        let (again, _) = second_client_in(
+            Column::GitlabCloud,
+            FAKE_IID,
+            &op,
+            dir.path(),
+            untouched_cloud,
+        );
+        let second = std::fs::read_to_string(dir.path().join("second-client-2.json"))
+            .map_err(|e| e.to_string())?;
+        let second: Value = serde_json::from_str(&second).map_err(|e| e.to_string())?;
+        assert_eq!(
+            second["reply"], again,
+            "второй вызов не перезаписал след первого"
+        );
 
         for column in [Column::GithubCloud, Column::Ghes, Column::Fake] {
             let (reply, ok) = second_client_in(column, FAKE_IID, &op, dir.path(), || {

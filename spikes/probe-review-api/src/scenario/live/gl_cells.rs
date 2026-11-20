@@ -854,7 +854,7 @@ pub struct ProcessClient {
 }
 
 impl ProcessClient {
-    fn run(&self, iid: u64, op: &SecondOp) -> Result<String, Verdict> {
+    pub(super) fn run(&self, iid: u64, op: &SecondOp) -> Result<String, Verdict> {
         let (flag, value) = match op {
             SecondOp::CreateDraft { line } => ("--line", line.to_string()),
             SecondOp::DeleteDraft { draft } => ("--draft", draft.clone()),
