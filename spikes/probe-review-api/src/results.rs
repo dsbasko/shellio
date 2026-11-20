@@ -746,8 +746,8 @@ mod tests {
 
     type TestResult = Result<(), String>;
 
-    fn pairs(text: &str) -> Vec<Pair> {
-        Pair::parse_list(text).unwrap_or_default()
+    fn pairs(text: &str) -> Result<Vec<Pair>, String> {
+        Pair::parse_list(text)
     }
 
     struct Fixture {
@@ -825,7 +825,7 @@ mod tests {
         assert!(Pair::parse("fake:").is_err());
         assert!(Pair::parse_list("fake:smoke, fake:smoke").is_err());
         assert!(Pair::parse_list("  ").is_err());
-        assert_eq!(pairs("fake:smoke").len(), 1);
+        assert_eq!(pairs("fake:smoke").map(|list| list.len()), Ok(1));
     }
 
     #[test]
@@ -850,7 +850,7 @@ mod tests {
     fn single_completed_run() -> TestResult {
         let fx = Fixture::new()?;
         let dir = fx.run("r1", 10, "s1", "b1", &[("fake:smoke", Status::Pass)], true)?;
-        let summary = aggregate(&[dir], &pairs("fake:smoke"))?;
+        let summary = aggregate(&[dir], &pairs("fake:smoke")?)?;
         assert!(summary.errors.is_empty(), "{:?}", summary.errors);
         assert_eq!(summary.cells.len(), 1);
         assert_eq!(summary.cells[0].status, Some(Status::Pass));
@@ -872,7 +872,7 @@ mod tests {
         let a = fx.run("a", 1, "s1", "b1", &[("fake:smoke", Status::Pass)], true)?;
         let b = fx.run("b", 2, "s2", "b1", &[], true)?;
         let c = fx.run("c", 3, "s1", "b2", &[], true)?;
-        let summary = aggregate(&[a, b, c], &pairs("fake:smoke"))?;
+        let summary = aggregate(&[a, b, c], &pairs("fake:smoke")?)?;
         assert!(summary.errors.iter().any(|e| e.contains("чужая серия")));
         assert!(summary.errors.iter().any(|e| e.contains("чужая сборка")));
         Ok(())
@@ -884,7 +884,7 @@ mod tests {
         let a = fx.run("a", 1, "s", "b", &[("fake:smoke", Status::Pass)], true)?;
         let summary = aggregate(
             std::slice::from_ref(&a),
-            &pairs("fake:smoke gitlab_ce:capabilities"),
+            &pairs("fake:smoke gitlab_ce:capabilities")?,
         )?;
         assert!(
             summary
@@ -894,7 +894,7 @@ mod tests {
         );
         let other = Fixture::new()?;
         let b = other.run("b", 1, "s", "b", &[("fake:smoke", Status::Pass)], true)?;
-        let summary = aggregate(&[b], &pairs("gitlab_ce:capabilities"))?;
+        let summary = aggregate(&[b], &pairs("gitlab_ce:capabilities")?)?;
         assert!(
             summary
                 .errors
@@ -909,7 +909,7 @@ mod tests {
         let fx = Fixture::new()?;
         let a = fx.run("a", 1, "s", "b", &[("fake:smoke", Status::Pass)], true)?;
         let b = fx.run("b", 2, "s", "b", &[("fake:smoke", Status::Pass)], true)?;
-        let summary = aggregate(&[a, b], &pairs("fake:smoke"))?;
+        let summary = aggregate(&[a, b], &pairs("fake:smoke")?)?;
         assert!(summary.errors.iter().any(|e| e.contains("дубль")));
         assert!(summary.cells.is_empty());
         Ok(())
@@ -920,7 +920,7 @@ mod tests {
         let fx = Fixture::new()?;
         let a = fx.run("a", 1, "s", "b", &[("fake:smoke", Status::Pass)], false)?;
         let b = fx.run("b", 2, "s", "b", &[("fake:smoke", Status::Pass)], true)?;
-        let summary = aggregate(&[b, a], &pairs("fake:smoke"))?;
+        let summary = aggregate(&[b, a], &pairs("fake:smoke")?)?;
         assert!(summary.errors.is_empty(), "{:?}", summary.errors);
         assert_eq!(summary.cells[0].run, "b");
         assert_eq!(
@@ -939,7 +939,7 @@ mod tests {
     fn pair_only_in_interrupted_run_is_missing() -> TestResult {
         let fx = Fixture::new()?;
         let a = fx.run("a", 1, "s", "b", &[("fake:smoke", Status::Pass)], false)?;
-        let summary = aggregate(&[a], &pairs("fake:smoke"))?;
+        let summary = aggregate(&[a], &pairs("fake:smoke")?)?;
         assert!(summary.errors.iter().any(|e| e.contains("прерванных")));
         Ok(())
     }
@@ -954,7 +954,7 @@ mod tests {
             reason: "docker недоступен".to_owned(),
         });
         write_json(&dir, RUN_FILE, &run)?;
-        let summary = aggregate(&[dir], &pairs("fake:smoke gitlab_ce:capabilities"))?;
+        let summary = aggregate(&[dir], &pairs("fake:smoke gitlab_ce:capabilities")?)?;
         assert!(summary.errors.is_empty(), "{:?}", summary.errors);
         let cell = summary
             .cells
@@ -971,7 +971,7 @@ mod tests {
         for status in [Status::Fail, Status::NotRun] {
             let fx = Fixture::new()?;
             let dir = fx.run("a", 1, "s", "b", &[("fake:smoke", status)], true)?;
-            let summary = aggregate(&[dir], &pairs("fake:smoke"))?;
+            let summary = aggregate(&[dir], &pairs("fake:smoke")?)?;
             assert!(
                 summary
                     .errors
@@ -994,10 +994,10 @@ mod tests {
             read_json(&proc_dir, RESULT_FILE).map_err(|e| e.to_string())?;
         result.build = "other".to_owned();
         write_json(&proc_dir, RESULT_FILE, &result)?;
-        let summary = aggregate(std::slice::from_ref(&dir), &pairs("fake:smoke"))?;
+        let summary = aggregate(std::slice::from_ref(&dir), &pairs("fake:smoke")?)?;
         assert!(summary.errors.iter().any(|e| e.contains("чужая сборка")));
         fs::remove_file(proc_dir.join(RESULT_FILE)).map_err(|e| e.to_string())?;
-        let summary = aggregate(&[dir], &pairs("fake:smoke"))?;
+        let summary = aggregate(&[dir], &pairs("fake:smoke")?)?;
         assert!(summary.errors.iter().any(|e| e.contains("отсутствует")));
         Ok(())
     }
@@ -1007,7 +1007,7 @@ mod tests {
         let fx = Fixture::new()?;
         let dir = fx.root.path().join("empty");
         fs::create_dir(&dir).map_err(|e| e.to_string())?;
-        assert!(aggregate(&[dir], &pairs("fake:smoke")).is_err());
+        assert!(aggregate(&[dir], &pairs("fake:smoke")?).is_err());
         Ok(())
     }
 }
