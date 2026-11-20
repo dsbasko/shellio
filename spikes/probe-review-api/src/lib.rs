@@ -210,6 +210,15 @@ fn run_scenario(scenario: Scenario, column: Column, out: &Path) -> ExitCode {
         return ExitCode::from(EXIT_EXECUTION);
     }
     match &result.execution {
+        Execution::Ok if column == Column::Fake && result.status != results::Status::Pass => {
+            eprintln!(
+                "probe-review: ошибка исполнения {}: итог {} в столбце fake: {}",
+                scenario.name(),
+                result.status.name(),
+                result.reason
+            );
+            ExitCode::from(EXIT_EXECUTION)
+        }
         Execution::Ok => ExitCode::SUCCESS,
         Execution::Error { reason } => {
             eprintln!(
@@ -307,13 +316,13 @@ mod tests {
 
     #[test]
     fn list_filters_by_column() {
-        assert_eq!(
-            known_pairs(Some(Column::Fake))
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>(),
-            vec!["fake:smoke"]
-        );
+        let fake: Vec<String> = known_pairs(Some(Column::Fake))
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        assert_eq!(fake.first().map(String::as_str), Some("fake:smoke"));
+        assert_eq!(fake.len(), results::MATRIX_ROWS.len() + 1);
+        assert!(fake.iter().all(|pair| pair.starts_with("fake:")));
         assert!(known_pairs(Some(Column::Ghes)).is_empty());
     }
 }

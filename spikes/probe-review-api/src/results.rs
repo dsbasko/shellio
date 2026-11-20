@@ -625,9 +625,10 @@ fn read_cell(run: &RunDir, pair: &Pair) -> CellSummary {
         cell.execution = Execution::error(reason.clone());
         return cell;
     }
-    if pair.column == Column::Fake && result.status == Status::Fail {
+    if pair.column == Column::Fake && result.status != Status::Pass {
         cell.execution = Execution::error(format!(
-            "fail в столбце fake — ошибка в коде пробы: {}",
+            "{} в столбце fake — ошибка в коде пробы или стенда: {}",
+            result.status.name(),
             result.reason
         ));
         return cell;
@@ -964,16 +965,20 @@ mod tests {
 
     #[test]
     fn fake_fail_is_execution_error() -> TestResult {
-        let fx = Fixture::new()?;
-        let dir = fx.run("a", 1, "s", "b", &[("fake:smoke", Status::Fail)], true)?;
-        let summary = aggregate(&[dir], &pairs("fake:smoke"))?;
-        assert!(
-            summary
-                .errors
-                .iter()
-                .any(|e| e.contains("ошибка в коде пробы"))
-        );
-        assert_eq!(summary.cells[0].status, None);
+        for status in [Status::Fail, Status::NotRun] {
+            let fx = Fixture::new()?;
+            let dir = fx.run("a", 1, "s", "b", &[("fake:smoke", status)], true)?;
+            let summary = aggregate(&[dir], &pairs("fake:smoke"))?;
+            assert!(
+                summary
+                    .errors
+                    .iter()
+                    .any(|e| e.contains("ошибка в коде пробы")),
+                "{status:?}: {:?}",
+                summary.errors
+            );
+            assert_eq!(summary.cells[0].status, None);
+        }
         Ok(())
     }
 

@@ -38,7 +38,7 @@ OUT_BASE="$ROOT/target/probes/review-api"
 
 # Сценарии по столбцам; совпадают с probe-review --list (проверяет тест tests/run_sh.rs).
 FAKE_HOSTS="fake"
-FAKE_SCENARIOS="smoke"
+FAKE_SCENARIOS="smoke gh-local-create gh-pending-cycle gh-pending-foreign gh-anchors gh-viewed gl-draft-publish gl-foreign-draft gl-approve-sha gl-request-changes gl-anchors head-change journal-crash reconcile-ambiguous reconcile-foreign reconcile-deleted reconcile-paged partial capabilities"
 LIVE_HOSTS="github_cloud gitlab_cloud gitlab_ce ghes"
 LIVE_SCENARIOS=""
 

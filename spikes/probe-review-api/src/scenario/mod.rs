@@ -1,6 +1,8 @@
 //! Каталог сценариев пробы. Сценарий — строка матрицы возможностей или самопроверка стенда;
 //! процесс сценария идёт в одном столбце и пишет один `result.json`.
 
+pub mod fake;
+
 use std::fs;
 use std::path::PathBuf;
 
@@ -10,14 +12,88 @@ use crate::results::{Column, Execution, ResultFile, Status};
 pub enum Scenario {
     /// Пустой прогон стенда: временный каталог состояния, `result.json`, агрегирование.
     Smoke,
+    /// Строка матрицы `gh-local-create`.
+    GhLocalCreate,
+    /// Строка матрицы `gh-pending-cycle`.
+    GhPendingCycle,
+    /// Строка матрицы `gh-pending-foreign`.
+    GhPendingForeign,
+    /// Строка матрицы `gh-anchors`.
+    GhAnchors,
+    /// Строка матрицы `gh-viewed`.
+    GhViewed,
+    /// Строка матрицы `gl-draft-publish`.
+    GlDraftPublish,
+    /// Строка матрицы `gl-foreign-draft`.
+    GlForeignDraft,
+    /// Строка матрицы `gl-approve-sha`.
+    GlApproveSha,
+    /// Строка матрицы `gl-request-changes`.
+    GlRequestChanges,
+    /// Строка матрицы `gl-anchors`.
+    GlAnchors,
+    /// Строка матрицы `head-change`.
+    HeadChange,
+    /// Строка матрицы `journal-crash`.
+    JournalCrash,
+    /// Строка матрицы `reconcile-ambiguous`.
+    ReconcileAmbiguous,
+    /// Строка матрицы `reconcile-foreign`.
+    ReconcileForeign,
+    /// Строка матрицы `reconcile-deleted`.
+    ReconcileDeleted,
+    /// Строка матрицы `reconcile-paged`.
+    ReconcilePaged,
+    /// Строка матрицы `partial`.
+    Partial,
+    /// Строка матрицы `capabilities`.
+    Capabilities,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 1] = [Scenario::Smoke];
+    pub const ALL: [Scenario; 19] = [
+        Scenario::Smoke,
+        Scenario::GhLocalCreate,
+        Scenario::GhPendingCycle,
+        Scenario::GhPendingForeign,
+        Scenario::GhAnchors,
+        Scenario::GhViewed,
+        Scenario::GlDraftPublish,
+        Scenario::GlForeignDraft,
+        Scenario::GlApproveSha,
+        Scenario::GlRequestChanges,
+        Scenario::GlAnchors,
+        Scenario::HeadChange,
+        Scenario::JournalCrash,
+        Scenario::ReconcileAmbiguous,
+        Scenario::ReconcileForeign,
+        Scenario::ReconcileDeleted,
+        Scenario::ReconcilePaged,
+        Scenario::Partial,
+        Scenario::Capabilities,
+    ];
 
     pub fn name(self) -> &'static str {
         match self {
             Scenario::Smoke => "smoke",
+            Scenario::GhLocalCreate => "gh-local-create",
+            Scenario::GhPendingCycle => "gh-pending-cycle",
+            Scenario::GhPendingForeign => "gh-pending-foreign",
+            Scenario::GhAnchors => "gh-anchors",
+            Scenario::GhViewed => "gh-viewed",
+            Scenario::GlDraftPublish => "gl-draft-publish",
+            Scenario::GlForeignDraft => "gl-foreign-draft",
+            Scenario::GlApproveSha => "gl-approve-sha",
+            Scenario::GlRequestChanges => "gl-request-changes",
+            Scenario::GlAnchors => "gl-anchors",
+            Scenario::HeadChange => "head-change",
+            Scenario::JournalCrash => "journal-crash",
+            Scenario::ReconcileAmbiguous => "reconcile-ambiguous",
+            Scenario::ReconcileForeign => "reconcile-foreign",
+            Scenario::ReconcileDeleted => "reconcile-deleted",
+            Scenario::ReconcilePaged => "reconcile-paged",
+            Scenario::Partial => "partial",
+            Scenario::Capabilities => "capabilities",
         }
     }
 
@@ -29,6 +105,24 @@ impl Scenario {
     pub fn columns(self) -> &'static [Column] {
         match self {
             Scenario::Smoke => &[Column::Fake],
+            Scenario::GhLocalCreate
+            | Scenario::GhPendingCycle
+            | Scenario::GhPendingForeign
+            | Scenario::GhAnchors
+            | Scenario::GhViewed
+            | Scenario::GlDraftPublish
+            | Scenario::GlForeignDraft
+            | Scenario::GlApproveSha
+            | Scenario::GlRequestChanges
+            | Scenario::GlAnchors
+            | Scenario::HeadChange
+            | Scenario::JournalCrash
+            | Scenario::ReconcileAmbiguous
+            | Scenario::ReconcileForeign
+            | Scenario::ReconcileDeleted
+            | Scenario::ReconcilePaged
+            | Scenario::Partial
+            | Scenario::Capabilities => &[Column::Fake],
         }
     }
 
@@ -36,12 +130,57 @@ impl Scenario {
     pub fn is_stand(self) -> bool {
         match self {
             Scenario::Smoke => true,
+            Scenario::GhLocalCreate
+            | Scenario::GhPendingCycle
+            | Scenario::GhPendingForeign
+            | Scenario::GhAnchors
+            | Scenario::GhViewed
+            | Scenario::GlDraftPublish
+            | Scenario::GlForeignDraft
+            | Scenario::GlApproveSha
+            | Scenario::GlRequestChanges
+            | Scenario::GlAnchors
+            | Scenario::HeadChange
+            | Scenario::JournalCrash
+            | Scenario::ReconcileAmbiguous
+            | Scenario::ReconcileForeign
+            | Scenario::ReconcileDeleted
+            | Scenario::ReconcilePaged
+            | Scenario::Partial
+            | Scenario::Capabilities => false,
         }
     }
 
     pub fn run(self, ctx: &Context, result: &mut ResultFile) {
         match self {
             Scenario::Smoke => smoke(ctx, result),
+            Scenario::GhLocalCreate
+            | Scenario::GhPendingCycle
+            | Scenario::GhPendingForeign
+            | Scenario::GhAnchors
+            | Scenario::GhViewed
+            | Scenario::GlDraftPublish
+            | Scenario::GlForeignDraft
+            | Scenario::GlApproveSha
+            | Scenario::GlRequestChanges
+            | Scenario::GlAnchors
+            | Scenario::HeadChange
+            | Scenario::JournalCrash
+            | Scenario::ReconcileAmbiguous
+            | Scenario::ReconcileForeign
+            | Scenario::ReconcileDeleted
+            | Scenario::ReconcilePaged
+            | Scenario::Partial
+            | Scenario::Capabilities => match ctx.column {
+                Column::Fake => fake::run(self, &ctx.state_dir, result),
+                Column::GithubCloud | Column::GitlabCloud | Column::GitlabCe | Column::Ghes => {
+                    result.execution = Execution::error(format!(
+                        "сценарий {} в столбце {} не реализован",
+                        self.name(),
+                        ctx.column.name()
+                    ));
+                }
+            },
         }
     }
 }
@@ -94,6 +233,48 @@ mod tests {
             assert!(!scenario.columns().is_empty());
         }
         assert_eq!(Scenario::from_name("nope"), None);
+    }
+
+    #[test]
+    fn every_matrix_row_has_one_fake_scenario() {
+        use crate::results::MATRIX_ROWS;
+        let rows: Vec<&str> = Scenario::ALL
+            .iter()
+            .filter(|s| !s.is_stand())
+            .map(|s| s.name())
+            .collect();
+        assert_eq!(
+            rows,
+            MATRIX_ROWS.to_vec(),
+            "строки матрицы и сценарии в одном порядке"
+        );
+        for scenario in Scenario::ALL.into_iter().filter(|s| !s.is_stand()) {
+            assert!(
+                scenario.columns().contains(&Column::Fake),
+                "{} без столбца fake",
+                scenario.name()
+            );
+        }
+        let stands: Vec<&str> = Scenario::ALL
+            .iter()
+            .filter(|s| s.is_stand())
+            .map(|s| s.name())
+            .collect();
+        assert_eq!(stands, ["smoke"]);
+    }
+
+    #[test]
+    fn matrix_row_outside_fake_is_execution_error() -> Result<(), String> {
+        let state = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let ctx = Context {
+            column: Column::GithubCloud,
+            out: state.path().to_path_buf(),
+            state_dir: state.path().to_path_buf(),
+        };
+        let mut result = ResultFile::new("s", "b", "partial", Column::GithubCloud);
+        Scenario::Partial.run(&ctx, &mut result);
+        assert!(!result.execution.is_ok());
+        Ok(())
     }
 
     #[test]
