@@ -114,8 +114,8 @@ impl Scenario {
             | Scenario::GhViewed
             | Scenario::ReconcileForeign => &[Column::Fake, Column::GithubCloud, Column::Ghes],
             // Строки GitLab; столбец `gitlab_ce` добавляется вместе с их живыми сценариями.
-            Scenario::GlDraftPublish
-            | Scenario::GlForeignDraft
+            Scenario::GlDraftPublish => &[Column::Fake, Column::GitlabCloud, Column::GitlabCe],
+            Scenario::GlForeignDraft
             | Scenario::GlApproveSha
             | Scenario::GlRequestChanges
             | Scenario::GlAnchors

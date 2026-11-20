@@ -157,7 +157,7 @@ impl Checks {
         }
     }
 
-    fn to_json(&self) -> Vec<String> {
+    pub fn to_json(&self) -> Vec<String> {
         self.items
             .iter()
             .map(|(what, ok, observed)| {
@@ -470,13 +470,13 @@ fn gitlab_fake() -> Result<GitlabFake, String> {
 
 /// Место черновика в diff: строка или диапазон.
 #[derive(Clone, Copy, Debug)]
-enum Spot {
+pub(super) enum Spot {
     Line(Side, u32),
     Range(Side, u32, Side, u32),
 }
 
 impl Spot {
-    fn placement(self, file: &FileDiff) -> Result<Placement, ModelError> {
+    pub(super) fn placement(self, file: &FileDiff) -> Result<Placement, ModelError> {
         let anchor = match self {
             Spot::Line(side, line) => Anchor::line(file, LinePoint::at(file, side, line)?)?,
             Spot::Range(start_side, start, end_side, end) => Anchor::range(
@@ -493,7 +493,7 @@ fn first_file(files: &[FileDiff]) -> Result<&FileDiff, String> {
     files.first().ok_or_else(|| "в diff нет файлов".to_owned())
 }
 
-fn add_drafts(
+pub(super) fn add_drafts(
     scope: &Scope<'_>,
     session: SessionId,
     files: &[FileDiff],
@@ -546,7 +546,12 @@ fn id_text(id: Option<&ProviderId>) -> Value {
 
 /// Журнал после переоткрытия: сессии, черновики, отправки с элементами и итогом шага 5.
 fn dump(journal: &Journal) -> Result<Value, SubmitError> {
-    let scope = journal.scope(&project());
+    dump_in(journal, &project())
+}
+
+/// [`dump`] для проекта журнала живой клетки.
+pub(super) fn dump_in(journal: &Journal, project: &ProjectId) -> Result<Value, SubmitError> {
+    let scope = journal.scope(project);
     let mut sessions = Vec::new();
     for (id, session) in scope.sessions()? {
         let drafts: Vec<Value> = scope
@@ -606,7 +611,10 @@ fn dump(journal: &Journal) -> Result<Value, SubmitError> {
 }
 
 /// Состояния элементов отправки по порядку.
-fn states(scope: &Scope<'_>, id: SubmissionId) -> Result<Vec<(Operation, ItemState)>, SubmitError> {
+pub(super) fn states(
+    scope: &Scope<'_>,
+    id: SubmissionId,
+) -> Result<Vec<(Operation, ItemState)>, SubmitError> {
     Ok(scope
         .submission(id)?
         .items

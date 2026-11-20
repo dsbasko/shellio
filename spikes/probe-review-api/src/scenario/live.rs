@@ -43,6 +43,10 @@ use crate::transport::{Trace, Traced, Transport};
 
 use super::Scenario;
 
+mod gl_cells;
+
+pub use gl_cells::{GlCx, Poll};
+
 /// Причина `not_run` каждой клетки столбца `ghes`.
 pub const GHES_REASON: &str = "нет инсталляции GitHub Enterprise Server, передача P4.1";
 
@@ -93,7 +97,7 @@ pub fn run_in(
         Column::GithubCloud | Column::GitlabCloud => cloud(scenario, ctx, result, &env()),
         Column::GitlabCe => match scenario {
             Scenario::Capabilities => capabilities_ce(result),
-            _ => not_implemented(scenario, ctx, result),
+            _ => gitlab_ce(scenario, ctx, result),
         },
     }
 }
@@ -600,6 +604,48 @@ pub fn stand_mismatches(caps: &Capabilities, host: &CeHost, pin: &Pin) -> Vec<St
         problems.push("токен ревьюера читает другого пользователя".to_owned());
     }
     problems
+}
+
+/// Клетка строки GitLab на локальном GitLab CE: хост и токены из окружения `run.sh`, сторож
+/// каждой роли с проверкой `127.0.0.1`.
+fn gitlab_ce(scenario: Scenario, ctx: &Context, result: &mut ResultFile) {
+    let (host, tokens, _) = match prepared() {
+        Ok(prepared) => prepared,
+        Err(err) => {
+            result.execution = Execution::error(err);
+            return;
+        }
+    };
+    let scrubber = ce_scrubber(&host, &tokens);
+    let target = GuardTarget::gitlab(&host.endpoints(), &host.project);
+    let trace = Trace::new();
+    let guarded = |secret: &Secret, actor: &'static str| {
+        let http = HttpTransport::new(
+            HttpConfig::default(),
+            Some(credential(Column::GitlabCe, secret.clone())),
+        );
+        Guarded::new(
+            Traced::new(http, trace.clone(), actor),
+            target.clone(),
+            WriteScope::Loopback,
+        )
+    };
+    let author = guarded(&tokens.author, "author");
+    let reviewer = guarded(&tokens.reviewer, "reviewer");
+    result.host = Host {
+        version: Some(format!("GitLab {} (CE, образ {})", host.version, host.tag)),
+        tier: None,
+    };
+    let cx = GlCx {
+        author: &author,
+        reviewer: &reviewer,
+        trace: &trace,
+        host_url: host.url.clone(),
+        reviewer_login: host.reviewer.username.clone(),
+        state_dir: &ctx.state_dir,
+        poll: Poll::LIVE,
+    };
+    gl_cells::run_gl_cell(scenario, &cx, &ctx.out, &scrubber, result);
 }
 
 fn capabilities_ce(result: &mut ResultFile) {
