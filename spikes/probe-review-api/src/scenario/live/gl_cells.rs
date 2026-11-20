@@ -204,6 +204,8 @@ fn cell_verdict<T: Transport>(
             Scenario::HeadChange => gl_head_change(cx, cell),
             Scenario::Partial => gl_partial(cx, cell),
             Scenario::ReconcileDeleted => gl_reconcile_deleted(cx, cell),
+            Scenario::ReconcileAmbiguous => gl_reconcile_ambiguous(cx, cell),
+            Scenario::JournalCrash => gl_journal_crash(cx, cell),
             other => Err(Verdict::Error(format!(
                 "сценарий {} в живом столбце GitLab не реализован",
                 other.name()
@@ -2267,6 +2269,9 @@ pub enum OnPublish<'a> {
     /// `reconcile-deleted`: запрос не отправляется, клиенту отдаётся таймаут (запрос мог дойти,
     /// элемент — `unknown`).
     Drop,
+    /// `reconcile-ambiguous`, `reconcile-paged`: запрос уходит, ответ 2xx отбрасывается, клиенту
+    /// отдаётся таймаут. Ответ не 2xx возвращается как есть, инъекция не срабатывает.
+    LoseResponse,
 }
 
 /// Сработавшая инъекция: итог действия — ID, удалённый вторым клиентом, или ID в пути не
@@ -2282,17 +2287,32 @@ pub struct Fired {
 pub struct PublishHook<'a, R> {
     pub inner: R,
     pub action: OnPublish<'a>,
+    /// Номер публикации с нуля, на которой срабатывает инъекция.
+    pub at: usize,
+    seen: std::cell::Cell<usize>,
     pub fired: RefCell<Option<Fired>>,
 }
 
 impl<'a, R> PublishHook<'a, R> {
-    pub fn new(inner: R, action: OnPublish<'a>) -> PublishHook<'a, R> {
+    pub fn new(inner: R, action: OnPublish<'a>, at: usize) -> PublishHook<'a, R> {
         PublishHook {
             inner,
             action,
+            at,
+            seen: std::cell::Cell::new(0),
             fired: RefCell::new(None),
         }
     }
+}
+
+/// ID черновика в пути публикации.
+fn path_draft(request: &Request) -> Option<String> {
+    request
+        .path()
+        .split_once("/merge_requests/")
+        .and_then(|(_, rest)| rest.split_once('/'))
+        .and_then(|(_, tail)| publish_id(tail.split_once('?').map_or(tail, |(t, _)| t)))
+        .map(str::to_owned)
 }
 
 impl<R: Transport> Transport for PublishHook<'_, R> {
@@ -2304,20 +2324,29 @@ impl<R: Transport> Transport for PublishHook<'_, R> {
         if !publish {
             return self.inner.send(request);
         }
+        let index = self.seen.get();
+        self.seen.set(index + 1);
+        if index != self.at {
+            return self.inner.send(request);
+        }
+        let draft = || {
+            path_draft(request).ok_or_else(|| Verdict::Error("в пути публикации нет ID".to_owned()))
+        };
         match &self.action {
             OnPublish::Drop => {
-                let draft = request
-                    .path()
-                    .split_once("/merge_requests/")
-                    .and_then(|(_, rest)| rest.split_once('/'))
-                    .and_then(|(_, tail)| publish_id(tail.split_once('?').map_or(tail, |(t, _)| t)))
-                    .map(str::to_owned);
-                *self.fired.borrow_mut() = Some(Fired {
-                    outcome: draft
-                        .ok_or_else(|| Verdict::Error("в пути публикации нет ID".to_owned())),
-                });
+                *self.fired.borrow_mut() = Some(Fired { outcome: draft() });
                 Err(Failure::timeout(
                     "инъекция пробы: запрос не отправлен, клиенту отдан таймаут",
+                ))
+            }
+            OnPublish::LoseResponse => {
+                let response = self.inner.send(request);
+                if !matches!(&response, Ok(reply) if reply.is_success()) {
+                    return response;
+                }
+                *self.fired.borrow_mut() = Some(Fired { outcome: draft() });
+                Err(Failure::timeout(
+                    "инъекция пробы: ответ получен и отброшен, клиенту отдан таймаут",
                 ))
             }
             OnPublish::DeleteSecond {
@@ -2352,9 +2381,10 @@ fn hooked<'a, 'h, T: Transport>(
     cx: &GlCx<'a, T>,
     review: &ReviewTarget,
     action: OnPublish<'h>,
+    at: usize,
 ) -> Result<GitLab<PublishHook<'h, &'a Guarded<T>>>, Verdict> {
     GitLab::new(
-        PublishHook::new(cx.reviewer, action),
+        PublishHook::new(cx.reviewer, action, at),
         cx.reviewer.target().gitlab_endpoints(),
         review,
     )
@@ -2522,6 +2552,7 @@ fn gl_partial<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Observe
             trace: cx.trace,
             start: cx.trace.len(),
         },
+        0,
     )?;
     let sent = submit_drafts(
         cx,
@@ -2715,7 +2746,7 @@ fn gl_reconcile_deleted<T: Transport>(
         snapshot.version_id.as_str()
     )];
     let start = cx.trace.len();
-    let hook = hooked(cx, &review, OnPublish::Drop)?;
+    let hook = hooked(cx, &review, OnPublish::Drop, 0)?;
     let (submission, lost, sent, deleted, reconciled) = {
         let journal = Journal::open(&path).map_err(|err| stand("журнал", &err))?;
         let scope = journal.scope(&project);
@@ -2828,6 +2859,610 @@ fn gl_reconcile_deleted<T: Transport>(
         before,
         after,
         journal: dump,
+        tier: caps.plan,
+        verdict: None,
+    })
+}
+
+/// Черновики `reconcile-ambiguous`: одинаковый текст на новой строке 4 («line 05 changed»).
+pub const AMBIGUOUS_NOTE: &str = "одинаковый";
+pub const AMBIGUOUS_DRAFTS: [(Spot, &str); 2] = [
+    (Spot::Line(Side::New, 4), AMBIGUOUS_NOTE),
+    (Spot::Line(Side::New, 4), AMBIGUOUS_NOTE),
+];
+
+/// Наблюдённое `reconcile-ambiguous` для оракула.
+#[derive(Clone, Debug)]
+pub struct AmbiguousFacts<'a> {
+    /// Записи ревьюера от отправки до конца сверки.
+    pub writes: &'a [Write],
+    /// ID в пути публикации, ответ на которую отброшен.
+    pub lost: Option<&'a str>,
+    pub reconciled: &'a [Reconciled],
+    pub states: &'a [(Operation, ItemState)],
+    /// Элемент второй публикации после переоткрытия: состояние и кандидат.
+    pub item: Option<(ItemState, Option<String>)>,
+    pub delivery: Delivery,
+    pub notes_after: &'a [RemoteNote],
+    pub drafts_after: &'a [RemoteDraft],
+    pub recovered: usize,
+}
+
+/// Заметки автора с текстом `body` на новой строке `line`.
+fn notes_at<'n>(notes: &'n [RemoteNote], line: u32, body: &str) -> Vec<&'n RemoteNote> {
+    notes
+        .iter()
+        .filter(|note| {
+            !note.system
+                && note.body == body
+                && note
+                    .position
+                    .as_ref()
+                    .and_then(|position| position.new_line)
+                    == Some(line)
+        })
+        .collect()
+}
+
+/// Оракул `reconcile-ambiguous` на живом хосте (ожидание — в отчёте).
+pub fn ambiguous_checks(facts: &AmbiguousFacts<'_>) -> Checks {
+    let mut checks = Checks::default();
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for write in facts.writes {
+        *counts.entry(write.key.clone()).or_insert(0) += 1;
+    }
+    checks.eq(
+        "записи ревьюера: создания 2, публикации 2, повторов нет",
+        counts,
+        [(DRAFT_CREATE.to_owned(), 2), (DRAFT_PUBLISH.to_owned(), 2)]
+            .into_iter()
+            .collect(),
+    );
+    let created: Vec<&str> = facts
+        .writes
+        .iter()
+        .filter_map(|write| write.created.as_deref())
+        .collect();
+    let published: Vec<&str> = facts
+        .writes
+        .iter()
+        .filter(|write| write.key == DRAFT_PUBLISH)
+        .filter_map(|write| write.draft.as_deref())
+        .collect();
+    checks.eq(
+        "публикации по ID из ответов на создание",
+        published,
+        created.clone(),
+    );
+    checks.eq(
+        "инъекция: отброшен ответ на вторую публикацию",
+        facts.lost,
+        created.get(1).copied(),
+    );
+    let same: BTreeSet<&str> = notes_at(facts.notes_after, 4, AMBIGUOUS_NOTE)
+        .iter()
+        .map(|note| note.id.as_str())
+        .collect();
+    checks.check(
+        "сверка: «неоднозначно», кандидаты — обе одинаковые заметки",
+        matches!(facts.reconciled, [Reconciled::Ambiguous { candidates }]
+            if candidates.len() == 2
+                && candidates.iter().map(ProviderId::as_str).collect::<BTreeSet<_>>() == same),
+        format!("{:?}, заметки {same:?}", facts.reconciled),
+    );
+    checks.eq(
+        "журнал: состояния",
+        facts.states.to_vec(),
+        vec![
+            (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+            (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+            (Operation::GitLabPublishDraftNote, ItemState::Confirmed),
+            (Operation::GitLabPublishDraftNote, ItemState::Unknown),
+        ],
+    );
+    checks.eq(
+        "журнал: вторая публикация unknown без кандидата, итог «частично»",
+        (facts.item.clone(), facts.delivery),
+        (Some((ItemState::Unknown, None)), Delivery::Partial),
+    );
+    checks.eq(
+        "автор: две одинаковые заметки на новой строке 4 и других нет",
+        facts
+            .notes_after
+            .iter()
+            .filter(|note| !note.system)
+            .map(|note| {
+                (
+                    note.body.clone(),
+                    note.position
+                        .as_ref()
+                        .and_then(|position| position.new_line),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![(AMBIGUOUS_NOTE.to_owned(), Some(4)); 2],
+    );
+    checks.eq(
+        "черновиков ревьюера после отправки",
+        facts.drafts_after.len(),
+        0,
+    );
+    checks.eq("восстановленные элементы", facts.recovered, 0);
+    checks
+}
+
+/// Неудачное чтение сверки («не выяснено» с текстом «чтение … не удалось») — по [`unread_verdict`].
+fn unread_of(reconciled: &[Reconciled], window: &[Call]) -> Option<Verdict> {
+    reconciled.iter().find_map(|verdict| match verdict {
+        Reconciled::Unresolved { detail } if detail.starts_with("чтение ") => {
+            Some(unread_verdict(detail, window, ACTOR_REVIEWER))
+        }
+        _ => None,
+    })
+}
+
+/// Состояние и кандидат элемента журнала.
+fn item_facts(
+    scope: &crate::journal::Scope<'_>,
+    item: Option<crate::journal::ItemId>,
+) -> Result<Option<(ItemState, Option<String>)>, Verdict> {
+    match item {
+        Some(id) => {
+            let item = scope.item(id).map_err(|err| stand("элемент", &err))?;
+            Ok(Some((
+                item.state,
+                item.candidate
+                    .map(|candidate| candidate.as_str().to_owned()),
+            )))
+        }
+        None => Ok(None),
+    }
+}
+
+fn gl_reconcile_ambiguous<T: Transport>(
+    cx: &GlCx<'_, T>,
+    cell: &mut Cell,
+) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = gitlab_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let author = gitlab_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_snapshot(&reviewer, &cx.poll, None, MR_NOT_READY)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| read_or_fail("возможности ревьюера", &err))?;
+    let (_, _, before) = mr_state(&author, &reviewer)?;
+    let path = cx.state_dir.join("journal-reconcile-ambiguous.db");
+    let project = ProjectId::new(LIVE_PROJECT);
+    let mut notes = vec![format!(
+        "MR клетки: версия {}",
+        snapshot.version_id.as_str()
+    )];
+    let start = cx.trace.len();
+    let hook = hooked(cx, &review, OnPublish::LoseResponse, 1)?;
+    let (submission, lost, sent, fired, reconciled, reconcile_start) = {
+        let journal = Journal::open(&path).map_err(|err| stand("журнал", &err))?;
+        let scope = journal.scope(&project);
+        let session = ReviewSession::new(
+            &cx.reviewer_login,
+            review.clone(),
+            snapshot.revision.clone(),
+        );
+        let id = scope
+            .create_session(&session)
+            .map_err(|err| stand("сессия", &err))?;
+        add_drafts(&scope, id, &snapshot.files, &AMBIGUOUS_DRAFTS)
+            .map_err(|err| stand("черновики", &err))?;
+        let submission =
+            plan_gitlab(&scope, id, &GitLabPlan::default()).map_err(|err| stand("план", &err))?;
+        let sent =
+            run_gitlab(&scope, submission.id, &hook, &caps).map_err(|err| submit_verdict(&err))?;
+        let lost = sent
+            .items
+            .iter()
+            .filter(|item| item.operation == Operation::GitLabPublishDraftNote)
+            .nth(1)
+            .map(|item| item.id);
+        let fired = match hook.transport().fired.borrow_mut().take() {
+            Some(Fired { outcome: Ok(draft) }) => Some(draft),
+            Some(Fired {
+                outcome: Err(verdict),
+            }) => return Err(verdict),
+            None => None,
+        };
+        let at = cx.trace.len();
+        let reconciled = match fired {
+            Some(_) => reconcile_gitlab(&scope, submission.id, &reviewer)
+                .map_err(|err| stand("сверка", &err))?,
+            None => Vec::new(),
+        };
+        (submission.id, lost, sent, fired, reconciled, at)
+    };
+    let calls = cx.trace.calls();
+    let window = calls.get(start..).unwrap_or_default();
+    let reconcile_window = calls.get(reconcile_start..).unwrap_or_default();
+    let journal = Journal::open(&path).map_err(|err| stand("журнал после переоткрытия", &err))?;
+    let scope = journal.scope(&project);
+    let dump = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
+    let done = report(&scope, submission).map_err(|err| stand("итог отправки", &err))?;
+    let item_states = states(&scope, submission).map_err(|err| stand("состояния", &err))?;
+    let item = item_facts(&scope, lost)?;
+    let (notes_after, drafts_after, after) = mr_state(&author, &reviewer)?;
+    let early = |verdict: Verdict, notes: Vec<String>| Observed {
+        notes,
+        before: before.clone(),
+        after: after.clone(),
+        journal: dump.clone(),
+        tier: caps.plan.clone(),
+        verdict: Some(verdict),
+        ..Observed::default()
+    };
+    // Инъекция не сработала (вторая публикация не получила 2xx): итог по общему правилу, прочий
+    // отказ хоста судят проверки.
+    if fired.is_none()
+        && let Some(verdict) = delivery_verdict(&sent, window, ACTOR_REVIEWER)
+    {
+        return Ok(early(verdict, notes));
+    }
+    if let Some(lost_draft) = &fired {
+        let same = notes_at(&notes_after, 4, AMBIGUOUS_NOTE).len();
+        if same < 2 {
+            return Ok(early(
+                Verdict::NotRun(format!(
+                    "публикация с потерянным ответом не наблюдена чтением автора: одинаковых заметок {same}"
+                )),
+                notes,
+            ));
+        }
+        if let Some(verdict) = unread_of(&reconciled, reconcile_window) {
+            return Ok(early(verdict, notes));
+        }
+        notes.push(format!(
+            "инъекция: ответ на публикацию черновика {lost_draft} получен и отброшен, клиенту отдан таймаут"
+        ));
+    }
+    let checks = ambiguous_checks(&AmbiguousFacts {
+        writes: &writes_of(window, ACTOR_REVIEWER),
+        lost: fired.as_deref(),
+        reconciled: &reconciled,
+        states: &item_states,
+        item,
+        delivery: done.delivery,
+        notes_after: &notes_after,
+        drafts_after: &drafts_after,
+        recovered: journal.recovered().len(),
+    });
+    Ok(Observed {
+        checks,
+        notes,
+        before,
+        after,
+        journal: dump,
+        tier: caps.plan,
+        verdict: None,
+    })
+}
+
+/// Черновик `journal-crash` при сбое до запроса: новая строка 4 («line 05 changed»).
+pub const CRASH_BEFORE: [(Spot, &str); 1] = [(Spot::Line(Side::New, 4), "до запроса")];
+/// Черновик `journal-crash` при сбое после доставки: новая строка 24 (24a).
+pub const CRASH_AFTER: [(Spot, &str); 1] = [(Spot::Line(Side::New, 24), "после доставки")];
+
+/// Транспорт ревьюера `journal-crash`: после доставки создания черновика с ответом 2xx поток
+/// исполнителя падает — процесс умер между принятой записью и записью ответа в журнал. Стоит над
+/// сторожем, поэтому вызов уже в следе. Ответ не 2xx возвращается как есть, сбоя нет.
+pub struct CrashAfterCreate<R> {
+    pub inner: R,
+    pub fired: std::cell::Cell<bool>,
+}
+
+impl<R: Transport> Transport for CrashAfterCreate<R> {
+    fn send(&self, request: &Request) -> Result<Response, Failure> {
+        let response = self.inner.send(request);
+        let body = request.body_json();
+        let create = write_key(request.method, request.path(), body.as_ref()).as_deref()
+            == Some(DRAFT_CREATE);
+        if create && !self.fired.get() && matches!(&response, Ok(reply) if reply.is_success()) {
+            self.fired.set(true);
+            std::panic::resume_unwind(Box::new("инъекция пробы: сбой после доставки записи"));
+        }
+        response
+    }
+}
+
+/// Наблюдённое `journal-crash` для оракула: фаза до запроса и фаза после доставки.
+#[derive(Clone, Debug)]
+pub struct CrashFacts<'a> {
+    pub before_writes: &'a [Write],
+    /// Восстановлен ровно элемент, переведённый в `in_flight`: итог и подробности.
+    pub before_recovered: (bool, String),
+    pub before_reconciled: &'a [Reconciled],
+    pub before_item: Option<(ItemState, Option<String>)>,
+    pub crashed: bool,
+    pub after_writes: &'a [Write],
+    pub after_recovered: (bool, String),
+    pub after_reconciled: &'a [Reconciled],
+    pub after_item: Option<(ItemState, Option<String>)>,
+    pub drafts_after: &'a [RemoteDraft],
+    pub notes_after: &'a [RemoteNote],
+}
+
+/// Оракул `journal-crash` на живом хосте (ожидание — в отчёте).
+pub fn crash_checks(facts: &CrashFacts<'_>) -> Checks {
+    let mut checks = Checks::default();
+    checks.eq(
+        "до запроса: записей ревьюера нет",
+        facts
+            .before_writes
+            .iter()
+            .map(|write| write.key.clone())
+            .collect::<Vec<_>>(),
+        Vec::<String>::new(),
+    );
+    checks.check(
+        "до запроса: восстановлен элемент in_flight",
+        facts.before_recovered.0,
+        facts.before_recovered.1.clone(),
+    );
+    checks.check(
+        "до запроса: сверка «не выяснено»",
+        matches!(facts.before_reconciled, [Reconciled::Unresolved { .. }]),
+        format!("{:?}", facts.before_reconciled),
+    );
+    checks.eq(
+        "до запроса: элемент unknown без кандидата",
+        facts.before_item.clone(),
+        Some((ItemState::Unknown, None)),
+    );
+    checks.check("после доставки: поток исполнителя упал", facts.crashed, "");
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for write in facts.after_writes {
+        *counts.entry(write.key.clone()).or_insert(0) += 1;
+    }
+    checks.eq(
+        "после доставки: записи ревьюера — одно создание, повтора нет",
+        counts,
+        [(DRAFT_CREATE.to_owned(), 1)].into_iter().collect(),
+    );
+    let created = facts
+        .after_writes
+        .iter()
+        .find_map(|write| write.created.clone());
+    checks.check(
+        "после доставки: восстановлен элемент создания",
+        facts.after_recovered.0,
+        facts.after_recovered.1.clone(),
+    );
+    checks.check(
+        "после доставки: сверка даёт кандидата — записанный черновик",
+        matches!(facts.after_reconciled, [Reconciled::Candidate { remote, .. }]
+            if Some(remote.as_str()) == created.as_deref()),
+        format!("{:?}, создан {created:?}", facts.after_reconciled),
+    );
+    checks.eq(
+        "после доставки: элемент unknown с кандидатом, а не confirmed",
+        facts.after_item.clone(),
+        created.clone().map(|id| (ItemState::Unknown, Some(id))),
+    );
+    checks.eq(
+        "черновики ревьюера — записанный после доставки",
+        facts
+            .drafts_after
+            .iter()
+            .map(|draft| (draft.id.as_str().to_owned(), draft.note.clone()))
+            .collect::<Vec<_>>(),
+        created
+            .map(|id| (id, CRASH_AFTER[0].1.to_owned()))
+            .into_iter()
+            .collect::<Vec<_>>(),
+    );
+    checks.eq(
+        "автор: заметок нет",
+        facts.notes_after.iter().filter(|note| !note.system).count(),
+        0,
+    );
+    checks
+}
+
+/// Сессия с черновиками и план без сводки в журнале `path`: ID отправки и её первого элемента.
+fn crash_plan<T: Transport>(
+    cx: &GlCx<'_, T>,
+    review: &ReviewTarget,
+    snapshot: &MergeSnapshot,
+    path: &Path,
+    drafts: &[(Spot, &str)],
+) -> Result<(crate::journal::SubmissionId, crate::journal::ItemId), Verdict> {
+    let journal = Journal::open(path).map_err(|err| stand("журнал", &err))?;
+    let scope = journal.scope(&ProjectId::new(LIVE_PROJECT));
+    let session = ReviewSession::new(
+        &cx.reviewer_login,
+        review.clone(),
+        snapshot.revision.clone(),
+    );
+    let id = scope
+        .create_session(&session)
+        .map_err(|err| stand("сессия", &err))?;
+    add_drafts(&scope, id, &snapshot.files, drafts).map_err(|err| stand("черновики", &err))?;
+    let submission =
+        plan_gitlab(&scope, id, &GitLabPlan::default()).map_err(|err| stand("план", &err))?;
+    let first = submission
+        .items
+        .first()
+        .map(|item| item.id)
+        .ok_or_else(|| Verdict::Error("в плане нет элементов".to_owned()))?;
+    Ok((submission.id, first))
+}
+
+/// Переоткрытый журнал после сбоя: восстановленные, сверка, элемент, дамп и окно сверки.
+struct Reopened {
+    recovered: (bool, String),
+    reconciled: Vec<Reconciled>,
+    item: Option<(ItemState, Option<String>)>,
+    dump: Value,
+    reconcile_start: usize,
+}
+
+fn reopen_and_reconcile<T: Transport>(
+    cx: &GlCx<'_, T>,
+    reviewer: &GitLab<&Guarded<T>>,
+    path: &Path,
+    submission: crate::journal::SubmissionId,
+    first: crate::journal::ItemId,
+) -> Result<Reopened, Verdict> {
+    let project = ProjectId::new(LIVE_PROJECT);
+    let journal = Journal::open(path).map_err(|err| stand("журнал после сбоя", &err))?;
+    let recovered = journal.recovered().to_vec();
+    let scope = journal.scope(&project);
+    let reconcile_start = cx.trace.len();
+    let reconciled =
+        reconcile_gitlab(&scope, submission, reviewer).map_err(|err| stand("сверка", &err))?;
+    let item = item_facts(&scope, Some(first))?;
+    let dump = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
+    Ok(Reopened {
+        recovered: (
+            recovered == [first],
+            format!("{recovered:?}, ждали {first:?}"),
+        ),
+        reconciled,
+        item,
+        dump,
+        reconcile_start,
+    })
+}
+
+fn gl_journal_crash<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = gitlab_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let author = gitlab_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_snapshot(&reviewer, &cx.poll, None, MR_NOT_READY)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| read_or_fail("возможности ревьюера", &err))?;
+    let notes = vec![format!(
+        "MR клетки: версия {}",
+        snapshot.version_id.as_str()
+    )];
+    let (_, _, initial) = mr_state(&author, &reviewer)?;
+    // Сбой до запроса: элемент переведён в in_flight, журнал закрыт без запроса.
+    let before_path = cx.state_dir.join("journal-journal-crash-before-request.db");
+    let before_start = cx.trace.len();
+    let (before_submission, before_first) =
+        crash_plan(cx, &review, &snapshot, &before_path, &CRASH_BEFORE)?;
+    {
+        let journal = Journal::open(&before_path).map_err(|err| stand("журнал", &err))?;
+        journal
+            .scope(&ProjectId::new(LIVE_PROJECT))
+            .begin(before_first)
+            .map_err(|err| stand("in_flight", &err))?;
+    }
+    let before =
+        reopen_and_reconcile(cx, &reviewer, &before_path, before_submission, before_first)?;
+    let calls = cx.trace.calls();
+    let before_writes = writes_of(
+        calls.get(before_start..).unwrap_or_default(),
+        ACTOR_REVIEWER,
+    );
+    let (_, _, between) = mr_state(&author, &reviewer)?;
+    let early_before = |verdict: Verdict| Observed {
+        notes: notes.clone(),
+        before: json!({ "before-request": initial }),
+        after: json!({ "before-request": between }),
+        journal: json!({ "before-request": before.dump }),
+        tier: caps.plan.clone(),
+        verdict: Some(verdict),
+        ..Observed::default()
+    };
+    let before_window = calls.get(before.reconcile_start..).unwrap_or_default();
+    if let Some(verdict) = unread_of(&before.reconciled, before_window) {
+        return Ok(early_before(verdict));
+    }
+    // Сбой после принятой записи: поток исполнителя падает после доставки создания с ответом 2xx.
+    let after_path = cx.state_dir.join("journal-journal-crash-after-delivery.db");
+    let (after_submission, after_first) =
+        crash_plan(cx, &review, &snapshot, &after_path, &CRASH_AFTER)?;
+    let after_start = cx.trace.len();
+    let crash = GitLab::new(
+        CrashAfterCreate {
+            inner: cx.reviewer,
+            fired: std::cell::Cell::new(false),
+        },
+        cx.reviewer.target().gitlab_endpoints(),
+        &review,
+    )
+    .map_err(|err| stand("адаптер", &err))?;
+    let ran = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let journal = Journal::open(&after_path).map_err(|err| stand("журнал", &err))?;
+        let scope = journal.scope(&ProjectId::new(LIVE_PROJECT));
+        run_gitlab(&scope, after_submission, &crash, &caps).map_err(|err| submit_verdict(&err))
+    }));
+    let crashed = crash.transport().fired.get();
+    let sent = match ran {
+        Ok(Ok(sent)) => Some(sent),
+        Ok(Err(verdict)) => return Err(verdict),
+        Err(_) if crashed => None,
+        Err(_) => return Err(Verdict::Error("исполнитель упал не по инъекции".to_owned())),
+    };
+    let (_, drafts_mid, _) = mr_state(&author, &reviewer)?;
+    let after = reopen_and_reconcile(cx, &reviewer, &after_path, after_submission, after_first)?;
+    let calls = cx.trace.calls();
+    let after_window = calls.get(after_start..).unwrap_or_default();
+    let (notes_after, drafts_after, last) = mr_state(&author, &reviewer)?;
+    let early = |verdict: Verdict| Observed {
+        notes: notes.clone(),
+        before: json!({ "before-request": initial, "after-delivery": between }),
+        after: json!({ "before-request": between, "after-delivery": last }),
+        journal: json!({ "before-request": before.dump, "after-delivery": after.dump }),
+        tier: caps.plan.clone(),
+        verdict: Some(verdict),
+        ..Observed::default()
+    };
+    // Инъекция не сработала (создание не получило 2xx): итог по общему правилу, прочий отказ
+    // хоста судят проверки.
+    if let Some(sent) = &sent
+        && let Some(verdict) = delivery_verdict(sent, after_window, ACTOR_REVIEWER)
+    {
+        return Ok(early(verdict));
+    }
+    let mut notes = notes.clone();
+    if crashed {
+        let written = drafts_mid
+            .iter()
+            .filter(|draft| draft.note == CRASH_AFTER[0].1)
+            .count();
+        if written != 1 {
+            return Ok(early(Verdict::NotRun(format!(
+                "запись после доставки не наблюдена чтением ревьюера: черновиков «{}» {written}",
+                CRASH_AFTER[0].1
+            ))));
+        }
+        let after_reconcile = calls.get(after.reconcile_start..).unwrap_or_default();
+        if let Some(verdict) = unread_of(&after.reconciled, after_reconcile) {
+            return Ok(early(verdict));
+        }
+        notes.push(
+            "инъекция: поток исполнителя упал после ответа 2xx на создание черновика, \
+ответ в журнал не записан"
+                .to_owned(),
+        );
+    }
+    let checks = crash_checks(&CrashFacts {
+        before_writes: &before_writes,
+        before_recovered: before.recovered.clone(),
+        before_reconciled: &before.reconciled,
+        before_item: before.item.clone(),
+        crashed,
+        after_writes: &writes_of(after_window, ACTOR_REVIEWER),
+        after_recovered: after.recovered.clone(),
+        after_reconciled: &after.reconciled,
+        after_item: after.item.clone(),
+        drafts_after: &drafts_after,
+        notes_after: &notes_after,
+    });
+    Ok(Observed {
+        checks,
+        notes,
+        before: json!({ "before-request": initial, "after-delivery": between }),
+        after: json!({ "before-request": between, "after-delivery": last }),
+        journal: json!({ "before-request": before.dump, "after-delivery": after.dump }),
         tier: caps.plan,
         verdict: None,
     })

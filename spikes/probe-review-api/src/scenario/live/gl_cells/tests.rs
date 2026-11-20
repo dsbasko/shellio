@@ -886,6 +886,8 @@ fn cell_body_with(
         Scenario::HeadChange => gl_head_change(&cx, &mut cell),
         Scenario::Partial => gl_partial(&cx, &mut cell),
         Scenario::ReconcileDeleted => gl_reconcile_deleted(&cx, &mut cell),
+        Scenario::ReconcileAmbiguous => gl_reconcile_ambiguous(&cx, &mut cell),
+        Scenario::JournalCrash => gl_journal_crash(&cx, &mut cell),
         other => return Err(format!("тело {} в тесте не собрано", other.name()).into()),
     };
     let errors = guard_errors(&[("author", &author), ("reviewer", &reviewer)]);
@@ -2503,4 +2505,325 @@ fn deleted_checks_catch_a_retry_a_candidate_and_a_confirmed_item() {
         .0,
         Status::Fail
     );
+}
+
+// --- reconcile-ambiguous ---
+
+#[test]
+fn reconcile_ambiguous_body_passes_against_the_fake() -> TestResult {
+    let server = fake_gitlab()?;
+    let observed =
+        cell_body(&server, Scenario::ReconcileAmbiguous)?.map_err(|v| format!("{v:?}"))?;
+    pass(&observed);
+    assert_eq!(writes_in_fake(&server, glf::DRAFTS), 2);
+    assert_eq!(writes_in_fake(&server, glf::PUBLISH), 2);
+    let notes = server.with(|fake| fake.notes(FAKE_IID));
+    assert_eq!(
+        notes.iter().map(|n| n.body.as_str()).collect::<Vec<_>>(),
+        vec![AMBIGUOUS_NOTE, AMBIGUOUS_NOTE]
+    );
+    assert!(
+        observed
+            .notes
+            .iter()
+            .any(|note| note.starts_with("инъекция: ответ на публикацию черновика")),
+        "{:?}",
+        observed.notes
+    );
+    Ok(())
+}
+
+#[test]
+fn reconcile_ambiguous_rate_limited_second_publish_is_not_run_without_the_injection() -> TestResult
+{
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::PUBLISH, FakeReply::RateLimited).skip(1));
+    let observed =
+        cell_body(&server, Scenario::ReconcileAmbiguous)?.map_err(|v| format!("{v:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::NotRun(format!(
+            "лимит: код 429 на запись {DRAFT_PUBLISH}"
+        )))
+    );
+    assert_artifacts(&observed);
+    assert_eq!(server.with(|fake| fake.notes(FAKE_IID)).len(), 1);
+    Ok(())
+}
+
+#[test]
+fn reconcile_ambiguous_server_error_on_the_lost_publish_is_not_observed() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::PUBLISH, FakeReply::Status(502)).skip(1));
+    let observed =
+        cell_body(&server, Scenario::ReconcileAmbiguous)?.map_err(|v| format!("{v:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::NotRun(reason)) if reason.starts_with(WRITE_UNOBSERVED)),
+        "{:?}",
+        observed.verdict
+    );
+    assert_artifacts(&observed);
+    Ok(())
+}
+
+#[test]
+fn reconcile_ambiguous_failed_draft_read_splits_errors_and_the_limit() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(FAKE_DRAFT_READ, FakeReply::Status(502)));
+    let observed =
+        cell_body(&server, Scenario::ReconcileAmbiguous)?.map_err(|v| format!("{v:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::Error(reason))
+            if reason.starts_with("сверка: чтение черновика не удалось")),
+        "{:?}",
+        observed.verdict
+    );
+    assert_artifacts(&observed);
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(FAKE_DRAFT_READ, FakeReply::RateLimited));
+    let observed =
+        cell_body(&server, Scenario::ReconcileAmbiguous)?.map_err(|v| format!("{v:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::NotRun(
+            "лимит: код 429 на чтение сверки GET draft_notes/{id}".to_owned()
+        ))
+    );
+    assert_artifacts(&observed);
+    Ok(())
+}
+
+#[test]
+fn ambiguous_checks_catch_a_retry_a_single_candidate_and_a_confirmed_item() {
+    let writes = vec![
+        write(1, DRAFT_CREATE, None, Some("31")),
+        write(2, DRAFT_CREATE, None, Some("32")),
+        write(3, DRAFT_PUBLISH, Some("31"), None),
+        write(4, DRAFT_PUBLISH, Some("32"), None),
+    ];
+    let notes = vec![
+        note(41, AMBIGUOUS_NOTE, false, Some(position(4))),
+        note(42, AMBIGUOUS_NOTE, false, Some(position(4))),
+        note(43, "назначен ревьюер", true, None),
+    ];
+    let ambiguous = vec![Reconciled::Ambiguous {
+        candidates: vec![ProviderId::new("41"), ProviderId::new("42")],
+    }];
+    let states = vec![
+        (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+        (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+        (Operation::GitLabPublishDraftNote, ItemState::Confirmed),
+        (Operation::GitLabPublishDraftNote, ItemState::Unknown),
+    ];
+    let facts = AmbiguousFacts {
+        writes: &writes,
+        lost: Some("32"),
+        reconciled: &ambiguous,
+        states: &states,
+        item: Some((ItemState::Unknown, None)),
+        delivery: Delivery::Partial,
+        notes_after: &notes,
+        drafts_after: &[],
+        recovered: 0,
+    };
+    assert_eq!(ambiguous_checks(&facts).verdict().0, Status::Pass);
+    let mut retried = writes.clone();
+    retried.push(write(5, DRAFT_PUBLISH, Some("32"), None));
+    let single = vec![Reconciled::Candidate {
+        remote: ProviderId::new("42"),
+        detail: String::new(),
+    }];
+    let foreign = vec![Reconciled::Ambiguous {
+        candidates: vec![ProviderId::new("41"), ProviderId::new("99")],
+    }];
+    for wrong in [
+        AmbiguousFacts {
+            writes: &retried,
+            ..facts.clone()
+        },
+        AmbiguousFacts {
+            reconciled: &single,
+            ..facts.clone()
+        },
+        AmbiguousFacts {
+            reconciled: &foreign,
+            ..facts.clone()
+        },
+        AmbiguousFacts {
+            lost: Some("31"),
+            ..facts.clone()
+        },
+        AmbiguousFacts {
+            item: Some((ItemState::Confirmed, None)),
+            ..facts.clone()
+        },
+    ] {
+        assert_eq!(ambiguous_checks(&wrong).verdict().0, Status::Fail);
+    }
+}
+
+// --- journal-crash ---
+
+const FAKE_DRAFTS_READ: &str = "GET /projects/{id}/merge_requests/{merge_request_iid}/draft_notes";
+
+#[test]
+fn journal_crash_body_passes_against_the_fake() -> TestResult {
+    let server = fake_gitlab()?;
+    let observed = cell_body(&server, Scenario::JournalCrash)?.map_err(|v| format!("{v:?}"))?;
+    pass(&observed);
+    assert_eq!(writes_in_fake(&server, glf::DRAFTS), 1);
+    let drafts = server.with(|fake| fake.drafts(FAKE_IID));
+    assert_eq!(
+        drafts.iter().map(|d| d.note.as_str()).collect::<Vec<_>>(),
+        vec![CRASH_AFTER[0].1]
+    );
+    for key in ["before-request", "after-delivery"] {
+        assert!(!observed.journal[key].is_null(), "{key}");
+        assert!(!observed.after[key].is_null(), "{key}");
+    }
+    Ok(())
+}
+
+#[test]
+fn journal_crash_rate_limited_create_is_not_run_without_the_crash() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::DRAFTS, FakeReply::RateLimited));
+    let observed = cell_body(&server, Scenario::JournalCrash)?.map_err(|v| format!("{v:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::NotRun(format!(
+            "лимит: код 429 на запись {DRAFT_CREATE}"
+        )))
+    );
+    assert_artifacts(&observed);
+    assert!(server.with(|fake| fake.drafts(FAKE_IID)).is_empty());
+    Ok(())
+}
+
+#[test]
+fn journal_crash_server_error_on_create_is_not_observed() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::DRAFTS, FakeReply::Status(502)));
+    let observed = cell_body(&server, Scenario::JournalCrash)?.map_err(|v| format!("{v:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::NotRun(reason)) if reason.starts_with(WRITE_UNOBSERVED)),
+        "{:?}",
+        observed.verdict
+    );
+    assert_artifacts(&observed);
+    Ok(())
+}
+
+#[test]
+fn journal_crash_failed_drafts_read_before_the_request_splits_errors_and_the_limit() -> TestResult {
+    // Первое чтение черновиков — снимок «до» (`mr_state`), второе — сверка фазы до запроса.
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(FAKE_DRAFTS_READ, FakeReply::Status(502)).skip(1));
+    let observed = cell_body(&server, Scenario::JournalCrash)?.map_err(|v| format!("{v:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::Error(reason))
+            if reason.starts_with("сверка: чтение черновиков не удалось")),
+        "{:?}",
+        observed.verdict
+    );
+    assert_artifacts(&observed);
+    assert_eq!(writes_in_fake(&server, glf::DRAFTS), 0);
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(FAKE_DRAFTS_READ, FakeReply::RateLimited).skip(1));
+    let observed = cell_body(&server, Scenario::JournalCrash)?.map_err(|v| format!("{v:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::NotRun(
+            "лимит: код 429 на чтение сверки GET draft_notes".to_owned()
+        ))
+    );
+    assert_artifacts(&observed);
+    assert_eq!(writes_in_fake(&server, glf::DRAFTS), 0);
+    Ok(())
+}
+
+#[test]
+fn crash_checks_catch_a_retry_a_confirmed_item_and_a_missing_candidate() {
+    let unresolved = vec![Reconciled::Unresolved {
+        detail: "черновик: совпадений нет".to_owned(),
+    }];
+    let after_writes = vec![write(1, DRAFT_CREATE, None, Some("51"))];
+    let candidate = vec![Reconciled::Candidate {
+        remote: ProviderId::new("51"),
+        detail: String::new(),
+    }];
+    let drafts = vec![RemoteDraft {
+        id: ProviderId::new("51"),
+        author_id: None,
+        note: CRASH_AFTER[0].1.to_owned(),
+        discussion_id: None,
+        resolve_discussion: false,
+        line_code: None,
+        position: None,
+    }];
+    let facts = CrashFacts {
+        before_writes: &[],
+        before_recovered: (true, String::new()),
+        before_reconciled: &unresolved,
+        before_item: Some((ItemState::Unknown, None)),
+        crashed: true,
+        after_writes: &after_writes,
+        after_recovered: (true, String::new()),
+        after_reconciled: &candidate,
+        after_item: Some((ItemState::Unknown, Some("51".to_owned()))),
+        drafts_after: &drafts,
+        notes_after: &[],
+    };
+    assert_eq!(crash_checks(&facts).verdict().0, Status::Pass);
+    let retried = vec![
+        write(1, DRAFT_CREATE, None, Some("51")),
+        write(2, DRAFT_CREATE, None, Some("52")),
+    ];
+    let early_write = vec![write(1, DRAFT_CREATE, None, Some("50"))];
+    for wrong in [
+        CrashFacts {
+            after_writes: &retried,
+            ..facts.clone()
+        },
+        CrashFacts {
+            before_writes: &early_write,
+            ..facts.clone()
+        },
+        CrashFacts {
+            after_item: Some((ItemState::Confirmed, None)),
+            ..facts.clone()
+        },
+        CrashFacts {
+            after_reconciled: &unresolved,
+            ..facts.clone()
+        },
+        CrashFacts {
+            before_recovered: (false, "[]".to_owned()),
+            ..facts.clone()
+        },
+        CrashFacts {
+            crashed: false,
+            ..facts.clone()
+        },
+    ] {
+        assert_eq!(crash_checks(&wrong).verdict().0, Status::Fail);
+    }
+}
+
+#[test]
+fn refused_create_or_publish_without_the_injection_is_judged_by_the_checks() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::DRAFTS, FakeReply::Status(403)));
+    let observed = cell_body(&server, Scenario::JournalCrash)?.map_err(|v| format!("{v:?}"))?;
+    assert_eq!(observed.verdict, None);
+    assert_eq!(observed.checks.verdict().0, Status::Fail);
+    assert_artifacts(&observed);
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::PUBLISH, FakeReply::Status(403)).skip(1));
+    let observed =
+        cell_body(&server, Scenario::ReconcileAmbiguous)?.map_err(|v| format!("{v:?}"))?;
+    assert_eq!(observed.verdict, None);
+    assert_eq!(observed.checks.verdict().0, Status::Fail);
+    assert_artifacts(&observed);
+    Ok(())
 }

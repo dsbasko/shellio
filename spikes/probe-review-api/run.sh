@@ -52,7 +52,7 @@ LIVE_HOSTS="github_cloud gitlab_cloud gitlab_ce ghes"
 SCENARIOS_fake="smoke gh-local-create gh-pending-cycle gh-pending-foreign gh-anchors gh-viewed gl-draft-publish gl-foreign-draft gl-approve-sha gl-request-changes gl-anchors head-change journal-crash reconcile-ambiguous reconcile-foreign reconcile-deleted reconcile-paged partial capabilities"
 SCENARIOS_github_cloud="gh-local-create gh-pending-cycle gh-pending-foreign gh-anchors gh-viewed reconcile-foreign capabilities"
 SCENARIOS_gitlab_cloud="gl-draft-publish gl-foreign-draft gl-approve-sha gl-request-changes gl-anchors head-change journal-crash reconcile-ambiguous reconcile-deleted reconcile-paged partial capabilities"
-SCENARIOS_gitlab_ce="gl-draft-publish gl-foreign-draft gl-request-changes gl-anchors gl-approve-sha head-change reconcile-deleted partial capabilities"
+SCENARIOS_gitlab_ce="gl-draft-publish gl-foreign-draft gl-request-changes gl-anchors gl-approve-sha head-change journal-crash reconcile-ambiguous reconcile-deleted partial capabilities"
 SCENARIOS_ghes="gh-local-create gh-pending-cycle gh-pending-foreign gh-anchors gh-viewed reconcile-foreign capabilities"
 
 EXIT_ERROR=1
