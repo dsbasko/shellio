@@ -258,7 +258,9 @@ mod run {
 
     use super::{BASE, DIFF, HEAD, PATH, TestResult};
     use crate::fake::github::{FakeCommit, FakeFile, GithubFake, Permission};
-    use crate::fake::gitlab::{Access, BULK_PUBLISH, DRAFTS, FakeDiff, GitlabFake, NOTES, PUBLISH};
+    use crate::fake::gitlab::{
+        Access, BULK_PUBLISH, DRAFT_UPDATE, DRAFTS, FakeDiff, GitlabFake, NOTES, PUBLISH,
+    };
     use crate::fake::{FakeServer, Fault, Reply};
     use crate::github::{self, GitHub, ReviewEvent};
     use crate::gitlab::{self, GitLab};
@@ -454,6 +456,31 @@ mod run {
         );
         assert_eq!(scope.item(lost.items[0].id)?.state, ItemState::Unknown);
         assert_eq!(server.count(DRAFTS), 2, "после сбоя записей без сверки нет");
+        server.finish()?;
+        Ok(())
+    }
+
+    #[test]
+    fn unresolved_summary_blocks_a_second_plan_of_the_same_write() -> TestResult {
+        let server = gitlab_server()?;
+        server.inject(Fault::new(NOTES, Reply::Status(502)).after_apply());
+        let gitlab = gitlab_adapter(http("tok-reviewer"), &server)?;
+        let caps = gitlab.capabilities()?;
+        let dir = tempfile::tempdir()?;
+        let journal = Journal::open(&dir.path().join("state.db"))?;
+        let session = gitlab_session(&journal, &gitlab, &[])?;
+        let scope = journal.scope(&ProjectId::new("p"));
+        let plan = GitLabPlan {
+            summary: "Итог".to_owned(),
+            ..GitLabPlan::default()
+        };
+        let lost = plan_gitlab(&scope, session, &plan)?;
+        assert_eq!(run_gitlab(&scope, lost.id, &gitlab, &caps)?.unresolved, 1);
+        assert!(matches!(
+            plan_gitlab(&scope, session, &plan),
+            Err(SubmitError::Unresolved(_))
+        ));
+        assert_eq!(server.count(NOTES), 1, "сводка не повторена в обход сверки");
         server.finish()?;
         Ok(())
     }
@@ -720,6 +747,14 @@ mod run {
             update: vec![held],
             ..GitLabPlan::default()
         };
+        server.inject(Fault::new(DRAFT_UPDATE, Reply::Status(502)));
+        let moved = plan_gitlab(&scope, session_id, &plan)?;
+        assert_eq!(run_gitlab(&scope, moved.id, &gitlab, &caps)?.unresolved, 1);
+        let verdicts = reconcile_gitlab(&scope, moved.id, &gitlab)?;
+        assert!(
+            matches!(verdicts[..], [Verdict::Refuted { .. }]),
+            "текст тот же, позиция прежняя — изменение не применено: {verdicts:?}"
+        );
         let retry = plan_gitlab(&scope, session_id, &plan)?;
         let ops: Vec<Operation> = retry.items.iter().map(|item| item.operation).collect();
         assert_eq!(
@@ -869,6 +904,47 @@ mod run {
         let reviews = server.with(|fake| fake.reviews(7));
         assert_eq!(reviews.len(), 1, "тот же PENDING, второго review нет");
         assert_eq!(server.count(SUBMIT), 2);
+        server.finish()?;
+        Ok(())
+    }
+
+    #[test]
+    fn foreign_comment_in_own_pending_stops_submit_without_write() -> TestResult {
+        use crate::model::{DraftComment, DraftId};
+
+        let server = github_setup()?;
+        server.inject(Fault::new(SUBMIT, Reply::Status(422)));
+        let github = github_adapter(&server)?;
+        let caps = github.capabilities()?;
+        let dir = tempfile::tempdir()?;
+        let journal = Journal::open(&dir.path().join("state.db"))?;
+        let session = github_session(&journal, &github, &[(1, "первый")])?;
+        let scope = journal.scope(&ProjectId::new("p"));
+        let first = plan_github_pending(&scope, session, ReviewEvent::Comment, "Итог", None, &[])?;
+        let refused = run_github(&scope, first.id, &github, &caps)?;
+        assert!(refused.closed);
+        let review = scope
+            .submission(first.id)?
+            .spec
+            .pending_review
+            .ok_or("нет PENDING")?;
+        let at = scope.session(session)?;
+        let (pending, _) = github.resume_pending(&at, &review, &[], false)?;
+        let snapshot = github.pull()?;
+        let file = &snapshot.files[0];
+        let anchor = Anchor::line(file, LinePoint::at(file, Side::New, 3)?)?;
+        let outside = DraftComment::new(DraftId(999), &at, Placement::Line(anchor), "вне журнала");
+        github.add_pending_comment(&at, &pending, &outside)?;
+
+        let blocked =
+            plan_github_pending(&scope, session, ReviewEvent::Comment, "Итог", None, &[])?;
+        assert_eq!(blocked.spec.pending_review.as_ref(), Some(&review));
+        assert!(matches!(
+            run_github(&scope, blocked.id, &github, &caps),
+            Err(SubmitError::Refused(_))
+        ));
+        assert_eq!(server.count(SUBMIT), 1, "Submit без записи");
+        assert!(scope.submission(blocked.id)?.closed);
         server.finish()?;
         Ok(())
     }

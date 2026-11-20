@@ -21,8 +21,8 @@ use std::fmt;
 use crate::github::{self, GitHub, NoPending, PendingComment, PendingReview, ReviewEvent};
 use crate::gitlab::{self, GitLab, KnownDraft};
 use crate::journal::{
-    Confirmation, ItemState, JournalError, Operation, PlannedItem, Scope, SessionId, Submission,
-    SubmissionId, SubmissionSpec, SubmitItem,
+    Confirmation, DraftArity, ItemState, JournalError, Operation, PlannedItem, Scope, SessionId,
+    Submission, SubmissionId, SubmissionSpec, SubmitItem,
 };
 use crate::model::revision::Revision;
 use crate::model::{DraftComment, DraftId, Placement, ProviderId, ReviewSession};
@@ -308,6 +308,32 @@ impl History {
             })
     }
 
+    /// Элемент операции без одного черновика в `unknown` или `in_flight`: запрет черновика его
+    /// не держит, и новая отправка повторила бы запись в обход сверки.
+    fn unresolved(&self, operation: Operation) -> Option<crate::journal::ItemId> {
+        self.submissions
+            .iter()
+            .flat_map(|submission| submission.items.iter())
+            .find(|item| {
+                item.operation == operation
+                    && matches!(item.state, ItemState::Unknown | ItemState::InFlight)
+            })
+            .map(|item| item.id)
+    }
+
+    /// Отказ планировать запись, первая попытка которой ещё не сверена.
+    fn guard(&self, items: &[PlannedItem]) -> Result<(), SubmitError> {
+        for planned in items {
+            if planned.operation.drafts() == DraftArity::One {
+                continue;
+            }
+            if let Some(item) = self.unresolved(planned.operation) {
+                return Err(SubmitError::Unresolved(item));
+            }
+        }
+        Ok(())
+    }
+
     fn remote_of(&self, operation: Operation) -> Vec<ProviderId> {
         self.confirmed()
             .filter(|(_, item)| item.operation == operation)
@@ -373,11 +399,9 @@ pub fn plan_github_local(
         summary: summary.to_owned(),
         ..SubmissionSpec::default()
     };
-    Ok(scope.plan(
-        session,
-        &spec,
-        &[item(Operation::GitHubCreateReview, &drafts)],
-    )?)
+    let items = [item(Operation::GitHubCreateReview, &drafts)];
+    history.guard(&items)?;
+    Ok(scope.plan(session, &spec, &items)?)
 }
 
 /// Ветвь «серверный `PENDING`». Незавершённый `PENDING` сессии (после опровергнутого Submit или
@@ -428,6 +452,7 @@ pub fn plan_github_pending(
         }
     }
     items.push(item(Operation::GitHubSubmitReview, &[]));
+    history.guard(&items)?;
     Ok(scope.plan(session, &spec, &items)?)
 }
 
@@ -475,6 +500,7 @@ pub fn plan_gitlab(
     if items.is_empty() {
         return Err(SubmitError::Empty);
     }
+    history.guard(&items)?;
     let spec = SubmissionSpec {
         summary: plan.summary.clone(),
         ..SubmissionSpec::default()
