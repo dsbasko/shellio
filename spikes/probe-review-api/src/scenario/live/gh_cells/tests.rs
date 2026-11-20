@@ -167,10 +167,25 @@ fn cell_body(
     cell_body_with(server, scenario, ThreadsReply::Keep)
 }
 
+fn in_process(server: &FakeServer<GithubFake>) -> InProcess {
+    InProcess {
+        guard: second_guard(server, REVIEWER_TOKEN, &Trace::new()),
+    }
+}
+
 fn cell_body_with(
     server: &FakeServer<GithubFake>,
     scenario: Scenario,
     author_threads: ThreadsReply,
+) -> Result<Result<Observed, Verdict>, Box<dyn std::error::Error>> {
+    cell_body_in(server, scenario, author_threads, &in_process(server))
+}
+
+fn cell_body_in(
+    server: &FakeServer<GithubFake>,
+    scenario: Scenario,
+    author_threads: ThreadsReply,
+    second: &dyn GhSecond,
 ) -> Result<Result<Observed, Verdict>, Box<dyn std::error::Error>> {
     let state = tempfile::tempdir()?;
     let trace = Trace::new();
@@ -193,9 +208,6 @@ fn cell_body_with(
     };
     let author = guard(AUTHOR_TOKEN, "author", author_threads);
     let reviewer = guard(REVIEWER_TOKEN, "reviewer", ThreadsReply::Keep);
-    let second = InProcess {
-        guard: second_guard(server, REVIEWER_TOKEN, &Trace::new()),
-    };
     let cx = GhCx {
         author: &author,
         reviewer: &reviewer,
@@ -204,7 +216,7 @@ fn cell_body_with(
         reviewer_login: FAKE_REVIEWER.to_owned(),
         state_dir: state.path(),
         poll: NOW,
-        second: &second,
+        second,
     };
     let mut cell = Cell {
         names: CellNames::new(RUN_ID, scenario.name())?,
@@ -1647,6 +1659,156 @@ fn pending_foreign_without_server_pending_is_absent_without_writes() -> TestResu
         "второй клиент не запускался"
     );
     Ok(())
+}
+
+/// Второй клиент теста: первый вызов — как процесс ([`InProcess`]), второй — подставной ответ.
+struct ScriptedSecond {
+    real: InProcess,
+    second: std::cell::RefCell<Option<Result<String, Verdict>>>,
+    calls: std::cell::Cell<u32>,
+}
+
+impl ScriptedSecond {
+    fn new(server: &FakeServer<GithubFake>, second: Result<String, Verdict>) -> ScriptedSecond {
+        ScriptedSecond {
+            real: in_process(server),
+            second: std::cell::RefCell::new(Some(second)),
+            calls: std::cell::Cell::new(0),
+        }
+    }
+}
+
+impl GhSecond for ScriptedSecond {
+    fn create_pending(&self, number: u64, count: u32) -> Result<String, Verdict> {
+        if self.calls.replace(self.calls.get() + 1) == 0 {
+            return self.real.create_pending(number, count);
+        }
+        self.second
+            .borrow_mut()
+            .take()
+            .unwrap_or_else(|| Err(Verdict::Error("лишний вызов второго клиента".to_owned())))
+    }
+}
+
+#[test]
+fn pending_foreign_second_pending_accepted_is_not_run_without_submit() -> TestResult {
+    let server = fake_github(true)?;
+    let second = ScriptedSecond::new(&server, Ok("424242".to_owned()));
+    let observed = cell_body_in(
+        &server,
+        Scenario::GhPendingForeign,
+        ThreadsReply::Keep,
+        &second,
+    )?
+    .map_err(|v| format!("{v:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::NotRun(reason))
+            if reason.starts_with(SECOND_PENDING_ACCEPTED) && reason.contains("424242")),
+        "{:?}",
+        observed.verdict
+    );
+    assert_eq!(second.calls.get(), 2);
+    assert!(
+        observed.notes.iter().any(|n| n.contains("review 424242")),
+        "{:?}",
+        observed.notes
+    );
+    assert!(observed.before.is_object(), "{}", observed.before);
+    assert_eq!(observed.before, observed.after);
+    assert_eq!(
+        observed.journal.pointer("/sessions"),
+        Some(&json!([])),
+        "отправки исполнителем не было: {}",
+        observed.journal
+    );
+    assert_eq!(fake_writes(&server, FAKE_ADD_THREAD), 0);
+    assert_eq!(fake_writes(&server, FAKE_SUBMIT), 0);
+    let reviews = server.with(|f| f.reviews(NUMBER));
+    assert_eq!(reviews.len(), 1, "только PENDING первого вызова");
+    assert_eq!(reviews[0].state, ghf::ReviewState::Pending);
+    Ok(())
+}
+
+#[test]
+fn pending_foreign_notes_host_refusal_only_for_a_refused_create() -> TestResult {
+    let server = fake_github(true)?;
+    let observed = cell_body(&server, Scenario::GhPendingForeign)?.map_err(|v| format!("{v:?}"))?;
+    let refusal: Vec<&String> = observed
+        .notes
+        .iter()
+        .filter(|n| n.contains("гипотеза 422"))
+        .collect();
+    assert!(
+        matches!(&refusal[..], [note] if note.contains("Create review без event") && note.contains("422")),
+        "{:?}",
+        observed.notes
+    );
+    let server = fake_github(true)?;
+    server.inject(Fault::new(FAKE_CREATE, FakeReply::Status(429)).skip(1));
+    let observed = cell_body(&server, Scenario::GhPendingForeign)?.map_err(|v| format!("{v:?}"))?;
+    assert_eq!(
+        observed.checks.verdict().0,
+        Status::Pass,
+        "{:?}",
+        observed.notes
+    );
+    assert!(
+        observed
+            .notes
+            .iter()
+            .any(|n| n.contains("отказ 422 не наблюдался") && n.contains("лимит")),
+        "{:?}",
+        observed.notes
+    );
+    assert!(!observed.notes.iter().any(|n| n.contains("гипотеза 422")));
+    let server = fake_github(true)?;
+    let not_ready = format!("{SECOND_NOT_CREATED}: {PR_NOT_READY}");
+    let second = ScriptedSecond::new(&server, Err(Verdict::NotRun(not_ready.clone())));
+    let observed = cell_body_in(
+        &server,
+        Scenario::GhPendingForeign,
+        ThreadsReply::Keep,
+        &second,
+    )?
+    .map_err(|v| format!("{v:?}"))?;
+    assert_eq!(
+        observed.checks.verdict().0,
+        Status::Pass,
+        "{:?}",
+        observed.notes
+    );
+    assert!(
+        observed
+            .notes
+            .iter()
+            .any(|n| n.contains("отказ 422 не наблюдался") && n.contains(&not_ready)),
+        "{:?}",
+        observed.notes
+    );
+    assert!(!observed.notes.iter().any(|n| n.contains("гипотеза 422")));
+    Ok(())
+}
+
+#[test]
+fn second_try_note_splits_a_refused_create_from_other_not_runs() {
+    for (reason, refusal) in [
+        (
+            "второй клиент не создал PENDING: Create review без event: код 422: уже есть",
+            true,
+        ),
+        (
+            "второй клиент не создал PENDING: PR не готов за 120 с",
+            false,
+        ),
+        ("второй клиент не создал PENDING: снимок PR: код 404", false),
+        ("лимит: Create review без event: код 429: исчерпан", false),
+        ("нет ревьюера: элемента Keychain нет", false),
+    ] {
+        let note = second_try_note(reason);
+        assert_eq!(note.contains("гипотеза 422"), refusal, "{note}");
+        assert_eq!(note.contains("отказ 422 не наблюдался"), !refusal, "{note}");
+        assert!(note.ends_with(reason), "{note}");
+    }
 }
 
 #[test]

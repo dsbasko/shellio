@@ -44,7 +44,8 @@ pub const USAGE: &str = "использование:
   probe-review --gitlab-ce-provision --url http://127.0.0.1:<порт> --out <каталог подъёма>
   probe-review --second-client gl-create-draft --column <столбец> --mr <iid> --line <строка> --out <каталог процесса>
   probe-review --second-client gl-delete-draft --column <столбец> --mr <iid> --draft <ID> --out <каталог процесса>
-  probe-review --second-client gl-plant-notes --column <столбец> --mr <iid> --count <число> --out <каталог процесса>";
+  probe-review --second-client gl-plant-notes --column <столбец> --mr <iid> --count <число> --out <каталог процесса>
+  probe-review --second-client gh-create-pending --column <столбец> --mr <номер PR> --count <число> --out <каталог процесса>";
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Mode {

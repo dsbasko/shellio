@@ -1935,9 +1935,7 @@ pub fn foreign_pending<T: Transport>(
     count: u32,
 ) -> Result<String, Verdict> {
     let refused = |what: &str, err: &ApiError| match gh_read_or_fail(what, err) {
-        Verdict::Fail(reason) => {
-            Verdict::NotRun(format!("второй клиент не создал PENDING: {reason}"))
-        }
+        Verdict::Fail(reason) => Verdict::NotRun(format!("{SECOND_NOT_CREATED}: {reason}")),
         Verdict::Error(reason) => Verdict::Error(format!("второй клиент: {reason}")),
         other => other,
     };
@@ -1945,9 +1943,10 @@ pub fn foreign_pending<T: Transport>(
         let github = github_adapter(guard, review)
             .map_err(|err| Verdict::Error(format!("второй клиент: {err}")))?;
         let pull = github.pull().map_err(|err| refused("снимок PR", &err))?;
-        let file = pull.files.first().ok_or_else(|| {
-            Verdict::NotRun(format!("второй клиент не создал PENDING: {PR_NOT_READY}"))
-        })?;
+        let file = pull
+            .files
+            .first()
+            .ok_or_else(|| Verdict::NotRun(format!("{SECOND_NOT_CREATED}: {PR_NOT_READY}")))?;
         let session = ReviewSession::new(login, review.clone(), pull.revision.clone());
         let drafts = (0..count)
             .map(|index| {
@@ -1966,7 +1965,7 @@ pub fn foreign_pending<T: Transport>(
         github
             .create_pending_with_comments(&session, &drafts, FOREIGN_PENDING_BODY)
             .map(|created| created.id.as_str().to_owned())
-            .map_err(|err| refused("PENDING", &err))
+            .map_err(|err| refused(CREATE_PENDING_STEP, &err))
     })();
     let errors = guard_errors(&[(ACTOR_SECOND, guard)]);
     if !errors.is_empty() {
@@ -1976,6 +1975,23 @@ pub fn foreign_pending<T: Transport>(
         return Err(Verdict::Error(format!("второй клиент: сторож: {err}")));
     }
     created
+}
+
+/// Начало причины `not_run` второго клиента GitHub, который не создал `PENDING`.
+pub const SECOND_NOT_CREATED: &str = "второй клиент не создал PENDING";
+/// Шаг записи второго клиента в причине отказа: по нему отказ хоста на Create review отличается
+/// от отказа на снимок PR и от неготового PR.
+const CREATE_PENDING_STEP: &str = "Create review без event";
+
+/// Заметка второго вызова второго клиента `gh-pending-foreign` по его `not_run`: отказ хоста на
+/// Create review — наблюдение гипотезы 422, другой `not_run` (лимит, PR не готов, отказ на снимок
+/// PR) отказа на второй `PENDING` не наблюдал.
+pub fn second_try_note(reason: &str) -> String {
+    if reason.starts_with(&format!("{SECOND_NOT_CREATED}: {CREATE_PENDING_STEP}:")) {
+        format!("второй PENDING того же аккаунта: отказ хоста (гипотеза 422): {reason}")
+    } else {
+        format!("второй PENDING того же аккаунта: отказ 422 не наблюдался: {reason}")
+    }
 }
 
 /// Число комментариев `PENDING` второго клиента у `gh-pending-foreign`: две страницы REST по 100.
@@ -2169,9 +2185,7 @@ fn gh_pending_foreign<T: Transport>(
     let second_try = cx.second.create_pending(cell.number, 1);
     let (_, before) = pr_state_by(&reviewer, "ревьюером")?;
     match second_try {
-        Err(Verdict::NotRun(reason)) => notes.push(format!(
-            "второй PENDING того же аккаунта: отказ хоста (гипотеза 422): {reason}"
-        )),
+        Err(Verdict::NotRun(reason)) => notes.push(second_try_note(&reason)),
         Ok(id) => {
             notes.push(format!("второй PENDING того же аккаунта: review {id}"));
             return Ok(Observed {
