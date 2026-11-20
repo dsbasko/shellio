@@ -194,6 +194,23 @@ fn github_second_client_without_sandbox_is_not_run() -> TestResult {
         ["gh-create-pending", "--count", "101"],
     )?;
     assert_eq!(wrong.status.code(), Some(3));
+    let review = second_client_op(
+        &host,
+        dir.path(),
+        "github_cloud",
+        ["gh-create-review", "--line", "4"],
+    )?;
+    let stdout = String::from_utf8_lossy(&review.stdout);
+    assert!(review.status.success(), "{stdout}");
+    let reply: Value = serde_json::from_str(stdout.trim())?;
+    assert!(reply["not_run"].is_string(), "{reply}");
+    let wrong_review = second_client_op(
+        &host,
+        dir.path(),
+        "gitlab_cloud",
+        ["gh-create-review", "--line", "4"],
+    )?;
+    assert_eq!(wrong_review.status.code(), Some(3));
     Ok(())
 }
 

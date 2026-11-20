@@ -31,8 +31,10 @@ use crate::results::ResultFile;
 use crate::scenario::Scenario;
 use crate::scenario::fake::{Checks, Spot, add_drafts, dump_in};
 use crate::scrub::Scrubber;
+use crate::submit::reconcile::Verdict as Reconciled;
 use crate::submit::{
-    Delivery, Report, SubmitError, plan_github_local, plan_github_pending, report, run_github,
+    Delivery, Report, SubmitError, plan_github_local, plan_github_pending, reconcile_github,
+    report, run_github,
 };
 use crate::transport::{Call, Failure, Method, Request, Response, Trace, Transport};
 
@@ -73,6 +75,8 @@ pub struct GhCx<'a, T> {
 /// Отказ хоста — `not_run`, отказ транспорта, 5xx и сторожа — ошибка исполнения.
 pub trait GhSecond {
     fn create_pending(&self, number: u64, count: u32) -> Result<String, Verdict>;
+    /// Review `COMMENT` ревьюера с текстом [`FOREIGN_SAME_BODY`] на новой строке `line`.
+    fn create_review(&self, number: u64, line: u32) -> Result<String, Verdict>;
 }
 
 impl GhSecond for super::gl_cells::ProcessClient {
@@ -81,6 +85,10 @@ impl GhSecond for super::gl_cells::ProcessClient {
             number,
             &super::gl_cells::SecondOp::GhCreatePending { count },
         )
+    }
+
+    fn create_review(&self, number: u64, line: u32) -> Result<String, Verdict> {
+        self.run(number, &super::gl_cells::SecondOp::GhCreateReview { line })
     }
 }
 
@@ -105,6 +113,7 @@ pub fn implemented(scenario: Scenario) -> bool {
             | Scenario::GhPendingForeign
             | Scenario::GhAnchors
             | Scenario::GhViewed
+            | Scenario::ReconcileForeign
     )
 }
 
@@ -133,6 +142,7 @@ pub fn run_gh_cell<T: Transport>(
             Scenario::GhPendingForeign => gh_pending_foreign(cx, cell),
             Scenario::GhAnchors => gh_anchors(cx, cell),
             Scenario::GhViewed => gh_viewed(cx, cell),
+            Scenario::ReconcileForeign => gh_reconcile_foreign(cx, cell),
             other => Err(Verdict::Error(format!(
                 "сценарий {} в живом столбце GitHub не реализован",
                 other.name()
@@ -655,26 +665,50 @@ pub const GH_SUBMIT: &str = "POST reviews/{id}/events";
 const PENDING_DRAFTS: [(Spot, &str); 2] = LOCAL_DRAFTS;
 const PENDING_UPDATED: &str = "первый, исправлен";
 
-/// Транспорт ревьюера `gh-pending-cycle` с клиентской инъекцией: первый Submit
-/// ([`GH_SUBMIT`]) не отправляется, исполнителю отдаётся отказ `not_sent`, остальные запросы идут
-/// как есть. Стоит над сторожем, поэтому не отправленный запрос в след не попадает: ID review из
-/// его пути фиксирует [`SubmitDrop::dropped`].
-pub struct SubmitDrop<R> {
+/// Транспорт ревьюера с клиентской инъекцией: первая запись с ключом `key` не отправляется,
+/// остальные запросы идут как есть. `gh-pending-cycle` — Submit ([`GH_SUBMIT`]) с отказом
+/// `not_sent` (элемент `failed`), `reconcile-foreign` — Create review ([`GH_CREATE`]) с таймаутом
+/// (запрос мог дойти, элемент `unknown`). Стоит над сторожем, поэтому не отправленный запрос в след
+/// не попадает: его путь и тело фиксирует обёртка.
+pub struct WriteDrop<R> {
     inner: R,
-    dropped: RefCell<Option<String>>,
+    key: &'static str,
+    timeout: bool,
+    dropped: RefCell<Option<(String, Value)>>,
 }
 
-impl<R> SubmitDrop<R> {
-    pub fn new(inner: R) -> SubmitDrop<R> {
-        SubmitDrop {
+impl<R> WriteDrop<R> {
+    /// Первый Submit не отправлен, отказ `not_sent`.
+    pub fn submit(inner: R) -> WriteDrop<R> {
+        WriteDrop {
             inner,
+            key: GH_SUBMIT,
+            timeout: false,
             dropped: RefCell::new(None),
         }
     }
 
-    /// ID review в пути не отправленного Submit, если инъекция сработала.
+    /// Первый Create review не отправлен, отказ — таймаут.
+    pub fn create(inner: R) -> WriteDrop<R> {
+        WriteDrop {
+            inner,
+            key: GH_CREATE,
+            timeout: true,
+            dropped: RefCell::new(None),
+        }
+    }
+
+    /// ID review в пути не отправленного Submit, если инъекция сработала (у Create review — пусто).
     pub fn dropped(&self) -> Option<String> {
-        self.dropped.borrow().clone()
+        self.dropped
+            .borrow()
+            .as_ref()
+            .map(|(path, _)| submitted_review(path).unwrap_or_default())
+    }
+
+    /// Тело не отправленного запроса, если инъекция сработала.
+    pub fn dropped_body(&self) -> Option<Value> {
+        self.dropped.borrow().as_ref().map(|(_, body)| body.clone())
     }
 }
 
@@ -686,18 +720,26 @@ fn submitted_review(path: &str) -> Option<String> {
         .map(str::to_owned)
 }
 
-impl<R: Transport> Transport for SubmitDrop<R> {
+impl<R: Transport> Transport for WriteDrop<R> {
     fn send(&self, request: &Request) -> Result<Response, Failure> {
         let body = request.body_json();
-        let submit = gh_write_key(request.method, request.path(), body.as_ref()).as_deref()
-            == Some(GH_SUBMIT);
-        if !submit || self.dropped.borrow().is_some() {
+        let hit = gh_write_key(request.method, request.path(), body.as_ref()).as_deref()
+            == Some(self.key);
+        if !hit || self.dropped.borrow().is_some() {
             return self.inner.send(request);
         }
-        *self.dropped.borrow_mut() = Some(submitted_review(request.path()).unwrap_or_default());
-        Err(Failure::not_sent(
-            "инъекция пробы: Submit не отправлен, клиенту отдан отказ «запрос не ушёл»",
-        ))
+        *self.dropped.borrow_mut() = Some((request.path().to_owned(), body.unwrap_or(Value::Null)));
+        if self.timeout {
+            Err(Failure::timeout(format!(
+                "инъекция пробы: {} не отправлен, клиенту отдан таймаут",
+                self.key
+            )))
+        } else {
+            Err(Failure::not_sent(format!(
+                "инъекция пробы: {} не отправлен, клиенту отдан отказ «запрос не ушёл»",
+                self.key
+            )))
+        }
     }
 }
 
@@ -997,7 +1039,7 @@ pub fn pending_cycle_checks(facts: &PendingFacts<'_>) -> Checks {
 fn gh_pending_cycle<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<Observed, Verdict> {
     let review = cx.review(cell.number);
     let reviewer = GitHub::new(
-        SubmitDrop::new(cx.reviewer),
+        WriteDrop::submit(cx.reviewer),
         cx.reviewer.target().github_endpoints(),
         &review,
     )
@@ -2317,6 +2359,441 @@ fn gh_pending_foreign<T: Transport>(
         before,
         after: after_value,
         journal,
+        tier: caps.plan,
+        verdict: None,
+    })
+}
+
+/// Текст черновика `reconcile-foreign` и комментария review второго клиента.
+pub const FOREIGN_SAME_BODY: &str = "тот же текст";
+/// Новая строка фикстуры (строка 05 после правки), на которой лежат черновик `reconcile-foreign`
+/// и комментарий review второго клиента.
+pub const FOREIGN_SAME_LINE: u32 = 4;
+/// Начало причины `not_run` второго клиента GitHub, который не создал review.
+pub const SECOND_NO_REVIEW: &str = "второй клиент не создал review";
+/// Причина `not_run` `reconcile-foreign`, если сверка не нашла кандидата или нашла несколько.
+pub const CANDIDATE_UNOBSERVED: &str = "кандидат не наблюдён сверкой";
+
+/// Review второго клиента GitHub от имени ревьюера: свой снимок PR и возможности, проверка
+/// отсутствия своего `PENDING`, один Create review с `event` `COMMENT`, текстом итога [`SUMMARY`]
+/// и комментарием [`FOREIGN_SAME_BODY`] на новой строке `line` своей ревизии; ответ — ID review.
+/// Отказ хоста — `not_run` [`SECOND_NO_REVIEW`], лимит — `not_run` «лимит», отказ транспорта,
+/// 5xx и сторожа — ошибка исполнения.
+pub fn foreign_review<T: Transport>(
+    guard: &Guarded<T>,
+    review: &ReviewTarget,
+    login: &str,
+    line: u32,
+) -> Result<String, Verdict> {
+    let refused = |what: &str, err: &ApiError| match gh_read_or_fail(what, err) {
+        Verdict::Fail(reason) => Verdict::NotRun(format!("{SECOND_NO_REVIEW}: {reason}")),
+        Verdict::Error(reason) => Verdict::Error(format!("второй клиент: {reason}")),
+        other => other,
+    };
+    let created = (|| {
+        let github = github_adapter(guard, review)
+            .map_err(|err| Verdict::Error(format!("второй клиент: {err}")))?;
+        let pull = github.pull().map_err(|err| refused("снимок PR", &err))?;
+        let file = pull
+            .files
+            .first()
+            .ok_or_else(|| Verdict::NotRun(format!("{SECOND_NO_REVIEW}: {PR_NOT_READY}")))?;
+        let caps = github
+            .capabilities()
+            .map_err(|err| refused("возможности", &err))?;
+        let clear = github
+            .check_no_pending(&caps)
+            .map_err(|err| refused("PENDING ревьюера", &err))?;
+        let session = ReviewSession::new(login, review.clone(), pull.revision.clone());
+        let placement = Spot::Line(Side::New, line)
+            .placement(file)
+            .map_err(|err| Verdict::Error(format!("второй клиент: якорь: {err}")))?;
+        let draft = DraftComment::new(DraftId(0), &session, placement, FOREIGN_SAME_BODY);
+        github
+            .create_review(&session, &clear, &[draft], ReviewEvent::Comment, SUMMARY)
+            .map(|created| created.id.as_str().to_owned())
+            .map_err(|err| refused("Create review с event COMMENT", &err))
+    })();
+    let errors = guard_errors(&[(ACTOR_SECOND, guard)]);
+    if !errors.is_empty() {
+        return Err(Verdict::Error(errors.join("; ")));
+    }
+    if let Some(err) = guard.refusal() {
+        return Err(Verdict::Error(format!("второй клиент: сторож: {err}")));
+    }
+    created
+}
+
+/// Ключ чтения GitHub для причины без пути репозитория: хвост пути после `pulls/<номер>/` с
+/// числовыми ID, заменёнными на `{id}`, `graphql` или `вне PR`.
+pub fn gh_read_key(method: Method, path: &str) -> String {
+    let path = path.split_once('?').map_or(path, |(path, _)| path);
+    if path.ends_with("/graphql") {
+        return format!("{method} graphql");
+    }
+    let tail = path
+        .split_once("/pulls/")
+        .and_then(|(_, rest)| rest.split_once('/'))
+        .map(|(_, tail)| tail);
+    match tail {
+        Some(tail) => {
+            let tail: Vec<&str> = tail
+                .split('/')
+                .map(|part| {
+                    if !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()) {
+                        "{id}"
+                    } else {
+                        part
+                    }
+                })
+                .collect();
+            format!("{method} {}", tail.join("/"))
+        }
+        None => format!("{method} вне PR"),
+    }
+}
+
+/// Итог «не выяснено» сверки GitHub из-за неудачного чтения: явный лимит (429 или 403 с признаком
+/// лимита) на последнем вызове роли в окне сверки — `not_run` «лимит», иначе ошибка исполнения
+/// (сверка сводит отказ к тексту, различает след).
+pub fn gh_unread_verdict(detail: &str, window: &[Call], actor: &str) -> Verdict {
+    let limited = window
+        .iter()
+        .rev()
+        .find(|call| call.actor == actor)
+        .and_then(|call| {
+            let response = call.outcome.as_ref().ok()?;
+            let message = response
+                .body_json()
+                .ok()
+                .and_then(|body| {
+                    body.get("message")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                })
+                .unwrap_or_default();
+            is_rate_limited(response, &message).then(|| {
+                format!(
+                    "лимит: код {} на чтение сверки {}",
+                    response.status,
+                    gh_read_key(call.request.method, call.request.path())
+                )
+            })
+        });
+    match limited {
+        Some(reason) => Verdict::NotRun(reason),
+        None => Verdict::Error(format!("сверка: {detail}")),
+    }
+}
+
+/// Наблюдённое `reconcile-foreign` для оракула.
+pub struct ReconcileForeignFacts<'a> {
+    pub head: &'a str,
+    pub path: &'a str,
+    pub reviewer: &'a str,
+    /// Тело Create review, которое инъекция не отправила.
+    pub dropped: Option<&'a Value>,
+    /// Записи ревьюера от отправки до конца сверки.
+    pub writes: &'a [WriteCall],
+    /// ID review второго клиента.
+    pub foreign: &'a str,
+    pub reconciled: &'a [Reconciled],
+    /// Элемент Create review после переоткрытия: состояние и кандидат.
+    pub item: Option<(ItemState, Option<String>)>,
+    pub delivery: Delivery,
+    pub after: &'a [ReviewRead],
+    pub recovered: usize,
+}
+
+/// Оракул `reconcile-foreign` на живом хосте (ожидание — в отчёте).
+pub fn reconcile_foreign_checks(facts: &ReconcileForeignFacts<'_>) -> Checks {
+    let mut checks = Checks::default();
+    checks.check(
+        "инъекция: Create review не отправлен",
+        facts.dropped.is_some(),
+        if facts.dropped.is_some() {
+            "не отправлен"
+        } else {
+            "инъекция не сработала"
+        },
+    );
+    let null = Value::Null;
+    let dropped = facts.dropped.unwrap_or(&null);
+    let comments = dropped
+        .get("comments")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let sent_comment = comments.first().cloned().unwrap_or(Value::Null);
+    checks.eq(
+        "тело не отправленного Create review",
+        (
+            dropped.get("event").and_then(Value::as_str),
+            dropped.get("body").and_then(Value::as_str),
+            dropped.get("commit_id").and_then(Value::as_str),
+            comments.len(),
+            sent_comment.get("path").and_then(Value::as_str),
+            sent_comment.get("line").and_then(Value::as_u64),
+            sent_comment.get("side").and_then(Value::as_str),
+            sent_comment.get("body").and_then(Value::as_str),
+        ),
+        (
+            Some("COMMENT"),
+            Some(SUMMARY),
+            Some(facts.head),
+            1,
+            Some(facts.path),
+            Some(u64::from(FOREIGN_SAME_LINE)),
+            Some("RIGHT"),
+            Some(FOREIGN_SAME_BODY),
+        ),
+    );
+    checks.eq(
+        "записи ревьюера от отправки до конца сверки (повтора нет)",
+        facts
+            .writes
+            .iter()
+            .map(|write| write.key.clone())
+            .collect::<Vec<_>>(),
+        Vec::<String>::new(),
+    );
+    checks.check(
+        "сверка: кандидат — review второго клиента",
+        matches!(facts.reconciled, [Reconciled::Candidate { remote, .. }] if remote.as_str() == facts.foreign),
+        format!("{:?}", facts.reconciled),
+    );
+    checks.eq(
+        "журнал: Create review unknown с кандидатом, итог «частично»",
+        (facts.item.clone(), facts.delivery),
+        (
+            Some((ItemState::Unknown, Some(facts.foreign.to_owned()))),
+            Delivery::Partial,
+        ),
+    );
+    let ours: Vec<&ReviewRead> = facts
+        .after
+        .iter()
+        .filter(|(review, _)| review.user.eq_ignore_ascii_case(facts.reviewer))
+        .collect();
+    checks.eq(
+        "автор: один review ревьюера COMMENTED с ID второго клиента, текстом итога и head",
+        ours.iter()
+            .map(|(review, _)| {
+                (
+                    review.id.as_str().to_owned(),
+                    review.state,
+                    review.body.clone(),
+                    review.commit_id.to_ascii_lowercase(),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![(
+            facts.foreign.to_owned(),
+            ReviewState::Commented,
+            SUMMARY.to_owned(),
+            facts.head.to_ascii_lowercase(),
+        )],
+    );
+    let seen: Vec<(String, Option<u32>, Option<String>, String)> = ours
+        .iter()
+        .flat_map(|(_, comments)| comments.iter())
+        .map(|c| (c.path.clone(), c.line, c.side.clone(), c.body.clone()))
+        .collect();
+    let wanted = vec![(
+        sent_comment
+            .get("path")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned(),
+        sent_comment
+            .get("line")
+            .and_then(Value::as_u64)
+            .and_then(|line| u32::try_from(line).ok()),
+        sent_comment
+            .get("side")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+        sent_comment
+            .get("body")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned(),
+    )];
+    checks.eq(
+        "автор: комментарий review второго клиента на якоре не отправленного запроса",
+        seen,
+        wanted,
+    );
+    checks.eq("восстановленные элементы", facts.recovered, 0);
+    checks
+}
+
+fn gh_reconcile_foreign<T: Transport>(
+    cx: &GhCx<'_, T>,
+    cell: &mut Cell,
+) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = github_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let dropping = GitHub::new(
+        WriteDrop::create(cx.reviewer),
+        cx.reviewer.target().github_endpoints(),
+        &review,
+    )
+    .map_err(|err| stand("адаптер", &err))?;
+    let author = github_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_pull(&reviewer, &cx.poll)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| gh_read_or_fail("возможности ревьюера", &err))?;
+    let (_, before) = pr_state(&author)?;
+    let journal_path = cx.state_dir.join("journal-reconcile-foreign.db");
+    let project = ProjectId::new(LIVE_PROJECT);
+    let start = cx.trace.len();
+    let (submission, sent, foreign, reconciled, reconcile_start) = {
+        let journal = Journal::open(&journal_path).map_err(|err| stand("журнал", &err))?;
+        let scope = journal.scope(&project);
+        let session = ReviewSession::new(
+            &cx.reviewer_login,
+            review.clone(),
+            snapshot.revision.clone(),
+        );
+        let session = scope
+            .create_session(&session)
+            .map_err(|err| stand("сессия", &err))?;
+        add_drafts(
+            &scope,
+            session,
+            &snapshot.files,
+            &[(Spot::Line(Side::New, FOREIGN_SAME_LINE), FOREIGN_SAME_BODY)],
+        )
+        .map_err(|err| stand("черновики", &err))?;
+        let submission = plan_github_local(&scope, session, ReviewEvent::Comment, SUMMARY)
+            .map_err(|err| stand("план", &err))?;
+        let sent = run_github(&scope, submission.id, &dropping, &caps)
+            .map_err(|err| gh_submit_verdict(&err))?;
+        let (foreign, reconciled, at) = if dropping.transport().dropped_body().is_some() {
+            let foreign = cx.second.create_review(cell.number, FOREIGN_SAME_LINE);
+            let at = cx.trace.len();
+            let reconciled = match &foreign {
+                Ok(_) => reconcile_github(&scope, submission.id, &reviewer)
+                    .map_err(|err| stand("сверка", &err))?,
+                Err(_) => Vec::new(),
+            };
+            (Some(foreign), reconciled, at)
+        } else {
+            (None, Vec::new(), cx.trace.len())
+        };
+        (submission.id, sent, foreign, reconciled, at)
+    };
+    let calls = cx.trace.calls();
+    let window = calls.get(start..).unwrap_or_default();
+    let reconcile_window = calls.get(reconcile_start..).unwrap_or_default();
+    let journal =
+        Journal::open(&journal_path).map_err(|err| stand("журнал после переоткрытия", &err))?;
+    let scope = journal.scope(&project);
+    let dump = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
+    let done = report(&scope, submission).map_err(|err| stand("итог отправки", &err))?;
+    let item = done
+        .items
+        .iter()
+        .find(|item| item.operation == Operation::GitHubCreateReview)
+        .map(|item| {
+            scope
+                .item(item.id)
+                .map(|item| {
+                    (
+                        item.state,
+                        item.candidate
+                            .map(|candidate| candidate.as_str().to_owned()),
+                    )
+                })
+                .map_err(|err| stand("элемент", &err))
+        })
+        .transpose()?;
+    let recovered = journal.recovered().len();
+    let (after_state, after) = pr_state(&author)?;
+    let dropped = dropping.transport().dropped_body();
+    let mut notes = Vec::new();
+    if let Some(body) = &dropped {
+        notes.push(format!(
+            "инъекция: Create review не отправлен, клиенту отдан таймаут; тело: {body}"
+        ));
+    }
+    let early = |verdict: Verdict, notes: Vec<String>| Observed {
+        notes,
+        before: before.clone(),
+        after: after.clone(),
+        journal: dump.clone(),
+        tier: caps.plan.clone(),
+        verdict: Some(verdict),
+        ..Observed::default()
+    };
+    let foreign = match foreign {
+        Some(Ok(id)) => {
+            notes.push(format!(
+                "второй клиент: review {id}, след — {}",
+                super::SECOND_FILE
+            ));
+            id
+        }
+        Some(Err(verdict)) => return Ok(early(verdict, notes)),
+        // Инъекция не сработала: итог отправки — по общему правилу, иначе судят проверки.
+        None => {
+            if let Some(verdict) = gh_delivery_verdict(&sent, window, ACTOR_REVIEWER) {
+                return Ok(early(verdict, notes));
+            }
+            String::new()
+        }
+    };
+    match &reconciled[..] {
+        [Reconciled::Unresolved { detail }] if detail.starts_with("чтение ") => {
+            return Ok(early(
+                gh_unread_verdict(detail, reconcile_window, ACTOR_REVIEWER),
+                notes,
+            ));
+        }
+        [Reconciled::Unresolved { detail }] => {
+            return Ok(early(
+                Verdict::NotRun(format!("{CANDIDATE_UNOBSERVED}: не выяснено: {detail}")),
+                notes,
+            ));
+        }
+        [Reconciled::Ambiguous { candidates }] => {
+            let ids: Vec<&str> = candidates.iter().map(ProviderId::as_str).collect();
+            return Ok(early(
+                Verdict::NotRun(format!(
+                    "{CANDIDATE_UNOBSERVED}: неоднозначно: {}",
+                    ids.join(", ")
+                )),
+                notes,
+            ));
+        }
+        _ => {}
+    }
+    let path = snapshot
+        .files
+        .first()
+        .map(|file| file.new_path().to_owned())
+        .unwrap_or_default();
+    let checks = reconcile_foreign_checks(&ReconcileForeignFacts {
+        head: snapshot.revision.head_sha().as_str(),
+        path: &path,
+        reviewer: &cx.reviewer_login,
+        dropped: dropped.as_ref(),
+        writes: &write_calls(window, ACTOR_REVIEWER),
+        foreign: &foreign,
+        reconciled: &reconciled,
+        item,
+        delivery: done.delivery,
+        after: &after_state,
+        recovered,
+    });
+    Ok(Observed {
+        checks,
+        notes,
+        before,
+        after,
+        journal: dump,
         tier: caps.plan,
         verdict: None,
     })

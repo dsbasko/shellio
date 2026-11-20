@@ -820,6 +820,9 @@ pub enum SecondOp {
     PlantNotes { count: u32 },
     /// `gh-create-pending --count <число>`: `PENDING` ревьюера на PR `--mr`.
     GhCreatePending { count: u32 },
+    /// `gh-create-review --line <строка>`: review `COMMENT` ревьюера на PR `--mr` с комментарием
+    /// на новой строке.
+    GhCreateReview { line: u32 },
 }
 
 impl SecondOp {
@@ -829,6 +832,7 @@ impl SecondOp {
             SecondOp::DeleteDraft { .. } => "gl-delete-draft",
             SecondOp::PlantNotes { .. } => "gl-plant-notes",
             SecondOp::GhCreatePending { .. } => "gh-create-pending",
+            SecondOp::GhCreateReview { .. } => "gh-create-review",
         }
     }
 
@@ -839,7 +843,7 @@ impl SecondOp {
             SecondOp::CreateDraft { .. }
             | SecondOp::DeleteDraft { .. }
             | SecondOp::PlantNotes { .. } => Provider::GitLab,
-            SecondOp::GhCreatePending { .. } => Provider::GitHub,
+            SecondOp::GhCreatePending { .. } | SecondOp::GhCreateReview { .. } => Provider::GitHub,
         }
     }
 }
@@ -856,7 +860,9 @@ pub struct ProcessClient {
 impl ProcessClient {
     pub(super) fn run(&self, iid: u64, op: &SecondOp) -> Result<String, Verdict> {
         let (flag, value) = match op {
-            SecondOp::CreateDraft { line } => ("--line", line.to_string()),
+            SecondOp::CreateDraft { line } | SecondOp::GhCreateReview { line } => {
+                ("--line", line.to_string())
+            }
             SecondOp::DeleteDraft { draft } => ("--draft", draft.clone()),
             SecondOp::PlantNotes { count } | SecondOp::GhCreatePending { count } => {
                 ("--count", count.to_string())

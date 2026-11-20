@@ -45,7 +45,8 @@ pub const USAGE: &str = "использование:
   probe-review --second-client gl-create-draft --column <столбец> --mr <iid> --line <строка> --out <каталог процесса>
   probe-review --second-client gl-delete-draft --column <столбец> --mr <iid> --draft <ID> --out <каталог процесса>
   probe-review --second-client gl-plant-notes --column <столбец> --mr <iid> --count <число> --out <каталог процесса>
-  probe-review --second-client gh-create-pending --column <столбец> --mr <номер PR> --count <число> --out <каталог процесса>";
+  probe-review --second-client gh-create-pending --column <столбец> --mr <номер PR> --count <число> --out <каталог процесса>
+  probe-review --second-client gh-create-review --column <столбец> --mr <номер PR> --line <строка> --out <каталог процесса>";
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Mode {
@@ -198,6 +199,10 @@ pub fn parse_args(args: &[String]) -> Result<Mode, String> {
                     }
                     SecondOp::PlantNotes { count }
                 }
+                "gh-create-review" => SecondOp::GhCreateReview {
+                    line: u32::try_from(number("--line")?)
+                        .map_err(|_| "--line вне u32".to_owned())?,
+                },
                 "gh-create-pending" => {
                     let count = u32::try_from(number("--count")?)
                         .map_err(|_| "--count вне u32".to_owned())?;
@@ -578,6 +583,22 @@ mod tests {
         let mut pending_no_count = full;
         pending_no_count[1] = "gh-create-pending";
         assert!(parse_args(&args(&pending_no_count)).is_err());
+        let mut review = full;
+        review[1] = "gh-create-review";
+        review[3] = "github_cloud";
+        review[7] = "4";
+        assert_eq!(
+            parse_args(&args(&review)),
+            Ok(Mode::SecondClient {
+                column: Column::GithubCloud,
+                mr: 7,
+                op: SecondOp::GhCreateReview { line: 4 },
+                out: PathBuf::from("/tmp/p"),
+            })
+        );
+        let mut review_no_line = pending;
+        review_no_line[1] = "gh-create-review";
+        assert!(parse_args(&args(&review_no_line)).is_err());
         let mut other = full;
         other[1] = "gl-publish-draft";
         assert!(parse_args(&args(&other)).is_err());

@@ -1238,6 +1238,7 @@ fn second_op<T: Transport>(
         SecondOp::GhCreatePending { count } => {
             gh_cells::foreign_pending(guard, review, login, *count)
         }
+        SecondOp::GhCreateReview { line } => gh_cells::foreign_review(guard, review, login, *line),
     }
 }
 

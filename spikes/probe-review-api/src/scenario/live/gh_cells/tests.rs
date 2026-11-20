@@ -158,6 +158,16 @@ impl GhSecond for InProcess {
         };
         foreign_pending(&self.guard, &review, FAKE_REVIEWER, count)
     }
+
+    fn create_review(&self, number: u64, line: u32) -> Result<String, Verdict> {
+        let review = ReviewTarget {
+            provider: Provider::GitHub,
+            host: "github.com".to_owned(),
+            repo: REPO.to_owned(),
+            number,
+        };
+        foreign_review(&self.guard, &review, FAKE_REVIEWER, line)
+    }
 }
 
 fn cell_body(
@@ -236,6 +246,7 @@ fn cell_body_in(
         Scenario::GhPendingForeign => gh_pending_foreign(&cx, &mut cell),
         Scenario::GhAnchors => gh_anchors(&cx, &mut cell),
         Scenario::GhViewed => gh_viewed(&cx, &mut cell),
+        Scenario::ReconcileForeign => gh_reconcile_foreign(&cx, &mut cell),
         other => return Err(format!("тело {} в тесте не собрано", other.name()).into()),
     };
     let errors = guard_errors(&[("author", &author), ("reviewer", &reviewer)]);
@@ -373,9 +384,8 @@ fn only_rows_with_a_body_open_a_live_cell() {
     assert!(implemented(Scenario::GhPendingCycle));
     assert!(implemented(Scenario::GhAnchors));
     assert!(implemented(Scenario::GhPendingForeign));
-    for scenario in [Scenario::ReconcileForeign, Scenario::Capabilities] {
-        assert!(!implemented(scenario), "{}", scenario.name());
-    }
+    assert!(implemented(Scenario::ReconcileForeign));
+    assert!(!implemented(Scenario::Capabilities));
 }
 
 /// Ключи мутаций просмотра в журнале `forge-fake`.
@@ -783,7 +793,7 @@ fn submit_drop_fires_once_on_submit_only() -> TestResult {
             "/repos/o/r/pulls/5/reviews/7/events",
             Reply::status(200),
         );
-    let hook = SubmitDrop::new(&scripted);
+    let hook = WriteDrop::submit(&scripted);
     let send = |path: &str| {
         hook.send(&Request::new(
             Method::Post,
@@ -1698,6 +1708,10 @@ impl GhSecond for ScriptedSecond {
             .take()
             .unwrap_or_else(|| Err(Verdict::Error("лишний вызов второго клиента".to_owned())))
     }
+
+    fn create_review(&self, _number: u64, _line: u32) -> Result<String, Verdict> {
+        Err(Verdict::Error("лишний вызов второго клиента".to_owned()))
+    }
 }
 
 #[test]
@@ -1852,4 +1866,340 @@ fn pending_foreign_checks_catch_a_partial_read_and_an_overwrite() {
     };
     let (_, reason) = pending_foreign_checks(&facts).verdict();
     assert!(reason.contains("записи до принятия"), "{reason}");
+}
+
+const FAKE_REVIEWS: &str = "GET /repos/{owner}/{repo}/pulls/{number}/reviews";
+
+/// Второй клиент `reconcile-foreign`: заданный ответ вместо review или настоящий review в
+/// процессе теста, после которого `forge-fake` получает одноразовый отказ (на чтение сверки).
+struct ReviewThen<'s> {
+    real: InProcess,
+    server: &'s FakeServer<GithubFake>,
+    reply: std::cell::RefCell<Option<Result<String, Verdict>>>,
+    fault: Option<(&'static str, u16)>,
+}
+
+impl<'s> ReviewThen<'s> {
+    fn fault(server: &'s FakeServer<GithubFake>, key: &'static str, code: u16) -> ReviewThen<'s> {
+        ReviewThen {
+            real: in_process(server),
+            server,
+            reply: std::cell::RefCell::new(None),
+            fault: Some((key, code)),
+        }
+    }
+
+    fn reply(server: &'s FakeServer<GithubFake>, reply: Result<String, Verdict>) -> ReviewThen<'s> {
+        ReviewThen {
+            real: in_process(server),
+            server,
+            reply: std::cell::RefCell::new(Some(reply)),
+            fault: None,
+        }
+    }
+}
+
+impl GhSecond for ReviewThen<'_> {
+    fn create_pending(&self, _number: u64, _count: u32) -> Result<String, Verdict> {
+        Err(Verdict::Error("лишний вызов второго клиента".to_owned()))
+    }
+
+    fn create_review(&self, number: u64, line: u32) -> Result<String, Verdict> {
+        if let Some(reply) = self.reply.borrow_mut().take() {
+            return reply;
+        }
+        let id = self.real.create_review(number, line)?;
+        if let Some((key, code)) = self.fault {
+            self.server.inject(Fault::new(key, FakeReply::Status(code)));
+        }
+        Ok(id)
+    }
+}
+
+#[test]
+fn reconcile_foreign_body_passes_against_the_fake() -> TestResult {
+    let server = fake_github(true)?;
+    let observed = cell_body(&server, Scenario::ReconcileForeign)?.map_err(|v| format!("{v:?}"))?;
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(
+        status,
+        Status::Pass,
+        "{reason}: {:?}",
+        observed.checks.to_json()
+    );
+    assert!(observed.verdict.is_none());
+    for (what, value) in [
+        ("до", &observed.before),
+        ("после", &observed.after),
+        ("журнал", &observed.journal),
+    ] {
+        assert!(!value.is_null(), "{what}");
+    }
+    let reviews = server.with(|fake| fake.reviews(NUMBER));
+    assert_eq!(reviews.len(), 1, "только review второго клиента");
+    assert_eq!(reviews[0].state, ghf::ReviewState::Commented);
+    assert_eq!(
+        fake_writes(&server, FAKE_CREATE),
+        1,
+        "проба Create review не отправила"
+    );
+    let comments = server.with(|fake| fake.comments(NUMBER));
+    assert_eq!(comments.len(), 1);
+    assert_eq!(comments[0].body, FOREIGN_SAME_BODY);
+    assert!(
+        observed
+            .notes
+            .iter()
+            .any(|n| n.starts_with("инъекция: Create review не отправлен")),
+        "{:?}",
+        observed.notes
+    );
+    assert!(
+        observed
+            .notes
+            .iter()
+            .any(|n| n.contains(&format!("review {}", reviews[0].id))),
+        "{:?}",
+        observed.notes
+    );
+    Ok(())
+}
+
+#[test]
+fn reconcile_foreign_second_client_refusal_is_not_run_with_artifacts() -> TestResult {
+    let server = fake_github(true)?;
+    let reason = format!("{SECOND_NO_REVIEW}: Create review с event COMMENT: код 422");
+    let second = ReviewThen::reply(&server, Err(Verdict::NotRun(reason.clone())));
+    let observed = cell_body_in(
+        &server,
+        Scenario::ReconcileForeign,
+        ThreadsReply::Keep,
+        &second,
+    )?
+    .map_err(|v| format!("{v:?}"))?;
+    assert_eq!(observed.verdict, Some(Verdict::NotRun(reason)));
+    assert!(observed.before.is_object() && observed.after.is_object());
+    assert!(!observed.journal.is_null());
+    assert!(server.with(|fake| fake.reviews(NUMBER)).is_empty());
+    assert_eq!(fake_writes(&server, FAKE_CREATE), 0);
+    let failed = ReviewThen::reply(
+        &server,
+        Err(Verdict::Error("второй клиент: 502".to_owned())),
+    );
+    let observed = cell_body_in(
+        &server,
+        Scenario::ReconcileForeign,
+        ThreadsReply::Keep,
+        &failed,
+    )?
+    .map_err(|v| format!("{v:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::Error("второй клиент: 502".to_owned()))
+    );
+    Ok(())
+}
+
+#[test]
+fn reconcile_foreign_reconcile_read_limit_is_not_run_and_server_error_is_an_error() -> TestResult {
+    let server = fake_github(true)?;
+    let second = ReviewThen::fault(&server, FAKE_REVIEWS, 429);
+    let observed = cell_body_in(
+        &server,
+        Scenario::ReconcileForeign,
+        ThreadsReply::Keep,
+        &second,
+    )?
+    .map_err(|v| format!("{v:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::NotRun(
+            "лимит: код 429 на чтение сверки GET reviews".to_owned()
+        ))
+    );
+    assert!(observed.before.is_object() && observed.after.is_object());
+    assert!(!observed.journal.is_null());
+    let server = fake_github(true)?;
+    let second = ReviewThen::fault(&server, FAKE_REVIEWS, 502);
+    let observed = cell_body_in(
+        &server,
+        Scenario::ReconcileForeign,
+        ThreadsReply::Keep,
+        &second,
+    )?
+    .map_err(|v| format!("{v:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::Error(reason))
+            if reason.starts_with("сверка: чтение reviews не удалось")),
+        "{:?}",
+        observed.verdict
+    );
+    Ok(())
+}
+
+#[test]
+fn reconcile_foreign_without_a_candidate_is_not_run() -> TestResult {
+    let server = fake_github(true)?;
+    let second = ReviewThen::reply(&server, Ok("999".to_owned()));
+    let observed = cell_body_in(
+        &server,
+        Scenario::ReconcileForeign,
+        ThreadsReply::Keep,
+        &second,
+    )?
+    .map_err(|v| format!("{v:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::NotRun(reason))
+            if reason.starts_with(CANDIDATE_UNOBSERVED)),
+        "{:?}",
+        observed.verdict
+    );
+    assert!(!observed.journal.is_null());
+    Ok(())
+}
+
+#[test]
+fn unread_verdict_of_github_splits_limit_from_other_failures() {
+    let limited = |status: u16, message: &str| Call {
+        actor: "reviewer",
+        request: Request::new(
+            Method::Get,
+            "http://127.0.0.1:1/repos/o/r/pulls/5/reviews/77/comments".to_owned(),
+        ),
+        outcome: Ok(Response::json(status, &json!({ "message": message }))),
+        ..call("reviewer", Method::Get, "/repos/o/r/pulls/5/reviews")
+    };
+    assert_eq!(
+        gh_unread_verdict("чтение reviews не удалось", &[limited(429, "")], "reviewer"),
+        Verdict::NotRun("лимит: код 429 на чтение сверки GET reviews/{id}/comments".to_owned())
+    );
+    assert_eq!(
+        gh_unread_verdict(
+            "чтение reviews не удалось",
+            &[limited(403, "API rate limit exceeded for user")],
+            "reviewer"
+        ),
+        Verdict::NotRun("лимит: код 403 на чтение сверки GET reviews/{id}/comments".to_owned())
+    );
+    for window in [
+        vec![limited(502, "")],
+        vec![limited(403, "Resource not accessible")],
+        vec![],
+        vec![
+            limited(429, ""),
+            call("reviewer", Method::Get, "/repos/o/r/pulls/5/reviews"),
+        ],
+    ] {
+        assert!(
+            matches!(
+                gh_unread_verdict("d", &window, "reviewer"),
+                Verdict::Error(_)
+            ),
+            "{window:?}"
+        );
+    }
+    assert_eq!(
+        gh_read_key(Method::Post, "http://h/graphql"),
+        "POST graphql"
+    );
+    assert_eq!(gh_read_key(Method::Get, "http://h/repos/o/r"), "GET вне PR");
+}
+
+fn foreign_facts_passing() -> (Value, Vec<ReviewRead>) {
+    let dropped = json!({
+        "event": "COMMENT",
+        "body": SUMMARY,
+        "commit_id": HEAD,
+        "comments": [{"path": PATH, "line": 4, "side": "RIGHT", "body": FOREIGN_SAME_BODY}],
+    });
+    let mut review = remote_review("9", ReviewState::Commented);
+    review.body = SUMMARY.to_owned();
+    let mut comment = remote_comment("31", "C31", 4, FOREIGN_SAME_BODY);
+    comment.path = PATH.to_owned();
+    comment.side = Some("RIGHT".to_owned());
+    (dropped, vec![(review, vec![comment])])
+}
+
+#[test]
+fn reconcile_foreign_oracle_catches_its_own_claims() {
+    let (dropped, after) = foreign_facts_passing();
+    let candidate = vec![Reconciled::Candidate {
+        remote: ProviderId::new("9"),
+        detail: String::new(),
+    }];
+    let run = |dropped: Option<&Value>,
+               writes: &[WriteCall],
+               reconciled: &[Reconciled],
+               item: Option<(ItemState, Option<String>)>,
+               after: &[ReviewRead]| {
+        reconcile_foreign_checks(&ReconcileForeignFacts {
+            head: HEAD,
+            path: PATH,
+            reviewer: FAKE_REVIEWER,
+            dropped,
+            writes,
+            foreign: "9",
+            reconciled,
+            item,
+            delivery: Delivery::Partial,
+            after,
+            recovered: 0,
+        })
+        .verdict()
+    };
+    let item = Some((ItemState::Unknown, Some("9".to_owned())));
+    let (status, reason) = run(Some(&dropped), &[], &candidate, item.clone(), &after);
+    assert_eq!(status, Status::Pass, "{reason}");
+    let (status, reason) = run(None, &[], &candidate, item.clone(), &after);
+    assert_eq!(status, Status::Fail, "{reason}");
+    assert!(reason.contains("инъекция"), "{reason}");
+    let retry = WriteCall {
+        key: GH_CREATE.to_owned(),
+        path: "/repos/o/r/pulls/5/reviews".to_owned(),
+        body: dropped.clone(),
+        status: Some(200),
+        response: None,
+    };
+    let (status, reason) = run(Some(&dropped), &[retry], &candidate, item.clone(), &after);
+    assert_eq!(status, Status::Fail, "{reason}");
+    assert!(reason.contains("повтора нет"), "{reason}");
+    let confirmed = vec![Reconciled::Confirmed {
+        remote: Some(ProviderId::new("9")),
+    }];
+    let (status, reason) = run(
+        Some(&dropped),
+        &[],
+        &confirmed,
+        Some((ItemState::Confirmed, Some("9".to_owned()))),
+        &after,
+    );
+    assert_eq!(status, Status::Fail, "{reason}");
+    assert!(reason.contains("кандидат"), "{reason}");
+    let mut twice = after.clone();
+    twice.push(after[0].clone());
+    let (status, reason) = run(Some(&dropped), &[], &candidate, item.clone(), &twice);
+    assert_eq!(status, Status::Fail, "{reason}");
+    let mut moved = after.clone();
+    moved[0].1[0].line = Some(24);
+    let (status, reason) = run(Some(&dropped), &[], &candidate, item, &moved);
+    assert_eq!(status, Status::Fail, "{reason}");
+    assert!(reason.contains("якоре"), "{reason}");
+}
+
+#[test]
+fn second_client_review_meets_its_own_pending_with_not_run() -> TestResult {
+    let server = fake_github(true)?;
+    let (done, _, _) = second_pending(&server, 1);
+    done.map_err(|v| format!("{v:?}"))?;
+    let refused = in_process(&server)
+        .create_review(NUMBER, FOREIGN_SAME_LINE)
+        .err()
+        .ok_or("review создан поверх PENDING")?;
+    assert!(
+        matches!(&refused, Verdict::NotRun(reason)
+            if reason.starts_with(&format!("{SECOND_NO_REVIEW}: PENDING ревьюера"))),
+        "{refused:?}"
+    );
+    assert_eq!(server.with(|fake| fake.reviews(NUMBER)).len(), 1);
+    Ok(())
 }
