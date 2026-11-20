@@ -99,6 +99,13 @@ pub fn describe_reply(how: &str, reply: &IntrospectionReply) -> String {
     )
 }
 
+/// Заметки клетки до `result.json`: тексты ответов хоста (`ApiError`) несут адреса и имена.
+pub fn scrub_notes(scrubber: &Scrubber, notes: &mut [String]) {
+    for note in notes {
+        *note = scrubber.scrub_text(note);
+    }
+}
+
 /// Как читается отказ возможностей: ошибка стенда или наблюдение.
 pub fn classify_read(err: &ApiError) -> Result<String, String> {
     match err {
@@ -315,6 +322,7 @@ fn capabilities_ce(result: &mut ResultFile) {
     if result.trace.is_empty() {
         errors.push("нет следа вызовов".to_owned());
     }
+    scrub_notes(&scrubber, &mut result.notes);
 
     if !errors.is_empty() {
         result.execution = Execution::error(scrubber.scrub_text(&errors.join("; ")));
@@ -502,6 +510,29 @@ glpat-authorsecret1 glpat-reviewersecret2 Probe Author probe-reviewer Probe Revi
             assert!(!text.contains(secret), "{secret} в «{text}»");
         }
         assert!(text.contains("<gitlab-ce>"), "{text}");
+    }
+
+    #[test]
+    fn notes_pass_through_scrubber() {
+        let tokens = CeTokens {
+            author: Secret::new("glpat-authorsecret1"),
+            reviewer: Secret::new("glpat-reviewersecret2"),
+        };
+        let scrubber = ce_scrubber(&host(), &tokens);
+        let mut notes = vec![format!(
+            "наблюдение: introspection ревьюера с литералом без variables не прочитана: {}",
+            ApiError::Status {
+                status: 403,
+                message: "probe-reviewer: http://127.0.0.1:55001/api/graphql".to_owned(),
+            }
+        )];
+        scrub_notes(&scrubber, &mut notes);
+        assert!(
+            !notes[0].contains("probe-reviewer") && !notes[0].contains("55001"),
+            "{}",
+            notes[0]
+        );
+        assert!(notes[0].contains("<reviewer>"), "{}", notes[0]);
     }
 
     #[test]
