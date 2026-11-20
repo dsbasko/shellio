@@ -187,6 +187,7 @@ fn cell_verdict<T: Transport>(
             Scenario::GlDraftPublish => gl_draft_publish(cx, cell),
             Scenario::GlForeignDraft => gl_foreign_draft(cx, cell),
             Scenario::GlRequestChanges => gl_request_changes(cx, cell),
+            Scenario::GlAnchors => gl_anchors(cx, cell),
             other => Err(Verdict::Error(format!(
                 "сценарий {} в живом столбце GitLab не реализован",
                 other.name()
@@ -588,6 +589,8 @@ struct Submitted {
     delivery: Option<Verdict>,
     /// Итог журнала после переоткрытия.
     done: Report,
+    /// Вызовы окна отправки.
+    window: Vec<Call>,
     writes: Vec<Write>,
     facts: JournalFacts,
     /// Удалённые ID черновиков и элементов журнала.
@@ -635,6 +638,7 @@ fn submit_drafts<T: Transport>(
     let window = calls.get(start..).unwrap_or_default();
     let delivery = delivery_verdict(&sent, window, ACTOR_REVIEWER);
     let writes = writes_of(window, ACTOR_REVIEWER);
+    let window = window.to_vec();
     let journal = Journal::open(&path).map_err(|err| stand("журнал после переоткрытия", &err))?;
     let scope = journal.scope(&project);
     let done = report(&scope, submission).map_err(|err| stand("итог отправки", &err))?;
@@ -668,6 +672,7 @@ fn submit_drafts<T: Transport>(
     Ok(Submitted {
         delivery,
         done,
+        window,
         writes,
         facts,
         remote_ids,
@@ -1148,6 +1153,263 @@ fn gl_request_changes<T: Transport>(
         journal: sent.journal,
         tier: caps.plan,
         verdict,
+    })
+}
+
+/// Черновики `gl-anchors` и ожидаемые `old_line`, `new_line` их заметок по фикстуре клетки: у
+/// диапазона — строки конца.
+const ANCHOR_DRAFTS: [(Spot, &str, Option<u32>, Option<u32>); 5] = [
+    (Spot::Line(Side::Old, 3), "удалённая 03", Some(3), None),
+    (Spot::Line(Side::New, 24), "добавленная 24a", None, Some(24)),
+    (
+        Spot::Line(Side::New, 1),
+        "неизменённая 01",
+        Some(1),
+        Some(1),
+    ),
+    (
+        Spot::Range(Side::Old, 3, Side::New, 3),
+        "диапазон 03–04",
+        Some(4),
+        Some(3),
+    ),
+    (
+        Spot::Range(Side::New, 23, Side::New, 24),
+        "диапазон 24–24a",
+        None,
+        Some(24),
+    ),
+];
+
+/// Позиции тел `POST …/draft_notes` ревьюера в вызовах окна по тексту черновика.
+pub fn created_positions(calls: &[Call]) -> Vec<(String, Value)> {
+    calls
+        .iter()
+        .filter(|call| call.actor == ACTOR_REVIEWER)
+        .filter_map(|call| {
+            let body = call.request.body_json()?;
+            let key = write_key(call.request.method, call.request.path(), Some(&body))?;
+            (key == DRAFT_CREATE).then(|| {
+                (
+                    body.get("note")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_owned(),
+                    body.get("position").cloned().unwrap_or(Value::Null),
+                )
+            })
+        })
+        .collect()
+}
+
+/// Оракул `gl-anchors` на живом хосте (ожидание — в отчёте).
+pub fn anchors_checks(
+    writes: &[Write],
+    created: &[(String, Value)],
+    triple: [&str; 3],
+    drafts_after: &[RemoteDraft],
+    notes_after: &[RemoteNote],
+    journal: &JournalFacts,
+) -> Checks {
+    let mut checks = Checks::default();
+    let count = ANCHOR_DRAFTS.len();
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for write in writes {
+        *counts.entry(write.key.clone()).or_insert(0) += 1;
+    }
+    checks.eq(
+        "записи ревьюера",
+        counts,
+        [
+            (DRAFT_CREATE.to_owned(), count),
+            (DRAFT_PUBLISH.to_owned(), count),
+        ]
+        .into_iter()
+        .collect(),
+    );
+    let ids: BTreeSet<&str> = writes
+        .iter()
+        .filter_map(|write| write.created.as_deref())
+        .collect();
+    let published: BTreeSet<&str> = writes
+        .iter()
+        .filter(|write| write.key == DRAFT_PUBLISH)
+        .filter_map(|write| write.draft.as_deref())
+        .collect();
+    checks.eq(
+        "публикации по ID из ответов на создание",
+        (published.len(), published == ids),
+        (count, true),
+    );
+    let field = |position: &Value, name: &str| {
+        position
+            .get(name)
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+    };
+    let sent: Vec<_> = created
+        .iter()
+        .map(|(_, position)| {
+            (
+                field(position, "position_type"),
+                [
+                    field(position, "base_sha"),
+                    field(position, "start_sha"),
+                    field(position, "head_sha"),
+                ],
+            )
+        })
+        .collect();
+    let wanted = (
+        Some("text".to_owned()),
+        triple.map(|sha| Some(sha.to_owned())),
+    );
+    checks.eq(
+        "позиции созданий: тип и тройка diff_refs",
+        sent,
+        vec![wanted; count],
+    );
+    checks.eq("черновиков ревьюера после отправки", drafts_after.len(), 0);
+    let stored: BTreeSet<(String, Option<u32>, Option<u32>, String)> = notes_after
+        .iter()
+        .filter(|note| !note.system)
+        .filter_map(|note| {
+            note.position.as_ref().map(|position| {
+                (
+                    note.body.clone(),
+                    position.old_line,
+                    position.new_line,
+                    format!(
+                        "{}/{}/{}",
+                        position.base_sha, position.start_sha, position.head_sha
+                    ),
+                )
+            })
+        })
+        .collect();
+    let triple = triple.join("/");
+    let expected: BTreeSet<(String, Option<u32>, Option<u32>, String)> = ANCHOR_DRAFTS
+        .iter()
+        .map(|(_, body, old, new)| ((*body).to_owned(), *old, *new, triple.clone()))
+        .collect();
+    checks.eq("автор: заметки с позициями", stored, expected);
+    checks.check(
+        "журнал: все элементы confirmed, итог «полностью»",
+        journal.full_confirmed,
+        journal.states.clone(),
+    );
+    checks.check("журнал: у черновиков ID GitLab", journal.remote_ids, "");
+    checks.eq("восстановленные элементы", journal.recovered, 0);
+    checks
+}
+
+/// Концы `line_range`: `line_code` и `type` начала и конца.
+fn range_ends(range: Option<&Value>) -> Option<Value> {
+    let range = range.filter(|range| !range.is_null())?;
+    let end = |name: &str| {
+        json!({
+            "line_code": range.pointer(&format!("/{name}/line_code")),
+            "type": range.pointer(&format!("/{name}/type")),
+        })
+    };
+    Some(json!({"start": end("start"), "end": end("end")}))
+}
+
+/// Наблюдения `gl-anchors`: концы `line_range` каждого диапазона, отправленные адаптером, против
+/// возвращённых в позиции заметки автора. Итог клетки не меняют.
+pub fn range_observations(created: &[(String, Value)], notes_after: &[RemoteNote]) -> Vec<String> {
+    created
+        .iter()
+        .filter_map(|(body, position)| {
+            let sent = range_ends(position.get("line_range"))?;
+            let returned = notes_after
+                .iter()
+                .find(|note| !note.system && &note.body == body)
+                .and_then(|note| note.position.as_ref())
+                .and_then(|position| range_ends(position.line_range.as_ref()));
+            let line = match returned {
+                None => format!(
+                    "наблюдение line_range «{body}»: отправлено {sent}, GitLab не вернул line_range"
+                ),
+                Some(returned) => {
+                    let same = |what: &str| {
+                        ["start", "end"]
+                            .iter()
+                            .all(|end| sent[end][what] == returned[end][what])
+                    };
+                    let verdict = |ok: bool| {
+                        if ok {
+                            "совпадает"
+                        } else {
+                            "расходится"
+                        }
+                    };
+                    format!(
+                        "наблюдение line_range «{body}»: отправлено {sent}, GitLab вернул \
+                         {returned}; line_code {}, type {}",
+                        verdict(same("line_code")),
+                        verdict(same("type"))
+                    )
+                }
+            };
+            Some(line)
+        })
+        .collect()
+}
+
+fn gl_anchors<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = gitlab_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let author = gitlab_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_snapshot(&reviewer, &cx.poll, None, MR_NOT_READY)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| read_or_fail("возможности ревьюера", &err))?;
+    let (_, _, before) = mr_state(&author, &reviewer)?;
+    let drafts: Vec<(Spot, &str)> = ANCHOR_DRAFTS
+        .iter()
+        .map(|(spot, body, _, _)| (*spot, *body))
+        .collect();
+    let sent = delivered(submit_drafts(
+        cx,
+        &reviewer,
+        Sending {
+            review: &review,
+            snapshot: &snapshot,
+            caps: &caps,
+            journal: "journal-gl-anchors.db",
+            drafts: &drafts,
+            plan: GitLabPlan::default(),
+        },
+    )?)?;
+    let (notes, remaining, after) = mr_state(&author, &reviewer)?;
+    let created = created_positions(&sent.window);
+    let revision = &snapshot.revision;
+    let checks = anchors_checks(
+        &sent.writes,
+        &created,
+        [
+            revision.base_sha().as_str(),
+            revision.start_sha().as_str(),
+            revision.head_sha().as_str(),
+        ],
+        &remaining,
+        &notes,
+        &sent.facts,
+    );
+    let mut observed_notes = vec![format!(
+        "MR клетки: версия {}",
+        snapshot.version_id.as_str()
+    )];
+    observed_notes.extend(range_observations(&created, &notes));
+    Ok(Observed {
+        checks,
+        notes: observed_notes,
+        before,
+        after,
+        journal: sent.journal,
+        tier: caps.plan,
+        verdict: None,
     })
 }
 

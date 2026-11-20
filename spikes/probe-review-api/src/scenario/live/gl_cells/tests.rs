@@ -805,6 +805,7 @@ fn cell_body(
         Scenario::GlDraftPublish => gl_draft_publish(&cx, &mut cell),
         Scenario::GlForeignDraft => gl_foreign_draft(&cx, &mut cell),
         Scenario::GlRequestChanges => gl_request_changes(&cx, &mut cell),
+        Scenario::GlAnchors => gl_anchors(&cx, &mut cell),
         other => return Err(format!("тело {} в тесте не собрано", other.name()).into()),
     };
     let errors = guard_errors(&[("author", &author), ("reviewer", &reviewer)]);
@@ -1292,4 +1293,126 @@ fn request_changes_checks_count_writes_and_read_the_state_by_the_author() {
         .filter(|line| line.starts_with("НЕТ"))
         .collect();
     assert_eq!(failed.len(), 2, "{failed:?}");
+}
+
+// --- gl-anchors ---
+
+#[test]
+fn anchors_body_passes_against_the_fake_and_observes_both_ranges() -> TestResult {
+    let server = fake_gitlab()?;
+    let observed =
+        cell_body(&server, Scenario::GlAnchors)?.map_err(|verdict| format!("{verdict:?}"))?;
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(
+        status,
+        Status::Pass,
+        "{reason}: {:?}",
+        observed.checks.to_json()
+    );
+    assert!(server.with(|fake| fake.drafts(FAKE_IID)).is_empty());
+    assert_eq!(server.with(|fake| fake.notes(FAKE_IID)).len(), 5);
+    let ranges: Vec<&String> = observed
+        .notes
+        .iter()
+        .filter(|note| note.starts_with("наблюдение line_range"))
+        .collect();
+    assert_eq!(ranges.len(), 2, "{:?}", observed.notes);
+    // forge-fake хранит line_range как прислано: обе стороны совпадают.
+    assert!(
+        ranges
+            .iter()
+            .all(|note| note.ends_with("line_code совпадает, type совпадает")),
+        "{ranges:?}"
+    );
+    let path_sha = sha1_smol::Sha1::from("probe-review/fixture.txt")
+        .digest()
+        .to_string();
+    let deleted = ranges
+        .iter()
+        .find(|note| note.contains("«диапазон 03–04»"))
+        .ok_or("нет диапазона 03–04")?;
+    assert!(deleted.contains(&format!("{path_sha}_3_3")), "{deleted}");
+    assert!(deleted.contains(&format!("{path_sha}_4_3")), "{deleted}");
+    assert_eq!(bulk_publishes(&server), 0);
+    Ok(())
+}
+
+fn anchor_note(body: &str, range: Option<Value>) -> RemoteNote {
+    let mut position = position(24);
+    position.line_range = range;
+    note(9, body, false, Some(position))
+}
+
+#[test]
+fn range_observations_report_missing_and_diverging_ends() {
+    let sent = json!({"line_range": {
+        "start": {"line_code": "abc_24_23", "type": null},
+        "end": {"line_code": "abc_25_24", "type": "new"},
+    }});
+    let created = vec![
+        ("диапазон".to_owned(), sent.clone()),
+        ("строка".to_owned(), json!({"new_line": 4})),
+    ];
+    let returned = json!({
+        "start": {"line_code": "abc_24_23", "type": "old"},
+        "end": {"line_code": "abc_24_24", "type": "new"},
+    });
+    let diverging = range_observations(&created, &[anchor_note("диапазон", Some(returned))]);
+    assert_eq!(diverging.len(), 1, "{diverging:?}");
+    assert!(
+        diverging[0].ends_with("line_code расходится, type расходится"),
+        "{diverging:?}"
+    );
+    let missing = range_observations(&created, &[anchor_note("диапазон", None)]);
+    assert!(
+        missing[0].ends_with("GitLab не вернул line_range"),
+        "{missing:?}"
+    );
+}
+
+#[test]
+fn anchors_checks_catch_a_wrong_triple_and_a_lost_note() {
+    let created: Vec<(String, Value)> = ANCHOR_DRAFTS
+        .iter()
+        .map(|(_, body, _, _)| {
+            (
+                (*body).to_owned(),
+                json!({"position_type": "text", "base_sha": BASE, "start_sha": BASE, "head_sha": HEAD}),
+            )
+        })
+        .collect();
+    let writes: Vec<Write> = (1..=5)
+        .map(|id| write(id, DRAFT_CREATE, None, Some(&id.to_string())))
+        .chain((1..=5).map(|id| write(10 + id, DRAFT_PUBLISH, Some(&id.to_string()), None)))
+        .collect();
+    let notes: Vec<RemoteNote> = ANCHOR_DRAFTS
+        .iter()
+        .map(|(_, body, old, new)| {
+            let mut position = position(1);
+            position.old_line = *old;
+            position.new_line = *new;
+            note(1, body, false, Some(position))
+        })
+        .collect();
+    let triple = [BASE, BASE, HEAD];
+    let pass = anchors_checks(&writes, &created, triple, &[], &notes, &facts());
+    assert_eq!(pass.verdict().0, Status::Pass, "{:?}", pass.to_json());
+    let stale = anchors_checks(
+        &writes,
+        &created,
+        [BASE, BASE, NEW_HEAD],
+        &[],
+        &notes,
+        &facts(),
+    );
+    assert_eq!(stale.verdict().0, Status::Fail);
+    let lost = anchors_checks(
+        &writes,
+        &created,
+        triple,
+        &[],
+        notes.get(1..).unwrap_or_default(),
+        &facts(),
+    );
+    assert_eq!(lost.verdict().0, Status::Fail);
 }
