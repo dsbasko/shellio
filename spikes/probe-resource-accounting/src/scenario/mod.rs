@@ -1,6 +1,7 @@
 //! Сценарии пробы: процесс на сценарий и точку осей, окружение и итог процесса.
 
 mod attrib;
+mod clock;
 mod formula;
 mod listing;
 mod stand;
@@ -29,10 +30,11 @@ pub enum Scenario {
     Login,
     EpermInject,
     ListBench,
+    ClockBench,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 12] = [
+    pub const ALL: [Scenario; 13] = [
         Scenario::Smoke,
         Scenario::Units,
         Scenario::FormulaCpu,
@@ -45,6 +47,7 @@ impl Scenario {
         Scenario::Login,
         Scenario::EpermInject,
         Scenario::ListBench,
+        Scenario::ClockBench,
     ];
 
     pub fn name(self) -> &'static str {
@@ -61,6 +64,7 @@ impl Scenario {
             Scenario::Login => "login",
             Scenario::EpermInject => "eperm-inject",
             Scenario::ListBench => "list-bench",
+            Scenario::ClockBench => "clock-bench",
         }
     }
 
@@ -80,7 +84,8 @@ impl Scenario {
             | Scenario::AttachMove
             | Scenario::Login
             | Scenario::EpermInject
-            | Scenario::ListBench => false,
+            | Scenario::ListBench
+            | Scenario::ClockBench => false,
         }
     }
 
@@ -133,6 +138,7 @@ pub fn run(scenario: Scenario, point: Option<&str>, out: &Path) -> Outcome {
         Scenario::Login => free(scenario, environment, || attrib::run_login(out)),
         Scenario::EpermInject => free(scenario, environment, || attrib::run_eperm_inject(out)),
         Scenario::ListBench => free(scenario, environment, listing::run),
+        Scenario::ClockBench => free(scenario, environment, clock::run),
     }
 }
 

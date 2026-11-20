@@ -242,7 +242,7 @@ fn self_raw() -> Result<(u64, u64), String> {
         .map_err(|err| format!("proc_pid_rusage(своего PID): {err}"))
 }
 
-fn busy_user(deadline_ns: u64) {
+pub(crate) fn busy_user(deadline_ns: u64) {
     let mut x: u64 = 0x9E37_79B9_7F4A_7C15;
     loop {
         for _ in 0..4096 {
@@ -257,7 +257,7 @@ fn busy_user(deadline_ns: u64) {
     }
 }
 
-fn busy_system(deadline_ns: u64) -> Result<(), String> {
+pub(crate) fn busy_system(deadline_ns: u64) -> Result<(), String> {
     let zero = std::fs::File::open("/dev/zero").map_err(|err| format!("/dev/zero: {err}"))?;
     let mut buffer = vec![0u8; READ_CHUNK];
     loop {

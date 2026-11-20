@@ -17,6 +17,9 @@ mod results;
 mod runstate;
 mod scenario;
 mod snapshot;
+// Обёртки участков до сценариев задачи 9 работают только в тестах.
+#[cfg_attr(not(test), expect(dead_code))]
+mod spans;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
