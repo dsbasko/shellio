@@ -51,7 +51,7 @@ cd ../shellio-p08 && base=$(cat ../shellio-p07-p08.base) && ralphex docs/plans/2
 ### Границы веток
 
 - Каждая ветка трогает только свою пробу `spikes/<slug>/`, свой отчёт `docs/probes/<id>-<slug>.md`, свои данные `docs/probes/data/<id>-<slug>/`, свой ADR (ADR-0015 у P0.7, ADR-0011 у P0.8) и свой план.
-- Общие файлы, которые трогают обе ветки: `Cargo.toml` (members), `Cargo.lock`, `Makefile` (переменная `PROBE_*`, строка `.PHONY`, цели), `AGENTS.md` (пункт «Сборка» и список целей вне CI), `docs/README.md` (ссылка на отчёт), `docs/roadmap.md` (строки 30 и 31 рядом), `docs/adr/0034-probe-code.md` (раздел «Уточнено в P0.x» в конце), `docs/architecture.md`.
+- Общие файлы, которые трогают обе ветки: `Cargo.toml` (members), `Cargo.lock`, `Makefile` (переменная `PROBE_*`, строка `.PHONY`, цели), `AGENTS.md` (пункт «Сборка» и список целей вне CI), `docs/README.md` (ссылка на отчёт), `docs/roadmap.md` (строки 30 и 31 рядом), `docs/adr/0034-probe-code.md` (раздел «Уточнено в P0.x» в конце), `docs/adr/README.md` (строки своего ADR и ADR-0034), `docs/architecture.md`.
 - `.github/workflows/ci.yml` не меняется: CI вызывает `make check`, и чистые тесты новых членов workspace попадают туда сами.
 - Общий скрипт или общий crate для обеих проб не заводится: файл, добавленный в обеих ветках, даёт конфликт add/add. Соглашения записаны здесь, каждая проба реализует свою часть сама.
 
@@ -80,6 +80,7 @@ cd ../shellio-p08 && base=$(cat ../shellio-p07-p08.base) && ralphex docs/plans/2
    - `docs/README.md`, `docs/architecture.md`: обе записи;
    - `docs/roadmap.md`: обе строки с ✅;
    - `docs/adr/0034-probe-code.md`: разделы «Уточнено в P0.7», затем «Уточнено в P0.8», перед «Условием пересмотра»;
+   - `docs/adr/README.md`: строка 0034 — «уточнено в P0.3, P0.4, P0.5, P0.6, P0.7 и P0.8», строки 0011 и 0015 — каждая из своей ветки (строки индекса ветка P0.7 поправила на ревью);
    - `Cargo.lock`: основа — lock уже влитой ветки, затем `cargo metadata --format-version 1 >/dev/null` досчитывает вторую пробу по объединённым манифестам. Diff lock проверяется: меняются только пакеты второй пробы, посторонних обновлений нет. Выбор `ours`/`theirs` целиком не используется.
    - относительные ссылки перенесённых в `completed/` планов (ADR, дорожная карта, отчёт, соседний план) проверяются на объединённом HEAD.
 3. `make check` на объединённом HEAD проходит, затем `toolchain-bootstrap` перематывается на него (fast-forward). Если `toolchain-bootstrap` за это время ушла вперёд, шаг 2 повторяется.
