@@ -168,7 +168,8 @@ fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveE
         .iter()
         .filter_map(|entry| serde_json::to_value(entry).ok())
         .collect();
-    let mut errors = guard_errors(&[("author", &author), ("reviewer", &reviewer)]);
+    let guards = [("author", &author), ("reviewer", &reviewer)];
+    let mut errors = guard_errors(&guards);
     if let Err(verdict) = opened {
         if errors.is_empty() {
             verdict.apply(result, &scrubber);
@@ -178,6 +179,10 @@ fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveE
     }
     if !errors.is_empty() {
         Verdict::Error(errors.join("; ")).apply(result, &scrubber);
+        return;
+    }
+    if let Some(denied) = guard_denied(&guards) {
+        denied.apply(result, &scrubber);
         return;
     }
     not_implemented(scenario, ctx, result);
@@ -218,7 +223,7 @@ pub fn open_roles<T: Transport>(
             author: author_repo.as_ref(),
             reviewer: Some(reviewer_repo.as_ref()),
         };
-        let swept = sweep_stale(&roles, root, own, column);
+        let swept = sweep_stale(&roles, root, own, column, author.target());
         record_swept(result, &swept, scrubber);
     }
     Ok(())
@@ -325,8 +330,12 @@ pub fn live_repo<'a, T: Transport>(
 pub fn guard_errors<T: Transport>(guards: &[(&str, &Guarded<T>)]) -> Vec<String> {
     let mut errors = Vec::new();
     for (actor, guard) in guards {
-        if let Some(refusal) = guard.refusal() {
-            errors.push(format!("{actor}: {refusal}"));
+        match guard.refusal() {
+            // Нет доступа к репозиторию — предусловие ([`guard_denied`]); записи после такого отказа
+            // не пропущены именно из-за него.
+            Some(GuardError::Denied(_)) => continue,
+            Some(refusal) => errors.push(format!("{actor}: {refusal}")),
+            None => {}
         }
         let refused = guard.refused_writes();
         if !refused.is_empty() {
@@ -337,6 +346,20 @@ pub fn guard_errors<T: Transport>(guards: &[(&str, &Guarded<T>)]) -> Vec<String>
         }
     }
     errors
+}
+
+/// Отказ сторожа роли по 401, 403 или 404 на чтение репозитория — `not_run` по [`guard_verdict`];
+/// его [`guard_errors`] не перечисляет.
+pub fn guard_denied<T: Transport>(guards: &[(&str, &Guarded<T>)]) -> Option<Verdict> {
+    guards
+        .iter()
+        .find_map(|(actor, guard)| match guard.refusal() {
+            Some(denied @ GuardError::Denied(_)) => match guard_verdict(&denied) {
+                Verdict::NotRun(reason) => Some(Verdict::NotRun(format!("{actor}: {reason}"))),
+                other => Some(other),
+            },
+            _ => None,
+        })
 }
 
 /// Уборка клетки в `result.json` через очиститель: не убранное — `leftovers`, ошибки шагов —
@@ -512,7 +535,27 @@ pub fn request_changes_verdict(err: &ApiError) -> Verdict {
     }
 }
 
+/// Отказ действия, не опознанный как отсутствие возможности: явный лимит — `not_run` «лимит»
+/// (запись не принята, повтора с ожиданием нет), неподтверждённое чтение итога — по ошибке
+/// чтения, прочее — по [`classify_read`].
 fn read_or_fail(what: &str, err: &ApiError) -> Verdict {
+    match err {
+        ApiError::RateLimited { status, detail } => {
+            return Verdict::NotRun(format!("лимит: {what}: код {status}: {detail}"));
+        }
+        ApiError::Unverified(inner) => {
+            return match read_or_fail(what, inner) {
+                Verdict::Fail(reason) => {
+                    Verdict::Fail(format!("итог записи не прочитан: {reason}"))
+                }
+                Verdict::Error(reason) => {
+                    Verdict::Error(format!("итог записи не прочитан: {reason}"))
+                }
+                other => other,
+            };
+        }
+        _ => {}
+    }
     match classify_read(err) {
         Ok(observed) => Verdict::Fail(format!("{what}: {observed}")),
         Err(stand) => Verdict::Error(format!("{what}: {stand}")),
@@ -1287,6 +1330,20 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
             Verdict::Error(_)
         ));
 
+        assert!(matches!(
+            approve_verdict(&ApiError::RateLimited {
+                status: 429,
+                detail: "Retry later".to_owned()
+            }),
+            Verdict::NotRun(reason) if reason.starts_with("лимит")
+        ));
+        let lost = ApiError::Unverified(Box::new(ApiError::Transport(
+            crate::transport::Failure::timeout("x"),
+        )));
+        assert!(matches!(request_changes_verdict(&lost), Verdict::Error(_)));
+        let lost_5xx = ApiError::Unverified(Box::new(status(503, "")));
+        assert!(matches!(approve_verdict(&lost_5xx), Verdict::Error(_)));
+
         let mut not_run = ResultFile::new("s", "b", "gl-anchors", Column::GitlabCloud);
         Verdict::NotRun(MR_NOT_READY.to_owned()).apply(&mut not_run, &scrubber);
         assert_eq!(not_run.status, Status::NotRun);
@@ -1310,6 +1367,13 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
         let mut ledger = Ledger::create(&dir.path().join(LEDGER_FILE))?;
         let names = CellNames::new("run1", "gh-viewed")?;
         let run = run_cell(&roles, &mut ledger, &names, "t", |_| Ok(()));
+        assert!(
+            guard_errors(&[("author", &guard)]).is_empty(),
+            "нет доступа — не ошибка сторожа"
+        );
+        assert!(
+            matches!(guard_denied(&[("author", &guard)]), Some(Verdict::NotRun(reason)) if reason.starts_with("author: токен без прав"))
+        );
         let open = run.open_error.ok_or("ожидалась ошибка открытия")?;
         let verdict = step_verdict(&open);
         assert!(
@@ -1329,8 +1393,14 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
         for dir in [&stale, &own] {
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
         }
-        Ledger::create(&stale.join(LEDGER_FILE))?;
-        Ledger::create(&own.join(LEDGER_FILE))?;
+        Ledger::create_for(&stale.join(LEDGER_FILE), &gh_target())?;
+        Ledger::create_for(&own.join(LEDGER_FILE), &gh_target())?;
+        let foreign = root.path().join("old").join("gh-anchors-github_cloud");
+        std::fs::create_dir_all(&foreign).map_err(|e| e.to_string())?;
+        Ledger::create_for(
+            &foreign.join(LEDGER_FILE),
+            &GuardTarget::github(&crate::github::Endpoints::cloud(), "owner/other"),
+        )?;
         let author_t = Scripted::new().expect(
             Method::Get,
             "/user",
@@ -1366,7 +1436,18 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
             "пустой журнал убран и отмечен"
         );
         assert!(!own.join(SWEPT_FILE).exists(), "свой журнал не трогается");
-        assert!(result.leftovers.is_empty(), "{:?}", result.leftovers);
+        assert!(
+            !foreign.join(SWEPT_FILE).exists(),
+            "журнал другой цели не трогается"
+        );
+        assert_eq!(result.leftovers.len(), 1, "{:?}", result.leftovers);
+        assert!(
+            result.leftovers[0].starts_with(
+                "прежний процесс old/gh-anchors-github_cloud: уборка не выполнена: журнал другого"
+            ),
+            "{:?}",
+            result.leftovers
+        );
         assert_eq!(
             result.notes,
             ["уборка прежнего процесса old/gh-viewed-github_cloud: убрано 0, осталось 0"]

@@ -1073,7 +1073,10 @@ fn lost_mr_response_and_failed_search_leave_the_mr_in_leftovers() -> Result<(), 
 #[test]
 fn resume_cleanup_reads_ledger_and_skips_torn_last_line() -> Result<(), String> {
     let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
-    let mut ledger = ledger_in(dir.path())?;
+    let mut ledger = Ledger::create_for(
+        &dir.path().join(super::lifecycle::LEDGER_FILE),
+        &gl_target(),
+    )?;
     ledger.record(Created::Branch {
         name: "probe/run1-cell-base".to_owned(),
     })?;
@@ -1104,10 +1107,26 @@ fn resume_cleanup_reads_ledger_and_skips_torn_last_line() -> Result<(), String> 
             reviewer: None,
         },
         ledger.path(),
+        &gl_target(),
     )?;
     assert!(report.leftovers.is_empty(), "{report:?}");
     assert!(report.removed.contains(&"MR #8 закрыт".to_owned()));
     author_t.finish()?;
+
+    let idle = Scripted::new();
+    let idle_g = Guarded::new(&idle, gl_target(), listed("group/sandbox"));
+    let idle_repo = GitLabRepo::new(&idle_g)?;
+    let idle_roles = Roles {
+        author: &idle_repo,
+        reviewer: None,
+    };
+    let other = GuardTarget::gitlab(&gitlab::Endpoints::cloud(), "group/sandbox");
+    assert!(resume_cleanup(&idle_roles, ledger.path(), &other).is_err());
+    let sub = dir.path().join("sub");
+    std::fs::create_dir_all(&sub).map_err(|e| e.to_string())?;
+    let untargeted = ledger_in(&sub)?;
+    assert!(resume_cleanup(&idle_roles, untargeted.path(), &gl_target()).is_err());
+    idle.finish()?;
 
     let broken = dir.path().join("broken.jsonl");
     std::fs::write(&broken, "nope\n{\"kind\":\"pull\",\"number\":1}\n")

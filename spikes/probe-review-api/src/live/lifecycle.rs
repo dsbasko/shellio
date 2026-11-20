@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use super::guard::GuardTarget;
 use super::repo::{Account, FileChange, LiveError, LiveRepo};
 use crate::results::Column;
 
@@ -37,6 +38,9 @@ pub enum Created {
     Branch { name: String },
     /// PR (GitHub) или MR (`iid` GitLab): записывается сразу после ответа на создание.
     Pull { number: u64 },
+    /// Цель сторожа, для которой ведётся журнал: первая запись. Номер PR/MR и имя ветки имеют
+    /// смысл только в этом репозитории этого хоста.
+    Target { rest: String, repo: String },
 }
 
 /// Журнал созданного в каталоге процесса.
@@ -77,6 +81,17 @@ impl Ledger {
                     .map_err(|err| format!("журнал созданного, запись {}: {err}", index + 1))
             })
             .collect()
+    }
+
+    /// Новый журнал с целью сторожа первой записью: по нему уборку продолжает только клетка той
+    /// же цели.
+    pub fn create_for(path: &Path, target: &GuardTarget) -> Result<Ledger, String> {
+        let mut ledger = Ledger::create(path)?;
+        ledger.record(Created::Target {
+            rest: target.rest.clone(),
+            repo: target.repo.clone(),
+        })?;
+        Ok(ledger)
     }
 
     pub fn path(&self) -> &Path {
@@ -351,7 +366,7 @@ pub fn cleanup(roles: &Roles<'_>, entries: &[Created]) -> Cleanup {
             Created::Branch { name } if !branches.contains(&name.as_str()) => {
                 branches.push(name);
             }
-            Created::Branch { .. } => {}
+            Created::Branch { .. } | Created::Target { .. } => {}
             Created::Pull { number } => {
                 pulls.insert(*number);
             }
@@ -493,9 +508,32 @@ pub fn cleanup(roles: &Roles<'_>, entries: &[Created]) -> Cleanup {
     report
 }
 
-/// Продолжение уборки по журналу созданного, например из другого процесса.
-pub fn resume_cleanup(roles: &Roles<'_>, ledger: &Path) -> Result<Cleanup, String> {
-    Ledger::load(ledger).map(|entries| cleanup(roles, &entries))
+/// Продолжение уборки по журналу созданного, например из другого процесса. Журнал без цели или
+/// с другой целью не убирается: номер PR/MR другого репозитория указал бы на чужой объект.
+pub fn resume_cleanup(
+    roles: &Roles<'_>,
+    ledger: &Path,
+    target: &GuardTarget,
+) -> Result<Cleanup, String> {
+    let entries = Ledger::load(ledger)?;
+    match entries.first() {
+        Some(Created::Target { rest, repo })
+            if *rest == target.rest && repo.eq_ignore_ascii_case(&target.repo) =>
+        {
+            Ok(cleanup(roles, &entries))
+        }
+        Some(Created::Target { .. }) => {
+            Err("журнал другого репозитория или хоста: эта клетка его не убирает".to_owned())
+        }
+        _ => Err("в журнале нет цели: чей это репозиторий, не известно".to_owned()),
+    }
+}
+
+/// Отметка [`SWEPT_FILE`] рядом с журналом.
+fn mark_swept(ledger: &Path) -> Result<(), String> {
+    let dir = ledger.parent().ok_or("у журнала нет каталога")?;
+    std::fs::write(dir.join(SWEPT_FILE), b"")
+        .map_err(|err| format!("отметка уборки не записана: {}", err.kind()))
 }
 
 /// Журналы созданного прежних процессов столбца без отметки [`SWEPT_FILE`]: каталоги
@@ -541,7 +579,13 @@ pub struct Swept {
 
 /// Продолжение уборки по журналам прежних процессов столбца ([`stale_ledgers`]): журнал, уборка
 /// которого прошла без ошибок и не убранного, получает отметку [`SWEPT_FILE`].
-pub fn sweep_stale(roles: &Roles<'_>, runs_root: &Path, own: &Path, column: Column) -> Vec<Swept> {
+pub fn sweep_stale(
+    roles: &Roles<'_>,
+    runs_root: &Path,
+    own: &Path,
+    column: Column,
+    target: &GuardTarget,
+) -> Vec<Swept> {
     stale_ledgers(runs_root, own, column)
         .into_iter()
         .map(|ledger| {
@@ -550,15 +594,15 @@ pub fn sweep_stale(roles: &Roles<'_>, runs_root: &Path, own: &Path, column: Colu
                 |_| dir.display().to_string(),
                 |rel| rel.display().to_string(),
             );
-            let cleanup = resume_cleanup(roles, &ledger);
+            let cleanup = resume_cleanup(roles, &ledger, target);
             if let Ok(report) = &cleanup
                 && report.errors.is_empty()
                 && report.leftovers.is_empty()
-                && let Err(err) = std::fs::write(dir.join(SWEPT_FILE), b"")
+                && let Err(err) = mark_swept(&ledger)
             {
                 return Swept {
                     source,
-                    cleanup: Err(format!("отметка уборки не записана: {}", err.kind())),
+                    cleanup: Err(err),
                 };
             }
             Swept { source, cleanup }
@@ -597,7 +641,14 @@ pub fn run_cell<R>(
             Err(text)
         }
     };
-    let cleanup = cleanup(roles, ledger.entries());
+    let mut cleanup = cleanup(roles, ledger.entries());
+    // Своя уборка подтверждена чтением: журнал не перечитывают следующие процессы столбца.
+    if cleanup.errors.is_empty()
+        && cleanup.leftovers.is_empty()
+        && let Err(err) = mark_swept(ledger.path())
+    {
+        cleanup.errors.push(err);
+    }
     CellRun {
         outcome,
         open_error,
