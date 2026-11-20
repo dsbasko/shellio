@@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use results::{Column, Execution, Pair, ResultFile};
+use scenario::live::SecondOp;
 use scenario::{Context, Scenario};
 
 /// Ошибка исполнения: стенд не дошёл до конца, предусловие обязательной цели не выполнено,
@@ -41,7 +42,8 @@ pub const USAGE: &str = "использование:
   probe-review --list [<столбец>]
   probe-review --gitlab-ce-image
   probe-review --gitlab-ce-provision --url http://127.0.0.1:<порт> --out <каталог подъёма>
-  probe-review --second-client gl-create-draft --column <столбец> --mr <iid> --line <строка> --out <каталог процесса>";
+  probe-review --second-client gl-create-draft --column <столбец> --mr <iid> --line <строка> --out <каталог процесса>
+  probe-review --second-client gl-delete-draft --column <столбец> --mr <iid> --draft <ID> --out <каталог процесса>";
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Mode {
@@ -69,7 +71,7 @@ pub enum Mode {
     SecondClient {
         column: Column,
         mr: u64,
-        line: u32,
+        op: SecondOp,
         out: PathBuf,
     },
 }
@@ -81,7 +83,7 @@ pub fn parse_args(args: &[String]) -> Result<Mode, String> {
     let mut positional: Vec<&str> = Vec::new();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
-            "--column" | "--out" | "--pairs" | "--url" | "--mr" | "--line" => {
+            "--column" | "--out" | "--pairs" | "--url" | "--mr" | "--line" | "--draft" => {
                 let value = iter.next().ok_or_else(|| format!("у {arg} нет значения"))?;
                 options.push((arg.as_str(), value.as_str()));
             }
@@ -158,8 +160,8 @@ pub fn parse_args(args: &[String]) -> Result<Mode, String> {
             Ok(Mode::GitlabCeProvision { url, out })
         }
         "--second-client" => {
-            let ["gl-create-draft"] = positional[..] else {
-                return Err("--second-client ждёт операцию gl-create-draft".to_owned());
+            let [op] = positional[..] else {
+                return Err("--second-client ждёт одну операцию".to_owned());
             };
             let column = option("--column").ok_or("не задан --column")?;
             let column = Column::from_name(column)
@@ -171,12 +173,27 @@ pub fn parse_args(args: &[String]) -> Result<Mode, String> {
                     .map_err(|_| format!("{name} — не число"))
             };
             let mr = number("--mr")?;
-            let line = u32::try_from(number("--line")?).map_err(|_| "--line вне u32".to_owned())?;
+            let op = match op {
+                "gl-create-draft" => SecondOp::CreateDraft {
+                    line: u32::try_from(number("--line")?)
+                        .map_err(|_| "--line вне u32".to_owned())?,
+                },
+                "gl-delete-draft" => {
+                    let draft = option("--draft").ok_or("не задан --draft")?;
+                    if draft.is_empty() || !draft.bytes().all(|b| b.is_ascii_digit()) {
+                        return Err("--draft — не число".to_owned());
+                    }
+                    SecondOp::DeleteDraft {
+                        draft: draft.to_owned(),
+                    }
+                }
+                other => return Err(format!("неизвестная операция второго клиента {other}")),
+            };
             let out = PathBuf::from(option("--out").ok_or("не задан --out")?);
             Ok(Mode::SecondClient {
                 column,
                 mr,
-                line,
+                op,
                 out,
             })
         }
@@ -240,10 +257,10 @@ pub fn main() -> ExitCode {
         Mode::SecondClient {
             column,
             mr,
-            line,
+            op,
             out,
         } => {
-            let (reply, ok) = scenario::live::second_client(column, mr, line, &out);
+            let (reply, ok) = scenario::live::second_client(column, mr, &op, &out);
             println!("{reply}");
             if ok {
                 ExitCode::SUCCESS
@@ -479,12 +496,33 @@ mod tests {
             Ok(Mode::SecondClient {
                 column: Column::GitlabCe,
                 mr: 7,
-                line: 24,
+                op: SecondOp::CreateDraft { line: 24 },
                 out: PathBuf::from("/tmp/p"),
             })
         );
+        let mut delete = full;
+        delete[1] = "gl-delete-draft";
+        delete[6] = "--draft";
+        delete[7] = "31";
+        assert_eq!(
+            parse_args(&args(&delete)),
+            Ok(Mode::SecondClient {
+                column: Column::GitlabCe,
+                mr: 7,
+                op: SecondOp::DeleteDraft {
+                    draft: "31".to_owned()
+                },
+                out: PathBuf::from("/tmp/p"),
+            })
+        );
+        let mut no_draft = full;
+        no_draft[1] = "gl-delete-draft";
+        assert!(parse_args(&args(&no_draft)).is_err());
+        let mut bad_draft = delete;
+        bad_draft[7] = "31/../x";
+        assert!(parse_args(&args(&bad_draft)).is_err());
         let mut other = full;
-        other[1] = "gl-delete-draft";
+        other[1] = "gl-publish-draft";
         assert!(parse_args(&args(&other)).is_err());
         let mut bad = full;
         bad[5] = "x";

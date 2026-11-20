@@ -720,6 +720,12 @@ impl SecondClient for NoSecond {
             "второй клиент в этом тесте не нужен".to_owned(),
         ))
     }
+
+    fn delete_draft(&self, _: u64, _: &str) -> Result<String, Verdict> {
+        Err(Verdict::Error(
+            "второй клиент в этом тесте не нужен".to_owned(),
+        ))
+    }
 }
 
 // --- тело клетки против forge-fake ---
@@ -756,21 +762,33 @@ struct InProcess<'a> {
     server: &'a FakeServer<GitlabFake>,
 }
 
-impl SecondClient for InProcess<'_> {
-    fn create_draft(&self, iid: u64, line: u32) -> Result<String, Verdict> {
+impl InProcess<'_> {
+    fn guard(&self) -> Guarded<HttpTransport> {
         let credential = Credential::private_token(Secret::new(REVIEWER_TOKEN));
-        let guard = Guarded::new(
+        Guarded::new(
             HttpTransport::new(HttpConfig::default(), Some(credential)),
             GuardTarget::gitlab(&Endpoints::instance(self.server.base()), REPO),
             WriteScope::Loopback,
-        );
-        let review = ReviewTarget {
+        )
+    }
+
+    fn review(&self, iid: u64) -> ReviewTarget {
+        ReviewTarget {
             provider: Provider::GitLab,
             host: self.server.base().to_owned(),
             repo: REPO.to_owned(),
             number: iid,
-        };
-        foreign_draft(&guard, &review, FAKE_REVIEWER, line)
+        }
+    }
+}
+
+impl SecondClient for InProcess<'_> {
+    fn create_draft(&self, iid: u64, line: u32) -> Result<String, Verdict> {
+        foreign_draft(&self.guard(), &self.review(iid), FAKE_REVIEWER, line)
+    }
+
+    fn delete_draft(&self, iid: u64, draft: &str) -> Result<String, Verdict> {
+        foreign_delete(&self.guard(), &self.review(iid), draft)
     }
 }
 
@@ -866,6 +884,8 @@ fn cell_body_with(
         Scenario::GlAnchors => gl_anchors(&cx, &mut cell),
         Scenario::GlApproveSha => gl_approve_sha(&cx, &mut cell),
         Scenario::HeadChange => gl_head_change(&cx, &mut cell),
+        Scenario::Partial => gl_partial(&cx, &mut cell),
+        Scenario::ReconcileDeleted => gl_reconcile_deleted(&cx, &mut cell),
         other => return Err(format!("тело {} в тесте не собрано", other.name()).into()),
     };
     let errors = guard_errors(&[("author", &author), ("reviewer", &reviewer)]);
@@ -2118,4 +2138,252 @@ fn head_change_checks_catch_writes_before_the_path_a_mixed_triple_and_a_lost_not
     ] {
         assert!(failed.contains(name), "{name}: {failed}");
     }
+}
+
+// --- partial и reconcile-deleted ---
+
+const FAKE_DRAFT_DELETE: &str =
+    "DELETE /projects/{id}/merge_requests/{merge_request_iid}/draft_notes/{draft_note_id}";
+
+fn pass(observed: &Observed) {
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(
+        status,
+        Status::Pass,
+        "{reason}: {:?}",
+        observed.checks.to_json()
+    );
+    assert_artifacts(observed);
+}
+
+#[test]
+fn partial_body_passes_against_the_fake_with_a_real_refusal() -> TestResult {
+    let server = fake_gitlab()?;
+    let observed = cell_body(&server, Scenario::Partial)?.map_err(|v| format!("{v:?}"))?;
+    pass(&observed);
+    assert_eq!(writes_in_fake(&server, FAKE_DRAFT_DELETE), 1);
+    assert_eq!(writes_in_fake(&server, glf::PUBLISH), 2);
+    assert_eq!(bulk_publishes(&server), 0);
+    let notes = server.with(|fake| fake.notes(FAKE_IID));
+    assert_eq!(
+        notes.iter().map(|n| n.body.as_str()).collect::<Vec<_>>(),
+        vec!["первый"]
+    );
+    let drafts = server.with(|fake| fake.drafts(FAKE_IID));
+    assert_eq!(
+        drafts.iter().map(|d| d.note.as_str()).collect::<Vec<_>>(),
+        vec!["третий"]
+    );
+    assert!(
+        observed
+            .notes
+            .iter()
+            .any(|note| note.contains("Some(404), гипотеза 404")),
+        "{:?}",
+        observed.notes
+    );
+    Ok(())
+}
+
+#[test]
+fn partial_second_client_refusal_is_not_run_with_artifacts() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(FAKE_DRAFT_DELETE, FakeReply::Status(403)));
+    let observed = cell_body(&server, Scenario::Partial)?.map_err(|v| format!("{v:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::NotRun(reason))
+            if reason.starts_with("второй клиент не удалил черновик")),
+        "{:?}",
+        observed.verdict
+    );
+    assert_artifacts(&observed);
+    Ok(())
+}
+
+#[test]
+fn partial_rate_limited_publish_is_not_run() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::PUBLISH, FakeReply::RateLimited).skip(1));
+    let observed = cell_body(&server, Scenario::Partial)?.map_err(|v| format!("{v:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::NotRun(format!(
+            "лимит: код 429 на запись {DRAFT_PUBLISH}"
+        )))
+    );
+    assert_artifacts(&observed);
+    Ok(())
+}
+
+#[test]
+fn partial_checks_catch_a_published_second_draft_and_a_wrong_code() {
+    let writes = vec![
+        write(1, DRAFT_CREATE, None, Some("11")),
+        write(2, DRAFT_CREATE, None, Some("12")),
+        write(3, DRAFT_CREATE, None, Some("13")),
+        write(4, DRAFT_PUBLISH, Some("11"), None),
+        write(5, DRAFT_PUBLISH, Some("12"), None),
+    ];
+    let states = vec![
+        (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+        (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+        (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+        (Operation::GitLabPublishDraftNote, ItemState::Confirmed),
+        (Operation::GitLabPublishDraftNote, ItemState::Failed),
+        (Operation::GitLabPublishDraftNote, ItemState::Planned),
+    ];
+    let notes = vec![note(1, "первый", false, Some(position(4)))];
+    let drafts = vec![RemoteDraft {
+        id: ProviderId::new("13"),
+        author_id: None,
+        note: "третий".to_owned(),
+        discussion_id: None,
+        resolve_discussion: false,
+        line_code: None,
+        position: None,
+    }];
+    let publishes = vec![
+        (Some("11".to_owned()), Some(204)),
+        (Some("12".to_owned()), Some(404)),
+    ];
+    let facts = PartialFacts {
+        writes: &writes,
+        deleted: Some("12"),
+        publishes: &publishes,
+        states: &states,
+        closed: true,
+        delivery: Delivery::Partial,
+        notes_after: &notes,
+        drafts_after: &drafts,
+        recovered: 0,
+    };
+    assert_eq!(partial_checks(&facts).verdict().0, Status::Pass);
+
+    let accepted = vec![
+        (Some("11".to_owned()), Some(204)),
+        (Some("12".to_owned()), Some(204)),
+    ];
+    let checks = partial_checks(&PartialFacts {
+        publishes: &accepted,
+        ..facts.clone()
+    });
+    assert_eq!(checks.verdict().0, Status::Fail);
+    let wrong = partial_checks(&PartialFacts {
+        deleted: Some("13"),
+        ..facts.clone()
+    });
+    assert_eq!(wrong.verdict().0, Status::Fail);
+    let open = partial_checks(&PartialFacts {
+        closed: false,
+        ..facts
+    });
+    assert_eq!(open.verdict().0, Status::Fail);
+}
+
+#[test]
+fn reconcile_deleted_body_passes_against_the_fake() -> TestResult {
+    let server = fake_gitlab()?;
+    let observed = cell_body(&server, Scenario::ReconcileDeleted)?.map_err(|v| format!("{v:?}"))?;
+    pass(&observed);
+    assert_eq!(writes_in_fake(&server, glf::PUBLISH), 0);
+    assert_eq!(writes_in_fake(&server, FAKE_DRAFT_DELETE), 1);
+    assert_eq!(writes_in_fake(&server, glf::DRAFTS), 1);
+    assert!(server.with(|fake| fake.drafts(FAKE_IID)).is_empty());
+    assert!(server.with(|fake| fake.notes(FAKE_IID)).is_empty());
+    assert!(
+        observed
+            .notes
+            .iter()
+            .any(|note| note.starts_with("инъекция: публикация черновика")),
+        "{:?}",
+        observed.notes
+    );
+    Ok(())
+}
+
+#[test]
+fn reconcile_deleted_second_client_refusal_is_not_run_without_reconcile() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(FAKE_DRAFT_DELETE, FakeReply::Status(403)));
+    let observed = cell_body(&server, Scenario::ReconcileDeleted)?.map_err(|v| format!("{v:?}"))?;
+    assert!(
+        matches!(&observed.verdict, Some(Verdict::NotRun(reason))
+            if reason.starts_with("второй клиент не удалил черновик")),
+        "{:?}",
+        observed.verdict
+    );
+    assert_artifacts(&observed);
+    assert_eq!(server.with(|fake| fake.drafts(FAKE_IID)).len(), 1);
+    Ok(())
+}
+
+#[test]
+fn reconcile_deleted_rate_limited_create_is_not_run_without_the_injection() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::DRAFTS, FakeReply::RateLimited));
+    let observed = cell_body(&server, Scenario::ReconcileDeleted)?.map_err(|v| format!("{v:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::NotRun(format!(
+            "лимит: код 429 на запись {DRAFT_CREATE}"
+        )))
+    );
+    assert_artifacts(&observed);
+    assert_eq!(writes_in_fake(&server, FAKE_DRAFT_DELETE), 0);
+    Ok(())
+}
+
+#[test]
+fn deleted_checks_catch_a_retry_a_candidate_and_a_confirmed_item() {
+    let writes = vec![write(1, DRAFT_CREATE, None, Some("21"))];
+    let unresolved = vec![Reconciled::Unresolved {
+        detail: "404".to_owned(),
+    }];
+    let facts = DeletedFacts {
+        writes: &writes,
+        dropped: Some("21"),
+        reconciled: &unresolved,
+        item: Some((ItemState::Unknown, None)),
+        delivery: Delivery::Partial,
+        notes_after: &[],
+        drafts_after: &[],
+        recovered: 0,
+    };
+    assert_eq!(deleted_checks(&facts).verdict().0, Status::Pass);
+    let retried = vec![
+        write(1, DRAFT_CREATE, None, Some("21")),
+        write(2, DRAFT_PUBLISH, Some("21"), None),
+    ];
+    assert_eq!(
+        deleted_checks(&DeletedFacts {
+            writes: &retried,
+            ..facts.clone()
+        })
+        .verdict()
+        .0,
+        Status::Fail
+    );
+    let candidate = vec![Reconciled::Candidate {
+        remote: ProviderId::new("5"),
+        detail: String::new(),
+    }];
+    assert_eq!(
+        deleted_checks(&DeletedFacts {
+            reconciled: &candidate,
+            item: Some((ItemState::Unknown, Some("5".to_owned()))),
+            ..facts.clone()
+        })
+        .verdict()
+        .0,
+        Status::Fail
+    );
+    assert_eq!(
+        deleted_checks(&DeletedFacts {
+            item: Some((ItemState::Confirmed, None)),
+            ..facts
+        })
+        .verdict()
+        .0,
+        Status::Fail
+    );
 }

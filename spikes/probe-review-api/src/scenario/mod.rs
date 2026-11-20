@@ -119,12 +119,12 @@ impl Scenario {
             | Scenario::GlRequestChanges
             | Scenario::GlAnchors
             | Scenario::GlApproveSha
-            | Scenario::HeadChange => &[Column::Fake, Column::GitlabCloud, Column::GitlabCe],
-            Scenario::JournalCrash
-            | Scenario::ReconcileAmbiguous
+            | Scenario::HeadChange
             | Scenario::ReconcileDeleted
-            | Scenario::ReconcilePaged
-            | Scenario::Partial => &[Column::Fake, Column::GitlabCloud],
+            | Scenario::Partial => &[Column::Fake, Column::GitlabCloud, Column::GitlabCe],
+            Scenario::JournalCrash | Scenario::ReconcileAmbiguous | Scenario::ReconcilePaged => {
+                &[Column::Fake, Column::GitlabCloud]
+            }
             Scenario::Capabilities => &[
                 Column::Fake,
                 Column::GithubCloud,

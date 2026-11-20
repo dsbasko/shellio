@@ -1,6 +1,7 @@
-//! Процесс второго клиента `probe-review --second-client gl-create-draft` против `forge-fake`:
-//! хост и токены — окружением, как у процесса сценария `gitlab_ce`, ID черновика — в stdout,
-//! очищенный след — в `second-client.json`, токена нет ни в аргументах, ни в следе.
+//! Процесс второго клиента `probe-review --second-client gl-create-draft` и `gl-delete-draft`
+//! против `forge-fake`: хост и токены — окружением, как у процесса сценария `gitlab_ce`, ID
+//! черновика — в stdout, очищенный след — в `second-client.json`, токена нет ни в аргументах, ни
+//! в следе.
 
 use std::path::Path;
 use std::process::{Command, Output};
@@ -61,16 +62,25 @@ fn host_file(dir: &Path, url: &str) -> Result<std::path::PathBuf, Box<dyn std::e
 }
 
 fn second_client(host: &Path, out: &Path, column: &str) -> std::io::Result<Output> {
+    second_client_op(host, out, column, ["gl-create-draft", "--line", "24"])
+}
+
+fn second_client_op(
+    host: &Path,
+    out: &Path,
+    column: &str,
+    [op, flag, value]: [&str; 3],
+) -> std::io::Result<Output> {
     Command::new(env!("CARGO_BIN_EXE_probe-review"))
         .args([
             "--second-client",
-            "gl-create-draft",
+            op,
             "--column",
             column,
             "--mr",
             &IID.to_string(),
-            "--line",
-            "24",
+            flag,
+            value,
             "--out",
         ])
         .arg(out)
@@ -135,5 +145,61 @@ fn second_client_outside_gitlab_ce_is_an_execution_error() -> TestResult {
     let host = host_file(dir.path(), "http://127.0.0.1:1")?;
     let output = second_client(&host, dir.path(), "gitlab_cloud")?;
     assert_eq!(output.status.code(), Some(3));
+    Ok(())
+}
+
+#[test]
+fn second_client_process_deletes_a_reviewer_draft_by_id() -> TestResult {
+    let server = fake(true)?;
+    let dir = tempfile::tempdir()?;
+    let host = host_file(dir.path(), server.base())?;
+    let created = second_client(&host, dir.path(), "gitlab_ce")?;
+    assert!(created.status.success());
+    let reply: Value = serde_json::from_str(String::from_utf8_lossy(&created.stdout).trim())?;
+    let id = reply["id"].as_str().ok_or("нет id")?.to_owned();
+    assert_eq!(server.with(|fake| fake.drafts(IID)).len(), 1);
+
+    let output = second_client_op(
+        &host,
+        dir.path(),
+        "gitlab_ce",
+        ["gl-delete-draft", "--draft", &id],
+    )?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        output.status.success(),
+        "{stdout} {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let reply: Value = serde_json::from_str(stdout.trim())?;
+    assert_eq!(reply["id"].as_str(), Some(id.as_str()));
+    assert!(server.with(|fake| fake.drafts(IID)).is_empty());
+    let record = std::fs::read_to_string(dir.path().join("second-client.json"))?;
+    let value: Value = serde_json::from_str(&record)?;
+    let trace = value["trace"].as_array().ok_or("нет следа")?;
+    assert!(
+        trace
+            .iter()
+            .any(|entry| entry["method"] == "DELETE" && entry["actor"] == "second-client"),
+        "{record}"
+    );
+    for raw in [REVIEWER_TOKEN, AUTHOR_TOKEN, REPO, REVIEWER] {
+        assert!(!record.contains(raw), "{raw} очищен: {record}");
+    }
+
+    let again = second_client_op(
+        &host,
+        dir.path(),
+        "gitlab_ce",
+        ["gl-delete-draft", "--draft", &id],
+    )?;
+    assert!(again.status.success());
+    let reply: Value = serde_json::from_str(String::from_utf8_lossy(&again.stdout).trim())?;
+    assert!(
+        reply["not_run"]
+            .as_str()
+            .is_some_and(|reason| reason.starts_with("второй клиент не удалил черновик")),
+        "{reply}"
+    );
     Ok(())
 }

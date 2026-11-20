@@ -5,6 +5,7 @@
 //! из следа ревьюера в окне отправки, состояние — из чтения автором заметок MR и ревьюером своих
 //! черновиков. Системные заметки MR (назначение ревьюера, новый коммит) в оракул не входят.
 
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -17,8 +18,8 @@ use super::{INJECTION_UNAVAILABLE, MR_HEAD_STALE, MR_NOT_READY, classify_read, m
 use super::{Verdict, gitlab_adapter, guard_errors, live_repo, read_or_fail, record_cleanup};
 use crate::fake::{GraphqlKind, graphql_root};
 use crate::gitlab::{
-    ApiError, Capabilities, GitLab, MergeSnapshot, RemoteDraft, RemoteNote, RemotePosition,
-    ReviewerState, capabilities,
+    ApiError, Capabilities, GitLab, KnownDraft, MergeSnapshot, RemoteDraft, RemoteNote,
+    RemotePosition, ReviewerState, capabilities,
 };
 use crate::journal::{ItemState, Journal, Operation, ProjectId, SessionId};
 use crate::live::guard::Guarded;
@@ -27,13 +28,16 @@ use crate::model::anchor::{Anchor, LinePoint, Side};
 use crate::model::revision::{
     AnchorFate, HeadCheck, HeadPath, Revision, Sha, StaleReason, TripleOrigin, triple_origin,
 };
-use crate::model::{DraftComment, DraftId, Provider, ReviewSession, ReviewTarget};
+use crate::model::{DraftComment, DraftId, Provider, ProviderId, ReviewSession, ReviewTarget};
 use crate::results::{Column, ResultFile};
 use crate::scenario::Scenario;
 use crate::scenario::fake::{Checks, Spot, add_drafts, dump_in, states};
 use crate::scrub::Scrubber;
-use crate::submit::{Delivery, GitLabPlan, Report, SubmitError, plan_gitlab, report, run_gitlab};
-use crate::transport::{Call, Method, Trace, Transport};
+use crate::submit::reconcile::Verdict as Reconciled;
+use crate::submit::{
+    Delivery, GitLabPlan, Report, SubmitError, plan_gitlab, reconcile_gitlab, report, run_gitlab,
+};
+use crate::transport::{Call, Failure, Method, Request, Response, Trace, Transport};
 
 /// Ключи записей GitLab в следе, как ключи журнала `forge-fake`.
 pub const DRAFT_CREATE: &str = "POST draft_notes";
@@ -198,6 +202,8 @@ fn cell_verdict<T: Transport>(
             Scenario::GlAnchors => gl_anchors(cx, cell),
             Scenario::GlApproveSha => gl_approve_sha(cx, cell),
             Scenario::HeadChange => gl_head_change(cx, cell),
+            Scenario::Partial => gl_partial(cx, cell),
+            Scenario::ReconcileDeleted => gl_reconcile_deleted(cx, cell),
             other => Err(Verdict::Error(format!(
                 "сценарий {} в живом столбце GitLab не реализован",
                 other.name()
@@ -605,6 +611,8 @@ struct Submitted {
     window: Vec<Call>,
     writes: Vec<Write>,
     facts: JournalFacts,
+    /// Операции и состояния элементов после переоткрытия.
+    states: Vec<(Operation, ItemState)>,
     /// Удалённые ID черновиков и элементов журнала.
     remote_ids: BTreeSet<String>,
     journal: Value,
@@ -619,9 +627,9 @@ struct Sending<'s> {
     plan: GitLabPlan,
 }
 
-fn submit_drafts<T: Transport>(
+fn submit_drafts<T: Transport, R: Transport>(
     cx: &GlCx<'_, T>,
-    reviewer: &GitLab<&Guarded<T>>,
+    reviewer: &GitLab<R>,
     sending: Sending<'_>,
 ) -> Result<Submitted, Verdict> {
     let path = cx.state_dir.join(sending.journal);
@@ -667,16 +675,14 @@ fn submit_drafts<T: Transport>(
         .chain(done.items.iter().filter_map(|item| item.remote_id.as_ref()))
         .map(|id| id.as_str().to_owned())
         .collect();
+    let item_states = states(&scope, submission).map_err(|err| stand("состояния", &err))?;
     let facts = JournalFacts {
         full_confirmed: done.delivery == Delivery::Full
             && done
                 .items
                 .iter()
                 .all(|item| item.state == ItemState::Confirmed),
-        states: format!(
-            "{:?}",
-            states(&scope, submission).map_err(|err| stand("состояния", &err))?
-        ),
+        states: format!("{item_states:?}"),
         remote_ids: drafts.iter().all(|draft| draft.remote_id.is_some()),
         recovered: journal.recovered().len(),
     };
@@ -687,6 +693,7 @@ fn submit_drafts<T: Transport>(
         window,
         writes,
         facts,
+        states: item_states,
         remote_ids,
         journal: journal_dump,
     })
@@ -758,11 +765,30 @@ fn gl_draft_publish<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<O
     })
 }
 
-/// Второй клиент ревьюера: создаёт черновик на новой строке MR и отдаёт его ID. Отказ хоста —
-/// `not_run` «второй клиент не создал черновик», отказ транспорта, 5xx и сторожа — ошибка
-/// исполнения.
+/// Второй клиент ревьюера: создаёт черновик на новой строке MR и отдаёт его ID или удаляет
+/// черновик по ID. Отказ хоста — `not_run` «второй клиент не создал черновик» или «… не удалил
+/// черновик», отказ транспорта, 5xx и сторожа — ошибка исполнения.
 pub trait SecondClient {
     fn create_draft(&self, iid: u64, line: u32) -> Result<String, Verdict>;
+    fn delete_draft(&self, iid: u64, draft: &str) -> Result<String, Verdict>;
+}
+
+/// Операция процесса второго клиента.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SecondOp {
+    /// `gl-create-draft --line <строка>`.
+    CreateDraft { line: u32 },
+    /// `gl-delete-draft --draft <ID>`.
+    DeleteDraft { draft: String },
+}
+
+impl SecondOp {
+    pub fn name(&self) -> &'static str {
+        match self {
+            SecondOp::CreateDraft { .. } => "gl-create-draft",
+            SecondOp::DeleteDraft { .. } => "gl-delete-draft",
+        }
+    }
 }
 
 /// Второй клиент отдельным процессом `probe-review --second-client`: хост и токен ревьюера он
@@ -774,21 +800,40 @@ pub struct ProcessClient {
     pub out: PathBuf,
 }
 
-impl SecondClient for ProcessClient {
-    fn create_draft(&self, iid: u64, line: u32) -> Result<String, Verdict> {
+impl ProcessClient {
+    fn run(&self, iid: u64, op: &SecondOp) -> Result<String, Verdict> {
+        let (flag, value) = match op {
+            SecondOp::CreateDraft { line } => ("--line", line.to_string()),
+            SecondOp::DeleteDraft { draft } => ("--draft", draft.clone()),
+        };
         let output = Command::new(&self.exe)
-            .args(["--second-client", "gl-create-draft", "--column"])
+            .args(["--second-client", op.name(), "--column"])
             .arg(self.column.name())
             .arg("--mr")
             .arg(iid.to_string())
-            .arg("--line")
-            .arg(line.to_string())
+            .arg(flag)
+            .arg(value)
             .arg("--out")
             .arg(&self.out)
             .stdin(Stdio::null())
             .output()
             .map_err(|err| Verdict::Error(format!("второй клиент не запущен: {}", err.kind())))?;
         second_reply(output.status.code(), &output.stdout, &output.stderr)
+    }
+}
+
+impl SecondClient for ProcessClient {
+    fn create_draft(&self, iid: u64, line: u32) -> Result<String, Verdict> {
+        self.run(iid, &SecondOp::CreateDraft { line })
+    }
+
+    fn delete_draft(&self, iid: u64, draft: &str) -> Result<String, Verdict> {
+        self.run(
+            iid,
+            &SecondOp::DeleteDraft {
+                draft: draft.to_owned(),
+            },
+        )
     }
 }
 
@@ -857,6 +902,36 @@ pub fn foreign_draft<T: Transport>(
         return Err(Verdict::Error(format!("второй клиент: сторож: {err}")));
     }
     created
+}
+
+/// Удаление черновика ревьюера вторым клиентом по ID через своего сторожа: ответ — тот же ID.
+/// Отказ его сторожа — ошибка исполнения.
+pub fn foreign_delete<T: Transport>(
+    guard: &Guarded<T>,
+    review: &ReviewTarget,
+    draft: &str,
+) -> Result<String, Verdict> {
+    let deleted = gitlab_adapter(guard, review)
+        .map_err(|err| stand("второй клиент", &err))
+        .and_then(|gitlab| {
+            gitlab
+                .delete_draft(&KnownDraft::recorded(ProviderId::new(draft)))
+                .map_err(|err| match classify_read(&err) {
+                    Ok(observed) => {
+                        Verdict::NotRun(format!("второй клиент не удалил черновик: {observed}"))
+                    }
+                    Err(stand) => Verdict::Error(format!("второй клиент: удаление: {stand}")),
+                })
+        })
+        .map(|()| draft.to_owned());
+    let errors = guard_errors(&[(ACTOR_SECOND, guard)]);
+    if !errors.is_empty() {
+        return Err(Verdict::Error(errors.join("; ")));
+    }
+    if let Some(err) = guard.refusal() {
+        return Err(Verdict::Error(format!("второй клиент: сторож: {err}")));
+    }
+    deleted
 }
 
 /// Оракул `gl-foreign-draft` на живом хосте (ожидание — в отчёте).
@@ -2167,6 +2242,534 @@ fn gl_head_change<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Obs
         old_head: held.revision.head_sha().as_str(),
         new_head: &new_head,
         journal: &facts,
+    });
+    Ok(Observed {
+        checks,
+        notes,
+        before,
+        after,
+        journal: dump,
+        tier: caps.plan,
+        verdict: None,
+    })
+}
+
+/// Что делает клиентская инъекция на первой публикации черновика ревьюера.
+pub enum OnPublish<'a> {
+    /// `partial`: перед публикацией второй клиент удаляет второй созданный в окне черновик,
+    /// запрос уходит.
+    DeleteSecond {
+        second: &'a dyn SecondClient,
+        iid: u64,
+        trace: &'a Trace,
+        start: usize,
+    },
+    /// `reconcile-deleted`: запрос не отправляется, клиенту отдаётся таймаут (запрос мог дойти,
+    /// элемент — `unknown`).
+    Drop,
+}
+
+/// Сработавшая инъекция: итог действия — ID, удалённый вторым клиентом, или ID в пути не
+/// отправленной публикации.
+#[derive(Debug)]
+pub struct Fired {
+    pub outcome: Result<String, Verdict>,
+}
+
+/// Транспорт ревьюера с клиентской инъекцией на первой публикации черновика (`DRAFT_PUBLISH`):
+/// срабатывает один раз, остальные запросы идут как есть. Стоит над сторожем, поэтому не
+/// отправленный запрос не попадает в след: его фиксирует [`Fired`].
+pub struct PublishHook<'a, R> {
+    pub inner: R,
+    pub action: OnPublish<'a>,
+    pub fired: RefCell<Option<Fired>>,
+}
+
+impl<'a, R> PublishHook<'a, R> {
+    pub fn new(inner: R, action: OnPublish<'a>) -> PublishHook<'a, R> {
+        PublishHook {
+            inner,
+            action,
+            fired: RefCell::new(None),
+        }
+    }
+}
+
+impl<R: Transport> Transport for PublishHook<'_, R> {
+    fn send(&self, request: &Request) -> Result<Response, Failure> {
+        let body = request.body_json();
+        let publish = write_key(request.method, request.path(), body.as_ref()).as_deref()
+            == Some(DRAFT_PUBLISH)
+            && self.fired.borrow().is_none();
+        if !publish {
+            return self.inner.send(request);
+        }
+        match &self.action {
+            OnPublish::Drop => {
+                let draft = request
+                    .path()
+                    .split_once("/merge_requests/")
+                    .and_then(|(_, rest)| rest.split_once('/'))
+                    .and_then(|(_, tail)| publish_id(tail.split_once('?').map_or(tail, |(t, _)| t)))
+                    .map(str::to_owned);
+                *self.fired.borrow_mut() = Some(Fired {
+                    outcome: draft
+                        .ok_or_else(|| Verdict::Error("в пути публикации нет ID".to_owned())),
+                });
+                Err(Failure::timeout(
+                    "инъекция пробы: запрос не отправлен, клиенту отдан таймаут",
+                ))
+            }
+            OnPublish::DeleteSecond {
+                second,
+                iid,
+                trace,
+                start,
+            } => {
+                let created: Vec<String> = writes_of(
+                    trace.calls().get(*start..).unwrap_or_default(),
+                    ACTOR_REVIEWER,
+                )
+                .into_iter()
+                .filter_map(|write| write.created)
+                .collect();
+                let outcome = match created.get(1) {
+                    Some(id) => second.delete_draft(*iid, id),
+                    None => Err(Verdict::Error(format!(
+                        "перед первой публикацией создано черновиков {}",
+                        created.len()
+                    ))),
+                };
+                *self.fired.borrow_mut() = Some(Fired { outcome });
+                self.inner.send(request)
+            }
+        }
+    }
+}
+
+/// Адаптер ревьюера над транспортом с инъекцией и теми же адресами цели сторожа.
+fn hooked<'a, 'h, T: Transport>(
+    cx: &GlCx<'a, T>,
+    review: &ReviewTarget,
+    action: OnPublish<'h>,
+) -> Result<GitLab<PublishHook<'h, &'a Guarded<T>>>, Verdict> {
+    GitLab::new(
+        PublishHook::new(cx.reviewer, action),
+        cx.reviewer.target().gitlab_endpoints(),
+        review,
+    )
+    .map_err(|err| stand("адаптер", &err))
+}
+
+/// Черновики `partial`: новая 4 («line 05 changed»), 24 (24a) и 25 (24b); второй удаляет второй
+/// клиент перед первой публикацией.
+pub const PARTIAL_DRAFTS: [(Spot, &str); 3] = [
+    (Spot::Line(Side::New, 4), "первый"),
+    (Spot::Line(Side::New, 24), "второй"),
+    (Spot::Line(Side::New, 25), "третий"),
+];
+
+/// Наблюдённое `partial` для оракула.
+#[derive(Clone, Debug)]
+pub struct PartialFacts<'a> {
+    pub writes: &'a [Write],
+    /// ID, который второй клиент удалил перед первой публикацией.
+    pub deleted: Option<&'a str>,
+    /// Публикации ревьюера в окне: ID в пути и код ответа.
+    pub publishes: &'a [(Option<String>, Option<u16>)],
+    pub states: &'a [(Operation, ItemState)],
+    pub closed: bool,
+    pub delivery: Delivery,
+    pub notes_after: &'a [RemoteNote],
+    pub drafts_after: &'a [RemoteDraft],
+    pub recovered: usize,
+}
+
+/// Оракул `partial` на живом хосте (ожидание — в отчёте). Код отказа второй публикации — только
+/// наблюдение против гипотезы 404, условие — отказ хоста 4xx, кроме 429.
+pub fn partial_checks(facts: &PartialFacts<'_>) -> Checks {
+    let mut checks = Checks::default();
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for write in facts.writes {
+        *counts.entry(write.key.clone()).or_insert(0) += 1;
+    }
+    checks.eq(
+        "записи ревьюера",
+        counts,
+        [(DRAFT_CREATE.to_owned(), 3), (DRAFT_PUBLISH.to_owned(), 2)]
+            .into_iter()
+            .collect(),
+    );
+    let created: Vec<&str> = facts
+        .writes
+        .iter()
+        .filter_map(|write| write.created.as_deref())
+        .collect();
+    checks.eq(
+        "второй клиент удалил второй созданный черновик до первой публикации",
+        facts.deleted,
+        created.get(1).copied(),
+    );
+    checks.eq(
+        "публикации по ID первого и второго созданных",
+        facts
+            .publishes
+            .iter()
+            .map(|(id, _)| id.as_deref())
+            .collect::<Vec<_>>(),
+        created.iter().take(2).map(|id| Some(*id)).collect(),
+    );
+    let codes: Vec<Option<u16>> = facts.publishes.iter().map(|(_, code)| *code).collect();
+    checks.check(
+        "первая публикация 2xx, вторая — отказ хоста 4xx, кроме 429",
+        matches!(codes[..], [Some(first), Some(second)]
+            if (200..300).contains(&first) && (400..500).contains(&second) && second != 429),
+        format!("{codes:?}"),
+    );
+    checks.eq(
+        "журнал: состояния",
+        facts.states.to_vec(),
+        vec![
+            (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+            (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+            (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+            (Operation::GitLabPublishDraftNote, ItemState::Confirmed),
+            (Operation::GitLabPublishDraftNote, ItemState::Failed),
+            (Operation::GitLabPublishDraftNote, ItemState::Planned),
+        ],
+    );
+    checks.eq(
+        "журнал: отправка закрыта, итог «частично»",
+        (facts.closed, facts.delivery),
+        (true, Delivery::Partial),
+    );
+    checks.eq(
+        "автор: одна заметка из первого черновика",
+        facts
+            .notes_after
+            .iter()
+            .filter(|note| !note.system)
+            .map(|note| {
+                (
+                    note.position
+                        .as_ref()
+                        .and_then(|position| position.new_line),
+                    note.body.clone(),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![(Some(4), "первый".to_owned())],
+    );
+    checks.eq(
+        "черновики ревьюера после отправки — третий",
+        facts
+            .drafts_after
+            .iter()
+            .map(|draft| (draft.id.as_str().to_owned(), draft.note.clone()))
+            .collect::<Vec<_>>(),
+        created
+            .get(2)
+            .map(|id| ((*id).to_owned(), "третий".to_owned()))
+            .into_iter()
+            .collect::<Vec<_>>(),
+    );
+    checks.eq("восстановленные элементы", facts.recovered, 0);
+    checks
+}
+
+/// Публикации роли в вызовах окна: ID в пути и код ответа.
+fn publishes_of(calls: &[Call], actor: &str) -> Vec<(Option<String>, Option<u16>)> {
+    calls
+        .iter()
+        .filter(|call| call.actor == actor)
+        .filter(|call| {
+            write_key(
+                call.request.method,
+                call.request.path(),
+                call.request.body_json().as_ref(),
+            )
+            .as_deref()
+                == Some(DRAFT_PUBLISH)
+        })
+        .map(|call| {
+            let draft = call
+                .request
+                .path()
+                .split_once("/merge_requests/")
+                .and_then(|(_, rest)| rest.split_once('/'))
+                .and_then(|(_, tail)| publish_id(tail))
+                .map(str::to_owned);
+            (draft, call.status())
+        })
+        .collect()
+}
+
+fn gl_partial<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = gitlab_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let author = gitlab_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_snapshot(&reviewer, &cx.poll, None, MR_NOT_READY)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| read_or_fail("возможности ревьюера", &err))?;
+    let (_, _, before) = mr_state(&author, &reviewer)?;
+    let hook = hooked(
+        cx,
+        &review,
+        OnPublish::DeleteSecond {
+            second: cx.second,
+            iid: cell.number,
+            trace: cx.trace,
+            start: cx.trace.len(),
+        },
+    )?;
+    let sent = submit_drafts(
+        cx,
+        &hook,
+        Sending {
+            review: &review,
+            snapshot: &snapshot,
+            caps: &caps,
+            journal: "journal-partial.db",
+            drafts: &PARTIAL_DRAFTS,
+            plan: GitLabPlan::default(),
+        },
+    )?;
+    let fired = hook.transport().fired.borrow_mut().take();
+    let (notes_after, drafts_after, after) = mr_state(&author, &reviewer)?;
+    let mut notes = vec![format!(
+        "MR клетки: версия {}",
+        snapshot.version_id.as_str()
+    )];
+    let early = |verdict: Verdict, notes: Vec<String>| Observed {
+        notes,
+        before: before.clone(),
+        after: after.clone(),
+        journal: sent.journal.clone(),
+        tier: caps.plan.clone(),
+        verdict: Some(verdict),
+        ..Observed::default()
+    };
+    let deleted = match fired.map(|fired| fired.outcome) {
+        Some(Err(verdict)) => return Ok(early(verdict, notes)),
+        Some(Ok(id)) => Some(id),
+        None => None,
+    };
+    if let Some(verdict) = sent.delivery.clone() {
+        return Ok(early(verdict, notes));
+    }
+    let publishes = publishes_of(&sent.window, ACTOR_REVIEWER);
+    if let Some(deleted) = &deleted {
+        notes.push(format!(
+            "второй клиент удалил черновик {deleted} перед первой публикацией, след — {SECOND_FILE}"
+        ));
+    }
+    if let Some((_, code)) = publishes.get(1) {
+        notes.push(format!(
+            "наблюдение: код публикации удалённого черновика {code:?}, гипотеза 404"
+        ));
+    }
+    let checks = partial_checks(&PartialFacts {
+        writes: &sent.writes,
+        deleted: deleted.as_deref(),
+        publishes: &publishes,
+        states: &sent.states,
+        closed: sent.done.closed,
+        delivery: sent.done.delivery,
+        notes_after: &notes_after,
+        drafts_after: &drafts_after,
+        recovered: sent.facts.recovered,
+    });
+    Ok(Observed {
+        checks,
+        notes,
+        before,
+        after,
+        journal: sent.journal,
+        tier: caps.plan,
+        verdict: None,
+    })
+}
+
+/// Черновик `reconcile-deleted`: новая 4 («line 05 changed»).
+pub const DELETED_DRAFTS: [(Spot, &str); 1] = [(Spot::Line(Side::New, 4), "удалят")];
+
+/// Наблюдённое `reconcile-deleted` для оракула.
+#[derive(Clone, Debug)]
+pub struct DeletedFacts<'a> {
+    /// Записи ревьюера от отправки до конца сверки.
+    pub writes: &'a [Write],
+    /// ID в пути публикации, которую инъекция не отправила.
+    pub dropped: Option<&'a str>,
+    /// Итоги сверки.
+    pub reconciled: &'a [Reconciled],
+    /// Элемент публикации после переоткрытия: состояние и кандидат.
+    pub item: Option<(ItemState, Option<String>)>,
+    pub delivery: Delivery,
+    pub notes_after: &'a [RemoteNote],
+    pub drafts_after: &'a [RemoteDraft],
+    pub recovered: usize,
+}
+
+/// Оракул `reconcile-deleted` на живом хосте (ожидание — в отчёте).
+pub fn deleted_checks(facts: &DeletedFacts<'_>) -> Checks {
+    let mut checks = Checks::default();
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for write in facts.writes {
+        *counts.entry(write.key.clone()).or_insert(0) += 1;
+    }
+    checks.eq(
+        "записи ревьюера: создание, публикация не отправлена, повторов нет",
+        counts,
+        [(DRAFT_CREATE.to_owned(), 1)].into_iter().collect(),
+    );
+    let created = facts
+        .writes
+        .iter()
+        .find_map(|write| write.created.as_deref());
+    checks.check(
+        "инъекция: публикация созданного черновика не отправлена",
+        facts.dropped.is_some() && facts.dropped == created,
+        format!("не отправлена {:?}, создан {created:?}", facts.dropped),
+    );
+    checks.check(
+        "сверка: «не выяснено» без кандидата",
+        matches!(facts.reconciled, [Reconciled::Unresolved { .. }]),
+        format!("{:?}", facts.reconciled),
+    );
+    checks.eq(
+        "журнал: публикация unknown без кандидата, итог «частично»",
+        (facts.item.clone(), facts.delivery),
+        (Some((ItemState::Unknown, None)), Delivery::Partial),
+    );
+    checks.eq(
+        "сервер: ни черновика, ни заметки",
+        (
+            facts.drafts_after.len(),
+            facts.notes_after.iter().filter(|note| !note.system).count(),
+        ),
+        (0, 0),
+    );
+    checks.eq("восстановленные элементы", facts.recovered, 0);
+    checks
+}
+
+fn gl_reconcile_deleted<T: Transport>(
+    cx: &GlCx<'_, T>,
+    cell: &mut Cell,
+) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = gitlab_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let author = gitlab_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_snapshot(&reviewer, &cx.poll, None, MR_NOT_READY)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| read_or_fail("возможности ревьюера", &err))?;
+    let (_, _, before) = mr_state(&author, &reviewer)?;
+    let path = cx.state_dir.join("journal-reconcile-deleted.db");
+    let project = ProjectId::new(LIVE_PROJECT);
+    let mut notes = vec![format!(
+        "MR клетки: версия {}",
+        snapshot.version_id.as_str()
+    )];
+    let start = cx.trace.len();
+    let hook = hooked(cx, &review, OnPublish::Drop)?;
+    let (submission, lost, sent, deleted, reconciled) = {
+        let journal = Journal::open(&path).map_err(|err| stand("журнал", &err))?;
+        let scope = journal.scope(&project);
+        let session = ReviewSession::new(
+            &cx.reviewer_login,
+            review.clone(),
+            snapshot.revision.clone(),
+        );
+        let id = scope
+            .create_session(&session)
+            .map_err(|err| stand("сессия", &err))?;
+        add_drafts(&scope, id, &snapshot.files, &DELETED_DRAFTS)
+            .map_err(|err| stand("черновики", &err))?;
+        let submission =
+            plan_gitlab(&scope, id, &GitLabPlan::default()).map_err(|err| stand("план", &err))?;
+        let sent =
+            run_gitlab(&scope, submission.id, &hook, &caps).map_err(|err| submit_verdict(&err))?;
+        let lost = sent
+            .items
+            .iter()
+            .find(|item| item.operation == Operation::GitLabPublishDraftNote)
+            .map(|item| item.id);
+        let fired = hook.transport().fired.borrow_mut().take();
+        let (deleted, reconciled) = match fired.map(|fired| fired.outcome) {
+            Some(Ok(draft)) => {
+                let deleted = cx.second.delete_draft(cell.number, &draft);
+                let reconciled = match &deleted {
+                    Ok(_) => reconcile_gitlab(&scope, submission.id, &reviewer)
+                        .map_err(|err| stand("сверка", &err))?,
+                    Err(_) => Vec::new(),
+                };
+                (Some(deleted), reconciled)
+            }
+            Some(Err(verdict)) => return Err(verdict),
+            None => (None, Vec::new()),
+        };
+        (submission.id, lost, sent, deleted, reconciled)
+    };
+    let calls = cx.trace.calls();
+    let window = calls.get(start..).unwrap_or_default();
+    let journal = Journal::open(&path).map_err(|err| stand("журнал после переоткрытия", &err))?;
+    let scope = journal.scope(&project);
+    let dump = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
+    let done = report(&scope, submission).map_err(|err| stand("итог отправки", &err))?;
+    let item = match lost {
+        Some(lost) => {
+            let item = scope.item(lost).map_err(|err| stand("элемент", &err))?;
+            Some((
+                item.state,
+                item.candidate
+                    .map(|candidate| candidate.as_str().to_owned()),
+            ))
+        }
+        None => None,
+    };
+    let (notes_after, drafts_after, after) = mr_state(&author, &reviewer)?;
+    let early = |verdict: Verdict, notes: Vec<String>| Observed {
+        notes,
+        before: before.clone(),
+        after: after.clone(),
+        journal: dump.clone(),
+        tier: caps.plan.clone(),
+        verdict: Some(verdict),
+        ..Observed::default()
+    };
+    let dropped = match deleted {
+        Some(Err(verdict)) => return Ok(early(verdict, notes)),
+        Some(Ok(draft)) => Some(draft),
+        // Инъекция не сработала: публикации не было, итог создания — по общему правилу.
+        None => {
+            if let Some(verdict) = delivery_verdict(&sent, window, ACTOR_REVIEWER) {
+                return Ok(early(verdict, notes));
+            }
+            None
+        }
+    };
+    if let [Reconciled::Unresolved { detail }] = &reconciled[..]
+        && detail.starts_with("чтение ")
+    {
+        return Ok(early(Verdict::Error(format!("сверка: {detail}")), notes));
+    }
+    if let Some(draft) = &dropped {
+        notes.push(format!(
+            "инъекция: публикация черновика {draft} не отправлена, клиенту отдан таймаут; \
+второй клиент удалил черновик, след — {SECOND_FILE}"
+        ));
+    }
+    let checks = deleted_checks(&DeletedFacts {
+        writes: &writes_of(window, ACTOR_REVIEWER),
+        dropped: dropped.as_deref(),
+        reconciled: &reconciled,
+        item,
+        delivery: done.delivery,
+        notes_after: &notes_after,
+        drafts_after: &drafts_after,
+        recovered: journal.recovered().len(),
     });
     Ok(Observed {
         checks,

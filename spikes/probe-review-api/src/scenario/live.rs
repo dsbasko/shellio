@@ -45,7 +45,9 @@ use super::Scenario;
 
 mod gl_cells;
 
-pub use gl_cells::{AuthorCommit, GlCx, HeadMover, Poll, ProcessClient, SECOND_FILE, SecondClient};
+pub use gl_cells::{
+    AuthorCommit, GlCx, HeadMover, Poll, ProcessClient, SECOND_FILE, SecondClient, SecondOp,
+};
 
 /// Причина `not_run` каждой клетки столбца `ghes`.
 pub const GHES_REASON: &str = "нет инсталляции GitHub Enterprise Server, передача P4.1";
@@ -663,10 +665,11 @@ fn gitlab_ce(scenario: Scenario, ctx: &Context, result: &mut ResultFile) {
     gl_cells::run_gl_cell(scenario, &cx, &ctx.out, &scrubber, result);
 }
 
-/// Процесс второго клиента ревьюера (`--second-client gl-create-draft`): черновик на новой строке
-/// `line` MR `iid`. Ответ — строка JSON для stdout (`id`, `not_run` или `error`, текст очищен) и
-/// признак ошибки исполнения; очищенный след и ответ — в `<out>/second-client.json`.
-pub fn second_client(column: Column, iid: u64, line: u32, out: &Path) -> (Value, bool) {
+/// Процесс второго клиента ревьюера (`--second-client gl-create-draft` или `gl-delete-draft`):
+/// черновик на новой строке MR `iid` или удаление черновика по ID. Ответ — строка JSON для stdout
+/// (`id` созданного или удалённого черновика, `not_run` или `error`, текст очищен) и признак
+/// ошибки исполнения; очищенный след и ответ — в `<out>/second-client.json`.
+pub fn second_client(column: Column, iid: u64, op: &SecondOp, out: &Path) -> (Value, bool) {
     let error = |text: String| (serde_json::json!({ "error": text }), false);
     if column != Column::GitlabCe {
         return error(format!(
@@ -695,8 +698,13 @@ pub fn second_client(column: Column, iid: u64, line: u32, out: &Path) -> (Value,
         repo: host.project.clone(),
         number: iid,
     };
-    let (reply, ok) = match gl_cells::foreign_draft(&guard, &review, &host.reviewer.username, line)
-    {
+    let done = match op {
+        SecondOp::CreateDraft { line } => {
+            gl_cells::foreign_draft(&guard, &review, &host.reviewer.username, *line)
+        }
+        SecondOp::DeleteDraft { draft } => gl_cells::foreign_delete(&guard, &review, draft),
+    };
+    let (reply, ok) = match done {
         Ok(id) => (serde_json::json!({ "id": id }), true),
         Err(Verdict::Error(err)) => (
             serde_json::json!({ "error": scrubber.scrub_text(&err) }),
