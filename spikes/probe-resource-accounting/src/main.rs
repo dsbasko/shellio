@@ -9,6 +9,11 @@
 //! - служебные режимы `run.sh`: `--params`, `--fingerprint`, `--status-set`, `--status-pending`,
 //!   `--record`.
 
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "атрибуцию берут сценарии задачи 6")
+)]
+mod attrib;
 mod background;
 mod proc;
 mod results;
