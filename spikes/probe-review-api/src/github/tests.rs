@@ -1405,3 +1405,93 @@ fn own_pending_is_resumed_from_recorded_ids_without_becoming_foreign() -> TestRe
     server.finish()?;
     Ok(())
 }
+
+/// Каждая запись адаптера, построенного от цели сторожа (как `github_adapter` живой клетки),
+/// проходит через `Guarded` без отказа: REST — под путём проверенного репозитория, GraphQL — на
+/// адрес цели.
+#[test]
+fn every_adapter_write_passes_the_write_guard() -> TestResult {
+    use crate::live::guard::{GuardTarget, Guarded, WriteScope};
+    let session = session_on(HEAD)?;
+    let drafts = drafts(&session)?;
+    let mut answer = rest_comment(720, 610, 2, "ответ");
+    answer["in_reply_to_id"] = json!(701);
+    let graphql = |data: Value| Reply::json(200, &json!({ "data": data }));
+    let scripted = Scripted::new()
+        .expect(Method::Get, REVIEWS_PAGE_1, empty_page())
+        .expect(
+            Method::Get,
+            "/repos/o/r",
+            Reply::json(
+                200,
+                &json!({"full_name": "o/r", "private": true, "default_branch": "main"}),
+            ),
+        )
+        .expect(
+            Method::Post,
+            REVIEWS,
+            Reply::json(200, &review(501, "bob", "COMMENTED", HEAD)),
+        )
+        .expect(
+            Method::Post,
+            REVIEWS,
+            Reply::json(200, &review(601, "bob", "PENDING", HEAD)),
+        )
+        .expect(
+            Method::Post,
+            "/graphql",
+            thread_reply("PRRT_1", "PRRC_1", 701, "added", "PRR_601"),
+        )
+        .expect(
+            Method::Post,
+            "/graphql",
+            update_reply("PRRC_1", 701, "added v2", "PRR_601"),
+        )
+        .expect(
+            Method::Post,
+            "/repos/o/r/pulls/7/reviews/601/events",
+            Reply::json(200, &review(601, "bob", "COMMENTED", HEAD)),
+        )
+        .expect(
+            Method::Post,
+            "/repos/o/r/pulls/7/comments/701/replies",
+            Reply::json(201, &answer),
+        )
+        .expect(
+            Method::Post,
+            "/graphql",
+            graphql(
+                json!({"resolveReviewThread": {"thread": {"id": "PRRT_1", "isResolved": true}}}),
+            ),
+        )
+        .expect(
+            Method::Post,
+            "/graphql",
+            graphql(json!({"markFileAsViewed": {"pullRequest": {"id": "PR_7"}}})),
+        );
+    let guard = Guarded::new(
+        &scripted,
+        GuardTarget::github(&Endpoints::single(API), "o/r"),
+        WriteScope::Listed(vec!["o/r".to_owned()]),
+    );
+    let github = GitHub::new(&guard, guard.target().github_endpoints(), &target())?;
+    let clear = github.check_no_pending(&caps())?;
+    github.create_review(&session, &clear, &drafts, ReviewEvent::Comment, "Итог")?;
+    let pending = github.start_pending(&session, &caps(), &clear)?;
+    let first = github.add_pending_comment(&session, &pending, &drafts[0])?;
+    github.update_pending_comment(&pending, &first, "added v2")?;
+    github.submit_pending(&pending, ReviewEvent::Comment, "Итог")?;
+    github.reply(&ProviderId::new("701"), "ответ")?;
+    github.set_thread_resolved(&ProviderId::new("PRRT_1"), true)?;
+    github.set_viewed(&caps(), &ProviderId::new("PR_7"), PATH, true)?;
+    assert!(guard.refusal().is_none(), "{:?}", guard.refusal());
+    assert!(
+        guard.refused_writes().is_empty(),
+        "{:?}",
+        guard.refused_writes()
+    );
+    let requests = scripted.finish()?;
+    let writes = requests.iter().filter(|r| r.method.is_write()).count();
+    assert_eq!(writes, 8, "все записи адаптера дошли до транспорта");
+    Ok(())
+}

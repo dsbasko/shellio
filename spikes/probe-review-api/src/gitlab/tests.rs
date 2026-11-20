@@ -1541,3 +1541,85 @@ fn request_changes_modes_on_forge_fake() -> TestResult {
     assert!(server.with(|fake| fake.notes(3)).is_empty());
     Ok(())
 }
+
+/// Каждая запись адаптера, построенного от цели сторожа (как `gitlab_adapter` живой клетки),
+/// проходит через `Guarded` без отказа: REST — под путём проверенного проекта, GraphQL — на
+/// адрес цели.
+#[test]
+fn every_adapter_write_passes_the_write_guard() -> TestResult {
+    use crate::live::guard::{GuardTarget, Guarded, WriteScope};
+    let session = session_on(HEAD)?;
+    let drafts = drafts(&session)?;
+    let expected = positions(HEAD);
+    let scripted = Scripted::new()
+        .expect(
+            Method::Get,
+            "/api/v4/projects/group%2Fsub%2Fproj",
+            Reply::json(
+                200,
+                &json!({"path_with_namespace": PROJECT, "visibility": "private",
+                        "default_branch": "main"}),
+            ),
+        )
+        .expect(
+            Method::Post,
+            format!("{MR}/draft_notes"),
+            draft_reply(201, 501, "added", Some(&expected[0])),
+        )
+        .expect(
+            Method::Put,
+            format!("{MR}/draft_notes/501"),
+            draft_reply(200, 501, "added", Some(&expected[0])),
+        )
+        .expect(
+            Method::Put,
+            format!("{MR}/draft_notes/501/publish"),
+            no_content(),
+        )
+        .expect(
+            Method::Delete,
+            format!("{MR}/draft_notes/502"),
+            no_content(),
+        )
+        .expect(
+            Method::Post,
+            format!("{MR}/notes"),
+            Reply::json(
+                201,
+                &json!({"id": 801, "body": "Итог", "author": {"username": "bob"}, "system": false}),
+            ),
+        )
+        .expect(
+            Method::Post,
+            format!("{MR}/approve"),
+            Reply::json(201, &approval(&["bob"], Some(true))),
+        )
+        .expect(Method::Post, GRAPHQL, rc_ok())
+        .expect(Method::Post, GRAPHQL, reviewers_reply("REQUESTED_CHANGES"));
+    let guard = Guarded::new(
+        &scripted,
+        GuardTarget::gitlab(&Endpoints::instance(ROOT), PROJECT),
+        WriteScope::Listed(vec![PROJECT.to_owned()]),
+    );
+    let gitlab = GitLab::new(&guard, guard.target().gitlab_endpoints(), &target())?;
+    let (known, _) = gitlab.create_draft(&session, &drafts[0], false)?;
+    gitlab.update_draft(&session, &known, &drafts[0])?;
+    gitlab.publish_draft(&known)?;
+    gitlab.delete_draft(&KnownDraft::recorded(ProviderId::new("502")))?;
+    gitlab.summary_note("Итог")?;
+    gitlab.approve(&session)?;
+    assert_eq!(
+        gitlab.request_changes(&caps())?,
+        ReviewerState::RequestedChanges
+    );
+    assert!(guard.refusal().is_none(), "{:?}", guard.refusal());
+    assert!(
+        guard.refused_writes().is_empty(),
+        "{:?}",
+        guard.refused_writes()
+    );
+    let requests = scripted.finish()?;
+    let writes = requests.iter().filter(|r| r.method.is_write()).count();
+    assert_eq!(writes, 8, "все записи адаптера дошли до транспорта");
+    Ok(())
+}
