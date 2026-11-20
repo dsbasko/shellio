@@ -431,11 +431,12 @@ pub fn reconcile_gitlab<T: Transport>(gitlab: &GitLab<T>, ledger: &GitLabLedger<
         },
         (Operation::GitLabRequestChanges, []) => match gitlab.reviewer_state(account) {
             Ok(Some(ReviewerState::RequestedChanges)) => Verdict::Confirmed { remote: None },
-            Ok(other) => Verdict::Refuted {
-                detail: format!(
-                    "состояние ревьюера {}",
-                    other.map_or("нет", ReviewerState::graphql)
-                ),
+            Ok(Some(other)) => Verdict::Refuted {
+                detail: format!("состояние ревьюера {}", other.graphql()),
+            },
+            // Ревьюера нет в списке или у него нет состояния: отсутствие не опровергает запись.
+            Ok(None) => Verdict::Unresolved {
+                detail: "токен не ревьюер MR или без состояния".to_owned(),
             },
             Err(err) => unread("ревьюеров", err),
         },

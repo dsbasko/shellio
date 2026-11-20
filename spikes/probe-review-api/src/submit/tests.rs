@@ -159,6 +159,71 @@ fn gitlab_publish_is_refuted_left_unresolved_or_candidate_but_never_confirmed() 
 }
 
 #[test]
+fn gitlab_request_changes_without_reviewer_is_unresolved_and_other_state_refuted() -> TestResult {
+    let mut fake = GitlabFake::new("g/p");
+    fake.add_user("bob", "tok-reviewer", Some(Access::Developer));
+    fake.add_user("alice", "tok-author", Some(Access::Developer));
+    fake.add_mr(3, "alice", BASE, HEAD, vec![FakeDiff::modified(PATH, DIFF)]);
+    let server = FakeServer::start(fake)?;
+    let target = ReviewTarget {
+        provider: Provider::GitLab,
+        host: "gitlab.test".to_owned(),
+        repo: "g/p".to_owned(),
+        number: 3,
+    };
+    let gitlab = GitLab::new(
+        HttpTransport::new(
+            HttpConfig::default(),
+            Some(Credential::private_token(Secret::new("tok-reviewer"))),
+        ),
+        gitlab::Endpoints::instance(server.base()),
+        &target,
+    )?;
+    let snapshot = gitlab.merge_request()?;
+    let session = ReviewSession::new("bob", target, snapshot.revision.clone());
+    let dir = tempfile::tempdir()?;
+    let journal = Journal::open(&dir.path().join("state.db"))?;
+    let project = ProjectId::new("p");
+    let scope = journal.scope(&project);
+    let session_id = scope.create_session(&session)?;
+    let submission =
+        scope.plan_submission(session_id, &[planned(Operation::GitLabRequestChanges, &[])])?;
+    let item = submission.items[0].id;
+    scope.begin(item)?;
+    scope.mark_unknown(item, "нет ответа")?;
+    let verdict = || -> Result<Verdict, Box<dyn std::error::Error>> {
+        let submission = scope.submission(submission.id)?;
+        let item = scope.item(item)?;
+        Ok(reconcile_gitlab(
+            &gitlab,
+            &GitLabLedger {
+                session: &session,
+                submission: &submission,
+                item: &item,
+                drafts: &[],
+                own_drafts: &[],
+                own_notes: &[],
+            },
+        ))
+    };
+    let absent = verdict()?;
+    assert!(
+        matches!(&absent, Verdict::Unresolved { .. }),
+        "токен не ревьюер: {absent:?}"
+    );
+    apply(&scope, item, &absent)?;
+    assert_eq!(scope.item(item)?.state, ItemState::Unknown);
+    assert!(!scope.submission(submission.id)?.closed);
+    server.with(|fake| fake.add_reviewer(3, "bob"))?;
+    let unreviewed = verdict()?;
+    assert!(
+        matches!(&unreviewed, Verdict::Refuted { detail } if detail.contains("UNREVIEWED")),
+        "{unreviewed:?}"
+    );
+    Ok(())
+}
+
+#[test]
 fn pending_id_alone_does_not_confirm_submit() -> TestResult {
     let mut fake = GithubFake::new("o", "r");
     fake.add_user("bob", "tok-reviewer", Permission::Write);

@@ -135,7 +135,7 @@ select_axis() {
 with_lock() {
     local started status=0
     mkdir -p "$(dirname "$LOCK")" || die "не создан каталог блокировки $(dirname "$LOCK")"
-    started="$(mktemp "${TMPDIR:-/tmp}/probe-review-lock.XXXXXX")"
+    started="$(mktemp "${TMPDIR:-/tmp}/probe-review-lock.XXXXXX")" || die "не создан маркер старта"
     /usr/bin/lockf -k -t "$LOCK_TIMEOUT" "$LOCK" \
         /bin/sh -c 'rm -f "$1" && shift && exec "$@"' sh "$started" "$@" || status=$?
     if [ -e "$started" ]; then
@@ -175,7 +175,7 @@ json_words() {
 
 # Уборка контейнеров прежних прогонов; итог — DOCKER_STATUS, DOCKER_REMOVED, DOCKER_DETAIL.
 docker_cleanup() {
-    local ids left
+    local ids left dir
     DOCKER_STATUS=not_observed
     DOCKER_REMOVED=0
     DOCKER_DETAIL=""
@@ -198,6 +198,12 @@ docker_cleanup() {
     left="$(deadline "$DOCKER_DEADLINE" "$DOCKER" ps -aq --filter "label=$DOCKER_LABEL")" ||
         die "docker ps не перечислил контейнеры после уборки"
     [ -z "$left" ] || die "после уборки остались контейнеры с меткой $DOCKER_LABEL: $(echo $left)"
+    # Тома GitLab CE прогона, оборванного без trap (SIGKILL): контейнеров с меткой уже нет, а
+    # каталог текущего прогона ещё не содержит gitlab-ce.
+    for dir in "$OUT_BASE"/*/gitlab-ce/volumes; do
+        [ -e "$dir" ] || continue
+        rm -rf "$dir" || die "тома прежнего прогона не удалены: $dir"
+    done
     DOCKER_STATUS=cleaned
 }
 
@@ -288,7 +294,8 @@ locked() {
     mkdir "$run_dir"
     docker_cleanup
     echo "уборка docker: $DOCKER_STATUS${DOCKER_DETAIL:+ ($DOCKER_DETAIL)}, удалено $DOCKER_REMOVED"
-    (cd "$ROOT" && "$CARGO" build --release -p "$PACKAGE" --locked --bin probe-review)
+    (cd "$ROOT" && "$CARGO" build --release -p "$PACKAGE" --locked --bin probe-review) ||
+        die "сборка probe-review не удалась"
     [ -x "$BIN" ] || die "нет бинаря $BIN"
     build="$(shasum -a 256 <"$BIN")" || die "shasum не прочитал $BIN"
     build="${build%% *}"
@@ -370,7 +377,7 @@ locked() {
 
 # Публичная цель: пары проверяются до блокировки и сборки, рецепт идёт внутренней командой.
 cmd_target() {
-    local target="$1" hosts_axis hosts column name scenario known="" pairs=""
+    local target="$1" hosts_axis hosts column name scenario known="" pairs="" status=0
     shift
     case "$target" in
         fake) hosts_axis="$FAKE_HOSTS" ;;
@@ -394,7 +401,16 @@ cmd_target() {
         done
     done
     [ -n "$pairs" ] || usage "пустое пересечение сценариев столбцов $hosts и SCENARIOS «$*»"
-    with_lock "$SELF" locked "$target" "$pairs"
+    # Код рецепта сводится к контракту 0/1/2: «не начат» (4) with_lock завершает сам.
+    with_lock "$SELF" locked "$target" "$pairs" || status=$?
+    case "$status" in
+        0 | "$EXIT_USAGE") exit "$status" ;;
+        "$EXIT_ERROR") exit "$EXIT_ERROR" ;;
+        *)
+            echo "run.sh: рецепт завершился кодом $status" >&2
+            exit "$EXIT_ERROR"
+            ;;
+    esac
 }
 
 case "${1:-}" in

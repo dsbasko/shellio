@@ -972,8 +972,13 @@ impl Scope<'_> {
         Ok(items)
     }
 
-    /// `planned → in_flight` с отметкой времени, зафиксированной до запроса.
+    /// `planned → in_flight` с отметкой времени, зафиксированной до запроса. Элемент закрытой
+    /// отправки не начинается: его черновики уже свободны для новой отправки.
     pub fn begin(&self, item: ItemId) -> Result<(), JournalError> {
+        let submission = self.item(item)?.submission;
+        if self.submission(submission)?.closed {
+            return Err(JournalError::Closed { submission });
+        }
         self.transition(item, ItemState::InFlight, None, None)
     }
 

@@ -753,6 +753,14 @@ fn held_draft_is_refused_by_plan_body_and_head_until_closed_or_reconciled() -> T
     scope.close_submission(submission.id)?;
     assert!(scope.submission(submission.id)?.closed);
     assert_eq!(scope.draft_hold(d2)?, None, "planned закрытой отправки");
+    assert!(matches!(
+        scope.begin(submission.items[1].id),
+        Err(JournalError::Closed { submission: id }) if id == submission.id
+    ));
+    assert_eq!(
+        scope.item(submission.items[1].id)?.state,
+        ItemState::Planned
+    );
     let held = Err::<(), _>(JournalError::DraftHeld {
         draft: d1,
         item: submission.items[0].id,
