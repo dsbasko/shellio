@@ -22,6 +22,17 @@ const DOCS: &str = "https://docs.github.com/rest";
 const PER_PAGE_DEFAULT: usize = 30;
 const PER_PAGE_MAX: usize = 100;
 const RATE_LIMIT: u64 = 5000;
+/// Ответ `GET /versions` (<https://docs.github.com/en/rest/meta/meta#get-all-api-versions>).
+const API_VERSIONS: [&str; 1] = ["2022-11-28"];
+/// Мутации, которые реализует сервер; introspection `__type(name: "Mutation")` перечисляет их.
+pub const MUTATIONS: [&str; 6] = [
+    "addPullRequestReviewThread",
+    "markFileAsViewed",
+    "resolveReviewThread",
+    "unmarkFileAsViewed",
+    "unresolveReviewThread",
+    "updatePullRequestReviewComment",
+];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Permission {
@@ -408,12 +419,15 @@ pub struct GithubFake {
     next_id: u64,
     clock: u64,
     remaining: u64,
+    /// Мутации, которых нет в схеме хоста: introspection их не показывает, вызов — `undefinedField`.
+    removed: BTreeSet<String>,
 }
 
 /// Маршрут REST.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Route {
     User,
+    Versions,
     Graphql,
     Repo,
     Pull(u64),
@@ -431,6 +445,7 @@ impl Route {
     fn template(self) -> &'static str {
         match self {
             Route::User => "/user",
+            Route::Versions => "/versions",
             Route::Graphql => "/graphql",
             Route::Repo => "/repos/{owner}/{repo}",
             Route::Pull(_) => "/repos/{owner}/{repo}/pulls/{number}",
@@ -478,7 +493,14 @@ impl GithubFake {
             next_id: 1000,
             clock: 0,
             remaining: RATE_LIMIT,
+            removed: BTreeSet::new(),
         }
+    }
+
+    /// Хост без мутации (старая редакция GHES): introspection её не показывает, вызов даёт
+    /// `undefinedField`.
+    pub fn remove_mutation(&mut self, name: &str) {
+        self.removed.insert(name.to_owned());
     }
 
     pub fn set_private(&mut self, private: bool) {
@@ -749,6 +771,7 @@ impl GithubFake {
         let number = |s: &str| s.parse::<u64>().ok();
         match segments[..] {
             ["user"] => Some(Route::User),
+            ["versions"] => Some(Route::Versions),
             ["graphql"] => Some(Route::Graphql),
             ["repos", owner, repo, ref rest @ ..] => {
                 if !owner.eq_ignore_ascii_case(&self.owner)
@@ -811,6 +834,7 @@ impl GithubFake {
                 "id": user.id,
                 "node_id": format!("U_fake{}", user.id),
             })),
+            (Route::Versions, Method::Get) => ok(json!(API_VERSIONS)),
             (Route::Graphql, Method::Post) => self.graphql(request, &user),
             (Route::Repo, Method::Get) => ok(self.repo_json(&user)),
             (Route::Pull(n), Method::Get) => self.with_pull(n, |pull| ok(pull_json(pull))),
@@ -1133,7 +1157,18 @@ impl GithubFake {
         let Some((kind, field)) = graphql_root(query) else {
             return gql_response(None, Some(gql_error("PARSE", "Parse error on query")));
         };
+        let removed = kind == GraphqlKind::Mutation && self.removed.contains(&field);
         let result = match (kind, field.as_str()) {
+            (GraphqlKind::Query, "__type") => Ok(self.introspect(&variables)),
+            (GraphqlKind::Mutation, _) if removed => {
+                return gql_response(
+                    None,
+                    Some(GqlError {
+                        kind: "undefinedField",
+                        message: format!("Field '{field}' doesn't exist on type 'Mutation'"),
+                    }),
+                );
+            }
             (GraphqlKind::Mutation, "markFileAsViewed") => self.gql_viewed(&variables, user, true),
             (GraphqlKind::Mutation, "unmarkFileAsViewed") => {
                 self.gql_viewed(&variables, user, false)
@@ -1169,6 +1204,19 @@ impl GithubFake {
             Ok(value) => gql_response(Some(json!({ field.clone(): value })), None),
             Err(err) => gql_response(Some(json!({ field: Value::Null })), Some(err)),
         }
+    }
+
+    /// `__type(name: $name)`: имя типа только из `variables`; известен лишь `Mutation`.
+    fn introspect(&self, variables: &Value) -> Value {
+        if variables.get("name").and_then(Value::as_str) != Some("Mutation") {
+            return Value::Null;
+        }
+        let fields: Vec<Value> = MUTATIONS
+            .iter()
+            .filter(|name| !self.removed.contains(**name))
+            .map(|name| json!({"name": name}))
+            .collect();
+        json!({"name": "Mutation", "fields": fields})
     }
 
     fn gql_viewed(

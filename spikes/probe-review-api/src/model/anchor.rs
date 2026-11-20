@@ -262,6 +262,26 @@ impl GitHubAnchor {
     pub fn commit_id(&self) -> &Sha {
         &self.commit_id
     }
+
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    pub fn line(&self) -> u32 {
+        self.line
+    }
+
+    pub fn side(&self) -> &'static str {
+        self.side
+    }
+
+    pub fn start_line(&self) -> Option<u32> {
+        self.start_line
+    }
+
+    pub fn start_side(&self) -> Option<&'static str> {
+        self.start_side
+    }
 }
 
 /// Позиция GitLab (`position` в Discussions и Draft Notes API). У добавленной строки только

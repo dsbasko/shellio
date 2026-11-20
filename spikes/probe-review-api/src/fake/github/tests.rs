@@ -589,6 +589,58 @@ fn graphql_unknown_field_and_missing_input_are_errors_with_http_200() {
     assert_eq!(server.count("graphql bulkSubmit"), 1);
 }
 
+const INTROSPECT: &str = "query($name: String!) { __type(name: $name) { fields { name } } }";
+
+fn mutation_names(value: &Value) -> Vec<String> {
+    value["data"]["__type"]["fields"]
+        .as_array()
+        .expect("fields")
+        .iter()
+        .map(|field| field["name"].as_str().expect("name").to_owned())
+        .collect()
+}
+
+#[test]
+fn versions_and_mutation_introspection() {
+    let server = fake();
+    let reviewer = Client::new(&server, "tok-reviewer");
+    assert_eq!(reviewer.get("/versions"), (200, json!(["2022-11-28"])));
+    let schema = reviewer.graphql(INTROSPECT, json!({"name": "Mutation"}));
+    assert_eq!(mutation_names(&schema), MUTATIONS.to_vec());
+    let other = reviewer.graphql(INTROSPECT, json!({"name": "Query"}));
+    assert_eq!(other["data"]["__type"], Value::Null);
+    assert_eq!(server.count("GET /versions"), 1);
+    assert_eq!(server.count("graphql __type"), 2);
+}
+
+#[test]
+fn removed_mutation_is_absent_from_schema_and_undefined() {
+    let server = fake();
+    server.with(|github| github.remove_mutation("addPullRequestReviewThread"));
+    let reviewer = Client::new(&server, "tok-reviewer");
+    let schema = reviewer.graphql(INTROSPECT, json!({"name": "Mutation"}));
+    let names = mutation_names(&schema);
+    assert!(
+        !names
+            .iter()
+            .any(|name| name == "addPullRequestReviewThread")
+    );
+    assert_eq!(names.len(), MUTATIONS.len() - 1);
+    let (_, review) = reviewer.post(REVIEWS, json!({}));
+    let call = reviewer.graphql(
+        ADD_THREAD,
+        json!({"input": {
+            "pullRequestReviewId": review["node_id"],
+            "path": "src/a.rs",
+            "line": 2,
+            "body": "x",
+        }}),
+    );
+    assert_eq!(call["errors"][0]["type"], "undefinedField");
+    assert!(call.get("data").is_none());
+    assert!(server.with(|github| github.comments(PULL)).is_empty());
+}
+
 #[test]
 fn applied_write_with_lost_response_times_out_and_keeps_state() {
     let server = fake();

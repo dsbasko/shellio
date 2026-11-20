@@ -6,6 +6,7 @@
 //! `spikes/probe-update-lifecycle/src/results.rs` и переделана под матрицу «строка × столбец».
 
 pub mod fake;
+pub mod github;
 pub mod journal;
 pub mod model;
 pub mod results;

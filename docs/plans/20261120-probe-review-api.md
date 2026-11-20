@@ -384,15 +384,26 @@ cd ../shellio-p08 && base=$(cat ../shellio-p07-p08.base) && ralphex docs/plans/2
 **Files:**
 - Create: `spikes/probe-review-api/src/github/mod.rs`
 - Create: `spikes/probe-review-api/src/github/capabilities.rs`
+- ➕ Create: `spikes/probe-review-api/src/github/tests.rs`
+- ➕ Modify: `spikes/probe-review-api/src/lib.rs`, `spikes/probe-review-api/src/model/anchor.rs` (поля `GitHubAnchor` для запроса), `spikes/probe-review-api/src/fake/github.rs` и `src/fake/github/tests.rs` (`GET /versions`, introspection, `remove_mutation`), `docs/probes/p0.7-review-api.md` (раздел «Адаптер GitHub»)
 
-- [ ] определение возможностей чтением, запись версии API
-- [ ] ветвь «только локальные черновики»: один Create review с `comments[]` и итоговым `event`
-- [ ] ветвь «серверный `PENDING`»: создание, комментарии с сохранением ID, Submit именно этого review без `comments[]`
-- [ ] существующий `PENDING`: чтение полного состава, отказ перезаписи, явное принятие; выборочная отправка части `PENDING` не обещается
-- [ ] `markFileAsViewed` и обратное действие
-- [ ] тесты обеих ветвей против встроенного транспорта (точный набор запросов и тел)
-- [ ] тесты существующего `PENDING`, отказа и ошибок ответа
-- [ ] рубеж: `make check` под замерной блокировкой
+⚠️ Решения исполнителя вне правил плана:
+- адаптер журнал не трогает: каждая запись — один запрос, итог для журнала задаёт `ApiError::write_fate` — «не принята» (запрос не ушёл, 4xx, явный отказ по лимиту, ошибка GraphQL известного типа, отказ до запроса) или «неизвестен» (отказ транспорта после отправки, 5xx, ошибка GraphQL без известного типа, успешный ответ без ожидаемых полей или с другим состоянием, commit или ID);
+- ревизия GitHub: тройки SHA у PR нет, `base.sha` идёт в `base_sha` и `start_sha`, `head.sha` — в `head_sha`, из одного ответа; снимок читает PR до и после списка файлов, смена — `HeadMoved`;
+- `commit_id` ревизии сессии — на уровне review в Create обеих ветвей, в `comments[]` его нет (`GitHubAnchor` получил поля для сборки запроса); GraphQL-тред наследует commit review, поэтому `PENDING` на другом commit комментарий не принимает;
+- обе ветви до записи ищут `PENDING` аккаунта и читают его состав по всем страницам; найденный — ошибка `PendingExists` без записи, в работу — только через `ExistingPending::adopt`; изменять можно только комментарии, добавленные адаптером; страницы (`per_page=100&page=N`) строит адаптер, `Link` — только признак следующей: транспорт подставляет токен в любой адрес;
+- версия API — запрошенная `X-GitHub-Api-Version: 2022-11-28` и список `GET /versions` (404 — `None`); заголовок выбранной версии в ответе документация не описывает, он не читается; `forge-fake` дополнен `GET /versions`, introspection `__type(name: "Mutation")` и `remove_mutation` для клетки `absent`;
+- ➕ ответ в треде (REST `…/replies`) и resolve (GraphQL) — отдельными вызовами адаптера для строки `gh-anchors`: задача 10 файлов адаптера не меняет; черновик-ответ ни в Create review, ни в `PENDING` не входит и отвергается до запросов;
+- ➕ сквозные тесты адаптера против `forge-fake` по loopback (обе ветви, принятый чужой `PENDING`, просмотренные файлы, отсутствующая мутация).
+
+- [x] определение возможностей чтением, запись версии API
+- [x] ветвь «только локальные черновики»: один Create review с `comments[]` и итоговым `event`
+- [x] ветвь «серверный `PENDING`»: создание, комментарии с сохранением ID, Submit именно этого review без `comments[]`
+- [x] существующий `PENDING`: чтение полного состава, отказ перезаписи, явное принятие; выборочная отправка части `PENDING` не обещается
+- [x] `markFileAsViewed` и обратное действие
+- [x] тесты обеих ветвей против встроенного транспорта (точный набор запросов и тел)
+- [x] тесты существующего `PENDING`, отказа и ошибок ответа
+- [x] рубеж: `make check` под замерной блокировкой
 
 ### Task 8: Адаптер GitLab
 
