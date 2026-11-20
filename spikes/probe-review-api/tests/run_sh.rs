@@ -71,9 +71,12 @@ fn empty_host_intersection_is_refused_before_lock() -> TestResult {
 }
 
 #[test]
-fn live_without_scenarios_is_refused_before_lock() -> TestResult {
+fn live_pairs_without_live_scenario_are_refused_before_lock() -> TestResult {
     let cache = tempdir()?;
-    let output = run(cache.path(), &[], &["live"])?;
+    let output = run(cache.path(), &[], &["live", "smoke"])?;
+    assert_eq!(code(&output), Some(EXIT_USAGE), "{}", stderr(&output));
+    assert!(stderr(&output).contains("пустое пересечение"));
+    let output = run(cache.path(), &[("HOSTS", "ghes")], &["live"])?;
     assert_eq!(code(&output), Some(EXIT_USAGE), "{}", stderr(&output));
     assert!(stderr(&output).contains("пустое пересечение"));
     assert!(!cache.path().join("measure.lock").exists());
@@ -181,7 +184,8 @@ fn busy_lock_gives_not_started_without_running_the_command() -> TestResult {
     Ok(())
 }
 
-/// Списки сценариев `run.sh` совпадают с каталогом бинаря: `run.sh` проверяет оси до сборки.
+/// Списки сценариев `run.sh` по столбцам совпадают с каталогом бинаря: `run.sh` строит пары до
+/// сборки.
 #[test]
 fn run_sh_axes_match_scenario_catalog() -> TestResult {
     let text = std::fs::read_to_string(script()).map_err(|e| e.to_string())?;
@@ -191,40 +195,38 @@ fn run_sh_axes_match_scenario_catalog() -> TestResult {
             .lines()
             .find(|l| l.starts_with(&prefix))
             .ok_or_else(|| format!("в run.sh нет {name}"))?;
-        Ok(line[prefix.len()..]
+        let mut names: Vec<String> = line[prefix.len()..]
             .trim_end_matches('"')
             .split_whitespace()
             .map(str::to_owned)
-            .collect())
-    };
-    let scenarios_of = |columns: &[Column]| -> Vec<String> {
-        let mut names: Vec<String> = columns
-            .iter()
-            .flat_map(|c| known_pairs(Some(*c)))
-            .map(|p| p.scenario)
             .collect();
         names.sort();
-        names.dedup();
-        names
+        Ok(names)
     };
-    let sorted = |mut v: Vec<String>| {
-        v.sort();
-        v
-    };
-    assert_eq!(sorted(value("FAKE_HOSTS")?), vec!["fake".to_owned()]);
-    assert_eq!(
-        sorted(value("FAKE_SCENARIOS")?),
-        scenarios_of(&[Column::Fake])
-    );
-    let live = [
+    assert_eq!(value("FAKE_HOSTS")?, vec!["fake".to_owned()]);
+    let mut live: Vec<String> = [
         Column::GithubCloud,
         Column::GitlabCloud,
         Column::GitlabCe,
         Column::Ghes,
-    ];
-    let mut live_names: Vec<String> = live.iter().map(|c| c.name().to_owned()).collect();
-    live_names.sort();
-    assert_eq!(sorted(value("LIVE_HOSTS")?), live_names);
-    assert_eq!(sorted(value("LIVE_SCENARIOS")?), scenarios_of(&live));
+    ]
+    .iter()
+    .map(|c| c.name().to_owned())
+    .collect();
+    live.sort();
+    assert_eq!(value("LIVE_HOSTS")?, live);
+    for column in Column::ALL {
+        let mut known: Vec<String> = known_pairs(Some(column))
+            .into_iter()
+            .map(|p| p.scenario)
+            .collect();
+        known.sort();
+        assert_eq!(
+            value(&format!("SCENARIOS_{}", column.name()))?,
+            known,
+            "сценарии столбца {}",
+            column.name()
+        );
+    }
     Ok(())
 }

@@ -2,6 +2,7 @@
 //! процесс сценария идёт в одном столбце и пишет один `result.json`.
 
 pub mod fake;
+pub mod live;
 
 use std::fs;
 use std::path::PathBuf;
@@ -121,8 +122,8 @@ impl Scenario {
             | Scenario::ReconcileForeign
             | Scenario::ReconcileDeleted
             | Scenario::ReconcilePaged
-            | Scenario::Partial
-            | Scenario::Capabilities => &[Column::Fake],
+            | Scenario::Partial => &[Column::Fake],
+            Scenario::Capabilities => &[Column::Fake, Column::GitlabCe],
         }
     }
 
@@ -174,11 +175,7 @@ impl Scenario {
             | Scenario::Capabilities => match ctx.column {
                 Column::Fake => fake::run(self, &ctx.state_dir, result),
                 Column::GithubCloud | Column::GitlabCloud | Column::GitlabCe | Column::Ghes => {
-                    result.execution = Execution::error(format!(
-                        "сценарий {} в столбце {} не реализован",
-                        self.name(),
-                        ctx.column.name()
-                    ));
+                    live::run(self, ctx, result)
                 }
             },
         }

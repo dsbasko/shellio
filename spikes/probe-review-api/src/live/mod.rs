@@ -7,6 +7,7 @@ pub mod gitlab;
 pub mod guard;
 pub mod keychain;
 pub mod lifecycle;
+pub mod provision;
 pub mod repo;
 pub mod sandbox;
 

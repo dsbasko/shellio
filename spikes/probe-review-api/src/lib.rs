@@ -27,6 +27,9 @@ use scenario::{Context, Scenario};
 /// повреждённый результат, ошибка агрегатора. `fail`, `absent` и `not_run` ею не считаются.
 pub const EXIT_EXECUTION: u8 = 3;
 pub const EXIT_USAGE: u8 = 2;
+/// Настройка GitLab CE: хост отказал в password grant, `run.sh` создаёт токен root через
+/// `gitlab-rails runner` и повторяет настройку.
+pub const EXIT_ROOT_TOKEN: u8 = 5;
 
 pub const ENV_SERIES: &str = "PROBE_REVIEW_SERIES";
 pub const ENV_BUILD: &str = "PROBE_REVIEW_BUILD";
@@ -35,7 +38,9 @@ pub const ENV_STATE_DIR: &str = "SHELLIO_STATE_DIR";
 pub const USAGE: &str = "использование:
   probe-review --scenario <сценарий> --column <столбец> --out <каталог процесса>
   probe-review --aggregate --pairs \"<столбец>:<сценарий> …\" [--out <каталог>] <каталог прогона>…
-  probe-review --list [<столбец>]";
+  probe-review --list [<столбец>]
+  probe-review --gitlab-ce-image
+  probe-review --gitlab-ce-provision --url http://127.0.0.1:<порт> --out <каталог подъёма>";
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Mode {
@@ -52,6 +57,13 @@ pub enum Mode {
     List {
         column: Option<Column>,
     },
+    /// Ссылка на закреплённый образ GitLab CE для `gitlab/up.sh`.
+    GitlabCeImage,
+    /// Настройка поднятого GitLab CE (`live::provision`).
+    GitlabCeProvision {
+        url: String,
+        out: PathBuf,
+    },
 }
 
 pub fn parse_args(args: &[String]) -> Result<Mode, String> {
@@ -61,7 +73,7 @@ pub fn parse_args(args: &[String]) -> Result<Mode, String> {
     let mut positional: Vec<&str> = Vec::new();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
-            "--column" | "--out" | "--pairs" => {
+            "--column" | "--out" | "--pairs" | "--url" => {
                 let value = iter.next().ok_or_else(|| format!("у {arg} нет значения"))?;
                 options.push((arg.as_str(), value.as_str()));
             }
@@ -123,6 +135,20 @@ pub fn parse_args(args: &[String]) -> Result<Mode, String> {
             };
             Ok(Mode::List { column })
         }
+        "--gitlab-ce-image" => {
+            if !positional.is_empty() || !options.is_empty() {
+                return Err("--gitlab-ce-image без аргументов".to_owned());
+            }
+            Ok(Mode::GitlabCeImage)
+        }
+        "--gitlab-ce-provision" => {
+            if !positional.is_empty() {
+                return Err("--gitlab-ce-provision без позиционных аргументов".to_owned());
+            }
+            let url = option("--url").ok_or("не задан --url")?.to_owned();
+            let out = PathBuf::from(option("--out").ok_or("не задан --out")?);
+            Ok(Mode::GitlabCeProvision { url, out })
+        }
         other => Err(format!("неизвестный режим {other}")),
     }
 }
@@ -168,6 +194,56 @@ pub fn main() -> ExitCode {
         Mode::Aggregate { pairs, out, dirs } => {
             let out = out.unwrap_or_else(|| dirs[0].clone());
             run_aggregate(&pairs, &dirs, &out)
+        }
+        Mode::GitlabCeImage => match live::provision::Pin::embedded() {
+            Ok(pin) => {
+                println!("{}", pin.reference());
+                ExitCode::SUCCESS
+            }
+            Err(err) => {
+                eprintln!("probe-review: {err}");
+                ExitCode::from(EXIT_EXECUTION)
+            }
+        },
+        Mode::GitlabCeProvision { url, out } => run_gitlab_ce_provision(&url, &out),
+    }
+}
+
+/// Настройка GitLab CE: описание хоста — в `<out>/gitlab-ce.json`, токены ролей — одной строкой
+/// JSON в stdout. Токены не попадают ни в stderr, ни в файлы.
+fn run_gitlab_ce_provision(url: &str, out: &Path) -> ExitCode {
+    use live::provision::{self, Pin, ProvisionError, RootAuth};
+    use transport::http::{HttpConfig, HttpTransport};
+
+    let prepared = Pin::embedded().and_then(|pin| RootAuth::from_env().map(|auth| (pin, auth)));
+    let (pin, auth) = match prepared {
+        Ok(prepared) => prepared,
+        Err(err) => {
+            eprintln!("probe-review: настройка GitLab CE: {err}");
+            return ExitCode::from(EXIT_EXECUTION);
+        }
+    };
+    let connect = |credential| HttpTransport::new(HttpConfig::default(), credential);
+    match provision::provision(url, &pin, auth, connect) {
+        Ok((host, tokens)) => {
+            if let Err(err) = results::write_json(out, provision::HOST_FILE, &host) {
+                eprintln!("probe-review: настройка GitLab CE: {err}");
+                return ExitCode::from(EXIT_EXECUTION);
+            }
+            println!("{}", tokens.to_json());
+            eprintln!(
+                "probe-review: GitLab CE {} настроен: проект {}, токен root — {}",
+                host.version, host.project, host.root_token
+            );
+            ExitCode::SUCCESS
+        }
+        Err(ProvisionError::GrantRefused(detail)) => {
+            eprintln!("probe-review: настройка GitLab CE: password grant отклонён: {detail}");
+            ExitCode::from(EXIT_ROOT_TOKEN)
+        }
+        Err(err) => {
+            eprintln!("probe-review: настройка GitLab CE: {err}");
+            ExitCode::from(EXIT_EXECUTION)
         }
     }
 }
@@ -313,6 +389,30 @@ mod tests {
             ]))
             .is_ok()
         );
+    }
+
+    #[test]
+    fn parses_gitlab_ce_modes() {
+        assert_eq!(
+            parse_args(&args(&["--gitlab-ce-image"])),
+            Ok(Mode::GitlabCeImage)
+        );
+        assert!(parse_args(&args(&["--gitlab-ce-image", "x"])).is_err());
+        assert_eq!(
+            parse_args(&args(&[
+                "--gitlab-ce-provision",
+                "--url",
+                "http://127.0.0.1:1",
+                "--out",
+                "/tmp/ce"
+            ])),
+            Ok(Mode::GitlabCeProvision {
+                url: "http://127.0.0.1:1".to_owned(),
+                out: PathBuf::from("/tmp/ce"),
+            })
+        );
+        assert!(parse_args(&args(&["--gitlab-ce-provision", "--out", "/tmp/ce"])).is_err());
+        assert!(parse_args(&args(&["--gitlab-ce-provision", "--url", "u"])).is_err());
     }
 
     #[test]
