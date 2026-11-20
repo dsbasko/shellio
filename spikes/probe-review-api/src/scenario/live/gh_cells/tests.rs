@@ -38,6 +38,13 @@ const FIXTURE_DIFF: &str = "@@ -1,8 +1,7 @@\n line 01\n line 02\n-line 03\n line
 +line 24a\n+line 24b\n line 25\n line 26\n line 27\n";
 
 fn fake_github(files: bool) -> Result<FakeServer<GithubFake>, String> {
+    fake_github_with(files, |_| {})
+}
+
+fn fake_github_with(
+    files: bool,
+    edit: impl FnOnce(&mut GithubFake),
+) -> Result<FakeServer<GithubFake>, String> {
     let mut fake = GithubFake::new(OWNER, NAME);
     fake.add_user(FAKE_AUTHOR, AUTHOR_TOKEN, Permission::Write);
     fake.add_user(FAKE_REVIEWER, REVIEWER_TOKEN, Permission::Write);
@@ -54,6 +61,7 @@ fn fake_github(files: bool) -> Result<FakeServer<GithubFake>, String> {
             },
         },
     );
+    edit(&mut fake);
     FakeServer::start(fake)
 }
 
@@ -103,6 +111,7 @@ fn cell_body(
     };
     let observed = match scenario {
         Scenario::GhLocalCreate => gh_local_create(&cx, &mut cell),
+        Scenario::GhViewed => gh_viewed(&cx, &mut cell),
         other => return Err(format!("тело {} в тесте не собрано", other.name()).into()),
     };
     let errors = guard_errors(&[("author", &author), ("reviewer", &reviewer)]);
@@ -236,14 +245,207 @@ fn write_keys_hide_ids_and_name_mutations() {
 #[test]
 fn only_rows_with_a_body_open_a_live_cell() {
     assert!(implemented(Scenario::GhLocalCreate));
+    assert!(implemented(Scenario::GhViewed));
     for scenario in [
         Scenario::GhPendingCycle,
         Scenario::GhPendingForeign,
         Scenario::GhAnchors,
-        Scenario::GhViewed,
         Scenario::ReconcileForeign,
         Scenario::Capabilities,
     ] {
         assert!(!implemented(scenario), "{}", scenario.name());
     }
+}
+
+/// Ключи мутаций просмотра в журнале `forge-fake`.
+const FAKE_MARK: &str = "graphql markFileAsViewed";
+const FAKE_UNMARK: &str = "graphql unmarkFileAsViewed";
+
+#[test]
+fn viewed_body_passes_against_the_fake() -> TestResult {
+    let server = fake_github(true)?;
+    let observed =
+        cell_body(&server, Scenario::GhViewed)?.map_err(|verdict| format!("{verdict:?}"))?;
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(
+        status,
+        Status::Pass,
+        "{reason}: {:?}",
+        observed.checks.to_json()
+    );
+    assert_eq!(observed.verdict, None);
+    for (what, value) in [
+        ("до", &observed.before),
+        ("после", &observed.after),
+        ("журнал", &observed.journal),
+    ] {
+        assert!(!value.is_null(), "{what}");
+    }
+    assert_eq!(observed.before["reviewer"]["viewerViewedState"], "UNVIEWED");
+    assert_eq!(observed.after["reviewer"]["after_mark"], "VIEWED");
+    assert_eq!(observed.after["reviewer"]["after_unmark"], "UNVIEWED");
+    assert!(
+        server
+            .with(|fake| fake.viewed(NUMBER, FAKE_REVIEWER))
+            .is_empty()
+    );
+    let notes = observed.notes.join("\n");
+    assert!(
+        notes.contains("автора после отметки: \"UNVIEWED\""),
+        "{notes}"
+    );
+    assert!(server.with(|fake| fake.reviews(NUMBER)).is_empty());
+    Ok(())
+}
+
+#[test]
+fn rate_limited_mark_is_not_run_against_the_fake() -> TestResult {
+    let server = fake_github(true)?;
+    server.inject(Fault::new(FAKE_MARK, FakeReply::Status(429)));
+    let verdict = cell_body(&server, Scenario::GhViewed)?
+        .err()
+        .ok_or("ожидался итог без проверок")?;
+    assert_eq!(
+        verdict,
+        Verdict::NotRun(format!("лимит: код 429 на запись {GH_MARK}"))
+    );
+    assert!(
+        server
+            .with(|fake| fake.viewed(NUMBER, FAKE_REVIEWER))
+            .is_empty()
+    );
+    Ok(())
+}
+
+#[test]
+fn unmark_lost_on_the_server_is_not_run_and_refused_unmark_fails() -> TestResult {
+    let server = fake_github(true)?;
+    server.inject(Fault::new(FAKE_UNMARK, FakeReply::Status(502)));
+    let verdict = cell_body(&server, Scenario::GhViewed)?
+        .err()
+        .ok_or("ожидался итог без проверок")?;
+    match verdict {
+        Verdict::NotRun(reason) => assert!(reason.starts_with(WRITE_UNOBSERVED), "{reason}"),
+        other => return Err(format!("{other:?}").into()),
+    }
+    let server = fake_github(true)?;
+    server.inject(Fault::new(FAKE_UNMARK, FakeReply::Status(403)));
+    let observed =
+        cell_body(&server, Scenario::GhViewed)?.map_err(|verdict| format!("{verdict:?}"))?;
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(status, Status::Fail, "{reason}");
+    assert!(reason.contains("unmarkFileAsViewed"), "{reason}");
+    assert_eq!(
+        server
+            .with(|fake| fake.viewed(NUMBER, FAKE_REVIEWER))
+            .get(PATH)
+            .copied(),
+        Some(ghf::Viewed::Viewed)
+    );
+    Ok(())
+}
+
+#[test]
+fn viewed_without_mutations_is_absent_without_writes() -> TestResult {
+    let server = fake_github_with(true, |fake| {
+        fake.remove_mutation("markFileAsViewed");
+        fake.remove_mutation("unmarkFileAsViewed");
+    })?;
+    let observed =
+        cell_body(&server, Scenario::GhViewed)?.map_err(|verdict| format!("{verdict:?}"))?;
+    match &observed.verdict {
+        Some(Verdict::Absent(reason)) => assert!(reason.contains("markFileAsViewed"), "{reason}"),
+        other => return Err(format!("{other:?}").into()),
+    }
+    assert!(!observed.journal.is_null() && !observed.before.is_null());
+    assert!(
+        crate::scenario::fake::writes(&server.log()).is_empty(),
+        "{:?}",
+        crate::scenario::fake::writes(&server.log())
+    );
+    Ok(())
+}
+
+#[test]
+fn viewed_oracle_catches_a_mark_that_did_not_stick() {
+    let writes = vec![
+        (
+            GH_MARK.to_owned(),
+            json!({"variables": {"input": {"pullRequestId": "PR_1", "path": PATH}}}),
+            Some(200),
+        ),
+        (
+            GH_UNMARK.to_owned(),
+            json!({"variables": {"input": {"pullRequestId": "PR_1", "path": PATH}}}),
+            Some(200),
+        ),
+    ];
+    let facts = |after_mark, after_unmark, pull_node| ViewedFacts {
+        pull_node,
+        path: PATH,
+        writes: &writes,
+        after_mark,
+        after_unmark,
+        sessions: 1,
+        submissions: 0,
+    };
+    let pass = viewed_checks(&facts(
+        Some(ViewedState::Viewed),
+        Some(ViewedState::Unviewed),
+        "PR_1",
+    ));
+    assert_eq!(pass.verdict().0, Status::Pass);
+    let (status, reason) = viewed_checks(&facts(
+        Some(ViewedState::Viewed),
+        Some(ViewedState::Viewed),
+        "PR_1",
+    ))
+    .verdict();
+    assert_eq!(status, Status::Fail);
+    assert!(reason.contains("unmarkFileAsViewed"), "{reason}");
+    let (status, reason) = viewed_checks(&facts(
+        Some(ViewedState::Unviewed),
+        Some(ViewedState::Unviewed),
+        "PR_1",
+    ))
+    .verdict();
+    assert_eq!(status, Status::Fail);
+    assert!(reason.contains("после markFileAsViewed"), "{reason}");
+    let (status, reason) = viewed_checks(&facts(
+        Some(ViewedState::Viewed),
+        Some(ViewedState::Unviewed),
+        "PR_2",
+    ))
+    .verdict();
+    assert_eq!(status, Status::Fail);
+    assert!(reason.contains("вход"), "{reason}");
+}
+
+#[test]
+fn write_verdicts_split_limit_unsent_unknown_and_refusal() {
+    let limit = ApiError::RateLimited {
+        status: 403,
+        detail: "secondary rate limit".to_owned(),
+    };
+    assert_eq!(
+        gh_write_verdict(GH_MARK, &limit),
+        Some(Verdict::NotRun(format!(
+            "лимит: код 403 на запись {GH_MARK}"
+        )))
+    );
+    let refused = ApiError::Status {
+        status: 403,
+        message: "Resource not accessible".to_owned(),
+        errors: Vec::new(),
+    };
+    assert_eq!(gh_write_verdict(GH_MARK, &refused), None);
+    let unknown = ApiError::Status {
+        status: 502,
+        message: "bad gateway".to_owned(),
+        errors: Vec::new(),
+    };
+    assert!(matches!(
+        gh_write_verdict(GH_MARK, &unknown),
+        Some(Verdict::NotRun(reason)) if reason.starts_with(WRITE_UNOBSERVED)
+    ));
 }

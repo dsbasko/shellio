@@ -16,7 +16,7 @@ use super::gl_cells::{LiveRoles, Observed, Poll, WRITE_UNOBSERVED, run_live_cell
 use crate::fake::{GraphqlKind, graphql_root};
 use crate::github::{
     ApiError, Capabilities, GitHub, PullSnapshot, RemoteComment, RemoteReview, ReviewEvent,
-    is_rate_limited,
+    ViewedState, is_rate_limited,
 };
 use crate::journal::{ItemState, Journal, Operation, ProjectId};
 use crate::live::guard::Guarded;
@@ -75,7 +75,7 @@ impl<T: Transport> GhCx<'_, T> {
 /// Строки GitHub, у которых есть тело живой клетки. Остальные до открытия ветки и PR дают ошибку
 /// «не реализован»: клетка без тела не пишет в песочницу.
 pub fn implemented(scenario: Scenario) -> bool {
-    matches!(scenario, Scenario::GhLocalCreate)
+    matches!(scenario, Scenario::GhLocalCreate | Scenario::GhViewed)
 }
 
 /// Клетка строки GitHub: ветки и PR от автора, тело сценария, уборка в любом случае, итог.
@@ -99,6 +99,7 @@ pub fn run_gh_cell<T: Transport>(
         result,
         |cell| match scenario {
             Scenario::GhLocalCreate => gh_local_create(cx, cell),
+            Scenario::GhViewed => gh_viewed(cx, cell),
             other => Err(Verdict::Error(format!(
                 "сценарий {} в живом столбце GitHub не реализован",
                 other.name()
@@ -600,6 +601,253 @@ fn gh_local_create<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<Ob
         before,
         after,
         journal: Value::Object(journals),
+        tier: caps.plan,
+        verdict: None,
+    })
+}
+
+/// Ключи записей `gh-viewed`.
+pub const GH_MARK: &str = "graphql markFileAsViewed";
+pub const GH_UNMARK: &str = "graphql unmarkFileAsViewed";
+
+/// Отказ записи клетки, который проверки не судят: лимит — `not_run` «лимит», не ушедший запрос —
+/// ошибка исполнения, итог неизвестен — [`WRITE_UNOBSERVED`]. Явный отказ хоста — `None`, его
+/// судят проверки.
+pub fn gh_write_verdict(key: &str, err: &ApiError) -> Option<Verdict> {
+    match err {
+        ApiError::RateLimited { status, .. } => Some(Verdict::NotRun(format!(
+            "лимит: код {status} на запись {key}"
+        ))),
+        ApiError::NotSent(_) => Some(Verdict::Error(format!("запись {key} не ушла: {err}"))),
+        _ if err.write_fate() == crate::github::WriteFate::Unknown => {
+            Some(Verdict::NotRun(format!("{WRITE_UNOBSERVED}: {key}: {err}")))
+        }
+        _ => None,
+    }
+}
+
+/// Состояние просмотра файла `path` по чтению роли.
+fn viewed_state<T: Transport>(
+    github: &GitHub<T>,
+    pull: &crate::model::ProviderId,
+    path: &str,
+    who: &str,
+) -> Result<Option<ViewedState>, Verdict> {
+    github
+        .viewed_files(pull)
+        .map(|files| {
+            files
+                .into_iter()
+                .find(|(file, _)| file == path)
+                .map(|(_, state)| state)
+        })
+        .map_err(|err| gh_read_or_fail(&format!("просмотр файлов: {who}"), &err))
+}
+
+fn viewed_name(state: Option<ViewedState>) -> Value {
+    json!(state.map(|state| format!("{state:?}").to_ascii_uppercase()))
+}
+
+/// Факты `gh-viewed` для оракула.
+pub struct ViewedFacts<'a> {
+    pub pull_node: &'a str,
+    pub path: &'a str,
+    /// Ключ, тело и код ответа каждой записи ревьюера в окне клетки.
+    pub writes: &'a [(String, Value, Option<u16>)],
+    /// Чтение ревьюером после `markFileAsViewed` и после `unmarkFileAsViewed`.
+    pub after_mark: Option<ViewedState>,
+    pub after_unmark: Option<ViewedState>,
+    /// Сессии и отправки журнала после переоткрытия.
+    pub sessions: usize,
+    pub submissions: usize,
+}
+
+/// Оракул `gh-viewed` на живом хосте (ожидание — в отчёте). `viewerViewedState` принадлежит
+/// токену, поэтому судит только чтение ревьюера.
+pub fn viewed_checks(facts: &ViewedFacts<'_>) -> Checks {
+    let mut checks = Checks::default();
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for (key, ..) in facts.writes {
+        *counts.entry(key.as_str()).or_insert(0) += 1;
+    }
+    checks.eq(
+        "записи ревьюера",
+        counts,
+        [(GH_MARK, 1), (GH_UNMARK, 1)].into_iter().collect(),
+    );
+    for (key, body, status) in facts.writes {
+        checks.check(
+            &format!("{key}: принят"),
+            status.is_some_and(|status| (200..300).contains(&status)),
+            format!("{status:?}"),
+        );
+        checks.eq(
+            &format!("{key}: вход"),
+            (
+                body.pointer("/variables/input/pullRequestId")
+                    .and_then(Value::as_str),
+                body.pointer("/variables/input/path")
+                    .and_then(Value::as_str),
+            ),
+            (Some(facts.pull_node), Some(facts.path)),
+        );
+    }
+    checks.eq(
+        "ревьюер после markFileAsViewed",
+        facts.after_mark,
+        Some(ViewedState::Viewed),
+    );
+    checks.eq(
+        "ревьюер после unmarkFileAsViewed",
+        facts.after_unmark,
+        Some(ViewedState::Unviewed),
+    );
+    checks.eq(
+        "журнал: сессия без отправок",
+        (facts.sessions, facts.submissions),
+        (1, 0),
+    );
+    checks
+}
+
+fn gh_viewed<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = github_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let author = github_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_pull(&reviewer, &cx.poll)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| gh_read_or_fail("возможности ревьюера", &err))?;
+    let path = snapshot
+        .files
+        .first()
+        .map(|file| file.new_path().to_owned())
+        .ok_or_else(|| Verdict::Error("в diff PR нет файлов".to_owned()))?;
+    let pull = &snapshot.node_id;
+    let journal_path = cx.state_dir.join("journal-gh-viewed.db");
+    let project = ProjectId::new(LIVE_PROJECT);
+    {
+        let journal = Journal::open(&journal_path).map_err(|err| stand("журнал", &err))?;
+        let session = ReviewSession::new(
+            &cx.reviewer_login,
+            review.clone(),
+            snapshot.revision.clone(),
+        );
+        journal
+            .scope(&project)
+            .create_session(&session)
+            .map_err(|err| stand("сессия", &err))?;
+    }
+    let mut notes = Vec::new();
+    let author_state =
+        |notes: &mut Vec<String>, when: &str| match viewed_state(&author, pull, &path, "автор")
+        {
+            Ok(state) => notes.push(format!(
+                "наблюдение: viewerViewedState автора {when}: {}",
+                viewed_name(state)
+            )),
+            Err(verdict) => notes.push(format!(
+                "наблюдение: чтение просмотра автором {when}: {verdict:?}"
+            )),
+        };
+    let state_before = viewed_state(&reviewer, pull, &path, "ревьюер")?;
+    let before =
+        json!({"reviewer": {"path": path, "viewerViewedState": viewed_name(state_before)}});
+    let dump = || -> Result<(Value, usize, usize), Verdict> {
+        let journal =
+            Journal::open(&journal_path).map_err(|err| stand("журнал после переоткрытия", &err))?;
+        let scope = journal.scope(&project);
+        let sessions = scope.sessions().map_err(|err| stand("журнал", &err))?;
+        let mut submissions = 0;
+        for (id, _) in &sessions {
+            submissions += scope
+                .submissions(*id)
+                .map_err(|err| stand("журнал", &err))?
+                .len();
+        }
+        let value = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
+        Ok((value, sessions.len(), submissions))
+    };
+    if !caps.viewed() {
+        let (journal, ..) = dump()?;
+        return Ok(Observed {
+            checks: Checks::default(),
+            notes,
+            after: before.clone(),
+            before,
+            journal,
+            tier: caps.plan,
+            verdict: Some(Verdict::Absent(
+                "markFileAsViewed и unmarkFileAsViewed нет в схеме по introspection".to_owned(),
+            )),
+        });
+    }
+    let start = cx.trace.len();
+    let mut after_mark = None;
+    let mut after_unmark = None;
+    for (key, viewed) in [(GH_MARK, true), (GH_UNMARK, false)] {
+        match reviewer.set_viewed(&caps, pull, &path, viewed) {
+            Ok(()) => {}
+            Err(err) => match gh_write_verdict(key, &err) {
+                Some(verdict) => return Err(verdict),
+                None => {
+                    notes.push(format!("отказ хоста на {key}: {err}"));
+                    break;
+                }
+            },
+        }
+        let state = viewed_state(&reviewer, pull, &path, "ревьюер")?;
+        author_state(
+            &mut notes,
+            if viewed {
+                "после отметки"
+            } else {
+                "после снятия"
+            },
+        );
+        if viewed {
+            after_mark = state;
+        } else {
+            after_unmark = state;
+        }
+    }
+    let calls = cx.trace.calls();
+    let writes: Vec<(String, Value, Option<u16>)> = calls
+        .get(start..)
+        .unwrap_or_default()
+        .iter()
+        .filter(|call| call.actor == ACTOR_REVIEWER)
+        .filter_map(|call| {
+            let body = call.request.body_json();
+            let key = gh_write_key(call.request.method, call.request.path(), body.as_ref())?;
+            Some((
+                key,
+                body.unwrap_or(Value::Null),
+                call.outcome.as_ref().ok().map(|response| response.status),
+            ))
+        })
+        .collect();
+    let (journal, sessions, submissions) = dump()?;
+    let checks = viewed_checks(&ViewedFacts {
+        pull_node: pull.as_str(),
+        path: &path,
+        writes: &writes,
+        after_mark,
+        after_unmark,
+        sessions,
+        submissions,
+    });
+    let after = json!({"reviewer": {
+        "path": path,
+        "after_mark": viewed_name(after_mark),
+        "after_unmark": viewed_name(after_unmark),
+    }});
+    Ok(Observed {
+        checks,
+        notes,
+        before,
+        after,
+        journal,
         tier: caps.plan,
         verdict: None,
     })
