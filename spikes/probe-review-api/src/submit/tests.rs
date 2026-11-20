@@ -632,6 +632,111 @@ mod run {
         Ok(())
     }
 
+    #[test]
+    fn held_draft_skips_head_change_and_is_rebound_after_refute_through_reopen() -> TestResult {
+        use crate::journal::JournalError;
+        use crate::model::DraftComment;
+        use crate::model::revision::{HeadCheck, HeadPath};
+
+        const NEW_HEAD: &str = "3333333333333333333333333333333333333333";
+        let server = gitlab_server()?;
+        server.inject(Fault::new(PUBLISH, Reply::Status(502)));
+        let gitlab = gitlab_adapter(http("tok-reviewer"), &server)?;
+        let caps = gitlab.capabilities()?;
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("state.db");
+        let journal = Journal::open(&path)?;
+        let session_id = gitlab_session(&journal, &gitlab, &[(2, "держит элемент")])?;
+        let scope = journal.scope(&ProjectId::new("p"));
+        let first = plan_gitlab(&scope, session_id, &GitLabPlan::default())?;
+        let stopped = run_gitlab(&scope, first.id, &gitlab, &caps)?;
+        assert_eq!(stopped.unresolved, 1);
+        let held = first.items[0].drafts[0];
+        let held_snapshot = gitlab.merge_request()?;
+
+        server.with(|fake| fake.push_head(3, NEW_HEAD, vec![FakeDiff::modified(PATH, DIFF)]))?;
+        assert!(matches!(
+            run_gitlab(&scope, first.id, &gitlab, &caps),
+            Err(SubmitError::HeadChanged { .. })
+        ));
+        let fresh = gitlab.merge_request()?;
+        let mut session = scope.session(session_id)?;
+        let before = session.revision().clone();
+        let mut free: Vec<DraftComment> = Vec::new();
+        for draft in scope.drafts(session_id)? {
+            if scope.draft_hold(draft.id)?.is_none() {
+                free.push(draft);
+            }
+        }
+        assert!(
+            free.is_empty(),
+            "черновик под unknown в смену head не передаётся"
+        );
+        let HeadCheck::Changed(change) =
+            session.check_head(&fresh.revision, &held_snapshot.files, &fresh.files, &free)
+        else {
+            return Err("смена head не замечена".into());
+        };
+        session.apply_head(&change, HeadPath::Move, &mut free, &fresh.files)?;
+        assert!(matches!(
+            scope.save_head(session_id, &session, &[scope.draft(held)?]),
+            Err(JournalError::DraftHeld { .. })
+        ));
+        scope.save_head(session_id, &session, &free)?;
+        assert_eq!(scope.session(session_id)?.revision(), &fresh.revision);
+        assert_eq!(
+            scope.draft(held)?.revision(),
+            &before,
+            "держит элемент — прежняя ревизия"
+        );
+
+        let verdicts = reconcile_gitlab(&scope, first.id, &gitlab)?;
+        assert!(
+            matches!(verdicts[..], [Verdict::Refuted { .. }]),
+            "позиция и чтение по ID — на ревизии черновика: {verdicts:?}"
+        );
+        assert!(
+            matches!(
+                plan_gitlab(&scope, session_id, &GitLabPlan::default()),
+                Err(SubmitError::Empty)
+            ),
+            "черновик на прежней ревизии не отправляется до перепривязки"
+        );
+        let mut draft = scope.draft(held)?;
+        let file = &fresh.files[0];
+        let anchor = Anchor::line(file, LinePoint::at(file, Side::New, 2)?)?;
+        session.rebind_stale(&mut draft, anchor, &fresh.files)?;
+        scope.save_head(session_id, &session, std::slice::from_ref(&draft))?;
+        drop(scope);
+        drop(journal);
+
+        let journal = Journal::open(&path)?;
+        let scope = journal.scope(&ProjectId::new("p"));
+        let reopened = scope.draft(held)?;
+        assert!(reopened.is_current());
+        assert_eq!(reopened.revision(), &fresh.revision);
+        assert_eq!(reopened.placement(), draft.placement());
+        let plan = GitLabPlan {
+            update: vec![held],
+            ..GitLabPlan::default()
+        };
+        let retry = plan_gitlab(&scope, session_id, &plan)?;
+        let ops: Vec<Operation> = retry.items.iter().map(|item| item.operation).collect();
+        assert_eq!(
+            ops,
+            [
+                Operation::GitLabUpdateDraftNote,
+                Operation::GitLabPublishDraftNote
+            ]
+        );
+        let done = run_gitlab(&scope, retry.id, &gitlab, &caps)?;
+        assert_eq!(done.delivery, Delivery::Full);
+        assert_eq!(server.count(DRAFTS), 1);
+        assert_eq!(server.count(PUBLISH), 2);
+        server.finish()?;
+        Ok(())
+    }
+
     fn github_setup() -> Result<FakeServer<GithubFake>, String> {
         let mut fake = GithubFake::new("o", "r");
         fake.add_user("bob", "tok-reviewer", Permission::Write);
@@ -764,6 +869,60 @@ mod run {
         let reviews = server.with(|fake| fake.reviews(7));
         assert_eq!(reviews.len(), 1, "тот же PENDING, второго review нет");
         assert_eq!(server.count(SUBMIT), 2);
+        server.finish()?;
+        Ok(())
+    }
+
+    #[test]
+    fn silent_submit_waits_for_receipt_and_reconciles_to_confirmed() -> TestResult {
+        let server = github_setup()?;
+        server.inject(Fault::new(SUBMIT, Reply::Silence).after_apply());
+        let github = GitHub::new(
+            HttpTransport::new(
+                HttpConfig {
+                    call_timeout: Duration::from_millis(300),
+                    ..HttpConfig::default()
+                },
+                Some(Credential::bearer(Secret::new("tok-reviewer"))),
+            ),
+            github::Endpoints::single(server.base()),
+            &ReviewTarget {
+                provider: Provider::GitHub,
+                host: "github.com".to_owned(),
+                repo: "o/r".to_owned(),
+                number: 7,
+            },
+        )?;
+        let caps = github.capabilities()?;
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("state.db");
+        let journal = Journal::open(&path)?;
+        let session = github_session(&journal, &github, &[(1, "первый")])?;
+        let scope = journal.scope(&ProjectId::new("p"));
+        let submission =
+            plan_github_pending(&scope, session, ReviewEvent::Comment, "Итог", None, &[])?;
+        let stopped = run_github(&scope, submission.id, &github, &caps)?;
+        assert_eq!(stopped.unresolved, 1);
+        // Квитанция сервера, а не срок клиента: до неё молчащий Submit мог ещё не дойти.
+        let logged = server.log().len();
+        if server.count(SUBMIT) == 0 {
+            server.wait_calls(logged + 1, Duration::from_secs(10))?;
+        }
+        assert_eq!(server.count(SUBMIT), 1);
+        assert_eq!(server.parked(), 1);
+        drop(scope);
+        drop(journal);
+
+        let journal = Journal::open(&path)?;
+        let scope = journal.scope(&ProjectId::new("p"));
+        let verdicts = reconcile_github(&scope, submission.id, &github)?;
+        assert!(
+            matches!(verdicts[..], [Verdict::Confirmed { .. }]),
+            "известный review в отправленном состоянии: {verdicts:?}"
+        );
+        assert_eq!(report(&scope, submission.id)?.delivery, Delivery::Full);
+        assert_eq!(server.count(SUBMIT), 1);
+        server.release_parked();
         server.finish()?;
         Ok(())
     }

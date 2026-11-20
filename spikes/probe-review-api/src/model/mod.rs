@@ -242,16 +242,17 @@ impl ReviewSession {
         revision::check_head(&self.revision, fresh, held_diff, fresh_diff, drafts)
     }
 
-    /// Перепривязка уже устаревшего черновика (после «перейти» или неполной «перепривязать») к
-    /// явно заданному якорю diff текущей ревизии сессии; diff передаёт вызывающий. Черновик
-    /// переходит на ревизию сессии, номер строки не подбирается.
+    /// Перепривязка уже устаревшего черновика (после «перейти» или неполной «перепривязать») или
+    /// черновика, оставшегося на прежней ревизии (его держал элемент отправки во время смены
+    /// head), к явно заданному якорю diff текущей ревизии сессии; diff передаёт вызывающий.
+    /// Черновик переходит на ревизию сессии, номер строки не подбирается.
     pub fn rebind_stale(
         &self,
         draft: &mut DraftComment,
         anchor: Anchor,
         current_diff: &[FileDiff],
     ) -> Result<(), ModelError> {
-        if draft.is_current() {
+        if draft.is_current() && draft.revision == self.revision {
             return Err(ModelError::RebindNotStale { draft: draft.id });
         }
         anchor.validate(current_diff)?;
