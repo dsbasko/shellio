@@ -197,12 +197,14 @@ impl Transport for HttpTransport {
 
 /// Отказ `ureq` → вид отказа. `NotSent` — только то, что точно случилось до отправки запроса;
 /// остальное считается дошедшим. Описание не содержит адреса и тела.
+///
+/// `NativeTls` приходит только из сборки коннектора и рукопожатия: после рукопожатия
+/// `NativeTlsTransport` переводит ошибки потока в `Io` (`ureq` 3.5.2, `tls/native_tls.rs`).
 fn classify(err: ureq::Error) -> Failure {
     use ureq::Error as E;
     use ureq::Timeout as T;
     let (kind, detail) = match err {
         E::BadUri(_) => (FailureKind::NotSent, "неверный адрес".to_owned()),
-        E::Http(_) => (FailureKind::NotSent, "запрос не собран".to_owned()),
         E::HostNotFound => (FailureKind::NotSent, "хост не найден".to_owned()),
         E::InvalidProxyUrl => (FailureKind::NotSent, "неверный прокси".to_owned()),
         E::ConnectionFailed => (FailureKind::NotSent, "соединение не установлено".to_owned()),
@@ -217,12 +219,17 @@ fn classify(err: ureq::Error) -> Failure {
             FailureKind::Disconnected,
             format!("ввод-вывод {:?}", io.kind()),
         ),
-        // Ошибка TLS приходит только из рукопожатия: после него ошибки потока — `Io`.
         E::NativeTls(tls) => (FailureKind::NotSent, format!("TLS: {tls}")),
         E::Der(_) | E::Tls(_) => (FailureKind::NotSent, "TLS: конфигурация".to_owned()),
         E::Protocol(protocol) => (FailureKind::Malformed, format!("протокол: {protocol}")),
         E::StatusCode(code) => (FailureKind::Malformed, format!("код {code} как ошибка")),
-        other => (FailureKind::Disconnected, other.to_string()),
+        // Прочее, в том числе `Http`, считается дошедшим. В описании только имя варианта: у
+        // некоторых вариантов внутри адрес.
+        other => {
+            let name = format!("{other:?}");
+            let name = name.split(['(', ' ', '{']).next().unwrap_or_default();
+            (FailureKind::Disconnected, format!("ureq: {name}"))
+        }
     };
     Failure::new(kind, detail)
 }

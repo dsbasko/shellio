@@ -470,14 +470,19 @@ impl Trace {
             .collect()
     }
 
-    /// Число вызовов по ключу `МЕТОД путь` без строки запроса.
-    pub fn counts(&self) -> BTreeMap<String, usize> {
+    /// Число вызовов по ключу `МЕТОД путь` без строки запроса; путь очищен, как в
+    /// [`Trace::entries`].
+    pub fn counts(&self, scrubber: &Scrubber) -> BTreeMap<String, usize> {
         let mut counts = BTreeMap::new();
         for call in self.lock().iter() {
             let path = call.request.path();
             let path = path.split_once('?').map_or(path, |(path, _)| path);
             *counts
-                .entry(format!("{} {path}", call.request.method))
+                .entry(format!(
+                    "{} {}",
+                    call.request.method,
+                    scrubber.scrub_url(path)
+                ))
                 .or_insert(0) += 1;
         }
         counts

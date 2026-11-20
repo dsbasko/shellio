@@ -223,14 +223,15 @@ fn trace_is_shared_between_actors_and_counts_calls() {
         trace.clone(),
         "reviewer",
     );
+    let drafts = "/projects/alice%2Fsandbox/merge_requests/1/draft_notes";
     reviewer
-        .send(&post("/drafts?page=1", &json!({"note": "a"})))
+        .send(&post(&format!("{drafts}?page=1"), &json!({"note": "a"})))
         .expect("ответ");
     author
-        .send(&Request::get(format!("{BASE}/mr")))
+        .send(&Request::get(format!("{BASE}/repos/Alice/sandbox/pulls/1")))
         .expect("ответ");
     reviewer
-        .send(&post("/drafts?page=2", &json!({"note": "b"})))
+        .send(&post(&format!("{drafts}?page=2"), &json!({"note": "b"})))
         .expect("ответ");
 
     let calls = trace.calls();
@@ -240,9 +241,21 @@ fn trace_is_shared_between_actors_and_counts_calls() {
         vec![(1, "reviewer"), (2, "author"), (3, "reviewer")]
     );
     assert_eq!(calls[2].status(), Some(201));
-    let counts = trace.counts();
-    assert_eq!(counts.get("POST /drafts"), Some(&2));
-    assert_eq!(counts.get("GET /mr"), Some(&1));
+    let mut scrubber = Scrubber::new();
+    scrubber.add_repo("alice/sandbox");
+    let counts = trace.counts(&scrubber);
+    let keys: Vec<&str> = counts.keys().map(String::as_str).collect();
+    assert_eq!(
+        keys,
+        vec![
+            "GET /repos/<repo>/pulls/1",
+            "POST /projects/<repo>/merge_requests/1/draft_notes"
+        ]
+    );
+    assert_eq!(
+        counts.get("POST /projects/<repo>/merge_requests/1/draft_notes"),
+        Some(&2)
+    );
 }
 
 #[test]

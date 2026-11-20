@@ -155,7 +155,9 @@ impl Scrubber {
         self
     }
 
-    fn spans(&self, text: &str) -> Vec<Span> {
+    /// Совпадения после слияния. `whole_words = false` ищет и логин внутри другого слова: так
+    /// [`Scrubber::leaks`] видит то, что замена по границам слова оставила.
+    fn spans(&self, text: &str, whole_words: bool) -> Vec<Span> {
         let lower = text.to_ascii_lowercase();
         let bytes = text.as_bytes();
         let mut spans = Vec::new();
@@ -163,7 +165,9 @@ impl Scrubber {
             for needle in &rule.needles {
                 for (start, _) in lower.match_indices(needle.as_str()) {
                     let end = start + needle.len();
-                    if rule.bounded && !(left_boundary(bytes, start) && right_boundary(bytes, end))
+                    if whole_words
+                        && rule.bounded
+                        && !(left_boundary(bytes, start) && right_boundary(bytes, end))
                     {
                         continue;
                     }
@@ -197,7 +201,7 @@ impl Scrubber {
     pub fn scrub_text(&self, text: &str) -> String {
         let mut out = String::with_capacity(text.len());
         let mut pos = 0;
-        for span in self.spans(text) {
+        for span in self.spans(text, true) {
             out.push_str(&text[pos..span.start]);
             out.push_str(span.label);
             pos = span.end;
@@ -272,10 +276,11 @@ impl Scrubber {
     }
 
     /// Что из известного и образцов осталось в тексте: категории без самих значений. Для
-    /// проверки каталога данных перед коммитом.
+    /// проверки каталога данных перед коммитом. Известные значения ищутся и внутри слов,
+    /// поэтому проверка строже замены.
     pub fn leaks(&self, text: &str) -> Vec<&'static str> {
         let mut found: Vec<&'static str> = self
-            .spans(text)
+            .spans(text, false)
             .iter()
             .map(|span| span.category.describe())
             .collect();
@@ -661,6 +666,14 @@ mod tests {
         assert_eq!(leaks.len(), 5, "{leaks:?}");
         assert!(leaks.iter().all(|leak| !leak.contains("alice")));
         assert!(s.leaks(&s.scrub_text(&dirty)).is_empty());
+    }
+
+    #[test]
+    fn leaks_find_login_inside_word_that_replacement_keeps() {
+        let s = scrubber();
+        let text = "bot alice-dev_bot and alice-developer";
+        assert_eq!(s.scrub_text(text), text);
+        assert_eq!(s.leaks(text), vec!["логин"]);
     }
 
     #[test]
