@@ -428,7 +428,7 @@ fn unknown_rate_limited_and_unsent_writes_are_not_judged_by_the_oracle() {
     ];
     assert!(matches!(
         delivery_verdict(&sent(&[Failed]), &limited, "reviewer"),
-        Some(Verdict::NotRun(reason)) if reason.starts_with("лимит: код 429")
+        Some(Verdict::NotRun(reason)) if reason == format!("лимит: код 429 на запись {DRAFT_PUBLISH}")
     ));
     let unsent = [publish_call("reviewer", Err(Failure::not_sent("отказ")))];
     assert!(matches!(
@@ -452,6 +452,10 @@ fn submit_errors_split_into_reads_and_stand_errors() {
     assert!(matches!(
         submit_verdict(&SubmitError::Empty),
         Verdict::Error(_)
+    ));
+    assert!(matches!(
+        submit_verdict(&SubmitError::GitLab(ApiError::Unexpected("у MR нет diff_refs".to_owned()))),
+        Verdict::NotRun(reason) if reason.starts_with(MR_NOT_READY)
     ));
 }
 
@@ -664,7 +668,17 @@ fn refused_branch_is_not_run_and_cleanup_reaches_the_result() -> TestResult {
         result.notes
     );
     let text = format!("{:?} {:?}", result.notes, result.trace);
-    assert!(!text.contains(REPO), "путь репозитория очищен: {text}");
+    assert!(
+        !result.trace.is_empty() && text.contains("/repository/branches"),
+        "{text}"
+    );
+    for raw in [
+        REPO,
+        "probe-author%2Fshellio-review-sandbox",
+        "probe-author",
+    ] {
+        assert!(!text.contains(raw), "{raw} очищен: {text}");
+    }
     assert!(
         !harness.out.join(SWEPT_FILE).exists(),
         "не убранное не отмечается"

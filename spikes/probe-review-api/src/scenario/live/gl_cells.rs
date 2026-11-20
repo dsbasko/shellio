@@ -346,9 +346,14 @@ pub struct JournalFacts {
 
 /// Отказ исполнителя отправки. Отказ хоста на запись исполнитель пишет в элемент (`failed` или
 /// `unknown`) и возвращает итог; `Err` дают журнал, отказ до записи и чтение шага 1 — его отказ
-/// судится как чтение клетки, остальное — ошибка исполнения.
+/// судится как чтение клетки (неожиданный ответ — MR не готов, как в опросе), остальное — ошибка
+/// исполнения.
 pub fn submit_verdict(err: &SubmitError) -> Verdict {
     match err {
+        // Тот же ответ опрос MR считает неготовым, а не отказом хоста.
+        SubmitError::GitLab(ApiError::Unexpected(reason)) => Verdict::NotRun(format!(
+            "{MR_NOT_READY}: отправка, шаг 1: снимок MR: {reason}"
+        )),
         SubmitError::GitLab(api) => read_or_fail("отправка, шаг 1: снимок MR", api),
         other => Verdict::Error(format!("отправка: {other}")),
     }
@@ -356,6 +361,7 @@ pub fn submit_verdict(err: &SubmitError) -> Verdict {
 
 /// Итог отправки, который оракул записей не судит: элемент `unknown` или `in_flight` —
 /// [`WRITE_UNOBSERVED`]; `failed` после ответа 429 на последнюю запись роли — `not_run` «лимит»
+/// с ключом записи (не с путём: в пути репозиторий)
 /// (запись не принята, повтора нет); `failed` после записи, которая не ушла, — ошибка исполнения.
 /// Остальной `failed` — отказ хоста, его судят проверки клетки.
 pub fn delivery_verdict(done: &Report, calls: &[Call], actor: &str) -> Option<Verdict> {
@@ -385,16 +391,14 @@ pub fn delivery_verdict(done: &Report, calls: &[Call], actor: &str) -> Option<Ve
     {
         return None;
     }
-    let last = calls.iter().rev().find(|call| {
-        call.actor == actor
-            && write_key(
-                call.request.method,
-                call.request.path(),
-                call.request.body_json().as_ref(),
-            )
-            .is_some()
+    let (last, key) = calls.iter().rev().find_map(|call| {
+        let key = write_key(
+            call.request.method,
+            call.request.path(),
+            call.request.body_json().as_ref(),
+        )?;
+        (call.actor == actor).then_some((call, key))
     })?;
-    let key = format!("{} {}", last.request.method, last.request.path());
     match &last.outcome {
         Ok(response) if response.status == 429 => {
             Some(Verdict::NotRun(format!("лимит: код 429 на запись {key}")))
