@@ -13,6 +13,7 @@ pub mod model;
 pub mod results;
 pub mod scenario;
 pub mod scrub;
+pub mod submit;
 pub mod transport;
 
 use std::path::{Path, PathBuf};
