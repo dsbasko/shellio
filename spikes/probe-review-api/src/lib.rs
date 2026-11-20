@@ -7,6 +7,7 @@
 
 pub mod fake;
 pub mod github;
+pub mod gitlab;
 pub mod journal;
 pub mod model;
 pub mod results;

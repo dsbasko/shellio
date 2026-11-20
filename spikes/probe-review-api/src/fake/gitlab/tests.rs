@@ -795,3 +795,143 @@ fn scanner_counts_like_gitlab_parser() {
     assert_eq!(decode_segment("a%2Fb+c%zz%2"), "a/b+c%zz%2");
     assert_eq!(normalize("a \r\nb\t\n\n"), "a \nb");
 }
+
+#[test]
+fn owner_reads_drafts_replies_resolve_and_positions_move() {
+    let server = fake();
+    let reviewer = Client::new(&server, "tok-reviewer");
+    let (_, discussion) = reviewer.post(
+        &format!("{MR}/discussions"),
+        json!({"body": "тред", "position": added2()}),
+    );
+    let thread = discussion["id"].as_str().expect("id").to_owned();
+    let (status, found) = reviewer.get(&format!("{MR}/discussions/{thread}"));
+    assert_eq!(status, 200, "{found}");
+    assert_eq!(found["id"], thread.as_str());
+    assert_eq!(found["notes"][0]["body"], "тред");
+    assert_eq!(
+        reviewer
+            .get(&format!("{MR}/discussions/{}", "f".repeat(40)))
+            .0,
+        404
+    );
+
+    let (status, reply) = reviewer.post(
+        &format!("{MR}/draft_notes"),
+        json!({"note": "ответ", "in_reply_to_discussion_id": thread, "resolve_discussion": true}),
+    );
+    assert_eq!(status, 201, "{reply}");
+    let reply_id = reply["id"].as_u64().expect("id");
+    let (status, read) = reviewer.get(&format!("{MR}/draft_notes/{reply_id}"));
+    assert_eq!(status, 200, "владелец читает свой черновик");
+    assert_eq!(read["discussion_id"], thread.as_str());
+    assert_eq!(read["resolve_discussion"], true);
+    assert_eq!(read["line_code"], Value::Null);
+    let (status, _) = reviewer.post(
+        &format!("{MR}/draft_notes"),
+        json!({"note": "x", "in_reply_to_discussion_id": "missing"}),
+    );
+    assert_eq!(status, 404);
+    let (status, _, _) = reviewer.send(
+        Method::Put,
+        &format!("{MR}/draft_notes/{reply_id}/publish"),
+        None,
+    );
+    assert_eq!(status, 204);
+    let (_, after) = reviewer.get(&format!("{MR}/discussions/{thread}"));
+    let notes = after["notes"].as_array().expect("notes");
+    assert_eq!(notes.len(), 2, "ответ в том же треде");
+    assert_eq!(notes[1]["body"], "ответ");
+    assert_eq!(notes[0]["type"], "DiffNote");
+    assert_eq!(notes[1]["type"], "DiscussionNote", "ответ без позиции");
+    assert_eq!(notes[0]["resolved"], true, "тред разрешён публикацией");
+    assert_eq!(server.with(|gitlab| gitlab.discussions(IID).len()), 1);
+
+    let (_, draft) = reviewer.post(
+        &format!("{MR}/draft_notes"),
+        json!({"note": "строка", "position": added2()}),
+    );
+    let id = draft["id"].as_u64().expect("id");
+    let (status, moved) = reviewer.put(
+        &format!("{MR}/draft_notes/{id}"),
+        json!({"position": position("base0", "base0", "head1", Some(2), None)}),
+    );
+    assert_eq!(status, 200, "{moved}");
+    assert_eq!(moved["note"], "строка", "текст сохраняется");
+    assert_eq!(moved["position"]["old_line"], 2);
+    assert_eq!(moved["position"]["new_line"], Value::Null);
+    assert_eq!(moved["line_code"], code(2, 2));
+    let (status, _) = reviewer.put(
+        &format!("{MR}/draft_notes/{id}"),
+        json!({"position": position("base0", "base0", "head9", Some(2), None)}),
+    );
+    assert_eq!(status, 400, "позиция без версии MR");
+    let stored = server.with(|gitlab| gitlab.drafts(IID));
+    assert_eq!(
+        stored
+            .iter()
+            .find(|d| d.id == id)
+            .and_then(|d| d.position.as_ref())
+            .map(|p| p.old_line),
+        Some(Some(2)),
+        "отвергнутая позиция не записана"
+    );
+}
+
+#[test]
+fn snapshot_visibility_version_current_user_and_unapprove_without_approval() {
+    let server = fake();
+    let reviewer = Client::new(&server, "tok-reviewer");
+    let current = reviewer.graphql("query { currentUser { id username } }", json!({}));
+    assert_eq!(current["data"]["currentUser"]["username"], REVIEWER);
+    assert!(
+        current["data"]["currentUser"]["id"]
+            .as_str()
+            .is_some_and(|id| id.starts_with("gid://gitlab/User/"))
+    );
+    let (status, body) = reviewer.post(&format!("{MR}/unapprove"), json!({}));
+    assert_eq!(status, 404, "{body}");
+    assert_eq!(
+        server.with(|gitlab| gitlab.reviewer_state(IID, REVIEWER)),
+        Some(ReviewerState::Unreviewed)
+    );
+
+    server.with(|gitlab| {
+        gitlab.set_visibility("public");
+        gitlab.set_version("17.11.2-ee", true);
+    });
+    assert_eq!(
+        reviewer.get("/api/v4/projects/group%2Fproj").1["visibility"],
+        "public"
+    );
+    let (_, metadata) = reviewer.get("/api/v4/metadata");
+    assert_eq!(
+        (
+            metadata["version"].as_str(),
+            metadata["enterprise"].as_bool()
+        ),
+        (Some("17.11.2-ee"), Some(true))
+    );
+    assert_eq!(reviewer.get("/api/v4/version").1["version"], "17.11.2-ee");
+
+    server
+        .with(|gitlab| gitlab.plant_draft(IID, REVIEWER, "из браузера", Some(&added2())))
+        .expect("подложен");
+    reviewer.post(&format!("{MR}/notes"), json!({"body": "итог"}));
+    let snapshot = server.with(|gitlab| gitlab.snapshot());
+    let mr = &snapshot["merge_requests"][0];
+    assert_eq!(mr["iid"], IID);
+    assert_eq!(mr["author"], AUTHOR);
+    assert_eq!(mr["versions"][0]["head_sha"], "head1");
+    assert_eq!(
+        mr["reviewers"],
+        json!([{"username": REVIEWER, "state": "unreviewed"}])
+    );
+    assert_eq!(mr["drafts"][0]["origin"], "planted");
+    assert_eq!(mr["drafts"][0]["position"]["new_line"], 2);
+    assert_eq!(mr["notes"][0]["body"], "итог");
+    assert_eq!(mr["notes"][0]["origin"], "api");
+    assert_eq!(mr["notes"][0]["from_draft"], Value::Null);
+    assert_eq!(mr["discussions"][0]["individual_note"], true);
+    assert_eq!(snapshot["request_changes"], "Available");
+}

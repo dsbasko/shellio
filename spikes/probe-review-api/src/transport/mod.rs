@@ -316,6 +316,15 @@ impl fmt::Display for Failure {
     }
 }
 
+/// Итог записи для журнала, общий для адаптеров обоих провайдеров.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WriteFate {
+    /// Запись не принята: запрос не ушёл или сервер явно отказал. Элемент — `failed`.
+    NotAccepted,
+    /// Запись могла быть принята. Элемент — `unknown`, нужна сверка.
+    Unknown,
+}
+
 pub trait Transport {
     fn send(&self, request: &Request) -> Result<Response, Failure>;
 }

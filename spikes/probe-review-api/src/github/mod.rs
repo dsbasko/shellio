@@ -30,6 +30,7 @@ use crate::model::revision::{Revision, Sha};
 use crate::model::{DraftComment, ModelError, Provider, ProviderId, ReviewSession, ReviewTarget};
 use crate::transport::{Failure, Method, Request, Response, Transport, percent_encode};
 
+pub use crate::transport::WriteFate;
 pub use capabilities::{ApiVersion, Capabilities};
 
 /// Версия REST API в заголовке `X-GitHub-Api-Version`; без заголовка GitHub берёт её же.
@@ -100,15 +101,6 @@ impl Endpoints {
         let base = base.trim_end_matches('/');
         Endpoints::new(base, format!("{base}/graphql"))
     }
-}
-
-/// Итог записи для журнала.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum WriteFate {
-    /// Запись не принята: запрос не ушёл или сервер явно отказал. Элемент — `failed`.
-    NotAccepted,
-    /// Запись могла быть принята. Элемент — `unknown`, нужна сверка.
-    Unknown,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
