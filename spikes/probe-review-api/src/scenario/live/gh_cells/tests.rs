@@ -65,29 +65,63 @@ fn fake_github_with(
     FakeServer::start(fake)
 }
 
+/// Транспорт теста: у роли с `strip` из ответов GraphQL `reviewThreads` убираются все треды
+/// (чтение, которое тред корня не наблюдает). След пишет ответ хоста как есть.
+struct StripThreads<T> {
+    inner: T,
+    strip: bool,
+}
+
+impl<T: Transport> Transport for StripThreads<T> {
+    fn send(&self, request: &Request) -> Result<Response, Failure> {
+        let response = self.inner.send(request)?;
+        let Ok(mut body) = response.body_json() else {
+            return Ok(response);
+        };
+        match body.pointer_mut("/data/node/reviewThreads/nodes") {
+            Some(nodes) if self.strip => {
+                *nodes = json!([]);
+                Ok(Response::json(response.status, &body))
+            }
+            _ => Ok(response),
+        }
+    }
+}
+
 /// Тело клетки строки над сторожами (`WriteScope::Loopback`) против `forge-fake`, клетка собрана
 /// вручную, как после `open_cell`.
 fn cell_body(
     server: &FakeServer<GithubFake>,
     scenario: Scenario,
 ) -> Result<Result<Observed, Verdict>, Box<dyn std::error::Error>> {
+    cell_body_with(server, scenario, false)
+}
+
+fn cell_body_with(
+    server: &FakeServer<GithubFake>,
+    scenario: Scenario,
+    strip_author_threads: bool,
+) -> Result<Result<Observed, Verdict>, Box<dyn std::error::Error>> {
     let state = tempfile::tempdir()?;
     let trace = Trace::new();
     let target = GuardTarget::github(&Endpoints::single(server.base()), REPO);
-    let guard = |token: &str, actor| {
+    let guard = |token: &str, actor, strip| {
         let credential = Credential::bearer(Secret::new(token));
         Guarded::new(
-            Traced::new(
-                HttpTransport::new(HttpConfig::default(), Some(credential)),
-                trace.clone(),
-                actor,
-            ),
+            StripThreads {
+                inner: Traced::new(
+                    HttpTransport::new(HttpConfig::default(), Some(credential)),
+                    trace.clone(),
+                    actor,
+                ),
+                strip,
+            },
             target.clone(),
             WriteScope::Loopback,
         )
     };
-    let author = guard(AUTHOR_TOKEN, "author");
-    let reviewer = guard(REVIEWER_TOKEN, "reviewer");
+    let author = guard(AUTHOR_TOKEN, "author", strip_author_threads);
+    let reviewer = guard(REVIEWER_TOKEN, "reviewer", false);
     let cx = GhCx {
         author: &author,
         reviewer: &reviewer,
@@ -112,6 +146,7 @@ fn cell_body(
     let observed = match scenario {
         Scenario::GhLocalCreate => gh_local_create(&cx, &mut cell),
         Scenario::GhPendingCycle => gh_pending_cycle(&cx, &mut cell),
+        Scenario::GhAnchors => gh_anchors(&cx, &mut cell),
         Scenario::GhViewed => gh_viewed(&cx, &mut cell),
         other => return Err(format!("тело {} в тесте не собрано", other.name()).into()),
     };
@@ -248,9 +283,9 @@ fn only_rows_with_a_body_open_a_live_cell() {
     assert!(implemented(Scenario::GhLocalCreate));
     assert!(implemented(Scenario::GhViewed));
     assert!(implemented(Scenario::GhPendingCycle));
+    assert!(implemented(Scenario::GhAnchors));
     for scenario in [
         Scenario::GhPendingForeign,
-        Scenario::GhAnchors,
         Scenario::ReconcileForeign,
         Scenario::Capabilities,
     ] {
@@ -679,4 +714,480 @@ fn submit_drop_fires_once_on_submit_only() -> TestResult {
     assert!(send("/repos/o/r/pulls/5/reviews/7/events").is_ok());
     scripted.finish()?;
     Ok(())
+}
+
+fn remote_review(id: &str, state: ReviewState) -> RemoteReview {
+    RemoteReview {
+        id: crate::model::ProviderId::new(id),
+        node_id: crate::model::ProviderId::new(format!("PRR_{id}")),
+        user: FAKE_REVIEWER.to_owned(),
+        state,
+        body: String::new(),
+        commit_id: HEAD.to_owned(),
+    }
+}
+
+fn remote_comment(id: &str, node: &str, line: u32, body: &str) -> RemoteComment {
+    RemoteComment {
+        id: crate::model::ProviderId::new(id),
+        node_id: crate::model::ProviderId::new(node),
+        review_id: Some(crate::model::ProviderId::new("7")),
+        user: FAKE_REVIEWER.to_owned(),
+        body: body.to_owned(),
+        path: PATH.to_owned(),
+        line: Some(line),
+        side: Some("RIGHT".to_owned()),
+        start_line: None,
+        start_side: None,
+        commit_id: HEAD.to_owned(),
+        in_reply_to: None,
+    }
+}
+
+fn submit_report(delivery: Delivery, closed: bool, items: &[(Operation, ItemState)]) -> Report {
+    use crate::journal::{ItemId, SubmissionId, SubmitItem};
+    Report {
+        submission: SubmissionId(1),
+        delivery,
+        closed,
+        unresolved: 0,
+        items: items
+            .iter()
+            .zip(1u32..)
+            .map(|((operation, state), seq)| SubmitItem {
+                id: ItemId(u64::from(seq)),
+                submission: SubmissionId(1),
+                seq,
+                operation: *operation,
+                drafts: Vec::new(),
+                state: *state,
+                remote_id: None,
+                candidate: None,
+                detail: None,
+                in_flight_at: None,
+            })
+            .collect(),
+    }
+}
+
+/// Факты проходящего хода `gh-pending-cycle`: review 7 (`PRR_7`), комментарии 11 и 12.
+struct PendingData {
+    writes: Vec<WriteCall>,
+    reviewer_between: Vec<ReviewRead>,
+    author_between: Vec<ReviewRead>,
+    after: Vec<ReviewRead>,
+    first: Report,
+    second: Report,
+}
+
+impl PendingData {
+    fn passing() -> PendingData {
+        let write = |key: &str, path: &str, body: Value, response: Option<Value>| WriteCall {
+            key: key.to_owned(),
+            path: path.to_owned(),
+            body,
+            status: Some(200),
+            response,
+        };
+        let thread = json!({"variables": {"input": {"pullRequestReviewId": "PRR_7"}}});
+        PendingData {
+            writes: vec![
+                write(
+                    GH_CREATE,
+                    "/repos/o/r/pulls/5/reviews",
+                    json!({"commit_id": HEAD}),
+                    Some(json!({"id": 7, "node_id": "PRR_7"})),
+                ),
+                write(GH_ADD_THREAD, "/graphql", thread.clone(), None),
+                write(GH_ADD_THREAD, "/graphql", thread, None),
+                write(
+                    GH_UPDATE_COMMENT,
+                    "/graphql",
+                    json!({"variables": {"input": {"pullRequestReviewCommentId": "PRRC_11"}}}),
+                    None,
+                ),
+                write(
+                    GH_SUBMIT,
+                    "/repos/o/r/pulls/5/reviews/7/events",
+                    json!({"event": "COMMENT", "body": SUMMARY}),
+                    None,
+                ),
+            ],
+            reviewer_between: vec![(
+                remote_review("7", ReviewState::Pending),
+                vec![
+                    remote_comment("11", "PRRC_11", 4, "первый"),
+                    remote_comment("12", "PRRC_12", 24, "второй"),
+                ],
+            )],
+            author_between: Vec::new(),
+            after: vec![(
+                remote_review("7", ReviewState::Commented),
+                vec![
+                    remote_comment("11", "PRRC_11", 4, PENDING_UPDATED),
+                    remote_comment("12", "PRRC_12", 24, "второй"),
+                ],
+            )],
+            first: submit_report(
+                Delivery::NotSent,
+                true,
+                &[
+                    (Operation::GitHubCreatePending, ItemState::Confirmed),
+                    (Operation::GitHubAddPendingComment, ItemState::Confirmed),
+                    (Operation::GitHubAddPendingComment, ItemState::Confirmed),
+                    (Operation::GitHubSubmitReview, ItemState::Failed),
+                ],
+            ),
+            second: submit_report(
+                Delivery::Full,
+                true,
+                &[
+                    (Operation::GitHubUpdatePendingComment, ItemState::Confirmed),
+                    (Operation::GitHubSubmitReview, ItemState::Confirmed),
+                ],
+            ),
+        }
+    }
+
+    fn checks(&self) -> (Status, String) {
+        pending_cycle_checks(&PendingFacts {
+            head: HEAD,
+            path: PATH,
+            reviewer: FAKE_REVIEWER,
+            writes: &self.writes,
+            dropped: Some("7"),
+            reviewer_between: &self.reviewer_between,
+            author_between: &self.author_between,
+            after: &self.after,
+            first: &self.first,
+            second: Some(&self.second),
+            recovered: 0,
+        })
+        .verdict()
+    }
+}
+
+#[test]
+fn pending_cycle_oracle_catches_its_own_claims() {
+    let (status, reason) = PendingData::passing().checks();
+    assert_eq!(status, Status::Pass, "{reason}");
+
+    let mut data = PendingData::passing();
+    if let Some(submit) = data.writes.last_mut() {
+        submit.body["comments"] = json!([{"path": PATH, "line": 4, "body": "лишний"}]);
+    }
+    let (status, reason) = data.checks();
+    assert_eq!(status, Status::Fail);
+    assert!(reason.contains("без comments[]"), "{reason}");
+
+    for (id, node) in [("99", "PRRC_11"), ("11", "PRRC_99")] {
+        let mut data = PendingData::passing();
+        data.after[0].1[0] = remote_comment(id, node, 4, PENDING_UPDATED);
+        let (status, reason) = data.checks();
+        assert_eq!(status, Status::Fail, "{id} {node}");
+        assert!(reason.contains("прежние ID и node ID"), "{reason}");
+    }
+
+    let mut data = PendingData::passing();
+    data.writes[3].body =
+        json!({"variables": {"input": {"pullRequestReviewCommentId": "PRRC_12"}}});
+    let (status, reason) = data.checks();
+    assert_eq!(status, Status::Fail);
+    assert!(
+        reason.contains("по node ID первого комментария"),
+        "{reason}"
+    );
+
+    let mut data = PendingData::passing();
+    data.author_between = vec![(remote_review("7", ReviewState::Pending), Vec::new())];
+    let (status, reason) = data.checks();
+    assert_eq!(status, Status::Fail);
+    assert!(reason.contains("автор между отправками"), "{reason}");
+}
+
+/// Ключи `forge-fake` для `gh-anchors`.
+const FAKE_REPLY: &str = "POST /repos/{owner}/{repo}/pulls/{number}/comments/{comment_id}/replies";
+const FAKE_RESOLVE: &str = "graphql resolveReviewThread";
+
+#[test]
+fn anchors_body_passes_against_the_fake() -> TestResult {
+    let server = fake_github(true)?;
+    let observed =
+        cell_body(&server, Scenario::GhAnchors)?.map_err(|verdict| format!("{verdict:?}"))?;
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(
+        status,
+        Status::Pass,
+        "{reason}: {:?}",
+        observed.checks.to_json()
+    );
+    assert_eq!(observed.verdict, None);
+    for (what, value) in [
+        ("до", &observed.before),
+        ("после", &observed.after["author"]),
+        (
+            "треды до resolve",
+            &observed.after["threads_before_resolve"],
+        ),
+        (
+            "треды после resolve",
+            &observed.after["threads_after_resolve"],
+        ),
+        ("журнал", &observed.journal),
+    ] {
+        assert!(!value.is_null(), "{what}");
+    }
+    let comments = server.with(|fake| fake.comments(NUMBER));
+    let anchors: Vec<(String, u32, ghf::DiffSide, Option<u32>)> = comments
+        .iter()
+        .map(|c| (c.body.clone(), c.line, c.side, c.start_line))
+        .collect();
+    assert_eq!(
+        anchors,
+        vec![
+            ("удалённая 03".to_owned(), 3, ghf::DiffSide::Left, None),
+            ("добавленная 24a".to_owned(), 24, ghf::DiffSide::Right, None),
+            (
+                "диапазон 24a–24b".to_owned(),
+                25,
+                ghf::DiffSide::Right,
+                Some(24)
+            ),
+            (ANCHOR_REPLY.to_owned(), 3, ghf::DiffSide::Left, None),
+        ]
+    );
+    let resolved: Vec<bool> = server
+        .with(|fake| fake.threads(NUMBER))
+        .iter()
+        .map(|thread| thread.resolved)
+        .collect();
+    assert_eq!(resolved, vec![true, false, false]);
+    assert_eq!(server.with(|fake| fake.reviews(NUMBER)).len(), 2);
+    let notes = observed.notes.join("\n");
+    assert!(notes.contains("отдельный review"), "{notes}");
+    assert!(notes.contains("comments.totalCount 2"), "{notes}");
+    Ok(())
+}
+
+#[test]
+fn refused_reply_fails_with_artifacts_and_skips_resolve() -> TestResult {
+    let server = fake_github(true)?;
+    server.inject(Fault::new(FAKE_REPLY, FakeReply::Status(422)));
+    let observed =
+        cell_body(&server, Scenario::GhAnchors)?.map_err(|verdict| format!("{verdict:?}"))?;
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(status, Status::Fail, "{reason}");
+    assert!(reason.contains("ответы в reviews ревьюера"), "{reason}");
+    assert!(!observed.journal.is_null() && !observed.after["author"].is_null());
+    let notes = observed.notes.join("\n");
+    assert!(
+        notes.contains(&format!("отказ хоста на {GH_REPLY}")),
+        "{notes}"
+    );
+    assert_eq!(fake_writes(&server, FAKE_RESOLVE), 0);
+    Ok(())
+}
+
+#[test]
+fn rate_limited_resolve_is_not_run() -> TestResult {
+    let server = fake_github(true)?;
+    server.inject(Fault::new(FAKE_RESOLVE, FakeReply::Status(429)));
+    let verdict = cell_body(&server, Scenario::GhAnchors)?
+        .err()
+        .ok_or("ожидался итог без проверок")?;
+    assert_eq!(
+        verdict,
+        Verdict::NotRun(format!("лимит: код 429 на запись {GH_RESOLVE}"))
+    );
+    assert!(
+        server
+            .with(|fake| fake.threads(NUMBER))
+            .iter()
+            .all(|thread| !thread.resolved)
+    );
+    Ok(())
+}
+
+#[test]
+fn anchors_without_resolve_is_absent_without_writes() -> TestResult {
+    let server = fake_github_with(true, |fake| {
+        fake.remove_mutation("resolveReviewThread");
+    })?;
+    let observed =
+        cell_body(&server, Scenario::GhAnchors)?.map_err(|verdict| format!("{verdict:?}"))?;
+    match &observed.verdict {
+        Some(Verdict::Absent(reason)) => {
+            assert!(reason.contains("resolveReviewThread"), "{reason}")
+        }
+        other => return Err(format!("{other:?}").into()),
+    }
+    assert!(!observed.journal.is_null() && !observed.before.is_null());
+    assert!(crate::scenario::fake::writes(&server.log()).is_empty());
+    Ok(())
+}
+
+#[test]
+fn unobserved_root_thread_is_not_run_with_artifacts() -> TestResult {
+    let server = fake_github(true)?;
+    let observed = cell_body_with(&server, Scenario::GhAnchors, true)?
+        .map_err(|verdict| format!("{verdict:?}"))?;
+    match &observed.verdict {
+        Some(Verdict::NotRun(reason)) => assert!(reason.starts_with(THREAD_UNOBSERVED), "{reason}"),
+        other => return Err(format!("{other:?}").into()),
+    }
+    assert!(!observed.journal.is_null() && !observed.after["author"].is_null());
+    assert_eq!(fake_writes(&server, FAKE_RESOLVE), 0);
+    assert_eq!(fake_writes(&server, FAKE_REPLY), 1);
+    Ok(())
+}
+
+/// Факты проходящего хода `gh-anchors`: review 7, корень 11 в треде `PRRT_1`, ответ 14.
+struct AnchorData {
+    writes: Vec<WriteCall>,
+    after: Vec<ReviewRead>,
+    report: Report,
+    thread: &'static str,
+    resolved_after: Option<bool>,
+}
+
+impl AnchorData {
+    fn passing() -> AnchorData {
+        let write = |key: &str, path: &str, body: Value, response: Option<Value>| WriteCall {
+            key: key.to_owned(),
+            path: path.to_owned(),
+            body,
+            status: Some(201),
+            response,
+        };
+        let anchored = |id: &str, line, side: &str, start: Option<u32>, body: &str| RemoteComment {
+            line: Some(line),
+            side: Some(side.to_owned()),
+            start_line: start,
+            start_side: start.map(|_| "RIGHT".to_owned()),
+            ..remote_comment(id, &format!("PRRC_{id}"), line, body)
+        };
+        let mut reply = anchored("14", 3, "LEFT", None, ANCHOR_REPLY);
+        reply.review_id = Some(crate::model::ProviderId::new("8"));
+        reply.in_reply_to = Some(crate::model::ProviderId::new("11"));
+        let mut report = submit_report(
+            Delivery::Full,
+            true,
+            &[(Operation::GitHubCreateReview, ItemState::Confirmed)],
+        );
+        report.items[0].remote_id = Some(crate::model::ProviderId::new("7"));
+        AnchorData {
+            writes: vec![
+                write(
+                    GH_CREATE,
+                    "/repos/o/r/pulls/5/reviews",
+                    json!({"event": "COMMENT", "commit_id": HEAD, "comments": [
+                        {"path": PATH, "line": 3, "side": "LEFT"},
+                        {"path": PATH, "line": 24, "side": "RIGHT"},
+                        {"path": PATH, "line": 25, "side": "RIGHT", "start_line": 24, "start_side": "RIGHT"},
+                    ]}),
+                    Some(json!({"id": 7})),
+                ),
+                write(
+                    GH_REPLY,
+                    "/repos/o/r/pulls/5/comments/11/replies",
+                    json!({"body": ANCHOR_REPLY}),
+                    None,
+                ),
+                write(
+                    GH_RESOLVE,
+                    "/graphql",
+                    json!({"variables": {"input": {"threadId": "PRRT_1"}}}),
+                    None,
+                ),
+            ],
+            after: vec![
+                (
+                    remote_review("7", ReviewState::Commented),
+                    vec![
+                        anchored("11", 3, "LEFT", None, "удалённая 03"),
+                        anchored("12", 24, "RIGHT", None, "добавленная 24a"),
+                        anchored("13", 25, "RIGHT", Some(24), "диапазон 24a–24b"),
+                    ],
+                ),
+                (remote_review("8", ReviewState::Commented), vec![reply]),
+            ],
+            report,
+            thread: "PRRT_1",
+            resolved_after: Some(true),
+        }
+    }
+
+    fn checks(&self) -> (Status, String) {
+        gh_anchors_checks(&AnchorFacts {
+            head: HEAD,
+            path: PATH,
+            reviewer: FAKE_REVIEWER,
+            writes: &self.writes,
+            root: Some("11"),
+            thread: Some(self.thread),
+            resolved_before: Some(false),
+            resolved_after: self.resolved_after,
+            after: &self.after,
+            report: &self.report,
+            recovered: 0,
+        })
+        .verdict()
+    }
+}
+
+#[test]
+fn anchors_oracle_catches_anchor_reply_and_resolve_errors() {
+    let (status, reason) = AnchorData::passing().checks();
+    assert_eq!(status, Status::Pass, "{reason}");
+
+    let mut data = AnchorData::passing();
+    data.writes[0].body["comments"][0]["side"] = json!("RIGHT");
+    let (status, reason) = data.checks();
+    assert_eq!(status, Status::Fail);
+    assert!(reason.contains("якоря в comments[]"), "{reason}");
+
+    let mut data = AnchorData::passing();
+    data.after[0].1[2].start_line = None;
+    let (status, reason) = data.checks();
+    assert_eq!(status, Status::Fail);
+    assert!(reason.contains("комментарии review Create"), "{reason}");
+
+    let mut data = AnchorData::passing();
+    data.writes[1].path = "/repos/o/r/pulls/5/comments/12/replies".to_owned();
+    let (status, reason) = data.checks();
+    assert_eq!(status, Status::Fail);
+    assert!(reason.contains("ответ на REST ID корня"), "{reason}");
+
+    let mut data = AnchorData::passing();
+    data.after[1].1[0].in_reply_to = Some(crate::model::ProviderId::new("12"));
+    let (status, reason) = data.checks();
+    assert_eq!(status, Status::Fail);
+    assert!(reason.contains("ответы в reviews ревьюера"), "{reason}");
+
+    let mut data = AnchorData::passing();
+    data.thread = "PRRT_2";
+    let (status, reason) = data.checks();
+    assert_eq!(status, Status::Fail);
+    assert!(reason.contains("по node ID треда корня"), "{reason}");
+
+    let mut data = AnchorData::passing();
+    data.resolved_after = Some(false);
+    let (status, reason) = data.checks();
+    assert_eq!(status, Status::Fail);
+    assert!(reason.contains("после resolve разрешён"), "{reason}");
+
+    let mut data = AnchorData::passing();
+    data.writes.remove(1);
+    let (status, reason) = data.checks();
+    assert_eq!(status, Status::Fail);
+    assert!(reason.contains("записи ревьюера"), "{reason}");
+}
+
+#[test]
+fn replied_root_reads_the_comment_id() {
+    assert_eq!(
+        replied_root("/repos/o/r/pulls/5/comments/11/replies").as_deref(),
+        Some("11")
+    );
+    assert_eq!(replied_root("/repos/o/r/pulls/5/comments/11"), None);
 }

@@ -17,14 +17,14 @@ use super::github_adapter;
 use super::gl_cells::{LiveRoles, Observed, Poll, WRITE_UNOBSERVED, run_live_cell, stand};
 use crate::fake::{GraphqlKind, graphql_root};
 use crate::github::{
-    ApiError, Capabilities, GitHub, PullSnapshot, RemoteComment, RemoteReview, ReviewEvent,
-    ReviewState, ViewedState, is_rate_limited,
+    ApiError, Capabilities, GitHub, PullSnapshot, RemoteComment, RemoteReview, RemoteThread,
+    ReviewEvent, ReviewState, ViewedState, is_rate_limited,
 };
 use crate::journal::{ItemState, Journal, Operation, ProjectId};
 use crate::live::guard::Guarded;
 use crate::live::lifecycle::Cell;
 use crate::model::anchor::Side;
-use crate::model::{Provider, ReviewSession, ReviewTarget};
+use crate::model::{Provider, ProviderId, ReviewSession, ReviewTarget};
 use crate::results::ResultFile;
 use crate::scenario::Scenario;
 use crate::scenario::fake::{Checks, Spot, add_drafts, dump_in};
@@ -81,7 +81,10 @@ impl<T: Transport> GhCx<'_, T> {
 pub fn implemented(scenario: Scenario) -> bool {
     matches!(
         scenario,
-        Scenario::GhLocalCreate | Scenario::GhPendingCycle | Scenario::GhViewed
+        Scenario::GhLocalCreate
+            | Scenario::GhPendingCycle
+            | Scenario::GhAnchors
+            | Scenario::GhViewed
     )
 }
 
@@ -107,6 +110,7 @@ pub fn run_gh_cell<T: Transport>(
         |cell| match scenario {
             Scenario::GhLocalCreate => gh_local_create(cx, cell),
             Scenario::GhPendingCycle => gh_pending_cycle(cx, cell),
+            Scenario::GhAnchors => gh_anchors(cx, cell),
             Scenario::GhViewed => gh_viewed(cx, cell),
             other => Err(Verdict::Error(format!(
                 "сценарий {} в живом столбце GitHub не реализован",
@@ -994,11 +998,10 @@ fn gh_pending_cycle<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<O
         "ветвь «первый Submit получает 422»: not_run «{INJECTION_UNAVAILABLE}»"
     )];
     let window = |from: usize| cx.trace.calls().get(from..).unwrap_or_default().to_vec();
-    let dump = || -> Result<(Value, usize), Verdict> {
+    let dump = || -> Result<Value, Verdict> {
         let journal =
             Journal::open(&journal_path).map_err(|err| stand("журнал после переоткрытия", &err))?;
-        let value = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
-        Ok((value, journal.recovered().len()))
+        dump_in(&journal, &project).map_err(|err| stand("журнал", &err))
     };
     let start = cx.trace.len();
     let (first, second, between) = {
@@ -1017,7 +1020,7 @@ fn gh_pending_cycle<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<O
         if !caps.server_pending() {
             drop(scope);
             drop(journal);
-            let (journal, _) = dump()?;
+            let journal = dump()?;
             return Ok(Observed {
                 checks: Checks::default(),
                 notes,
@@ -1079,7 +1082,7 @@ fn gh_pending_cycle<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<O
         between;
     let (after_state, after_value) = pr_state(&author)?;
     let writes = write_calls(&window(start), ACTOR_REVIEWER);
-    let (first_report, second_report) = {
+    let (first_report, second_report, journal, recovered) = {
         let journal =
             Journal::open(&journal_path).map_err(|err| stand("журнал после переоткрытия", &err))?;
         let scope = journal.scope(&project);
@@ -1088,9 +1091,9 @@ fn gh_pending_cycle<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<O
             .map(|id| report(&scope, id))
             .transpose()
             .map_err(|err| stand("итог отправки", &err))?;
-        (first, second)
+        let value = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
+        (first, second, value, journal.recovered().len())
     };
-    let (journal, recovered) = dump()?;
     let dropped = reviewer.transport().dropped();
     let checks = pending_cycle_checks(&PendingFacts {
         head: snapshot.revision.head_sha().as_str(),
@@ -1116,6 +1119,499 @@ fn gh_pending_cycle<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<O
         journal,
         tier: caps.plan,
         verdict: None,
+    })
+}
+
+/// Ключи записей `gh-anchors`.
+pub const GH_REPLY: &str = "POST comments/{id}/replies";
+pub const GH_RESOLVE: &str = "graphql resolveReviewThread";
+/// Черновики `gh-anchors`: удалённая 03 (старая сторона, 3), добавленная 24a (новая, 24) и диапазон
+/// 24a–24b на новой стороне (24–25). Первый — корень треда для ответа и resolve.
+const ANCHOR_DRAFTS: [(Spot, &str); 3] = [
+    (Spot::Line(Side::Old, 3), "удалённая 03"),
+    (Spot::Line(Side::New, 24), "добавленная 24a"),
+    (
+        Spot::Range(Side::New, 24, Side::New, 25),
+        "диапазон 24a–24b",
+    ),
+];
+/// Якорь каждого черновика по фикстуре: `line`, `side`, `start_line`, `start_side`.
+const ANCHOR_FIELDS: [(u32, &str, Option<u32>, Option<&str>); 3] = [
+    (3, "LEFT", None, None),
+    (24, "RIGHT", None, None),
+    (25, "RIGHT", Some(24), Some("RIGHT")),
+];
+const ANCHOR_REPLY: &str = "ответ в треде";
+/// Причина `not_run`, если тред корня не найден в чтении тредов автором.
+pub const THREAD_UNOBSERVED: &str = "тред корня не наблюдён чтением тредов автором";
+
+/// ID комментария в пути `…/comments/{id}/replies`.
+fn replied_root(path: &str) -> Option<String> {
+    let path = path.split_once('?').map_or(path, |(path, _)| path);
+    path.rsplit_once("/comments/")
+        .and_then(|(_, rest)| rest.strip_suffix("/replies"))
+        .map(str::to_owned)
+}
+
+/// Якорь комментария: путь, `line`, `side`, `start_line`, `start_side`.
+type AnchorRow = (
+    Option<String>,
+    Option<u64>,
+    Option<String>,
+    Option<u64>,
+    Option<String>,
+);
+
+fn wanted_anchors(path: &str) -> Vec<AnchorRow> {
+    ANCHOR_FIELDS
+        .iter()
+        .map(|(line, side, start_line, start_side)| {
+            (
+                Some(path.to_owned()),
+                Some(u64::from(*line)),
+                Some((*side).to_owned()),
+                start_line.map(u64::from),
+                start_side.map(str::to_owned),
+            )
+        })
+        .collect()
+}
+
+/// Факты `gh-anchors` для оракула.
+pub struct AnchorFacts<'a> {
+    pub head: &'a str,
+    pub path: &'a str,
+    pub reviewer: &'a str,
+    /// Записи ревьюера в окне от отправки до resolve.
+    pub writes: &'a [WriteCall],
+    /// REST ID корня треда по чтению автора.
+    pub root: Option<&'a str>,
+    /// Node ID треда корня по чтению тредов автором.
+    pub thread: Option<&'a str>,
+    /// `isResolved` треда корня в чтении автора до resolve и после.
+    pub resolved_before: Option<bool>,
+    pub resolved_after: Option<bool>,
+    /// Reviews PR и их комментарии по чтению автора после resolve.
+    pub after: &'a [ReviewRead],
+    pub report: &'a Report,
+    pub recovered: usize,
+}
+
+/// Оракул `gh-anchors` на живом хосте (ожидание — в отчёте).
+pub fn gh_anchors_checks(facts: &AnchorFacts<'_>) -> Checks {
+    let mut checks = Checks::default();
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for write in facts.writes {
+        *counts.entry(write.key.as_str()).or_insert(0) += 1;
+    }
+    checks.eq(
+        "записи ревьюера",
+        counts,
+        [(GH_CREATE, 1), (GH_REPLY, 1), (GH_RESOLVE, 1)]
+            .into_iter()
+            .collect(),
+    );
+    for (index, write) in facts.writes.iter().enumerate() {
+        checks.check(
+            &format!("запись {index} {}: принята", write.key),
+            write
+                .status
+                .is_some_and(|status| (200..300).contains(&status)),
+            format!("{:?}", write.status),
+        );
+    }
+    let of = |key: &'static str| facts.writes.iter().filter(move |write| write.key == key);
+    let create = of(GH_CREATE).next();
+    let created_id = create
+        .and_then(|write| write.response.as_ref())
+        .and_then(|value| value.get("id"))
+        .map(id_text);
+    if let Some(create) = create {
+        checks.eq(
+            "event Create review",
+            create.body["event"].as_str(),
+            Some(ReviewEvent::Comment.name()),
+        );
+        checks.eq(
+            "commit_id Create review",
+            create.body["commit_id"].as_str(),
+            Some(facts.head),
+        );
+        let sent: Vec<AnchorRow> = create.body["comments"]
+            .as_array()
+            .map(|list| {
+                list.iter()
+                    .map(|c| {
+                        (
+                            c["path"].as_str().map(str::to_owned),
+                            c["line"].as_u64(),
+                            c["side"].as_str().map(str::to_owned),
+                            c["start_line"].as_u64(),
+                            c["start_side"].as_str().map(str::to_owned),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        checks.eq(
+            "якоря в comments[] Create review",
+            sent,
+            wanted_anchors(facts.path),
+        );
+    }
+    checks.eq(
+        "ответ на REST ID корня",
+        of(GH_REPLY)
+            .map(|write| replied_root(&write.path))
+            .collect::<Vec<_>>(),
+        vec![facts.root.map(str::to_owned)],
+    );
+    checks.eq(
+        "resolveReviewThread по node ID треда корня",
+        of(GH_RESOLVE)
+            .map(|write| {
+                write
+                    .body
+                    .pointer("/variables/input/threadId")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
+            .collect::<Vec<_>>(),
+        vec![facts.thread.map(str::to_owned)],
+    );
+    let own: Vec<&ReviewRead> = facts
+        .after
+        .iter()
+        .filter(|(review, _)| review.user.eq_ignore_ascii_case(facts.reviewer))
+        .collect();
+    let created = own
+        .iter()
+        .find(|(review, _)| Some(review.id.as_str()) == created_id.as_deref());
+    checks.eq(
+        "автор: review Create (состояние, commit_id)",
+        created.map(|(review, _)| (review.state.name(), review.commit_id.as_str())),
+        Some((ReviewState::Commented.name(), facts.head)),
+    );
+    let mut seen: Vec<(String, AnchorRow)> = created
+        .map(|(_, comments)| comments.as_slice())
+        .unwrap_or_default()
+        .iter()
+        .filter(|comment| comment.in_reply_to.is_none())
+        .map(|comment| {
+            (
+                comment.body.clone(),
+                (
+                    Some(comment.path.clone()),
+                    comment.line.map(u64::from),
+                    comment.side.clone(),
+                    comment.start_line.map(u64::from),
+                    comment.start_side.clone(),
+                ),
+            )
+        })
+        .collect();
+    seen.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut wanted: Vec<(String, AnchorRow)> = ANCHOR_DRAFTS
+        .iter()
+        .map(|(_, body)| (*body).to_owned())
+        .zip(wanted_anchors(facts.path))
+        .collect();
+    wanted.sort_by(|a, b| a.0.cmp(&b.0));
+    checks.eq(
+        "автор: комментарии review Create (текст, якорь)",
+        seen,
+        wanted,
+    );
+    checks.eq(
+        "автор: ответы в reviews ревьюера (in_reply_to, текст)",
+        own.iter()
+            .flat_map(|(_, comments)| comments.iter())
+            .filter_map(|comment| {
+                comment
+                    .in_reply_to
+                    .as_ref()
+                    .map(|parent| (parent.as_str().to_owned(), comment.body.clone()))
+            })
+            .collect::<Vec<_>>(),
+        facts
+            .root
+            .map(|root| (root.to_owned(), ANCHOR_REPLY.to_owned()))
+            .into_iter()
+            .collect::<Vec<_>>(),
+    );
+    checks.eq(
+        "тред корня до resolve не разрешён",
+        facts.resolved_before,
+        Some(false),
+    );
+    checks.eq(
+        "тред корня после resolve разрешён",
+        facts.resolved_after,
+        Some(true),
+    );
+    checks.eq(
+        "элементы журнала",
+        facts
+            .report
+            .items
+            .iter()
+            .map(|item| {
+                (
+                    item.operation,
+                    item.state,
+                    item.remote_id.as_ref().map(|id| id.as_str().to_owned()),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![(
+            Operation::GitHubCreateReview,
+            ItemState::Confirmed,
+            created_id,
+        )],
+    );
+    checks.eq("итог в журнале", facts.report.delivery, Delivery::Full);
+    checks.eq("восстановленные элементы", facts.recovered, 0);
+    checks
+}
+
+fn threads_json(threads: &[RemoteThread]) -> Value {
+    json!(
+        threads
+            .iter()
+            .map(|thread| json!({
+                "id": thread.node_id.as_str(),
+                "isResolved": thread.is_resolved,
+                "root": thread.root.as_ref().map(ProviderId::as_str),
+                "root_full_database_id": thread.root_database_id,
+                "comments": thread.comments,
+            }))
+            .collect::<Vec<_>>()
+    )
+}
+
+/// Запись ответа или resolve: `Ok(true)` — дальше, `Ok(false)` — явный отказ хоста (заметка,
+/// дальнейшие записи не идут), `Err` — итог без проверок. Ответ 2xx, не прошедший проверку
+/// адаптера, — заметка: запись дошла до хоста, итог судит чтение автора.
+fn anchor_write(
+    key: &str,
+    outcome: Result<(), ApiError>,
+    notes: &mut Vec<String>,
+) -> Result<bool, Verdict> {
+    match outcome {
+        Ok(()) => Ok(true),
+        Err(ApiError::Unexpected(reason)) => {
+            notes.push(format!(
+                "{key}: ответ 2xx не прошёл проверку адаптера: {reason}"
+            ));
+            Ok(true)
+        }
+        Err(err) => match gh_write_verdict(key, &err) {
+            Some(verdict) => Err(verdict),
+            None => {
+                notes.push(format!("отказ хоста на {key}: {err}"));
+                Ok(false)
+            }
+        },
+    }
+}
+
+fn gh_anchors<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = github_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let author = github_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let snapshot = await_pull(&reviewer, &cx.poll)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| gh_read_or_fail("возможности ревьюера", &err))?;
+    let (_, before) = pr_state(&author)?;
+    let path = snapshot
+        .files
+        .first()
+        .map(|file| file.new_path().to_owned())
+        .ok_or_else(|| Verdict::Error("в diff PR нет файлов".to_owned()))?;
+    let pull = &snapshot.node_id;
+    let journal_path = cx.state_dir.join("journal-gh-anchors.db");
+    let project = ProjectId::new(LIVE_PROJECT);
+    let window = |from: usize| cx.trace.calls().get(from..).unwrap_or_default().to_vec();
+    let mut notes = Vec::new();
+    let start = cx.trace.len();
+    let submission = {
+        let journal = Journal::open(&journal_path).map_err(|err| stand("журнал", &err))?;
+        let scope = journal.scope(&project);
+        let session = ReviewSession::new(
+            &cx.reviewer_login,
+            review.clone(),
+            snapshot.revision.clone(),
+        );
+        let session = scope
+            .create_session(&session)
+            .map_err(|err| stand("сессия", &err))?;
+        add_drafts(&scope, session, &snapshot.files, &ANCHOR_DRAFTS)
+            .map_err(|err| stand("черновики", &err))?;
+        if !caps.resolve() {
+            let dump = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
+            return Ok(Observed {
+                checks: Checks::default(),
+                notes,
+                after: before.clone(),
+                before,
+                journal: dump,
+                tier: caps.plan,
+                verdict: Some(Verdict::Absent(
+                    "resolveReviewThread и unresolveReviewThread нет в схеме по introspection"
+                        .to_owned(),
+                )),
+            });
+        }
+        let submission = plan_github_local(&scope, session, ReviewEvent::Comment, SUMMARY)
+            .map_err(|err| stand("план", &err))?;
+        let sent = run_github(&scope, submission.id, &reviewer, &caps)
+            .map_err(|err| gh_submit_verdict(&err))?;
+        if let Some(verdict) = gh_delivery_verdict(&sent, &window(start), ACTOR_REVIEWER) {
+            return Err(verdict);
+        }
+        submission.id
+    };
+    let created = write_calls(&window(start), ACTOR_REVIEWER)
+        .into_iter()
+        .find(|write| write.key == GH_CREATE)
+        .and_then(|write| write.response)
+        .and_then(|value| value.get("id").map(id_text));
+    let root_body = ANCHOR_DRAFTS[0].1;
+    let root = match &created {
+        Some(created) => {
+            let comments = author
+                .review_comments(&ProviderId::new(created.as_str()))
+                .map_err(|err| gh_read_or_fail("комментарии review автором", &err))?;
+            let root = comments
+                .into_iter()
+                .find(|comment| comment.body == root_body && comment.in_reply_to.is_none());
+            if root.is_none() {
+                notes.push(format!(
+                    "корень треда «{root_body}» не найден в чтении автора: ответ и resolve не шли"
+                ));
+            }
+            root
+        }
+        None => {
+            notes.push("Create review не принят: ответ и resolve не шли".to_owned());
+            None
+        }
+    };
+    let mut thread: Option<RemoteThread> = None;
+    let mut threads_before = Value::Null;
+    let mut unobserved = None;
+    if let Some(root) = &root {
+        let replied = reviewer.reply(&root.id, ANCHOR_REPLY).map(|_| ());
+        if anchor_write(GH_REPLY, replied, &mut notes)? {
+            let threads = author
+                .review_threads(pull)
+                .map_err(|err| gh_read_or_fail("треды PR автором", &err))?;
+            threads_before = threads_json(&threads);
+            thread = threads
+                .into_iter()
+                .find(|thread| thread.root.as_ref() == Some(&root.node_id));
+            match &thread {
+                Some(found) => {
+                    notes.push(format!(
+                        "наблюдение: тред корня найден по node ID, comments.totalCount {}, \
+                         fullDatabaseId корня {:?} (REST ID {})",
+                        found.comments,
+                        found.root_database_id,
+                        root.id.as_str()
+                    ));
+                    let resolved = reviewer.set_thread_resolved(&found.node_id, true);
+                    anchor_write(GH_RESOLVE, resolved, &mut notes)?;
+                }
+                None => {
+                    unobserved = Some(format!(
+                        "{THREAD_UNOBSERVED}: node ID корня {} нет среди корней тредов, resolve \
+                         не шёл",
+                        root.node_id.as_str()
+                    ));
+                }
+            }
+        }
+    }
+    let threads_after = match &thread {
+        Some(_) => Some(
+            author
+                .review_threads(pull)
+                .map_err(|err| gh_read_or_fail("треды PR автором после resolve", &err))?,
+        ),
+        None => None,
+    };
+    let root_node = root.as_ref().map(|root| &root.node_id);
+    let resolved_after = threads_after.as_ref().and_then(|threads| {
+        threads
+            .iter()
+            .find(|candidate| candidate.root.as_ref() == root_node)
+            .map(|candidate| candidate.is_resolved)
+    });
+    if let Some(threads) = &threads_after {
+        let others: Vec<bool> = threads
+            .iter()
+            .filter(|candidate| candidate.root.as_ref() != root_node)
+            .map(|candidate| candidate.is_resolved)
+            .collect();
+        notes.push(format!(
+            "наблюдение: isResolved остальных тредов после resolve: {others:?}"
+        ));
+    }
+    let (after_state, after_value) = pr_state(&author)?;
+    for (review, comments) in &after_state {
+        for comment in comments
+            .iter()
+            .filter(|comment| comment.in_reply_to.is_some())
+        {
+            notes.push(format!(
+                "наблюдение: ответ в review {} ({}{}), line {:?}, side {:?}",
+                review.id.as_str(),
+                review.state.name(),
+                if Some(review.id.as_str()) == created.as_deref() {
+                    ", тот же, что Create review"
+                } else {
+                    ", отдельный review"
+                },
+                comment.line,
+                comment.side
+            ));
+        }
+    }
+    let writes = write_calls(&window(start), ACTOR_REVIEWER);
+    let (done, journal, recovered) = {
+        let journal =
+            Journal::open(&journal_path).map_err(|err| stand("журнал после переоткрытия", &err))?;
+        let scope = journal.scope(&project);
+        let done = report(&scope, submission).map_err(|err| stand("итог отправки", &err))?;
+        let value = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
+        (done, value, journal.recovered().len())
+    };
+    let checks = gh_anchors_checks(&AnchorFacts {
+        head: snapshot.revision.head_sha().as_str(),
+        path: &path,
+        reviewer: &cx.reviewer_login,
+        writes: &writes,
+        root: root.as_ref().map(|root| root.id.as_str()),
+        thread: thread.as_ref().map(|thread| thread.node_id.as_str()),
+        resolved_before: thread.as_ref().map(|thread| thread.is_resolved),
+        resolved_after,
+        after: &after_state,
+        report: &done,
+        recovered,
+    });
+    Ok(Observed {
+        checks,
+        notes,
+        before,
+        after: json!({
+            "author": after_value,
+            "threads_before_resolve": threads_before,
+            "threads_after_resolve": threads_after.as_deref().map(threads_json),
+        }),
+        journal,
+        tier: caps.plan,
+        verdict: unobserved.map(Verdict::NotRun),
     })
 }
 

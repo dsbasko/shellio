@@ -830,6 +830,84 @@ fn viewed_mark_unmark_and_read_by_cursors() -> TestResult {
     Ok(())
 }
 
+#[test]
+fn review_threads_read_by_cursors_with_root_ids() -> TestResult {
+    let pull = ProviderId::new("PR_7");
+    let page = |nodes: Value, next: bool, cursor: Value| {
+        Reply::json(
+            200,
+            &json!({"data": {"node": {"reviewThreads": {
+                "nodes": nodes,
+                "pageInfo": {"hasNextPage": next, "endCursor": cursor},
+            }}}}),
+        )
+    };
+    let scripted = Scripted::new()
+        .expect(
+            Method::Post,
+            "/graphql",
+            page(
+                json!([{"id": "PRRT_1", "isResolved": true, "comments": {
+                    "totalCount": 2,
+                    "nodes": [{"id": "PRRC_11", "fullDatabaseId": "11"}],
+                }}]),
+                true,
+                json!("c1"),
+            ),
+        )
+        .expect(
+            Method::Post,
+            "/graphql",
+            page(
+                json!([{"id": "PRRT_2", "isResolved": false, "comments": {
+                    "totalCount": 0,
+                    "nodes": [],
+                }}]),
+                false,
+                Value::Null,
+            ),
+        );
+    let threads = adapter(&scripted)?.review_threads(&pull)?;
+    assert_eq!(
+        threads,
+        vec![
+            RemoteThread {
+                node_id: ProviderId::new("PRRT_1"),
+                is_resolved: true,
+                root: Some(ProviderId::new("PRRC_11")),
+                root_database_id: Some("11".to_owned()),
+                comments: 2,
+            },
+            RemoteThread {
+                node_id: ProviderId::new("PRRT_2"),
+                is_resolved: false,
+                root: None,
+                root_database_id: None,
+                comments: 0,
+            },
+        ]
+    );
+    let requests = scripted.finish()?;
+    assert_eq!(
+        bodies(&requests),
+        vec![
+            json!({"query": REVIEW_THREADS, "variables": {"id": "PR_7", "cursor": null}}),
+            json!({"query": REVIEW_THREADS, "variables": {"id": "PR_7", "cursor": "c1"}}),
+        ]
+    );
+    for broken in [
+        json!({"data": {"node": {"reviewThreads": {"nodes": [{"id": "PRRT_1", "comments": {"totalCount": 1, "nodes": []}}]}}}}),
+        json!({"data": {"node": {"reviewThreads": {"nodes": [], "pageInfo": {"hasNextPage": true, "endCursor": null}}}}}),
+        json!({"data": {"node": {"id": "PR_7"}}}),
+    ] {
+        let scripted = Scripted::new().expect(Method::Post, "/graphql", Reply::json(200, &broken));
+        let result = adapter(&scripted)?.review_threads(&pull);
+        assert!(matches!(result, Err(ApiError::Unexpected(_))), "{result:?}");
+        scripted.finish()?;
+    }
+    Ok(())
+}
+
 fn submit_with(reply: Reply) -> Result<ApiError, Box<dyn std::error::Error>> {
     let pending = PendingReview {
         id: ProviderId::new("601"),
@@ -1229,6 +1307,37 @@ fn http_adapter(
         Endpoints::single(server.base()),
         &target(),
     )
+}
+
+#[test]
+fn review_threads_join_rest_comments_by_node_id_against_the_fake() -> TestResult {
+    let server = fake_server()?;
+    let github = http_adapter(&server, "tok-reviewer")?;
+    let caps = github.capabilities()?;
+    let snapshot = github.pull()?;
+    let session = ReviewSession::new("bob", target(), snapshot.revision.clone());
+    let drafts = drafts(&session)?;
+    let clear = github.check_no_pending(&caps)?;
+    let review = github.create_review(&session, &clear, &drafts, ReviewEvent::Comment, "Итог")?;
+    let comments = github.review_comments(&review.id)?;
+    let root = comments.first().ok_or("нет комментариев")?;
+    github.reply(&root.id, "ответ")?;
+    let threads = github.review_threads(&snapshot.node_id)?;
+    assert_eq!(threads.len(), comments.len());
+    let thread = threads
+        .iter()
+        .find(|thread| thread.root.as_ref() == Some(&root.node_id))
+        .ok_or("тред корня не найден по node ID")?;
+    assert_eq!((thread.is_resolved, thread.comments), (false, 2));
+    github.set_thread_resolved(&thread.node_id, true)?;
+    let after = github.review_threads(&snapshot.node_id)?;
+    let resolved: Vec<bool> = after
+        .iter()
+        .filter(|candidate| candidate.root.as_ref() == Some(&root.node_id))
+        .map(|candidate| candidate.is_resolved)
+        .collect();
+    assert_eq!(resolved, vec![true]);
+    Ok(())
 }
 
 #[test]

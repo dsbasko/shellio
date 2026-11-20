@@ -57,6 +57,12 @@ unresolveReviewThread(input: $input) { thread { id isResolved } } }";
 const VIEWED_FILES: &str = "query($id: ID!, $cursor: String) { node(id: $id) { \
 ... on PullRequest { files(first: 100, after: $cursor) { nodes { path viewerViewedState } \
 pageInfo { hasNextPage endCursor } } } } }";
+/// Треды PR: node ID, `isResolved` и корень (первый комментарий) — его node ID для соединения с
+/// REST `node_id` и `fullDatabaseId` (`databaseId` комментария устарел).
+const REVIEW_THREADS: &str = "query($id: ID!, $cursor: String) { node(id: $id) { \
+... on PullRequest { reviewThreads(first: 100, after: $cursor) { nodes { id isResolved \
+comments(first: 1) { totalCount nodes { id fullDatabaseId } } } \
+pageInfo { hasNextPage endCursor } } } } }";
 
 /// Ошибки GraphQL, после которых мутация точно не исполнялась: разбор, проверка схемы и
 /// переменных, отказ по объекту или правам. Остальные (в том числе без типа) — итог неизвестен.
@@ -454,6 +460,19 @@ impl ViewedState {
             _ => None,
         }
     }
+}
+
+/// Тред review PR из GraphQL `reviewThreads`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RemoteThread {
+    pub node_id: ProviderId,
+    pub is_resolved: bool,
+    /// Node ID корня треда: равен REST `node_id` его комментария.
+    pub root: Option<ProviderId>,
+    /// `fullDatabaseId` корня, если хост его вернул: числовой ID REST.
+    pub root_database_id: Option<String>,
+    /// `comments.totalCount`: корень и ответы.
+    pub comments: u64,
 }
 
 /// Адаптер одного PR.
@@ -1118,6 +1137,44 @@ impl<T: Transport> GitHub<T> {
             "в files больше {MAX_PAGES} страниц"
         )))
     }
+
+    /// Треды review PR, видимые токену (GraphQL `reviewThreads`), по курсорам.
+    pub fn review_threads(&self, pull: &ProviderId) -> Result<Vec<RemoteThread>, ApiError> {
+        let mut threads = Vec::new();
+        let mut cursor = Value::Null;
+        for _ in 0..MAX_PAGES {
+            let node = self.graphql(
+                REVIEW_THREADS,
+                json!({"id": pull.as_str(), "cursor": cursor}),
+                "node",
+            )?;
+            let connection = node
+                .get("reviewThreads")
+                .ok_or_else(|| ApiError::Unexpected("у PR нет reviewThreads".to_owned()))?;
+            let nodes = connection
+                .get("nodes")
+                .and_then(Value::as_array)
+                .ok_or_else(|| ApiError::Unexpected("reviewThreads без nodes".to_owned()))?;
+            for thread in nodes {
+                threads.push(thread_of(thread)?);
+            }
+            let next = connection
+                .pointer("/pageInfo/hasNextPage")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            if !next {
+                return Ok(threads);
+            }
+            cursor = connection
+                .pointer("/pageInfo/endCursor")
+                .filter(|cursor| cursor.is_string())
+                .cloned()
+                .ok_or_else(|| ApiError::Unexpected("hasNextPage без endCursor".to_owned()))?;
+        }
+        Err(ApiError::Unexpected(format!(
+            "в reviewThreads больше {MAX_PAGES} страниц"
+        )))
+    }
 }
 
 /// Явный отказ по лимиту REST: 429, или 403 при `x-ratelimit-remaining: 0`, `retry-after` или
@@ -1284,6 +1341,32 @@ fn comment_of(value: &Value) -> Result<RemoteComment, ApiError> {
         start_side: text("start_side"),
         commit_id: text("commit_id").unwrap_or_default(),
         in_reply_to: optional_id(value, "in_reply_to_id"),
+    })
+}
+
+fn thread_of(value: &Value) -> Result<RemoteThread, ApiError> {
+    let comments = value
+        .get("comments")
+        .ok_or_else(|| ApiError::Unexpected("тред без comments".to_owned()))?;
+    let root = comments
+        .get("nodes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| ApiError::Unexpected("comments треда без nodes".to_owned()))?
+        .first();
+    Ok(RemoteThread {
+        node_id: id_field(value, "id")?,
+        is_resolved: value
+            .get("isResolved")
+            .and_then(Value::as_bool)
+            .ok_or_else(|| ApiError::Unexpected("тред без isResolved".to_owned()))?,
+        root: root.map(|root| id_field(root, "id")).transpose()?,
+        root_database_id: root
+            .and_then(|root| optional_id(root, "fullDatabaseId"))
+            .map(|id| id.as_str().to_owned()),
+        comments: comments
+            .get("totalCount")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| ApiError::Unexpected("comments треда без totalCount".to_owned()))?,
     })
 }
 
