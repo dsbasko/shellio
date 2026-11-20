@@ -65,24 +65,77 @@ fn fake_github_with(
     FakeServer::start(fake)
 }
 
-/// Транспорт теста: у роли с `strip` из ответов GraphQL `reviewThreads` убираются все треды
-/// (чтение, которое тред корня не наблюдает). След пишет ответ хоста как есть.
-struct StripThreads<T> {
-    inner: T,
-    strip: bool,
+/// Ответ на чтение тредов GraphQL `reviewThreads` у роли автора в тестах `gh-anchors`.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ThreadsReply {
+    Keep,
+    /// Все треды убраны: чтение, которое тред корня не наблюдает.
+    Strip,
+    /// Ответ на чтение номер `at` (с нуля) — ошибка GraphQL `undefinedField` при HTTP 200.
+    GraphqlError {
+        at: usize,
+    },
+    /// У тредов ответа номер `at` нет `isResolved`.
+    NoResolved {
+        at: usize,
+    },
+    /// Ответ номер `at` заменён кодом HTTP.
+    Status {
+        at: usize,
+        code: u16,
+    },
 }
 
-impl<T: Transport> Transport for StripThreads<T> {
+/// Транспорт теста: подменяет ответы на чтение тредов по [`ThreadsReply`]. След пишет ответ
+/// хоста как есть.
+struct AuthorThreads<T> {
+    inner: T,
+    reply: ThreadsReply,
+    reads: std::sync::atomic::AtomicUsize,
+}
+
+impl<T: Transport> Transport for AuthorThreads<T> {
     fn send(&self, request: &Request) -> Result<Response, Failure> {
         let response = self.inner.send(request)?;
         let Ok(mut body) = response.body_json() else {
             return Ok(response);
         };
-        match body.pointer_mut("/data/node/reviewThreads/nodes") {
-            Some(nodes) if self.strip => {
-                *nodes = json!([]);
+        if body.pointer("/data/node/reviewThreads").is_none() {
+            return Ok(response);
+        }
+        let read = self.reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        match self.reply {
+            ThreadsReply::Keep => Ok(response),
+            ThreadsReply::Strip => {
+                if let Some(nodes) = body.pointer_mut("/data/node/reviewThreads/nodes") {
+                    *nodes = json!([]);
+                }
                 Ok(Response::json(response.status, &body))
             }
+            ThreadsReply::GraphqlError { at } if at == read => Ok(Response::json(
+                200,
+                &json!({"errors": [{
+                    "message": "Field 'isResolved' doesn't exist on type 'PullRequestReviewThread'",
+                    "extensions": {"code": "undefinedField"},
+                }]}),
+            )),
+            ThreadsReply::NoResolved { at } if at == read => {
+                if let Some(nodes) = body
+                    .pointer_mut("/data/node/reviewThreads/nodes")
+                    .and_then(Value::as_array_mut)
+                {
+                    for node in nodes {
+                        if let Some(node) = node.as_object_mut() {
+                            node.remove("isResolved");
+                        }
+                    }
+                }
+                Ok(Response::json(response.status, &body))
+            }
+            ThreadsReply::Status { at, code } if at == read => Ok(Response::json(
+                code,
+                &json!({"message": "подменённый ответ"}),
+            )),
             _ => Ok(response),
         }
     }
@@ -94,34 +147,35 @@ fn cell_body(
     server: &FakeServer<GithubFake>,
     scenario: Scenario,
 ) -> Result<Result<Observed, Verdict>, Box<dyn std::error::Error>> {
-    cell_body_with(server, scenario, false)
+    cell_body_with(server, scenario, ThreadsReply::Keep)
 }
 
 fn cell_body_with(
     server: &FakeServer<GithubFake>,
     scenario: Scenario,
-    strip_author_threads: bool,
+    author_threads: ThreadsReply,
 ) -> Result<Result<Observed, Verdict>, Box<dyn std::error::Error>> {
     let state = tempfile::tempdir()?;
     let trace = Trace::new();
     let target = GuardTarget::github(&Endpoints::single(server.base()), REPO);
-    let guard = |token: &str, actor, strip| {
+    let guard = |token: &str, actor, reply| {
         let credential = Credential::bearer(Secret::new(token));
         Guarded::new(
-            StripThreads {
+            AuthorThreads {
                 inner: Traced::new(
                     HttpTransport::new(HttpConfig::default(), Some(credential)),
                     trace.clone(),
                     actor,
                 ),
-                strip,
+                reply,
+                reads: std::sync::atomic::AtomicUsize::new(0),
             },
             target.clone(),
             WriteScope::Loopback,
         )
     };
-    let author = guard(AUTHOR_TOKEN, "author", strip_author_threads);
-    let reviewer = guard(REVIEWER_TOKEN, "reviewer", false);
+    let author = guard(AUTHOR_TOKEN, "author", author_threads);
+    let reviewer = guard(REVIEWER_TOKEN, "reviewer", ThreadsReply::Keep);
     let cx = GhCx {
         author: &author,
         reviewer: &reviewer,
@@ -1029,7 +1083,7 @@ fn anchors_without_resolve_is_absent_without_writes() -> TestResult {
 #[test]
 fn unobserved_root_thread_is_not_run_with_artifacts() -> TestResult {
     let server = fake_github(true)?;
-    let observed = cell_body_with(&server, Scenario::GhAnchors, true)?
+    let observed = cell_body_with(&server, Scenario::GhAnchors, ThreadsReply::Strip)?
         .map_err(|verdict| format!("{verdict:?}"))?;
     match &observed.verdict {
         Some(Verdict::NotRun(reason)) => assert!(reason.starts_with(THREAD_UNOBSERVED), "{reason}"),
@@ -1039,6 +1093,165 @@ fn unobserved_root_thread_is_not_run_with_artifacts() -> TestResult {
     assert_eq!(fake_writes(&server, FAKE_RESOLVE), 0);
     assert_eq!(fake_writes(&server, FAKE_REPLY), 1);
     Ok(())
+}
+
+#[test]
+fn schema_error_on_the_first_thread_read_is_not_run_with_artifacts() -> TestResult {
+    let server = fake_github(true)?;
+    let observed = cell_body_with(
+        &server,
+        Scenario::GhAnchors,
+        ThreadsReply::GraphqlError { at: 0 },
+    )?
+    .map_err(|verdict| format!("{verdict:?}"))?;
+    match &observed.verdict {
+        Some(Verdict::NotRun(reason)) => {
+            assert!(reason.starts_with(THREAD_UNOBSERVED), "{reason}");
+            assert!(reason.contains("ошибка схемы или формы ответа"), "{reason}");
+            assert!(reason.ends_with("resolve не шёл"), "{reason}");
+        }
+        other => return Err(format!("{other:?}").into()),
+    }
+    assert!(!observed.journal.is_null() && !observed.before.is_null());
+    assert!(!observed.after["author"].is_null());
+    assert_eq!(fake_writes(&server, FAKE_REPLY), 1);
+    assert_eq!(fake_writes(&server, FAKE_RESOLVE), 0);
+    Ok(())
+}
+
+#[test]
+fn form_error_on_the_thread_read_after_resolve_is_not_run_with_artifacts() -> TestResult {
+    let server = fake_github(true)?;
+    let observed = cell_body_with(
+        &server,
+        Scenario::GhAnchors,
+        ThreadsReply::NoResolved { at: 1 },
+    )?
+    .map_err(|verdict| format!("{verdict:?}"))?;
+    match &observed.verdict {
+        Some(Verdict::NotRun(reason)) => {
+            assert!(reason.starts_with(THREAD_UNOBSERVED), "{reason}");
+            assert!(reason.contains("после resolve"), "{reason}");
+            assert!(reason.contains("isResolved"), "{reason}");
+            assert!(!reason.contains("не шёл"), "{reason}");
+        }
+        other => return Err(format!("{other:?}").into()),
+    }
+    assert!(!observed.journal.is_null() && !observed.after["author"].is_null());
+    assert!(!observed.after["threads_before_resolve"].is_null());
+    assert!(observed.after["threads_after_resolve"].is_null());
+    assert_eq!(fake_writes(&server, FAKE_RESOLVE), 1);
+    Ok(())
+}
+
+#[test]
+fn limit_and_server_error_on_the_thread_read_keep_the_read_rule() -> TestResult {
+    let server = fake_github(true)?;
+    let limited = cell_body_with(
+        &server,
+        Scenario::GhAnchors,
+        ThreadsReply::Status { at: 0, code: 429 },
+    )?
+    .err()
+    .ok_or("ожидался итог без проверок")?;
+    assert!(
+        matches!(&limited, Verdict::NotRun(reason) if reason.starts_with("лимит: треды PR автором")),
+        "{limited:?}"
+    );
+    let server = fake_github(true)?;
+    let failed = cell_body_with(
+        &server,
+        Scenario::GhAnchors,
+        ThreadsReply::Status { at: 1, code: 502 },
+    )?
+    .err()
+    .ok_or("ожидался итог без проверок")?;
+    assert!(
+        matches!(&failed, Verdict::Error(reason) if reason.starts_with("треды PR автором после resolve")),
+        "{failed:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn threads_unread_splits_schema_and_form_from_other_failures() {
+    let unexpected = ApiError::Unexpected("тред без isResolved".to_owned());
+    assert!(matches!(
+        threads_unread("треды", &unexpected),
+        Ok(reason) if reason.starts_with(THREAD_UNOBSERVED) && reason.contains("тред без isResolved")
+    ));
+    let limit = ApiError::RateLimited {
+        status: 200,
+        detail: "API rate limit exceeded".to_owned(),
+    };
+    assert!(matches!(
+        threads_unread("треды", &limit),
+        Err(Verdict::NotRun(reason)) if reason.starts_with("лимит: треды")
+    ));
+    let server = ApiError::Status {
+        status: 502,
+        message: "bad gateway".to_owned(),
+        errors: Vec::new(),
+    };
+    assert!(matches!(
+        threads_unread("треды", &server),
+        Err(Verdict::Error(_))
+    ));
+    let transport = ApiError::Transport(Failure::not_sent("обрыв"));
+    assert!(matches!(
+        threads_unread("треды", &transport),
+        Err(Verdict::Error(_))
+    ));
+}
+
+#[test]
+fn anchor_write_notes_unexpected_and_splits_the_other_outcomes() {
+    let mut notes = Vec::new();
+    assert_eq!(anchor_write(GH_REPLY, Ok(()), &mut notes), Ok(true));
+    assert!(notes.is_empty());
+    let unexpected = Err(ApiError::Unexpected("ответ без id".to_owned()));
+    assert_eq!(anchor_write(GH_REPLY, unexpected, &mut notes), Ok(true));
+    assert!(
+        notes[0].contains("ответ 2xx не прошёл проверку адаптера: ответ без id"),
+        "{notes:?}"
+    );
+    let limit = Err(ApiError::RateLimited {
+        status: 429,
+        detail: "too many".to_owned(),
+    });
+    assert_eq!(
+        anchor_write(GH_RESOLVE, limit, &mut notes),
+        Err(Verdict::NotRun(format!(
+            "лимит: код 429 на запись {GH_RESOLVE}"
+        )))
+    );
+    let unsent = Err(ApiError::NotSent(Failure::not_sent(
+        "соединение не установлено",
+    )));
+    assert!(matches!(
+        anchor_write(GH_REPLY, unsent, &mut notes),
+        Err(Verdict::Error(reason)) if reason.starts_with(&format!("запись {GH_REPLY} не ушла"))
+    ));
+    let unknown = Err(ApiError::Status {
+        status: 502,
+        message: "bad gateway".to_owned(),
+        errors: Vec::new(),
+    });
+    assert!(matches!(
+        anchor_write(GH_RESOLVE, unknown, &mut notes),
+        Err(Verdict::NotRun(reason)) if reason.starts_with(WRITE_UNOBSERVED)
+    ));
+    assert_eq!(notes.len(), 1, "{notes:?}");
+    let refused = Err(ApiError::Status {
+        status: 422,
+        message: "Validation Failed".to_owned(),
+        errors: Vec::new(),
+    });
+    assert_eq!(anchor_write(GH_REPLY, refused, &mut notes), Ok(false));
+    assert!(
+        notes[1].starts_with(&format!("отказ хоста на {GH_REPLY}")),
+        "{notes:?}"
+    );
 }
 
 /// Факты проходящего хода `gh-anchors`: review 7, корень 11 в треде `PRRT_1`, ответ 14.

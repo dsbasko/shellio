@@ -1389,6 +1389,20 @@ fn threads_json(threads: &[RemoteThread]) -> Value {
     )
 }
 
+/// Отказ чтения тредов PR автором в `gh-anchors`: ошибка схемы или формы ответа
+/// (`ApiError::Graphql`, `ApiError::Unexpected`) — `Ok` с причиной `not_run` в духе
+/// [`THREAD_UNOBSERVED`], клетка доходит до снимков и журнала: запись уже на хосте, а расхождение
+/// выбора полей или разбора с хостом утверждение строки не опровергает. Лимит, отказ транспорта,
+/// 5xx и прочий отказ хоста — итог чтения клетки по [`gh_read_or_fail`].
+fn threads_unread(what: &str, err: &ApiError) -> Result<String, Verdict> {
+    match err {
+        ApiError::Graphql(_) | ApiError::Unexpected(_) => Ok(format!(
+            "{THREAD_UNOBSERVED}: {what}: ошибка схемы или формы ответа: {err}"
+        )),
+        _ => Err(gh_read_or_fail(what, err)),
+    }
+}
+
 /// Запись ответа или resolve: `Ok(true)` — дальше, `Ok(false)` — явный отказ хоста (заметка,
 /// дальнейшие записи не идут), `Err` — итог без проверок. Ответ 2xx, не прошедший проверку
 /// адаптера, — заметка: запись дошла до хоста, итог судит чтение автора.
@@ -1449,6 +1463,10 @@ fn gh_anchors<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<Observe
         add_drafts(&scope, session, &snapshot.files, &ANCHOR_DRAFTS)
             .map_err(|err| stand("черновики", &err))?;
         if !caps.resolve() {
+            drop(scope);
+            drop(journal);
+            let journal = Journal::open(&journal_path)
+                .map_err(|err| stand("журнал после переоткрытия", &err))?;
             let dump = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
             return Ok(Observed {
                 checks: Checks::default(),
@@ -1504,10 +1522,17 @@ fn gh_anchors<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<Observe
     if let Some(root) = &root {
         let replied = reviewer.reply(&root.id, ANCHOR_REPLY).map(|_| ());
         if anchor_write(GH_REPLY, replied, &mut notes)? {
-            let threads = author
-                .review_threads(pull)
-                .map_err(|err| gh_read_or_fail("треды PR автором", &err))?;
-            threads_before = threads_json(&threads);
+            let threads = match author.review_threads(pull) {
+                Ok(threads) => threads,
+                Err(err) => {
+                    let reason = threads_unread("треды PR автором", &err)?;
+                    unobserved = Some(format!("{reason}; resolve не шёл"));
+                    Vec::new()
+                }
+            };
+            if unobserved.is_none() {
+                threads_before = threads_json(&threads);
+            }
             thread = threads
                 .into_iter()
                 .find(|thread| thread.root.as_ref() == Some(&root.node_id));
@@ -1523,6 +1548,7 @@ fn gh_anchors<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<Observe
                     let resolved = reviewer.set_thread_resolved(&found.node_id, true);
                     anchor_write(GH_RESOLVE, resolved, &mut notes)?;
                 }
+                None if unobserved.is_some() => {}
                 None => {
                     unobserved = Some(format!(
                         "{THREAD_UNOBSERVED}: node ID корня {} нет среди корней тредов, resolve \
@@ -1534,11 +1560,13 @@ fn gh_anchors<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<Observe
         }
     }
     let threads_after = match &thread {
-        Some(_) => Some(
-            author
-                .review_threads(pull)
-                .map_err(|err| gh_read_or_fail("треды PR автором после resolve", &err))?,
-        ),
+        Some(_) => match author.review_threads(pull) {
+            Ok(threads) => Some(threads),
+            Err(err) => {
+                unobserved = Some(threads_unread("треды PR автором после resolve", &err)?);
+                None
+            }
+        },
         None => None,
     };
     let root_node = root.as_ref().map(|root| &root.node_id);
