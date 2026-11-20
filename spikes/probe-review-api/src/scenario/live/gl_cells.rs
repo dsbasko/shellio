@@ -20,10 +20,13 @@ use crate::gitlab::{
     ApiError, Capabilities, GitLab, MergeSnapshot, RemoteDraft, RemoteNote, RemotePosition,
     ReviewerState, capabilities,
 };
-use crate::journal::{ItemState, Journal, Operation, ProjectId};
+use crate::journal::{ItemState, Journal, Operation, ProjectId, SessionId};
 use crate::live::guard::Guarded;
 use crate::live::lifecycle::{Cell, CellNames, Fixture, LEDGER_FILE, Ledger, Roles, run_cell};
-use crate::model::anchor::Side;
+use crate::model::anchor::{Anchor, LinePoint, Side};
+use crate::model::revision::{
+    AnchorFate, HeadCheck, HeadPath, Revision, Sha, StaleReason, TripleOrigin, triple_origin,
+};
 use crate::model::{DraftComment, DraftId, Provider, ReviewSession, ReviewTarget};
 use crate::results::{Column, ResultFile};
 use crate::scenario::Scenario;
@@ -96,7 +99,7 @@ pub struct GlCx<'a, T> {
     pub poll: Poll,
     /// Второй клиент ревьюера (`gl-foreign-draft`).
     pub second: &'a dyn SecondClient,
-    /// Смена head клетки (`gl-approve-sha`).
+    /// Смена head клетки (`gl-approve-sha`, `head-change`).
     pub head: &'a dyn HeadMover,
 }
 
@@ -194,6 +197,7 @@ fn cell_verdict<T: Transport>(
             Scenario::GlRequestChanges => gl_request_changes(cx, cell),
             Scenario::GlAnchors => gl_anchors(cx, cell),
             Scenario::GlApproveSha => gl_approve_sha(cx, cell),
+            Scenario::HeadChange => gl_head_change(cx, cell),
             other => Err(Verdict::Error(format!(
                 "сценарий {} в живом столбце GitLab не реализован",
                 other.name()
@@ -1693,34 +1697,37 @@ fn gl_approve_sha<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Obs
         "MR клетки: версия {}",
         snapshot.version_id.as_str()
     )];
-    let early = |verdict: Verdict, notes: Vec<String>| -> Result<Observed, Verdict> {
-        let (_, _, after) = mr_state(&author, &reviewer)?;
-        let at_end = approvers(&author, "одобрения после")?;
-        Ok(Observed {
-            notes,
-            before: before.clone(),
-            after: with_approvers(after, &at_end),
-            journal: sent.journal.clone(),
-            tier: caps.plan.clone(),
-            verdict: Some(verdict),
-            ..Observed::default()
-        })
-    };
+    // Журнал — дамп после последней записи в него: после `stale_submit` в нём вторая отправка.
+    let early =
+        |verdict: Verdict, notes: Vec<String>, journal: Value| -> Result<Observed, Verdict> {
+            let (_, _, after) = mr_state(&author, &reviewer)?;
+            let at_end = approvers(&author, "одобрения после")?;
+            Ok(Observed {
+                notes,
+                before: before.clone(),
+                after: with_approvers(after, &at_end),
+                journal,
+                tier: caps.plan.clone(),
+                verdict: Some(verdict),
+                ..Observed::default()
+            })
+        };
     if let Some(verdict) = approve_outcome(&sent.done, &sent.window, sent.delivery.as_ref()) {
-        return early(verdict, notes);
+        return early(verdict, notes, sent.journal.clone());
     }
     if let Err(err) = reviewer.unapprove() {
         let verdict = match classify_read(&err) {
             Ok(text) => Verdict::NotRun(format!("одобрение не снято: {text}")),
             Err(text) => Verdict::Error(format!("снятие одобрения: {text}")),
         };
-        return early(verdict, notes);
+        return early(verdict, notes, sent.journal.clone());
     }
     let unapproved = approvers(&author, "одобрения после unapprove")?;
     if approved(&unapproved, &cx.reviewer_login) {
         return early(
             Verdict::NotRun("одобрение не снято по чтению автора".to_owned()),
             notes,
+            sent.journal.clone(),
         );
     }
     let new_head = cx.head.move_head(cell)?;
@@ -1736,6 +1743,7 @@ fn gl_approve_sha<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Obs
                     "лимит: код {status} на запись {APPROVE} с прежним sha"
                 )),
                 notes,
+                journal,
             );
         }
         if let Err(text) = classify_read(err) {
@@ -1767,6 +1775,405 @@ fn gl_approve_sha<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Obs
         before,
         after: with_approvers(after, &at_end),
         journal,
+        tier: caps.plan,
+        verdict: None,
+    })
+}
+
+/// Черновики S `head-change`: строка 05 после правки (новая 4, первый блок) и строка 27 (новая 28,
+/// контекст второго блока), которую меняет смена head.
+pub const HEAD_S_DRAFTS: [(Spot, &str); 2] = [
+    (Spot::Line(Side::New, 4), "сохранится"),
+    (Spot::Line(Side::New, 28), "перепривязать"),
+];
+/// Черновик T `head-change`: добавленная 24a (новая 24), между v1 и v2 не меняется.
+pub const HEAD_T_DRAFTS: [(Spot, &str); 1] = [(Spot::Line(Side::New, 24), "остаться")];
+/// Явный якорь v2 устаревшего черновика S: «line 27 moved» (новая 28).
+const HEAD_REBIND_LINE: u32 = 28;
+
+/// Ревизия тройки позиции: `held` (v1), `fresh` (v2), `mixed` или `foreign`.
+pub fn position_origin(held: &Revision, fresh: &Revision, position: &Value) -> &'static str {
+    let field = |name: &str| position.get(name).and_then(Value::as_str).map(Sha::parse);
+    let triple = match (field("base_sha"), field("start_sha"), field("head_sha")) {
+        (Some(Ok(base)), Some(Ok(start)), Some(Ok(head))) => Revision::new(base, start, head),
+        _ => return "foreign",
+    };
+    match triple_origin(held, fresh, &triple) {
+        TripleOrigin::Held => "held",
+        TripleOrigin::Fresh => "fresh",
+        TripleOrigin::Mixed { .. } => "mixed",
+        TripleOrigin::Foreign => "foreign",
+    }
+}
+
+/// Наблюдённое `head-change` для оракула.
+#[derive(Clone, Debug)]
+pub struct HeadFacts<'a> {
+    /// Исполнитель S на прежней ревизии остановился на шаге 1 со свежей ревизией и его итог.
+    pub stopped: (bool, String),
+    /// Записи ревьюера до выбора пути (ход исполнителя S на прежней ревизии).
+    pub blocked_writes: &'a [Write],
+    /// Записи ревьюера за весь ход после смены head.
+    pub writes: &'a [Write],
+    /// Коды ответов ревьюеру за весь ход после смены head.
+    pub statuses: &'a [u16],
+    pub fates: &'a [(DraftId, AnchorFate)],
+    /// ID черновиков S: сохраняемый и устаревающий.
+    pub s_ids: &'a [DraftId],
+    /// Элементы второй отправки S.
+    pub planned: &'a [(Operation, Vec<DraftId>)],
+    /// Путь «остаться»: отказ хоста на создание или публикацию черновика T.
+    pub stay: &'a Option<String>,
+    /// Ревизия тройки каждой исходящей позиции по тексту черновика.
+    pub origins: &'a BTreeMap<String, &'static str>,
+    pub drafts_after: usize,
+    /// Тексты заметок автора с позицией.
+    pub positioned: &'a BTreeSet<String>,
+    /// Журнал после переоткрытия: head сессии S, head и признак действующего у черновиков S,
+    /// head сессии T.
+    pub heads: &'a (String, Vec<(String, bool)>, String),
+    pub old_head: &'a str,
+    pub new_head: &'a str,
+    pub journal: &'a JournalFacts,
+}
+
+/// Оракул `head-change` на живом хосте (ожидание — в отчёте).
+pub fn head_change_checks(facts: &HeadFacts<'_>) -> Checks {
+    let mut checks = Checks::default();
+    checks.check(
+        "исполнитель S на прежней ревизии останавливается на шаге 1 со свежей ревизией",
+        facts.stopped.0,
+        facts.stopped.1.clone(),
+    );
+    checks.eq("записи до выбора пути", facts.blocked_writes.len(), 0);
+    let [kept, stale] = facts.s_ids else {
+        checks.check("черновики S", false, format!("{:?}", facts.s_ids));
+        return checks;
+    };
+    checks.eq(
+        "классификация якорей",
+        facts.fates.to_vec(),
+        vec![
+            (*kept, AnchorFate::Kept),
+            (*stale, AnchorFate::Stale(StaleReason::LinesChanged)),
+        ],
+    );
+    checks.eq(
+        "после перепривязки в отправку входят два черновика",
+        facts.planned.to_vec(),
+        vec![
+            (Operation::GitLabCreateDraftNote, vec![*kept]),
+            (Operation::GitLabCreateDraftNote, vec![*stale]),
+            (Operation::GitLabPublishDraftNote, vec![*kept]),
+            (Operation::GitLabPublishDraftNote, vec![*stale]),
+        ],
+    );
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    for write in facts.writes {
+        *counts.entry(write.key.clone()).or_insert(0) += 1;
+    }
+    checks.eq(
+        "записи ревьюера",
+        counts,
+        [(DRAFT_CREATE.to_owned(), 3), (DRAFT_PUBLISH.to_owned(), 3)]
+            .into_iter()
+            .collect(),
+    );
+    checks.check(
+        "ответов 400 нет",
+        !facts.statuses.contains(&400),
+        format!("{:?}", facts.statuses),
+    );
+    checks.check(
+        "путь «остаться»: черновик T создан и опубликован на v1",
+        facts.stay.is_none(),
+        facts.stay.clone().unwrap_or_default(),
+    );
+    let bodies =
+        |drafts: &[(Spot, &'static str)]| drafts.iter().map(|(_, body)| *body).collect::<Vec<_>>();
+    let wanted: BTreeMap<String, &'static str> = bodies(&HEAD_T_DRAFTS)
+        .into_iter()
+        .map(|body| (body.to_owned(), "held"))
+        .chain(
+            bodies(&HEAD_S_DRAFTS)
+                .into_iter()
+                .map(|body| (body.to_owned(), "fresh")),
+        )
+        .collect();
+    checks.eq(
+        "тройки исходящих позиций",
+        facts.origins.clone(),
+        wanted.clone(),
+    );
+    checks.eq("черновиков ревьюера после отправки", facts.drafts_after, 0);
+    checks.eq(
+        "автор: заметки с позициями черновиков",
+        facts.positioned.clone(),
+        wanted.into_keys().collect::<BTreeSet<_>>(),
+    );
+    checks.eq(
+        "журнал: S на v2 с обоими черновиками, T на v1",
+        facts.heads.clone(),
+        (
+            facts.new_head.to_owned(),
+            vec![(facts.new_head.to_owned(), true); 2],
+            facts.old_head.to_owned(),
+        ),
+    );
+    checks.check(
+        "журнал: отправка S — все элементы confirmed, итог «полностью»",
+        facts.journal.full_confirmed,
+        facts.journal.states.clone(),
+    );
+    checks.eq("восстановленные элементы", facts.journal.recovered, 0);
+    checks
+}
+
+/// Путь «остаться»: черновик T создаётся и публикуется адаптером на прежней ревизии. Отказ хоста —
+/// `Ok(Some(текст))`, его судит оракул; лимит — `not_run`, транспорт и 5xx — ошибка исполнения.
+fn stay_on_held<T: Transport>(
+    reviewer: &GitLab<&Guarded<T>>,
+    session: &ReviewSession,
+    draft: &DraftComment,
+) -> Result<Option<String>, Verdict> {
+    let refused = |what: &str, err: ApiError| -> Result<Option<String>, Verdict> {
+        if let ApiError::RateLimited { status, .. } = err {
+            return Err(Verdict::NotRun(format!(
+                "лимит: код {status} на запись {what} пути «остаться»"
+            )));
+        }
+        match classify_read(&err) {
+            Ok(text) => Ok(Some(format!("{what}: {text}"))),
+            Err(text) => Err(Verdict::Error(format!("путь «остаться», {what}: {text}"))),
+        }
+    };
+    let known = match reviewer.create_draft(session, draft, false) {
+        Ok((known, _)) => known,
+        Err(err) => return refused(DRAFT_CREATE, err),
+    };
+    match reviewer.publish_draft(&known) {
+        Ok(()) => Ok(None),
+        Err(err) => refused(DRAFT_PUBLISH, err),
+    }
+}
+
+fn gl_head_change<T: Transport>(cx: &GlCx<'_, T>, cell: &mut Cell) -> Result<Observed, Verdict> {
+    let review = cx.review(cell.number);
+    let reviewer = gitlab_adapter(cx.reviewer, &review).map_err(|err| stand("адаптер", &err))?;
+    let author = gitlab_adapter(cx.author, &review).map_err(|err| stand("адаптер", &err))?;
+    let held = await_snapshot(&reviewer, &cx.poll, None, MR_NOT_READY)?;
+    let caps = reviewer
+        .capabilities()
+        .map_err(|err| read_or_fail("возможности ревьюера", &err))?;
+    let (_, _, before) = mr_state(&author, &reviewer)?;
+    let path = cx.state_dir.join("journal-head-change.db");
+    let project = ProjectId::new(LIVE_PROJECT);
+    let mut notes = vec![format!("MR клетки: версия {}", held.version_id.as_str())];
+    let journal = Journal::open(&path).map_err(|err| stand("журнал", &err))?;
+    let scope = journal.scope(&project);
+    let session_of = |drafts: &[(Spot, &str)]| -> Result<(SessionId, Vec<DraftId>), Verdict> {
+        let session = ReviewSession::new(&cx.reviewer_login, review.clone(), held.revision.clone());
+        let id = scope
+            .create_session(&session)
+            .map_err(|err| stand("сессия", &err))?;
+        let ids =
+            add_drafts(&scope, id, &held.files, drafts).map_err(|err| stand("черновики", &err))?;
+        Ok((id, ids))
+    };
+    let (s_id, s_ids) = session_of(&HEAD_S_DRAFTS)?;
+    let (t_id, t_ids) = session_of(&HEAD_T_DRAFTS)?;
+    let new_head = cx.head.move_head(cell)?;
+    let fresh = await_snapshot(&reviewer, &cx.poll, Some(&new_head), MR_HEAD_STALE)?;
+    notes.push(format!(
+        "смена head: новый head {new_head}, версия {}",
+        fresh.version_id.as_str()
+    ));
+    let start = cx.trace.len();
+    let blocked =
+        plan_gitlab(&scope, s_id, &GitLabPlan::default()).map_err(|err| stand("план", &err))?;
+    let stopped = match run_gitlab(&scope, blocked.id, &reviewer, &caps) {
+        Err(SubmitError::HeadChanged { fresh: seen }) => (
+            *seen == fresh.revision,
+            format!("HeadChanged до {}", seen.head_sha().as_str()),
+        ),
+        Err(other) => return Err(submit_verdict(&other)),
+        Ok(done) => (
+            false,
+            format!("исполнитель не остановился: {:?}", done.delivery),
+        ),
+    };
+    let blocked_writes = writes_of(
+        cx.trace.calls().get(start..).unwrap_or_default(),
+        ACTOR_REVIEWER,
+    );
+    scope
+        .close_submission(blocked.id)
+        .map_err(|err| stand("закрытие отправки", &err))?;
+    let mut session = scope.session(s_id).map_err(|err| stand("сессия S", &err))?;
+    let mut drafts = scope
+        .drafts(s_id)
+        .map_err(|err| stand("черновики S", &err))?;
+    let HeadCheck::Changed(change) =
+        session.check_head(&fresh.revision, &held.files, &fresh.files, &drafts)
+    else {
+        return Err(Verdict::Error("смена head не замечена моделью".to_owned()));
+    };
+    let fates = change.fates().to_vec();
+    let file = fresh
+        .files
+        .first()
+        .ok_or_else(|| Verdict::Error(DIFF_EMPTY.to_owned()))?;
+    let rebound = LinePoint::at(file, Side::New, HEAD_REBIND_LINE)
+        .and_then(|point| Anchor::line(file, point))
+        .map_err(|err| stand("явный якорь v2", &err))?;
+    let rebind = fates
+        .iter()
+        .filter(|(id, fate)| s_ids.get(1) == Some(id) && matches!(fate, AnchorFate::Stale(_)))
+        .map(|(id, _)| (*id, rebound.clone()))
+        .collect();
+    session
+        .apply_head(&change, HeadPath::Rebind(rebind), &mut drafts, &fresh.files)
+        .map_err(|err| stand("перепривязка", &err))?;
+    scope
+        .save_head(s_id, &session, &drafts)
+        .map_err(|err| stand("сохранение перепривязки", &err))?;
+    let t_session = scope.session(t_id).map_err(|err| stand("сессия T", &err))?;
+    let t_draft = t_ids
+        .first()
+        .ok_or_else(|| Verdict::Error("нет черновика T".to_owned()))
+        .and_then(|id| scope.draft(*id).map_err(|err| stand("черновик T", &err)));
+    let stay = stay_on_held(&reviewer, &t_session, &t_draft?);
+    let moved =
+        plan_gitlab(&scope, s_id, &GitLabPlan::default()).map_err(|err| stand("план", &err))?;
+    let planned: Vec<(Operation, Vec<DraftId>)> = moved
+        .items
+        .iter()
+        .map(|item| (item.operation, item.drafts.clone()))
+        .collect();
+    let s_start = cx.trace.len();
+    let sent = match &stay {
+        Err(_) => None,
+        Ok(_) => Some(
+            run_gitlab(&scope, moved.id, &reviewer, &caps).map_err(|err| submit_verdict(&err))?,
+        ),
+    };
+    drop(scope);
+    drop(journal);
+    let calls = cx.trace.calls();
+    let delivery = sent.as_ref().and_then(|sent| {
+        delivery_verdict(
+            sent,
+            calls.get(s_start..).unwrap_or_default(),
+            ACTOR_REVIEWER,
+        )
+    });
+    let journal = Journal::open(&path).map_err(|err| stand("журнал после переоткрытия", &err))?;
+    let scope = journal.scope(&project);
+    let dump = dump_in(&journal, &project).map_err(|err| stand("журнал", &err))?;
+    let (notes_after, drafts_after, after) = mr_state(&author, &reviewer)?;
+    let early = |verdict: Verdict, notes: Vec<String>| Observed {
+        notes,
+        before: before.clone(),
+        after: after.clone(),
+        journal: dump.clone(),
+        tier: caps.plan.clone(),
+        verdict: Some(verdict),
+        ..Observed::default()
+    };
+    let stay = match stay {
+        Err(verdict) => return Ok(early(verdict, notes)),
+        Ok(stay) => stay,
+    };
+    if let Some(verdict) = delivery {
+        return Ok(early(verdict, notes));
+    }
+    let done = report(&scope, moved.id).map_err(|err| stand("итог отправки", &err))?;
+    let s_drafts = scope
+        .drafts(s_id)
+        .map_err(|err| stand("черновики S", &err))?;
+    let head_of = |id| -> Result<String, Verdict> {
+        Ok(scope
+            .session(id)
+            .map_err(|err| stand("сессия", &err))?
+            .revision()
+            .head_sha()
+            .as_str()
+            .to_owned())
+    };
+    let heads = (
+        head_of(s_id)?,
+        s_drafts
+            .iter()
+            .map(|draft| {
+                (
+                    draft.revision().head_sha().as_str().to_owned(),
+                    draft.is_current(),
+                )
+            })
+            .collect(),
+        head_of(t_id)?,
+    );
+    let facts = JournalFacts {
+        full_confirmed: done.delivery == Delivery::Full
+            && done
+                .items
+                .iter()
+                .all(|item| item.state == ItemState::Confirmed),
+        states: format!(
+            "{:?}",
+            states(&scope, moved.id).map_err(|err| stand("состояния", &err))?
+        ),
+        remote_ids: s_drafts.iter().all(|draft| draft.remote_id.is_some()),
+        recovered: journal.recovered().len(),
+    };
+    let window = calls.get(start..).unwrap_or_default();
+    let reviewer_calls = window.iter().filter(|call| call.actor == ACTOR_REVIEWER);
+    let statuses: Vec<u16> = reviewer_calls
+        .filter_map(|call| call.outcome.as_ref().ok().map(|response| response.status))
+        .collect();
+    let origins: BTreeMap<String, &'static str> = created_positions(window)
+        .into_iter()
+        .map(|(body, position)| {
+            let origin = position_origin(&held.revision, &fresh.revision, &position);
+            (body, origin)
+        })
+        .collect();
+    let positioned: BTreeSet<String> = notes_after
+        .iter()
+        .filter(|note| !note.system)
+        .filter_map(|note| {
+            let position = note.position.as_ref()?;
+            notes.push(format!(
+                "наблюдение: заметка «{}» вернулась с тройкой {}",
+                note.body,
+                position_origin(&held.revision, &fresh.revision, &position_json(position))
+            ));
+            Some(note.body.clone())
+        })
+        .collect();
+    let checks = head_change_checks(&HeadFacts {
+        stopped,
+        blocked_writes: &blocked_writes,
+        writes: &writes_of(window, ACTOR_REVIEWER),
+        statuses: &statuses,
+        fates: &fates,
+        s_ids: &s_ids,
+        planned: &planned,
+        stay: &stay,
+        origins: &origins,
+        drafts_after: drafts_after.len(),
+        positioned: &positioned,
+        heads: &heads,
+        old_head: held.revision.head_sha().as_str(),
+        new_head: &new_head,
+        journal: &facts,
+    });
+    Ok(Observed {
+        checks,
+        notes,
+        before,
+        after,
+        journal: dump,
         tier: caps.plan,
         verdict: None,
     })

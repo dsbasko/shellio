@@ -865,6 +865,7 @@ fn cell_body_with(
         Scenario::GlRequestChanges => gl_request_changes(&cx, &mut cell),
         Scenario::GlAnchors => gl_anchors(&cx, &mut cell),
         Scenario::GlApproveSha => gl_approve_sha(&cx, &mut cell),
+        Scenario::HeadChange => gl_head_change(&cx, &mut cell),
         other => return Err(format!("тело {} в тесте не собрано", other.name()).into()),
     };
     let errors = guard_errors(&[("author", &author), ("reviewer", &reviewer)]);
@@ -1768,7 +1769,33 @@ fn rate_limited_stale_approve_is_not_run_with_artifacts() -> TestResult {
     );
     assert_artifacts(&observed);
     assert_eq!(approves_in_fake(&server).len(), 2);
+    // Дамп снят после второй отправки на прежней ревизии: она в журнале и не тронута.
+    assert_eq!(
+        submission_states(&observed.journal),
+        vec![
+            vec![ItemState::Confirmed.name().to_owned()],
+            vec![ItemState::Planned.name().to_owned()],
+        ]
+    );
     Ok(())
+}
+
+/// Состояния элементов каждой отправки дампа журнала по порядку сессий.
+fn submission_states(journal: &Value) -> Vec<Vec<String>> {
+    journal["sessions"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .flat_map(|session| session["submissions"].as_array().into_iter().flatten())
+        .map(|submission| {
+            submission["items"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|item| item["state"].as_str().unwrap_or_default().to_owned())
+                .collect()
+        })
+        .collect()
 }
 
 #[test]
@@ -1882,4 +1909,213 @@ fn approve_outcome_puts_rights_and_tier_before_the_delivery_rule() {
         approve_outcome(&sent(&[Confirmed]), &[], None),
         Some(Verdict::Error(reason)) if reason.contains("нет элемента gitlab.approve")
     ));
+}
+
+// --- head-change ---
+
+fn writes_in_fake(server: &FakeServer<GitlabFake>, key: &str) -> usize {
+    server.log().iter().filter(|call| call.key == key).count()
+}
+
+#[test]
+fn head_change_body_passes_against_the_fake() -> TestResult {
+    let server = fake_gitlab()?;
+    let observed =
+        cell_body(&server, Scenario::HeadChange)?.map_err(|verdict| format!("{verdict:?}"))?;
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(
+        status,
+        Status::Pass,
+        "{reason}: {:?}",
+        observed.checks.to_json()
+    );
+    assert!(observed.verdict.is_none());
+    assert_artifacts(&observed);
+    assert_eq!(writes_in_fake(&server, glf::DRAFTS), 3);
+    assert_eq!(writes_in_fake(&server, glf::PUBLISH), 3);
+    for body in ["остаться", "сохранится", "перепривязать"] {
+        assert!(
+            observed
+                .notes
+                .iter()
+                .any(|note| note.starts_with(&format!("наблюдение: заметка «{body}»"))),
+            "{body}: {:?}",
+            observed.notes
+        );
+    }
+    assert!(
+        observed
+            .notes
+            .iter()
+            .any(|note| note.contains(&format!("новый head {NEW_HEAD}"))),
+        "{:?}",
+        observed.notes
+    );
+    Ok(())
+}
+
+#[test]
+fn refused_stay_draft_on_the_held_revision_fails_with_artifacts() -> TestResult {
+    let server = fake_gitlab()?;
+    // Первое создание черновика — T на v1: исполнитель S на прежней ревизии не пишет.
+    server.inject(Fault::new(glf::DRAFTS, FakeReply::Status(400)));
+    let observed =
+        cell_body(&server, Scenario::HeadChange)?.map_err(|verdict| format!("{verdict:?}"))?;
+    assert!(observed.verdict.is_none());
+    let (status, reason) = observed.checks.verdict();
+    assert_eq!(status, Status::Fail);
+    assert!(reason.contains("путь «остаться»"), "{reason}");
+    assert_artifacts(&observed);
+    // S отправлен после отказа T: два создания из трёх приняты.
+    assert_eq!(writes_in_fake(&server, glf::DRAFTS), 3);
+    assert_eq!(writes_in_fake(&server, glf::PUBLISH), 2);
+    Ok(())
+}
+
+#[test]
+fn rate_limited_stay_draft_is_not_run_with_artifacts() -> TestResult {
+    let server = fake_gitlab()?;
+    server.inject(Fault::new(glf::DRAFTS, FakeReply::RateLimited));
+    let observed =
+        cell_body(&server, Scenario::HeadChange)?.map_err(|verdict| format!("{verdict:?}"))?;
+    assert_eq!(
+        observed.verdict,
+        Some(Verdict::NotRun(format!(
+            "лимит: код 429 на запись {DRAFT_CREATE} пути «остаться»"
+        )))
+    );
+    assert_artifacts(&observed);
+    assert_eq!(
+        writes_in_fake(&server, glf::PUBLISH),
+        0,
+        "S после лимита не идёт"
+    );
+    Ok(())
+}
+
+#[test]
+fn head_change_the_mr_did_not_take_is_not_run() -> TestResult {
+    let server = fake_gitlab()?;
+    match cell_body_with(
+        &server,
+        Scenario::HeadChange,
+        &FakePush {
+            server: &server,
+            push: false,
+        },
+    )? {
+        Err(Verdict::NotRun(reason)) => assert!(reason.starts_with(MR_HEAD_STALE), "{reason}"),
+        other => return Err(format!("ожидался not_run: {other:?}").into()),
+    }
+    assert_eq!(writes_in_fake(&server, glf::DRAFTS), 0);
+    Ok(())
+}
+
+#[test]
+fn position_origin_tells_held_fresh_mixed_and_foreign() -> TestResult {
+    let sha = |value: &str| Sha::parse(value);
+    let held = Revision::new(sha(BASE)?, sha(BASE)?, sha(HEAD)?);
+    let fresh = Revision::new(sha(BASE)?, sha(BASE)?, sha(NEW_HEAD)?);
+    let other = "4444444444444444444444444444444444444444";
+    let position =
+        |base: &str, head: &str| json!({"base_sha": base, "start_sha": base, "head_sha": head});
+    assert_eq!(
+        position_origin(&held, &fresh, &position(BASE, HEAD)),
+        "held"
+    );
+    assert_eq!(
+        position_origin(&held, &fresh, &position(BASE, NEW_HEAD)),
+        "fresh"
+    );
+    assert_eq!(
+        position_origin(&held, &fresh, &position(other, HEAD)),
+        "foreign"
+    );
+    assert_eq!(
+        position_origin(&held, &fresh, &json!({"head_sha": HEAD})),
+        "foreign"
+    );
+    let rebased = Revision::new(sha(other)?, sha(other)?, sha(NEW_HEAD)?);
+    assert_eq!(
+        position_origin(&held, &rebased, &position(BASE, NEW_HEAD)),
+        "mixed"
+    );
+    Ok(())
+}
+
+#[test]
+fn head_change_checks_catch_writes_before_the_path_a_mixed_triple_and_a_lost_note() {
+    let (kept, stale) = (DraftId(1), DraftId(2));
+    let s_ids = [kept, stale];
+    let fates = [
+        (kept, AnchorFate::Kept),
+        (stale, AnchorFate::Stale(StaleReason::LinesChanged)),
+    ];
+    let planned = [
+        (Operation::GitLabCreateDraftNote, vec![kept]),
+        (Operation::GitLabCreateDraftNote, vec![stale]),
+        (Operation::GitLabPublishDraftNote, vec![kept]),
+        (Operation::GitLabPublishDraftNote, vec![stale]),
+    ];
+    let writes: Vec<Write> = (1..=3)
+        .map(|seq| write(seq, DRAFT_CREATE, None, None))
+        .chain((4..=6).map(|seq| write(seq, DRAFT_PUBLISH, None, None)))
+        .collect();
+    let origins: BTreeMap<String, &'static str> = [
+        ("остаться", "held"),
+        ("сохранится", "fresh"),
+        ("перепривязать", "fresh"),
+    ]
+    .into_iter()
+    .map(|(body, origin)| (body.to_owned(), origin))
+    .collect();
+    let positioned: BTreeSet<String> = origins.keys().cloned().collect();
+    let heads = (
+        NEW_HEAD.to_owned(),
+        vec![(NEW_HEAD.to_owned(), true); 2],
+        HEAD.to_owned(),
+    );
+    let journal = facts();
+    let base = HeadFacts {
+        stopped: (true, "HeadChanged".to_owned()),
+        blocked_writes: &[],
+        writes: &writes,
+        statuses: &[200, 201],
+        fates: &fates,
+        s_ids: &s_ids,
+        planned: &planned,
+        stay: &None,
+        origins: &origins,
+        drafts_after: 0,
+        positioned: &positioned,
+        heads: &heads,
+        old_head: HEAD,
+        new_head: NEW_HEAD,
+        journal: &journal,
+    };
+    let (status, reason) = head_change_checks(&base).verdict();
+    assert_eq!(status, Status::Pass, "{reason}");
+
+    let blocked = [write(1, DRAFT_CREATE, None, None)];
+    let mut mixed = origins.clone();
+    mixed.insert("перепривязать".to_owned(), "mixed");
+    let mut lost = positioned.clone();
+    lost.remove("остаться");
+    let (status, failed) = head_change_checks(&HeadFacts {
+        blocked_writes: &blocked,
+        origins: &mixed,
+        positioned: &lost,
+        statuses: &[201, 400],
+        ..base.clone()
+    })
+    .verdict();
+    assert_eq!(status, Status::Fail);
+    for name in [
+        "записи до выбора пути",
+        "тройки исходящих позиций",
+        "автор: заметки с позициями черновиков",
+        "ответов 400 нет",
+    ] {
+        assert!(failed.contains(name), "{name}: {failed}");
+    }
 }
