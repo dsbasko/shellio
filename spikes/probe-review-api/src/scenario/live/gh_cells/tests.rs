@@ -1546,6 +1546,13 @@ fn second_client_pending_refusals_split_not_run_limit_and_error() -> TestResult 
             matches!(&done, Err(Verdict::NotRun(reason)) if reason.contains(expect)),
             "{code}: {done:?}"
         );
+        if let Err(Verdict::NotRun(reason)) = &done {
+            assert_eq!(
+                second_try_note(reason).contains("гипотеза 422"),
+                code != 429,
+                "{code}: {reason}"
+            );
+        }
         assert!(server.with(|f| f.reviews(NUMBER)).is_empty());
     }
     let server = fake_github(true)?;
@@ -1566,6 +1573,9 @@ fn second_client_meets_an_existing_pending_with_the_hosts_refusal() -> TestResul
             if reason.contains("второй клиент не создал PENDING") && reason.contains("422")),
         "{again:?}"
     );
+    if let Err(Verdict::NotRun(reason)) = &again {
+        assert!(second_try_note(reason).contains("гипотеза 422"), "{reason}");
+    }
     assert_eq!(server.with(|f| f.reviews(NUMBER)).len(), 1);
     Ok(())
 }
