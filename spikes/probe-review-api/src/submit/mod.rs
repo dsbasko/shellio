@@ -5,3 +5,6 @@
 //! над известным ID, прочитанным в исходном состоянии.
 
 pub mod reconcile;
+
+#[cfg(test)]
+mod tests;
