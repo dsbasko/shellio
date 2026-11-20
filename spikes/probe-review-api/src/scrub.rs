@@ -5,14 +5,17 @@
 //!   имён, адрес локального GitLab; значения добавляются и по ходу прогона (токен, выданный при
 //!   настройке GitLab CE). Сравнение без учёта регистра ASCII, вместе с формами `%2F`, `%3A`,
 //!   `%40` и `\/`;
-//! - образцы: префиксы токенов GitHub и GitLab, адреса электронной почты;
+//! - образцы: префиксы токенов GitHub и GitLab, адреса электронной почты, хеш почты в адресе
+//!   Gravatar (`gravatar.com/avatar/<хеш>`);
 //! - ключи: значение ключа `access_token`, `token`, `password` и подобных в JSON, строке запроса
-//!   и теле формы заменяется целиком, даже если значение не известно заранее.
+//!   и теле формы заменяется целиком, даже если значение не известно заранее; значение ключа
+//!   аватара (`avatar_url`, `avatarUrl`, `gravatar_id`) в JSON — тоже: адрес аватара содержит хеш
+//!   почты или ID аккаунта, а его вид у хоста заранее не известен.
 //!
 //! Совпадения собираются за один проход по исходному тексту, поэтому метка не совпадает со
 //! следующим правилом. При наложении побеждает более раннее начало, затем категория (токен,
-//! почта, репозиторий, адрес GitLab CE, логин, пространство имён), затем длина; перекрытые
-//! совпадения поглощаются целиком, хвост секрета не остаётся. Публичные `github.com` и
+//! почта, хеш аватара, репозиторий, адрес GitLab CE, логин, пространство имён), затем длина;
+//! перекрытые совпадения поглощаются целиком, хвост секрета не остаётся. Публичные `github.com` и
 //! `gitlab.com` не заменяются.
 
 use serde_json::{Map, Value};
@@ -21,6 +24,7 @@ use crate::transport::is_secret_header;
 
 pub const LABEL_TOKEN: &str = "<token>";
 pub const LABEL_EMAIL: &str = "<email>";
+pub const LABEL_AVATAR: &str = "<avatar>";
 pub const LABEL_REPO: &str = "<repo>";
 pub const LABEL_NAMESPACE: &str = "<namespace>";
 pub const LABEL_GITLAB_CE: &str = "<gitlab-ce>";
@@ -56,11 +60,25 @@ const SECRET_KEYS: [&str; 8] = [
     "secret",
 ];
 
+/// Ключи JSON с адресом аватара или хешем почты.
+const AVATAR_KEYS: [&str; 3] = ["avatar_url", "avatarUrl", "gravatar_id"];
+
+/// Начала адреса Gravatar перед хешем почты: как есть, с `\/` из JSON и в процентной кодировке.
+const GRAVATAR_PREFIXES: [&str; 3] = [
+    "gravatar.com/avatar/",
+    "gravatar.com\\/avatar\\/",
+    "gravatar.com%2favatar%2f",
+];
+
+/// Самый короткий хеш почты Gravatar — MD5, 32 шестнадцатеричных знака.
+const AVATAR_HASH_MIN: usize = 32;
+
 /// Порядок — приоритет при наложении совпадений.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum Category {
     Token,
     Email,
+    Avatar,
     Repo,
     GitlabCe,
     Login,
@@ -72,6 +90,7 @@ impl Category {
         match self {
             Category::Token => "токен",
             Category::Email => "адрес электронной почты",
+            Category::Avatar => "хеш почты в адресе аватара",
             Category::Repo => "путь репозитория",
             Category::GitlabCe => "адрес локального GitLab",
             Category::Login => "логин",
@@ -182,6 +201,7 @@ impl Scrubber {
         }
         token_spans(text, &mut spans);
         email_spans(bytes, &mut spans);
+        avatar_spans(&lower, &mut spans);
         spans.sort_by(|a, b| {
             a.start
                 .cmp(&b.start)
@@ -254,6 +274,9 @@ impl Scrubber {
                         Value::String(text) if is_secret_key(key) && !text.is_empty() => {
                             Value::String(LABEL_TOKEN.to_owned())
                         }
+                        Value::String(text) if is_avatar_key(key) && !text.is_empty() => {
+                            Value::String(LABEL_AVATAR.to_owned())
+                        }
                         other => self.scrub_json(other),
                     };
                     out.insert(self.scrub_text(key), item);
@@ -294,6 +317,10 @@ fn is_secret_key(key: &str) -> bool {
     SECRET_KEYS
         .iter()
         .any(|secret| secret.eq_ignore_ascii_case(key))
+}
+
+fn is_avatar_key(key: &str) -> bool {
+    AVATAR_KEYS.contains(&key)
 }
 
 /// Формы значения в тексте следа: как есть, в процентной кодировке и с `\/` из JSON.
@@ -360,6 +387,29 @@ fn token_spans(text: &str, spans: &mut Vec<Span>) {
                 category: Category::Token,
                 label: LABEL_TOKEN,
             });
+        }
+    }
+}
+
+/// Хеш почты после `gravatar.com/avatar/` в любой форме из [`GRAVATAR_PREFIXES`]; `lower` — текст
+/// в нижнем регистре ASCII.
+fn avatar_spans(lower: &str, spans: &mut Vec<Span>) {
+    let bytes = lower.as_bytes();
+    for prefix in GRAVATAR_PREFIXES {
+        for (at, _) in lower.match_indices(prefix) {
+            let start = at + prefix.len();
+            let mut end = start;
+            while end < bytes.len() && bytes[end].is_ascii_hexdigit() {
+                end += 1;
+            }
+            if end - start >= AVATAR_HASH_MIN {
+                spans.push(Span {
+                    start,
+                    end,
+                    category: Category::Avatar,
+                    label: LABEL_AVATAR,
+                });
+            }
         }
     }
 }
@@ -674,6 +724,64 @@ mod tests {
         let text = "bot alice-dev_bot and alice-developer";
         assert_eq!(s.scrub_text(text), text);
         assert_eq!(s.leaks(text), vec!["логин"]);
+    }
+
+    const SHA256_HASH: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    const MD5_HASH: &str = "FEDCBA9876543210FEDCBA9876543210";
+
+    #[test]
+    fn gravatar_hash_plain_escaped_encoded_and_md5() {
+        let s = Scrubber::new();
+        let out = s.scrub_text(&format!(
+            "https://www.gravatar.com/avatar/{SHA256_HASH}?s=80&d=identicon \
+             https:\\/\\/secure.gravatar.com\\/avatar\\/{MD5_HASH} \
+             ?u=https%3A%2F%2Fwww.gravatar.com%2Favatar%2F{SHA256_HASH}%3Fs%3D80 \
+             gravatar.com/avatar/abc123 https://example.com/avatar/{SHA256_HASH}"
+        ));
+        assert_eq!(
+            out,
+            format!(
+                "https://www.gravatar.com/avatar/<avatar>?s=80&d=identicon \
+                 https:\\/\\/secure.gravatar.com\\/avatar\\/<avatar> \
+                 ?u=https%3A%2F%2Fwww.gravatar.com%2Favatar%2F<avatar>%3Fs%3D80 \
+                 gravatar.com/avatar/abc123 https://example.com/avatar/{SHA256_HASH}"
+            )
+        );
+        assert_eq!(s.leaks(&out), Vec::<&str>::new());
+        assert_eq!(
+            s.leaks(&format!("gravatar.com/avatar/{MD5_HASH}")),
+            vec!["хеш почты в адресе аватара"]
+        );
+    }
+
+    #[test]
+    fn avatar_keys_replaced_whole_and_hash_elsewhere() {
+        let s = scrubber();
+        let input = json!({
+            "author": {
+                "username": "alice-dev",
+                "avatar_url": format!("https://www.gravatar.com/avatar/{SHA256_HASH}?s=80&d=identicon"),
+            },
+            "user": {"avatar_url": "https://avatars.githubusercontent.com/u/123456?v=4", "gravatar_id": ""},
+            "viewer": {"avatarUrl": "https://avatars.githubusercontent.com/u/123456?v=4"},
+            "owner": {"gravatar_id": MD5_HASH, "avatar_url": null},
+            "body": format!("see https://www.gravatar.com/avatar/{SHA256_HASH}"),
+        });
+        let out = s.scrub_json(&input);
+        assert_eq!(
+            out,
+            json!({
+                "author": {"username": "<author>", "avatar_url": "<avatar>"},
+                "user": {"avatar_url": "<avatar>", "gravatar_id": ""},
+                "viewer": {"avatarUrl": "<avatar>"},
+                "owner": {"gravatar_id": "<avatar>", "avatar_url": null},
+                "body": "see https://www.gravatar.com/avatar/<avatar>",
+            })
+        );
+        let text = out.to_string().to_ascii_lowercase();
+        assert!(!text.contains(SHA256_HASH) && !text.contains(&MD5_HASH.to_ascii_lowercase()));
+        assert!(!text.contains("123456"));
+        assert_clean(&text);
     }
 
     #[test]
