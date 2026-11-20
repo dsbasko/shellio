@@ -335,13 +335,25 @@ cd ../shellio-p08 && base=$(cat ../shellio-p07-p08.base) && ralphex docs/plans/2
 **Files:**
 - Create: `spikes/probe-review-api/src/fake/mod.rs`
 - Create: `spikes/probe-review-api/src/fake/github.rs`
+- ➕ Create: `spikes/probe-review-api/src/fake/github/tests.rs`
+- ➕ Modify: `spikes/probe-review-api/src/lib.rs`, `docs/probes/p0.7-review-api.md` (раздел «forge-fake»)
 
-- [ ] сервер на `127.0.0.1:0` с состоянием: PR, коммиты, reviews (`PENDING`, отправленные), комментарии и треды, просмотренные файлы
-- [ ] REST reviews: Create с `event` и `comments[]`, Create без `event`, Submit (отказ на `comments[]`), список reviews с видимостью `PENDING` только автору; комментарии к `PENDING` выбранным методом
-- [ ] GraphQL: `markFileAsViewed`, `unmarkFileAsViewed`, методы `PENDING` при выборе GraphQL
-- [ ] управление сценарием: подложенный `PENDING` другого клиента, смена head, отказ после принятой записи до ответа, 5xx, таймаут; счётчики вызовов
-- [ ] тесты сервера через HTTP-транспорт на loopback: каждая ручка, видимость `PENDING`, инъекции отказов
-- [ ] рубеж: `make check` под замерной блокировкой
+Решение исполнителя по правилу плана «Метод серверного `PENDING` GitHub»: у REST нет способа добавить комментарий в существующий `PENDING` (у `POST /pulls/{n}/comments` нет параметра review, документация `PENDING` не упоминает), поэтому добавление и обновление идут через GraphQL `addPullRequestReviewThread` и `updatePullRequestReviewComment`. Отвергнуты: REST `POST /pulls/{n}/comments`, REST `PATCH /pulls/comments/{id}` (правило связывает добавление и обновление), GraphQL `addPullRequestReviewComment` (документация его выводит в пользу `addPullRequestReviewThread`). Запись — в отчёте, в матрицу идёт в задаче 15.
+
+⚠️ Решения исполнителя вне правил плана:
+- каркас `fake/mod.rs` общий для провайдеров (поток `tiny_http`, состояние под замком, типаж `Forge`), GitHub — реализация `Forge`; задача 6 добавляет GitLab в тот же каркас;
+- отказ — две независимые оси: применяется ли запись (`Fault::after_apply`) и что видит клиент (`Reply::Status`, `Reply::Silence`, `Reply::RateLimited`); правило одноразовое, по ключу вызова (`МЕТОД /шаблон` или `graphql <поле>`), с пропуском `skip`, `finish` отказывает при неисполненных правилах;
+- молчание паркует запрос до `release_parked` или остановки: `Drop` запроса `tiny_http` ответил бы 500, а закрыть соединение без ответа `tiny_http` не даёт; клиент получает `timeout` по своему сроку — «мог дойти», как обрыв; вид `disconnected` проверяется встроенным транспортом;
+- GraphQL без полного разбора: корневое поле из текста запроса, аргументы только из `variables`, ответ полной фиксированной формы, соединения одной страницей без курсоров; неизвестное поле — ошибка `undefinedField` с HTTP 200;
+- оракул строже документации там, где строгость ловит ошибку клиента: Submit с `comments[]` — 422, `body` обязателен для `COMMENT` и `REQUEST_CHANGES` и при Submit, `position` и комментарии к файлу отвергаются, `addPullRequestReviewThread` только с `pullRequestReviewId`; второй `PENDING` того же пользователя — 422 (не из документации, проверяется живыми клетками); список предположений — в отчёте;
+- подложенный `PENDING` создаётся в обход HTTP с пометкой происхождения `planted`, которую видят только оракулы; счётчики вызовов он не меняет.
+
+- [x] сервер на `127.0.0.1:0` с состоянием: PR, коммиты, reviews (`PENDING`, отправленные), комментарии и треды, просмотренные файлы
+- [x] REST reviews: Create с `event` и `comments[]`, Create без `event`, Submit (отказ на `comments[]`), список reviews с видимостью `PENDING` только автору; комментарии к `PENDING` выбранным методом
+- [x] GraphQL: `markFileAsViewed`, `unmarkFileAsViewed`, методы `PENDING` при выборе GraphQL
+- [x] управление сценарием: подложенный `PENDING` другого клиента, смена head, отказ после принятой записи до ответа, 5xx, таймаут; счётчики вызовов
+- [x] тесты сервера через HTTP-транспорт на loopback: каждая ручка, видимость `PENDING`, инъекции отказов
+- [x] рубеж: `make check` под замерной блокировкой
 
 ### Task 6: `forge-fake` — GitLab
 

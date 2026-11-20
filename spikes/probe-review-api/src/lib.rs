@@ -5,6 +5,7 @@
 //! Проба не зависит от других проб: модель результатов взята из
 //! `spikes/probe-update-lifecycle/src/results.rs` и переделана под матрицу «строка × столбец».
 
+pub mod fake;
 pub mod journal;
 pub mod model;
 pub mod results;
