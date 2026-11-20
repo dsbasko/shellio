@@ -130,6 +130,7 @@ fn window_is_invalid_on_ops_passes_or_set() {
         Some(&log(15, 7, false)),
         step,
     );
+    assert_eq!(set.len(), 15, "{set:?}");
     assert!(set.iter().all(|p| p.contains("множество 7")), "{set:?}");
     assert!(
         !window_problems(&point, &PROTOCOL, wall, 6000, Some(&log(15, 8, true)), step).is_empty()

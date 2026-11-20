@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::background::{self, BackgroundCheck, Bound, THRESHOLDS};
-use crate::results;
+use crate::results::{self, nan_null};
 
 pub const LOG_FILE: &str = "observer.json";
 
@@ -36,6 +36,7 @@ pub struct Reading {
     pub uptime_ns: u64,
     /// `ri_user_time + ri_system_time` стенда в тиках Mach.
     pub stand_cpu_mach: u64,
+    #[serde(deserialize_with = "nan_null::deserialize")]
     pub stand_cpu_ns: f64,
     pub stand_footprint: u64,
     /// Проверка фона окна от прошлой отметки до этой; у первой отметки нет.

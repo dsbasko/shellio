@@ -689,5 +689,7 @@ fn dropping_the_handle_stops_the_thread() {
         .wait_published(Duration::from_secs(30), |p| p.pass == 1)
         .unwrap();
     assert_eq!(first.total.members, 2);
+    let shared = Arc::clone(&sampler.shared);
     drop(sampler);
+    assert!(lock(&shared.board).finished);
 }

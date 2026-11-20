@@ -141,7 +141,19 @@ fn parse_rejects_bad_arguments() {
             .unwrap_err()
             .contains("1..=3600")
     );
-    assert!(parse(strings(&["idle", "--name", "bad name"])).is_err());
+    for name in ["bad name", "", "a;b"] {
+        let err = parse(strings(&[
+            "idle",
+            "--channel",
+            "/tmp/c",
+            "--name",
+            name,
+            "--out",
+            "/tmp/o",
+        ]))
+        .unwrap_err();
+        assert!(err.starts_with(&format!("имя «{name}»")), "{name}: {err}");
+    }
     assert!(
         parse(strings(&["idle", "--name", "f", "--out", "/o"]))
             .unwrap_err()
@@ -358,7 +370,7 @@ fn reporter_keeps_the_file_when_the_channel_is_gone() {
 }
 
 #[test]
-fn stop_wakes_waiters_without_waiting_for_the_deadline() {
+fn wait_after_stop_returns_without_waiting_for_the_deadline() {
     let stop = Stop::new();
     assert!(!stop.wait_until(Instant::now()));
     stop.stop();

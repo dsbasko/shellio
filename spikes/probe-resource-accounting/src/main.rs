@@ -6,8 +6,8 @@
 //! - `--fixture <режим> --channel <сокет> --name <имя> --out <каталог> …` — фикстура процессов;
 //! - `--observer --stand <pid> --out <каталог>` — наблюдатель стоимости;
 //! - `--aggregate <каталог прогона>` — `summary.json` и `summary.md`;
-//! - служебные режимы `run.sh`: `--params`, `--fingerprint`, `--status-set`, `--status-pending`,
-//!   `--record`.
+//! - `--params` — печать параметров протокола, которые сверка сборки пишет в `build.json`;
+//! - служебные режимы `run.sh`: `--fingerprint`, `--status-set`, `--status-pending`, `--record`.
 
 mod arena;
 mod attrib;

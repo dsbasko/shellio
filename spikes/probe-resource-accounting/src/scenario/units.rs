@@ -4,6 +4,7 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use super::stand::json;
 use crate::background::{self, BackgroundCheck, THRESHOLDS};
 use crate::proc::units::{self as calib, Comparison, Component, Sample, Timebase, Verdict};
 use crate::proc::{self, ProcRead, Unread};
@@ -74,14 +75,7 @@ pub fn mach_cell(
         }
         Verdict::NoSignal => Status::NotRun,
     };
-    if !during_quiet && status != Status::NotRun {
-        reason = format!(
-            "фон во время серии шумный, без шума был бы итог {}: {reason}",
-            status.name()
-        );
-        return Cell::new(id, Status::Unconfirmed, ORACLE_MACH, reason);
-    }
-    Cell::new(id, status, ORACLE_MACH, reason)
+    super::formula::noisy(Cell::new(id, status, ORACLE_MACH, reason), during_quiet)
 }
 
 /// Что известно о своём процессе помимо источника: оракул клетки `source-self`.
@@ -371,11 +365,6 @@ pub fn run(before: Vec<BackgroundRecord>) -> Result<Report, String> {
     Ok(report)
 }
 
-fn json(value: &impl serde::Serialize) -> serde_json::Value {
-    serde_json::to_value(value)
-        .unwrap_or_else(|err| serde_json::Value::String(format!("сериализация: {err}")))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -457,13 +446,32 @@ mod tests {
         let mut source = FakeSource::default();
         source.add(listed(10, 1, 100), 5_000, 240);
         let read = proc::read_listed(&source, &source.listed[0]);
+        let identity = read.reading.as_ref().unwrap().identity;
+        let reread = || Some(proc::read_identity(&source, identity));
         assert_eq!(source_cell(&facts(), None, None).status, Status::Fail);
+        let missing = source_cell(&facts(), Some(&read), None);
+        assert_eq!(missing.status, Status::Fail);
+        assert!(missing.reason.contains("повторного чтения нет"));
+
         let mut wrong_parent = facts();
         wrong_parent.ppid = 2;
-        assert_eq!(
-            source_cell(&wrong_parent, Some(&read), None).status,
-            Status::Fail
-        );
+        let cell = source_cell(&wrong_parent, Some(&read), reread());
+        assert_eq!(cell.status, Status::Fail);
+        assert!(cell.reason.contains("список: родитель"), "{}", cell.reason);
+
+        let mut wrong_session = facts();
+        wrong_session.sid = 2;
+        let cell = source_cell(&wrong_session, Some(&read), reread());
+        assert_eq!(cell.status, Status::Fail);
+        assert!(cell.reason.contains("getsid"), "{}", cell.reason);
+
+        let mut moved = read.clone();
+        if let Ok(info) = &mut moved.info {
+            info.start.usec += 1;
+        }
+        let cell = source_cell(&facts(), Some(&moved), reread());
+        assert_eq!(cell.status, Status::Fail);
+        assert!(cell.reason.contains("время старта"), "{}", cell.reason);
         let changed = Err(Unread::IdentityChanged {
             expected: 5_000,
             observed: 6_000,

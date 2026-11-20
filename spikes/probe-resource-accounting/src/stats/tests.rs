@@ -75,6 +75,7 @@ fn diverging_estimates_fail_the_sampler_with_spans_on() {
             .reason
             .contains("превышает бюджет 0.5 п. п. при выключенном")
     );
+    assert_eq!(verdict.interaction.len(), 3);
     for diff in &verdict.interaction {
         assert!((diff - 0.5).abs() < 1e-9, "{diff}");
     }

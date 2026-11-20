@@ -203,12 +203,11 @@ fn add_record_problems(cell: Cell, problems: Vec<String>) -> Cell {
     )
 }
 
-fn finish(stand: Stand, report: &mut Report) -> Result<(), String> {
+fn finish(stand: Stand) -> Result<(), String> {
     let faults = stand.finish()?;
     if !faults.is_empty() {
         return Err(format!("канал фикстур: {}", faults.join("; ")));
     }
-    let _ = report;
     Ok(())
 }
 
@@ -245,7 +244,7 @@ pub fn run_sessions(out: &Path) -> Result<Report, String> {
     let (s1, at1) = snap_claims(&System, &claims)?;
     let timebase = stand.timebase;
     let mut report = Report::default();
-    finish(stand, &mut report)?;
+    finish(stand)?;
 
     for (id, record) in [("s1", &r1), ("s2", &r2)] {
         let set = expected(
@@ -394,7 +393,7 @@ pub fn run_git_shared(out: &Path) -> Result<Report, String> {
     let (s1, at1) = snap_claims(&System, &claims)?;
     let timebase = stand.timebase;
     let mut report = Report::default();
-    finish(stand, &mut report)?;
+    finish(stand)?;
 
     let set = expected(&ready, &["git-work", "git-work/c1"])?;
     let summary = owner_summary(Some((&s0, &at0)), (&s1, &at1), &Owner::Git, timebase)?;
@@ -501,7 +500,7 @@ pub fn run_reparent(out: &Path) -> Result<Report, String> {
     let (s1, at1) = snap_claims(&System, &claims)?;
     let timebase = stand.timebase;
     let mut report = Report::default();
-    finish(stand, &mut report)?;
+    finish(stand)?;
 
     let orphan = key_of(&ready, "r/p/d1/o")?;
     let middle_key = key_of(&ready, "r/p/d1")?;
@@ -702,7 +701,7 @@ pub fn run_churn(out: &Path) -> Result<Report, String> {
     let zombie_calls = calls(q1_pid);
     let timebase = stand.timebase;
     let mut report = Report::default();
-    finish(stand, &mut report)?;
+    finish(stand)?;
 
     let summary = owner_summary(Some((&s0, &at0)), (&s1, &at1), &owner("c"), timebase)?;
     report.cells.extend(churn_cells(&keys, &summary, &s1, &at1));
@@ -808,7 +807,7 @@ pub fn run_attach_move(out: &Path) -> Result<Report, String> {
     let (s2, at2) = snap_claims(&System, &claims(vec![x2]))?;
     let timebase = stand.timebase;
     let mut report = Report::default();
-    finish(stand, &mut report)?;
+    finish(stand)?;
 
     let session = expected(&ready, &["m", "m/p", "m/p/c1"])?;
     let panel_m = owner("m");
@@ -981,7 +980,7 @@ pub fn run_login(out: &Path) -> Result<Report, String> {
         .is_ok();
     let login_alive_after = stand::listing_now()?.contains_key(&login);
     let timebase = stand.timebase;
-    finish(stand, &mut report)?;
+    finish(stand)?;
 
     let seen = LoginSeen {
         login,
@@ -1109,7 +1108,7 @@ pub fn run_eperm_inject(out: &Path) -> Result<Report, String> {
     let (c1, atc) = snap_claims(&System, &claims)?;
     let timebase = stand.timebase;
     let mut report = Report::default();
-    finish(stand, &mut report)?;
+    finish(stand)?;
 
     let panel_e = owner("e");
     let summary = owner_summary(Some((&s0, &at0)), (&s1, &at1), &panel_e, timebase)?;
@@ -1381,6 +1380,142 @@ mod tests {
         let cell = git_once_cell(&[&at1], &panel_key);
         assert_eq!(cell.status, Status::Fail);
         assert!(cell.reason.contains("у панели A"), "{}", cell.reason);
+    }
+
+    fn remove(source: &mut FakeSource, pid: i32) {
+        source.listed.retain(|l| l.pid != pid);
+        source.usage.remove(&pid);
+        source.info.remove(&pid);
+        source.session.remove(&pid);
+    }
+
+    fn add_in_session(source: &mut FakeSource, entry: Listed, sid: i32) {
+        let pid = entry.pid;
+        source.add(entry, 1_000 + pid as u64, 10);
+        source.session.insert(pid, Ok(sid));
+    }
+
+    #[test]
+    fn churn_cells_pass_on_the_expected_world_and_fail_on_each_break() {
+        // До: c1 102 и c2 105 — дети программы, a1 103 на поверхности. После: c1 и a1 вышли,
+        // a2 107 свежий, q1 106 зомби, q2 108 вышел и собран.
+        let mut before = world();
+        add_in_session(&mut before, proc_entry(105, 101, 101), 101);
+        let mut after = world();
+        add_in_session(&mut after, proc_entry(105, 101, 101), 101);
+        remove(&mut after, 102);
+        remove(&mut after, 103);
+        add_in_session(&mut after, proc_entry(107, 50, 50), 50);
+        let zombie = Listed {
+            zombie: true,
+            ..proc_entry(106, 50, 50)
+        };
+        after.listed.push(zombie.clone());
+        after
+            .usage
+            .insert(106, Ok(crate::proc::fake::usage_of(3_000, 1)));
+
+        let keys = ChurnKeys {
+            a1: key(&before, 103),
+            a2: key(&after, 107),
+            c1: key(&before, 102),
+            q1: Key::of(&zombie),
+            q2: Key::of(&proc_entry(108, 50, 50)),
+            with_base: [100, 101, 105]
+                .into_iter()
+                .map(|pid| key(&before, pid))
+                .collect(),
+        };
+        let claims0 = claims(&before);
+        let claims1 = Claims {
+            panels: vec![panel(
+                "p",
+                vec![keys.a2, keys.q1, keys.q2],
+                claims0.panels[0].record.clone(),
+            )],
+            git: Vec::new(),
+        };
+        let (s0, at0) = snap_claims(&before, &claims0).unwrap();
+        let (s1, at1) = snap_claims(&after, &claims1).unwrap();
+        let summary = owner_summary(Some((&s0, &at0)), (&s1, &at1), &owner("p"), TB).unwrap();
+        let status = |keys: &ChurnKeys, id: &str| {
+            let cells = churn_cells(keys, &summary, &s1, &at1);
+            let cell = cells.into_iter().find(|c| c.id == id).unwrap();
+            (cell.status, cell.reason)
+        };
+        for id in [
+            "churn-fresh",
+            "churn-exited",
+            "churn-partial",
+            "churn-zombie",
+        ] {
+            let (got, reason) = status(&keys, id);
+            assert_eq!(got, Status::Pass, "{id}: {reason}");
+        }
+
+        let not_fresh = ChurnKeys {
+            a2: key(&after, 105),
+            ..keys.clone()
+        };
+        assert_eq!(status(&not_fresh, "churn-fresh").0, Status::Fail);
+        let alive = ChurnKeys {
+            c1: key(&after, 105),
+            ..keys.clone()
+        };
+        let (got, reason) = status(&alive, "churn-exited");
+        assert_eq!(got, Status::Fail);
+        assert!(reason.contains("c/p/c1"), "{reason}");
+        let no_note = ChurnKeys {
+            q2: key(&after, 104),
+            ..keys.clone()
+        };
+        let (got, reason) = status(&no_note, "churn-exited");
+        assert_eq!(got, Status::Fail);
+        assert!(reason.contains("q2"), "{reason}");
+        let mut short = keys.clone();
+        short.with_base.remove(&key(&before, 105));
+        assert_eq!(status(&short, "churn-partial").0, Status::Fail);
+    }
+
+    #[test]
+    fn attach_cells_pass_on_close_and_move_and_fail_without_exit_or_fresh() {
+        // Сессия хоста 100: программа 101 и ребёнок 102. x1 103 закрывается, x2 107 открывается.
+        let s_open = world();
+        let mut s_closed = world();
+        remove(&mut s_closed, 103);
+        let mut s_moved = world();
+        remove(&mut s_moved, 103);
+        add_in_session(&mut s_moved, proc_entry(107, 50, 50), 50);
+
+        let session: BTreeMap<String, Key> = [("host", 100), ("program", 101), ("child", 102)]
+            .into_iter()
+            .map(|(name, pid)| (name.to_owned(), key(&s_open, pid)))
+            .collect();
+        let x1 = key(&s_open, 103);
+        let x2 = key(&s_moved, 107);
+        let record = claims(&s_open).panels[0].record.clone();
+        let with_surface = |surface: Vec<Key>| Claims {
+            panels: vec![panel("p", surface, record.clone())],
+            git: Vec::new(),
+        };
+        let (s0, at0) = snap_claims(&s_open, &with_surface(vec![x1])).unwrap();
+        let (s1, at1) = snap_claims(&s_closed, &with_surface(Vec::new())).unwrap();
+        let (s2, at2) = snap_claims(&s_moved, &with_surface(vec![x2])).unwrap();
+        let p = owner("p");
+        let sum1 = owner_summary(Some((&s0, &at0)), (&s1, &at1), &p, TB).unwrap();
+        let sum2 = owner_summary(Some((&s1, &at1)), (&s2, &at2), &p, TB).unwrap();
+
+        let cells = attach_cells(&session, x1, x2, (&at1, &sum1), (&at2, &sum2), &p);
+        for cell in &cells {
+            assert_eq!(cell.status, Status::Pass, "{}: {}", cell.id, cell.reason);
+        }
+
+        let child = key(&s_open, 102);
+        let broken = attach_cells(&session, child, child, (&at1, &sum1), (&at2, &sum2), &p);
+        assert_eq!(broken[0].status, Status::Fail);
+        assert!(broken[0].reason.contains("x1"), "{}", broken[0].reason);
+        assert_eq!(broken[1].status, Status::Fail);
+        assert!(broken[1].reason.contains("x2"), "{}", broken[1].reason);
     }
 
     #[test]

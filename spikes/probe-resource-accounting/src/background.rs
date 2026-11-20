@@ -15,7 +15,9 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 pub use crate::proc::Identity;
+use crate::proc::errno;
 use crate::proc::units::Timebase;
+use crate::results::nan_null;
 
 pub const WINDOW: Duration = Duration::from_secs(10);
 pub const QUIET_DEADLINE: Duration = Duration::from_secs(5 * 60);
@@ -83,6 +85,7 @@ impl Units {
 pub struct Foreign {
     pub pid: i32,
     pub name: String,
+    #[serde(deserialize_with = "nan_null::deserialize")]
     pub pct: f64,
 }
 
@@ -101,10 +104,14 @@ pub struct Coverage {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BackgroundCheck {
+    #[serde(deserialize_with = "nan_null::deserialize")]
     pub window_s: f64,
     /// Занятость всех ядер системы, % одного ядра.
+    #[serde(deserialize_with = "nan_null::deserialize")]
     pub system_busy_pct: f64,
+    #[serde(deserialize_with = "nan_null::deserialize")]
     pub stand_pct: f64,
+    #[serde(deserialize_with = "nan_null::deserialize")]
     pub background_pct: f64,
     pub busiest: Option<Foreign>,
     pub stand_pids: Vec<i32>,
@@ -295,10 +302,6 @@ pub fn host_ticks() -> Result<[u32; 4], String> {
     Ok(info.cpu_ticks)
 }
 
-fn errno() -> i32 {
-    std::io::Error::last_os_error().raw_os_error().unwrap_or(0)
-}
-
 pub fn list_pids() -> Result<Vec<i32>, String> {
     // SAFETY: нулевой буфер запрашивает только число PID.
     let count = unsafe { libc::proc_listallpids(std::ptr::null_mut(), 0) };
@@ -486,6 +489,21 @@ mod tests {
         let check = evaluate(&start, &end, 100, &[], UNITS, THRESHOLDS);
         assert!(check.background_pct <= 30.0);
         assert!(!check.quiet);
+    }
+
+    #[test]
+    fn unreadable_system_load_is_not_quiet() {
+        let (start, end) = bounds(100, 0);
+        assert!(evaluate(&start, &end, 100, &[], UNITS, THRESHOLDS).quiet);
+        let no_tick = Units {
+            clk_tck: 0,
+            ..UNITS
+        };
+        let check = evaluate(&start, &end, 100, &[], no_tick, THRESHOLDS);
+        assert!(check.system_busy_pct.is_nan());
+        assert!(!check.quiet);
+        let empty = evaluate(&start, &start, 100, &[], UNITS, THRESHOLDS);
+        assert!(!empty.quiet);
     }
 
     #[test]

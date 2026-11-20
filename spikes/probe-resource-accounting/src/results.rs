@@ -23,6 +23,23 @@ pub const NOT_STARTED_FILE: &str = "not-started.json";
 pub const SUMMARY_FILE: &str = "summary.json";
 pub const SUMMARY_MD_FILE: &str = "summary.md";
 
+/// serde_json пишет нечисловое `f64` как `null`; при чтении `null` снова становится NaN, иначе
+/// записанный отрицательный вывод не читается и превращается в ошибку исполнения.
+pub mod nan_null {
+    use serde::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error> {
+        Ok(Option::<f64>::deserialize(deserializer)?.unwrap_or(f64::NAN))
+    }
+
+    pub fn vec<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<f64>, D::Error> {
+        Ok(Vec::<Option<f64>>::deserialize(deserializer)?
+            .into_iter()
+            .map(|value| value.unwrap_or(f64::NAN))
+            .collect())
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Status {
@@ -149,6 +166,7 @@ impl Execution {
 pub struct Metric {
     pub name: String,
     pub unit: String,
+    #[serde(deserialize_with = "nan_null::vec")]
     pub samples: Vec<f64>,
     pub min: Option<f64>,
     pub median: Option<f64>,
@@ -425,9 +443,11 @@ impl Summary {
     }
 }
 
-/// Собирает сводку по каталогам процессов прогона. Каталог без `result.json` и без записи
-/// «не начат» — потерянный результат, то есть ошибка исполнения.
+/// Собирает сводку по каталогам процессов прогона. Каталог без `result.json` ждёт повтора, если
+/// в нём запись «не начат» или в `status` нет его строки либо стоит «не начат»: попытку прервали
+/// до учёта. Иначе это потерянный результат, то есть ошибка исполнения.
 pub fn aggregate(run_dir: &Path) -> Result<Summary, String> {
+    let states = crate::runstate::read_status(run_dir)?;
     let mut dirs: Vec<PathBuf> = fs::read_dir(run_dir)
         .map_err(|err| format!("чтение {}: {err}", run_dir.display()))?
         .filter_map(Result::ok)
@@ -489,7 +509,13 @@ pub fn aggregate(run_dir: &Path) -> Result<Summary, String> {
                 });
             }
             Err(ReadError::Missing) => {
-                if dir.join(NOT_STARTED_FILE).exists() {
+                // Прерванная попытка: строки в status ещё нет или там «не начат» прошлой
+                // попытки, чья запись уже перенесена в not-started-<n>.json.
+                let retry = matches!(
+                    states.get(&unit),
+                    None | Some(crate::runstate::UnitState::NotStarted)
+                );
+                if retry || dir.join(NOT_STARTED_FILE).exists() {
                     summary.pending.push(unit);
                 } else {
                     summary.errors.push(format!(
@@ -694,6 +720,60 @@ mod tests {
     }
 
     #[test]
+    fn unmeasured_values_survive_write_read_and_aggregate() {
+        use crate::background::{self, Bound, THRESHOLDS, Units};
+
+        let run = temp_dir("nan");
+        let dir = run.join("formula-cpu");
+        fs::create_dir_all(&dir).unwrap();
+        let units = Units {
+            mach_numer: 1,
+            mach_denom: 1,
+            clk_tck: 0,
+        };
+        let check = background::evaluate(
+            &Bound::default(),
+            &Bound::default(),
+            1,
+            &[],
+            units,
+            THRESHOLDS,
+        );
+        assert!(check.system_busy_pct.is_nan());
+        let mut file = result(
+            "formula-cpu",
+            vec![Cell::new("cpu", Status::Fail, "о", "окно не измерено")],
+            Execution::Ok,
+        );
+        file.metrics
+            .push(Metric::new("cpu.diff_pp", "п. п.", vec![1.0, f64::NAN]));
+        file.background.push(BackgroundRecord {
+            label: "before".to_owned(),
+            check,
+        });
+        write_json(&dir, RESULT_FILE, &file).unwrap();
+
+        let back: ResultFile = read_json(&dir.join(RESULT_FILE)).unwrap();
+        let samples = &back.metrics[0].samples;
+        assert_eq!(samples.len(), 2);
+        assert_eq!(samples[0], 1.0);
+        assert!(samples[1].is_nan());
+        assert_eq!(back.metrics[0].median, Some(1.0));
+        assert!(back.background[0].check.system_busy_pct.is_nan());
+
+        let corrupt = run.join("units");
+        fs::create_dir_all(&corrupt).unwrap();
+        fs::write(corrupt.join(RESULT_FILE), "{").unwrap();
+
+        let summary = aggregate(&run).unwrap();
+        assert_eq!(summary.units.len(), 1);
+        assert_eq!(summary.counts.get("fail"), Some(&1));
+        assert_eq!(summary.errors.len(), 1);
+        assert!(summary.errors[0].starts_with("units: "));
+        fs::remove_dir_all(&run).unwrap();
+    }
+
+    #[test]
     fn aggregate_separates_verdicts_pending_and_errors() {
         let run = temp_dir("aggregate");
         for (unit, file) in [
@@ -728,10 +808,21 @@ mod tests {
         fs::create_dir_all(&pending).unwrap();
         fs::write(pending.join(NOT_STARTED_FILE), "{}").unwrap();
         fs::create_dir_all(run.join("e")).unwrap();
+        crate::runstate::set_status(&run, "e", crate::runstate::UnitState::Done).unwrap();
+        // Попытку прервали до учёта: строки в status нет, процесс повторится.
+        fs::create_dir_all(run.join("f")).unwrap();
+        // Прервали повтор после «не начат»: запись перенесена, в status осталось not-started.
+        let retried = run.join("g");
+        fs::create_dir_all(&retried).unwrap();
+        fs::write(retried.join("not-started-1.json"), "{}").unwrap();
+        crate::runstate::set_status(&run, "g", crate::runstate::UnitState::NotStarted).unwrap();
 
         let summary = aggregate(&run).unwrap();
         assert_eq!(summary.units.len(), 3);
-        assert_eq!(summary.pending, vec!["d".to_owned()]);
+        assert_eq!(
+            summary.pending,
+            vec!["d".to_owned(), "f".to_owned(), "g".to_owned()]
+        );
         assert!(
             summary
                 .errors

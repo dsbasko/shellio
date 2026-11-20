@@ -344,30 +344,7 @@ impl Bench {
         if !self.children.iter().any(|child| child.id() as i32 == pid) {
             return Err(format!("PID {pid} не ребёнок стенда"));
         }
-        let (tx, rx) = mpsc::channel();
-        thread::spawn(move || {
-            // SAFETY: siginfo_t — POD, нули допустимы.
-            let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
-            // SAFETY: info — действительный выходной буфер; WNOWAIT оставляет ребёнка несобранным.
-            let rc = unsafe {
-                libc::waitid(
-                    libc::P_PID,
-                    pid as libc::id_t,
-                    &mut info,
-                    libc::WEXITED | libc::WNOWAIT,
-                )
-            };
-            let result = if rc == 0 {
-                Ok(())
-            } else {
-                Err(std::io::Error::last_os_error().to_string())
-            };
-            let _ = tx.send(result);
-        });
-        match rx.recv_timeout(timeout) {
-            Ok(result) => result.map_err(|err| format!("waitid({pid}): {err}")),
-            Err(_) => Err(format!("PID {pid} не вышел за {} с", timeout.as_secs())),
-        }
+        wait_exited(pid, timeout)
     }
 
     /// Собирает вышедшего или выходящего прямого ребёнка стенда.
@@ -401,8 +378,9 @@ impl Bench {
         self.wait_exit(&names, timeout)?;
         let deadline = Instant::now() + timeout;
         for mut child in std::mem::take(&mut self.children) {
-            // Выход подтверждён событием; сбор не ждёт дольше срока: остаток убивается.
-            if Instant::now() >= deadline {
+            // Сбор не ждёт дольше срока: ребёнок, не вышедший к сроку, убивается.
+            let left = deadline.saturating_duration_since(Instant::now());
+            if wait_exited(child.id() as i32, left).is_err() {
                 let _ = child.kill();
             }
             child
@@ -423,6 +401,34 @@ impl Drop for Bench {
             let _ = child.wait();
         }
         let _ = std::fs::remove_file(&self.socket);
+    }
+}
+
+/// Ждёт выхода ребёнка без сбора (`waitid` с `WNOWAIT`): он остаётся зомби до `wait`.
+fn wait_exited(pid: i32, timeout: Duration) -> Result<(), String> {
+    let (tx, rx) = mpsc::channel();
+    thread::spawn(move || {
+        // SAFETY: siginfo_t — POD, нули допустимы.
+        let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+        // SAFETY: info — действительный выходной буфер; WNOWAIT оставляет ребёнка несобранным.
+        let rc = unsafe {
+            libc::waitid(
+                libc::P_PID,
+                pid as libc::id_t,
+                &mut info,
+                libc::WEXITED | libc::WNOWAIT,
+            )
+        };
+        let result = if rc == 0 {
+            Ok(())
+        } else {
+            Err(std::io::Error::last_os_error().to_string())
+        };
+        let _ = tx.send(result);
+    });
+    match rx.recv_timeout(timeout) {
+        Ok(result) => result.map_err(|err| format!("waitid({pid}): {err}")),
+        Err(_) => Err(format!("PID {pid} не вышел за {} с", timeout.as_secs())),
     }
 }
 

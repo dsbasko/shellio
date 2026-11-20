@@ -119,11 +119,26 @@ reset_unit_dir() {
     done
 }
 
+# Ошибка исполнения прерывает череду «не начат» подряд: счёт процесса сбрасывается, как при
+# настоящем старте. Аргументы после имени процесса — вызов учёта попытки без --attempt.
+unit_error() {
+    local unit="$1"
+    shift
+    "$@" --attempt started || die "$unit: сброс счёта попыток завершился с кодом $?"
+    "$BIN" --status-set "$RUN_DIR" "$unit" error
+    ERRORS=$((ERRORS + 1))
+}
+
 run_unit() {
     local unit="$1" scenario="$2" kind="$3" point="$4"
     local dir="$RUN_DIR/$unit" state_dir status=0 attempt
+    local record=("$BIN" --record "$OUT_BASE/not-started" --unit "$unit" --out "$dir" --scenario "$scenario")
+    if [ -n "$point" ]; then
+        record+=(--point "$point")
+    fi
     reset_unit_dir "$dir"
     state_dir="$(mktemp -d "${TMPDIR:-/tmp}/shellio-probe-resources.XXXXXX")"
+    trap "rm -rf '$state_dir'" EXIT
     # Отметка до захвата блокировки: от неё сценарий cost считает общий срок попытки 25 минут.
     set -- /usr/bin/env SHELLIO_STATE_DIR="$state_dir" SHELLIO_PROBE_UNIT_START="$(date +%s)" \
         /usr/bin/caffeinate -i \
@@ -139,30 +154,24 @@ run_unit() {
         MEASURE_OUTCOME="exit:$status"
     fi
     rm -rf "$state_dir"
+    trap - EXIT
     case "$MEASURE_OUTCOME" in
         lock-busy) attempt=lock-busy ;;
         "exit:0") attempt=started ;;
         "exit:$EXIT_NOT_STARTED") attempt=noisy ;;
         *)
             echo "run.sh: $unit: ошибка исполнения ($MEASURE_OUTCOME)" >&2
-            "$BIN" --status-set "$RUN_DIR" "$unit" error
-            ERRORS=$((ERRORS + 1))
+            unit_error "$unit" "${record[@]}"
             return 0
             ;;
     esac
     if [ "$attempt" = started ] && [ ! -f "$dir/result.json" ]; then
         echo "run.sh: $unit: процесс завершился без result.json" >&2
-        "$BIN" --status-set "$RUN_DIR" "$unit" error
-        ERRORS=$((ERRORS + 1))
+        unit_error "$unit" "${record[@]}"
         return 0
     fi
-    set -- "$BIN" --record "$OUT_BASE/not-started" --unit "$unit" --attempt "$attempt" \
-        --out "$dir" --scenario "$scenario"
-    if [ -n "$point" ]; then
-        set -- "$@" --point "$point"
-    fi
     status=0
-    "$@" || status=$?
+    "${record[@]}" --attempt "$attempt" || status=$?
     case "$status" in
         0) "$BIN" --status-set "$RUN_DIR" "$unit" done ;;
         "$EXIT_NOT_STARTED")
@@ -220,7 +229,8 @@ scenarios() {
     done <<<"$catalog"
     if [ -n "${POINTS:-}" ]; then
         for point in $POINTS; do
-            printf '%s' "$plan" | cut -d' ' -f4 | grep -qx -- "$point" || die "неизвестная точка «${point}»"
+            printf '%s' "$plan" | cut -d' ' -f4 | grep -qx -- "$point" ||
+                die "точка «${point}» не входит в точки выбранных сценариев"
         done
     fi
 
