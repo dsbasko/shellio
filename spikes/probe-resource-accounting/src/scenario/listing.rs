@@ -158,3 +158,42 @@ pub fn run() -> Result<Report, String> {
     report.cells.push(cost);
     Ok(report)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rule_takes_pidinfo_only_when_cheaper_and_complete() {
+        let complete = PidInfoPass {
+            listed: 10,
+            answered: 10,
+            failed_by_errno: BTreeMap::new(),
+        };
+        let denied = PidInfoPass {
+            listed: 10,
+            answered: 7,
+            failed_by_errno: BTreeMap::from([(libc::EPERM, 3)]),
+        };
+        assert_eq!(fields_cell(&complete).status, Status::Pass);
+        assert_eq!(fields_cell(&denied).status, Status::Fail);
+        assert_eq!(fields_cell(&PidInfoPass::default()).status, Status::Fail);
+        let cheap_sysctl = cost_cell(&[100.0, 120.0, 110.0], &[300.0, 310.0, 290.0]);
+        let cheap_pidinfo = cost_cell(&[300.0], &[100.0]);
+        assert_eq!(cheap_sysctl.status, Status::Pass);
+        assert_eq!(cheap_pidinfo.status, Status::Fail);
+        assert_eq!(cost_cell(&[], &[]).status, Status::Fail);
+        assert_eq!(
+            choice(&fields_cell(&complete), &cheap_pidinfo),
+            "proc_listallpids + proc_pidinfo"
+        );
+        assert_eq!(
+            choice(&fields_cell(&denied), &cheap_pidinfo),
+            "sysctl(KERN_PROC_ALL)"
+        );
+        assert_eq!(
+            choice(&fields_cell(&complete), &cheap_sysctl),
+            "sysctl(KERN_PROC_ALL)"
+        );
+    }
+}

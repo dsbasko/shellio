@@ -1122,3 +1122,304 @@ pub fn run_eperm_inject(out: &Path) -> Result<Report, String> {
         .insert("attribution".to_owned(), json(&[&at0, &at1, &atc]));
     Ok(report)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proc::fake::{FakeSource, start};
+    use crate::proc::units::Timebase;
+
+    const TB: Timebase = Timebase {
+        numer: 125,
+        denom: 3,
+    };
+
+    fn proc_entry(pid: i32, ppid: i32, pgid: i32) -> Listed {
+        Listed {
+            pid,
+            ppid,
+            pgid,
+            start: start(pid as u64),
+            ruid: 501,
+            uid: 501,
+            comm: format!("p{pid}"),
+            zombie: false,
+        }
+    }
+
+    /// Стенд 50; хост 100, программа 101 (лидер сессии и группы), ребёнок 102, attach 103,
+    /// посторонний 104.
+    fn world() -> FakeSource {
+        let mut source = FakeSource::default();
+        for (pid, ppid, pgid, sid) in [
+            (50, 1, 50, 50),
+            (100, 50, 50, 50),
+            (101, 100, 101, 101),
+            (102, 101, 101, 101),
+            (103, 50, 50, 50),
+            (104, 50, 50, 50),
+        ] {
+            source.add(proc_entry(pid, ppid, pgid), 1_000 + pid as u64, 10);
+            source.session.insert(pid, Ok(sid));
+        }
+        source
+    }
+
+    fn key(source: &FakeSource, pid: i32) -> Key {
+        Key::of(source.listed.iter().find(|l| l.pid == pid).unwrap())
+    }
+
+    fn claims(source: &FakeSource) -> Claims {
+        let program = key(source, 101);
+        Claims {
+            panels: vec![panel(
+                "p",
+                vec![key(source, 103)],
+                Some(OwnerRecord {
+                    host: key(source, 100),
+                    programs: vec![program],
+                    group: program,
+                    session: program,
+                }),
+            )],
+            git: Vec::new(),
+        }
+    }
+
+    fn session_set(source: &FakeSource) -> BTreeMap<String, Key> {
+        [
+            ("host", 100),
+            ("program", 101),
+            ("child", 102),
+            ("attach", 103),
+        ]
+        .into_iter()
+        .map(|(name, pid)| (name.to_owned(), key(source, pid)))
+        .collect()
+    }
+
+    fn two(
+        source: &impl Source,
+        claims: &Claims,
+    ) -> (Snapshot, Attribution, Snapshot, Attribution) {
+        let (s0, at0) = snap_claims(source, claims).unwrap();
+        let (s1, at1) = snap_claims(source, claims).unwrap();
+        (s0, at0, s1, at1)
+    }
+
+    #[test]
+    fn session_and_foreign_cells_follow_the_receipts() {
+        let source = world();
+        let claims = claims(&source);
+        let (s0, at0, s1, at1) = two(&source, &claims);
+        let p = owner("p");
+        let summary = owner_summary(Some((&s0, &at0)), (&s1, &at1), &p, TB).unwrap();
+        let set = session_set(&source);
+        let cell = session_cell("sessions-p", &[&at0, &at1], &p, &set, &summary);
+        assert_eq!(cell.status, Status::Pass, "{}", cell.reason);
+        assert_eq!(
+            foreign_cell(&[&at0, &at1], key(&source, 104)).status,
+            Status::Pass
+        );
+        assert_eq!(
+            foreign_cell(&[&at0, &at1], key(&source, 102)).status,
+            Status::Fail
+        );
+
+        let mut short = set.clone();
+        short.remove("child");
+        let extra = session_cell("sessions-p", &[&at1], &p, &short, &summary);
+        assert_eq!(extra.status, Status::Fail);
+        assert!(extra.reason.contains("лишний PID 102"), "{}", extra.reason);
+        let mut more = set;
+        more.insert("foreign".to_owned(), key(&source, 104));
+        let missing = session_cell("sessions-p", &[&at1], &p, &more, &summary);
+        assert!(
+            missing.reason.contains("нет «foreign»"),
+            "{}",
+            missing.reason
+        );
+    }
+
+    #[test]
+    fn session_unknown_other_than_exit_makes_the_cell_unconfirmed() {
+        let mut source = world();
+        source.session.insert(104, Err(ReadError::Denied));
+        let claims = claims(&source);
+        let (s0, at0, s1, at1) = two(&source, &claims);
+        let p = owner("p");
+        let summary = owner_summary(Some((&s0, &at0)), (&s1, &at1), &p, TB).unwrap();
+        let cell = session_cell("sessions-p", &[&at1], &p, &session_set(&source), &summary);
+        assert_eq!(cell.status, Status::Unconfirmed, "{}", cell.reason);
+        source.session.insert(104, Err(ReadError::Exited));
+        let (_, _, _, at_exit) = two(&source, &claims);
+        assert!(session_doubts(&at_exit).is_empty());
+    }
+
+    #[test]
+    fn injected_denial_is_marked_and_not_hidden() {
+        let source = world();
+        let claims = claims(&source);
+        let inject = Inject {
+            inner: &source,
+            denied: 102,
+        };
+        let (s0, at0, s1, at1) = two(&inject, &claims);
+        let (c1, atc) = snap_claims(&source, &claims).unwrap();
+        let p = owner("p");
+        let summary = owner_summary(Some((&s0, &at0)), (&s1, &at1), &p, TB).unwrap();
+        let control = owner_summary(Some((&s1, &at1)), (&c1, &atc), &p, TB).unwrap();
+        let cell = eperm_cell(key(&source, 102), &summary, &control);
+        assert_eq!(cell.status, Status::Pass, "{}", cell.reason);
+        let clean = owner_summary(Some((&c1, &atc)), (&c1, &atc), &p, TB);
+        assert!(clean.is_err(), "та же граница — ΔT ≤ 0");
+        assert_eq!(
+            eperm_cell(key(&source, 102), &control, &control).status,
+            Status::Fail,
+            "без подставного отказа клетка не проходит"
+        );
+    }
+
+    #[test]
+    fn login_cell_tells_denial_from_a_readable_or_gone_login() {
+        let mut source = world();
+        source.usage.insert(101, Err(ReadError::Denied));
+        source.info.insert(101, Err(ReadError::Denied));
+        let claims = claims(&source);
+        let (s0, at0, s1, at1) = two(&source, &claims);
+        let summary = owner_summary(Some((&s0, &at0)), (&s1, &at1), &owner("p"), TB).unwrap();
+        let mut seen = LoginSeen {
+            login: key(&source, 101),
+            child: key(&source, 102),
+            login_alive_after: true,
+            child_alive_after: true,
+        };
+        // Клетка ищет панель «l»: сценарий называет так панель login.
+        let renamed = Attribution {
+            shares: at1
+                .shares
+                .iter()
+                .cloned()
+                .map(|mut share| {
+                    if share.owner == owner("p") {
+                        share.owner = owner("l");
+                    }
+                    share
+                })
+                .collect(),
+            notes: at1.notes.clone(),
+        };
+        let cell = login_cell(&seen, &s1, &renamed, &summary);
+        assert_eq!(cell.status, Status::Pass, "{}", cell.reason);
+
+        seen.login_alive_after = false;
+        let gone = login_cell(&seen, &s1, &renamed, &summary);
+        assert_eq!(gone.status, Status::NotRun);
+        assert!(gone.reason.contains("вышел"));
+
+        let readable = world();
+        let (r0, ra0, r1, ra1) = two(&readable, &claims);
+        let rsummary = owner_summary(Some((&r0, &ra0)), (&r1, &ra1), &owner("p"), TB).unwrap();
+        seen.login_alive_after = true;
+        let read = login_cell(&seen, &r1, &ra1, &rsummary);
+        assert_eq!(read.status, Status::NotRun);
+        assert!(read.reason.contains("отличие окружения от P0.3"));
+    }
+
+    #[test]
+    fn reparent_requires_leaving_the_tree_and_session_and_group_origins() {
+        let mut source = world();
+        let orphan = proc_entry(105, 1, 101);
+        source.add(orphan.clone(), 2_000, 10);
+        source.session.insert(105, Ok(101));
+        let claims = claims(&source);
+        let (s0, at0, s1, at1) = two(&source, &claims);
+        let p = owner("p");
+        let summary = owner_summary(Some((&s0, &at0)), (&s1, &at1), &p, TB).unwrap();
+        let mut seen = ReparentSeen {
+            orphan: Key::of(&orphan),
+            orphan_ppid: Some(1),
+            middle_listed: false,
+        };
+        let cell = reparent_cell(&seen, &at1, &p, &summary);
+        assert_eq!(cell.status, Status::Pass, "{}", cell.reason);
+        seen.middle_listed = true;
+        assert_eq!(
+            reparent_cell(&seen, &at1, &p, &summary).status,
+            Status::Fail
+        );
+        seen.orphan_ppid = Some(101);
+        assert_eq!(
+            reparent_cell(&seen, &at1, &p, &summary).status,
+            Status::NotRun
+        );
+    }
+
+    #[test]
+    fn git_cells_reject_a_panel_share_and_a_wrong_group() {
+        let source = world();
+        let mut claims = claims(&source);
+        claims.panels[0].id = "A".to_owned();
+        claims.git = vec![GitWork {
+            child: key(&source, 104),
+            requested_by: names(&["A", "B"]),
+        }];
+        let (s0, at0, s1, at1) = two(&source, &claims);
+        let summary = owner_summary(Some((&s0, &at0)), (&s1, &at1), &Owner::Git, TB).unwrap();
+        let set = BTreeMap::from([("git-work".to_owned(), key(&source, 104))]);
+        assert_eq!(
+            git_group_cell(&at1, &set, key(&source, 104), &summary).status,
+            Status::Pass
+        );
+        assert_eq!(git_once_cell(&[&at0, &at1], &set).status, Status::Pass);
+        assert_eq!(
+            git_group_cell(&at1, &set, key(&source, 103), &summary).status,
+            Status::Fail,
+            "ключ регистрации не совпал"
+        );
+        let panel_key = BTreeMap::from([("git-work".to_owned(), key(&source, 102))]);
+        let cell = git_once_cell(&[&at1], &panel_key);
+        assert_eq!(cell.status, Status::Fail);
+        assert!(cell.reason.contains("у панели A"), "{}", cell.reason);
+    }
+
+    #[test]
+    fn churn_zombie_cell_needs_a_listed_zombie() {
+        let mut source = world();
+        let zombie = Listed {
+            zombie: true,
+            ..proc_entry(106, 50, 50)
+        };
+        source.listed.push(zombie.clone());
+        source
+            .usage
+            .insert(106, Ok(crate::proc::fake::usage_of(3_000, 1)));
+        let claims = claims(&source);
+        let (s0, at0, s1, at1) = two(&source, &claims);
+        let summary = owner_summary(Some((&s0, &at0)), (&s1, &at1), &owner("p"), TB).unwrap();
+        let mut keys = ChurnKeys {
+            a1: key(&source, 103),
+            a2: key(&source, 103),
+            c1: key(&source, 102),
+            q1: Key::of(&zombie),
+            q2: key(&source, 104),
+            with_base: BTreeSet::new(),
+        };
+        let cells = churn_cells(&keys, &summary, &s1, &at1);
+        let by_id = |id: &str| cells.iter().find(|c| c.id == id).unwrap().status;
+        assert_eq!(by_id("churn-zombie"), Status::Pass);
+        assert_eq!(by_id("churn-fresh"), Status::Fail, "a2 не свежий");
+        assert_eq!(by_id("churn-exited"), Status::Fail, "c/p/c1 не вышел");
+        assert_eq!(by_id("churn-partial"), Status::Fail, "сводка полная");
+        keys.q1 = key(&source, 104);
+        let cells = churn_cells(&keys, &summary, &s1, &at1);
+        assert_eq!(
+            cells
+                .iter()
+                .find(|c| c.id == "churn-zombie")
+                .unwrap()
+                .status,
+            Status::NotRun
+        );
+    }
+}

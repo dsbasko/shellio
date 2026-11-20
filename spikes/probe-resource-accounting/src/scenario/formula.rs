@@ -449,3 +449,143 @@ pub fn run_mem(out: &Path) -> Result<Report, String> {
     );
     Ok(report)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proc::fake::{FakeSource, listed};
+    use crate::proc::units::Timebase;
+    use crate::snapshot::Snapshot;
+
+    fn window(measured: f64, oracle: f64) -> CpuWindow {
+        CpuWindow {
+            measured: Ok(measured),
+            oracle: Some(oracle),
+        }
+    }
+
+    #[test]
+    fn cpu_cell_compares_every_window_with_the_receipt_tolerance() {
+        assert!((cpu_tolerance(50.0) - 1.5).abs() < 1e-12);
+        let good = [window(10.4, 10.0), window(9.7, 10.0), window(10.0, 10.0)];
+        assert_eq!(cpu_cell("c", &good, false, true).status, Status::Pass);
+        let out = [window(10.0, 10.0), window(10.8, 10.0)];
+        let cell = cpu_cell("c", &out, false, true);
+        assert_eq!(cell.status, Status::Fail);
+        assert!(cell.reason.contains("вне допуска"), "{}", cell.reason);
+        let missing = [CpuWindow {
+            measured: Err("Fresh".to_owned()),
+            oracle: Some(10.0),
+        }];
+        assert_eq!(cpu_cell("c", &missing, false, true).status, Status::Fail);
+        assert_eq!(cpu_cell("c", &[], false, true).status, Status::Fail);
+    }
+
+    #[test]
+    fn above_one_core_needs_both_values_over_100_and_noise_is_unconfirmed() {
+        let over = [window(150.5, 150.2), window(149.0, 150.0)];
+        assert_eq!(cpu_cell("c", &over, true, true).status, Status::Pass);
+        let under = [window(99.0, 99.5)];
+        let cell = cpu_cell("c", &under, true, true);
+        assert_eq!(cell.status, Status::NotRun);
+        assert_eq!(cell.not_run_cause, Some(NotRunCause::NotObserved));
+        let noisy = cpu_cell("c", &over, true, false);
+        assert_eq!(noisy.status, Status::Unconfirmed);
+        assert!(noisy.reason.contains("без шума был бы итог pass"));
+        let failed_noisy = cpu_cell("c", &[window(20.0, 10.0)], false, false);
+        assert!(failed_noisy.reason.contains("итог fail"));
+    }
+
+    fn sum(summary_pct: f64, entries_pct: f64, oracles: Vec<f64>) -> SumWindow {
+        SumWindow {
+            summary_pct: Some(summary_pct),
+            entries_pct,
+            complete: true,
+            partial: false,
+            oracles,
+        }
+    }
+
+    #[test]
+    fn sum_cell_checks_arithmetic_coverage_and_the_sum_of_tolerances() {
+        let oracles = vec![10.0, 50.0, 150.0];
+        assert_eq!(
+            cpu_sum_cell(&[sum(211.0, 211.0, oracles.clone())], 3, true).status,
+            Status::Pass
+        );
+        assert_eq!(
+            cpu_sum_cell(&[sum(211.0, 210.0, oracles.clone())], 3, true).status,
+            Status::Fail,
+            "сводка не равна сумме записей"
+        );
+        assert_eq!(
+            cpu_sum_cell(&[sum(216.0, 216.0, oracles.clone())], 3, true).status,
+            Status::Fail,
+            "вне суммы допусков 5,7 п. п."
+        );
+        let mut partial = sum(210.0, 210.0, oracles.clone());
+        partial.partial = true;
+        assert_eq!(cpu_sum_cell(&[partial], 3, true).status, Status::Fail);
+        assert_eq!(
+            cpu_sum_cell(&[sum(210.0, 210.0, vec![10.0, 50.0])], 3, true).status,
+            Status::Fail,
+            "оракул одного процесса потерян"
+        );
+        assert_eq!(cpu_sum_cell(&[], 3, true).status, Status::Fail);
+    }
+
+    #[test]
+    fn mem_cell_uses_one_mib_and_flags_an_unsettled_footprint() {
+        let base = 128 * MIB;
+        assert_eq!(
+            mem_cell("m", Ok(base + MIB), Some(base), Some(base)).status,
+            Status::Pass
+        );
+        assert_eq!(
+            mem_cell("m", Ok(base + MIB + 1), Some(base), Some(base)).status,
+            Status::Fail
+        );
+        assert_eq!(
+            mem_cell("m", Ok(base), Some(base), Some(base + 2 * MIB)).status,
+            Status::Unconfirmed
+        );
+        assert_eq!(
+            mem_cell("m", Err("NotRead".to_owned()), Some(base), None).status,
+            Status::Fail
+        );
+        assert_eq!(mem_cell("m", Ok(base), None, None).status, Status::Fail);
+    }
+
+    #[test]
+    fn mem_sum_cell_reads_the_summary_of_real_formulas() {
+        let mut source = FakeSource::default();
+        let keys: BTreeSet<Key> = (10..13)
+            .map(|pid| {
+                let entry = listed(pid, 1, 100);
+                source.add(entry.clone(), 5_000 + pid as u64, 1_000);
+                Key::of(&entry)
+            })
+            .collect();
+        let tb = Timebase {
+            numer: 125,
+            denom: 3,
+        };
+        let mut t = 0;
+        let mut now = || {
+            t += 1_000_000;
+            t
+        };
+        let s0 = Snapshot::take(&source, &mut now, |_| keys.clone()).unwrap();
+        let s1 = Snapshot::take(&source, &mut now, |_| keys.clone()).unwrap();
+        let summary = crate::snapshot::summarize(Some(&s0), &s1, &keys, tb).unwrap();
+        let cell = mem_sum_cell(&summary, 3);
+        assert_eq!(cell.status, Status::Pass, "{}", cell.reason);
+        assert_eq!(mem_sum_cell(&summary, 4).status, Status::Fail);
+        let only_base = crate::snapshot::summarize(None, &s1, &keys, tb).unwrap();
+        assert_eq!(
+            mem_sum_cell(&only_base, 3).status,
+            Status::Fail,
+            "без базы CPU неизвестен, сводка частичная"
+        );
+    }
+}
