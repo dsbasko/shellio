@@ -9,6 +9,9 @@
 //! - служебные режимы `run.sh`: `--params`, `--fingerprint`, `--status-set`, `--status-pending`,
 //!   `--record`.
 
+// Учёт арен до сценария `arena` задачи 9 работает только в тестах.
+#[cfg_attr(not(test), expect(dead_code))]
+mod arena;
 mod attrib;
 mod background;
 mod fixture;
