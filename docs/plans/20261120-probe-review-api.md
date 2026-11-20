@@ -764,7 +764,7 @@ cd ../shellio-p08 && base=$(cat ../shellio-p07-p08.base) && ralphex docs/plans/2
 - [x] сценарий `rate-limit` на fake: исчерпание лимита посреди отправки → частичная отправка и `unknown` без повтора
 - [x] тесты сборки сценариев
 - [x] ➕ сценарий `fake` строки `gh-anchors` берёт node ID треда для resolve чтением тредов автором через `review_threads` адаптера (как живая клетка), а не из состояния `forge-fake`; заметку сценария и раздел отчёта «forge-fake» поправить
-- [ ] рубеж: `make check` под замерной блокировкой, `make probe-review SCENARIOS="volume rate-limit gh-anchors"`
+- [x] рубеж: `make check` под замерной блокировкой, `make probe-review SCENARIOS="volume rate-limit gh-anchors"` — `make check` прошёл на `10cff16`, `make probe-review` (каталог `20261121-033530-81932`) дал `pass` у трёх пар без ошибок исполнения; первое исполнение обоих сценариев (юнит-тест) прошло без правок проверок, замеры и итоги ветвей — в отчёте, раздел «Стоимость и устойчивость (задача 14)»
 
 ### Task 15: Полный прогон и черновик отчёта
 
