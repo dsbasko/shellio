@@ -390,6 +390,45 @@ fn overrun_skips_missed_deadlines_without_catch_up() {
 }
 
 #[test]
+fn toggle_after_skipped_deadlines_keeps_the_grid() {
+    let clock = Rc::new(Cell::new(0));
+    let (source, claims) = panels(1);
+    let mut world = World::new(source, &clock);
+    world.list_cost_ns = 3 * S;
+    let (log, _) = run_world(
+        &world,
+        &clock,
+        claims,
+        Visibility::Visible,
+        vec![
+            (3.5, visibility(Visibility::Background)),
+            (3.6, visibility(Visibility::Visible)),
+            (9.0, stop()),
+        ],
+    );
+    assert_eq!(dues(&log), secs(&[0.0, 4.0, 8.0]));
+    let deadlines: Vec<u64> = log.switches.iter().map(|s| s.deadline_ns).collect();
+    assert_eq!(deadlines, vec![12 * S, 4 * S]);
+
+    let clock = Rc::new(Cell::new(0));
+    let (source, claims) = panels(1);
+    let world = World::new(source, &clock);
+    let mut timer = FakeTimer::new(
+        &clock,
+        vec![
+            (9.5, visibility(Visibility::Background)),
+            (9.6, visibility(Visibility::Visible)),
+            (11.0, stop()),
+        ],
+    );
+    timer.lag.insert(4 * S, 5 * S);
+    let (log, _) = run_timer(&world, &mut timer, claims, Visibility::Visible);
+    assert_eq!(dues(&log), secs(&[0.0, 2.0, 4.0, 10.0]));
+    let deadlines: Vec<u64> = log.switches.iter().map(|s| s.deadline_ns).collect();
+    assert_eq!(deadlines, vec![18 * S, 10 * S]);
+}
+
+#[test]
 fn late_wake_runs_one_pass_and_returns_to_the_grid() {
     let clock = Rc::new(Cell::new(0));
     let (source, claims) = panels(1);
