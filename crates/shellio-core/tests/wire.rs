@@ -9,16 +9,17 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use shellio_core::test_support::SequentialIds;
 use shellio_core::{
-    Change, Command, CommandValue, CoreError, Diagnostic, Entity, ErrorCode, Event, IdGen, Project,
-    ProjectId, ProjectRoot, ProjectRootId, Query, Reply, ReplyValue, Revision, RootError, RootKey,
-    RootKind, Route, State, StorageInfo, Title, TreeScope, UnixMillis, WindowState, Workbench,
-    WorkbenchId, Workspace, WorkspaceId, read,
+    Change, Command, CommandValue, CoreError, Diagnostic, Entity, ErrorCode, Event, EventsSince,
+    IdGen, Project, ProjectId, ProjectRoot, ProjectRootId, Query, Reply, ReplyValue, Revision,
+    RootError, RootKey, RootKind, Route, Snapshot, State, StorageInfo, Title, TreeScope,
+    UnixMillis, WindowState, Workbench, WorkbenchId, Workspace, WorkspaceId, read,
 };
 
 fn wire_dir() -> PathBuf {
@@ -475,24 +476,53 @@ fn reply_samples() -> Result<Samples, String> {
         .collect())
 }
 
-fn event_samples() -> Samples {
+fn event_sample() -> Event {
     let ids = ids();
-    vec![sample(
-        "event",
-        Event {
+    Event {
+        revision: Revision(12),
+        changes: vec![
+            Change::WorkspaceLastWorkbenchSet {
+                workspace: ids.workspace,
+                workbench: Some(ids.workbench),
+            },
+            Change::WindowSet {
+                active: ids.workspace,
+                route: Route::Workbench(ids.workbench),
+            },
+        ],
+    }
+}
+
+fn event_samples() -> Samples {
+    vec![sample("event", event_sample())]
+}
+
+fn events_since_golden(since: &EventsSince) -> &'static str {
+    match since {
+        EventsSince::Events(_) => "events_since.events",
+        EventsSince::Reset(_) => "events_since.reset",
+    }
+}
+
+fn events_since_samples() -> Result<Samples, String> {
+    let ids = ids();
+    let mut state = tree_state(&ids)?;
+    state.diagnostics.push(Diagnostic {
+        table: "workspaces".into(),
+        rowid: 3,
+        reason: "висячая ссылка last_workbench_id".into(),
+    });
+    let samples = [
+        EventsSince::Events(vec![event_sample()]),
+        EventsSince::Reset(Snapshot {
             revision: Revision(12),
-            changes: vec![
-                Change::WorkspaceLastWorkbenchSet {
-                    workspace: ids.workspace,
-                    workbench: Some(ids.workbench),
-                },
-                Change::WindowSet {
-                    active: ids.workspace,
-                    route: Route::Workbench(ids.workbench),
-                },
-            ],
-        },
-    )]
+            state: Arc::new(state),
+        }),
+    ];
+    Ok(samples
+        .into_iter()
+        .map(|since| sample(events_since_golden(&since), since))
+        .collect())
 }
 
 fn all_samples() -> Result<Samples, String> {
@@ -503,6 +533,7 @@ fn all_samples() -> Result<Samples, String> {
         error_samples()?,
         reply_samples()?,
         event_samples(),
+        events_since_samples()?,
     ]
     .into_iter()
     .flatten()
@@ -547,6 +578,11 @@ fn replies_match_goldens() {
 #[test]
 fn events_match_goldens() {
     assert_goldens(&event_samples());
+}
+
+#[test]
+fn events_since_match_goldens() {
+    assert_goldens(&events_since_samples().unwrap());
 }
 
 #[test]
@@ -651,6 +687,13 @@ fn extra_fields_of_outgoing_messages_are_rejected() {
         r#"{"code":"busy","message":"","retryable":true,"details":{},"extra":1}"#,
         "unknown field `extra`",
     );
+    let state = serde_json::to_string(&State::default()).unwrap();
+    assert_rejected::<Snapshot>(
+        &format!(r#"{{"revision":1,"state":{state},"extra":1}}"#),
+        "unknown field `extra`",
+    );
+    assert_rejected::<EventsSince>(r#"{"events":[],"extra":1}"#, "expected value");
+    assert_rejected::<EventsSince>(r#"{"snapshot":{}}"#, "unknown variant `snapshot`");
 }
 
 #[test]

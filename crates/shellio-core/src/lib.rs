@@ -2,23 +2,30 @@
 
 #![forbid(unsafe_code)]
 
+mod actor;
 mod change;
 mod clock;
 mod command;
 mod error;
+mod events;
+mod handle;
 mod handler;
 mod ids;
 mod model;
+mod persist;
 mod query;
 mod root;
 mod title;
 mod tree;
 mod wire;
 
+pub use actor::{QUEUE_CAPACITY, SUBSCRIBER_CAPACITY};
 pub use change::Change;
 pub use clock::{Clock, SystemClock, UnixMillis};
 pub use command::{Command, CommandValue, PreparedCommand};
 pub use error::{CoreError, Entity, ErrorCode};
+pub use events::{EVENT_BUFFER, EventsSince, Snapshot};
+pub use handle::{Core, CoreHandle, ReplyReceipt, StartError};
 pub use handler::{BOOTSTRAP_WORKSPACE, Ctx, Outcome, handle, startup};
 pub use ids::{
     AgentId, IdGen, IdParseError, PanelId, ProjectId, ProjectRootId, SessionId, SystemIds,
@@ -28,6 +35,7 @@ pub use model::{
     Diagnostic, EntityRef, PositionScope, Project, ProjectRoot, Revision, Route, State, Violation,
     WindowState, Workbench, Workspace,
 };
+pub use persist::{CommitError, LoadError, Loaded, Persist};
 pub use query::{Query, StatusView, StorageInfo, read};
 pub use root::{ResolvedRoot, RootError, RootKey, RootKind, RootResolver};
 pub use title::{Title, TitleError};
@@ -39,6 +47,7 @@ pub use wire::{Event, Reply, ReplyValue};
 pub mod test_support {
     pub use crate::clock::ManualClock;
     pub use crate::ids::SequentialIds;
+    pub use crate::persist::{CommitBarrier, Faults, FaultyPersist, MemoryPersist};
     pub use crate::root::FakeRootResolver;
 }
 
