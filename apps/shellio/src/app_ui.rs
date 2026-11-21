@@ -49,6 +49,36 @@ impl AppUi {
         });
         answer.await.ok()
     }
+
+    /// Шаг передачи на главном потоке через [`awaited`]: шаг, ответа которого к его очереди уже
+    /// не ждут, не выполняется.
+    async fn step<T: Send + 'static>(
+        &self,
+        work: impl FnOnce(&App, oneshot::Sender<T>) + Send + 'static,
+    ) -> Option<T> {
+        let main = self.main;
+        awaited(move |job| main.exec(move |app| job(app)), work).await
+    }
+}
+
+/// Задача очереди главного потока над целью `A`.
+type Job<A> = Box<dyn FnOnce(&A) + Send>;
+
+/// Поставить `work` в очередь `enqueue` и дождаться ответа, который `work` отправляет в канал.
+/// Срок передачи отбрасывает future вместе с приёмником, поэтому шаг, дошедший до очереди после
+/// срока, не выполняется и после отправки `launch` передний план не трогает. `None` — ответа не
+/// будет.
+async fn awaited<A, T: Send + 'static>(
+    enqueue: impl FnOnce(Job<A>),
+    work: impl FnOnce(&A, oneshot::Sender<T>) + Send + 'static,
+) -> Option<T> {
+    let (reply, answer) = oneshot::channel();
+    enqueue(Box::new(move |target| {
+        if !reply.is_closed() {
+            work(target, reply);
+        }
+    }));
+    answer.await.ok()
 }
 
 /// Дождаться, пока флаг станет `true`. Отправитель живёт в [`AppUi`], поэтому канал не
@@ -118,25 +148,31 @@ trait Steps: Sync {
 
 impl Steps for AppUi {
     async fn claim_front(&self) -> Option<bool> {
-        self.on_main(|app| {
+        self.step(|app, reply| {
             app.show_service_window();
             app.request_activation();
-            app.is_active()
+            let _ = reply.send(app.is_active());
         })
         .await
     }
 
     async fn reopen(&self, pid: u32) -> Reopen {
-        let (reply, answer) = oneshot::channel();
-        self.main.exec(move |app| {
-            app.reopen_bundle_of(pid, move |reopened| {
-                let _ = reply.send(reopened);
-            });
-        });
-        reopen(answer.await.ok())
+        // LaunchServices выбирает экземпляр бандла сам и может вывести другого владельца, поэтому
+        // запрос, не дождавшийся очереди до срока, не уходит.
+        let reopened = self
+            .step(move |app, reply| {
+                app.reopen_bundle_of(pid, move |reopened| {
+                    let _ = reply.send(reopened);
+                });
+            })
+            .await;
+        reopen(reopened)
     }
 
     async fn transfer(&self, pid: u32) -> Option<Transfer> {
+        // Без шага, а выполняется и после срока: в очередь он попадает после запроса переднего
+        // плана себе, и пропуск оставил бы второй запуск на переднем плане без уступки. Обращён он
+        // только к владельцу по PID, поэтому поздний шаг может вывести вперёд лишь его.
         self.on_main(move |app| app.hand_off_activation_to(pid))
             .await
     }
@@ -161,8 +197,8 @@ async fn hand_off(steps: &impl Steps, became_active: &watch::Sender<bool>, pid: 
     let reopen = if own {
         Reopen::NotRequested
     } else {
-        // Строка до ожидания ответа: срок передачи может отбросить его, а запрос LaunchServices
-        // не отменяется.
+        // Строка до ожидания ответа: срок передачи может отбросить его, а ушедший запрос
+        // LaunchServices не отменяется.
         steps.say(owner::reopen_start_line(pid));
         steps.reopen(pid).await
     };
@@ -329,6 +365,46 @@ mod tests {
         assert_eq!(reopen(Some(Reopened::Failed(None))), Reopen::Failed(None));
         assert_eq!(reopen(Some(Reopened::NoBundle)), Reopen::NotRequested);
         assert_eq!(reopen(None), Reopen::NotRequested);
+    }
+
+    /// Шаг, который ждут, выполняется в очереди и возвращает ответ.
+    #[tokio::test]
+    async fn awaited_step_answers_from_the_queue() {
+        let answer = awaited(
+            |job: Job<u32>| job(&5),
+            |target, reply| {
+                let _ = reply.send(*target + 1);
+            },
+        )
+        .await;
+        assert_eq!(answer, Some(6));
+    }
+
+    /// Срок передачи истёк, пока шаг стоял в очереди главного потока: дошедший до очереди шаг не
+    /// выполняется.
+    #[tokio::test(start_paused = true)]
+    async fn step_still_queued_at_the_handoff_deadline_does_not_run() {
+        let queue: Mutex<Vec<Job<()>>> = Mutex::new(Vec::new());
+        let ran = Arc::new(Mutex::new(false));
+        let work_ran = Arc::clone(&ran);
+        let step = awaited(
+            |job| queue.lock().unwrap().push(job),
+            move |(), reply| {
+                *work_ran.lock().unwrap() = true;
+                let _ = reply.send(());
+            },
+        );
+        assert!(
+            tokio::time::timeout(owner::HANDOFF_TIMEOUT, step)
+                .await
+                .is_err()
+        );
+        let jobs = std::mem::take(&mut *queue.lock().unwrap());
+        assert_eq!(jobs.len(), 1);
+        for job in jobs {
+            job(&());
+        }
+        assert!(!*ran.lock().unwrap());
     }
 
     const PID: u32 = 7;
