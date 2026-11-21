@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "series": "t15-20261121",
+  "build": "21a981e31bf46b640f9f94a4eb6eebf51b7efca455d6696a7595ff91862aa7b5",
+  "target": "live",
+  "started_unix": 1795214768,
+  "pairs": ["gitlab_cloud:gl-draft-publish", "gitlab_cloud:gl-foreign-draft", "gitlab_cloud:gl-approve-sha", "gitlab_cloud:gl-request-changes", "gitlab_cloud:gl-anchors", "gitlab_cloud:head-change", "gitlab_cloud:journal-crash", "gitlab_cloud:reconcile-ambiguous", "gitlab_cloud:reconcile-deleted", "gitlab_cloud:reconcile-paged", "gitlab_cloud:partial", "gitlab_cloud:capabilities"],
+  "skipped": [],
+  "docker": {"status": "cleaned", "removed": 0, "detail": ""}
+}

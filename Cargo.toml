@@ -8,6 +8,7 @@ members = [
     "spikes/probe-diff-view",
     "spikes/probe-ghostty-surface",
     "spikes/probe-resource-accounting",
+    "spikes/probe-review-api",
     "spikes/probe-session-survival",
     "spikes/probe-update-lifecycle",
 ]

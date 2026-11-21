@@ -1,0 +1,585 @@
+{
+  "schema": 1,
+  "series": "t15-20261121",
+  "build": "21a981e31bf46b640f9f94a4eb6eebf51b7efca455d6696a7595ff91862aa7b5",
+  "scenario": "gh-viewed",
+  "column": "fake",
+  "host": {},
+  "execution": {
+    "status": "ok"
+  },
+  "status": "pass",
+  "reason": "все 6 проверок ожидания прошли",
+  "trace": [
+    {
+      "actor": "reviewer",
+      "duration_us": 433,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/user",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4999",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "1"
+      },
+      "request_body": null,
+      "response_body": {
+        "id": 1001,
+        "login": "<reviewer>",
+        "node_id": "U_fake1001"
+      },
+      "seq": 1,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 137,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/versions",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4998",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "2"
+      },
+      "request_body": null,
+      "response_body": [
+        "2022-11-28"
+      ],
+      "seq": 2,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 114,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4997",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "3"
+      },
+      "request_body": null,
+      "response_body": {
+        "default_branch": "main",
+        "full_name": "<repo>",
+        "id": 1,
+        "name": "sandbox-repo",
+        "node_id": "R_fake1",
+        "owner": {
+          "login": "<namespace>"
+        },
+        "permissions": {
+          "admin": false,
+          "pull": true,
+          "push": true
+        },
+        "private": true,
+        "visibility": "private"
+      },
+      "seq": 3,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 318,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/graphql",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4996",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "graphql",
+        "x-ratelimit-used": "4"
+      },
+      "request_body": {
+        "query": "query($name: String!) { __type(name: $name) { fields { name } } }",
+        "variables": {
+          "name": "Mutation"
+        }
+      },
+      "response_body": {
+        "data": {
+          "__type": {
+            "fields": [
+              {
+                "name": "addPullRequestReviewThread"
+              },
+              {
+                "name": "markFileAsViewed"
+              },
+              {
+                "name": "resolveReviewThread"
+              },
+              {
+                "name": "unmarkFileAsViewed"
+              },
+              {
+                "name": "unresolveReviewThread"
+              },
+              {
+                "name": "updatePullRequestReviewComment"
+              }
+            ],
+            "name": "Mutation"
+          }
+        }
+      },
+      "seq": 4,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 125,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4995",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "5"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 5,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 133,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/files?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4994",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "6"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "filename": "src/review.rs",
+          "patch": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+          "status": "modified"
+        }
+      ],
+      "seq": 6,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 134,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4993",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "7"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 7,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 186,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4992",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "8"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 8,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 103,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/files?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4991",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "9"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "filename": "src/review.rs",
+          "patch": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+          "status": "modified"
+        }
+      ],
+      "seq": 9,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 94,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4990",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "10"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 10,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 308,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/graphql",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4989",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "graphql",
+        "x-ratelimit-used": "11"
+      },
+      "request_body": {
+        "query": "mutation($input: MarkFileAsViewedInput!) { markFileAsViewed(input: $input) { pullRequest { id } } }",
+        "variables": {
+          "input": {
+            "path": "src/review.rs",
+            "pullRequestId": "PR_fake7"
+          }
+        }
+      },
+      "response_body": {
+        "data": {
+          "markFileAsViewed": {
+            "clientMutationId": null,
+            "pullRequest": {
+              "id": "PR_fake7"
+            }
+          }
+        }
+      },
+      "seq": 11,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 203,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/graphql",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4988",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "graphql",
+        "x-ratelimit-used": "12"
+      },
+      "request_body": {
+        "query": "query($id: ID!, $cursor: String) { node(id: $id) { ... on PullRequest { files(first: 100, after: $cursor) { nodes { path viewerViewedState } pageInfo { hasNextPage endCursor } } } } }",
+        "variables": {
+          "cursor": null,
+          "id": "PR_fake7"
+        }
+      },
+      "response_body": {
+        "data": {
+          "node": {
+            "__typename": "PullRequest",
+            "files": {
+              "nodes": [
+                {
+                  "path": "src/review.rs",
+                  "viewerViewedState": "VIEWED"
+                }
+              ],
+              "pageInfo": {
+                "endCursor": null,
+                "hasNextPage": false
+              },
+              "totalCount": 1
+            },
+            "headRefOid": "2222222222222222222222222222222222222222",
+            "id": "PR_fake7",
+            "number": 7,
+            "reviewThreads": {
+              "nodes": [],
+              "pageInfo": {
+                "endCursor": null,
+                "hasNextPage": false
+              },
+              "totalCount": 0
+            }
+          }
+        }
+      },
+      "seq": 12,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 160,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/graphql",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4987",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "graphql",
+        "x-ratelimit-used": "13"
+      },
+      "request_body": {
+        "query": "mutation($input: UnmarkFileAsViewedInput!) { unmarkFileAsViewed(input: $input) { pullRequest { id } } }",
+        "variables": {
+          "input": {
+            "path": "src/review.rs",
+            "pullRequestId": "PR_fake7"
+          }
+        }
+      },
+      "response_body": {
+        "data": {
+          "unmarkFileAsViewed": {
+            "clientMutationId": null,
+            "pullRequest": {
+              "id": "PR_fake7"
+            }
+          }
+        }
+      },
+      "seq": 13,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 170,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/graphql",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4986",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "graphql",
+        "x-ratelimit-used": "14"
+      },
+      "request_body": {
+        "query": "query($id: ID!, $cursor: String) { node(id: $id) { ... on PullRequest { files(first: 100, after: $cursor) { nodes { path viewerViewedState } pageInfo { hasNextPage endCursor } } } } }",
+        "variables": {
+          "cursor": null,
+          "id": "PR_fake7"
+        }
+      },
+      "response_body": {
+        "data": {
+          "node": {
+            "__typename": "PullRequest",
+            "files": {
+              "nodes": [
+                {
+                  "path": "src/review.rs",
+                  "viewerViewedState": "UNVIEWED"
+                }
+              ],
+              "pageInfo": {
+                "endCursor": null,
+                "hasNextPage": false
+              },
+              "totalCount": 1
+            },
+            "headRefOid": "2222222222222222222222222222222222222222",
+            "id": "PR_fake7",
+            "number": 7,
+            "reviewThreads": {
+              "nodes": [],
+              "pageInfo": {
+                "endCursor": null,
+                "hasNextPage": false
+              },
+              "totalCount": 0
+            }
+          }
+        }
+      },
+      "seq": 14,
+      "status": 200
+    }
+  ],
+  "calls": {
+    "GET /repos/<repo>": 1,
+    "GET /repos/<repo>/pulls/7": 4,
+    "GET /repos/<repo>/pulls/7/files": 2,
+    "GET /user": 1,
+    "GET /versions": 1,
+    "POST /graphql": 5
+  },
+  "server_before": {
+    "main": {
+      "pulls": [
+        {
+          "author": "<author>",
+          "base_sha": "1111111111111111111111111111111111111111",
+          "comments": [],
+          "commits": [
+            "2222222222222222222222222222222222222222"
+          ],
+          "number": 7,
+          "reviews": [],
+          "threads": [],
+          "viewed": {}
+        }
+      ]
+    }
+  },
+  "server_after": {
+    "main": {
+      "pulls": [
+        {
+          "author": "<author>",
+          "base_sha": "1111111111111111111111111111111111111111",
+          "comments": [],
+          "commits": [
+            "2222222222222222222222222222222222222222"
+          ],
+          "number": 7,
+          "reviews": [],
+          "threads": [],
+          "viewed": {
+            "<reviewer>": {}
+          }
+        }
+      ]
+    }
+  },
+  "journal": {
+    "main": {
+      "recovered": [],
+      "sessions": [
+        {
+          "account": "<reviewer>",
+          "drafts": [],
+          "head_sha": "2222222222222222222222222222222222222222",
+          "id": 1,
+          "submissions": []
+        }
+      ]
+    }
+  },
+  "leftovers": [],
+  "notes": [
+    "ok после markFileAsViewed: (Some(Viewed), Some(Viewed))",
+    "ok после unmarkFileAsViewed: (Some(Unviewed), None)",
+    "ok записи: {\"graphql markFileAsViewed\": 1, \"graphql unmarkFileAsViewed\": 1}",
+    "ok graphql markFileAsViewed: вход: (Some(\"PR_fake7\"), Some(\"src/review.rs\"))",
+    "ok graphql unmarkFileAsViewed: вход: (Some(\"PR_fake7\"), Some(\"src/review.rs\"))",
+    "ok журнал: сессия без отправок: (1, 0)"
+  ]
+}

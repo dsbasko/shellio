@@ -1,0 +1,10 @@
+# Образ локального GitLab CE пробы P0.7 (план, «Правила выбора» → «Тег GitLab CE»):
+# новейший стабильный X.Y.Z-ce.0 с манифестом linux/arm64 по docker manifest inspect.
+# index — digest списка манифестов (по нему идёт docker pull и docker run с --platform),
+# digest — манифест linux/arm64 из этого списка. Разбирает только live::provision::Pin.
+image = gitlab/gitlab-ce
+tag = 19.6.1-ce.0
+index = sha256:d3727f8b1a1ee6de44916bb9113f3dc40339dba2d6a6ad6ef331d0f239004056
+digest = sha256:3aa073ef2ce0058aa067bec15c7b63b4e09200dc07994790bf6eff5e7edde289
+platform = linux/arm64
+date = 2026-11-20

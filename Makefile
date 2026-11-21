@@ -23,6 +23,7 @@ PROBE_GHOSTTY := spikes/probe-ghostty-surface/run.sh
 PROBE_SESSION := spikes/probe-session-survival/run.sh
 PROBE_UPDATE := spikes/probe-update-lifecycle/run.sh
 PROBE_DIFF := spikes/probe-diff-view/run.sh
+PROBE_REVIEW := spikes/probe-review-api/run.sh
 PROBE_RESOURCES := spikes/probe-resource-accounting/run.sh
 
 # Цели, читающие vendor/ghostty/, выполняют весь рецепт под одной блокировкой набора: рецепт цели X
@@ -30,7 +31,7 @@ PROBE_RESOURCES := spikes/probe-resource-accounting/run.sh
 LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run test-bundle \
 	probe-ghostty probe-ghostty-demo probe-session-surface
 
-.PHONY: setup test-scripts probe-appkit probe-appkit-demo probe-session probe-update probe-update-tcc-grant probe-diff probe-diff-demo probe-resources $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
+.PHONY: setup test-scripts probe-appkit probe-appkit-demo probe-session probe-update probe-update-tcc-grant probe-diff probe-diff-demo probe-review probe-review-live probe-resources $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
 
 # Под make -j цели одного вызова иначе столкнулись бы на собственной блокировке.
 .NOTPARALLEL:
@@ -155,6 +156,17 @@ probe-diff:
 
 probe-diff-demo:
 	CARGO=$(CARGO) $(PROBE_DIFF) demo $(ARGS)
+
+# Проба P0.7 probe-review набор ghostty не читает и vendor/ghostty.lock не берёт. run.sh держит
+# замерную блокировку measure.lock весь рецепт (срок захвата 5 минут, иначе код 4 «не начат»);
+# снаружи цели lockf не оборачивается. HOSTS сужает столбцы, SERIES объединяет вызовы в серию.
+# probe-review — столбец fake (forge-fake на loopback), probe-review-live — живые песочницы и
+# локальный GitLab CE в docker (ADR-0034).
+probe-review:
+	CARGO=$(CARGO) HOSTS="$(HOSTS)" SERIES="$(SERIES)" $(PROBE_REVIEW) fake $(SCENARIOS)
+
+probe-review-live:
+	CARGO=$(CARGO) HOSTS="$(HOSTS)" SERIES="$(SERIES)" $(PROBE_REVIEW) live $(SCENARIOS)
 
 # Проба P0.8 probe-resources headless, набор ghostty не читает и vendor/ghostty.lock не берёт. Замерные
 # сценарии run.sh запускает под машинной замерной блокировкой measure.lock в SHELLIO_CACHE_DIR с

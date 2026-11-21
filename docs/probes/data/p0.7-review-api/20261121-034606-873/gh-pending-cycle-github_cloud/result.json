@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "series": "t15-20261121",
+  "build": "21a981e31bf46b640f9f94a4eb6eebf51b7efca455d6696a7595ff91862aa7b5",
+  "scenario": "gh-pending-cycle",
+  "column": "github_cloud",
+  "host": {},
+  "execution": {
+    "status": "ok"
+  },
+  "status": "not_run",
+  "reason": "нет sandbox.toml",
+  "trace": [],
+  "calls": {},
+  "leftovers": [],
+  "notes": []
+}

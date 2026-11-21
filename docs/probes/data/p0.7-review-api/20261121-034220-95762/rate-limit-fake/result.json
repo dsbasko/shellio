@@ -1,0 +1,3387 @@
+{
+  "schema": 1,
+  "series": "t15-20261121",
+  "build": "21a981e31bf46b640f9f94a4eb6eebf51b7efca455d6696a7595ff91862aa7b5",
+  "scenario": "rate-limit",
+  "column": "fake",
+  "host": {},
+  "execution": {
+    "status": "ok"
+  },
+  "status": "pass",
+  "reason": "все 22 проверок ожидания прошли",
+  "trace": [
+    {
+      "actor": "reviewer",
+      "duration_us": 463,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/user",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "1",
+        "ratelimit-remaining": "1999",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "id": 2001,
+        "name": "<reviewer> name",
+        "state": "active",
+        "username": "<reviewer>"
+      },
+      "seq": 1,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 133,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/metadata",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "2",
+        "ratelimit-remaining": "1998",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "enterprise": false,
+        "kas": {
+          "enabled": false,
+          "externalUrl": null,
+          "version": null
+        },
+        "revision": "fake0001",
+        "version": "18.5.1"
+      },
+      "seq": 2,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 164,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "3",
+        "ratelimit-remaining": "1997",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "default_branch": "main",
+        "id": 42,
+        "name": "sandbox-project",
+        "path": "sandbox-project",
+        "path_with_namespace": "<repo>",
+        "permissions": {
+          "group_access": null,
+          "project_access": {
+            "access_level": 30
+          }
+        },
+        "visibility": "private"
+      },
+      "seq": 3,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 319,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/graphql",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "4",
+        "ratelimit-remaining": "1996",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": {
+        "query": "query($name: String!) { __type(name: $name) { fields { name } } }",
+        "variables": {
+          "name": "Mutation"
+        }
+      },
+      "response_body": {
+        "data": {
+          "__type": {
+            "fields": [
+              {
+                "name": "createNote"
+              },
+              {
+                "name": "mergeRequestAccept"
+              },
+              {
+                "name": "mergeRequestRequestChanges"
+              },
+              {
+                "name": "mergeRequestSetDraft"
+              }
+            ],
+            "name": "Mutation"
+          }
+        }
+      },
+      "seq": 4,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 212,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "5",
+        "ratelimit-remaining": "1995",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "author": {
+          "id": 2002,
+          "name": "<author> name",
+          "state": "active",
+          "username": "<author>"
+        },
+        "diff_refs": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "id": 2003,
+        "iid": 3,
+        "project_id": 42,
+        "reviewers": [
+          {
+            "id": 2001,
+            "name": "<reviewer> name",
+            "state": "active",
+            "username": "<reviewer>"
+          }
+        ],
+        "sha": "2222222222222222222222222222222222222222",
+        "source_branch": "probe/3",
+        "state": "opened",
+        "target_branch": "main"
+      },
+      "seq": 5,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 162,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions?per_page=100&page=1",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "6",
+        "ratelimit-remaining": "1994",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "base_commit_sha": "1111111111111111111111111111111111111111",
+          "created_at": "2026-01-01T00:00:01.000Z",
+          "head_commit_sha": "2222222222222222222222222222222222222222",
+          "id": 2004,
+          "real_size": "1",
+          "start_commit_sha": "1111111111111111111111111111111111111111",
+          "state": "collected"
+        }
+      ],
+      "seq": 6,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 159,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions/2004",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "7",
+        "ratelimit-remaining": "1993",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "base_commit_sha": "1111111111111111111111111111111111111111",
+        "created_at": "2026-01-01T00:00:01.000Z",
+        "diffs": [
+          {
+            "a_mode": "100644",
+            "b_mode": "100644",
+            "collapsed": false,
+            "deleted_file": false,
+            "diff": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+            "new_file": false,
+            "new_path": "src/review.rs",
+            "old_path": "src/review.rs",
+            "renamed_file": false,
+            "too_large": false
+          }
+        ],
+        "head_commit_sha": "2222222222222222222222222222222222222222",
+        "id": 2004,
+        "real_size": "1",
+        "start_commit_sha": "1111111111111111111111111111111111111111",
+        "state": "collected"
+      },
+      "seq": 7,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 108,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "8",
+        "ratelimit-remaining": "1992",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "author": {
+          "id": 2002,
+          "name": "<author> name",
+          "state": "active",
+          "username": "<author>"
+        },
+        "diff_refs": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "id": 2003,
+        "iid": 3,
+        "project_id": 42,
+        "reviewers": [
+          {
+            "id": 2001,
+            "name": "<reviewer> name",
+            "state": "active",
+            "username": "<reviewer>"
+          }
+        ],
+        "sha": "2222222222222222222222222222222222222222",
+        "source_branch": "probe/3",
+        "state": "opened",
+        "target_branch": "main"
+      },
+      "seq": 8,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 96,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions?per_page=100&page=1",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "9",
+        "ratelimit-remaining": "1991",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "base_commit_sha": "1111111111111111111111111111111111111111",
+          "created_at": "2026-01-01T00:00:01.000Z",
+          "head_commit_sha": "2222222222222222222222222222222222222222",
+          "id": 2004,
+          "real_size": "1",
+          "start_commit_sha": "1111111111111111111111111111111111111111",
+          "state": "collected"
+        }
+      ],
+      "seq": 9,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 88,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions/2004",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "10",
+        "ratelimit-remaining": "1990",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "base_commit_sha": "1111111111111111111111111111111111111111",
+        "created_at": "2026-01-01T00:00:01.000Z",
+        "diffs": [
+          {
+            "a_mode": "100644",
+            "b_mode": "100644",
+            "collapsed": false,
+            "deleted_file": false,
+            "diff": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+            "new_file": false,
+            "new_path": "src/review.rs",
+            "old_path": "src/review.rs",
+            "renamed_file": false,
+            "too_large": false
+          }
+        ],
+        "head_commit_sha": "2222222222222222222222222222222222222222",
+        "id": 2004,
+        "real_size": "1",
+        "start_commit_sha": "1111111111111111111111111111111111111111",
+        "state": "collected"
+      },
+      "seq": 10,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 266,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "11",
+        "ratelimit-remaining": "1989",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": {
+        "note": "первый",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "new_line": 1,
+          "new_path": "src/review.rs",
+          "old_line": 1,
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        }
+      },
+      "response_body": {
+        "author_id": 2001,
+        "commit_id": null,
+        "discussion_id": null,
+        "id": 2005,
+        "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_1_1",
+        "merge_request_id": 2003,
+        "note": "первый",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "line_range": null,
+          "new_line": 1,
+          "new_path": "src/review.rs",
+          "old_line": 1,
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "resolve_discussion": false
+      },
+      "seq": 11,
+      "status": 201
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 184,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "12",
+        "ratelimit-remaining": "1988",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": {
+        "note": "второй",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "new_line": 2,
+          "new_path": "src/review.rs",
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        }
+      },
+      "response_body": {
+        "author_id": 2001,
+        "commit_id": null,
+        "discussion_id": null,
+        "id": 2006,
+        "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_3_2",
+        "merge_request_id": 2003,
+        "note": "второй",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "line_range": null,
+          "new_line": 2,
+          "new_path": "src/review.rs",
+          "old_line": null,
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "resolve_discussion": false
+      },
+      "seq": 12,
+      "status": 201
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 191,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "13",
+        "ratelimit-remaining": "1987",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": {
+        "note": "третий",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "new_line": 4,
+          "new_path": "src/review.rs",
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        }
+      },
+      "response_body": {
+        "author_id": 2001,
+        "commit_id": null,
+        "discussion_id": null,
+        "id": 2007,
+        "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_4_4",
+        "merge_request_id": 2003,
+        "note": "третий",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "line_range": null,
+          "new_line": 4,
+          "new_path": "src/review.rs",
+          "old_line": null,
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "resolve_discussion": false
+      },
+      "seq": 13,
+      "status": 201
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 177,
+      "failure": null,
+      "failure_detail": null,
+      "method": "PUT",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes/2005/publish",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "14",
+        "ratelimit-remaining": "1986",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": null,
+      "seq": 14,
+      "status": 204
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 194,
+      "failure": null,
+      "failure_detail": null,
+      "method": "PUT",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes/2006/publish",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "2000",
+        "ratelimit-remaining": "0",
+        "ratelimit-reset": "1767229200",
+        "retry-after": "60"
+      },
+      "request_body": null,
+      "response_body": "Retry later\n",
+      "seq": 15,
+      "status": 429
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 92,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "15",
+        "ratelimit-remaining": "1985",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "author": {
+          "id": 2002,
+          "name": "<author> name",
+          "state": "active",
+          "username": "<author>"
+        },
+        "diff_refs": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "id": 2003,
+        "iid": 3,
+        "project_id": 42,
+        "reviewers": [
+          {
+            "id": 2001,
+            "name": "<reviewer> name",
+            "state": "active",
+            "username": "<reviewer>"
+          }
+        ],
+        "sha": "2222222222222222222222222222222222222222",
+        "source_branch": "probe/3",
+        "state": "opened",
+        "target_branch": "main"
+      },
+      "seq": 16,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 92,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions?per_page=100&page=1",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "16",
+        "ratelimit-remaining": "1984",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "base_commit_sha": "1111111111111111111111111111111111111111",
+          "created_at": "2026-01-01T00:00:01.000Z",
+          "head_commit_sha": "2222222222222222222222222222222222222222",
+          "id": 2004,
+          "real_size": "1",
+          "start_commit_sha": "1111111111111111111111111111111111111111",
+          "state": "collected"
+        }
+      ],
+      "seq": 17,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 91,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions/2004",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "17",
+        "ratelimit-remaining": "1983",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "base_commit_sha": "1111111111111111111111111111111111111111",
+        "created_at": "2026-01-01T00:00:01.000Z",
+        "diffs": [
+          {
+            "a_mode": "100644",
+            "b_mode": "100644",
+            "collapsed": false,
+            "deleted_file": false,
+            "diff": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+            "new_file": false,
+            "new_path": "src/review.rs",
+            "old_path": "src/review.rs",
+            "renamed_file": false,
+            "too_large": false
+          }
+        ],
+        "head_commit_sha": "2222222222222222222222222222222222222222",
+        "id": 2004,
+        "real_size": "1",
+        "start_commit_sha": "1111111111111111111111111111111111111111",
+        "state": "collected"
+      },
+      "seq": 18,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 195,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/user",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "1",
+        "ratelimit-remaining": "1999",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "id": 2001,
+        "name": "<reviewer> name",
+        "state": "active",
+        "username": "<reviewer>"
+      },
+      "seq": 19,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 68,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/metadata",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "2",
+        "ratelimit-remaining": "1998",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "enterprise": false,
+        "kas": {
+          "enabled": false,
+          "externalUrl": null,
+          "version": null
+        },
+        "revision": "fake0001",
+        "version": "18.5.1"
+      },
+      "seq": 20,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 64,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "3",
+        "ratelimit-remaining": "1997",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "default_branch": "main",
+        "id": 42,
+        "name": "sandbox-project",
+        "path": "sandbox-project",
+        "path_with_namespace": "<repo>",
+        "permissions": {
+          "group_access": null,
+          "project_access": {
+            "access_level": 30
+          }
+        },
+        "visibility": "private"
+      },
+      "seq": 21,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 134,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/graphql",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "4",
+        "ratelimit-remaining": "1996",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": {
+        "query": "query($name: String!) { __type(name: $name) { fields { name } } }",
+        "variables": {
+          "name": "Mutation"
+        }
+      },
+      "response_body": {
+        "data": {
+          "__type": {
+            "fields": [
+              {
+                "name": "createNote"
+              },
+              {
+                "name": "mergeRequestAccept"
+              },
+              {
+                "name": "mergeRequestRequestChanges"
+              },
+              {
+                "name": "mergeRequestSetDraft"
+              }
+            ],
+            "name": "Mutation"
+          }
+        }
+      },
+      "seq": 22,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 151,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "5",
+        "ratelimit-remaining": "1995",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "author": {
+          "id": 2002,
+          "name": "<author> name",
+          "state": "active",
+          "username": "<author>"
+        },
+        "diff_refs": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "id": 2003,
+        "iid": 3,
+        "project_id": 42,
+        "reviewers": [
+          {
+            "id": 2001,
+            "name": "<reviewer> name",
+            "state": "active",
+            "username": "<reviewer>"
+          }
+        ],
+        "sha": "2222222222222222222222222222222222222222",
+        "source_branch": "probe/3",
+        "state": "opened",
+        "target_branch": "main"
+      },
+      "seq": 23,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 99,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions?per_page=100&page=1",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "6",
+        "ratelimit-remaining": "1994",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "base_commit_sha": "1111111111111111111111111111111111111111",
+          "created_at": "2026-01-01T00:00:01.000Z",
+          "head_commit_sha": "2222222222222222222222222222222222222222",
+          "id": 2004,
+          "real_size": "1",
+          "start_commit_sha": "1111111111111111111111111111111111111111",
+          "state": "collected"
+        }
+      ],
+      "seq": 24,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 92,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions/2004",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "7",
+        "ratelimit-remaining": "1993",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "base_commit_sha": "1111111111111111111111111111111111111111",
+        "created_at": "2026-01-01T00:00:01.000Z",
+        "diffs": [
+          {
+            "a_mode": "100644",
+            "b_mode": "100644",
+            "collapsed": false,
+            "deleted_file": false,
+            "diff": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+            "new_file": false,
+            "new_path": "src/review.rs",
+            "old_path": "src/review.rs",
+            "renamed_file": false,
+            "too_large": false
+          }
+        ],
+        "head_commit_sha": "2222222222222222222222222222222222222222",
+        "id": 2004,
+        "real_size": "1",
+        "start_commit_sha": "1111111111111111111111111111111111111111",
+        "state": "collected"
+      },
+      "seq": 25,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 143,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "8",
+        "ratelimit-remaining": "1992",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "author": {
+          "id": 2002,
+          "name": "<author> name",
+          "state": "active",
+          "username": "<author>"
+        },
+        "diff_refs": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "id": 2003,
+        "iid": 3,
+        "project_id": 42,
+        "reviewers": [
+          {
+            "id": 2001,
+            "name": "<reviewer> name",
+            "state": "active",
+            "username": "<reviewer>"
+          }
+        ],
+        "sha": "2222222222222222222222222222222222222222",
+        "source_branch": "probe/3",
+        "state": "opened",
+        "target_branch": "main"
+      },
+      "seq": 26,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 89,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions?per_page=100&page=1",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "9",
+        "ratelimit-remaining": "1991",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "base_commit_sha": "1111111111111111111111111111111111111111",
+          "created_at": "2026-01-01T00:00:01.000Z",
+          "head_commit_sha": "2222222222222222222222222222222222222222",
+          "id": 2004,
+          "real_size": "1",
+          "start_commit_sha": "1111111111111111111111111111111111111111",
+          "state": "collected"
+        }
+      ],
+      "seq": 27,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 85,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions/2004",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "10",
+        "ratelimit-remaining": "1990",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "base_commit_sha": "1111111111111111111111111111111111111111",
+        "created_at": "2026-01-01T00:00:01.000Z",
+        "diffs": [
+          {
+            "a_mode": "100644",
+            "b_mode": "100644",
+            "collapsed": false,
+            "deleted_file": false,
+            "diff": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+            "new_file": false,
+            "new_path": "src/review.rs",
+            "old_path": "src/review.rs",
+            "renamed_file": false,
+            "too_large": false
+          }
+        ],
+        "head_commit_sha": "2222222222222222222222222222222222222222",
+        "id": 2004,
+        "real_size": "1",
+        "start_commit_sha": "1111111111111111111111111111111111111111",
+        "state": "collected"
+      },
+      "seq": 28,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 238,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "11",
+        "ratelimit-remaining": "1989",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": {
+        "note": "первый",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "new_line": 1,
+          "new_path": "src/review.rs",
+          "old_line": 1,
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        }
+      },
+      "response_body": {
+        "author_id": 2001,
+        "commit_id": null,
+        "discussion_id": null,
+        "id": 2005,
+        "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_1_1",
+        "merge_request_id": 2003,
+        "note": "первый",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "line_range": null,
+          "new_line": 1,
+          "new_path": "src/review.rs",
+          "old_line": 1,
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "resolve_discussion": false
+      },
+      "seq": 29,
+      "status": 201
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 219,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "12",
+        "ratelimit-remaining": "1988",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": {
+        "note": "второй",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "new_line": 2,
+          "new_path": "src/review.rs",
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        }
+      },
+      "response_body": {
+        "author_id": 2001,
+        "commit_id": null,
+        "discussion_id": null,
+        "id": 2006,
+        "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_3_2",
+        "merge_request_id": 2003,
+        "note": "второй",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "line_range": null,
+          "new_line": 2,
+          "new_path": "src/review.rs",
+          "old_line": null,
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "resolve_discussion": false
+      },
+      "seq": 30,
+      "status": 201
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 207,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "13",
+        "ratelimit-remaining": "1987",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": {
+        "note": "третий",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "new_line": 4,
+          "new_path": "src/review.rs",
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        }
+      },
+      "response_body": {
+        "author_id": 2001,
+        "commit_id": null,
+        "discussion_id": null,
+        "id": 2007,
+        "line_code": "2256241c82d6ec1c5594c82b0e92ff7fffde9c16_4_4",
+        "merge_request_id": 2003,
+        "note": "третий",
+        "position": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "line_range": null,
+          "new_line": 4,
+          "new_path": "src/review.rs",
+          "old_line": null,
+          "old_path": "src/review.rs",
+          "position_type": "text",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "resolve_discussion": false
+      },
+      "seq": 31,
+      "status": 201
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 170,
+      "failure": null,
+      "failure_detail": null,
+      "method": "PUT",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes/2005/publish",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "14",
+        "ratelimit-remaining": "1986",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": null,
+      "seq": 32,
+      "status": 204
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 186,
+      "failure": null,
+      "failure_detail": null,
+      "method": "PUT",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes/2006/publish",
+      "rate_limit": {},
+      "request_body": null,
+      "response_body": {
+        "message": "forge-fake: injected 502"
+      },
+      "seq": 33,
+      "status": 502
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 99,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/draft_notes/2006",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "2000",
+        "ratelimit-remaining": "0",
+        "ratelimit-reset": "1767229200",
+        "retry-after": "60"
+      },
+      "request_body": null,
+      "response_body": "Retry later\n",
+      "seq": 34,
+      "status": 429
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 107,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "16",
+        "ratelimit-remaining": "1984",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "author": {
+          "id": 2002,
+          "name": "<author> name",
+          "state": "active",
+          "username": "<author>"
+        },
+        "diff_refs": {
+          "base_sha": "1111111111111111111111111111111111111111",
+          "head_sha": "2222222222222222222222222222222222222222",
+          "start_sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "id": 2003,
+        "iid": 3,
+        "project_id": 42,
+        "reviewers": [
+          {
+            "id": 2001,
+            "name": "<reviewer> name",
+            "state": "active",
+            "username": "<reviewer>"
+          }
+        ],
+        "sha": "2222222222222222222222222222222222222222",
+        "source_branch": "probe/3",
+        "state": "opened",
+        "target_branch": "main"
+      },
+      "seq": 35,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 102,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions?per_page=100&page=1",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "17",
+        "ratelimit-remaining": "1983",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "base_commit_sha": "1111111111111111111111111111111111111111",
+          "created_at": "2026-01-01T00:00:01.000Z",
+          "head_commit_sha": "2222222222222222222222222222222222222222",
+          "id": 2004,
+          "real_size": "1",
+          "start_commit_sha": "1111111111111111111111111111111111111111",
+          "state": "collected"
+        }
+      ],
+      "seq": 36,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 97,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/api/v4/projects/<repo>/merge_requests/3/versions/2004",
+      "rate_limit": {
+        "ratelimit-limit": "2000",
+        "ratelimit-name": "throttle_authenticated_api",
+        "ratelimit-observed": "18",
+        "ratelimit-remaining": "1982",
+        "ratelimit-reset": "1767229200"
+      },
+      "request_body": null,
+      "response_body": {
+        "base_commit_sha": "1111111111111111111111111111111111111111",
+        "created_at": "2026-01-01T00:00:01.000Z",
+        "diffs": [
+          {
+            "a_mode": "100644",
+            "b_mode": "100644",
+            "collapsed": false,
+            "deleted_file": false,
+            "diff": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+            "new_file": false,
+            "new_path": "src/review.rs",
+            "old_path": "src/review.rs",
+            "renamed_file": false,
+            "too_large": false
+          }
+        ],
+        "head_commit_sha": "2222222222222222222222222222222222222222",
+        "id": 2004,
+        "real_size": "1",
+        "start_commit_sha": "1111111111111111111111111111111111111111",
+        "state": "collected"
+      },
+      "seq": 37,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 155,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/user",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4999",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "1"
+      },
+      "request_body": null,
+      "response_body": {
+        "id": 1001,
+        "login": "<reviewer>",
+        "node_id": "U_fake1001"
+      },
+      "seq": 38,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 62,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/versions",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4998",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "2"
+      },
+      "request_body": null,
+      "response_body": [
+        "2022-11-28"
+      ],
+      "seq": 39,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 64,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4997",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "3"
+      },
+      "request_body": null,
+      "response_body": {
+        "default_branch": "main",
+        "full_name": "<repo>",
+        "id": 1,
+        "name": "sandbox-repo",
+        "node_id": "R_fake1",
+        "owner": {
+          "login": "<namespace>"
+        },
+        "permissions": {
+          "admin": false,
+          "pull": true,
+          "push": true
+        },
+        "private": true,
+        "visibility": "private"
+      },
+      "seq": 40,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 127,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/graphql",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4996",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "graphql",
+        "x-ratelimit-used": "4"
+      },
+      "request_body": {
+        "query": "query($name: String!) { __type(name: $name) { fields { name } } }",
+        "variables": {
+          "name": "Mutation"
+        }
+      },
+      "response_body": {
+        "data": {
+          "__type": {
+            "fields": [
+              {
+                "name": "addPullRequestReviewThread"
+              },
+              {
+                "name": "markFileAsViewed"
+              },
+              {
+                "name": "resolveReviewThread"
+              },
+              {
+                "name": "unmarkFileAsViewed"
+              },
+              {
+                "name": "unresolveReviewThread"
+              },
+              {
+                "name": "updatePullRequestReviewComment"
+              }
+            ],
+            "name": "Mutation"
+          }
+        }
+      },
+      "seq": 41,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 141,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4995",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "5"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 42,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 88,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/files?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4994",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "6"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "filename": "src/review.rs",
+          "patch": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+          "status": "modified"
+        }
+      ],
+      "seq": 43,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 94,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4993",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "7"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 44,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 110,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4992",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "8"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 45,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 87,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/files?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4991",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "9"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "filename": "src/review.rs",
+          "patch": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+          "status": "modified"
+        }
+      ],
+      "seq": 46,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 83,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4990",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "10"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 47,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 87,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/reviews?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4989",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "11"
+      },
+      "request_body": null,
+      "response_body": [],
+      "seq": 48,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 255,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/repos/<repo>/pulls/7/reviews",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4988",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "12"
+      },
+      "request_body": {
+        "commit_id": "2222222222222222222222222222222222222222"
+      },
+      "response_body": {
+        "body": "",
+        "commit_id": "2222222222222222222222222222222222222222",
+        "id": 1003,
+        "node_id": "PRR_fake1003",
+        "pull_request_url": "/pulls/7",
+        "state": "PENDING",
+        "user": {
+          "login": "<reviewer>"
+        }
+      },
+      "seq": 49,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 227,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/graphql",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4987",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "graphql",
+        "x-ratelimit-used": "13"
+      },
+      "request_body": {
+        "query": "mutation($input: AddPullRequestReviewThreadInput!) { addPullRequestReviewThread(input: $input) { thread { id comments(first: 1) { nodes { id fullDatabaseId body pullRequestReview { id } } } } } }",
+        "variables": {
+          "input": {
+            "body": "первый",
+            "line": 1,
+            "path": "src/review.rs",
+            "pullRequestReviewId": "PRR_fake1003",
+            "side": "RIGHT"
+          }
+        }
+      },
+      "response_body": {
+        "data": {
+          "addPullRequestReviewThread": {
+            "clientMutationId": null,
+            "thread": {
+              "comments": {
+                "nodes": [
+                  {
+                    "author": {
+                      "login": "<reviewer>"
+                    },
+                    "body": "первый",
+                    "diffSide": "RIGHT",
+                    "fullDatabaseId": "1004",
+                    "id": "PRRC_fake1004",
+                    "line": 1,
+                    "path": "src/review.rs",
+                    "pullRequestReview": {
+                      "databaseId": 1003,
+                      "id": "PRR_fake1003"
+                    },
+                    "replyTo": null,
+                    "startDiffSide": null,
+                    "startLine": null,
+                    "state": "PENDING"
+                  }
+                ],
+                "pageInfo": {
+                  "endCursor": null,
+                  "hasNextPage": false
+                },
+                "totalCount": 1
+              },
+              "diffSide": "RIGHT",
+              "id": "PRRT_fake1005",
+              "isOutdated": false,
+              "isResolved": false,
+              "line": 1,
+              "path": "src/review.rs",
+              "startDiffSide": null,
+              "startLine": null
+            }
+          }
+        }
+      },
+      "seq": 50,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 203,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/graphql",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "0",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "5000"
+      },
+      "request_body": {
+        "query": "mutation($input: AddPullRequestReviewThreadInput!) { addPullRequestReviewThread(input: $input) { thread { id comments(first: 1) { nodes { id fullDatabaseId body pullRequestReview { id } } } } } }",
+        "variables": {
+          "input": {
+            "body": "второй",
+            "line": 2,
+            "path": "src/review.rs",
+            "pullRequestReviewId": "PRR_fake1003",
+            "side": "RIGHT"
+          }
+        }
+      },
+      "response_body": {
+        "documentation_url": "https://docs.github.com/rest",
+        "message": "API rate limit exceeded for user ID 1."
+      },
+      "seq": 51,
+      "status": 403
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 103,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4986",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "14"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 52,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 104,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/files?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4985",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "15"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "filename": "src/review.rs",
+          "patch": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+          "status": "modified"
+        }
+      ],
+      "seq": 53,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 96,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4984",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "16"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 54,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 164,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/user",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4999",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "1"
+      },
+      "request_body": null,
+      "response_body": {
+        "id": 1001,
+        "login": "<reviewer>",
+        "node_id": "U_fake1001"
+      },
+      "seq": 55,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 60,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/versions",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4998",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "2"
+      },
+      "request_body": null,
+      "response_body": [
+        "2022-11-28"
+      ],
+      "seq": 56,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 63,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4997",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "3"
+      },
+      "request_body": null,
+      "response_body": {
+        "default_branch": "main",
+        "full_name": "<repo>",
+        "id": 1,
+        "name": "sandbox-repo",
+        "node_id": "R_fake1",
+        "owner": {
+          "login": "<namespace>"
+        },
+        "permissions": {
+          "admin": false,
+          "pull": true,
+          "push": true
+        },
+        "private": true,
+        "visibility": "private"
+      },
+      "seq": 57,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 123,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/graphql",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4996",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "graphql",
+        "x-ratelimit-used": "4"
+      },
+      "request_body": {
+        "query": "query($name: String!) { __type(name: $name) { fields { name } } }",
+        "variables": {
+          "name": "Mutation"
+        }
+      },
+      "response_body": {
+        "data": {
+          "__type": {
+            "fields": [
+              {
+                "name": "addPullRequestReviewThread"
+              },
+              {
+                "name": "markFileAsViewed"
+              },
+              {
+                "name": "resolveReviewThread"
+              },
+              {
+                "name": "unmarkFileAsViewed"
+              },
+              {
+                "name": "unresolveReviewThread"
+              },
+              {
+                "name": "updatePullRequestReviewComment"
+              }
+            ],
+            "name": "Mutation"
+          }
+        }
+      },
+      "seq": 58,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 125,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4995",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "5"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 59,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 103,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/files?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4994",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "6"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "filename": "src/review.rs",
+          "patch": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+          "status": "modified"
+        }
+      ],
+      "seq": 60,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 95,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4993",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "7"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 61,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 105,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4992",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "8"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 62,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 78,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/files?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4991",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "9"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "filename": "src/review.rs",
+          "patch": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+          "status": "modified"
+        }
+      ],
+      "seq": 63,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 72,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4990",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "10"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 64,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 68,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/reviews?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4989",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "11"
+      },
+      "request_body": null,
+      "response_body": [],
+      "seq": 65,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 189,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/repos/<repo>/pulls/7/reviews",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4988",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "12"
+      },
+      "request_body": {
+        "commit_id": "2222222222222222222222222222222222222222"
+      },
+      "response_body": {
+        "body": "",
+        "commit_id": "2222222222222222222222222222222222222222",
+        "id": 1003,
+        "node_id": "PRR_fake1003",
+        "pull_request_url": "/pulls/7",
+        "state": "PENDING",
+        "user": {
+          "login": "<reviewer>"
+        }
+      },
+      "seq": 66,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 157,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/graphql",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4987",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "graphql",
+        "x-ratelimit-used": "13"
+      },
+      "request_body": {
+        "query": "mutation($input: AddPullRequestReviewThreadInput!) { addPullRequestReviewThread(input: $input) { thread { id comments(first: 1) { nodes { id fullDatabaseId body pullRequestReview { id } } } } } }",
+        "variables": {
+          "input": {
+            "body": "первый",
+            "line": 1,
+            "path": "src/review.rs",
+            "pullRequestReviewId": "PRR_fake1003",
+            "side": "RIGHT"
+          }
+        }
+      },
+      "response_body": {
+        "data": {
+          "addPullRequestReviewThread": {
+            "clientMutationId": null,
+            "thread": {
+              "comments": {
+                "nodes": [
+                  {
+                    "author": {
+                      "login": "<reviewer>"
+                    },
+                    "body": "первый",
+                    "diffSide": "RIGHT",
+                    "fullDatabaseId": "1004",
+                    "id": "PRRC_fake1004",
+                    "line": 1,
+                    "path": "src/review.rs",
+                    "pullRequestReview": {
+                      "databaseId": 1003,
+                      "id": "PRR_fake1003"
+                    },
+                    "replyTo": null,
+                    "startDiffSide": null,
+                    "startLine": null,
+                    "state": "PENDING"
+                  }
+                ],
+                "pageInfo": {
+                  "endCursor": null,
+                  "hasNextPage": false
+                },
+                "totalCount": 1
+              },
+              "diffSide": "RIGHT",
+              "id": "PRRT_fake1005",
+              "isOutdated": false,
+              "isResolved": false,
+              "line": 1,
+              "path": "src/review.rs",
+              "startDiffSide": null,
+              "startLine": null
+            }
+          }
+        }
+      },
+      "seq": 67,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 164,
+      "failure": null,
+      "failure_detail": null,
+      "method": "POST",
+      "path": "/graphql",
+      "rate_limit": {},
+      "request_body": {
+        "query": "mutation($input: AddPullRequestReviewThreadInput!) { addPullRequestReviewThread(input: $input) { thread { id comments(first: 1) { nodes { id fullDatabaseId body pullRequestReview { id } } } } } }",
+        "variables": {
+          "input": {
+            "body": "второй",
+            "line": 2,
+            "path": "src/review.rs",
+            "pullRequestReviewId": "PRR_fake1003",
+            "side": "RIGHT"
+          }
+        }
+      },
+      "response_body": {
+        "message": "forge-fake: injected 502"
+      },
+      "seq": 68,
+      "status": 502
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 86,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/reviews/1003/comments?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "0",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "5000"
+      },
+      "request_body": null,
+      "response_body": {
+        "documentation_url": "https://docs.github.com/rest",
+        "message": "API rate limit exceeded for user ID 1."
+      },
+      "seq": 69,
+      "status": 403
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 76,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4985",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "15"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 70,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 85,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7/files?per_page=100&page=1",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4984",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "16"
+      },
+      "request_body": null,
+      "response_body": [
+        {
+          "filename": "src/review.rs",
+          "patch": "@@ -1,4 +1,5 @@\n ctx1\n-old2\n+new2\n ctx3\n+add4\n ctx4\n",
+          "status": "modified"
+        }
+      ],
+      "seq": 71,
+      "status": 200
+    },
+    {
+      "actor": "reviewer",
+      "duration_us": 70,
+      "failure": null,
+      "failure_detail": null,
+      "method": "GET",
+      "path": "/repos/<repo>/pulls/7",
+      "rate_limit": {
+        "x-ratelimit-limit": "5000",
+        "x-ratelimit-remaining": "4983",
+        "x-ratelimit-reset": "1767229200",
+        "x-ratelimit-resource": "core",
+        "x-ratelimit-used": "17"
+      },
+      "request_body": null,
+      "response_body": {
+        "base": {
+          "ref": "main",
+          "sha": "1111111111111111111111111111111111111111"
+        },
+        "draft": false,
+        "head": {
+          "ref": "probe/7",
+          "sha": "2222222222222222222222222222222222222222"
+        },
+        "node_id": "PR_fake7",
+        "number": 7,
+        "state": "open",
+        "user": {
+          "login": "<author>"
+        }
+      },
+      "seq": 72,
+      "status": 200
+    }
+  ],
+  "calls": {
+    "GET /api/v4/metadata": 2,
+    "GET /api/v4/projects/<repo>": 2,
+    "GET /api/v4/projects/<repo>/merge_requests/3": 6,
+    "GET /api/v4/projects/<repo>/merge_requests/3/draft_notes/2006": 1,
+    "GET /api/v4/projects/<repo>/merge_requests/3/versions": 6,
+    "GET /api/v4/projects/<repo>/merge_requests/3/versions/2004": 6,
+    "GET /api/v4/user": 2,
+    "GET /repos/<repo>": 2,
+    "GET /repos/<repo>/pulls/7": 12,
+    "GET /repos/<repo>/pulls/7/files": 6,
+    "GET /repos/<repo>/pulls/7/reviews": 2,
+    "GET /repos/<repo>/pulls/7/reviews/1003/comments": 1,
+    "GET /user": 2,
+    "GET /versions": 2,
+    "POST /api/graphql": 2,
+    "POST /api/v4/projects/<repo>/merge_requests/3/draft_notes": 6,
+    "POST /graphql": 6,
+    "POST /repos/<repo>/pulls/7/reviews": 2,
+    "PUT /api/v4/projects/<repo>/merge_requests/3/draft_notes/2005/publish": 2,
+    "PUT /api/v4/projects/<repo>/merge_requests/3/draft_notes/2006/publish": 2
+  },
+  "server_before": {
+    "github-lost": {
+      "pulls": [
+        {
+          "author": "<author>",
+          "base_sha": "1111111111111111111111111111111111111111",
+          "comments": [],
+          "commits": [
+            "2222222222222222222222222222222222222222"
+          ],
+          "number": 7,
+          "reviews": [],
+          "threads": [],
+          "viewed": {}
+        }
+      ]
+    },
+    "github-refused": {
+      "pulls": [
+        {
+          "author": "<author>",
+          "base_sha": "1111111111111111111111111111111111111111",
+          "comments": [],
+          "commits": [
+            "2222222222222222222222222222222222222222"
+          ],
+          "number": 7,
+          "reviews": [],
+          "threads": [],
+          "viewed": {}
+        }
+      ]
+    },
+    "gitlab-lost": {
+      "merge_requests": [
+        {
+          "approved_by": [],
+          "author": "<author>",
+          "discussions": [],
+          "drafts": [],
+          "iid": 3,
+          "notes": [],
+          "reviewers": [
+            {
+              "state": "unreviewed",
+              "username": "<reviewer>"
+            }
+          ],
+          "versions": [
+            {
+              "base_sha": "1111111111111111111111111111111111111111",
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 2004,
+              "start_sha": "1111111111111111111111111111111111111111"
+            }
+          ]
+        }
+      ],
+      "request_changes": "Available"
+    },
+    "gitlab-refused": {
+      "merge_requests": [
+        {
+          "approved_by": [],
+          "author": "<author>",
+          "discussions": [],
+          "drafts": [],
+          "iid": 3,
+          "notes": [],
+          "reviewers": [
+            {
+              "state": "unreviewed",
+              "username": "<reviewer>"
+            }
+          ],
+          "versions": [
+            {
+              "base_sha": "1111111111111111111111111111111111111111",
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 2004,
+              "start_sha": "1111111111111111111111111111111111111111"
+            }
+          ]
+        }
+      ],
+      "request_changes": "Available"
+    }
+  },
+  "server_after": {
+    "github-lost": {
+      "pulls": [
+        {
+          "author": "<author>",
+          "base_sha": "1111111111111111111111111111111111111111",
+          "comments": [
+            {
+              "body": "первый",
+              "commit_id": "2222222222222222222222222222222222222222",
+              "id": 1004,
+              "in_reply_to": null,
+              "line": 1,
+              "node_id": "PRRC_fake1004",
+              "origin": "api",
+              "path": "src/review.rs",
+              "review_id": 1003,
+              "side": "RIGHT",
+              "start_line": null,
+              "start_side": null,
+              "thread_id": 1005,
+              "user": "<reviewer>"
+            },
+            {
+              "body": "второй",
+              "commit_id": "2222222222222222222222222222222222222222",
+              "id": 1006,
+              "in_reply_to": null,
+              "line": 2,
+              "node_id": "PRRC_fake1006",
+              "origin": "api",
+              "path": "src/review.rs",
+              "review_id": 1003,
+              "side": "RIGHT",
+              "start_line": null,
+              "start_side": null,
+              "thread_id": 1007,
+              "user": "<reviewer>"
+            }
+          ],
+          "commits": [
+            "2222222222222222222222222222222222222222"
+          ],
+          "number": 7,
+          "reviews": [
+            {
+              "body": "",
+              "commit_id": "2222222222222222222222222222222222222222",
+              "id": 1003,
+              "node_id": "PRR_fake1003",
+              "origin": "api",
+              "state": "PENDING",
+              "user": "<reviewer>"
+            }
+          ],
+          "threads": [
+            {
+              "id": 1005,
+              "node_id": "PRRT_fake1005",
+              "resolved": false
+            },
+            {
+              "id": 1007,
+              "node_id": "PRRT_fake1007",
+              "resolved": false
+            }
+          ],
+          "viewed": {}
+        }
+      ]
+    },
+    "github-refused": {
+      "pulls": [
+        {
+          "author": "<author>",
+          "base_sha": "1111111111111111111111111111111111111111",
+          "comments": [
+            {
+              "body": "первый",
+              "commit_id": "2222222222222222222222222222222222222222",
+              "id": 1004,
+              "in_reply_to": null,
+              "line": 1,
+              "node_id": "PRRC_fake1004",
+              "origin": "api",
+              "path": "src/review.rs",
+              "review_id": 1003,
+              "side": "RIGHT",
+              "start_line": null,
+              "start_side": null,
+              "thread_id": 1005,
+              "user": "<reviewer>"
+            }
+          ],
+          "commits": [
+            "2222222222222222222222222222222222222222"
+          ],
+          "number": 7,
+          "reviews": [
+            {
+              "body": "",
+              "commit_id": "2222222222222222222222222222222222222222",
+              "id": 1003,
+              "node_id": "PRR_fake1003",
+              "origin": "api",
+              "state": "PENDING",
+              "user": "<reviewer>"
+            }
+          ],
+          "threads": [
+            {
+              "id": 1005,
+              "node_id": "PRRT_fake1005",
+              "resolved": false
+            }
+          ],
+          "viewed": {}
+        }
+      ]
+    },
+    "gitlab-lost": {
+      "merge_requests": [
+        {
+          "approved_by": [],
+          "author": "<author>",
+          "discussions": [
+            {
+              "id": "0fade0bfbdc1ba3093eed58edc57851ea833f139",
+              "individual_note": false,
+              "resolved": false
+            },
+            {
+              "id": "37d6236feae35ba79eec5092099b2a0ac8047fc2",
+              "individual_note": false,
+              "resolved": false
+            }
+          ],
+          "drafts": [
+            {
+              "author": "<reviewer>",
+              "discussion_id": null,
+              "id": 2007,
+              "note": "третий",
+              "origin": "api",
+              "position": {
+                "base_sha": "1111111111111111111111111111111111111111",
+                "head_sha": "2222222222222222222222222222222222222222",
+                "line_range": null,
+                "new_line": 4,
+                "new_path": "src/review.rs",
+                "old_line": null,
+                "old_path": "src/review.rs",
+                "position_type": "text",
+                "start_sha": "1111111111111111111111111111111111111111"
+              }
+            }
+          ],
+          "iid": 3,
+          "notes": [
+            {
+              "author": "<reviewer>",
+              "body": "первый",
+              "discussion_id": "0fade0bfbdc1ba3093eed58edc57851ea833f139",
+              "from_draft": 2005,
+              "id": 2009,
+              "origin": "api",
+              "position": {
+                "base_sha": "1111111111111111111111111111111111111111",
+                "head_sha": "2222222222222222222222222222222222222222",
+                "line_range": null,
+                "new_line": 1,
+                "new_path": "src/review.rs",
+                "old_line": 1,
+                "old_path": "src/review.rs",
+                "position_type": "text",
+                "start_sha": "1111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "author": "<reviewer>",
+              "body": "второй",
+              "discussion_id": "37d6236feae35ba79eec5092099b2a0ac8047fc2",
+              "from_draft": 2006,
+              "id": 2011,
+              "origin": "api",
+              "position": {
+                "base_sha": "1111111111111111111111111111111111111111",
+                "head_sha": "2222222222222222222222222222222222222222",
+                "line_range": null,
+                "new_line": 2,
+                "new_path": "src/review.rs",
+                "old_line": null,
+                "old_path": "src/review.rs",
+                "position_type": "text",
+                "start_sha": "1111111111111111111111111111111111111111"
+              }
+            }
+          ],
+          "reviewers": [
+            {
+              "state": "unreviewed",
+              "username": "<reviewer>"
+            }
+          ],
+          "versions": [
+            {
+              "base_sha": "1111111111111111111111111111111111111111",
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 2004,
+              "start_sha": "1111111111111111111111111111111111111111"
+            }
+          ]
+        }
+      ],
+      "request_changes": "Available"
+    },
+    "gitlab-refused": {
+      "merge_requests": [
+        {
+          "approved_by": [],
+          "author": "<author>",
+          "discussions": [
+            {
+              "id": "0fade0bfbdc1ba3093eed58edc57851ea833f139",
+              "individual_note": false,
+              "resolved": false
+            }
+          ],
+          "drafts": [
+            {
+              "author": "<reviewer>",
+              "discussion_id": null,
+              "id": 2006,
+              "note": "второй",
+              "origin": "api",
+              "position": {
+                "base_sha": "1111111111111111111111111111111111111111",
+                "head_sha": "2222222222222222222222222222222222222222",
+                "line_range": null,
+                "new_line": 2,
+                "new_path": "src/review.rs",
+                "old_line": null,
+                "old_path": "src/review.rs",
+                "position_type": "text",
+                "start_sha": "1111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "author": "<reviewer>",
+              "discussion_id": null,
+              "id": 2007,
+              "note": "третий",
+              "origin": "api",
+              "position": {
+                "base_sha": "1111111111111111111111111111111111111111",
+                "head_sha": "2222222222222222222222222222222222222222",
+                "line_range": null,
+                "new_line": 4,
+                "new_path": "src/review.rs",
+                "old_line": null,
+                "old_path": "src/review.rs",
+                "position_type": "text",
+                "start_sha": "1111111111111111111111111111111111111111"
+              }
+            }
+          ],
+          "iid": 3,
+          "notes": [
+            {
+              "author": "<reviewer>",
+              "body": "первый",
+              "discussion_id": "0fade0bfbdc1ba3093eed58edc57851ea833f139",
+              "from_draft": 2005,
+              "id": 2009,
+              "origin": "api",
+              "position": {
+                "base_sha": "1111111111111111111111111111111111111111",
+                "head_sha": "2222222222222222222222222222222222222222",
+                "line_range": null,
+                "new_line": 1,
+                "new_path": "src/review.rs",
+                "old_line": 1,
+                "old_path": "src/review.rs",
+                "position_type": "text",
+                "start_sha": "1111111111111111111111111111111111111111"
+              }
+            }
+          ],
+          "reviewers": [
+            {
+              "state": "unreviewed",
+              "username": "<reviewer>"
+            }
+          ],
+          "versions": [
+            {
+              "base_sha": "1111111111111111111111111111111111111111",
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 2004,
+              "start_sha": "1111111111111111111111111111111111111111"
+            }
+          ]
+        }
+      ],
+      "request_changes": "Available"
+    }
+  },
+  "journal": {
+    "github-lost": {
+      "recovered": [],
+      "sessions": [
+        {
+          "account": "<reviewer>",
+          "drafts": [
+            {
+              "body": "первый",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 1,
+              "remote_id": "PRRC_fake1004"
+            },
+            {
+              "body": "второй",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 2,
+              "remote_id": null
+            },
+            {
+              "body": "третий",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 3,
+              "remote_id": null
+            }
+          ],
+          "head_sha": "2222222222222222222222222222222222222222",
+          "id": 1,
+          "submissions": [
+            {
+              "closed": false,
+              "delivery": "partial",
+              "event": "COMMENT",
+              "id": 1,
+              "items": [
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [],
+                  "operation": "github.create_pending",
+                  "remote_id": "1003",
+                  "seq": 0,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    1
+                  ],
+                  "operation": "github.add_pending_comment",
+                  "remote_id": "PRRC_fake1004",
+                  "seq": 1,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": "сверка: не выяснено: чтение комментариев PENDING не удалось: лимит исчерпан (код 403): API rate limit exceeded for user ID 1.",
+                  "drafts": [
+                    2
+                  ],
+                  "operation": "github.add_pending_comment",
+                  "remote_id": null,
+                  "seq": 2,
+                  "state": "unknown"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    3
+                  ],
+                  "operation": "github.add_pending_comment",
+                  "remote_id": null,
+                  "seq": 3,
+                  "state": "planned"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [],
+                  "operation": "github.submit_review",
+                  "remote_id": null,
+                  "seq": 4,
+                  "state": "planned"
+                }
+              ],
+              "pending_foreign": null,
+              "pending_review": "1003",
+              "summary": "Итог ревью"
+            }
+          ]
+        }
+      ]
+    },
+    "github-refused": {
+      "recovered": [],
+      "sessions": [
+        {
+          "account": "<reviewer>",
+          "drafts": [
+            {
+              "body": "первый",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 1,
+              "remote_id": "PRRC_fake1004"
+            },
+            {
+              "body": "второй",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 2,
+              "remote_id": null
+            },
+            {
+              "body": "третий",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 3,
+              "remote_id": null
+            }
+          ],
+          "head_sha": "2222222222222222222222222222222222222222",
+          "id": 1,
+          "submissions": [
+            {
+              "closed": true,
+              "delivery": "not_sent",
+              "event": "COMMENT",
+              "id": 1,
+              "items": [
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [],
+                  "operation": "github.create_pending",
+                  "remote_id": "1003",
+                  "seq": 0,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    1
+                  ],
+                  "operation": "github.add_pending_comment",
+                  "remote_id": "PRRC_fake1004",
+                  "seq": 1,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": "лимит исчерпан (код 403): API rate limit exceeded for user ID 1.",
+                  "drafts": [
+                    2
+                  ],
+                  "operation": "github.add_pending_comment",
+                  "remote_id": null,
+                  "seq": 2,
+                  "state": "failed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    3
+                  ],
+                  "operation": "github.add_pending_comment",
+                  "remote_id": null,
+                  "seq": 3,
+                  "state": "planned"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [],
+                  "operation": "github.submit_review",
+                  "remote_id": null,
+                  "seq": 4,
+                  "state": "planned"
+                }
+              ],
+              "pending_foreign": null,
+              "pending_review": "1003",
+              "summary": "Итог ревью"
+            }
+          ]
+        }
+      ]
+    },
+    "gitlab-lost": {
+      "recovered": [],
+      "sessions": [
+        {
+          "account": "<reviewer>",
+          "drafts": [
+            {
+              "body": "первый",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 1,
+              "remote_id": "2005"
+            },
+            {
+              "body": "второй",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 2,
+              "remote_id": "2006"
+            },
+            {
+              "body": "третий",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 3,
+              "remote_id": "2007"
+            }
+          ],
+          "head_sha": "2222222222222222222222222222222222222222",
+          "id": 1,
+          "submissions": [
+            {
+              "closed": false,
+              "delivery": "partial",
+              "event": null,
+              "id": 1,
+              "items": [
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    1
+                  ],
+                  "operation": "gitlab.create_draft_note",
+                  "remote_id": "2005",
+                  "seq": 0,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    2
+                  ],
+                  "operation": "gitlab.create_draft_note",
+                  "remote_id": "2006",
+                  "seq": 1,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    3
+                  ],
+                  "operation": "gitlab.create_draft_note",
+                  "remote_id": "2007",
+                  "seq": 2,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    1
+                  ],
+                  "operation": "gitlab.publish_draft_note",
+                  "remote_id": "2005",
+                  "seq": 3,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": "сверка: не выяснено: чтение черновика не удалось: лимит исчерпан (код 429): Retry later",
+                  "drafts": [
+                    2
+                  ],
+                  "operation": "gitlab.publish_draft_note",
+                  "remote_id": null,
+                  "seq": 4,
+                  "state": "unknown"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    3
+                  ],
+                  "operation": "gitlab.publish_draft_note",
+                  "remote_id": null,
+                  "seq": 5,
+                  "state": "planned"
+                }
+              ],
+              "pending_foreign": null,
+              "pending_review": null,
+              "summary": ""
+            }
+          ]
+        }
+      ]
+    },
+    "gitlab-refused": {
+      "recovered": [],
+      "sessions": [
+        {
+          "account": "<reviewer>",
+          "drafts": [
+            {
+              "body": "первый",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 1,
+              "remote_id": "2005"
+            },
+            {
+              "body": "второй",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 2,
+              "remote_id": "2006"
+            },
+            {
+              "body": "третий",
+              "current": true,
+              "head_sha": "2222222222222222222222222222222222222222",
+              "id": 3,
+              "remote_id": "2007"
+            }
+          ],
+          "head_sha": "2222222222222222222222222222222222222222",
+          "id": 1,
+          "submissions": [
+            {
+              "closed": true,
+              "delivery": "partial",
+              "event": null,
+              "id": 1,
+              "items": [
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    1
+                  ],
+                  "operation": "gitlab.create_draft_note",
+                  "remote_id": "2005",
+                  "seq": 0,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    2
+                  ],
+                  "operation": "gitlab.create_draft_note",
+                  "remote_id": "2006",
+                  "seq": 1,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    3
+                  ],
+                  "operation": "gitlab.create_draft_note",
+                  "remote_id": "2007",
+                  "seq": 2,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    1
+                  ],
+                  "operation": "gitlab.publish_draft_note",
+                  "remote_id": "2005",
+                  "seq": 3,
+                  "state": "confirmed"
+                },
+                {
+                  "candidate": null,
+                  "detail": "лимит исчерпан (код 429): Retry later",
+                  "drafts": [
+                    2
+                  ],
+                  "operation": "gitlab.publish_draft_note",
+                  "remote_id": null,
+                  "seq": 4,
+                  "state": "failed"
+                },
+                {
+                  "candidate": null,
+                  "detail": null,
+                  "drafts": [
+                    3
+                  ],
+                  "operation": "gitlab.publish_draft_note",
+                  "remote_id": null,
+                  "seq": 5,
+                  "state": "planned"
+                }
+              ],
+              "pending_foreign": null,
+              "pending_review": null,
+              "summary": ""
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "leftovers": [],
+  "notes": [
+    "ok gitlab-refused: повторный запуск отказывает без записей: Err(Closed(SubmissionId(1)))",
+    "ok gitlab-refused: записи: {\"POST /projects/{id}/merge_requests/{merge_request_iid}/draft_notes\": 3, \"PUT /projects/{id}/merge_requests/{merge_request_iid}/draft_notes/{draft_note_id}/publish\": 2}",
+    "ok gitlab-refused: заголовки лимита у отказа 429 в следе: [(Some(\"0\"), true)]",
+    "ok gitlab-refused: сервер: заметки из черновиков: [Some(2005)]",
+    "ok gitlab-refused: сервер: остались черновиками: [Some(2006), Some(2007)]",
+    "ok gitlab-refused: журнал: состояния, закрыта, итог, кандидат: ([(GitLabCreateDraftNote, Confirmed), (GitLabCreateDraftNote, Confirmed), (GitLabCreateDraftNote, Confirmed), (GitLabPublishDraftNote, Confirmed), (GitLabPublishDraftNote, Failed), (GitLabPublishDraftNote, Planned)], true, Partial, None)",
+    "ok gitlab-lost: сверка «не выяснено» без кандидата из-за лимита: [Unresolved { detail: \"чтение черновика не удалось: лимит исчерпан (код 429): Retry later\" }]",
+    "ok gitlab-lost: повторный запуск отказывает без записей: Err(Unresolved(ItemId(5)))",
+    "ok gitlab-lost: записи: {\"POST /projects/{id}/merge_requests/{merge_request_iid}/draft_notes\": 3, \"PUT /projects/{id}/merge_requests/{merge_request_iid}/draft_notes/{draft_note_id}/publish\": 2}",
+    "ok gitlab-lost: сервер: заметки из черновиков: [Some(2005), Some(2006)]",
+    "ok gitlab-lost: сервер: остались черновиками: [Some(2007)]",
+    "ok gitlab-lost: журнал: состояния, закрыта, итог, кандидат: ([(GitLabCreateDraftNote, Confirmed), (GitLabCreateDraftNote, Confirmed), (GitLabCreateDraftNote, Confirmed), (GitLabPublishDraftNote, Confirmed), (GitLabPublishDraftNote, Unknown), (GitLabPublishDraftNote, Planned)], false, Partial, None)",
+    "ok github-refused: повторный запуск отказывает без записей: Err(Closed(SubmissionId(1)))",
+    "ok github-refused: записи: {\"POST /repos/{owner}/{repo}/pulls/{number}/reviews\": 1, \"graphql addPullRequestReviewThread\": 2}",
+    "ok github-refused: заголовок лимита у отказа 403 в следе: [Some(\"0\")]",
+    "ok github-refused: сервер: PENDING ревьюера и его комментарии: ([(\"<reviewer>\", Pending)], [\"первый\"])",
+    "ok github-refused: журнал: состояния, закрыта, итог, кандидат: ([(GitHubCreatePending, Confirmed), (GitHubAddPendingComment, Confirmed), (GitHubAddPendingComment, Failed), (GitHubAddPendingComment, Planned), (GitHubSubmitReview, Planned)], true, NotSent, None)",
+    "ok github-lost: сверка «не выяснено» без кандидата из-за лимита: [Unresolved { detail: \"чтение комментариев PENDING не удалось: лимит исчерпан (код 403): API rate limit exceeded for user ID 1.\" }]",
+    "ok github-lost: повторный запуск отказывает без записей: Err(Unresolved(ItemId(3)))",
+    "ok github-lost: записи: {\"POST /repos/{owner}/{repo}/pulls/{number}/reviews\": 1, \"graphql addPullRequestReviewThread\": 2}",
+    "ok github-lost: сервер: PENDING ревьюера и его комментарии: ([(\"<reviewer>\", Pending)], [\"первый\", \"второй\"])",
+    "ok github-lost: журнал: состояния, закрыта, итог, кандидат: ([(GitHubCreatePending, Confirmed), (GitHubAddPendingComment, Confirmed), (GitHubAddPendingComment, Unknown), (GitHubAddPendingComment, Planned), (GitHubSubmitReview, Planned)], false, Partial, None)"
+  ]
+}
