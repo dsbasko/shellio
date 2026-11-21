@@ -80,6 +80,19 @@ pub struct Handoff {
     pub owner_found: bool,
     /// Ответ запроса активации владельца, `None` — запрос не делался.
     pub activated: Option<bool>,
+    /// Ответ LaunchServices на открытие бандла владельца.
+    pub reopen: Reopen,
+}
+
+/// Ответ LaunchServices на открытие бандла владельца вторым запуском.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Reopen {
+    /// Запрос не делался: нет UI, приложения владельца или его бандла.
+    NotRequested,
+    /// LaunchServices открыл экземпляр с этим PID: владельца или другой.
+    Opened(u32),
+    /// LaunchServices ответил ошибкой с этим кодом; `None` — ни экземпляра, ни ошибки.
+    Failed(Option<i64>),
 }
 
 /// Исход передачи активации.
@@ -104,13 +117,33 @@ pub fn handoff_line(pid: u32, outcome: HandoffOutcome) -> String {
                 Some(false) => "отклонена",
                 None => "не запрашивалась",
             };
+            let reopen = reopen_text(pid, handoff.reopen);
             format!(
                 "{prefix}: второй запуск активен — {}, приложение владельца найдено — {}, \
-                 активация владельца — {activated}",
+                 активация владельца — {activated}, LaunchServices — {reopen}",
                 yes_no(handoff.self_active),
                 yes_no(handoff.owner_found),
             )
         }
+    }
+}
+
+/// Строка ответа LaunchServices для stderr второго запуска, когда за ним следует ожидание
+/// собственной активности: истёкший срок передачи иначе скрыл бы этот факт.
+pub fn reopen_line(pid: u32, reopen: Reopen) -> String {
+    format!(
+        "shellio: передача активации pid {pid}: LaunchServices — {}",
+        reopen_text(pid, reopen)
+    )
+}
+
+fn reopen_text(pid: u32, reopen: Reopen) -> String {
+    match reopen {
+        Reopen::NotRequested => "не запрашивался".to_owned(),
+        Reopen::Opened(opened) if opened == pid => "открыл владельца".to_owned(),
+        Reopen::Opened(opened) => format!("открыл pid {opened}, не владельца"),
+        Reopen::Failed(Some(code)) => format!("ошибка {code}"),
+        Reopen::Failed(None) => "без экземпляра и ошибки".to_owned(),
     }
 }
 
@@ -588,10 +621,20 @@ mod tests {
     use super::*;
 
     fn done(self_active: bool, owner_found: bool, activated: Option<bool>) -> HandoffOutcome {
+        reopened(self_active, owner_found, activated, Reopen::NotRequested)
+    }
+
+    fn reopened(
+        self_active: bool,
+        owner_found: bool,
+        activated: Option<bool>,
+        reopen: Reopen,
+    ) -> HandoffOutcome {
         HandoffOutcome::Done(Handoff {
             self_active,
             owner_found,
             activated,
+            reopen,
         })
     }
 
@@ -600,17 +643,31 @@ mod tests {
         assert_eq!(
             handoff_line(7, done(true, true, Some(true))),
             "shellio: передача активации pid 7: второй запуск активен — да, приложение владельца \
-             найдено — да, активация владельца — принята"
+             найдено — да, активация владельца — принята, LaunchServices — не запрашивался"
         );
         assert_eq!(
             handoff_line(7, done(false, true, Some(false))),
             "shellio: передача активации pid 7: второй запуск активен — нет, приложение владельца \
-             найдено — да, активация владельца — отклонена"
+             найдено — да, активация владельца — отклонена, LaunchServices — не запрашивался"
         );
         assert_eq!(
             handoff_line(7, done(true, false, None)),
             "shellio: передача активации pid 7: второй запуск активен — да, приложение владельца \
-             найдено — нет, активация владельца — не запрашивалась"
+             найдено — нет, активация владельца — не запрашивалась, LaunchServices — не \
+             запрашивался"
+        );
+    }
+
+    #[test]
+    fn handoff_line_tells_whether_launch_services_opened_the_owner() {
+        let line = |reopen| handoff_line(7, reopened(false, true, Some(true), reopen));
+        assert!(line(Reopen::Opened(7)).ends_with("LaunchServices — открыл владельца"));
+        assert!(line(Reopen::Opened(9)).ends_with("LaunchServices — открыл pid 9, не владельца"));
+        assert!(line(Reopen::Failed(Some(-600))).ends_with("LaunchServices — ошибка -600"));
+        assert!(line(Reopen::Failed(None)).ends_with("LaunchServices — без экземпляра и ошибки"));
+        assert_eq!(
+            reopen_line(7, Reopen::Opened(9)),
+            "shellio: передача активации pid 7: LaunchServices — открыл pid 9, не владельца"
         );
     }
 

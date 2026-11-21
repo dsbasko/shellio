@@ -23,8 +23,8 @@ use std::time::Duration;
 use rustix::process::{Pid, Signal, kill_process};
 use serde_json::Value;
 use shellio::owner::{
-    ActivationHandoff, Claim, HANDOFF_TIMEOUT, Handoff, HandoffOutcome, SECOND_LAUNCH_TIMEOUT,
-    Second, claim,
+    ActivationHandoff, Claim, HANDOFF_TIMEOUT, Handoff, HandoffOutcome, Reopen,
+    SECOND_LAUNCH_TIMEOUT, Second, claim,
 };
 use shellio_control::test_support::ManualClock;
 use shellio_control::{
@@ -261,7 +261,7 @@ fn text(bytes: &[u8]) -> String {
 fn fixture_handoff_line(pid: u32) -> String {
     format!(
         "shellio: передача активации pid {pid}: второй запуск активен — нет, приложение владельца \
-         найдено — нет, активация владельца — не запрашивалась\n"
+         найдено — нет, активация владельца — не запрашивалась, LaunchServices — не запрашивался\n"
     )
 }
 
@@ -511,6 +511,7 @@ const FACTS: Handoff = Handoff {
     self_active: true,
     owner_found: true,
     activated: Some(true),
+    reopen: Reopen::NotRequested,
 };
 
 /// Передача без UI: факты сразу, исход не записывается.

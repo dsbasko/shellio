@@ -187,6 +187,11 @@ plutil -replace CFBundleIdentifier -string io.github.dsbasko.other "$copy/Conten
 expect_ok "бандл с чужим bundle ID подписывается настоящей идентичностью" "$sign" "$copy"
 expect_fail "чужой bundle ID отвергается" "CFBundleIdentifier" "$check" "$copy"
 
+copy="$(copy_app no-ui-element)"
+plutil -remove LSUIElement "$copy/Contents/Info.plist"
+expect_ok "бандл без LSUIElement подписывается настоящей идентичностью" "$sign" "$copy"
+expect_fail "бандл без LSUIElement отвергается: второй запуск появился бы в Dock" "LSUIElement" "$check" "$copy"
+
 copy="$(copy_app no-identity)"
 security create-keychain -p "kc-$(uuidgen)" "$keychain"
 SHELLIO_SIGNING_KEYCHAIN="$keychain" expect_fail "sign.sh без идентичности отказывает" "нет идентичности подписи" "$sign" "$copy"

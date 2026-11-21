@@ -20,8 +20,8 @@
 # типы LaunchServices процессов бинаря прогона в dock.log: pass требует перехода на владельца не позже 3 с после
 # квитанции, удержания на нём 1 с и ни одного процесса бинаря прогона, кроме владельцев, с типом Foreground (в
 # Dock). Исход передачи активации из stderr второго запуска входит в причину пункта. Пункт two-owners-front
-# (второй запуск профиля A при живом владельце B) выполняется и обязателен только при варианте передачи через
-# LaunchServices (ADDRESSES_BUNDLE), иначе not_run.
+# (второй запуск профиля A при живом владельце B, затем профиля B при живом владельце A, подкаталоги A и B)
+# выполняется и обязателен только при варианте передачи через LaunchServices (ADDRESSES_BUNDLE), иначе not_run.
 #
 # Сигналы и уборка адресуют только PID, полученные через hello сокетов прогона и сверенные с бинарём бандла
 # прогона. Передний план читается через lsappinfo, разрешения Accessibility и Screen Recording не нужны. Нужны
@@ -58,9 +58,9 @@ HOLD_MS=1000
 POLL=0.1
 CTL_TIMEOUT_MS=2000
 
-# 1 — второй запуск адресует приложение владельца через LaunchServices (варианты 3 и 4 плана
-# single-instance-activation): тогда пункт two-owners-front выполняется и обязателен.
-ADDRESSES_BUNDLE=0
+# 1 — второй запуск может адресовать приложение владельца через LaunchServices (варианты 3 и 4 плана
+# single-instance-activation, в дереве вариант 4): тогда пункт two-owners-front выполняется и обязателен.
+ADDRESSES_BUNDLE=1
 
 ITEMS=(owner forward-open-n forward-direct folder-refused persist kill-recover two-profiles two-owners-front
   plain-open gui-quit)
@@ -100,6 +100,7 @@ known_pids=()
 open_jobs=()
 direct_jobs=()
 failures=()
+two_outcomes=()
 
 # Значения, которые функции отдают через глобальные переменные: $(…) потерял бы known_pids и задания.
 HELLO_PID=""
@@ -118,6 +119,8 @@ terminal_id=""
 fg_dir=""
 fg_owner=""
 fg_other=""
+fg_a=""
+fg_b=""
 t_start=""
 sample_ms=""
 sample_front=""
@@ -427,11 +430,12 @@ await_receipt() {
   done
 }
 
-# Строка исхода передачи активации из stderr второго запуска.
+# Строки исхода передачи активации из stderr второго запуска через «; »: ответ LaunchServices, после которого
+# второй запуск ждёт собственной активности, печатается отдельной строкой до итоговой.
 handoff_of() {
-  local line
-  line="$(grep -F "$HANDOFF" "$1/second.stderr" 2>/dev/null | tail -n 1 || true)"
-  printf '%s\n' "${line:-в stderr второго запуска нет строки исхода передачи}"
+  local lines
+  lines="$(grep -F "$HANDOFF" "$1/second.stderr" 2>/dev/null | awk 'NR > 1 { printf "; " } { printf "%s", $0 }' || true)"
+  printf '%s\n' "${lines:-в stderr второго запуска нет строки исхода передачи}"
 }
 
 # Выход второго запуска в срок; его код (у open — код open) — в second_status.
@@ -591,7 +595,7 @@ hold_front() {
     sample
     off=$((sample_ms - front_abs))
     if [[ "$sample_front" != "$want" && -z "$hold_lost" ]]; then
-      hold_lost="через $off мс после перехода — $(describe_pid "$sample_front" "$want" "$fg_other")"
+      hold_lost="через $off мс после перехода — $(describe_pid "$sample_front" "$fg_a" "$fg_b")"
     fi
     ((off < HOLD_MS)) || break
   done
@@ -781,13 +785,21 @@ item_owner() {
   conclude "$item" "pid $OWNER_PID из hello — процесс бандла прогона, status и tree --all ответили"
 }
 
-# Второй запуск профиля A способом how (open или direct) к владельцу pid с замерами наблюдения от старта до
-# выхода; other — второй живой владелец, которому тоже можно быть Foreground. Нарушения — в failures.
+# Второй запуск профиля profile (по умолчанию A) способом how (open или direct) к его владельцу pid с замерами
+# наблюдения от старта до выхода; other — второй живой владелец, которому тоже можно быть Foreground. Каталог
+# пункта — $run/<item>. Нарушения — в failures.
 second_front() {
-  local item="$1" how="$2" pid="$3" other="$4" dir="$run/$1"
+  local item="$1" how="$2" pid="$3" other="$4" profile="${5:-$profile_a}" dir="$run/$1"
   fg_dir="$dir"
   fg_owner="$pid"
   fg_other="$other"
+  if [[ "$profile" == "$profile_a" ]]; then
+    fg_a="$pid"
+    fg_b="$other"
+  else
+    fg_a="$other"
+    fg_b="$pid"
+  fi
   fg_stray=""
   fg_owner_seen=0
   front_ms=""
@@ -796,8 +808,8 @@ second_front() {
   printf '# мс от старта второго запуска, pid:тип LaunchServices процессов бинаря прогона\n' >"$dir/dock.log"
   t_start="$(now_ms)"
   case "$how" in
-    open) start_second_open "$profile_a" "$dir" ;;
-    direct) start_second_direct "$profile_a" "$dir" "$dir" ;;
+    open) start_second_open "$profile" "$dir" ;;
+    direct) start_second_direct "$profile" "$dir" "$dir" ;;
   esac
   if await_receipt "$dir" "$pid"; then
     if watch_front "$pid"; then
@@ -822,7 +834,7 @@ second_front() {
   fg_dir=""
   if [[ -n "$receipt_ms" ]]; then
     if [[ -z "$front_ms" ]]; then
-      failures+=("передний план не перешёл на PID владельца $pid за $FRONT_CAP_MS мс после квитанции, последний — $(describe_pid "$sample_front" "$pid" "$other"), ряд — $item/front.log")
+      failures+=("передний план не перешёл на PID владельца $pid за $FRONT_CAP_MS мс после квитанции, последний — $(describe_pid "$sample_front" "$fg_a" "$fg_b"), ряд — $item/front.log")
     elif ((front_ms > FRONT_LIMIT_MS)); then
       failures+=("передний план перешёл на PID владельца $pid через $front_ms мс после квитанции, позже $FRONT_LIMIT_MS мс")
     fi
@@ -1030,14 +1042,42 @@ item_two() {
   conclude "$item" "владелец A pid $pid_a и владелец B pid $OWNER_PID работают рядом"
 }
 
-# Второй запуск профиля A через open -n от Finder при живом владельце B: передний план — владелец A, а не B.
+# Направление пункта two-owners-front: второй запуск профиля label через open -n от Finder к его владельцу pid при
+# живом втором владельце other. Каталог — <пункт>/<label>, нарушения — в failures с меткой направления, исход
+# передачи — в two_outcomes.
+two_front_direction() {
+  local item="$1" label="$2" profile="$3" out="$4" pid="$5" other="$6" out_other="$7" before after before_o after_o
+  local sub="$1/$2" dir="$run/$1/$2"
+  mkdir -p "$dir"
+  log "$item: второй запуск профиля $label"
+  focus_finder "$dir"
+  before="$(handled_count "$out")"
+  before_o="$(handled_count "$out_other")"
+  second_front "$sub" open "$pid" "$other" "$profile"
+  after="$(handled_count "$out")"
+  after_o="$(handled_count "$out_other")"
+  [[ $after -eq $((before + 1)) ]] ||
+    failures+=("$label: строк обработки у владельца $label было $before, стало $after, ожидалась одна новая")
+  [[ $after_o -eq $before_o ]] ||
+    failures+=("$label: строк обработки у другого владельца было $before_o, стало $after_o, второй запуск профиля $label дошёл до него")
+  if [[ -n "$front_ms" ]]; then
+    two_outcomes+=("$label: передний план — PID владельца через $front_ms мс после квитанции; исход передачи — $(handoff_of "$dir")")
+  else
+    two_outcomes+=("$label: передний план на PID владельца не перешёл; исход передачи — $(handoff_of "$dir")")
+  fi
+}
+
+# Второй запуск каждого из двух профилей через open -n от Finder при живом владельце другого: передний план —
+# владелец этого профиля. Направление A — к владельцу, запущенному раньше, B — позже: LaunchServices при выборе
+# экземпляра бандла не знает профиля.
 item_two_front() {
-  local item=two-owners-front dir="$run/two-owners-front" pid_a pid_b before_a after_a before_b after_b outcome
+  local item=two-owners-front dir="$run/two-owners-front" pid_a pid_b
   if ((!ADDRESSES_BUNDLE)); then
     record "$item" not_run "вариант не адресует бандл"
     return 0
   fi
   failures=()
+  two_outcomes=()
   log "== $item"
   if ! verified_hello "$profile_a" "$dir/hello-a"; then
     record "$item" fail "профиль A: $WHY"
@@ -1053,29 +1093,20 @@ item_two_front() {
     return 0
   fi
   pid_b="$HELLO_PID"
-  focus_finder "$dir"
-  before_a="$(handled_count "$owner_out_a")"
-  before_b="$(handled_count "$owner_out_b")"
-  second_front "$item" open "$pid_a" "$pid_b"
-  after_a="$(handled_count "$owner_out_a")"
-  after_b="$(handled_count "$owner_out_b")"
-  [[ $after_a -eq $((before_a + 1)) ]] ||
-    failures+=("строк обработки у владельца A было $before_a, стало $after_a, ожидалась одна новая")
-  [[ $after_b -eq $before_b ]] ||
-    failures+=("строк обработки у владельца B было $before_b, стало $after_b, второй запуск профиля A дошёл до B")
+  two_front_direction "$item" A "$profile_a" "$owner_out_a" "$pid_a" "$pid_b" "$owner_out_b"
+  two_front_direction "$item" B "$profile_b" "$owner_out_b" "$pid_b" "$pid_a" "$owner_out_a"
   if hello "$profile_a" "$dir/hello-a-after"; then
     [[ "$HELLO_PID" == "$pid_a" ]] || failures+=("PID владельца A сменился: $pid_a → $HELLO_PID")
   else
-    failures+=("владелец A не ответил на hello после второго запуска")
+    failures+=("владелец A не ответил на hello после вторых запусков")
   fi
   if hello "$profile_b" "$dir/hello-b-after"; then
     [[ "$HELLO_PID" == "$pid_b" ]] || failures+=("PID владельца B сменился: $pid_b → $HELLO_PID")
   else
-    failures+=("владелец B не ответил на hello после второго запуска")
+    failures+=("владелец B не ответил на hello после вторых запусков")
   fi
-  outcome="$(handoff_of "$dir")"
-  [[ -z "${failures[*]+x}" ]] || failures+=("исход передачи — $outcome")
-  conclude "$item" "передний план — владелец A pid $pid_a через $front_ms мс после квитанции и держался $HOLD_MS мс, владелец B pid $pid_b не получил ни запуска, ни переднего плана; исход передачи — $outcome"
+  [[ -z "${failures[*]+x}" ]] || failures+=(${two_outcomes[@]+"${two_outcomes[@]}"})
+  conclude "$item" "второй запуск каждого профиля вывел на передний план своего владельца (A pid $pid_a, B pid $pid_b) и держал $HOLD_MS мс, другой владелец не получил ни запуска, ни переднего плана; ${two_outcomes[0]}; ${two_outcomes[1]}"
 }
 
 item_plain_open() {

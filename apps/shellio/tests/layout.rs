@@ -277,6 +277,7 @@ fn info_plist_template_is_valid() {
         ("CFBundleExecutable", "shellio"),
         ("CFBundlePackageType", "APPL"),
         ("LSMinimumSystemVersion", deployment_target),
+        ("LSUIElement", "true"),
     ] {
         assert_eq!(plutil_extract(key, &plist), value, "{key}");
     }

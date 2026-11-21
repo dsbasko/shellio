@@ -9,7 +9,7 @@ use std::future::{Future, pending, ready};
 use std::sync::Arc;
 use std::sync::mpsc::{Sender, channel};
 
-use shellio::owner::{self, Handoff, Ui};
+use shellio::owner::{self, Handoff, Reopen, Ui};
 use shellio_control::Activation;
 use shellio_store::Profile;
 
@@ -24,6 +24,7 @@ const NO_UI_HANDOFF: Handoff = Handoff {
     self_active: false,
     owner_found: false,
     activated: None,
+    reopen: Reopen::NotRequested,
 };
 
 struct NoUi {

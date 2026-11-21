@@ -1,18 +1,23 @@
-//! `NSApplication` без окна: цикл главного потока, политика активации, готовность и завершение.
+//! `NSApplication` без окна приложения: цикл главного потока, политика активации, передача
+//! активации вторым запуском, готовность и завершение.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::fmt;
+use std::sync::Mutex;
 
+use block2::RcBlock;
 use dispatch2::DispatchQueue;
 use objc2::rc::Retained;
 use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationOptions, NSApplicationActivationPolicy,
-    NSApplicationDelegate, NSApplicationTerminateReply, NSRunningApplication,
+    NSApplicationDelegate, NSApplicationTerminateReply, NSBackingStoreType, NSResponder,
+    NSRunningApplication, NSScreen, NSWindow, NSWindowStyleMask, NSWorkspace,
+    NSWorkspaceOpenConfiguration,
 };
-use objc2_foundation::NSNotification;
+use objc2_foundation::{NSError, NSNotification, NSPoint, NSRect, NSSize};
 
 /// События приложения. Методы вызываются на главном потоке из делегата `NSApplication` и не должны
 /// ждать: пока метод не вернулся, цикл главного потока стоит.
@@ -39,8 +44,9 @@ pub struct App {
 impl App {
     /// Запускает `NSApplication` на главном потоке с политикой `.accessory`: без иконки в Dock и строки
     /// меню, но с правом стать активным. Второй запуск так получает передний план, чтобы передать его
-    /// владельцу ([`App::hand_off_activation_to`]). Политика ставится явно, потому что приложение из
-    /// бандла без неё стартует `.regular`.
+    /// владельцу ([`App::hand_off_activation_to`]). Бандл объявляет `LSUIElement`, поэтому LaunchServices
+    /// регистрирует процесс без Dock с самого старта, ещё до этого вызова; явная политика даёт то же
+    /// бинарю вне бандла.
     ///
     /// Штатное завершение через [`App::finish_terminate`] выходит из процесса внутри AppKit, и тогда этот
     /// вызов не возвращается: код после него и деструкторы не выполняются. `Ok` — цикл остановлен без
@@ -48,7 +54,7 @@ impl App {
     pub fn run(delegate: impl Delegate) -> Result<(), RunError> {
         let mtm = MainThreadMarker::new().ok_or(RunError::NotMainThread)?;
         let app = NSApplication::sharedApplication(mtm);
-        if !app.setActivationPolicy(policy(Role::Launch)) {
+        if !set_policy(&app, policy(Role::Launch)) {
             return Err(RunError::PolicyRefused);
         }
         // Делегат у NSApplication слабый, поэтому его держит этот кадр до конца цикла.
@@ -61,7 +67,7 @@ impl App {
 
     /// Политика владельца `.regular`: иконка в Dock и право на передний план. `false` — AppKit отказал.
     pub fn become_regular(&self) -> bool {
-        self.ns_app().setActivationPolicy(policy(Role::Owner))
+        set_policy(&self.ns_app(), policy(Role::Owner))
     }
 
     /// Владелец просит передний план после обработки запуска. Возврат значит, что вызов выполнен, а
@@ -75,7 +81,30 @@ impl App {
     /// Второй запуск просит передний план себе, чтобы затем передать его владельцу. Активность
     /// приходит позже событием [`Delegate::did_become_active`] или не приходит вовсе.
     pub fn request_activation(&self) {
-        self.ns_app().activate();
+        // Кооперативный `activate()` агентское приложение не активирует ни из `open -n`, ни из
+        // терминала. Устаревший вызов — по P0.2 (20 из 20 при старте из терминала) и варианту 2
+        // плана `single-instance-activation`.
+        #[allow(deprecated)]
+        self.ns_app().activateIgnoringOtherApps(true);
+    }
+
+    /// Показывает служебное окно второго запуска перед [`App::request_activation`]: без рамки,
+    /// 1×1, за пределами всех экранов, ключевое. Приложению с окном система даёт передний план
+    /// охотнее (P0.2). Пользователь его не видит, живёт оно до [`App::close_service_window`].
+    pub fn show_service_window(&self) {
+        SERVICE_WINDOW.with(|slot| {
+            let mut slot = slot.borrow_mut();
+            let window =
+                slot.get_or_insert_with(|| ServiceWindow::new(self.mtm, offscreen(self.mtm)));
+            window.makeKeyAndOrderFront(None);
+        });
+    }
+
+    /// Закрывает служебное окно, если оно есть. Повторный вызов ничего не делает.
+    pub fn close_service_window(&self) {
+        if let Some(window) = SERVICE_WINDOW.with(|slot| slot.borrow_mut().take()) {
+            window.close();
+        }
     }
 
     /// Активно ли приложение, то есть на переднем плане ли оно.
@@ -107,6 +136,42 @@ impl App {
             owner_found: owner.is_some(),
             activated,
         }
+    }
+
+    /// Просит LaunchServices открыть приложение по бандлу приложения с PID `pid` и активировать
+    /// его, не заводя нового экземпляра. LaunchServices адресует бандл, а не PID: из нескольких
+    /// экземпляров он выбирает сам, поэтому `done` получает PID выбранного. `done` вызывается один
+    /// раз на любом потоке; без приложения или бандла — сразу, без запроса.
+    pub fn reopen_bundle_of(&self, pid: u32, done: impl FnOnce(Reopened) + Send + 'static) {
+        let bundle = i32::try_from(pid)
+            .ok()
+            .and_then(NSRunningApplication::runningApplicationWithProcessIdentifier)
+            .and_then(|owner| owner.bundleURL());
+        let Some(bundle) = bundle else {
+            done(Reopened::NoBundle);
+            return;
+        };
+        let config = NSWorkspaceOpenConfiguration::configuration();
+        config.setActivates(true);
+        config.setCreatesNewApplicationInstance(false);
+        let done = Mutex::new(Some(done));
+        let handler = RcBlock::new(move |app: *mut NSRunningApplication, error: *mut NSError| {
+            // SAFETY: LaunchServices передаёт обработчику живые объекты или nil на время вызова.
+            let (app, error) = unsafe { (app.as_ref(), error.as_ref()) };
+            let reopened = match (app, error) {
+                (Some(app), _) => Reopened::Opened(app.processIdentifier()),
+                (None, Some(error)) => Reopened::Failed(Some(error.code())),
+                (None, None) => Reopened::Failed(None),
+            };
+            if let Some(done) = done.lock().ok().and_then(|mut done| done.take()) {
+                done(reopened);
+            }
+        });
+        NSWorkspace::sharedWorkspace().openApplicationAtURL_configuration_completionHandler(
+            &bundle,
+            &config,
+            Some(&handler),
+        );
     }
 
     /// Порядок завершения выполнен: приложение отпускается, процесс выходит внутри AppKit с кодом 0.
@@ -142,6 +207,41 @@ pub struct Transfer {
     pub activated: Option<bool>,
 }
 
+/// Кадр 1×1 правее и выше всех экранов: окно там не видно ни на одном из них.
+fn offscreen(mtm: MainThreadMarker) -> NSRect {
+    beyond(NSScreen::screens(mtm).iter().map(|screen| screen.frame()))
+}
+
+/// Кадр 1×1 правее и выше всех кадров `screens` с отступом [`SERVICE_WINDOW_GAP`].
+fn beyond(screens: impl IntoIterator<Item = NSRect>) -> NSRect {
+    let (right, top) = screens
+        .into_iter()
+        .fold((0.0_f64, 0.0_f64), |(right, top), frame| {
+            (
+                right.max(frame.origin.x + frame.size.width),
+                top.max(frame.origin.y + frame.size.height),
+            )
+        });
+    NSRect::new(
+        NSPoint::new(right + SERVICE_WINDOW_GAP, top + SERVICE_WINDOW_GAP),
+        NSSize::new(1.0, 1.0),
+    )
+}
+
+/// Отступ служебного окна от края экранов: за ним не видна и его тень.
+const SERVICE_WINDOW_GAP: f64 = 1000.0;
+
+/// Ответ LaunchServices на открытие бандла ([`App::reopen_bundle_of`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Reopened {
+    /// Приложение по PID не найдено или у него нет бандла: запрос не делался.
+    NoBundle,
+    /// LaunchServices открыл экземпляр с этим PID.
+    Opened(i32),
+    /// LaunchServices вернул ошибку с этим кодом; `None` — ни приложения, ни ошибки.
+    Failed(Option<isize>),
+}
+
 /// Роль процесса для политики активации.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Role {
@@ -158,6 +258,12 @@ const fn policy(role: Role) -> NSApplicationActivationPolicy {
         Role::Launch => NSApplicationActivationPolicy::Accessory,
         Role::Owner => NSApplicationActivationPolicy::Regular,
     }
+}
+
+/// Ставит политику `wanted`. Уже стоящая политика — успех: `setActivationPolicy` отказывает в
+/// `.accessory` процессу, который `LSUIElement` бандла и так запустил с ней.
+fn set_policy(app: &NSApplication, wanted: NSApplicationActivationPolicy) -> bool {
+    app.activationPolicy() == wanted || app.setActivationPolicy(wanted)
 }
 
 /// Отправка работы на главный поток из любого потока. Замыкание встаёт в главную очередь dispatch и
@@ -199,6 +305,11 @@ impl fmt::Display for RunError {
 }
 
 impl Error for RunError {}
+
+thread_local! {
+    /// Служебное окно второго запуска; его создаёт и закрывает только главный поток.
+    static SERVICE_WINDOW: RefCell<Option<Retained<ServiceWindow>>> = const { RefCell::new(None) };
+}
 
 thread_local! {
     /// Завершение приложения. Его меняют только делегат и [`App`], то есть главный поток.
@@ -316,6 +427,55 @@ define_class!(
     }
 );
 
+define_class!(
+    // SAFETY: NSWindow не требует от подкласса ничего сверх переопределённых ниже методов, `Drop` у
+    // класса нет.
+    #[unsafe(super(NSWindow, NSResponder, NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "ShellioServiceWindow"]
+    struct ServiceWindow;
+
+    impl ServiceWindow {
+        // SAFETY: селектор и результат — как у `canBecomeKeyWindow` NSWindow.
+        #[unsafe(method(canBecomeKeyWindow))]
+        fn can_become_key_window(&self) -> bool {
+            true
+        }
+
+        // SAFETY: селектор и результат — как у `canBecomeMainWindow` NSWindow.
+        #[unsafe(method(canBecomeMainWindow))]
+        fn can_become_main_window(&self) -> bool {
+            false
+        }
+
+        // SAFETY: селектор, аргументы и результат — как у `constrainFrameRect:toScreen:` NSWindow.
+        // Кадр не сдвигается на экран: окно должно остаться за его пределами.
+        #[unsafe(method(constrainFrameRect:toScreen:))]
+        fn constrain_frame_rect(&self, frame: NSRect, _screen: Option<&NSScreen>) -> NSRect {
+            frame
+        }
+    }
+);
+
+impl ServiceWindow {
+    fn new(mtm: MainThreadMarker, frame: NSRect) -> Retained<Self> {
+        let this = Self::alloc(mtm).set_ivars(());
+        // SAFETY: назначенный инициализатор NSWindow с окном без рамки.
+        let window: Retained<Self> = unsafe {
+            msg_send![
+                super(this),
+                initWithContentRect: frame,
+                styleMask: NSWindowStyleMask::Borderless,
+                backing: NSBackingStoreType::Buffered,
+                defer: false
+            ]
+        };
+        // SAFETY: окно держит `Retained` из SERVICE_WINDOW, `close` не должен его освобождать.
+        unsafe { window.setReleasedWhenClosed(false) };
+        window
+    }
+}
+
 impl AppDelegate {
     fn new(mtm: MainThreadMarker, delegate: Box<dyn Delegate>) -> Retained<Self> {
         let this = Self::alloc(mtm).set_ivars(Ivars { delegate });
@@ -391,6 +551,38 @@ mod tests {
                 .contains("главном потоке")
         );
         assert!(RunError::PolicyRefused.to_string().contains(".accessory"));
+    }
+
+    #[test]
+    fn service_window_lies_beyond_every_screen() {
+        let rect = |x, y, w, h| NSRect::new(NSPoint::new(x, y), NSSize::new(w, h));
+        let screens = [
+            rect(0.0, 0.0, 1512.0, 982.0),
+            rect(-1920.0, 200.0, 1920.0, 1080.0),
+            rect(1512.0, -300.0, 2560.0, 1440.0),
+        ];
+        let window = beyond(screens);
+        assert_eq!(window.size, NSSize::new(1.0, 1.0));
+        for screen in screens {
+            assert!(
+                window.origin.x >= screen.origin.x + screen.size.width + SERVICE_WINDOW_GAP
+                    || window.origin.y >= screen.origin.y + screen.size.height + SERVICE_WINDOW_GAP,
+                "окно {window:?} задевает экран {screen:?}"
+            );
+        }
+        assert_eq!(
+            window.origin,
+            NSPoint::new(4072.0 + 1000.0, 1280.0 + 1000.0)
+        );
+    }
+
+    #[test]
+    fn service_window_without_screens_still_lies_off_the_origin() {
+        let window = beyond([]);
+        assert_eq!(
+            window.origin,
+            NSPoint::new(SERVICE_WINDOW_GAP, SERVICE_WINDOW_GAP)
+        );
     }
 
     #[test]

@@ -3,11 +3,18 @@
 
 use std::future::Future;
 use std::sync::Arc;
+use std::time::Duration;
 
-use shellio::owner::{self, Handoff, Ui};
-use shellio_appkit::{App, Delegate, MainThread, Transfer};
+use shellio::owner::{self, Handoff, Reopen, Ui};
+use shellio_appkit::{App, Delegate, MainThread, Reopened, Transfer};
 use shellio_control::Activation;
 use tokio::sync::{oneshot, watch};
+
+/// Сколько второй запуск ждёт собственной активности, прежде чем просить LaunchServices. Своя
+/// активность передаётся по PID и верна при любом числе владельцев, LaunchServices выбирает
+/// экземпляр бандла сам, поэтому идёт только без неё. Остаток срока передачи (1 с от `hello`)
+/// оставлен на ответ LaunchServices.
+const OWN_ACTIVITY_WAIT: Duration = Duration::from_millis(500);
 
 /// UI владельца на `NSApplication`.
 pub struct AppUi {
@@ -41,6 +48,17 @@ impl AppUi {
         });
         answer.await.ok()
     }
+
+    /// Просит LaunchServices открыть бандл владельца `pid` с активацией и ждёт ответа.
+    async fn reopen(&self, pid: u32) -> Reopen {
+        let (reply, answer) = oneshot::channel();
+        self.main.exec(move |app| {
+            app.reopen_bundle_of(pid, move |reopened| {
+                let _ = reply.send(reopened);
+            });
+        });
+        reopen(answer.await.ok())
+    }
 }
 
 /// Дождаться, пока флаг станет `true`. Отправитель живёт в [`AppUi`], поэтому канал не
@@ -72,23 +90,37 @@ impl Ui for AppUi {
     async fn hand_off_activation(&self, pid: u32) -> Handoff {
         // Передача идёт от запущенного приложения: до `applicationDidFinishLaunching` его ещё нет.
         latch(&self.ready).await;
+        // Окно закрывается и тогда, когда срок передачи в `claim` отбросит этот future.
+        let _window = ServiceWindow(self.main);
         let Some(active) = self
             .on_main(|app| {
+                app.show_service_window();
                 app.request_activation();
                 app.is_active()
             })
             .await
         else {
-            return handoff(None);
+            return handoff(None, Reopen::NotRequested);
         };
-        // Передать можно только свою активность. Не пришла — ожидание обрывает срок передачи
-        // в `claim`, и `launch` уходит без неё.
-        if !active {
+        let own = active
+            || tokio::time::timeout(OWN_ACTIVITY_WAIT, latch(&self.became_active))
+                .await
+                .is_ok();
+        let reopen = if own {
+            Reopen::NotRequested
+        } else {
+            self.reopen(pid).await
+        };
+        // Передать можно только свою активность. Не пришла и LaunchServices не открыл владельца —
+        // ожидание обрывает срок передачи в `claim`, и `launch` уходит без неё.
+        if !own && reopen != Reopen::Opened(pid) {
+            owner::say_err(owner::reopen_line(pid, reopen));
             latch(&self.became_active).await;
         }
         handoff(
             self.on_main(move |app| app.hand_off_activation_to(pid))
                 .await,
+            reopen,
         )
     }
 
@@ -107,8 +139,17 @@ impl Ui for AppUi {
     }
 }
 
+/// Служебное окно второго запуска на время передачи: закрывается при выходе из неё.
+struct ServiceWindow(MainThread);
+
+impl Drop for ServiceWindow {
+    fn drop(&mut self) {
+        self.0.exec(App::close_service_window);
+    }
+}
+
 /// Факты передачи для порта. `None` — главный поток не выполнил передачу: UI уже нет.
-fn handoff(transfer: Option<Transfer>) -> Handoff {
+fn handoff(transfer: Option<Transfer>, reopen: Reopen) -> Handoff {
     match transfer {
         Some(Transfer {
             self_active,
@@ -118,12 +159,27 @@ fn handoff(transfer: Option<Transfer>) -> Handoff {
             self_active,
             owner_found,
             activated,
+            reopen,
         },
         None => Handoff {
             self_active: false,
             owner_found: false,
             activated: None,
+            reopen,
         },
+    }
+}
+
+/// Ответ LaunchServices для порта. `None` — ответа не будет: UI уже нет.
+fn reopen(reopened: Option<Reopened>) -> Reopen {
+    match reopened {
+        Some(Reopened::Opened(pid)) => {
+            u32::try_from(pid).map_or(Reopen::Failed(None), Reopen::Opened)
+        }
+        Some(Reopened::Failed(code)) => {
+            Reopen::Failed(code.and_then(|code| i64::try_from(code).ok()))
+        }
+        Some(Reopened::NoBundle) | None => Reopen::NotRequested,
     }
 }
 
@@ -165,46 +221,73 @@ mod tests {
             activated,
         };
         assert_eq!(
-            handoff(Some(transfer(true, true, Some(true)))),
+            handoff(Some(transfer(true, true, Some(true))), Reopen::Opened(7)),
             Handoff {
                 self_active: true,
                 owner_found: true,
                 activated: Some(true),
+                reopen: Reopen::Opened(7),
             }
         );
         assert_eq!(
-            handoff(Some(transfer(false, true, Some(false)))),
+            handoff(
+                Some(transfer(false, true, Some(false))),
+                Reopen::Failed(Some(-600))
+            ),
             Handoff {
                 self_active: false,
                 owner_found: true,
                 activated: Some(false),
+                reopen: Reopen::Failed(Some(-600)),
             }
         );
         assert_eq!(
-            handoff(Some(transfer(true, false, None))),
+            handoff(Some(transfer(true, false, None)), Reopen::NotRequested),
             Handoff {
                 self_active: true,
                 owner_found: false,
                 activated: None,
+                reopen: Reopen::NotRequested,
             }
         );
     }
 
     #[test]
     fn handoff_without_main_thread_reports_nothing_done() {
-        let facts = handoff(None);
+        let facts = handoff(None, Reopen::NotRequested);
         assert_eq!(
             facts,
             Handoff {
                 self_active: false,
                 owner_found: false,
                 activated: None,
+                reopen: Reopen::NotRequested,
             }
         );
         assert_eq!(
             owner::handoff_line(7, owner::HandoffOutcome::Done(facts)),
             "shellio: передача активации pid 7: второй запуск активен — нет, приложение владельца \
-             найдено — нет, активация владельца — не запрашивалась"
+             найдено — нет, активация владельца — не запрашивалась, LaunchServices — не \
+             запрашивался"
         );
+    }
+
+    #[test]
+    fn own_activity_wait_leaves_time_for_launch_services_within_the_handoff() {
+        assert!(OWN_ACTIVITY_WAIT < owner::HANDOFF_TIMEOUT);
+        assert!(owner::HANDOFF_TIMEOUT - OWN_ACTIVITY_WAIT >= Duration::from_millis(300));
+    }
+
+    #[test]
+    fn reopen_keeps_the_answer_of_launch_services() {
+        assert_eq!(reopen(Some(Reopened::Opened(42))), Reopen::Opened(42));
+        assert_eq!(reopen(Some(Reopened::Opened(-1))), Reopen::Failed(None));
+        assert_eq!(
+            reopen(Some(Reopened::Failed(Some(-10814)))),
+            Reopen::Failed(Some(-10814))
+        );
+        assert_eq!(reopen(Some(Reopened::Failed(None))), Reopen::Failed(None));
+        assert_eq!(reopen(Some(Reopened::NoBundle)), Reopen::NotRequested);
+        assert_eq!(reopen(None), Reopen::NotRequested);
     }
 }

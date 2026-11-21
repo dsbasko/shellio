@@ -102,6 +102,7 @@ check_plist() {
   expect_equal "CFBundleExecutable" "$(extract CFBundleExecutable "$plist")" "shellio"
   expect_equal "CFBundlePackageType" "$(extract CFBundlePackageType "$plist")" "APPL"
   expect_equal "LSMinimumSystemVersion" "$(extract LSMinimumSystemVersion "$plist")" "$min_macos"
+  expect_equal "LSUIElement" "$(extract LSUIElement "$plist")" "true"
   expect_equal "CFBundleShortVersionString" "$(extract CFBundleShortVersionString "$plist")" "$app_version"
   expect_equal "CFBundleVersion" "$(extract CFBundleVersion "$plist")" "$app_version"
 }
