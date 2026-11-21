@@ -4,9 +4,11 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::CoreError;
+use crate::error::{CoreError, Entity};
 use crate::ids::{ProjectId, ProjectRootId, WorkbenchId, WorkspaceId};
+use crate::model::State;
 use crate::root::{ResolvedRoot, RootResolver};
+use crate::tree::TreeScope;
 
 /// Внешняя команда ядра. Имена в теге `cmd` стабильны.
 ///
@@ -75,6 +77,25 @@ impl Command {
         }
     }
 
+    /// Проверка области без снимка состояния. Идёт до подготовки, поэтому прямой воркспейс
+    /// `project.add` вне области отвергается без разрешения корня.
+    pub(crate) fn precheck_scope(&self, scope: TreeScope) -> Result<(), CoreError> {
+        precheck(scope, self.target())
+    }
+
+    const fn target(&self) -> Target {
+        match self {
+            Self::WorkspaceCreate { .. } => Target::Global(self.name()),
+            Self::WorkspaceRename { workspace, .. }
+            | Self::ProjectAdd { workspace, .. }
+            | Self::WindowFocusWorkspace { workspace } => Target::Workspace(*workspace),
+            Self::WorkbenchCreate { project, .. } => Target::Project(*project),
+            Self::WorkbenchRename { workbench, .. } | Self::WorkbenchOpen { workbench } => {
+                Target::Workbench(*workbench)
+            }
+        }
+    }
+
     /// Подготовить команду для обработчика. Блокирует только для команд с [`Self::needs_io`]:
     /// корень `project.add` разрешается здесь, ошибка разрешения — `invalid_argument`.
     pub(crate) fn prepare(self, resolver: &dyn RootResolver) -> Result<PreparedCommand, CoreError> {
@@ -136,6 +157,82 @@ pub(crate) enum PreparedCommand {
     WindowFocusWorkspace {
         workspace: WorkspaceId,
     },
+}
+
+impl PreparedCommand {
+    /// Проверка области на снимке, на котором затем выполняется обработчик. Цель вне области —
+    /// `not_found`, как у несуществующей записи.
+    pub(crate) fn check_scope(&self, state: &State, scope: TreeScope) -> Result<(), CoreError> {
+        let target = self.target();
+        precheck(scope, target)?;
+        let scope = match scope {
+            TreeScope::All => return Ok(()),
+            TreeScope::Workspace(scope) => scope,
+        };
+        if state.live_workspace(scope).is_none() {
+            return Err(CoreError::not_found(Entity::Workspace, scope));
+        }
+        match target {
+            Target::Global(_) | Target::Workspace(_) => Ok(()),
+            Target::Project(project) => {
+                if state
+                    .projects
+                    .get(&project)
+                    .is_some_and(|record| record.workspace == scope)
+                {
+                    Ok(())
+                } else {
+                    Err(CoreError::not_found(Entity::Project, project))
+                }
+            }
+            Target::Workbench(workbench) => {
+                if state.workbench_workspace(workbench) == Some(scope) {
+                    Ok(())
+                } else {
+                    Err(CoreError::not_found(Entity::Workbench, workbench))
+                }
+            }
+        }
+    }
+
+    const fn target(&self) -> Target {
+        match self {
+            Self::WorkspaceCreate { .. } => Target::Global("workspace.create"),
+            Self::WorkspaceRename { workspace, .. }
+            | Self::ProjectAdd { workspace, .. }
+            | Self::WindowFocusWorkspace { workspace } => Target::Workspace(*workspace),
+            Self::WorkbenchCreate { project, .. } => Target::Project(*project),
+            Self::WorkbenchRename { workbench, .. } | Self::WorkbenchOpen { workbench } => {
+                Target::Workbench(*workbench)
+            }
+        }
+    }
+}
+
+/// Цель команды для проверки области.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Target {
+    /// Команда без цели: допустима только в области всех воркспейсов.
+    Global(&'static str),
+    Workspace(WorkspaceId),
+    Project(ProjectId),
+    Workbench(WorkbenchId),
+}
+
+/// Часть проверки области, которой не нужно состояние. Прямой воркспейс вне области
+/// отвергается раньше проверки самой области: так отказ одинаков до и после подготовки.
+fn precheck(scope: TreeScope, target: Target) -> Result<(), CoreError> {
+    let scope = match scope {
+        TreeScope::All => return Ok(()),
+        TreeScope::Workspace(scope) => scope,
+    };
+    match target {
+        Target::Global(command) => Err(CoreError::scope_requires_all(command)),
+        Target::Workspace(workspace) if workspace != scope => {
+            Err(CoreError::not_found(Entity::Workspace, workspace))
+        }
+        Target::Workspace(_) | Target::Project(_) | Target::Workbench(_) => Ok(()),
+    }
 }
 
 /// Значение ответа команды: идентификаторы созданных записей.

@@ -18,7 +18,7 @@ use shellio_core::test_support::SequentialIds;
 use shellio_core::{
     Change, Command, CommandValue, CoreError, Diagnostic, Entity, ErrorCode, Event, EventsSince,
     IdGen, Project, ProjectId, ProjectRoot, ProjectRootId, Query, Reply, ReplyValue, Revision,
-    RootError, RootKey, RootKind, Route, Snapshot, State, StorageInfo, Title, TreeScope,
+    RootError, RootKey, RootKind, Route, Snapshot, State, StorageInfo, Title, TreeScope, TreeView,
     UnixMillis, WindowState, Workbench, WorkbenchId, Workspace, WorkspaceId, read,
 };
 
@@ -414,7 +414,8 @@ fn storage() -> StorageInfo {
 
 fn reply_golden(reply: &Reply) -> &'static str {
     match &reply.value {
-        ReplyValue::Tree(_) => "reply.tree",
+        ReplyValue::Tree(TreeView { route: Some(_), .. }) => "reply.tree",
+        ReplyValue::Tree(TreeView { route: None, .. }) => "reply.tree.scoped_inactive",
         ReplyValue::Status(_) => "reply.status",
         ReplyValue::Command(CommandValue::Workspace { .. }) => "reply.workspace",
         ReplyValue::Command(CommandValue::Project { .. }) => "reply.project",
@@ -435,6 +436,16 @@ fn reply_samples() -> Result<Samples, String> {
         },
     )
     .map_err(|error| error.to_string())?;
+    // Область неактивного воркспейса: поля окна пусты, активный воркспейс не раскрыт.
+    let scoped_inactive = read(
+        &state,
+        Revision(12),
+        &storage(),
+        &Query::Tree {
+            scope: TreeScope::Workspace(ids.second_workspace),
+        },
+    )
+    .map_err(|error| error.to_string())?;
     state.diagnostics.push(Diagnostic {
         table: "projects".into(),
         rowid: 7,
@@ -448,6 +459,7 @@ fn reply_samples() -> Result<Samples, String> {
     };
     let replies = [
         tree,
+        scoped_inactive,
         status,
         command(
             1,
@@ -694,6 +706,22 @@ fn extra_fields_of_outgoing_messages_are_rejected() {
     );
     assert_rejected::<EventsSince>(r#"{"events":[],"extra":1}"#, "expected value");
     assert_rejected::<EventsSince>(r#"{"snapshot":{}}"#, "unknown variant `snapshot`");
+}
+
+#[test]
+fn scoped_inactive_tree_does_not_reveal_other_workspace() {
+    let ids = ids();
+    let text = fs::read_to_string(wire_dir().join("reply.tree.scoped_inactive.json")).unwrap();
+    let json: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(json["value"]["active_workspace"], Value::Null);
+    assert_eq!(json["value"]["route"], Value::Null);
+    for hidden in [
+        ids.workspace.to_string(),
+        ids.project.to_string(),
+        ids.workbench.to_string(),
+    ] {
+        assert!(!text.contains(&hidden), "эталон раскрывает {hidden}");
+    }
 }
 
 #[test]

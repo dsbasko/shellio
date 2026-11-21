@@ -15,6 +15,7 @@ use crate::ids::IdGen;
 use crate::model::{Revision, State};
 use crate::persist::{Persist, StorageThread};
 use crate::query::{Query, StorageInfo, read};
+use crate::tree::TreeScope;
 use crate::wire::{Event, Reply};
 
 /// Ёмкость очереди запросов ядра.
@@ -28,6 +29,7 @@ pub(crate) type ReplySender = oneshot::Sender<Result<Reply, CoreError>>;
 /// Запрос в очереди актора.
 pub(crate) enum Request {
     Command {
+        scope: TreeScope,
         command: PreparedCommand,
         reply: ReplySender,
     },
@@ -134,8 +136,12 @@ impl Actor {
     // Отправка ответа не проверяется: брошенная квитанция команду не отменяет.
     async fn serve(&mut self, request: Request) {
         match request {
-            Request::Command { command, reply } => {
-                let result = self.command(command).await;
+            Request::Command {
+                scope,
+                command,
+                reply,
+            } => {
+                let result = self.command(scope, command).await;
                 let _ = reply.send(result);
             }
             Request::Query { query, reply } => {
@@ -151,7 +157,12 @@ impl Actor {
         }
     }
 
-    async fn command(&mut self, command: PreparedCommand) -> Result<Reply, CoreError> {
+    async fn command(
+        &mut self,
+        scope: TreeScope,
+        command: PreparedCommand,
+    ) -> Result<Reply, CoreError> {
+        command.check_scope(&self.state, scope)?;
         let mut ctx = Ctx::new(&*self.clock, &mut *self.ids);
         let Outcome { value, changes } = handle(&self.state, command, &mut ctx)?;
         if !changes.is_empty() {

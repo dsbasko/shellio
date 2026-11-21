@@ -1,0 +1,15 @@
+{
+  "revision": 12,
+  "value": {
+    "active_workspace": null,
+    "route": null,
+    "workspaces": [
+      {
+        "id": "00000000-0000-0000-0000-000000000005",
+        "title": "Дом",
+        "last_workbench": null,
+        "projects": []
+      }
+    ]
+  }
+}

@@ -11,7 +11,8 @@ use crate::model::{Project, Route, State, Workspace};
 use crate::root::{RootKey, RootKind};
 use crate::title::Title;
 
-/// Область чтения дерева. Внешний вызов без контекста сессии задаёт её явно (ADR-0025).
+/// Область запроса: чтения дерева и команды. Внешний вызов без контекста сессии задаёт её
+/// явно (ADR-0025).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TreeScope {
@@ -26,8 +27,10 @@ pub enum TreeScope {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TreeView {
+    /// Активный воркспейс окна. `None`, если он не входит в область.
     pub active_workspace: Option<WorkspaceId>,
-    pub route: Route,
+    /// Маршрут окна. `None`, если активный воркспейс не входит в область.
+    pub route: Option<Route>,
     /// Воркспейсы области по `(position, id)`.
     pub workspaces: Vec<TreeWorkspace>,
 }
@@ -78,18 +81,28 @@ pub struct TreeWorkbench {
 
 impl TreeView {
     /// Дерево области `scope`. Удалённый или несуществующий воркспейс области — `not_found`.
+    /// Поля окна заполнены, только если активный воркспейс входит в область: дерево одного
+    /// воркспейса не раскрывает, какой другой активен.
     pub fn build(state: &State, scope: TreeScope) -> Result<Self, CoreError> {
-        let workspaces = match scope {
-            TreeScope::Workspace(id) => vec![
-                state
-                    .live_workspace(id)
-                    .ok_or_else(|| CoreError::not_found(Entity::Workspace, id))?,
-            ],
-            TreeScope::All => state.workspaces_in_order(),
+        let (workspaces, window_in_scope) = match scope {
+            TreeScope::Workspace(id) => (
+                vec![
+                    state
+                        .live_workspace(id)
+                        .ok_or_else(|| CoreError::not_found(Entity::Workspace, id))?,
+                ],
+                state.window.active_workspace == Some(id),
+            ),
+            TreeScope::All => (state.workspaces_in_order(), true),
+        };
+        let (active_workspace, route) = if window_in_scope {
+            (state.window.active_workspace, Some(state.window.route))
+        } else {
+            (None, None)
         };
         Ok(Self {
-            active_workspace: state.window.active_workspace,
-            route: state.window.route,
+            active_workspace,
+            route,
             workspaces: workspaces
                 .into_iter()
                 .map(|workspace| tree_workspace(state, workspace))
@@ -267,7 +280,7 @@ mod tests {
         let order: Vec<_> = tree.workspaces.iter().map(|w| w.id).collect();
         assert_eq!(order, vec![first, second, tie]);
         assert_eq!(tree.active_workspace, Some(first));
-        assert_eq!(tree.route, Route::WorkspaceHome);
+        assert_eq!(tree.route, Some(Route::WorkspaceHome));
     }
 
     #[test]
@@ -289,8 +302,37 @@ mod tests {
         assert_eq!(workspace.last_workbench, Some(draft));
         assert_eq!(project_titles(workspace), vec!["notes"]);
         assert_eq!(workspace.projects[0].workbenches[0].id, draft);
-        // Состояние окна одно на все области.
-        assert_eq!(tree.active_workspace, Some(work));
+        // Активный воркспейс вне области: дерево не раскрывает ни его, ни маршрут окна.
+        assert_eq!(tree.active_workspace, None);
+        assert_eq!(tree.route, None);
+    }
+
+    #[test]
+    fn window_fields_are_shown_only_when_active_workspace_is_in_scope() {
+        let mut b = Builder::new();
+        let work = b.workspace("Работа", 0);
+        let home = b.workspace("Дом", 1);
+        let app = b.project(work, "shellio", Some(0));
+        let main = b.workbench(app, "Основная", 0);
+        b.state.window.active_workspace = Some(work);
+        b.state.window.route = Route::Workbench(main);
+
+        let window = (Some(work), Some(Route::Workbench(main)));
+        for (scope, expected) in [
+            (TreeScope::Workspace(work), window),
+            (TreeScope::All, window),
+            (TreeScope::Workspace(home), (None, None)),
+        ] {
+            let tree = TreeView::build(&b.state, scope).unwrap();
+            assert_eq!((tree.active_workspace, tree.route), expected, "{scope:?}");
+        }
+    }
+
+    #[test]
+    fn all_scope_reports_route_even_without_active_workspace() {
+        let tree = TreeView::build(&State::default(), TreeScope::All).unwrap();
+        assert_eq!(tree.active_workspace, None);
+        assert_eq!(tree.route, Some(Route::WorkspaceHome));
     }
 
     #[test]
@@ -404,7 +446,7 @@ mod tests {
                 tree,
                 TreeView {
                     active_workspace: Some(empty),
-                    route: Route::WorkspaceHome,
+                    route: Some(Route::WorkspaceHome),
                     workspaces: vec![TreeWorkspace {
                         id: empty,
                         title: title("Пусто"),
@@ -433,7 +475,7 @@ mod tests {
         b.state.window.route = Route::Workbench(main);
 
         let tree = TreeView::build(&b.state, TreeScope::All).unwrap();
-        assert_eq!(tree.route, Route::Workbench(main));
+        assert_eq!(tree.route, Some(Route::Workbench(main)));
     }
 
     #[test]

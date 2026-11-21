@@ -178,6 +178,15 @@ impl CoreError {
         Self::invalid_argument(field, error.reason(), error.to_string())
     }
 
+    /// Команда `command` выполняется только в области всех воркспейсов.
+    pub fn scope_requires_all(command: &str) -> Self {
+        Self::invalid_argument(
+            "scope",
+            "scope_requires_all",
+            format!("{command} выполняется только в области всех воркспейсов"),
+        )
+    }
+
     /// У родителя `scope` не осталось позиции после наибольшей.
     pub fn position_exhausted(scope: &str) -> Self {
         Self::new(
@@ -413,6 +422,16 @@ mod tests {
             error.detail_str("existing"),
             Some(workspace.to_string().as_str())
         );
+    }
+
+    #[test]
+    fn scope_requires_all_names_scope_field() {
+        let error = CoreError::scope_requires_all("workspace.create");
+        assert_eq!(error.code(), ErrorCode::InvalidArgument);
+        assert!(!error.retryable());
+        assert_eq!(error.detail_str("field"), Some("scope"));
+        assert_eq!(error.detail_str("reason"), Some("scope_requires_all"));
+        assert!(error.message().contains("workspace.create"), "{error}");
     }
 
     #[test]

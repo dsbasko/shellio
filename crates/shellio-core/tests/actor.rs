@@ -714,7 +714,7 @@ async fn every_command_result_is_read_through_query_tree() {
         view.workspaces[1].projects[0].workbenches[0].title.as_str(),
         "Основная"
     );
-    assert_eq!(view.route, Route::WorkspaceHome);
+    assert_eq!(view.route, Some(Route::WorkspaceHome));
 
     clock.advance(1_000);
     let (revision, value) = command(&core, Command::WorkbenchOpen { workbench })
@@ -724,7 +724,7 @@ async fn every_command_result_is_read_through_query_tree() {
     let (read, view) = tree_all(&core).await.unwrap();
     assert_eq!((revision, read), (Revision(7), Revision(7)));
     assert_eq!(view.active_workspace, Some(work));
-    assert_eq!(view.route, Route::Workbench(workbench));
+    assert_eq!(view.route, Some(Route::Workbench(workbench)));
     assert_eq!(view.workspaces[1].last_workbench, Some(workbench));
     assert_eq!(
         view.workspaces[1].projects[0].last_opened_at,
@@ -737,7 +737,7 @@ async fn every_command_result_is_read_through_query_tree() {
     let (read, view) = tree_all(&core).await.unwrap();
     assert_eq!((revision, read), (Revision(8), Revision(8)));
     assert_eq!(view.active_workspace, Some(home));
-    assert_eq!(view.route, Route::WorkspaceHome);
+    assert_eq!(view.route, Some(Route::WorkspaceHome));
     assert_eq!(view.workspaces[1].last_workbench, Some(workbench));
 
     let (revision, _) = command(&core, focus(work)).await.unwrap();
@@ -746,7 +746,7 @@ async fn every_command_result_is_read_through_query_tree() {
     assert_eq!(view.active_workspace, Some(work));
     assert_eq!(
         view.route,
-        Route::Workbench(workbench),
+        Some(Route::Workbench(workbench)),
         "маршрут — последняя область"
     );
 

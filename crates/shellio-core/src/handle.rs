@@ -20,6 +20,7 @@ use crate::model::Revision;
 use crate::persist::{LoadError, Persist};
 use crate::query::Query;
 use crate::root::RootResolver;
+use crate::tree::TreeScope;
 use crate::wire::{Event, Reply};
 
 /// Квитанция ответа команды, поданной без ожидания.
@@ -164,16 +165,32 @@ impl Shared {
 }
 
 impl CoreHandle {
-    /// Выполнить команду: ответ приходит после записи. Ждёт места в очереди.
+    /// Выполнить команду в области всех воркспейсов. Равен [`Self::request_in`] с
+    /// [`TreeScope::All`].
     pub async fn request(&self, command: Command) -> Result<Reply, CoreError> {
+        self.request_in(TreeScope::All, command).await
+    }
+
+    /// Выполнить команду в области `scope`: ответ приходит после записи. Ждёт места в очереди.
+    ///
+    /// Принадлежность цели области проверяет актор на том же снимке, что и обработчик. Цель вне
+    /// области — `not_found`, как у несуществующей записи. Прямой воркспейс вне области
+    /// отвергается ещё до подготовки, без ввода-вывода.
+    pub async fn request_in(&self, scope: TreeScope, command: Command) -> Result<Reply, CoreError> {
         self.shared.refuse_if_closing()?;
+        command.precheck_scope(scope)?;
         let command = self.shared.prepare(command).await?;
         self.shared
-            .call(|reply| Request::Command { command, reply })
+            .call(|reply| Request::Command {
+                scope,
+                command,
+                reply,
+            })
             .await?
     }
 
-    /// Подать команду без ожидания. При полной очереди сразу `busy`, ответ — квитанцией.
+    /// Подать команду без ожидания в области всех воркспейсов. При полной очереди сразу
+    /// `busy`, ответ — квитанцией.
     ///
     /// Команда с вводом-выводом (`project.add`) готовится задачей на runtime: она сразу
     /// получает квитанцию, а любой отказ, включая `busy` и `shutting_down`, приходит через
@@ -189,7 +206,11 @@ impl CoreHandle {
                 };
                 let permit = prepared.and_then(|command| Ok((command, shared.try_reserve()?)));
                 match permit {
-                    Ok((command, permit)) => permit.send(Request::Command { command, reply }),
+                    Ok((command, permit)) => permit.send(Request::Command {
+                        scope: TreeScope::All,
+                        command,
+                        reply,
+                    }),
                     Err(error) => {
                         let _ = reply.send(Err(error));
                     }
@@ -199,9 +220,11 @@ impl CoreHandle {
         }
         self.shared.refuse_if_closing()?;
         let command = command.prepare(&*self.shared.resolver)?;
-        self.shared
-            .try_reserve()?
-            .send(Request::Command { command, reply });
+        self.shared.try_reserve()?.send(Request::Command {
+            scope: TreeScope::All,
+            command,
+            reply,
+        });
         Ok(receipt)
     }
 
