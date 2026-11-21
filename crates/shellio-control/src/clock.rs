@@ -4,7 +4,9 @@
 //! [`Clock::within`] до одного абсолютного срока, повторы — через [`Clock::wait_retry`].
 
 use std::fmt;
-use std::future::Future;
+use std::future::{Future, poll_fn};
+use std::pin::pin;
+use std::task::Poll;
 use std::time::Duration;
 
 use tokio::time::Instant;
@@ -89,14 +91,20 @@ impl Clock for TokioClock {
         F: Future + Send,
         F::Output: Send,
     {
-        // `timeout_at` опрашивает операцию раньше таймера и по истёкшему сроку успел бы
-        // выполнить готовую запись.
-        if Instant::now() >= deadline {
-            return Err(Expired);
-        }
-        tokio::time::timeout_at(deadline, future)
+        // `timeout_at` опрашивает операцию раньше таймера, а таймер готов только после хода
+        // драйвера: по истёкшему сроку операция успела бы дописать запрос. Поэтому срок
+        // сверяется с часами перед каждым опросом, а таймер только будит задачу.
+        let mut future = pin!(future);
+        let guarded = poll_fn(move |cx| {
+            if Instant::now() >= deadline {
+                Poll::Ready(Err(Expired))
+            } else {
+                future.as_mut().poll(cx).map(Ok)
+            }
+        });
+        tokio::time::timeout_at(deadline, guarded)
             .await
-            .map_err(|_| Expired)
+            .unwrap_or(Err(Expired))
     }
 }
 
@@ -285,6 +293,22 @@ mod tests {
 
         let mut ran = false;
         let result = clock.within(deadline, async { ran = true }).await;
+        assert_eq!(result, Err(Expired));
+        assert!(!ran);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn tokio_clock_cuts_pending_operation_ready_after_deadline() {
+        let clock = TokioClock;
+        let deadline = clock.deadline(Duration::from_millis(100));
+
+        let mut ran = false;
+        let result = clock
+            .within(deadline, async {
+                tokio::time::advance(Duration::from_millis(100)).await;
+                ran = true;
+            })
+            .await;
         assert_eq!(result, Err(Expired));
         assert!(!ran);
     }
