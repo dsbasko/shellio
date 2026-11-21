@@ -689,6 +689,7 @@ pub fn open_roles<T: Transport>(
 ) -> Result<Account, Verdict> {
     let author_repo = live_repo(author).map_err(Verdict::Error)?;
     let reviewer_repo = live_repo(reviewer).map_err(Verdict::Error)?;
+    let mut author_id = None;
     let mut reviewer_account = None;
     for (repo, label, role) in [
         (&author_repo, LABEL_AUTHOR, "автора"),
@@ -699,6 +700,8 @@ pub fn open_roles<T: Transport>(
                 account.register(scrubber, label);
                 if label == LABEL_REVIEWER {
                     reviewer_account = Some(account);
+                } else {
+                    author_id = Some(account.id);
                 }
             }
             Err(LiveError::Status {
@@ -711,6 +714,11 @@ pub fn open_roles<T: Transport>(
             }
             Err(err) => return Err(Verdict::Error(format!("аккаунт {role}: {err}"))),
         }
+    }
+    if author_id.is_some() && author_id == reviewer_account.as_ref().map(|account| account.id) {
+        return Err(Verdict::NotRun(
+            "предусловие: токены автора и ревьюера принадлежат одному аккаунту".to_owned(),
+        ));
     }
     if let Some((root, own)) = runs {
         let roles = Roles {
@@ -2156,6 +2164,26 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
         );
         denied.finish()?;
         idle.finish()?;
+
+        let same = json!({"login": "alice", "id": 1, "name": null});
+        let author_t = Scripted::new().expect(Method::Get, "/user", Reply::json(200, &same));
+        let reviewer_t = Scripted::new().expect(Method::Get, "/user", Reply::json(200, &same));
+        let author = Guarded::new(&author_t, gh_target(), listed());
+        let reviewer = Guarded::new(&reviewer_t, gh_target(), listed());
+        let verdict = open_roles(
+            Column::GithubCloud,
+            &author,
+            &reviewer,
+            None,
+            &mut Scrubber::new(),
+            &mut result,
+        );
+        assert!(
+            matches!(&verdict, Err(Verdict::NotRun(reason)) if reason.contains("одному аккаунту")),
+            "{verdict:?}"
+        );
+        author_t.finish()?;
+        reviewer_t.finish()?;
         Ok(())
     }
 
