@@ -597,7 +597,8 @@ finish() {
   local status=$? code
   trap '' INT TERM
   trap - ERR
-  set +e
+  # Без -u: ошибка set -u в ловушке EXIT у bash 3.2 тоже даёт код 0, минуя exit "$code".
+  set +eu
   if [[ $completed -ne 1 && -z "$error" ]]; then
     add_error "сценарий остановился до конца: код $status${err_at:+, последний отказ команды в строке $err_at}"
   fi
