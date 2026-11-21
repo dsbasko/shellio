@@ -1,0 +1,24 @@
+[package]
+name = "shellio-appkit"
+description = "Безопасный слой shellio над AppKit: NSApplication без окна, главный поток и активация"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+dispatch2 = { version = "0.3.0", default-features = false, features = ["std", "objc2"] }
+objc2 = "0.6.5"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "NSApplication",
+    "NSResponder",
+    "NSRunningApplication",
+] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "NSNotification",
+] }
+
+[lints]
+workspace = true

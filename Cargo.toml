@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "apps/shellio",
     "apps/shellioctl",
+    "crates/shellio-appkit",
     "crates/shellio-control",
     "crates/shellio-core",
     "crates/shellio-ghostty",
