@@ -1,0 +1,6 @@
+{
+  "code": "hello_required",
+  "message": "первым запросом соединения должен быть hello",
+  "retryable": false,
+  "details": {}
+}

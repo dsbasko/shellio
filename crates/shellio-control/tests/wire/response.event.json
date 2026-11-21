@@ -1,0 +1,13 @@
+{
+  "id": 5,
+  "event": {
+    "revision": 14,
+    "changes": [
+      {
+        "change": "window_set",
+        "active": "00000000-0000-0000-0000-000000000001",
+        "route": "workspace_home"
+      }
+    ]
+  }
+}

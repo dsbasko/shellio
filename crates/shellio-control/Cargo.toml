@@ -1,0 +1,20 @@
+[package]
+name = "shellio-control"
+description = "Управление shellio: протокол v1 управляющего сокета, выбор владельца, сервер и клиент"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+shellio-core = { path = "../shellio-core" }
+tokio = { version = "1", default-features = false, features = ["io-util"] }
+
+[dev-dependencies]
+shellio-core = { path = "../shellio-core", features = ["test-support"] }
+tokio = { version = "1", default-features = false, features = ["io-util", "rt", "macros"] }
+
+[lints]
+workspace = true

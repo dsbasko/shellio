@@ -1,0 +1,9 @@
+{
+  "id": 6,
+  "launch": {
+    "args": [
+      "/abs/path"
+    ],
+    "cwd": "/abs"
+  }
+}

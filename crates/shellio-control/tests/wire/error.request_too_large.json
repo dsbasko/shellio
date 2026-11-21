@@ -1,0 +1,8 @@
+{
+  "code": "request_too_large",
+  "message": "строка запроса длиннее 1048576 байт",
+  "retryable": false,
+  "details": {
+    "limit": 1048576
+  }
+}

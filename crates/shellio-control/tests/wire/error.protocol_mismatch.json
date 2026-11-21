@@ -1,0 +1,10 @@
+{
+  "code": "protocol_mismatch",
+  "message": "версия протокола 2 не поддерживается, сервер поддерживает 1",
+  "retryable": false,
+  "details": {
+    "supported": [
+      1
+    ]
+  }
+}

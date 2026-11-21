@@ -1,0 +1,6 @@
+{
+  "code": "owner_starting",
+  "message": "владелец запускается или перезапускается",
+  "retryable": true,
+  "details": {}
+}

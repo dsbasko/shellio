@@ -1,0 +1,6 @@
+{
+  "code": "scope_unsupported",
+  "message": "запрос subscribe поддерживает только область all",
+  "retryable": false,
+  "details": {}
+}

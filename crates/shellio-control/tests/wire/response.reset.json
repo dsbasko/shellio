@@ -1,0 +1,25 @@
+{
+  "id": 5,
+  "reset": {
+    "revision": 1300,
+    "state": {
+      "workspaces": {
+        "00000000-0000-0000-0000-000000000001": {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "title": "Работа",
+          "position": 0,
+          "last_workbench": null,
+          "deleted_at": null
+        }
+      },
+      "projects": {},
+      "roots": {},
+      "workbenches": {},
+      "window": {
+        "active_workspace": "00000000-0000-0000-0000-000000000001",
+        "route": "workspace_home"
+      },
+      "diagnostics": []
+    }
+  }
+}

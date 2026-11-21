@@ -1,0 +1,26 @@
+{
+  "id": 6,
+  "ok": {
+    "launch": {
+      "activation": "requested",
+      "refused": [
+        {
+          "arg": "/abs/path",
+          "reason": "folder_open_unsupported"
+        },
+        {
+          "arg": "/abs/notes.txt",
+          "reason": "not_a_directory"
+        },
+        {
+          "arg": "/abs/missing",
+          "reason": "path_not_found"
+        },
+        {
+          "arg": "--unknown",
+          "reason": "unknown_argument"
+        }
+      ]
+    }
+  }
+}

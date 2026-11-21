@@ -1,0 +1,6 @@
+{
+  "code": "malformed_request",
+  "message": "запрос не разобран: лишнее поле `extra`",
+  "retryable": false,
+  "details": {}
+}

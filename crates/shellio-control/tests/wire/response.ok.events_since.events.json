@@ -1,0 +1,17 @@
+{
+  "id": 4,
+  "ok": {
+    "events": [
+      {
+        "revision": 13,
+        "changes": [
+          {
+            "change": "workspace_renamed",
+            "workspace": "00000000-0000-0000-0000-000000000001",
+            "title": "Дом"
+          }
+        ]
+      }
+    ]
+  }
+}

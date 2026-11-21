@@ -871,6 +871,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "shellio-control"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "shellio-core",
+ "tokio",
+]
+
+[[package]]
 name = "shellio-core"
 version = "0.1.0"
 dependencies = [
@@ -982,6 +992,7 @@ version = "1.54.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3"
 dependencies = [
+ "bytes",
  "pin-project-lite",
  "tokio-macros",
 ]

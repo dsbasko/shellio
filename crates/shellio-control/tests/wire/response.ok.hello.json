@@ -1,0 +1,11 @@
+{
+  "id": 1,
+  "ok": {
+    "hello": {
+      "protocol": 1,
+      "server": "0.1.0",
+      "pid": 123,
+      "owner": "ready"
+    }
+  }
+}

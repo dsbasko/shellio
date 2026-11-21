@@ -1,0 +1,6 @@
+{
+  "code": "unavailable",
+  "message": "владелец недоступен: срок 5000 мс истёк",
+  "retryable": true,
+  "details": {}
+}

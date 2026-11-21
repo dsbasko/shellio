@@ -1,0 +1,6 @@
+{
+  "code": "scope_required",
+  "message": "у запроса command нет области scope",
+  "retryable": false,
+  "details": {}
+}

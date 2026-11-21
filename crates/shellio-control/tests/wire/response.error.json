@@ -1,0 +1,9 @@
+{
+  "id": 2,
+  "error": {
+    "code": "owner_leaving",
+    "message": "владелец завершает работу, повторите позже",
+    "retryable": true,
+    "details": {}
+  }
+}
