@@ -79,6 +79,98 @@ CLI `shellioctl` (названия уточняются в P1.2):
   - CLI каждой команды и чтения P1.1 — обязательная часть P1.2: `workspace new|rename|focus`, `project add`, `workbench new|rename|open`, `tree`, `status`. Вместе с ними P1.2 вводит конверт запроса с номером, `hello` с версией протокола, `events --since` и проверку области по ADR-0025.
   - Имя в keymap и UI этих действий — P1.7.
 
+## Уточнено в P1.2 (планирование)
+
+Решение плана P1.2 `single-instance-control`, принятое при планировании 2026-11-21. Слой команд и транспорт не меняются, статус остаётся `Proposed` до P2.3. Владение сокетом записано в [ADR-0006](0006-single-instance.md), проверка области — в [ADR-0025](0025-workspaces-and-project-catalog.md), разделы «Уточнено в P1.2 (планирование)».
+
+**Протокол v1** (`shellio-control::wire`): JSON построчно, конверт с номером запроса, `hello` первым, лимит входящей строки 1 МиБ. Команды, чтения, ответы, события и `CoreError` — типы P1.1 как есть. Ошибки транспорта — отдельный тип `ControlError` со своими стабильными кодами. Одно соединение обслуживает запросы по одному, подписка делает соединение потоковым до закрытия.
+
+| Направление | Форма |
+| --- | --- |
+| запрос `hello` | `{"id":1,"hello":{"protocol":1,"client":"shellioctl 0.1.0"}}` |
+| ответ `hello` | `{"id":1,"ok":{"hello":{"protocol":1,"server":"0.1.0","pid":123,"owner":"ready"}}}` |
+| команда | `{"id":2,"command":{"cmd":"workspace.rename",…},"scope":{"workspace":"…"}}` |
+| чтение | `{"id":3,"query":{"query":"tree","scope":"all"}}` |
+| события по курсору | `{"id":4,"events_since":{"cursor":12},"scope":"all"}` |
+| подписка | `{"id":5,"subscribe":{},"scope":"all"}` |
+| аргументы запуска | `{"id":6,"launch":{"args":["/abs/path"],"cwd":"/abs"}}` |
+| ответ | `{"id":2,"ok":<Reply P1.1>}`, `{"id":4,"ok":<EventsSince P1.1>}`, `{"id":6,"ok":{"launch":{"activation":"requested","refused":[{"arg":"/abs/path","reason":"folder_open_unsupported"}]}}}` |
+| отказ ядра | `{"id":2,"core_error":<CoreError P1.1>}` |
+| отказ транспорта | `{"id":2,"error":<ControlError>}`, `id` равен `null`, если номер не разобран |
+| поток подписки | `{"id":5,"snapshot":<Snapshot>}`, затем `{"id":5,"event":<Event>}`…, при отставании `{"id":5,"reset":<Snapshot>}` |
+
+- `scope` — форма `TreeScope` P1.1: `"all"` или `{"workspace":"<id>"}`. У `hello`, `query` и `launch` поля `scope` нет: лишнее поле — `malformed_request`.
+- `owner` в `hello` — `ready` или `leaving`. Состояние `starting` по сокету не наблюдается: сокет публикуется после готовности. Повторный `hello` на том же соединении разрешён и отвечается так же.
+- `activation` — `requested` (вызов на главном потоке выполнен) или `no_ui` (UI нет, только у тестового владельца `shellio-owner-fixture`).
+- Причины отказа аргумента запуска: `folder_open_unsupported`, `not_a_directory`, `path_not_found`, `unknown_argument` от владельца и локальная `arg_not_utf8` второго запуска ([ADR-0006](0006-single-instance.md)). Квитанция с отказами — успех передачи.
+- Поток подписки кончается кадром `owner_leaving` при завершении владельца или обрывом без него.
+- Лишнее поле и неизвестный вариант отвергаются во всех кадрах (`deny_unknown_fields`), как у типов P1.1.
+- Сервер ограничивает только входящие строки. Ответ (дерево, снимок) лимитом не ограничен, клиент принимает строки до 64 МиБ.
+- Собеседник проверяется на принятом соединении: UID из `peer_cred` против UID процесса, чужое соединение закрывается без ответа.
+
+**Коды `ControlError`.** `retryable` следует из кода, как у `CoreError`. Коды закрепляются эталонами в `crates/shellio-control/tests/wire/` и после P1.2 не переименовываются.
+
+| Код | Повтор | Когда |
+| --- | --- | --- |
+| `hello_required` | нет | первый запрос не `hello` |
+| `protocol_mismatch` | нет | версия клиента не поддерживается; `details.supported` |
+| `malformed_request` | нет | строка не разбирается как кадр; соединение остаётся |
+| `request_too_large` | нет | строка длиннее 1 МиБ до перевода строки; соединение закрывается |
+| `scope_required` | нет | у команды, `events_since` или `subscribe` нет `scope` |
+| `scope_unsupported` | нет | `events_since` и `subscribe` с областью воркспейса |
+| `owner_leaving` | да | владелец завершает работу |
+| `not_running` | да | только клиент: блокировка свободна или нет файла |
+| `owner_starting` | да | только клиент: блокировка занята, сокета нет до срока |
+| `unavailable` | да | только клиент: подключение или ответ не уложились в срок при занятой блокировке |
+| `outcome_unknown` | нет | только клиент: после полной отправки мутации или `launch` истёк срок, оборвалось соединение или пришёл негодный ответ |
+
+**Новая причина `invalid_argument`:** `scope_requires_all` с полем `scope` — `workspace.create` с областью воркспейса. Она дополняет список стабильных причин раздела «Уточнено в P1.1».
+
+**Правило `outcome_unknown`.** У вызова клиента один абсолютный срок на подключение, `hello`, запись запроса и чтение ответа, и он прерывает каждую из этих операций. До полной отправки запроса и для чтений исход срока повторяемый. После полной отправки мутации или `launch` срок, обрыв или негодный ответ — `outcome_unknown`, такой запрос не повторяется. Строка ответа длиннее 64 МиБ — код 1 у чтения и `outcome_unknown` у мутации и `launch`.
+
+**`launch`** — служебный вход повторного запуска, а не действие пользователя: его вызывает только второй процесс `shellio`. В `shellioctl` и keymap его нет, правило законченного действия на него не распространяется.
+
+**CLI `shellioctl`** — тонкая оболочка над клиентом `shellio-control::client`: разбор аргументов вручную, вызов, вывод JSON или текста, код выхода. Названия P1.2:
+
+| Вызов | Запрос |
+| --- | --- |
+| `version` | `hello` |
+| `status` | `query.status` |
+| `tree (--workspace <id> \| --all)` | `query.tree` |
+| `workspace new <title> --all` | `workspace.create` |
+| `workspace rename [--target <id>] <title> (--workspace <id> \| --all)` | `workspace.rename` |
+| `workspace focus [--target <id>] (--workspace <id> \| --all)` | `window.focus_workspace` |
+| `project add <path> [--title <t>] [--target <id>] (--workspace <id> \| --all)` | `project.add` |
+| `workbench new --target <project> <title> (--workspace <id> \| --all)` | `workbench.create` |
+| `workbench rename --target <id> <title> (--workspace <id> \| --all)` | `workbench.rename` |
+| `workbench open --target <id> (--workspace <id> \| --all)` | `workbench.open` |
+| `events --since <cursor> --all` | `events_since` |
+| `events --follow --all` | `subscribe` |
+
+- Внешний `shellioctl` без контекста сессии всегда задаёт область явно. У команд с целью-воркспейсом `--target` по умолчанию равен `--workspace`, с `--all` он обязателен. Цель из `SHELLIO_SESSION_ID` и `SHELLIO_PANEL_ID` — P2.x.
+- `--workspace` и `--all` у `status` и `version` — ошибка использования до отправки.
+- `project add` делает путь абсолютным через `std::path::absolute` от рабочего каталога CLI, без канонизации: канонизирует ядро.
+- `events --since` читает журнал по курсору, `events --follow` подписывается: первый кадр — снимок, затем события, при отставании — `reset` с новым снимком. У `--follow` срок действует только до первого кадра. `--since` и `--follow` вместе — ошибка использования.
+- `--timeout <мс>` у любого вызова задаёт срок клиента, по умолчанию 5000. Тестового флага сроков в продукте нет.
+- Адрес: `--socket <path>`, иначе `SHELLIO_SOCKET`, иначе `<state>/shellio.sock` профиля. С явным адресом проба `flock` не делается, недоступность — `unavailable` по сроку.
+- `--json` печатает ответ кадра как есть, построчно для `events --follow`, иначе — человекочитаемый текст. Ошибка — в stderr, при `--json` — JSON ошибки в stdout.
+- Остальные вызовы списка решения (`list`, `close`, `panel`, `pane`, `session`, `agent`, `msg`, `metrics`, `keymap reload`, `config reload`) появляются в своих шагах, `pane` и `session` — в P2.3.
+
+| Код выхода | Когда |
+| --- | --- |
+| 0 | успех |
+| 1 | отказ ядра или неповторяемый отказ транспорта |
+| 2 | ошибка использования |
+| 69 | `not_running` |
+| 74 | `outcome_unknown` |
+| 75 | повторяемый отказ: `owner_starting`, `owner_leaving`, `unavailable`, `busy`, `storage_unavailable` |
+
+Поток `events --follow` кончается кодом 75: по кадру `owner_leaving` или по обрыву без него (`unavailable`).
+
+**Сроки:** повтор через 50 мс, срок 5 с у CLI (меняет `--timeout`), 10 с у второго запуска, 1 с у шагов отмены и отправки при завершении владельца. Сроки идут через внедряемый порт часов, тесты в процессе управляют ими вручную.
+
+**Исключение из заморозки формата P1.1.** Решение владельца при планировании 2026-11-21: до публикации протокола v1 `TreeView.route` становится `Option<Route>`, а `active_workspace` и `route` в дереве равны `null`, если активный воркспейс вне области. Значение `Some` сериализуется как прежде, поэтому эталон `reply.tree` не меняется, а новый случай закрепляет эталон `reply.tree.scoped_inactive`. Исключение разовое: после публикации v1 через `hello` формат меняется только новыми вариантами.
+
 ## Условие пересмотра
 
 Потребность в управлении с другой машины.
