@@ -10,12 +10,24 @@ use crate::{load, write};
 #[derive(Debug)]
 pub struct SqlitePersist {
     db: Database,
+    #[cfg(feature = "test-support")]
+    fault: CommitFault,
 }
 
 impl SqlitePersist {
     /// Хранилище над открытой и мигрированной базой.
     pub fn new(db: Database) -> Self {
-        Self { db }
+        Self {
+            db,
+            #[cfg(feature = "test-support")]
+            fault: CommitFault::default(),
+        }
+    }
+
+    /// Пульт крючка сбоя записи. Клон пульта остаётся у теста, когда хранилище уходит в ядро.
+    #[cfg(feature = "test-support")]
+    pub fn commit_fault(&self) -> CommitFault {
+        self.fault.clone()
     }
 }
 
@@ -33,6 +45,40 @@ impl Persist for SqlitePersist {
     }
 
     fn commit(&mut self, base: Revision, changes: &[Change]) -> Result<(), CommitError> {
-        write::commit(self.db.conn_mut(), base, changes)
+        #[cfg(feature = "test-support")]
+        let stop_after = self.fault.take();
+        #[cfg(not(feature = "test-support"))]
+        let stop_after = None;
+        write::commit(self.db.conn_mut(), base, changes, stop_after)
+    }
+}
+
+/// Тестовый крючок сбоя записи [`SqlitePersist`]: прерывает следующую запись посреди
+/// транзакции. Клоны делят одно состояние.
+#[cfg(feature = "test-support")]
+#[derive(Clone, Debug, Default)]
+pub struct CommitFault {
+    armed: std::sync::Arc<std::sync::Mutex<Option<usize>>>,
+}
+
+#[cfg(feature = "test-support")]
+impl CommitFault {
+    /// Следующая запись выполнит `statements` SQL-операторов дельт и ревизии и откажет
+    /// `storage_unavailable` с сообщением «тестовый сбой: …», не дойдя до `COMMIT`.
+    /// Крючок снимает любая следующая запись: та, в которой операторов не больше
+    /// `statements`, проходит.
+    pub fn fail_next_commit_after(&self, statements: usize) {
+        *self.lock() = Some(statements);
+    }
+
+    /// Снять крючок для начинающейся записи.
+    fn take(&self) -> Option<usize> {
+        self.lock().take()
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, Option<usize>> {
+        self.armed
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }

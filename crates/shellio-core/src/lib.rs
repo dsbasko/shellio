@@ -11,6 +11,8 @@ mod events;
 mod handle;
 mod handler;
 mod ids;
+#[cfg(feature = "test-support")]
+mod loopback;
 mod model;
 mod persist;
 mod query;
@@ -47,6 +49,7 @@ pub use wire::{Event, Reply, ReplyValue};
 pub mod test_support {
     pub use crate::clock::ManualClock;
     pub use crate::ids::SequentialIds;
+    pub use crate::loopback::{Loopback, LoopbackEvents, WireError, Wired};
     pub use crate::persist::{CommitBarrier, Faults, FaultyPersist, MemoryPersist};
     pub use crate::root::FakeRootResolver;
 }

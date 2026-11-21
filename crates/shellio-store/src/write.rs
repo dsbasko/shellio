@@ -11,10 +11,15 @@ use shellio_core::{
 
 /// Записать `changes` поверх ревизии `base`: проверка `meta.revision == base`, SQL каждой
 /// дельты, `meta.revision = base + 1`. Любой отказ откатывает транзакцию целиком.
+///
+/// `stop_after = Some(n)` прерывает запись отказом `Unavailable`, когда выполнено `n`
+/// SQL-операторов дельт и ревизии: так тестовый крючок сбоя рвёт транзакцию посередине.
+/// В продукте — `None`.
 pub(crate) fn commit(
     conn: &mut Connection,
     base: Revision,
     changes: &[Change],
+    stop_after: Option<usize>,
 ) -> Result<(), CommitError> {
     let tx = conn
         .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -32,21 +37,48 @@ pub(crate) fn commit(
             base.0
         )));
     }
+    let mut tx = Writer {
+        tx,
+        executed: 0,
+        stop_after,
+    };
     for change in changes {
-        write_change(&tx, change)?;
+        write_change(&mut tx, change)?;
     }
     update_one(
-        &tx,
+        &mut tx,
         "meta",
         "revision",
         "UPDATE meta SET value = ?1 WHERE key = 'revision'",
         [sql_revision(base.next())?],
     )?;
-    tx.commit().map_err(failed)
+    tx.tx.commit().map_err(failed)
+}
+
+/// Транзакция записи со счётом выполненных операторов. Брошенная без `commit` откатывается.
+struct Writer<'c> {
+    tx: Transaction<'c>,
+    executed: usize,
+    stop_after: Option<usize>,
+}
+
+impl Writer<'_> {
+    /// Один SQL-оператор записи.
+    fn exec(&mut self, sql: &str, params: impl Params) -> Result<usize, CommitError> {
+        if self.stop_after == Some(self.executed) {
+            return Err(CommitError::Unavailable(format!(
+                "тестовый сбой: запись прервана после операторов: {}",
+                self.executed
+            )));
+        }
+        let changed = self.tx.execute(sql, params).map_err(failed)?;
+        self.executed += 1;
+        Ok(changed)
+    }
 }
 
 /// SQL дельты. Исчерпывающий `match` без `_`: новая дельта не соберётся без своего SQL.
-fn write_change(tx: &Transaction<'_>, change: &Change) -> Result<(), CommitError> {
+fn write_change(tx: &mut Writer<'_>, change: &Change) -> Result<(), CommitError> {
     match change {
         Change::WorkspaceInserted { workspace } => insert_workspace(tx, workspace),
         Change::WorkspaceRenamed { workspace, title } => update_one(
@@ -94,8 +126,7 @@ fn write_change(tx: &Transaction<'_>, change: &Change) -> Result<(), CommitError
                 Route::Workbench(workbench) => Some(workbench.as_bytes().as_slice()),
             };
             // Строка окна единственная: запись восстанавливает её, если её удалили снаружи.
-            exec(
-                tx,
+            tx.exec(
                 "INSERT INTO window_state (id, active_workspace_id, route_workbench_id) \
                  VALUES (1, ?1, ?2) \
                  ON CONFLICT (id) DO UPDATE SET \
@@ -108,9 +139,8 @@ fn write_change(tx: &Transaction<'_>, change: &Change) -> Result<(), CommitError
     }
 }
 
-fn insert_workspace(tx: &Transaction<'_>, workspace: &Workspace) -> Result<(), CommitError> {
-    exec(
-        tx,
+fn insert_workspace(tx: &mut Writer<'_>, workspace: &Workspace) -> Result<(), CommitError> {
+    tx.exec(
         "INSERT INTO workspaces (id, title, position, last_workbench_id, deleted_at) \
          VALUES (?1, ?2, ?3, ?4, ?5)",
         (
@@ -127,9 +157,8 @@ fn insert_workspace(tx: &Transaction<'_>, workspace: &Workspace) -> Result<(), C
     .map(drop)
 }
 
-fn insert_project(tx: &Transaction<'_>, project: &Project) -> Result<(), CommitError> {
-    exec(
-        tx,
+fn insert_project(tx: &mut Writer<'_>, project: &Project) -> Result<(), CommitError> {
+    tx.exec(
         "INSERT INTO projects \
          (id, workspace_id, title, list_position, removed_at, last_opened_at) \
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -145,15 +174,14 @@ fn insert_project(tx: &Transaction<'_>, project: &Project) -> Result<(), CommitE
     .map(drop)
 }
 
-fn insert_root(tx: &Transaction<'_>, root: &ProjectRoot) -> Result<(), CommitError> {
+fn insert_root(tx: &mut Writer<'_>, root: &ProjectRoot) -> Result<(), CommitError> {
     let path = root.path.to_str().ok_or_else(|| {
         CommitError::Conflict(format!(
             "путь корня {} не в UTF-8, state.db хранит его строкой",
             root.path.display()
         ))
     })?;
-    exec(
-        tx,
+    tx.exec(
         "INSERT INTO project_roots (id, project_id, path, kind, key) \
          VALUES (?1, ?2, ?3, ?4, ?5)",
         (
@@ -167,9 +195,8 @@ fn insert_root(tx: &Transaction<'_>, root: &ProjectRoot) -> Result<(), CommitErr
     .map(drop)
 }
 
-fn insert_workbench(tx: &Transaction<'_>, workbench: &Workbench) -> Result<(), CommitError> {
-    exec(
-        tx,
+fn insert_workbench(tx: &mut Writer<'_>, workbench: &Workbench) -> Result<(), CommitError> {
+    tx.exec(
         "INSERT INTO workbenches (id, project_id, title, position) VALUES (?1, ?2, ?3, ?4)",
         (
             workbench.id.as_bytes().as_slice(),
@@ -184,24 +211,19 @@ fn insert_workbench(tx: &Transaction<'_>, workbench: &Workbench) -> Result<(), C
 /// Изменение существующей записи: ровно одна строка. Ни одной — запись удалили в обход
 /// ядра, состояние ядра разошлось с базой.
 fn update_one(
-    tx: &Transaction<'_>,
+    tx: &mut Writer<'_>,
     table: &str,
     id: impl fmt::Display,
     sql: &str,
     params: impl Params,
 ) -> Result<(), CommitError> {
-    match exec(tx, sql, params)? {
+    match tx.exec(sql, params)? {
         1 => Ok(()),
         changed => Err(CommitError::Conflict(format!(
             "изменение {table} {id} затронуло строк: {changed}, ожидалась одна: \
              базу правили в обход ядра"
         ))),
     }
-}
-
-/// Один SQL-оператор дельты.
-fn exec(tx: &Transaction<'_>, sql: &str, params: impl Params) -> Result<usize, CommitError> {
-    tx.execute(sql, params).map_err(failed)
 }
 
 fn sql_revision(revision: Revision) -> Result<i64, CommitError> {
