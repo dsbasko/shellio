@@ -16,7 +16,7 @@ use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 use std::process::{Child, ChildStdout, Command, ExitStatus, Output, Stdio};
-use std::sync::{Mutex, mpsc};
+use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::Duration;
 
@@ -514,15 +514,30 @@ const FACTS: Handoff = Handoff {
     reopen: Reopen::NotRequested,
 };
 
-/// Передача без UI: факты сразу, исход не записывается.
-struct NoHandoff;
+/// Запись [`RecordedHandoff`]: PID и исход, `None` — вызов передачи.
+type HandoffEntry = (u32, Option<HandoffOutcome>);
 
-impl ActivationHandoff for NoHandoff {
-    fn hand_off(&self, _pid: u32) -> impl Future<Output = Handoff> + Send {
+/// Передача без UI: факты сразу. Вызовы и исходы записываются по порядку.
+#[derive(Clone, Default)]
+struct RecordedHandoff {
+    log: Arc<Mutex<Vec<HandoffEntry>>>,
+}
+
+impl RecordedHandoff {
+    fn log(&self) -> Vec<HandoffEntry> {
+        self.log.lock().unwrap().clone()
+    }
+}
+
+impl ActivationHandoff for RecordedHandoff {
+    fn hand_off(&self, pid: u32) -> impl Future<Output = Handoff> + Send {
+        self.log.lock().unwrap().push((pid, None));
         std::future::ready(FACTS)
     }
 
-    fn outcome(&self, _pid: u32, _outcome: HandoffOutcome) {}
+    fn outcome(&self, pid: u32, outcome: HandoffOutcome) {
+        self.log.lock().unwrap().push((pid, Some(outcome)));
+    }
 }
 
 /// Передача, которую держит тест: сообщает PID начала, завершается фактами, отправленными
@@ -599,7 +614,16 @@ async fn claimant_outlasts_client_probe_and_becomes_owner() {
     let clock = ManualClock::new();
     let task = tokio::spawn({
         let (profile, clock, launch) = (profile.clone(), clock.clone(), launch(&fixture));
-        async move { claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &NoHandoff).await }
+        async move {
+            claim(
+                &profile,
+                clock,
+                SECOND_LAUNCH_TIMEOUT,
+                &launch,
+                &RecordedHandoff::default(),
+            )
+            .await
+        }
     });
     clock.until_waiting(1).await;
     assert!(!task.is_finished(), "претендент ждёт, пока держится проба");
@@ -627,7 +651,16 @@ async fn claim_without_socket_expires_with_retry_code() {
     let clock = ManualClock::new();
     let task = tokio::spawn({
         let (profile, clock, launch) = (profile.clone(), clock.clone(), launch(&fixture));
-        async move { claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &NoHandoff).await }
+        async move {
+            claim(
+                &profile,
+                clock,
+                SECOND_LAUNCH_TIMEOUT,
+                &launch,
+                &RecordedHandoff::default(),
+            )
+            .await
+        }
     });
     clock.until_waiting(1).await;
     clock.expire();
@@ -809,7 +842,7 @@ fn spawn_claim(
     clock: &ManualClock,
     fixture: &Fixture,
 ) -> tokio::task::JoinHandle<Second> {
-    spawn_claim_with(profile, clock, fixture, NoHandoff)
+    spawn_claim_with(profile, clock, fixture, RecordedHandoff::default())
 }
 
 fn spawn_claim_with(
@@ -947,7 +980,8 @@ async fn refusal_frame_ends_second_launch_without_retry() {
     let fake = FakeOwner::start(&profile);
     let clock = ManualClock::new();
 
-    let task = spawn_claim(&profile, &clock, &fixture);
+    let handoff = RecordedHandoff::default();
+    let task = spawn_claim_with(&profile, &clock, &fixture, handoff.clone());
     let mut peer = fake.accept().await;
     assert!(peer.line().await.unwrap().contains("\"hello\""));
     peer.reply(&Response::Error {
@@ -963,6 +997,7 @@ async fn refusal_frame_ends_second_launch_without_retry() {
     );
     assert_eq!(second.exit(), Exit::Failure);
     assert_eq!(peer.line().await, None, "launch не отправлен");
+    assert_eq!(handoff.log(), [], "отказ на hello — без передачи");
 
     let task = spawn_claim(&profile, &clock, &fixture);
     let mut peer = fake.accept().await;
@@ -992,7 +1027,8 @@ async fn leaving_owner_is_retried_until_launch_is_delivered() {
     let profile = claim_profile(&fixture);
     let fake = FakeOwner::start(&profile);
     let clock = ManualClock::new();
-    let task = spawn_claim(&profile, &clock, &fixture);
+    let handoff = RecordedHandoff::default();
+    let task = spawn_claim_with(&profile, &clock, &fixture, handoff.clone());
 
     let mut leaving = fake.accept().await;
     leaving.hello(OwnerState::Leaving).await;
@@ -1032,5 +1068,16 @@ async fn leaving_owner_is_retried_until_launch_is_delivered() {
     );
     assert_eq!(second.exit(), Exit::Success);
     assert_eq!(clock.waits(), 2);
+    let done = Some(HandoffOutcome::Done(FACTS));
+    assert_eq!(
+        handoff.log(),
+        [
+            (FAKE_PID, None),
+            (FAKE_PID, done),
+            (FAKE_PID, None),
+            (FAKE_PID, done)
+        ],
+        "передача на каждый hello с ready, уходящему — нет"
+    );
     fake.stop();
 }

@@ -19,9 +19,9 @@
 # первого пункта. С начала второго запуска до его выхода каждый замер пишет передний план в front.log пункта и
 # типы LaunchServices процессов бинаря прогона в dock.log: pass требует перехода на владельца не позже 3 с после
 # квитанции, удержания на нём 1 с и ни одного процесса бинаря прогона, кроме владельцев, с типом Foreground (в
-# Dock). Исход передачи активации из stderr второго запуска входит в причину пункта. Пункт two-owners-front
-# (второй запуск профиля A при живом владельце B, затем профиля B при живом владельце A, подкаталоги A и B)
-# выполняется и обязателен только при варианте передачи через LaunchServices (ADDRESSES_BUNDLE), иначе not_run.
+# Dock). Исход передачи активации из stderr второго запуска входит в причину пункта. Обязательный пункт
+# two-owners-front (второй запуск профиля A при живом владельце B, затем профиля B при живом владельце A,
+# подкаталоги A и B) также требует, чтобы другой владелец ни в одном замере не был на переднем плане.
 #
 # Сигналы и уборка адресуют только PID, полученные через hello сокетов прогона и сверенные с бинарём бандла
 # прогона. Передний план читается через lsappinfo, разрешения Accessibility и Screen Recording не нужны. Нужны
@@ -58,13 +58,9 @@ HOLD_MS=1000
 POLL=0.1
 CTL_TIMEOUT_MS=2000
 
-# 1 — второй запуск может адресовать приложение владельца через LaunchServices (варианты 3 и 4 плана
-# single-instance-activation, в дереве вариант 4): тогда пункт two-owners-front выполняется и обязателен.
-ADDRESSES_BUNDLE=1
-
 ITEMS=(owner forward-open-n forward-direct folder-refused persist kill-recover two-profiles two-owners-front
   plain-open gui-quit)
-REQUIRED=(1 1 1 1 1 1 1 "$ADDRESSES_BUNDLE" 0 0)
+REQUIRED=(1 1 1 1 1 1 1 1 0 0)
 STATUS=()
 REASON=()
 for i in "${!ITEMS[@]}"; do
@@ -115,7 +111,8 @@ front_last=""
 terminal_pid=""
 terminal_id=""
 # Наблюдение второго запуска: каталог пункта (пусто — замеров нет), владелец и второй допустимый владелец, момент
-# старта второго запуска, последний замер, момент перехода на владельца, первое нарушение удержания и Dock.
+# старта второго запуска, последний замер, момент перехода на владельца, первое нарушение удержания и Dock, первый
+# замер с другим владельцем на переднем плане.
 fg_dir=""
 fg_owner=""
 fg_other=""
@@ -128,6 +125,7 @@ front_abs=""
 hold_lost=""
 fg_stray=""
 fg_owner_seen=0
+fg_other_front=""
 
 log() {
   printf '%s\n' "$*"
@@ -544,8 +542,9 @@ mark() {
 
 # Замер наблюдения второго запуска: передний план — строка «+мс pid бинарь» в front.log, типы LaunchServices
 # процессов бинаря прогона — строка «+мс pid:тип …» в dock.log, мс от старта второго запуска. PID переднего
-# плана — в sample_front, момент — в sample_ms. Первый процесс бинаря прогона с типом Foreground, кроме
-# владельцев fg_owner и fg_other, — в fg_stray; тип Foreground у fg_owner — fg_owner_seen=1.
+# плана — в sample_front, момент — в sample_ms. Первый замер с fg_other на переднем плане — в fg_other_front.
+# Первый процесс бинаря прогона с типом Foreground, кроме владельцев fg_owner и fg_other, — в fg_stray; тип
+# Foreground у fg_owner — fg_owner_seen=1.
 sample() {
   local front pid type line="" off
   front="$(front_pid)"
@@ -553,6 +552,9 @@ sample() {
   sample_front="$front"
   off=$((sample_ms - t_start))
   printf '+%d %s %s\n' "$off" "${front:-нет}" "$(comm_of "$front")" >>"$fg_dir/front.log"
+  if [[ -n "$fg_other" && "$front" == "$fg_other" && -z "$fg_other_front" ]]; then
+    fg_other_front="через $off мс от старта второго запуска"
+  fi
   for pid in $(run_processes); do
     type="$(app_type "$pid")"
     line="$line $pid:$type"
@@ -802,6 +804,7 @@ second_front() {
   fi
   fg_stray=""
   fg_owner_seen=0
+  fg_other_front=""
   front_ms=""
   hold_lost=""
   printf '# мс от старта второго запуска, pid переднего плана, бинарь\n' >"$dir/front.log"
@@ -841,6 +844,8 @@ second_front() {
     [[ -z "$hold_lost" ]] ||
       failures+=("передний план не удержался на PID владельца $pid $HOLD_MS мс: $hold_lost, ряд — $item/front.log")
   fi
+  [[ -z "$fg_other_front" ]] ||
+    failures+=("другой владелец pid $fg_other был на переднем плане $fg_other_front, ряд — $item/front.log")
   [[ -z "$fg_stray" ]] ||
     failures+=("процесс бинаря прогона, кроме владельца, был Foreground (в Dock): $fg_stray, ряд — $item/dock.log")
   ((fg_owner_seen)) ||
@@ -1072,10 +1077,6 @@ two_front_direction() {
 # экземпляра бандла не знает профиля.
 item_two_front() {
   local item=two-owners-front dir="$run/two-owners-front" pid_a pid_b
-  if ((!ADDRESSES_BUNDLE)); then
-    record "$item" not_run "вариант не адресует бандл"
-    return 0
-  fi
   failures=()
   two_outcomes=()
   log "== $item"
@@ -1106,7 +1107,7 @@ item_two_front() {
     failures+=("владелец B не ответил на hello после вторых запусков")
   fi
   [[ -z "${failures[*]+x}" ]] || failures+=(${two_outcomes[@]+"${two_outcomes[@]}"})
-  conclude "$item" "второй запуск каждого профиля вывел на передний план своего владельца (A pid $pid_a, B pid $pid_b) и держал $HOLD_MS мс, другой владелец не получил ни запуска, ни переднего плана; ${two_outcomes[0]}; ${two_outcomes[1]}"
+  conclude "$item" "второй запуск каждого профиля вывел на передний план своего владельца (A pid $pid_a, B pid $pid_b) и держал $HOLD_MS мс, другой владелец не получил запуска и ни в одном замере не был на переднем плане; ${two_outcomes[0]}; ${two_outcomes[1]}"
 }
 
 item_plain_open() {

@@ -128,6 +128,15 @@ pub fn handoff_line(pid: u32, outcome: HandoffOutcome) -> String {
     }
 }
 
+/// Строка stderr второго запуска перед запросом к LaunchServices: запрос не отменяется, а
+/// истёкший срок передачи иначе скрыл бы, что он был.
+pub fn reopen_start_line(pid: u32) -> String {
+    format!(
+        "shellio: передача активации pid {pid}: своей активности нет, открытие владельца через \
+         LaunchServices"
+    )
+}
+
 /// Строка ответа LaunchServices для stderr второго запуска, когда за ним следует ожидание
 /// собственной активности: истёкший срок передачи иначе скрыл бы этот факт.
 pub fn reopen_line(pid: u32, reopen: Reopen) -> String {
@@ -668,6 +677,11 @@ mod tests {
         assert_eq!(
             reopen_line(7, Reopen::Opened(9)),
             "shellio: передача активации pid 7: LaunchServices — открыл pid 9, не владельца"
+        );
+        assert_eq!(
+            reopen_start_line(7),
+            "shellio: передача активации pid 7: своей активности нет, открытие владельца через \
+             LaunchServices"
         );
     }
 

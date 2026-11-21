@@ -12,16 +12,17 @@ use tokio::sync::{oneshot, watch};
 
 /// Сколько второй запуск ждёт собственной активности, прежде чем просить LaunchServices. Своя
 /// активность передаётся по PID и верна при любом числе владельцев, LaunchServices выбирает
-/// экземпляр бандла сам, поэтому идёт только без неё. Остаток срока передачи (1 с от `hello`)
-/// оставлен на ответ LaunchServices.
+/// экземпляр бандла сам, поэтому идёт только без неё. Ожидание начинается после готовности
+/// приложения, поэтому на ответ LaunchServices остаётся не больше 500 мс срока передачи (1 с от
+/// `hello`).
 const OWN_ACTIVITY_WAIT: Duration = Duration::from_millis(500);
 
 /// UI владельца на `NSApplication`.
 pub struct AppUi {
     main: MainThread,
     ready: watch::Sender<bool>,
-    /// Приложение хотя бы раз стало активным. Флаг, а не событие: активность, которую
-    /// LaunchServices дал до начала передачи, не теряется.
+    /// Приложение стало активным после начала текущей передачи: [`hand_off`] сбрасывает флаг
+    /// перед запросом переднего плана.
     became_active: watch::Sender<bool>,
     terminate: watch::Sender<bool>,
 }
@@ -47,17 +48,6 @@ impl AppUi {
             let _ = reply.send(work(app));
         });
         answer.await.ok()
-    }
-
-    /// Просит LaunchServices открыть бандл владельца `pid` с активацией и ждёт ответа.
-    async fn reopen(&self, pid: u32) -> Reopen {
-        let (reply, answer) = oneshot::channel();
-        self.main.exec(move |app| {
-            app.reopen_bundle_of(pid, move |reopened| {
-                let _ = reply.send(reopened);
-            });
-        });
-        reopen(answer.await.ok())
     }
 }
 
@@ -92,36 +82,7 @@ impl Ui for AppUi {
         latch(&self.ready).await;
         // Окно закрывается и тогда, когда срок передачи в `claim` отбросит этот future.
         let _window = ServiceWindow(self.main);
-        let Some(active) = self
-            .on_main(|app| {
-                app.show_service_window();
-                app.request_activation();
-                app.is_active()
-            })
-            .await
-        else {
-            return handoff(None, Reopen::NotRequested);
-        };
-        let own = active
-            || tokio::time::timeout(OWN_ACTIVITY_WAIT, latch(&self.became_active))
-                .await
-                .is_ok();
-        let reopen = if own {
-            Reopen::NotRequested
-        } else {
-            self.reopen(pid).await
-        };
-        // Передать можно только свою активность. Не пришла и LaunchServices не открыл владельца —
-        // ожидание обрывает срок передачи в `claim`, и `launch` уходит без неё.
-        if !own && reopen != Reopen::Opened(pid) {
-            owner::say_err(owner::reopen_line(pid, reopen));
-            latch(&self.became_active).await;
-        }
-        handoff(
-            self.on_main(move |app| app.hand_off_activation_to(pid))
-                .await,
-            reopen,
-        )
+        hand_off(self, &self.became_active, pid).await
     }
 
     fn terminate_requested(&self) -> impl Future<Output = ()> + Send {
@@ -137,6 +98,81 @@ impl Ui for AppUi {
         // Выход на главном потоке: цикл AppKit не продолжает работу посреди `exit`.
         self.main.exec(move |_| owner::exit_process(code));
     }
+}
+
+/// Шаги передачи активации на главном потоке. Порядок и ожидания — в [`hand_off`].
+trait Steps: Sync {
+    /// Показать служебное окно, попросить передний план себе и сказать, активно ли приложение.
+    /// `None` — главный поток не выполнил шаг: UI уже нет.
+    fn claim_front(&self) -> impl Future<Output = Option<bool>> + Send;
+
+    /// Попросить LaunchServices открыть бандл владельца `pid` с активацией и дождаться ответа.
+    fn reopen(&self, pid: u32) -> impl Future<Output = Reopen> + Send;
+
+    /// Передать активацию владельцу `pid`. `None` — главный поток не выполнил шаг.
+    fn transfer(&self, pid: u32) -> impl Future<Output = Option<Transfer>> + Send;
+
+    /// Строка в stderr второго запуска.
+    fn say(&self, line: String);
+}
+
+impl Steps for AppUi {
+    async fn claim_front(&self) -> Option<bool> {
+        self.on_main(|app| {
+            app.show_service_window();
+            app.request_activation();
+            app.is_active()
+        })
+        .await
+    }
+
+    async fn reopen(&self, pid: u32) -> Reopen {
+        let (reply, answer) = oneshot::channel();
+        self.main.exec(move |app| {
+            app.reopen_bundle_of(pid, move |reopened| {
+                let _ = reply.send(reopened);
+            });
+        });
+        reopen(answer.await.ok())
+    }
+
+    async fn transfer(&self, pid: u32) -> Option<Transfer> {
+        self.on_main(move |app| app.hand_off_activation_to(pid))
+            .await
+    }
+
+    fn say(&self, line: String) {
+        owner::say_err(line);
+    }
+}
+
+/// Передать активацию владельцу `pid`: передний план себе, собственная активность не дольше
+/// [`OWN_ACTIVITY_WAIT`], без неё — LaunchServices, затем передача. `became_active` ставит делегат.
+async fn hand_off(steps: &impl Steps, became_active: &watch::Sender<bool>, pid: u32) -> Handoff {
+    // Активность прежней попытки `claim` уже уступлена. Полученную до запроса покажет `claim_front`.
+    became_active.send_replace(false);
+    let Some(active) = steps.claim_front().await else {
+        return handoff(None, Reopen::NotRequested);
+    };
+    let own = active
+        || tokio::time::timeout(OWN_ACTIVITY_WAIT, latch(became_active))
+            .await
+            .is_ok();
+    let reopen = if own {
+        Reopen::NotRequested
+    } else {
+        // Строка до ожидания ответа: срок передачи может отбросить его, а запрос LaunchServices
+        // не отменяется.
+        steps.say(owner::reopen_start_line(pid));
+        steps.reopen(pid).await
+    };
+    // Передать можно только свою активность. Не пришла и LaunchServices не открыл владельца —
+    // ожидание обрывает срок передачи в `claim`, и `launch` уходит без неё.
+    if !own && reopen != Reopen::Opened(pid) {
+        steps.say(owner::reopen_line(pid, reopen));
+        latch(became_active).await;
+    }
+    handoff(steps.transfer(pid).await, reopen)
 }
 
 /// Служебное окно второго запуска на время передачи: закрывается при выходе из неё.
@@ -211,6 +247,10 @@ impl Delegate for AppDelegate {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
+
+    use tokio::time::Instant;
+
     use super::*;
 
     #[test]
@@ -273,7 +313,7 @@ mod tests {
     }
 
     #[test]
-    fn own_activity_wait_leaves_time_for_launch_services_within_the_handoff() {
+    fn own_activity_wait_is_shorter_than_handoff_by_300ms() {
         assert!(OWN_ACTIVITY_WAIT < owner::HANDOFF_TIMEOUT);
         assert!(owner::HANDOFF_TIMEOUT - OWN_ACTIVITY_WAIT >= Duration::from_millis(300));
     }
@@ -289,5 +329,179 @@ mod tests {
         assert_eq!(reopen(Some(Reopened::Failed(None))), Reopen::Failed(None));
         assert_eq!(reopen(Some(Reopened::NoBundle)), Reopen::NotRequested);
         assert_eq!(reopen(None), Reopen::NotRequested);
+    }
+
+    const PID: u32 = 7;
+
+    /// Когда поддельное приложение получает собственную активность событием делегата.
+    #[derive(Clone, Copy)]
+    enum Event {
+        Never,
+        AfterClaim,
+        AfterReopen,
+    }
+
+    /// Шаги передачи без AppKit: ответы заданы заранее, вызовы и строки stderr записываются по
+    /// порядку.
+    struct FakeSteps {
+        became_active: watch::Sender<bool>,
+        /// Ответ `claim_front`: активно ли приложение, `None` — UI нет.
+        front: Option<bool>,
+        event: Event,
+        /// Ответ LaunchServices, `None` — ответа нет.
+        reopen: Option<Reopen>,
+        calls: Mutex<Vec<String>>,
+    }
+
+    impl FakeSteps {
+        fn new(front: Option<bool>, event: Event, reopen: Option<Reopen>) -> Self {
+            Self {
+                became_active: watch::Sender::new(false),
+                front,
+                event,
+                reopen,
+                calls: Mutex::new(Vec::new()),
+            }
+        }
+
+        fn record(&self, call: String) {
+            self.calls.lock().unwrap().push(call);
+        }
+
+        fn calls(&self) -> Vec<String> {
+            self.calls.lock().unwrap().clone()
+        }
+
+        /// Передача под сроком 60 с виртуального времени; `None` — не завершилась.
+        async fn run(&self) -> Option<Handoff> {
+            tokio::time::timeout(
+                Duration::from_secs(60),
+                hand_off(self, &self.became_active, PID),
+            )
+            .await
+            .ok()
+        }
+    }
+
+    impl Steps for FakeSteps {
+        fn claim_front(&self) -> impl Future<Output = Option<bool>> + Send {
+            self.record("claim_front".to_owned());
+            if matches!(self.event, Event::AfterClaim) {
+                self.became_active.send_replace(true);
+            }
+            std::future::ready(self.front)
+        }
+
+        fn reopen(&self, pid: u32) -> impl Future<Output = Reopen> + Send {
+            self.record(format!("reopen {pid}"));
+            if matches!(self.event, Event::AfterReopen) {
+                self.became_active.send_replace(true);
+            }
+            let answer = self.reopen;
+            async move {
+                match answer {
+                    Some(answer) => answer,
+                    None => std::future::pending().await,
+                }
+            }
+        }
+
+        fn transfer(&self, pid: u32) -> impl Future<Output = Option<Transfer>> + Send {
+            self.record(format!("transfer {pid}"));
+            std::future::ready(Some(Transfer {
+                self_active: true,
+                owner_found: true,
+                activated: Some(true),
+            }))
+        }
+
+        fn say(&self, line: String) {
+            self.record(line);
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn active_launch_hands_off_without_launch_services() {
+        let steps = FakeSteps::new(Some(true), Event::Never, None);
+        let facts = steps.run().await.unwrap();
+        assert_eq!(facts.reopen, Reopen::NotRequested);
+        assert_eq!(steps.calls(), ["claim_front", "transfer 7"]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn activity_after_the_request_skips_launch_services() {
+        let steps = FakeSteps::new(Some(false), Event::AfterClaim, None);
+        let started = Instant::now();
+        let facts = steps.run().await.unwrap();
+        assert_eq!(started.elapsed(), Duration::ZERO);
+        assert_eq!(facts.reopen, Reopen::NotRequested);
+        assert_eq!(steps.calls(), ["claim_front", "transfer 7"]);
+    }
+
+    /// Флаг активности прежней попытки `claim` не считается: та активность уже уступлена.
+    /// LaunchServices, открывший владельца, даёт передачу без ожидания.
+    #[tokio::test(start_paused = true)]
+    async fn activity_of_an_earlier_attempt_does_not_count() {
+        let steps = FakeSteps::new(Some(false), Event::Never, Some(Reopen::Opened(PID)));
+        steps.became_active.send_replace(true);
+        let started = Instant::now();
+        let facts = steps.run().await.unwrap();
+        assert_eq!(started.elapsed(), OWN_ACTIVITY_WAIT);
+        assert_eq!(facts.reopen, Reopen::Opened(PID));
+        let start = owner::reopen_start_line(PID);
+        assert_eq!(
+            steps.calls(),
+            ["claim_front", start.as_str(), "reopen 7", "transfer 7"]
+        );
+    }
+
+    /// Строка о LaunchServices печатается до ответа: срок передачи, отбросивший ожидание, её не
+    /// скрывает.
+    #[tokio::test(start_paused = true)]
+    async fn launch_services_request_is_reported_before_its_answer() {
+        let steps = FakeSteps::new(Some(false), Event::Never, None);
+        assert_eq!(steps.run().await, None);
+        let start = owner::reopen_start_line(PID);
+        assert_eq!(steps.calls(), ["claim_front", start.as_str(), "reopen 7"]);
+    }
+
+    /// LaunchServices открыл не владельца или не открыл ничего: строка ответа, затем ожидание
+    /// собственной активности без срока внутри передачи.
+    #[tokio::test(start_paused = true)]
+    async fn launch_services_answer_other_than_owner_waits_for_own_activity() {
+        let start = owner::reopen_start_line(PID);
+        for answer in [
+            Reopen::Opened(9),
+            Reopen::Failed(Some(-600)),
+            Reopen::NotRequested,
+        ] {
+            let line = owner::reopen_line(PID, answer);
+            let steps = FakeSteps::new(Some(false), Event::Never, Some(answer));
+            assert_eq!(steps.run().await, None, "{answer:?}");
+            assert_eq!(
+                steps.calls(),
+                ["claim_front", start.as_str(), "reopen 7", line.as_str()]
+            );
+
+            let steps = FakeSteps::new(Some(false), Event::AfterReopen, Some(answer));
+            assert_eq!(steps.run().await.unwrap().reopen, answer);
+            assert_eq!(
+                steps.calls(),
+                [
+                    "claim_front",
+                    start.as_str(),
+                    "reopen 7",
+                    line.as_str(),
+                    "transfer 7"
+                ]
+            );
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn handoff_without_ui_stops_at_the_request() {
+        let steps = FakeSteps::new(None, Event::Never, None);
+        assert_eq!(steps.run().await, Some(handoff(None, Reopen::NotRequested)));
+        assert_eq!(steps.calls(), ["claim_front"]);
     }
 }
