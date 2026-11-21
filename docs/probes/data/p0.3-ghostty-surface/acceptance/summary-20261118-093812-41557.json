@@ -1,0 +1,874 @@
+{
+  "schema": 1,
+  "run_dir": "/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/20261118-093812-41557",
+  "percentile_method": "nearest-rank",
+  "totals": {
+    "processes": 1,
+    "execution_ok": 1,
+    "execution_errors": 0,
+    "pass": 10,
+    "fail": 0,
+    "observed": 4,
+    "pending_manual": 1,
+    "required_pending_manual": 1,
+    "snapshots_pending_manual": 0,
+    "not_run": 0
+  },
+  "processes": [
+    {
+      "dir": "latency-external",
+      "scenario": "latency",
+      "variant": "external",
+      "route": "direct",
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "h1-init-once",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+        },
+        {
+          "name": "h1-version",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+        },
+        {
+          "name": "h1-config-diagnostics",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_config_diagnostics_count = 0"
+        },
+        {
+          "name": "h9-keys-quiet",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "A: ожидалось 7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a, пришло 7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a; B: ожидалось , пришло ; ограда у A; displayLink (view): 121 вызовов, 60.0 Гц"
+        },
+        {
+          "name": "h9-keys-background",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "A: ожидалось 7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a, пришло 7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a; B: ожидалось , пришло ; ограда у A; поток B идёт всю фазу keys (ход до первого и после последнего повтора): да; поток B #115 остановлен"
+        },
+        {
+          "name": "h9-navigation",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; самопроверка N: тон в слоях к отметке зафиксирован; линия под вкладкой B на снимке Rgb(79, 112, 147), A Rgb(249, 248, 244), разница 170 (нужно от 24); поток B идёт всю фазу navigation (ход до первого и после последнего повтора): да; поток B #227 остановлен"
+        },
+        {
+          "name": "h9-exact-bytes-one-receiver",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "весь поток A 223 байт (ожидалось 223), B 0 байт (ожидалось 0); точное совпадение true; сценарий до конца true; непроведённые части с неизвестным отрезком получателя: []"
+        },
+        {
+          "name": "h9-segments",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "дисплей external (60.0 Гц по displayLink); a-queue.quiet: p50 9.39, p95 11.99, max 12.92; a-send-event.quiet: p50 0.20, p95 0.34, max 0.38; a-surface-key.quiet: p50 0.02, p95 0.05, max 0.06; b.quiet: p50 9.67, p95 12.15, max 13.03; c-lower.quiet: p50 9.20, p95 11.25, max 12.26; c-upper.quiet: p50 10.18, p95 12.28, max 13.17; c-step.quiet: p50 1.02, p95 1.64, max 1.96; c-poll-gap.quiet: p50 1.00, p95 1.16, max 1.95; c-poll-cost.quiet: p50 0.01, p95 0.02, max 0.06; n.quiet: p50 10.86, p95 12.04, max 13.01; n-queue.quiet: p50 9.11, p95 10.10, max 11.91; n-send-event.quiet: p50 0.15, p95 0.30, max 0.38; a-queue.background: p50 7.93, p95 16.32, max 16.61; a-send-event.background: p50 0.19, p95 0.30, max 0.32; a-surface-key.background: p50 0.02, p95 0.03, max 0.04; b.background: p50 8.20, p95 16.65, max 17.46; c-lower.background: p50 7.22, p95 15.24, max 17.49; c-upper.background: p50 8.58, p95 17.16, max 18.26; c-step.background: p50 1.13, p95 1.80, max 2.06; c-poll-gap.background: p50 1.00, p95 1.27, max 1.94; c-poll-cost.background: p50 0.01, p95 0.01, max 0.02; n.background: p50 10.88, p95 11.99, max 12.51; n-queue.background: p50 9.42, p95 10.27, max 10.61; n-send-event.background: p50 0.12, p95 0.18, max 0.19 мс; время до фотона не измерено"
+        },
+        {
+          "name": "h9-d-frame",
+          "requirement": "research",
+          "verdict": "observed",
+          "reason": "quiet: блок ответа в IOSurface слоя найден в 100 из 100, верхняя граница p50 36.31, p95 39.24, max 40.17; background: блок ответа в IOSurface слоя найден в 100 из 100, верхняя граница p50 12.20, p95 37.24, max 43.22 мс; это готовность кадра в IOSurface, а не время до фотона: WindowServer и вывод на экран не входят"
+        },
+        {
+          "name": "h9-display-rate",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "displayLink (view): 121 вызовов, 60.0 Гц; окно на внешнем дисплее"
+        },
+        {
+          "name": "h9-n-self-check",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "тон в слоях к отметке зафиксирован; линия под вкладкой B на снимке Rgb(79, 112, 147), A Rgb(249, 248, 244), разница 170 (нужно от 24)"
+        },
+        {
+          "name": "surface-single-free",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "latency.a-queue.quiet",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 9.394541,
+            "p95": 11.986583,
+            "max": 12.916125
+          }
+        },
+        {
+          "name": "latency.a-send-event.quiet",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 0.202041,
+            "p95": 0.341625,
+            "max": 0.375125
+          }
+        },
+        {
+          "name": "latency.a-surface-key.quiet",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 0.022334,
+            "p95": 0.047166,
+            "max": 0.055708
+          }
+        },
+        {
+          "name": "latency.b.quiet",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 9.674209,
+            "p95": 12.153875,
+            "max": 13.027875
+          }
+        },
+        {
+          "name": "latency.c-lower.quiet",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 9.195542,
+            "p95": 11.252333,
+            "max": 12.257708
+          }
+        },
+        {
+          "name": "latency.c-upper.quiet",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 10.183334,
+            "p95": 12.280333,
+            "max": 13.174417
+          }
+        },
+        {
+          "name": "latency.c-step.quiet",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 1.017584,
+            "p95": 1.637167,
+            "max": 1.955417
+          }
+        },
+        {
+          "name": "latency.d-upper.quiet",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 36.3085,
+            "p95": 39.2405,
+            "max": 40.174125
+          }
+        },
+        {
+          "name": "latency.c-poll-gap.quiet",
+          "unit": "ms",
+          "summary": {
+            "count": 876,
+            "p50": 0.998709,
+            "p95": 1.157875,
+            "max": 1.945542
+          }
+        },
+        {
+          "name": "latency.c-poll-cost.quiet",
+          "unit": "ms",
+          "summary": {
+            "count": 976,
+            "p50": 0.006667,
+            "p95": 0.017292,
+            "max": 0.058125
+          }
+        },
+        {
+          "name": "latency.n.quiet",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 10.8625,
+            "p95": 12.038834,
+            "max": 13.005958
+          }
+        },
+        {
+          "name": "latency.n-queue.quiet",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 9.10875,
+            "p95": 10.095083,
+            "max": 11.913666
+          }
+        },
+        {
+          "name": "latency.n-send-event.quiet",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 0.153125,
+            "p95": 0.296042,
+            "max": 0.377375
+          }
+        },
+        {
+          "name": "latency.a-queue.background",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 7.927042,
+            "p95": 16.315583,
+            "max": 16.611959
+          }
+        },
+        {
+          "name": "latency.a-send-event.background",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 0.187833,
+            "p95": 0.301542,
+            "max": 0.321208
+          }
+        },
+        {
+          "name": "latency.a-surface-key.background",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 0.01675,
+            "p95": 0.032333,
+            "max": 0.039542
+          }
+        },
+        {
+          "name": "latency.b.background",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 8.197209,
+            "p95": 16.651583,
+            "max": 17.464042
+          }
+        },
+        {
+          "name": "latency.c-lower.background",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 7.222959,
+            "p95": 15.235833,
+            "max": 17.493125
+          }
+        },
+        {
+          "name": "latency.c-upper.background",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 8.577,
+            "p95": 17.164541,
+            "max": 18.260584
+          }
+        },
+        {
+          "name": "latency.c-step.background",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 1.129625,
+            "p95": 1.802583,
+            "max": 2.056417
+          }
+        },
+        {
+          "name": "latency.d-upper.background",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 12.200291,
+            "p95": 37.244917,
+            "max": 43.221709
+          }
+        },
+        {
+          "name": "latency.c-poll-gap.background",
+          "unit": "ms",
+          "summary": {
+            "count": 668,
+            "p50": 0.999708,
+            "p95": 1.274167,
+            "max": 1.944209
+          }
+        },
+        {
+          "name": "latency.c-poll-cost.background",
+          "unit": "ms",
+          "summary": {
+            "count": 768,
+            "p50": 0.005,
+            "p95": 0.010791,
+            "max": 0.02125
+          }
+        },
+        {
+          "name": "latency.n.background",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 10.8815,
+            "p95": 11.987375,
+            "max": 12.509209
+          }
+        },
+        {
+          "name": "latency.n-queue.background",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 9.417958,
+            "p95": 10.268708,
+            "max": 10.609292
+          }
+        },
+        {
+          "name": "latency.n-send-event.background",
+          "unit": "ms",
+          "summary": {
+            "count": 100,
+            "p50": 0.11975,
+            "p95": 0.181333,
+            "max": 0.191541
+          }
+        },
+        {
+          "name": "surface_free",
+          "unit": "ms",
+          "summary": {
+            "count": 2,
+            "p50": 14.194292,
+            "p95": 17.084708,
+            "max": 17.084708
+          }
+        },
+        {
+          "name": "app_free",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 0.013834,
+            "p95": 0.013834,
+            "max": 0.013834
+          }
+        }
+      ],
+      "snapshots": [
+        {
+          "name": "latency-n-self-check",
+          "kind": "composition",
+          "status": "ok"
+        }
+      ],
+      "spawn_uptime_ns": 606807097630166,
+      "latency": {
+        "display": "external",
+        "builtin": false,
+        "measured_hz": 60.00014984086324,
+        "self_check": true,
+        "self_check_reason": "тон в слоях к отметке зафиксирован; линия под вкладкой B на снимке Rgb(79, 112, 147), A Rgb(249, 248, 244), разница 170 (нужно от 24)"
+      }
+    }
+  ],
+  "findings": [
+    {
+      "scenario": "latency",
+      "variant": "external",
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "scenario": "latency",
+      "variant": "external",
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "scenario": "latency",
+      "variant": "external",
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "scenario": "latency",
+      "variant": "external",
+      "name": "h9-keys-quiet",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a, пришло 7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a; B: ожидалось , пришло ; ограда у A; displayLink (view): 121 вызовов, 60.0 Гц"
+    },
+    {
+      "scenario": "latency",
+      "variant": "external",
+      "name": "h9-keys-background",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a, пришло 7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a; B: ожидалось , пришло ; ограда у A; поток B идёт всю фазу keys (ход до первого и после последнего повтора): да; поток B #115 остановлен"
+    },
+    {
+      "scenario": "latency",
+      "variant": "external",
+      "name": "h9-navigation",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; самопроверка N: тон в слоях к отметке зафиксирован; линия под вкладкой B на снимке Rgb(79, 112, 147), A Rgb(249, 248, 244), разница 170 (нужно от 24); поток B идёт всю фазу navigation (ход до первого и после последнего повтора): да; поток B #227 остановлен"
+    },
+    {
+      "scenario": "latency",
+      "variant": "external",
+      "name": "h9-exact-bytes-one-receiver",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "весь поток A 223 байт (ожидалось 223), B 0 байт (ожидалось 0); точное совпадение true; сценарий до конца true; непроведённые части с неизвестным отрезком получателя: []"
+    },
+    {
+      "scenario": "latency",
+      "variant": "external",
+      "name": "h9-segments",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "дисплей external (60.0 Гц по displayLink); a-queue.quiet: p50 9.39, p95 11.99, max 12.92; a-send-event.quiet: p50 0.20, p95 0.34, max 0.38; a-surface-key.quiet: p50 0.02, p95 0.05, max 0.06; b.quiet: p50 9.67, p95 12.15, max 13.03; c-lower.quiet: p50 9.20, p95 11.25, max 12.26; c-upper.quiet: p50 10.18, p95 12.28, max 13.17; c-step.quiet: p50 1.02, p95 1.64, max 1.96; c-poll-gap.quiet: p50 1.00, p95 1.16, max 1.95; c-poll-cost.quiet: p50 0.01, p95 0.02, max 0.06; n.quiet: p50 10.86, p95 12.04, max 13.01; n-queue.quiet: p50 9.11, p95 10.10, max 11.91; n-send-event.quiet: p50 0.15, p95 0.30, max 0.38; a-queue.background: p50 7.93, p95 16.32, max 16.61; a-send-event.background: p50 0.19, p95 0.30, max 0.32; a-surface-key.background: p50 0.02, p95 0.03, max 0.04; b.background: p50 8.20, p95 16.65, max 17.46; c-lower.background: p50 7.22, p95 15.24, max 17.49; c-upper.background: p50 8.58, p95 17.16, max 18.26; c-step.background: p50 1.13, p95 1.80, max 2.06; c-poll-gap.background: p50 1.00, p95 1.27, max 1.94; c-poll-cost.background: p50 0.01, p95 0.01, max 0.02; n.background: p50 10.88, p95 11.99, max 12.51; n-queue.background: p50 9.42, p95 10.27, max 10.61; n-send-event.background: p50 0.12, p95 0.18, max 0.19 мс; время до фотона не измерено"
+    },
+    {
+      "scenario": "latency",
+      "variant": "external",
+      "name": "h9-d-frame",
+      "requirement": "research",
+      "verdict": "observed",
+      "reason": "quiet: блок ответа в IOSurface слоя найден в 100 из 100, верхняя граница p50 36.31, p95 39.24, max 40.17; background: блок ответа в IOSurface слоя найден в 100 из 100, верхняя граница p50 12.20, p95 37.24, max 43.22 мс; это готовность кадра в IOSurface, а не время до фотона: WindowServer и вывод на экран не входят"
+    },
+    {
+      "scenario": "latency",
+      "variant": "external",
+      "name": "h9-display-rate",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "displayLink (view): 121 вызовов, 60.0 Гц; окно на внешнем дисплее"
+    },
+    {
+      "scenario": "latency",
+      "variant": "external",
+      "name": "h9-n-self-check",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "тон в слоях к отметке зафиксирован; линия под вкладкой B на снимке Rgb(79, 112, 147), A Rgb(249, 248, 244), разница 170 (нужно от 24)"
+    },
+    {
+      "scenario": "latency",
+      "variant": "external",
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+    },
+    {
+      "scenario": "latency",
+      "variant": "external",
+      "name": "latency-segments",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "60.0 Гц по displayLink; a-queue quiet: p50 9.39, p95 11.99, max 12.92 мс (n=100); a-send-event quiet: p50 0.20, p95 0.34, max 0.38 мс (n=100); a-surface-key quiet: p50 0.02, p95 0.05, max 0.06 мс (n=100); b quiet: p50 9.67, p95 12.15, max 13.03 мс (n=100); c-lower quiet: p50 9.20, p95 11.25, max 12.26 мс (n=100); c-upper quiet: p50 10.18, p95 12.28, max 13.17 мс (n=100); c-step quiet: p50 1.02, p95 1.64, max 1.96 мс (n=100); d-upper quiet: p50 36.31, p95 39.24, max 40.17 мс (n=100); c-poll-gap quiet: p50 1.00, p95 1.16, max 1.95 мс (n=876); c-poll-cost quiet: p50 0.01, p95 0.02, max 0.06 мс (n=976); n quiet: p50 10.86, p95 12.04, max 13.01 мс (n=100); n-queue quiet: p50 9.11, p95 10.10, max 11.91 мс (n=100); n-send-event quiet: p50 0.15, p95 0.30, max 0.38 мс (n=100); a-queue background: p50 7.93, p95 16.32, max 16.61 мс (n=100); a-send-event background: p50 0.19, p95 0.30, max 0.32 мс (n=100); a-surface-key background: p50 0.02, p95 0.03, max 0.04 мс (n=100); b background: p50 8.20, p95 16.65, max 17.46 мс (n=100); c-lower background: p50 7.22, p95 15.24, max 17.49 мс (n=100); c-upper background: p50 8.58, p95 17.16, max 18.26 мс (n=100); c-step background: p50 1.13, p95 1.80, max 2.06 мс (n=100); d-upper background: p50 12.20, p95 37.24, max 43.22 мс (n=100); c-poll-gap background: p50 1.00, p95 1.27, max 1.94 мс (n=668); c-poll-cost background: p50 0.01, p95 0.01, max 0.02 мс (n=768); n background: p50 10.88, p95 11.99, max 12.51 мс (n=100); n-queue background: p50 9.42, p95 10.27, max 10.61 мс (n=100); n-send-event background: p50 0.12, p95 0.18, max 0.19 мс (n=100); время до фотона не измерено"
+    },
+    {
+      "scenario": "latency",
+      "variant": "external",
+      "name": "latency-n-budget",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "p95 N без фона 12.04 мс при бюджете 16 мс (t_post → конец прохода отображения, по определению P0.2; 60.0 Гц по displayLink); самопроверка: тон в слоях к отметке зафиксирован; линия под вкладкой B на снимке Rgb(79, 112, 147), A Rgb(249, 248, 244), разница 170 (нужно от 24)"
+    },
+    {
+      "scenario": "latency",
+      "variant": "builtin",
+      "name": "latency-builtin-120hz",
+      "requirement": "required",
+      "verdict": "pending-manual",
+      "reason": "нет прогона на встроенном дисплее 120 Гц: прогон с LATENCY_DISPLAYS, в котором есть builtin (задача 19)"
+    }
+  ],
+  "latency": {
+    "displays": [
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "builtin": false,
+        "measured_hz": 60.00014984086324,
+        "self_check": true,
+        "self_check_reason": "тон в слоях к отметке зафиксирован; линия под вкладкой B на снимке Rgb(79, 112, 147), A Rgb(249, 248, 244), разница 170 (нужно от 24)",
+        "execution_ok": true
+      }
+    ],
+    "rows": [
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "a-queue",
+        "load": "quiet",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 9.394541,
+          "p95": 11.986583,
+          "max": 12.916125
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "a-send-event",
+        "load": "quiet",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 0.202041,
+          "p95": 0.341625,
+          "max": 0.375125
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "a-surface-key",
+        "load": "quiet",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 0.022334,
+          "p95": 0.047166,
+          "max": 0.055708
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "b",
+        "load": "quiet",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 9.674209,
+          "p95": 12.153875,
+          "max": 13.027875
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "c-lower",
+        "load": "quiet",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 9.195542,
+          "p95": 11.252333,
+          "max": 12.257708
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "c-upper",
+        "load": "quiet",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 10.183334,
+          "p95": 12.280333,
+          "max": 13.174417
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "c-step",
+        "load": "quiet",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 1.017584,
+          "p95": 1.637167,
+          "max": 1.955417
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "d-upper",
+        "load": "quiet",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 36.3085,
+          "p95": 39.2405,
+          "max": 40.174125
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "c-poll-gap",
+        "load": "quiet",
+        "unit": "ms",
+        "summary": {
+          "count": 876,
+          "p50": 0.998709,
+          "p95": 1.157875,
+          "max": 1.945542
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "c-poll-cost",
+        "load": "quiet",
+        "unit": "ms",
+        "summary": {
+          "count": 976,
+          "p50": 0.006667,
+          "p95": 0.017292,
+          "max": 0.058125
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "n",
+        "load": "quiet",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 10.8625,
+          "p95": 12.038834,
+          "max": 13.005958
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "n-queue",
+        "load": "quiet",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 9.10875,
+          "p95": 10.095083,
+          "max": 11.913666
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "n-send-event",
+        "load": "quiet",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 0.153125,
+          "p95": 0.296042,
+          "max": 0.377375
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "a-queue",
+        "load": "background",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 7.927042,
+          "p95": 16.315583,
+          "max": 16.611959
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "a-send-event",
+        "load": "background",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 0.187833,
+          "p95": 0.301542,
+          "max": 0.321208
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "a-surface-key",
+        "load": "background",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 0.01675,
+          "p95": 0.032333,
+          "max": 0.039542
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "b",
+        "load": "background",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 8.197209,
+          "p95": 16.651583,
+          "max": 17.464042
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "c-lower",
+        "load": "background",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 7.222959,
+          "p95": 15.235833,
+          "max": 17.493125
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "c-upper",
+        "load": "background",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 8.577,
+          "p95": 17.164541,
+          "max": 18.260584
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "c-step",
+        "load": "background",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 1.129625,
+          "p95": 1.802583,
+          "max": 2.056417
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "d-upper",
+        "load": "background",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 12.200291,
+          "p95": 37.244917,
+          "max": 43.221709
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "c-poll-gap",
+        "load": "background",
+        "unit": "ms",
+        "summary": {
+          "count": 668,
+          "p50": 0.999708,
+          "p95": 1.274167,
+          "max": 1.944209
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "c-poll-cost",
+        "load": "background",
+        "unit": "ms",
+        "summary": {
+          "count": 768,
+          "p50": 0.005,
+          "p95": 0.010791,
+          "max": 0.02125
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "n",
+        "load": "background",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 10.8815,
+          "p95": 11.987375,
+          "max": 12.509209
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "n-queue",
+        "load": "background",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 9.417958,
+          "p95": 10.268708,
+          "max": 10.609292
+        }
+      },
+      {
+        "dir": "latency-external",
+        "display": "external",
+        "segment": "n-send-event",
+        "load": "background",
+        "unit": "ms",
+        "summary": {
+          "count": 100,
+          "p50": 0.11975,
+          "p95": 0.181333,
+          "max": 0.191541
+        }
+      }
+    ]
+  }
+}

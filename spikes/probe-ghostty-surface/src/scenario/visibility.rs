@@ -502,6 +502,38 @@ fn covers(outer: [f64; 4], inner: [f64; 4]) -> bool {
         && outer[1] + outer[3] >= inner[1] + inner[3]
 }
 
+/// Окно другого процесса на экране: номер, владелец, PID, уровень и рамка (координаты Core
+/// Graphics).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub(super) struct ForeignWindow {
+    pub number: i64,
+    pub owner: String,
+    pub pid: i64,
+    pub layer: i64,
+    pub bounds: [f64; 4],
+}
+
+/// Окна других процессов на экране по списку окон.
+pub(super) fn foreign_windows() -> Vec<ForeignWindow> {
+    let Some(list) = CGWindowListCopyWindowInfo(CGWindowListOption::OptionOnScreenOnly, 0) else {
+        return Vec::new();
+    };
+    // SAFETY: элементы списка окон — словари со строковыми ключами.
+    let list: &CFArray<CFDictionary<CFString, CFType>> = unsafe { list.cast_unchecked() };
+    let own_pid = i64::from(std::process::id());
+    list.iter()
+        .filter_map(|dict| window_entry(&dict))
+        .filter(|entry| entry.pid != own_pid)
+        .map(|entry| ForeignWindow {
+            number: entry.number,
+            owner: entry.owner,
+            pid: entry.pid,
+            layer: entry.layer,
+            bounds: entry.bounds,
+        })
+        .collect()
+}
+
 /// Окно другого процесса на более высоком уровне, накрывающее окно пробы, по списку окон на экране.
 fn foreign_cover(window: &NSWindow) -> Option<Shield> {
     let list = CGWindowListCopyWindowInfo(CGWindowListOption::OptionOnScreenOnly, 0)?;

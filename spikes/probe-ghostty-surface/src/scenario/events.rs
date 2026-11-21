@@ -29,7 +29,8 @@ use objc2_core_foundation::{
     CFIndex, CFRunLoop, CFRunLoopActivity, CFRunLoopObserver, kCFRunLoopCommonModes,
 };
 use objc2_core_graphics::{
-    CGDisplayBounds, CGEvent, CGEventField, CGMainDisplayID, CGScrollEventUnit,
+    CGDisplayBounds, CGEvent, CGEventField, CGEventFlags, CGEventSource, CGEventSourceStateID,
+    CGMainDisplayID, CGScrollEventUnit,
 };
 use objc2_foundation::{NSObjectProtocol, NSPoint, NSProcessInfo, NSString};
 
@@ -101,9 +102,11 @@ impl Signature {
         }
     }
 
+    /// Отправленное без окна (номер 0) событие из `CGEvent` AppKit адресует сам: окно
+    /// полученного события тогда не сверяется.
     pub fn matches(&self, received: &Signature) -> bool {
         self.kind == received.kind
-            && self.window == received.window
+            && (self.window == received.window || self.window == 0)
             && (self.timestamp - received.timestamp).abs() <= TIMESTAMP_TOLERANCE
             && self.key_code == received.key_code
     }
@@ -972,6 +975,109 @@ pub fn post_scroll(point: NSPoint, label: &str) -> Result<u64, String> {
         ))
     })
     .unwrap_or_else(|| Err(no_bench()))
+}
+
+/// Нажатие клавиши по коду и модификаторам через текущий источник ввода системы, как в P0.4:
+/// `CGEventCreateKeyboardEvent` из собственного источника состояния, `NSEvent::eventWithCGEvent`
+/// без пересборки (символы, тип клавиатуры и прочие поля события сохраняются) и
+/// `NSApp.postEvent`. Такое событие идёт без номера окна, AppKit доставляет его key window;
+/// стенд узнаёт его по сигнатуре без окна. Модификаторы — флаги события, без `flagsChanged`.
+pub fn press_translated(
+    code: u16,
+    flags: NSEventModifierFlags,
+    label: &str,
+) -> Result<Vec<u64>, String> {
+    let mut numbers = Vec::new();
+    for down in [true, false] {
+        numbers.push(post_cg_key(code, flags, down, label)?);
+    }
+    Ok(numbers)
+}
+
+fn cg_flags(flags: NSEventModifierFlags) -> CGEventFlags {
+    let mut cg_flags = CGEventFlags::empty();
+    for (flag, cg) in [
+        (NSEventModifierFlags::Shift, CGEventFlags::MaskShift),
+        (NSEventModifierFlags::Control, CGEventFlags::MaskControl),
+        (NSEventModifierFlags::Option, CGEventFlags::MaskAlternate),
+        (NSEventModifierFlags::Command, CGEventFlags::MaskCommand),
+    ] {
+        if flags.contains(flag) {
+            cg_flags |= cg;
+        }
+    }
+    cg_flags
+}
+
+fn post_cg_key(
+    code: u16,
+    flags: NSEventModifierFlags,
+    down: bool,
+    label: &str,
+) -> Result<u64, String> {
+    with_bench(|bench| {
+        let before = focus_state(&bench.app);
+        let source = CGEventSource::new(CGEventSourceStateID::Private)
+            .ok_or("CGEventSourceCreate вернул NULL")?;
+        // Время события задаёт стенд: созданное `CGEvent` иначе не различить с соседним.
+        // Единица `CGEventTimestamp` — наносекунды или такты `mach_absolute_time`; выбирается та,
+        // что даёт `NSEvent.timestamp`, равный времени стенда.
+        let timestamp = bench.timestamp();
+        // Масштаб единицы определяется пробным событием: время, записанное в наносекундах,
+        // `NSEvent` читает как есть или в тактах `mach_absolute_time`.
+        let nanos = timestamp * 1e9;
+        let probe = CGEvent::new_keyboard_event(Some(&source), code, down)
+            .ok_or("CGEventCreateKeyboardEvent вернул NULL")?;
+        CGEvent::set_timestamp(Some(&probe), nanos as u64);
+        let read = NSEvent::eventWithCGEvent(&probe)
+            .ok_or("NSEvent из CGEvent не построен")?
+            .timestamp();
+        let ticks = if read > 0.0 {
+            nanos * timestamp / read
+        } else {
+            nanos
+        };
+        let mut event = None;
+        for value in [nanos, ticks] {
+            let cg = CGEvent::new_keyboard_event(Some(&source), code, down)
+                .ok_or("CGEventCreateKeyboardEvent вернул NULL")?;
+            CGEvent::set_flags(Some(&cg), cg_flags(flags));
+            CGEvent::set_timestamp(Some(&cg), value as u64);
+            let made = NSEvent::eventWithCGEvent(&cg).ok_or("NSEvent из CGEvent не построен")?;
+            if (made.timestamp() - timestamp).abs() < 1e-3 {
+                event = Some(made);
+                break;
+            }
+        }
+        let event = event.ok_or_else(|| {
+            format!("timestamp клавиши {label}: NSEvent не получил время стенда {timestamp:.6}")
+        })?;
+        let characters = event
+            .characters()
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+        let kind = if down { "keyDown" } else { "keyUp" };
+        Ok(bench.post(
+            format!("{kind} {label} code {code} [{characters:?}]"),
+            event,
+            before,
+        ))
+    })
+    .unwrap_or_else(|| Err(no_bench()))
+}
+
+/// Событие прокрутки на `lines` строк в точке экрана `point` из `CGEvent`. Отправленное, оно
+/// приходит без окна и до вида не доходит (см. `post_scroll`), поэтому вызывающий отдаёт его
+/// `scrollWheel:` вида сам: проверяется обработка поверхностью, а не маршрутизация AppKit.
+pub fn scroll_event(point: NSPoint, lines: i32, label: &str) -> Result<Retained<NSEvent>, String> {
+    let cg = CGEvent::new_scroll_wheel_event2(None, CGScrollEventUnit::Line, 1, lines, 0, 0)
+        .ok_or_else(|| format!("CGEvent не создал прокрутку {label}"))?;
+    let primary = CGDisplayBounds(CGMainDisplayID());
+    CGEvent::set_location(
+        Some(&cg),
+        NSPoint::new(point.x, primary.size.height - point.y),
+    );
+    NSEvent::eventWithCGEvent(&cg).ok_or_else(|| format!("NSEvent не создал прокрутку {label}"))
 }
 
 /// Одно отпускание клавиши.

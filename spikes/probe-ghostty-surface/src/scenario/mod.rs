@@ -2,6 +2,7 @@
 //! предусловия.
 
 pub mod a11y;
+pub mod accept;
 pub mod ax;
 pub mod channel;
 pub mod chord;
@@ -74,10 +75,11 @@ pub enum Scenario {
     Idle,
     Nvim,
     A11y,
+    Accept,
 }
 
 impl Scenario {
-    pub const ALL: [Scenario; 17] = [
+    pub const ALL: [Scenario; 18] = [
         Scenario::Window,
         Scenario::SurfaceEnv,
         Scenario::Startup,
@@ -95,6 +97,7 @@ impl Scenario {
         Scenario::Idle,
         Scenario::Nvim,
         Scenario::A11y,
+        Scenario::Accept,
     ];
 
     pub fn name(self) -> &'static str {
@@ -116,6 +119,7 @@ impl Scenario {
             Scenario::Idle => "idle",
             Scenario::Nvim => "nvim",
             Scenario::A11y => "a11y",
+            Scenario::Accept => "accept",
         }
     }
 
@@ -136,7 +140,8 @@ impl Scenario {
             | Scenario::Latency
             | Scenario::Idle
             | Scenario::Nvim
-            | Scenario::A11y => true,
+            | Scenario::A11y
+            | Scenario::Accept => true,
             Scenario::Startup | Scenario::StartupLs => variant != startup::BARE,
             Scenario::Memory => variant != memory::BARE,
         }
@@ -175,6 +180,8 @@ impl Scenario {
             Scenario::Nvim => 180,
             // Обвязка input, два выделения, поток вывода и скрытие B: шаги до 12 с.
             Scenario::A11y => 120,
+            // Обвязка input, источники ввода, композиции японского ввода и прокрутка.
+            Scenario::Accept => 240,
         })
     }
 }
@@ -206,6 +213,7 @@ pub fn start(scenario: Scenario, stand: Rc<Stand>) {
         Scenario::Idle => idle::run(stand),
         Scenario::Nvim => nvim::run(stand),
         Scenario::A11y => a11y::run(stand),
+        Scenario::Accept => accept::run(stand),
     }
 }
 

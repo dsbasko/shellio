@@ -1,0 +1,595 @@
+{
+  "schema": 1,
+  "run_dir": "/Users/dsbasko/Develop/dsbasko/shellio-p03/target/probes/ghostty-surface/20261118-093622-39144",
+  "percentile_method": "nearest-rank",
+  "totals": {
+    "processes": 2,
+    "execution_ok": 2,
+    "execution_errors": 0,
+    "pass": 20,
+    "fail": 6,
+    "observed": 7,
+    "pending_manual": 0,
+    "required_pending_manual": 0,
+    "snapshots_pending_manual": 0,
+    "not_run": 3
+  },
+  "processes": [
+    {
+      "dir": "accept-base",
+      "scenario": "accept",
+      "variant": "base",
+      "route": "direct",
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "h1-init-once",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+        },
+        {
+          "name": "h1-version",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+        },
+        {
+          "name": "h1-config-diagnostics",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_config_diagnostics_count = 0"
+        },
+        {
+          "name": "acc-layout-ru",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "A: ожидалось d0bfd180d0b8d0b2d0b5d182, пришло d0bfd180d0b8d0b2d0b5d182; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.Russian: выбран (текущий Some(\"com.apple.keylayout.Russian\")); источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+        },
+        {
+          "name": "acc-dead-key",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "A: ожидалось c3a9, пришло c3a9; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+        },
+        {
+          "name": "acc-ja-commit",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "A: ожидалось e3818b, пришло e3818b; B: ожидалось , пришло ; ограда у A; контроль, ABC: текст: true, текст \"ka\", marked false; контроль: composition: true, текст \"か\", marked true; контроль: коммит: true, текст \"か\", marked false; контроль: composition перед Esc: true, текст \"か\", marked true; контроль: снятие Esc: false, текст \"か\", marked true; контроль: второй Esc: true, текст \"\", marked false; контроль: composition かな: true, текст \"かな\", marked true; контроль: преобразование: true, текст \"カナ\", marked true; контроль: коммит преобразования: false, текст \"カナ\", marked true; контроль: второй Return: true, текст \"カナ\", marked false; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+        },
+        {
+          "name": "acc-ja-esc",
+          "requirement": "required",
+          "verdict": "fail",
+          "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; расхождения: composition снята одним Esc: false (контроль NSTextView: Some(false)); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; после Esc в PTY ничего: : да; composition снята одним Esc: false (контроль NSTextView: Some(false)): НЕТ; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+        },
+        {
+          "name": "acc-ja-candidate",
+          "requirement": "required",
+          "verdict": "fail",
+          "reason": "A: ожидалось e382abe3838a, пришло e382abe3838a; B: ожидалось , пришло ; ограда у A; расхождения: коммит выбранного кандидата по Return (контроль NSTextView: Some(false)); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"かな\"); до коммита в PTY ничего: : да; preedit перед коммитом \"カナ\"; коммит выбранного кандидата по Return (контроль NSTextView: Some(false)): НЕТ; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+        },
+        {
+          "name": "acc-cmdk-marked",
+          "requirement": "required",
+          "verdict": "fail",
+          "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; расхождения: экран не очищен привязкой super+k; источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; палитра не открылась: открытий 0 → 0, открыта false: да; перехват палитры пропустил нажатие при composition: 0 → 1: да; composition с тем же текстом: Some(\"か\") → Some(\"か\"): да; экран не очищен привязкой super+k: НЕТ; фокус у A: да; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+        },
+        {
+          "name": "acc-scroll-report",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "A: ожидалось 1b5b3c36353b31313b354d1b5b3c36353b31313b354d1b5b3c36353b31313b354d, пришло 1b5b3c36353b31313b354d1b5b3c36353b31313b354d1b5b3c36353b31313b354d; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется; прокруток у вида: 1"
+        },
+        {
+          "name": "acc-scroll-history",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка истории: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется; прокруток у вида 1, текст сдвинулся true; видимый текст сдвинулся: true: да; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка истории обратно: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется"
+        },
+        {
+          "name": "acc-exact-bytes-one-receiver",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "весь поток A 64 байт (ожидалось 64), B 0 байт (ожидалось 0); точное совпадение true; сценарий до конца true; непроведённые части с неизвестным отрезком получателя: []"
+        },
+        {
+          "name": "acc-display-scale",
+          "requirement": "required",
+          "verdict": "observed",
+          "reason": "масштаб дисплея как есть: backingScaleFactor вида 2, режим Some(Mode { width: 2560, height: 1440, pixel_width: 5120, pixel_height: 2880, refresh_hz: 60.0 })"
+        },
+        {
+          "name": "acc-ja-control",
+          "requirement": "research",
+          "verdict": "observed",
+          "reason": "NSTextView, источник com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: Control { warmup: Some(\"ABC: true, текст \\\"ka\\\"\"), source_selected: true, focused: true, composed: true, marked_before_return: Some(\"か\"), text: \"か\", committed: true, esc_cancels: Some(false), converted: Some(\"カナ\"), convert_commits: Some(false), second_esc_cancels: Some(true), second_return_commits: Some(true) }"
+        },
+        {
+          "name": "acc-ja-esc-second",
+          "requirement": "research",
+          "verdict": "observed",
+          "reason": "вторая клавиша сняла composition поверхности: true; у контроля NSTextView: Some(true)"
+        },
+        {
+          "name": "acc-ime-window-geometry",
+          "requirement": "required",
+          "verdict": "not_run",
+          "reason": "стенд: окно процесса метода ввода не появилось и не сменило рамку"
+        },
+        {
+          "name": "acc-ja-candidate-second-return",
+          "requirement": "research",
+          "verdict": "observed",
+          "reason": "вторая клавиша сняла composition поверхности: true; у контроля NSTextView: Some(true)"
+        },
+        {
+          "name": "surface-single-free",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "surface_free",
+          "unit": "ms",
+          "summary": {
+            "count": 2,
+            "p50": 13.546083,
+            "p95": 13.9245,
+            "max": 13.9245
+          }
+        },
+        {
+          "name": "app_free",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 0.005875,
+            "p95": 0.005875,
+            "max": 0.005875
+          }
+        }
+      ],
+      "snapshots": [],
+      "spawn_uptime_ns": 606697157161666
+    },
+    {
+      "dir": "accept-x1",
+      "scenario": "accept",
+      "variant": "x1",
+      "route": "direct",
+      "execution": {
+        "status": "ok"
+      },
+      "findings": [
+        {
+          "name": "h1-init-once",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+        },
+        {
+          "name": "h1-version",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+        },
+        {
+          "name": "h1-config-diagnostics",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "ghostty_config_diagnostics_count = 0"
+        },
+        {
+          "name": "acc-layout-ru",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "A: ожидалось d0bfd180d0b8d0b2d0b5d182, пришло d0bfd180d0b8d0b2d0b5d182; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.Russian: выбран (текущий Some(\"com.apple.keylayout.Russian\")); источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+        },
+        {
+          "name": "acc-dead-key",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "A: ожидалось c3a9, пришло c3a9; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+        },
+        {
+          "name": "acc-ja-commit",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "A: ожидалось e3818b, пришло e3818b; B: ожидалось , пришло ; ограда у A; контроль, ABC: текст: true, текст \"ka\", marked false; контроль: composition: true, текст \"か\", marked true; контроль: коммит: true, текст \"か\", marked false; контроль: composition перед Esc: true, текст \"か\", marked true; контроль: снятие Esc: false, текст \"か\", marked true; контроль: второй Esc: true, текст \"\", marked false; контроль: composition かな: true, текст \"かな\", marked true; контроль: преобразование: true, текст \"カナ\", marked true; контроль: коммит преобразования: false, текст \"カナ\", marked true; контроль: второй Return: true, текст \"カナ\", marked false; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+        },
+        {
+          "name": "acc-ja-esc",
+          "requirement": "required",
+          "verdict": "fail",
+          "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; расхождения: composition снята одним Esc: false (контроль NSTextView: Some(false)); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; после Esc в PTY ничего: : да; composition снята одним Esc: false (контроль NSTextView: Some(false)): НЕТ; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+        },
+        {
+          "name": "acc-ja-candidate",
+          "requirement": "required",
+          "verdict": "fail",
+          "reason": "A: ожидалось e382abe3838a, пришло e382abe3838a; B: ожидалось , пришло ; ограда у A; расхождения: коммит выбранного кандидата по Return (контроль NSTextView: Some(false)); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"かな\"); до коммита в PTY ничего: : да; preedit перед коммитом \"カナ\"; коммит выбранного кандидата по Return (контроль NSTextView: Some(false)): НЕТ; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+        },
+        {
+          "name": "acc-cmdk-marked",
+          "requirement": "required",
+          "verdict": "fail",
+          "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; расхождения: экран не очищен привязкой super+k; источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; палитра не открылась: открытий 0 → 0, открыта false: да; перехват палитры пропустил нажатие при composition: 0 → 1: да; composition с тем же текстом: Some(\"か\") → Some(\"か\"): да; экран не очищен привязкой super+k: НЕТ; фокус у A: да; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+        },
+        {
+          "name": "acc-scroll-report",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "A: ожидалось 1b5b3c36353b31313b354d1b5b3c36353b31313b354d1b5b3c36353b31313b354d, пришло 1b5b3c36353b31313b354d1b5b3c36353b31313b354d1b5b3c36353b31313b354d; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется; прокруток у вида: 1"
+        },
+        {
+          "name": "acc-scroll-history",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка истории: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется; прокруток у вида 1, текст сдвинулся true; видимый текст сдвинулся: true: да; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка истории обратно: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется"
+        },
+        {
+          "name": "acc-exact-bytes-one-receiver",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "весь поток A 64 байт (ожидалось 64), B 0 байт (ожидалось 0); точное совпадение true; сценарий до конца true; непроведённые части с неизвестным отрезком получателя: []"
+        },
+        {
+          "name": "acc-display-scale",
+          "requirement": "required",
+          "verdict": "not_run",
+          "reason": "режим 1x встроенного дисплея не установлен: части прогона идут на прежнем масштабе: backingScaleFactor вида 2, режим Some(Mode { width: 2560, height: 1440, pixel_width: 5120, pixel_height: 2880, refresh_hz: 60.0 })"
+        },
+        {
+          "name": "acc-ja-control",
+          "requirement": "research",
+          "verdict": "observed",
+          "reason": "NSTextView, источник com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: Control { warmup: Some(\"ABC: true, текст \\\"ka\\\"\"), source_selected: true, focused: true, composed: true, marked_before_return: Some(\"か\"), text: \"か\", committed: true, esc_cancels: Some(false), converted: Some(\"カナ\"), convert_commits: Some(false), second_esc_cancels: Some(true), second_return_commits: Some(true) }"
+        },
+        {
+          "name": "acc-ja-esc-second",
+          "requirement": "research",
+          "verdict": "observed",
+          "reason": "вторая клавиша сняла composition поверхности: true; у контроля NSTextView: Some(true)"
+        },
+        {
+          "name": "acc-ime-window-geometry",
+          "requirement": "required",
+          "verdict": "not_run",
+          "reason": "стенд: окно процесса метода ввода не появилось и не сменило рамку"
+        },
+        {
+          "name": "acc-ja-candidate-second-return",
+          "requirement": "research",
+          "verdict": "observed",
+          "reason": "вторая клавиша сняла composition поверхности: true; у контроля NSTextView: Some(true)"
+        },
+        {
+          "name": "surface-single-free",
+          "requirement": "required",
+          "verdict": "pass",
+          "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+        }
+      ],
+      "metrics": [
+        {
+          "name": "surface_free",
+          "unit": "ms",
+          "summary": {
+            "count": 2,
+            "p50": 12.689583,
+            "p95": 13.191166,
+            "max": 13.191166
+          }
+        },
+        {
+          "name": "app_free",
+          "unit": "ms",
+          "summary": {
+            "count": 1,
+            "p50": 0.006708,
+            "p95": 0.006708,
+            "max": 0.006708
+          }
+        }
+      ],
+      "snapshots": [],
+      "spawn_uptime_ns": 606716405089291
+    }
+  ],
+  "findings": [
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "acc-layout-ru",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось d0bfd180d0b8d0b2d0b5d182, пришло d0bfd180d0b8d0b2d0b5d182; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.Russian: выбран (текущий Some(\"com.apple.keylayout.Russian\")); источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "acc-dead-key",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось c3a9, пришло c3a9; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "acc-ja-commit",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось e3818b, пришло e3818b; B: ожидалось , пришло ; ограда у A; контроль, ABC: текст: true, текст \"ka\", marked false; контроль: composition: true, текст \"か\", marked true; контроль: коммит: true, текст \"か\", marked false; контроль: composition перед Esc: true, текст \"か\", marked true; контроль: снятие Esc: false, текст \"か\", marked true; контроль: второй Esc: true, текст \"\", marked false; контроль: composition かな: true, текст \"かな\", marked true; контроль: преобразование: true, текст \"カナ\", marked true; контроль: коммит преобразования: false, текст \"カナ\", marked true; контроль: второй Return: true, текст \"カナ\", marked false; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "acc-ja-esc",
+      "requirement": "required",
+      "verdict": "fail",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; расхождения: composition снята одним Esc: false (контроль NSTextView: Some(false)); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; после Esc в PTY ничего: : да; composition снята одним Esc: false (контроль NSTextView: Some(false)): НЕТ; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "acc-ja-candidate",
+      "requirement": "required",
+      "verdict": "fail",
+      "reason": "A: ожидалось e382abe3838a, пришло e382abe3838a; B: ожидалось , пришло ; ограда у A; расхождения: коммит выбранного кандидата по Return (контроль NSTextView: Some(false)); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"かな\"); до коммита в PTY ничего: : да; preedit перед коммитом \"カナ\"; коммит выбранного кандидата по Return (контроль NSTextView: Some(false)): НЕТ; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "acc-cmdk-marked",
+      "requirement": "required",
+      "verdict": "fail",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; расхождения: экран не очищен привязкой super+k; источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; палитра не открылась: открытий 0 → 0, открыта false: да; перехват палитры пропустил нажатие при composition: 0 → 1: да; composition с тем же текстом: Some(\"か\") → Some(\"か\"): да; экран не очищен привязкой super+k: НЕТ; фокус у A: да; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "acc-scroll-report",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 1b5b3c36353b31313b354d1b5b3c36353b31313b354d1b5b3c36353b31313b354d, пришло 1b5b3c36353b31313b354d1b5b3c36353b31313b354d1b5b3c36353b31313b354d; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется; прокруток у вида: 1"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "acc-scroll-history",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка истории: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется; прокруток у вида 1, текст сдвинулся true; видимый текст сдвинулся: true: да; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка истории обратно: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "acc-exact-bytes-one-receiver",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "весь поток A 64 байт (ожидалось 64), B 0 байт (ожидалось 0); точное совпадение true; сценарий до конца true; непроведённые части с неизвестным отрезком получателя: []"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "acc-display-scale",
+      "requirement": "required",
+      "verdict": "observed",
+      "reason": "масштаб дисплея как есть: backingScaleFactor вида 2, режим Some(Mode { width: 2560, height: 1440, pixel_width: 5120, pixel_height: 2880, refresh_hz: 60.0 })"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "acc-ja-control",
+      "requirement": "research",
+      "verdict": "observed",
+      "reason": "NSTextView, источник com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: Control { warmup: Some(\"ABC: true, текст \\\"ka\\\"\"), source_selected: true, focused: true, composed: true, marked_before_return: Some(\"か\"), text: \"か\", committed: true, esc_cancels: Some(false), converted: Some(\"カナ\"), convert_commits: Some(false), second_esc_cancels: Some(true), second_return_commits: Some(true) }"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "acc-ja-esc-second",
+      "requirement": "research",
+      "verdict": "observed",
+      "reason": "вторая клавиша сняла composition поверхности: true; у контроля NSTextView: Some(true)"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "acc-ime-window-geometry",
+      "requirement": "required",
+      "verdict": "not_run",
+      "reason": "стенд: окно процесса метода ввода не появилось и не сменило рамку"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "acc-ja-candidate-second-return",
+      "requirement": "research",
+      "verdict": "observed",
+      "reason": "вторая клавиша сняла composition поверхности: true; у контроля NSTextView: Some(true)"
+    },
+    {
+      "scenario": "accept",
+      "variant": "base",
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "h1-init-once",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_init вызван один раз до NSApplication и рабочих потоков, код 0, argv [\"probe-ghostty-surface\"]"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "h1-version",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_info 1.4.0 совпадает со штампом набора"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "h1-config-diagnostics",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "ghostty_config_diagnostics_count = 0"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "acc-layout-ru",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось d0bfd180d0b8d0b2d0b5d182, пришло d0bfd180d0b8d0b2d0b5d182; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.Russian: выбран (текущий Some(\"com.apple.keylayout.Russian\")); источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "acc-dead-key",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось c3a9, пришло c3a9; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "acc-ja-commit",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось e3818b, пришло e3818b; B: ожидалось , пришло ; ограда у A; контроль, ABC: текст: true, текст \"ka\", marked false; контроль: composition: true, текст \"か\", marked true; контроль: коммит: true, текст \"か\", marked false; контроль: composition перед Esc: true, текст \"か\", marked true; контроль: снятие Esc: false, текст \"か\", marked true; контроль: второй Esc: true, текст \"\", marked false; контроль: composition かな: true, текст \"かな\", marked true; контроль: преобразование: true, текст \"カナ\", marked true; контроль: коммит преобразования: false, текст \"カナ\", marked true; контроль: второй Return: true, текст \"カナ\", marked false; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "acc-ja-esc",
+      "requirement": "required",
+      "verdict": "fail",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; расхождения: composition снята одним Esc: false (контроль NSTextView: Some(false)); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; после Esc в PTY ничего: : да; composition снята одним Esc: false (контроль NSTextView: Some(false)): НЕТ; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "acc-ja-candidate",
+      "requirement": "required",
+      "verdict": "fail",
+      "reason": "A: ожидалось e382abe3838a, пришло e382abe3838a; B: ожидалось , пришло ; ограда у A; расхождения: коммит выбранного кандидата по Return (контроль NSTextView: Some(false)); источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"かな\"); до коммита в PTY ничего: : да; preedit перед коммитом \"カナ\"; коммит выбранного кандидата по Return (контроль NSTextView: Some(false)): НЕТ; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "acc-cmdk-marked",
+      "requirement": "required",
+      "verdict": "fail",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; расхождения: экран не очищен привязкой super+k; источник ввода com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: выбран (текущий Some(\"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese\")); marked text после клавиш: true, preedit Some(\"か\"); до коммита в PTY ничего: : да; палитра не открылась: открытий 0 → 0, открыта false: да; перехват палитры пропустил нажатие при composition: 0 → 1: да; composition с тем же текстом: Some(\"か\") → Some(\"か\"): да; экран не очищен привязкой super+k: НЕТ; фокус у A: да; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\"))"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "acc-scroll-report",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось 1b5b3c36353b31313b354d1b5b3c36353b31313b354d1b5b3c36353b31313b354d, пришло 1b5b3c36353b31313b354d1b5b3c36353b31313b354d1b5b3c36353b31313b354d; B: ожидалось , пришло ; ограда у A; источник ввода com.apple.keylayout.ABC: выбран (текущий Some(\"com.apple.keylayout.ABC\")); клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется; прокруток у вида: 1"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "acc-scroll-history",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "A: ожидалось , пришло ; B: ожидалось , пришло ; ограда у A; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка истории: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется; прокруток у вида 1, текст сдвинулся true; видимый текст сдвинулся: true: да; клетка 10,4: x 82.0, базовая линия 74.0, клетка 8.0×15.0 точек; прокрутка истории обратно: scrollWheel: вида напрямую, маршрутизация AppKit не проверяется"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "acc-exact-bytes-one-receiver",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "весь поток A 64 байт (ожидалось 64), B 0 байт (ожидалось 0); точное совпадение true; сценарий до конца true; непроведённые части с неизвестным отрезком получателя: []"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "acc-display-scale",
+      "requirement": "required",
+      "verdict": "not_run",
+      "reason": "режим 1x встроенного дисплея не установлен: части прогона идут на прежнем масштабе: backingScaleFactor вида 2, режим Some(Mode { width: 2560, height: 1440, pixel_width: 5120, pixel_height: 2880, refresh_hz: 60.0 })"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "acc-ja-control",
+      "requirement": "research",
+      "verdict": "observed",
+      "reason": "NSTextView, источник com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese: Control { warmup: Some(\"ABC: true, текст \\\"ka\\\"\"), source_selected: true, focused: true, composed: true, marked_before_return: Some(\"か\"), text: \"か\", committed: true, esc_cancels: Some(false), converted: Some(\"カナ\"), convert_commits: Some(false), second_esc_cancels: Some(true), second_return_commits: Some(true) }"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "acc-ja-esc-second",
+      "requirement": "research",
+      "verdict": "observed",
+      "reason": "вторая клавиша сняла composition поверхности: true; у контроля NSTextView: Some(true)"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "acc-ime-window-geometry",
+      "requirement": "required",
+      "verdict": "not_run",
+      "reason": "стенд: окно процесса метода ввода не появилось и не сменило рамку"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "acc-ja-candidate-second-return",
+      "requirement": "research",
+      "verdict": "observed",
+      "reason": "вторая клавиша сняла composition поверхности: true; у контроля NSTextView: Some(true)"
+    },
+    {
+      "scenario": "accept",
+      "variant": "x1",
+      "name": "surface-single-free",
+      "requirement": "required",
+      "verdict": "pass",
+      "reason": "намерений закрыть 2, создано 2, освобождено 2, вызовов free 2"
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+ "base": {
+  "process": "probe-ghostty-surface (96546)",
+  "alignment_spread_ns": 1084,
+  "thread_a": "renderer (0x46e2b9b) (probe-ghostty-surface, pid: 96546)",
+  "thread_c": "renderer (0x46e4908) (probe-ghostty-surface, pid: 96546)",
+  "visible_submissions_a": 103,
+  "hidden_intervals_a": 16,
+  "hidden_submissions_a": [
+   {
+    "cell_from": "view-hidden",
+    "reasons": [
+     "скрыт вид или предок"
+    ],
+    "ms_after_hide": 3862.8,
+    "ms_before_show": 1209.1,
+    "settled": true,
+    "thread": "Main Thread"
+   }
+  ],
+  "hidden_submissions_c": [
+   {
+    "ms_after_hide": 1.0,
+    "settled": false
+   }
+  ],
+  "verdict": "fail"
+ },
+ "bounds": {
+  "process": "probe-ghostty-surface (98793)",
+  "alignment_spread_ns": 167,
+  "thread_a": "renderer (0x46e6553) (probe-ghostty-surface, pid: 98793)",
+  "thread_c": "renderer (0x46e7f81) (probe-ghostty-surface, pid: 98793)",
+  "visible_submissions_a": 103,
+  "hidden_intervals_a": 16,
+  "hidden_submissions_a": [],
+  "hidden_submissions_c": [
+   {
+    "ms_after_hide": 1.0,
+    "settled": false
+   }
+  ],
+  "verdict": "pass"
+ },
+ "defer": {
+  "process": "probe-ghostty-surface (1193)",
+  "alignment_spread_ns": 374,
+  "thread_a": "renderer (0x46e994b) (probe-ghostty-surface, pid: 1193)",
+  "thread_c": "renderer (0x46eb474) (probe-ghostty-surface, pid: 1193)",
+  "visible_submissions_a": 107,
+  "hidden_intervals_a": 16,
+  "hidden_submissions_a": [
+   {
+    "cell_from": "view-hidden",
+    "reasons": [
+     "скрыт вид или предок"
+    ],
+    "ms_after_hide": 3644.5,
+    "ms_before_show": 1209.4,
+    "settled": true,
+    "thread": "Main Thread"
+   }
+  ],
+  "hidden_submissions_c": [],
+  "verdict": "fail"
+ },
+ "syncdraw": {
+  "process": "probe-ghostty-surface (3633)",
+  "alignment_spread_ns": 667,
+  "thread_a": "renderer (0x46ed202) (probe-ghostty-surface, pid: 3633)",
+  "thread_c": "renderer (0x46ef272) (probe-ghostty-surface, pid: 3633)",
+  "visible_submissions_a": 113,
+  "hidden_intervals_a": 16,
+  "hidden_submissions_a": [
+   {
+    "cell_from": "view-hidden",
+    "reasons": [
+     "скрыт вид или предок"
+    ],
+    "ms_after_hide": 3859.4,
+    "ms_before_show": 1208.9,
+    "settled": true,
+    "thread": "Main Thread"
+   }
+  ],
+  "hidden_submissions_c": [
+   {
+    "ms_after_hide": 1.6,
+    "settled": false
+   }
+  ],
+  "verdict": "fail"
+ },
+ "all": {
+  "process": "probe-ghostty-surface (6302)",
+  "alignment_spread_ns": 542,
+  "thread_a": "renderer (0x46f1240) (probe-ghostty-surface, pid: 6302)",
+  "thread_c": "renderer (0x46f39b9) (probe-ghostty-surface, pid: 6302)",
+  "visible_submissions_a": 104,
+  "hidden_intervals_a": 16,
+  "hidden_submissions_a": [],
+  "hidden_submissions_c": [],
+  "verdict": "pass"
+ }
+}

@@ -1,0 +1,358 @@
+{
+ "base": {
+  "process": "probe-ghostty-surface (96546)",
+  "alignment_spread_ns": 1084,
+  "settled_hidden_intervals": 10,
+  "deallocations_at_hide": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   1,
+   3,
+   3
+  ],
+  "allocations_at_show": [
+   3,
+   3,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2,
+   3,
+   3
+  ],
+  "allocations_after_settle": [
+   {
+    "cell_from": "view-hidden",
+    "ms_after_hide": 3862.5,
+    "mib": 3.06,
+    "thread": "Main Thread"
+   }
+  ],
+  "live_textures_visible": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3
+  ],
+  "live_textures_hidden_settled": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "live_textures_hidden_before_show": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   1,
+   0,
+   0,
+   0
+  ],
+  "verdict": "fail"
+ },
+ "bounds": {
+  "process": "probe-ghostty-surface (98793)",
+  "alignment_spread_ns": 167,
+  "settled_hidden_intervals": 10,
+  "deallocations_at_hide": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   1,
+   3,
+   3
+  ],
+  "allocations_at_show": [
+   3,
+   3,
+   2,
+   2,
+   2,
+   2,
+   3,
+   3,
+   3,
+   3
+  ],
+  "allocations_after_settle": [],
+  "live_textures_visible": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3
+  ],
+  "live_textures_hidden_settled": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "live_textures_hidden_before_show": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "verdict": "pass"
+ },
+ "defer": {
+  "process": "probe-ghostty-surface (1193)",
+  "alignment_spread_ns": 374,
+  "settled_hidden_intervals": 10,
+  "deallocations_at_hide": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   1,
+   3,
+   3
+  ],
+  "allocations_at_show": [
+   3,
+   3,
+   2,
+   2,
+   2,
+   2,
+   2,
+   3,
+   3,
+   3
+  ],
+  "allocations_after_settle": [
+   {
+    "cell_from": "view-hidden",
+    "ms_after_hide": 3644.2,
+    "mib": 3.06,
+    "thread": "Main Thread"
+   }
+  ],
+  "live_textures_visible": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3
+  ],
+  "live_textures_hidden_settled": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "live_textures_hidden_before_show": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   1,
+   0,
+   0,
+   0
+  ],
+  "verdict": "fail"
+ },
+ "syncdraw": {
+  "process": "probe-ghostty-surface (3633)",
+  "alignment_spread_ns": 667,
+  "settled_hidden_intervals": 10,
+  "deallocations_at_hide": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3
+  ],
+  "allocations_at_show": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   2,
+   3,
+   3,
+   3
+  ],
+  "allocations_after_settle": [
+   {
+    "cell_from": "view-hidden",
+    "ms_after_hide": 3859.1,
+    "mib": 3.06,
+    "thread": "Main Thread"
+   }
+  ],
+  "live_textures_visible": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3
+  ],
+  "live_textures_hidden_settled": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "live_textures_hidden_before_show": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   1,
+   0,
+   0,
+   0
+  ],
+  "verdict": "fail"
+ },
+ "all": {
+  "process": "probe-ghostty-surface (6302)",
+  "alignment_spread_ns": 542,
+  "settled_hidden_intervals": 10,
+  "deallocations_at_hide": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   1,
+   3,
+   3
+  ],
+  "allocations_at_show": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3
+  ],
+  "allocations_after_settle": [],
+  "live_textures_visible": [
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3
+  ],
+  "live_textures_hidden_settled": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "live_textures_hidden_before_show": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "verdict": "pass"
+ }
+}

@@ -398,6 +398,14 @@ fn supervise(
         None => (None, None),
     };
     let leftovers = reap_leftovers(nonce);
+    match out.and_then(crate::sources::restore_file) {
+        Some(Ok(now)) => say(&format!("источник ввода возвращён после процесса: {now}")),
+        Some(Err(reason)) => say(&format!(
+            "источник ввода после процесса не возвращён: {reason}; файл {} оставлен",
+            crate::sources::STATE_FILE
+        )),
+        None => {}
+    }
     Ok(Supervised {
         plan,
         env,

@@ -123,6 +123,10 @@ struct CheckRecord {
     /// Расхождения состояния, записанные [`Input::verify`].
     failures: Vec<String>,
     notes: Vec<String>,
+    /// Причина, по которой стенд не провёл проверку (ADR-0036).
+    not_run: Option<String>,
+    /// Второй получатель без лишних байтов и сверки состояния без расхождений.
+    independent_ok: bool,
 }
 
 struct Pending {
@@ -168,6 +172,8 @@ pub(super) struct Input {
     pub(super) findings: Vec<(String, Requirement, Verdict, String)>,
     /// Метрики сценария: имя, единица, значения.
     pub(super) metrics: Vec<(String, &'static str, Vec<f64>)>,
+    /// Проверки, которые стенд не смог провести: имя и причина (`not_run`, ADR-0036).
+    pub(super) not_run: Vec<(&'static str, String)>,
     pub(super) snapshots: Vec<crate::results::Snapshot>,
     /// Отметки задержки для агрегатов (`latency`).
     pub(super) latency: Option<crate::results::LatencyMarks>,
@@ -197,7 +203,7 @@ impl Input {
     }
 
     /// Все байты, прочитанные фикстурой, по квитанциям `read`.
-    fn bytes(&mut self, which: usize) -> Vec<u8> {
+    pub(super) fn bytes(&mut self, which: usize) -> Vec<u8> {
         self.env.hub.poll();
         let nonce = self.nonce(which);
         let Some(conn) = self.env.hub.by_nonce(&nonce) else {
@@ -308,6 +314,44 @@ impl Input {
         });
     }
 
+    /// Итог проверки, начатой до обрыва сценария: наблюдённые расхождения — `fail`, иначе
+    /// незавершённость — `not_run`. Ограды не было, поэтому последний байт не снимается, а в
+    /// итоговый поток проверка не входит.
+    fn abandon(&mut self, reason: &str) {
+        // Отрезок проверки отсчитывается от её отметок: байты читаются до снятия `pending`.
+        let seen = [self.since(A), self.since(B)];
+        let Some(pending) = self.pending.take() else {
+            return;
+        };
+        let independent_ok =
+            independent_ok(&seen, &pending.expect, pending.fence_to) && pending.failures.is_empty();
+        self.checks.push(CheckRecord {
+            name: pending.name,
+            fence_to: NAMES[pending.fence_to],
+            expected_a: fixture::hex(&pending.expect[A]),
+            got_a: fixture::hex(&seen[A]),
+            expected_b: fixture::hex(&pending.expect[B]),
+            got_b: fixture::hex(&seen[B]),
+            pass: false,
+            failures: pending.failures,
+            notes: pending.notes,
+            not_run: Some(format!("проверка оборвана до ограды: {reason}")),
+            independent_ok,
+        });
+    }
+
+    /// Байты получателя `which` с начала текущей проверки.
+    pub(super) fn pending_bytes(&mut self, which: usize) -> Vec<u8> {
+        self.since(which)
+    }
+
+    /// Ожидание текущей проверки, известное только после стимула (текст выбранного кандидата).
+    pub(super) fn set_expect(&mut self, expect: [Vec<u8>; 2]) {
+        if let Some(pending) = self.pending.as_mut() {
+            pending.expect = expect;
+        }
+    }
+
     pub(super) fn note(&mut self, note: String) {
         match self.pending.as_mut() {
             Some(pending) => pending.notes.push(note),
@@ -409,11 +453,25 @@ impl Input {
         let fence_to = pending.fence_to;
         let mut seen = got.clone();
         seen[fence_to].pop();
+        let not_run = self
+            .not_run
+            .iter()
+            .find(|(name, _)| *name == pending.name)
+            .map(|(_, reason)| reason.clone());
+        let independent_ok =
+            independent_ok(&seen, &pending.expect, fence_to) && pending.failures.is_empty();
         let pass = seen[A] == pending.expect[A]
             && seen[B] == pending.expect[B]
             && pending.failures.is_empty();
         for which in [A, B] {
-            self.totals[which].extend_from_slice(&pending.expect[which]);
+            // Отрезок получателя непроведённой проверки неизвестен: в поток идут пришедшие байты,
+            // поток другого получателя сверяется с ожиданием как обычно.
+            let segment = if not_run.is_some() && which == fence_to {
+                &seen[which]
+            } else {
+                &pending.expect[which]
+            };
+            self.totals[which].extend_from_slice(segment);
         }
         self.totals[fence_to].push(FENCE_BYTE);
         self.checks.push(CheckRecord {
@@ -426,9 +484,18 @@ impl Input {
             pass,
             failures: pending.failures,
             notes: pending.notes,
+            not_run,
+            independent_ok,
         });
         Ok(())
     }
+}
+
+/// Независимый оракул непроведённой проверки: второй получатель совпадает с ожиданием, а
+/// получатель с пустым ожиданием не получил ничего — отрезок неизвестен только у непустого.
+fn independent_ok(seen: &[Vec<u8>; 2], expect: &[Vec<u8>; 2], fence_to: usize) -> bool {
+    let other = 1 - fence_to;
+    seen[other] == expect[other] && (!expect[fence_to].is_empty() || seen[fence_to].is_empty())
 }
 
 fn short(nonce: &str) -> String {
@@ -672,6 +739,7 @@ pub(super) fn run_harness(stand: Rc<Stand>, harness: Harness) {
         posted: Vec::new(),
         findings: Vec::new(),
         metrics: Vec::new(),
+        not_run: Vec::new(),
         snapshots: Vec::new(),
         latency: None,
     }));
@@ -685,13 +753,14 @@ pub(super) fn run_harness(stand: Rc<Stand>, harness: Harness) {
     close(&mut plan);
     let steps = plan.steps;
     run_steps(steps, move |result| {
-        let verdict = match result {
-            Ok(()) => {
-                judge(&mut input.borrow_mut(), &mut report);
-                Ok(())
-            }
-            Err(failure) => Err(failure.describe()),
-        };
+        // Проведённые проверки выносятся и при ошибке исполнения: поздний отказ стенда не
+        // стирает уже добытые итоги; полнота потока тогда не утверждается.
+        let complete = result.is_ok();
+        let verdict = result.map_err(|failure| failure.describe());
+        if let Err(reason) = &verdict {
+            input.borrow_mut().abandon(reason);
+        }
+        judge(&mut input.borrow_mut(), &mut report, complete);
         if let Some(router) = crate::router::uninstall() {
             report.push_json("router", &router);
         }
@@ -1385,9 +1454,46 @@ pub(super) fn focused(stand: &Stand, view: &SurfaceView) -> Poll<()> {
     )
 }
 
+/// Итог проверки с оградой. Непроведённая стендом проверка — `not_run`, если её независимый
+/// оракул (второй получатель, сверки состояния) не нарушен; наблюдённое нарушение — `fail`.
+fn check_verdict(pass: bool, not_run: bool, independent_ok: bool) -> Verdict {
+    match (not_run, pass, independent_ok) {
+        (true, _, true) => Verdict::NotRun,
+        (true, _, false) | (false, false, _) => Verdict::Fail,
+        (false, true, _) => Verdict::Pass,
+    }
+}
+
 /// Выводы H2 по проверкам и итоговым потокам байтов.
-fn judge(input: &mut Input, report: &mut Report) {
+fn judge(input: &mut Input, report: &mut Report, complete: bool) {
     for check in &input.checks {
+        if let Some(reason) = &check.not_run {
+            // Наблюдённое нарушение важнее непроведённости: лишний байт у другого получателя
+            // или расхождение сверки — `fail`.
+            report.finding(
+                &format!("{}-{}", input.prefix, check.name),
+                Requirement::Required,
+                check_verdict(check.pass, true, check.independent_ok),
+                format!(
+                    "{reason}; A: ожидалось {}, пришло {}; B: ожидалось {}, пришло {}{}{}",
+                    check.expected_a,
+                    check.got_a,
+                    check.expected_b,
+                    check.got_b,
+                    if check.failures.is_empty() {
+                        String::new()
+                    } else {
+                        format!("; расхождения: {}", check.failures.join("; "))
+                    },
+                    if check.notes.is_empty() {
+                        String::new()
+                    } else {
+                        format!("; {}", check.notes.join("; "))
+                    }
+                ),
+            );
+            continue;
+        }
         report.finding(
             &format!("{}-{}", input.prefix, check.name),
             Requirement::Required,
@@ -1418,12 +1524,27 @@ fn judge(input: &mut Input, report: &mut Report) {
     }
     let totals = [input.bytes(A), input.bytes(B)];
     let exact = totals[A] == input.totals[A] && totals[B] == input.totals[B];
+    let excluded: Vec<&str> = input
+        .checks
+        .iter()
+        .filter(|check| check.not_run.is_some())
+        .map(|check| check.name)
+        .collect();
+    // С непроведёнными частями поток их получателя известен не целиком: совпадение — только
+    // наблюдение «точные байты проверенных частей», не `pass`; оборванный сценарий полноту не
+    // утверждает.
+    let verdict = match (exact, complete, excluded.is_empty()) {
+        (false, true, _) => Verdict::Fail,
+        (true, true, true) => Verdict::Pass,
+        (true, true, false) => Verdict::Observed,
+        (_, false, _) => Verdict::NotRun,
+    };
     report.finding(
         &format!("{}-exact-bytes-one-receiver", input.prefix),
         Requirement::Required,
-        if exact { Verdict::Pass } else { Verdict::Fail },
+        verdict,
         format!(
-            "весь поток A {} байт (ожидалось {}), B {} байт (ожидалось {}); точное совпадение {exact}",
+            "весь поток A {} байт (ожидалось {}), B {} байт (ожидалось {}); точное совпадение {exact}; сценарий до конца {complete}; непроведённые части с неизвестным отрезком получателя: {excluded:?}",
             totals[A].len(),
             input.totals[A].len(),
             totals[B].len(),
@@ -1457,4 +1578,36 @@ fn conclude(
         }
     }
     surface_env::finish_views(stand, report, verdict, list);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn independent_oracle_keeps_empty_primary_expectation() {
+        let empty: [Vec<u8>; 2] = [Vec::new(), Vec::new()];
+        assert!(independent_ok(&empty, &empty, A));
+        assert!(!independent_ok(&[b"\x1b".to_vec(), Vec::new()], &empty, A));
+        assert!(!independent_ok(&[Vec::new(), b"x".to_vec()], &empty, A));
+        let commit = [b"ka".to_vec(), Vec::new()];
+        assert!(independent_ok(&[Vec::new(), Vec::new()], &commit, A));
+        assert!(independent_ok(&[b"zz".to_vec(), Vec::new()], &commit, A));
+        assert!(!independent_ok(
+            &[b"ka".to_vec(), b"x".to_vec()],
+            &commit,
+            A
+        ));
+    }
+
+    #[test]
+    fn not_run_yields_to_observed_violation() {
+        assert_eq!(check_verdict(true, false, true), Verdict::Pass);
+        assert_eq!(check_verdict(false, false, true), Verdict::Fail);
+        // Стенд не провёл проверку, другой получатель чист, сверки без расхождений.
+        assert_eq!(check_verdict(false, true, true), Verdict::NotRun);
+        // Лишний байт у второго получателя или verify(false) при непроведённой проверке.
+        assert_eq!(check_verdict(false, true, false), Verdict::Fail);
+        assert_eq!(check_verdict(true, true, false), Verdict::Fail);
+    }
 }
