@@ -89,6 +89,11 @@ impl Clock for TokioClock {
         F: Future + Send,
         F::Output: Send,
     {
+        // `timeout_at` опрашивает операцию раньше таймера и по истёкшему сроку успел бы
+        // выполнить готовую запись.
+        if Instant::now() >= deadline {
+            return Err(Expired);
+        }
         tokio::time::timeout_at(deadline, future)
             .await
             .map_err(|_| Expired)
@@ -270,6 +275,18 @@ mod tests {
         assert_eq!(clock.within(deadline, async { 7 }).await, Ok(7));
         assert_eq!(clock.within(deadline, pending::<()>()).await, Err(Expired));
         assert_eq!(start.elapsed(), Duration::from_millis(300));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn tokio_clock_cuts_operation_after_deadline_before_it_runs() {
+        let clock = TokioClock;
+        let deadline = clock.deadline(Duration::from_millis(100));
+        tokio::time::advance(Duration::from_millis(100)).await;
+
+        let mut ran = false;
+        let result = clock.within(deadline, async { ran = true }).await;
+        assert_eq!(result, Err(Expired));
+        assert!(!ran);
     }
 
     #[tokio::test(start_paused = true)]
