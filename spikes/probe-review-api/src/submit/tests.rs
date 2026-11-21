@@ -159,6 +159,89 @@ fn gitlab_publish_is_refuted_left_unresolved_or_candidate_but_never_confirmed() 
 }
 
 #[test]
+fn gitlab_update_of_range_start_alone_is_refuted_until_applied() -> TestResult {
+    let mut fake = GitlabFake::new("g/p");
+    fake.add_user("bob", "tok-reviewer", Some(Access::Developer));
+    fake.add_mr(3, "bob", BASE, HEAD, vec![FakeDiff::modified(PATH, DIFF)]);
+    let server = FakeServer::start(fake)?;
+    let target = ReviewTarget {
+        provider: Provider::GitLab,
+        host: "gitlab.test".to_owned(),
+        repo: "g/p".to_owned(),
+        number: 3,
+    };
+    let gitlab = GitLab::new(
+        HttpTransport::new(
+            HttpConfig::default(),
+            Some(Credential::private_token(Secret::new("tok-reviewer"))),
+        ),
+        gitlab::Endpoints::instance(server.base()),
+        &target,
+    )?;
+    let snapshot = gitlab.merge_request()?;
+    let session = ReviewSession::new("bob", target, snapshot.revision.clone());
+    let dir = tempfile::tempdir()?;
+    let journal = Journal::open(&dir.path().join("state.db"))?;
+    let scope = journal.scope(&ProjectId::new("p"));
+    let session_id = scope.create_session(&session)?;
+    let file = &snapshot.files[0];
+    let end = LinePoint::at(file, Side::New, 3)?;
+    let sent = scope.add_draft(
+        session_id,
+        Placement::Line(Anchor::range(
+            file,
+            LinePoint::at(file, Side::New, 2)?,
+            end,
+        )?),
+        "диапазон",
+    )?;
+    let (known, _) = gitlab.create_draft(&session, &sent, false)?;
+    let moved = scope.add_draft(
+        session_id,
+        Placement::Line(Anchor::range(
+            file,
+            LinePoint::at(file, Side::New, 1)?,
+            end,
+        )?),
+        "диапазон",
+    )?;
+    scope.set_draft_remote_id(moved.id, known.id())?;
+    let submission = scope.plan_submission(
+        session_id,
+        &[planned(Operation::GitLabUpdateDraftNote, &[moved.id])],
+    )?;
+    let item = submission.items[0].id;
+    scope.begin(item)?;
+    scope.mark_unknown(item, "нет ответа")?;
+    let draft = scope.draft(moved.id)?;
+    let reconcile = || -> Result<Verdict, Box<dyn std::error::Error>> {
+        Ok(reconcile_gitlab(
+            &gitlab,
+            &GitLabLedger {
+                session: &session,
+                submission: &scope.submission(submission.id)?,
+                item: &scope.item(item)?,
+                drafts: std::slice::from_ref(&draft),
+                own_drafts: &[],
+                own_notes: &[],
+            },
+        ))
+    };
+    let verdict = reconcile()?;
+    assert!(
+        matches!(verdict, Verdict::Refuted { .. }),
+        "конец и текст те же, начало прежнее: {verdict:?}"
+    );
+    gitlab.update_draft(&session, &known, &draft)?;
+    let verdict = reconcile()?;
+    assert!(
+        matches!(verdict, Verdict::Confirmed { .. }),
+        "начало диапазона обновлено: {verdict:?}"
+    );
+    Ok(())
+}
+
+#[test]
 fn gitlab_request_changes_without_reviewer_is_unresolved_and_other_state_refuted() -> TestResult {
     let mut fake = GitlabFake::new("g/p");
     fake.add_user("bob", "tok-reviewer", Some(Access::Developer));

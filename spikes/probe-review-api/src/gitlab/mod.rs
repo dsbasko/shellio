@@ -298,6 +298,29 @@ impl RemotePosition {
             parse_sha(&self.head_sha)?,
         ))
     }
+
+    /// Пути, строки и концы `line_range` совпадают с отправленной позицией `sent`.
+    pub fn matches_sent(&self, sent: &Value) -> bool {
+        let line = |name: &str| sent.get(name).and_then(Value::as_u64);
+        self.old_path == sent["old_path"].as_str().unwrap_or_default()
+            && self.new_path == sent["new_path"].as_str().unwrap_or_default()
+            && self.old_line.map(u64::from) == line("old_line")
+            && self.new_line.map(u64::from) == line("new_line")
+            && range_ends(self.line_range.as_ref()) == range_ends(sent.get("line_range"))
+    }
+}
+
+/// Концы `line_range` по `line_code`: он задаёт путь и оба счётчика строки. `type` не сравнивается:
+/// у неизменённой строки таблица параметров и пример ответа документации расходятся.
+fn range_ends(range: Option<&Value>) -> Option<(Option<&str>, Option<&str>)> {
+    let range = range.filter(|range| !range.is_null())?;
+    let code = |end: &str| {
+        range
+            .get(end)
+            .and_then(|end| end.get("line_code"))
+            .and_then(Value::as_str)
+    };
+    Some((code("start"), code("end")))
 }
 
 /// Черновик в ответе сервера.
@@ -713,14 +736,9 @@ impl<T: Transport> GitLab<T> {
                         position.head_sha
                     )));
                 }
-                let line = |name: &str| sent.get(name).and_then(Value::as_u64);
-                let same = position.old_path == sent["old_path"].as_str().unwrap_or_default()
-                    && position.new_path == sent["new_path"].as_str().unwrap_or_default()
-                    && position.old_line.map(u64::from) == line("old_line")
-                    && position.new_line.map(u64::from) == line("new_line");
-                if !same {
+                if !position.matches_sent(sent) {
                     return Err(ApiError::Unexpected(format!(
-                        "черновик {} записан на другой строке",
+                        "черновик {} записан на другой строке или диапазоне",
                         remote.id.as_str()
                     )));
                 }

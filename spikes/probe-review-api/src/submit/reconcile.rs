@@ -278,14 +278,10 @@ fn gitlab_position_matches(
     let Ok(sent) = serde_json::to_value(&position) else {
         return false;
     };
-    let line = |name: &str| sent.get(name).and_then(serde_json::Value::as_u64);
     remote
         .revision()
         .is_ok_and(|triple| session.verify_outgoing(&triple).is_ok())
-        && remote.old_path == sent["old_path"].as_str().unwrap_or_default()
-        && remote.new_path == sent["new_path"].as_str().unwrap_or_default()
-        && remote.old_line.map(u64::from) == line("old_line")
-        && remote.new_line.map(u64::from) == line("new_line")
+        && remote.matches_sent(&sent)
 }
 
 pub fn reconcile_gitlab<T: Transport>(gitlab: &GitLab<T>, ledger: &GitLabLedger<'_>) -> Verdict {
