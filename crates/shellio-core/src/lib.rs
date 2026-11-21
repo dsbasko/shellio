@@ -2,13 +2,21 @@
 
 #![forbid(unsafe_code)]
 
+mod change;
 mod clock;
+mod command;
+mod error;
+mod handler;
 mod ids;
 mod model;
 mod root;
 mod title;
 
+pub use change::Change;
 pub use clock::{Clock, SystemClock, UnixMillis};
+pub use command::{Command, CommandValue, PreparedCommand};
+pub use error::{CoreError, Entity, ErrorCode};
+pub use handler::{BOOTSTRAP_WORKSPACE, Ctx, Outcome, handle, startup};
 pub use ids::{
     AgentId, IdGen, IdParseError, PanelId, ProjectId, ProjectRootId, SessionId, SystemIds,
     WorkbenchId, WorkspaceId,

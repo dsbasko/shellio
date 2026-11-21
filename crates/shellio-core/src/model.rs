@@ -241,6 +241,49 @@ impl State {
         Some(self.projects.get(&workbench.project)?.workspace)
     }
 
+    /// Неудалённый воркспейс.
+    pub fn live_workspace(&self, id: WorkspaceId) -> Option<&Workspace> {
+        self.workspaces
+            .get(&id)
+            .filter(|workspace| !workspace.is_deleted())
+    }
+
+    /// Неубранный проект неудалённого воркспейса.
+    pub fn live_project(&self, id: ProjectId) -> Option<&Project> {
+        self.projects.get(&id).filter(|project| {
+            !project.is_removed() && self.live_workspace(project.workspace).is_some()
+        })
+    }
+
+    /// Рабочая область живого проекта.
+    pub fn live_workbench(&self, id: WorkbenchId) -> Option<&Workbench> {
+        self.workbenches
+            .get(&id)
+            .filter(|workbench| self.live_project(workbench.project).is_some())
+    }
+
+    /// Неудалённые воркспейсы по `(position, id)`.
+    pub fn workspaces_in_order(&self) -> Vec<&Workspace> {
+        let mut workspaces: Vec<_> = self
+            .workspaces
+            .values()
+            .filter(|workspace| !workspace.is_deleted())
+            .collect();
+        workspaces.sort_by_key(|workspace| (workspace.position, workspace.id));
+        workspaces
+    }
+
+    /// Рабочие области проекта по `(position, id)`.
+    pub fn workbenches_in_order(&self, project: ProjectId) -> Vec<&Workbench> {
+        let mut workbenches: Vec<_> = self
+            .workbenches
+            .values()
+            .filter(|workbench| workbench.project == project)
+            .collect();
+        workbenches.sort_by_key(|workbench| (workbench.position, workbench.id));
+        workbenches
+    }
+
     /// Все нарушения инвариантов раздела «Модель» плана P1.1. Пустой список — состояние цело.
     pub fn check_invariants(&self) -> Vec<Violation> {
         let mut violations = Vec::new();
