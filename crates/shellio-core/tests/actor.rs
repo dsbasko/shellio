@@ -11,9 +11,9 @@ use shellio_core::test_support::{
 };
 use shellio_core::{
     BOOTSTRAP_WORKSPACE, Change, Command, CommandValue, Core, CoreError, CoreHandle, EVENT_BUFFER,
-    ErrorCode, Event, EventsSince, IdGen, QUEUE_CAPACITY, Query, ReplyValue, Revision, Route,
-    SUBSCRIBER_CAPACITY, Snapshot, StartError, State, StatusView, Title, TreeScope, UnixMillis,
-    Workspace, WorkspaceId,
+    ErrorCode, Event, EventsSince, IdGen, QUEUE_CAPACITY, Query, ReplyValue, Revision, RootKey,
+    RootKind, Route, SUBSCRIBER_CAPACITY, Snapshot, StartError, State, StatusView, Title, TreeRoot,
+    TreeScope, TreeView, UnixMillis, WorkbenchId, Workspace, WorkspaceId,
 };
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::error::{RecvError, TryRecvError};
@@ -590,4 +590,211 @@ async fn reads_do_not_reach_storage() {
     };
     assert_eq!(tree.workspaces.len(), 1);
     assert_eq!(faults.commits(), 1);
+}
+
+/// Дерево всех воркспейсов вместе с ревизией ответа.
+async fn tree_all(core: &CoreHandle) -> TestResult<(Revision, TreeView)> {
+    let reply = core
+        .query(Query::Tree {
+            scope: TreeScope::All,
+        })
+        .await?;
+    match reply.value {
+        ReplyValue::Tree(tree) => Ok((reply.revision, tree)),
+        other => Err(format!("ожидалось дерево, получено {other:?}").into()),
+    }
+}
+
+/// Значение ответа команды и её ревизия.
+async fn command(core: &CoreHandle, command: Command) -> TestResult<(Revision, CommandValue)> {
+    let reply = core.request(command).await?;
+    match reply.value {
+        ReplyValue::Command(value) => Ok((reply.revision, value)),
+        other => Err(format!("ожидался ответ команды, получено {other:?}").into()),
+    }
+}
+
+#[tokio::test]
+async fn every_command_result_is_read_through_query_tree() {
+    let clock = ManualClock::new(NOW);
+    let (persist, _) = FaultyPersist::new(MemoryPersist::new());
+    let core = Core::start(
+        &Handle::current(),
+        Box::new(persist),
+        Box::new(clock.clone()),
+        Box::new(SequentialIds::new()),
+        Arc::new(FakeRootResolver::new().with_git("/src/shellio", "/src/shellio/.git")),
+    )
+    .unwrap();
+    let (_, start) = tree_all(&core).await.unwrap();
+    let home = start.active_workspace.unwrap();
+
+    let (revision, value) = command(&core, create("Работа")).await.unwrap();
+    let CommandValue::Workspace { workspace: work } = value else {
+        panic!("ожидался воркспейс: {value:?}");
+    };
+    let (read, view) = tree_all(&core).await.unwrap();
+    assert_eq!((revision, read), (Revision(2), Revision(2)));
+    let ids: Vec<_> = view
+        .workspaces
+        .iter()
+        .map(|workspace| workspace.id)
+        .collect();
+    assert_eq!(ids, [home, work], "новый воркспейс — в конце");
+    assert_eq!(view.workspaces[1].title.as_str(), "Работа");
+    assert_eq!(view.workspaces[1].projects, []);
+    assert_eq!(view.active_workspace, Some(home));
+
+    let (revision, value) = command(&core, rename(work, "Проекты")).await.unwrap();
+    assert_eq!(value, CommandValue::None);
+    let (read, view) = tree_all(&core).await.unwrap();
+    assert_eq!((revision, read), (Revision(3), Revision(3)));
+    assert_eq!(view.workspaces[1].title.as_str(), "Проекты");
+
+    let add = Command::ProjectAdd {
+        workspace: work,
+        path: "/src/shellio".into(),
+        title: None,
+    };
+    let (revision, value) = command(&core, add).await.unwrap();
+    let CommandValue::Project { project, root } = value else {
+        panic!("ожидался проект: {value:?}");
+    };
+    let (read, view) = tree_all(&core).await.unwrap();
+    assert_eq!((revision, read), (Revision(4), Revision(4)));
+    assert_eq!(
+        view.workspaces[0].projects,
+        [],
+        "проект — в своём воркспейсе"
+    );
+    let [added] = view.workspaces[1].projects.as_slice() else {
+        panic!("ожидался один проект: {view:?}");
+    };
+    assert_eq!(added.id, project);
+    assert_eq!(added.title.as_str(), "shellio");
+    assert_eq!(added.list_position, Some(0));
+    assert_eq!(added.last_opened_at, None);
+    assert_eq!(
+        added.roots,
+        [TreeRoot {
+            id: root,
+            path: "/src/shellio".into(),
+            kind: RootKind::Git,
+            key: RootKey::new("/src/shellio/.git"),
+        }]
+    );
+    assert_eq!(added.workbenches, []);
+
+    let create_workbench = Command::WorkbenchCreate {
+        project,
+        title: "main".into(),
+    };
+    let (revision, value) = command(&core, create_workbench).await.unwrap();
+    let CommandValue::Workbench { workbench } = value else {
+        panic!("ожидалась рабочая область: {value:?}");
+    };
+    let (read, view) = tree_all(&core).await.unwrap();
+    assert_eq!((revision, read), (Revision(5), Revision(5)));
+    let workbenches: Vec<_> = view.workspaces[1].projects[0]
+        .workbenches
+        .iter()
+        .map(|workbench| (workbench.id, workbench.title.as_str().to_owned()))
+        .collect();
+    assert_eq!(workbenches, [(workbench, "main".to_owned())]);
+
+    let rename_workbench = Command::WorkbenchRename {
+        workbench,
+        title: "Основная".into(),
+    };
+    let (revision, value) = command(&core, rename_workbench).await.unwrap();
+    assert_eq!(value, CommandValue::None);
+    let (read, view) = tree_all(&core).await.unwrap();
+    assert_eq!((revision, read), (Revision(6), Revision(6)));
+    assert_eq!(
+        view.workspaces[1].projects[0].workbenches[0].title.as_str(),
+        "Основная"
+    );
+    assert_eq!(view.route, Route::WorkspaceHome);
+
+    clock.advance(1_000);
+    let (revision, value) = command(&core, Command::WorkbenchOpen { workbench })
+        .await
+        .unwrap();
+    assert_eq!(value, CommandValue::None);
+    let (read, view) = tree_all(&core).await.unwrap();
+    assert_eq!((revision, read), (Revision(7), Revision(7)));
+    assert_eq!(view.active_workspace, Some(work));
+    assert_eq!(view.route, Route::Workbench(workbench));
+    assert_eq!(view.workspaces[1].last_workbench, Some(workbench));
+    assert_eq!(
+        view.workspaces[1].projects[0].last_opened_at,
+        Some(UnixMillis(NOW.0 + 1_000))
+    );
+
+    let focus = |workspace| Command::WindowFocusWorkspace { workspace };
+    let (revision, value) = command(&core, focus(home)).await.unwrap();
+    assert_eq!(value, CommandValue::None);
+    let (read, view) = tree_all(&core).await.unwrap();
+    assert_eq!((revision, read), (Revision(8), Revision(8)));
+    assert_eq!(view.active_workspace, Some(home));
+    assert_eq!(view.route, Route::WorkspaceHome);
+    assert_eq!(view.workspaces[1].last_workbench, Some(workbench));
+
+    let (revision, _) = command(&core, focus(work)).await.unwrap();
+    let (read, view) = tree_all(&core).await.unwrap();
+    assert_eq!((revision, read), (Revision(9), Revision(9)));
+    assert_eq!(view.active_workspace, Some(work));
+    assert_eq!(
+        view.route,
+        Route::Workbench(workbench),
+        "маршрут — последняя область"
+    );
+
+    let missing_workbench = WorkbenchId::from_bytes([0xee; 16]);
+    let refusals = [
+        (create("проекты"), ErrorCode::NameTaken),
+        (rename(home, "ПРОЕКТЫ"), ErrorCode::NameTaken),
+        (
+            Command::ProjectAdd {
+                workspace: home,
+                path: "/src/shellio".into(),
+                title: Some("Другое имя".into()),
+            },
+            ErrorCode::RootTaken,
+        ),
+        (
+            Command::WorkbenchCreate {
+                project,
+                title: "основная".into(),
+            },
+            ErrorCode::NameTaken,
+        ),
+        (
+            Command::WorkbenchRename {
+                workbench: missing_workbench,
+                title: "Новая".into(),
+            },
+            ErrorCode::NotFound,
+        ),
+        (
+            Command::WorkbenchOpen {
+                workbench: missing_workbench,
+            },
+            ErrorCode::NotFound,
+        ),
+        (
+            focus(WorkspaceId::from_bytes([0xee; 16])),
+            ErrorCode::NotFound,
+        ),
+    ];
+    for (refused, code) in refusals {
+        let name = refused.name();
+        let error = core.request(refused).await.unwrap_err();
+        assert_eq!(error.code(), code, "{name}");
+        assert_eq!(
+            tree_all(&core).await.unwrap(),
+            (Revision(9), view.clone()),
+            "отказ {name} изменил дерево"
+        );
+    }
 }
