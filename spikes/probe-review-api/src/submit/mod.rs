@@ -321,7 +321,23 @@ impl History {
             .map(|item| item.id)
     }
 
-    /// Отказ планировать запись, первая попытка которой ещё не сверена.
+    /// Элемент операции в `planned` незакрытой отправки: её продолжение выполнит эту запись.
+    fn waiting(&self, operation: Operation) -> Option<(SubmissionId, crate::journal::ItemId)> {
+        self.submissions
+            .iter()
+            .filter(|submission| !submission.closed)
+            .flat_map(|submission| {
+                submission
+                    .items
+                    .iter()
+                    .map(move |item| (submission.id, item))
+            })
+            .find(|(_, item)| item.operation == operation && item.state == ItemState::Planned)
+            .map(|(submission, item)| (submission, item.id))
+    }
+
+    /// Отказ планировать запись, первая попытка которой ещё не сверена или ждёт продолжения
+    /// незакрытой отправки.
     fn guard(&self, items: &[PlannedItem]) -> Result<(), SubmitError> {
         for planned in items {
             if planned.operation.drafts() == DraftArity::One {
@@ -329,6 +345,14 @@ impl History {
             }
             if let Some(item) = self.unresolved(planned.operation) {
                 return Err(SubmitError::Unresolved(item));
+            }
+            if let Some((submission, item)) = self.waiting(planned.operation) {
+                return Err(SubmitError::Refused(format!(
+                    "{} уже ждёт в элементе {} незакрытой отправки {}: её продолжают или закрывают",
+                    planned.operation.name(),
+                    item.0,
+                    submission.0
+                )));
             }
         }
         Ok(())

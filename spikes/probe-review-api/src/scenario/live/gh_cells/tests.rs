@@ -756,6 +756,18 @@ fn pending_submit_verdict_splits_pull_reads_from_pending_reads() {
         gh_pending_submit_verdict(&unexpected, &pending, "reviewer"),
         Verdict::Fail("отправка: чтение PENDING: свой комментарий пропал".to_owned())
     );
+    // Ветвь локальных черновиков: проверка, что PENDING нет, перед Create review.
+    let no_pending = [
+        call("reviewer", Method::Get, "/repos/o/r/pulls/5/files"),
+        call("reviewer", Method::Get, "/repos/o/r/pulls/5/reviews"),
+    ];
+    let two = SubmitError::GitHub(ApiError::Unexpected(
+        "у аккаунта больше одного PENDING в PR".into(),
+    ));
+    assert_eq!(
+        gh_pending_submit_verdict(&two, &no_pending, "reviewer"),
+        Verdict::Fail("отправка: чтение PENDING: у аккаунта больше одного PENDING в PR".to_owned())
+    );
     let limit = SubmitError::GitHub(ApiError::RateLimited {
         status: 429,
         detail: "rate limit".to_owned(),

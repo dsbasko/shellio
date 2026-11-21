@@ -325,7 +325,19 @@ pub struct DoneFile {
     pub schema: u32,
     pub finished_unix: u64,
     pub errors: u32,
+    #[serde(default)]
+    pub gitlab_ce: Option<GitLabCeDone>,
 }
+
+/// Итог GitLab CE прогона: подъём (`status`) и удаление контейнера и томов (`down`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GitLabCeDone {
+    pub status: String,
+    pub down: String,
+}
+
+/// `down` неподтверждённого удаления: ошибка исполнения, которая есть только в `done.json`.
+pub const CE_DOWN_FAILED: &str = "failed";
 
 /// Пишет файл через временный и переименование: оборванная запись не оставляет полупустой JSON.
 pub fn write_json(dir: &Path, name: &str, value: &impl Serialize) -> Result<PathBuf, String> {
@@ -416,6 +428,7 @@ struct RunDir {
     path: PathBuf,
     run: RunFile,
     completed: bool,
+    ce_down_failed: bool,
 }
 
 fn dir_name(path: &Path) -> String {
@@ -439,9 +452,12 @@ pub fn aggregate(dirs: &[PathBuf], expected: &[Pair]) -> Result<SummaryFile, Str
         let name = dir_name(path);
         let run: RunFile = read_json(path, RUN_FILE)
             .map_err(|err| format!("{name}: {RUN_FILE} {err}: каталог не из run.sh"))?;
-        let completed = match read_json::<DoneFile>(path, DONE_FILE) {
-            Ok(_) => true,
-            Err(ReadError::Missing) => false,
+        let (completed, ce_down_failed) = match read_json::<DoneFile>(path, DONE_FILE) {
+            Ok(done) => (
+                true,
+                done.gitlab_ce.is_some_and(|ce| ce.down == CE_DOWN_FAILED),
+            ),
+            Err(ReadError::Missing) => (false, false),
             Err(err) => return Err(format!("{name}: {DONE_FILE} {err}")),
         };
         runs.push(RunDir {
@@ -449,6 +465,7 @@ pub fn aggregate(dirs: &[PathBuf], expected: &[Pair]) -> Result<SummaryFile, Str
             path: path.clone(),
             run,
             completed,
+            ce_down_failed,
         });
     }
     runs.sort_by(|a, b| (a.run.started_unix, &a.name).cmp(&(b.run.started_unix, &b.name)));
@@ -471,6 +488,12 @@ pub fn aggregate(dirs: &[PathBuf], expected: &[Pair]) -> Result<SummaryFile, Str
             errors.push(format!(
                 "каталог {}: чужая сборка {} (сборка {build})",
                 run.name, run.run.build
+            ));
+        }
+        if run.ce_down_failed {
+            errors.push(format!(
+                "каталог {}: уборка начатого контейнера GitLab CE не подтверждена",
+                run.name
             ));
         }
     }
@@ -804,6 +827,7 @@ mod tests {
                     schema: SCHEMA,
                     finished_unix: started + 1,
                     errors: 0,
+                    gitlab_ce: None,
                 };
                 write_json(&dir, DONE_FILE, &done)?;
             }
@@ -999,6 +1023,28 @@ mod tests {
         fs::remove_file(proc_dir.join(RESULT_FILE)).map_err(|e| e.to_string())?;
         let summary = aggregate(&[dir], &pairs("fake:smoke")?)?;
         assert!(summary.errors.iter().any(|e| e.contains("отсутствует")));
+        Ok(())
+    }
+
+    #[test]
+    fn unconfirmed_gitlab_ce_removal_in_done_file_is_error() -> TestResult {
+        let fx = Fixture::new()?;
+        let dir = fx.run("r1", 10, "s1", "b1", &[("fake:smoke", Status::Pass)], true)?;
+        let done = |down: &str| {
+            format!(
+                r#"{{"schema": 1, "finished_unix": 11, "errors": 1, "gitlab_ce": {{"status": "ready", "down": "{down}"}}}}"#
+            )
+        };
+        fs::write(dir.join(DONE_FILE), done("removed")).map_err(|e| e.to_string())?;
+        let summary = aggregate(std::slice::from_ref(&dir), &pairs("fake:smoke")?)?;
+        assert!(summary.errors.is_empty(), "{:?}", summary.errors);
+        fs::write(dir.join(DONE_FILE), done(CE_DOWN_FAILED)).map_err(|e| e.to_string())?;
+        let summary = aggregate(&[dir], &pairs("fake:smoke")?)?;
+        assert!(
+            summary.errors.iter().any(|e| e.contains("GitLab CE")),
+            "{:?}",
+            summary.errors
+        );
         Ok(())
     }
 

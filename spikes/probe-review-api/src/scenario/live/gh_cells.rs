@@ -393,8 +393,14 @@ fn submit_local<T: Transport, R: Transport>(
             .map_err(|err| stand("черновики", &err))?;
         let submission =
             plan_github_local(&scope, id, event, SUMMARY).map_err(|err| stand("план", &err))?;
-        let sent = run_github(&scope, submission.id, reviewer, caps)
-            .map_err(|err| gh_submit_verdict(&err))?;
+        let sent = run_github(&scope, submission.id, reviewer, caps).map_err(|err| {
+            let window = cx.trace.calls();
+            gh_pending_submit_verdict(
+                &err,
+                window.get(start..).unwrap_or_default(),
+                ACTOR_REVIEWER,
+            )
+        })?;
         (submission.id, sent)
     };
     let calls = cx.trace.calls();
@@ -743,11 +749,12 @@ impl<R: Transport> Transport for WriteDrop<R> {
     }
 }
 
-/// Отказ исполнителя ветви «серверный `PENDING`» без записи в элемент. Чтение шага 1 (последний
-/// вызов роли в окне — снимок PR или его файлы) — [`gh_submit_verdict`]. Чтение `PENDING`
-/// (последний вызов — путь `…/reviews…`): неожиданный ответ — `fail` с текстом адаптера, прочий
-/// отказ — [`gh_read_or_fail`]. Остановка до записи — `fail`: это наблюдение о сохранении ID
-/// комментариев, а не неготовность PR.
+/// Отказ исполнителя отправки GitHub без записи в элемент, в обеих ветвях. Чтение шага 1
+/// (последний вызов роли в окне — снимок PR или его файлы) — [`gh_submit_verdict`]. Чтение
+/// `PENDING` (последний вызов — путь `…/reviews…`: проверка, что `PENDING` нет, перед Create
+/// review или созданием `PENDING`, и состав своего `PENDING`): неожиданный ответ — `fail` с
+/// текстом адаптера, прочий отказ — [`gh_read_or_fail`]. Остановка до записи — `fail`: это
+/// наблюдение, а не неготовность PR.
 pub fn gh_pending_submit_verdict(err: &SubmitError, window: &[Call], actor: &str) -> Verdict {
     let pending_read = window
         .iter()
@@ -1547,7 +1554,7 @@ fn gh_anchors<T: Transport>(cx: &GhCx<'_, T>, cell: &mut Cell) -> Result<Observe
         let submission = plan_github_local(&scope, session, ReviewEvent::Comment, SUMMARY)
             .map_err(|err| stand("план", &err))?;
         let sent = run_github(&scope, submission.id, &reviewer, &caps)
-            .map_err(|err| gh_submit_verdict(&err))?;
+            .map_err(|err| gh_pending_submit_verdict(&err, &window(start), ACTOR_REVIEWER))?;
         if let Some(verdict) = gh_delivery_verdict(&sent, &window(start), ACTOR_REVIEWER) {
             return Err(verdict);
         }
@@ -2669,8 +2676,14 @@ fn gh_reconcile_foreign<T: Transport>(
         .map_err(|err| stand("черновики", &err))?;
         let submission = plan_github_local(&scope, session, ReviewEvent::Comment, SUMMARY)
             .map_err(|err| stand("план", &err))?;
-        let sent = run_github(&scope, submission.id, &dropping, &caps)
-            .map_err(|err| gh_submit_verdict(&err))?;
+        let sent = run_github(&scope, submission.id, &dropping, &caps).map_err(|err| {
+            let window = cx.trace.calls();
+            gh_pending_submit_verdict(
+                &err,
+                window.get(start..).unwrap_or_default(),
+                ACTOR_REVIEWER,
+            )
+        })?;
         let (foreign, reconciled, at) = if dropping.transport().dropped_body().is_some() {
             let foreign = cx.second.create_review(cell.number, FOREIGN_SAME_LINE);
             let at = cx.trace.len();

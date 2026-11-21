@@ -590,7 +590,7 @@ impl Scope<'_> {
             ],
         )?;
         for draft in drafts {
-            if let Some((item, state)) = held_by(&tx, draft.id, false)? {
+            if let Some((item, state)) = edit_hold(&tx, draft.id)? {
                 return Err(JournalError::DraftHeld {
                     draft: draft.id,
                     item,
@@ -682,10 +682,12 @@ impl Scope<'_> {
     }
 
     /// Новый текст черновика. Черновик с элементом в `in_flight` или `unknown` не меняется до
-    /// сверки: иначе сверка искала бы по содержимому другой текст.
+    /// сверки: иначе сверка искала бы по содержимому другой текст. Не меняется и черновик, чью
+    /// серверную копию записал подтверждённый элемент незакрытой отправки с незавершёнными
+    /// элементами: её продолжение опубликовало бы прежнюю копию.
     pub fn update_draft_body(&self, draft: DraftId, body: &str) -> Result<(), JournalError> {
         self.draft(draft)?;
-        if let Some((item, state)) = held_by(self.conn, draft, false)? {
+        if let Some((item, state)) = edit_hold(self.conn, draft)? {
             return Err(JournalError::DraftHeld { draft, item, state });
         }
         let changed = self.conn.execute(
@@ -1241,6 +1243,39 @@ fn held_by(
             .ok_or_else(|| corrupt(format!("состояние «{state}»")))
     })
     .transpose()
+}
+
+/// Элемент, из-за которого черновик нельзя менять: [`held_by`] без `planned` или подтверждённый
+/// элемент с этим черновиком в незакрытой отправке, где ещё есть `planned`, `in_flight` или
+/// `unknown`. Серверную копию черновика такая отправка уже записала, и её продолжение
+/// опубликовало бы прежний текст или позицию.
+fn edit_hold(
+    conn: &Connection,
+    draft: DraftId,
+) -> Result<Option<(ItemId, ItemState)>, JournalError> {
+    if let Some(hold) = held_by(conn, draft, false)? {
+        return Ok(Some(hold));
+    }
+    let written: Option<u64> = conn
+        .query_row(
+            "SELECT i.id FROM submit_items i \
+             JOIN submit_item_drafts d ON d.item_id = i.id \
+             JOIN submissions s ON s.id = i.submission_id \
+             WHERE d.draft_id = ?1 AND i.state = ?2 AND s.closed = 0 AND EXISTS \
+             (SELECT 1 FROM submit_items o WHERE o.submission_id = s.id \
+             AND o.state IN (?3, ?4, ?5)) \
+             ORDER BY i.id LIMIT 1",
+            params![
+                draft.0,
+                ItemState::Confirmed.name(),
+                ItemState::Planned.name(),
+                ItemState::InFlight.name(),
+                ItemState::Unknown.name()
+            ],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(written.map(|id| (ItemId(id), ItemState::Confirmed)))
 }
 
 fn row_id(value: i64) -> Result<u64, JournalError> {

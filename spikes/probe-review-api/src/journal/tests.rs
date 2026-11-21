@@ -796,6 +796,78 @@ fn held_draft_is_refused_by_plan_body_and_head_until_closed_or_reconciled() -> T
 }
 
 #[test]
+fn draft_written_by_running_submission_is_not_edited_until_closed_or_done() -> TestResult {
+    let fx = Fixture::new()?;
+    let journal = fx.open()?;
+    let scope = journal.scope(&ProjectId::new("p1"));
+
+    let gl = scope.create_session(&session(Provider::GitLab, rev('a', 'b', 'c')?))?;
+    let draft = scope
+        .add_draft(gl, line(&held_file()?, Side::New, 2)?, "текст")?
+        .id;
+    let submission = scope.plan_submission(
+        gl,
+        &[
+            planned(Operation::GitLabCreateDraftNote, &[draft]),
+            planned(Operation::GitLabPublishDraftNote, &[draft]),
+        ],
+    )?;
+    scope.update_draft_body(draft, "до записи")?;
+    let create = submission.items[0].id;
+    scope.begin(create)?;
+    scope.confirm(create, Some(&ProviderId::new("71")))?;
+    assert!(matches!(
+        scope.update_draft_body(draft, "после создания"),
+        Err(JournalError::DraftHeld { item, state: ItemState::Confirmed, .. }) if item == create
+    ));
+    let stored = scope.draft(draft)?;
+    assert_eq!(stored.body, "до записи");
+    let review = scope.session(gl)?;
+    assert!(matches!(
+        scope.save_head(gl, &review, &[stored]),
+        Err(JournalError::DraftHeld {
+            state: ItemState::Confirmed,
+            ..
+        })
+    ));
+    scope.close_submission(submission.id)?;
+    scope.update_draft_body(draft, "после закрытия")?;
+
+    let gh = scope.create_session(&session(Provider::GitHub, rev('a', 'a', 'c')?))?;
+    let comment = scope
+        .add_draft(gh, line(&held_file()?, Side::New, 2)?, "текст")?
+        .id;
+    let pending = scope.plan(
+        gh,
+        &SubmissionSpec {
+            event: Some("COMMENT".to_owned()),
+            ..SubmissionSpec::default()
+        },
+        &[
+            planned(Operation::GitHubCreatePending, &[]),
+            planned(Operation::GitHubAddPendingComment, &[comment]),
+            planned(Operation::GitHubSubmitReview, &[]),
+        ],
+    )?;
+    for item in &pending.items[..2] {
+        scope.begin(item.id)?;
+        scope.confirm(item.id, None)?;
+    }
+    assert!(matches!(
+        scope.update_draft_body(comment, "Submit впереди"),
+        Err(JournalError::DraftHeld {
+            state: ItemState::Confirmed,
+            ..
+        })
+    ));
+    let submit = pending.items[2].id;
+    scope.begin(submit)?;
+    scope.confirm(submit, None)?;
+    scope.update_draft_body(comment, "после отправки")?;
+    Ok(())
+}
+
+#[test]
 fn refute_only_moves_known_object_operations_out_of_unknown() -> TestResult {
     let fx = Fixture::new()?;
     let journal = fx.open()?;

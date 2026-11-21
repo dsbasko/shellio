@@ -551,6 +551,42 @@ mod run {
     }
 
     #[test]
+    fn planned_summary_of_a_running_submission_blocks_a_second_plan() -> TestResult {
+        let server = gitlab_server()?;
+        server.inject(Fault::new(PUBLISH, Reply::Status(502)).after_apply());
+        let gitlab = gitlab_adapter(http("tok-reviewer"), &server)?;
+        let caps = gitlab.capabilities()?;
+        let dir = tempfile::tempdir()?;
+        let journal = Journal::open(&dir.path().join("state.db"))?;
+        let session = gitlab_session(&journal, &gitlab, &[(2, "черновик")])?;
+        let scope = journal.scope(&ProjectId::new("p"));
+        let plan = GitLabPlan {
+            summary: "Итог".to_owned(),
+            ..GitLabPlan::default()
+        };
+        let first = plan_gitlab(&scope, session, &plan)?;
+        let stopped = run_gitlab(&scope, first.id, &gitlab, &caps)?;
+        assert_eq!(
+            states(&stopped),
+            [
+                (Operation::GitLabCreateDraftNote, ItemState::Confirmed),
+                (Operation::GitLabPublishDraftNote, ItemState::Unknown),
+                (Operation::GitLabSummaryNote, ItemState::Planned),
+            ]
+        );
+        assert!(matches!(
+            plan_gitlab(&scope, session, &plan),
+            Err(SubmitError::Refused(_))
+        ));
+        scope.close_submission(first.id)?;
+        let second = plan_gitlab(&scope, session, &plan)?;
+        assert_eq!(second.items.len(), 1, "черновик держит unknown");
+        assert_eq!(server.count(NOTES), 0);
+        server.finish()?;
+        Ok(())
+    }
+
+    #[test]
     fn crash_before_request_reopens_as_unknown_without_server_write() -> TestResult {
         let server = gitlab_server()?;
         let gitlab = gitlab_adapter(http("tok-reviewer"), &server)?;
