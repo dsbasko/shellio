@@ -172,6 +172,22 @@ impl<T: Transport> GitLab<T> {
         Ok(reply_of(&body, response.body.len()))
     }
 
+    /// Scopes токена из `GET /personal_access_tokens/self`.
+    pub fn token_scopes(&self) -> Result<Vec<String>, ApiError> {
+        let value = self.get_json("/personal_access_tokens/self")?;
+        value
+            .get("scopes")
+            .and_then(Value::as_array)
+            .map(|scopes| {
+                scopes
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .ok_or_else(|| ApiError::Unexpected("токен без scopes в ответе".to_owned()))
+    }
+
     /// Версия хоста и `plan` из `GET /metadata`, если хост его дал (CE 19.6.1 даёт `free`).
     fn host_version(&self) -> Result<(HostVersion, Option<String>), ApiError> {
         let (value, source) = match self.get_json("/metadata") {

@@ -68,6 +68,7 @@ struct User {
     name: String,
     token: String,
     access: Option<Access>,
+    scopes: Vec<String>,
 }
 
 /// Кто создал объект. Ответы API это поле не показывают, его читают оракулы.
@@ -505,6 +506,7 @@ pub struct GitlabFake {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Route {
     User,
+    TokenSelf,
     Version,
     Metadata,
     Graphql,
@@ -531,6 +533,7 @@ impl Route {
     fn template(self) -> &'static str {
         match self {
             Route::User => "/user",
+            Route::TokenSelf => "/personal_access_tokens/self",
             Route::Version => "/version",
             Route::Metadata => "/metadata",
             Route::Graphql => "/graphql",
@@ -661,7 +664,19 @@ impl GitlabFake {
             name: format!("{username} name"),
             token: token.to_owned(),
             access,
+            scopes: vec!["api".to_owned()],
         });
+    }
+
+    /// Scopes токена пользователя (по умолчанию `api`).
+    pub fn set_scopes(&mut self, username: &str, scopes: &[&str]) {
+        for user in self
+            .users
+            .iter_mut()
+            .filter(|user| user.username == username)
+        {
+            user.scopes = scopes.iter().map(|scope| (*scope).to_owned()).collect();
+        }
     }
 
     /// MR с первой версией.
@@ -1030,6 +1045,7 @@ impl GitlabFake {
         match segments[..] {
             ["api", "graphql"] => Some((Route::Graphql, None)),
             ["api", "v4", "user"] => Some((Route::User, None)),
+            ["api", "v4", "personal_access_tokens", "self"] => Some((Route::TokenSelf, None)),
             ["api", "v4", "version"] => Some((Route::Version, None)),
             ["api", "v4", "metadata"] => Some((Route::Metadata, None)),
             ["api", "v4", "projects", project, ref rest @ ..] => {
@@ -1108,6 +1124,9 @@ impl GitlabFake {
         };
         match (route, request.method) {
             (Route::User, Method::Get) => return ok(user_json(&user)),
+            (Route::TokenSelf, Method::Get) => {
+                return ok(json!({"user_id": user.id, "scopes": user.scopes, "active": true}));
+            }
             (Route::Version, Method::Get) => {
                 return ok(json!({"version": self.version, "revision": "fake0001"}));
             }
@@ -1147,7 +1166,12 @@ impl GitlabFake {
             | Route::Approve(n)
             | Route::Unapprove(n)
             | Route::Approvals(n) => n,
-            Route::User | Route::Version | Route::Metadata | Route::Graphql | Route::Project => {
+            Route::User
+            | Route::TokenSelf
+            | Route::Version
+            | Route::Metadata
+            | Route::Graphql
+            | Route::Project => {
                 return message(404, "404 Not Found");
             }
         };

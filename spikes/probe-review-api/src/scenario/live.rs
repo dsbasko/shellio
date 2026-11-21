@@ -193,8 +193,12 @@ fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveE
         result,
     );
     let gitlab_rows = ctx.column == Column::GitlabCloud && scenario != Scenario::Capabilities;
+    let github_rows = ctx.column == Column::GithubCloud && gh_cells::implemented(scenario);
     let host_read = match &opened {
         Ok(_) if gitlab_rows => Some(gitlab_host(&reviewer)),
+        Ok(_) if github_rows => {
+            Some(github_reviewer(&reviewer).map(|(note, unmet)| (Host::default(), note, unmet)))
+        }
         _ => None,
     };
     result.trace = trace
@@ -562,7 +566,9 @@ fn github_cloud_caps<T: Transport>(
 /// Версия и тариф облачного GitLab чтением возможностей ревьюера до записей клетки: `absent`
 /// без версии — ошибка исполнения. Отказ хоста на чтение — заметка, версия не записывается;
 /// отказ транспорта и 5xx — ошибка исполнения. Третье поле — предусловие песочницы: роль
-/// ревьюера ниже Developer, как в клетке `capabilities`.
+/// ревьюера ниже Developer, как в клетке `capabilities`, или токен ревьюера без scope `api`
+/// (`GET /personal_access_tokens/self`): иначе первая запись клетки получила бы 403 и дала бы
+/// ложный `absent` или `fail`. Scopes не прочитаны — заметка.
 pub fn gitlab_host<T: Transport>(
     reviewer: &Guarded<T>,
 ) -> Result<(Host, Option<String>, Option<String>), String> {
@@ -572,36 +578,109 @@ pub fn gitlab_host<T: Transport>(
         repo: reviewer.target().repo.clone(),
         number: 0,
     };
-    match gitlab_adapter(reviewer, &review).and_then(|gl| gl.capabilities()) {
-        Ok(caps) => Ok((
-            Host {
-                version: Some(format!(
-                    "GitLab {} ({})",
-                    caps.host.version,
-                    match caps.host.enterprise {
-                        Some(true) => "EE",
-                        Some(false) => "CE",
-                        None => "редакция не видна",
-                    }
-                )),
-                tier: caps.plan.clone(),
-            },
+    let gl = match gitlab_adapter(reviewer, &review) {
+        Ok(gl) => gl,
+        Err(err) => return host_unread(&err),
+    };
+    let caps = match gl.capabilities() {
+        Ok(caps) => caps,
+        Err(err) => return host_unread(&err),
+    };
+    let host = Host {
+        version: Some(format!(
+            "GitLab {} ({})",
+            caps.host.version,
+            match caps.host.enterprise {
+                Some(true) => "EE",
+                Some(false) => "CE",
+                None => "редакция не видна",
+            }
+        )),
+        tier: caps.plan.clone(),
+    };
+    if !caps.can_review() {
+        let reason = format!(
+            "предусловие: роль ревьюера {:?}, нужна Developer или выше",
+            caps.access_level
+        );
+        return Ok((host, None, Some(reason)));
+    }
+    match gl.token_scopes() {
+        Ok(scopes) if scopes.iter().any(|scope| scope == "api") => Ok((host, None, None)),
+        Ok(scopes) => Ok((
+            host,
             None,
-            (!caps.can_review()).then(|| {
-                format!(
-                    "предусловие: роль ревьюера {:?}, нужна Developer или выше",
-                    caps.access_level
-                )
-            }),
+            Some(format!(
+                "предусловие: токен без прав: у токена ревьюера нет scope api, есть {scopes:?}"
+            )),
         )),
         Err(err) => match classify_read(&err) {
             Ok(observed) => Ok((
-                Host::default(),
-                Some(format!("наблюдение: версия хоста не прочитана: {observed}")),
+                host,
+                Some(format!(
+                    "наблюдение: scopes токена ревьюера не прочитаны: {observed}"
+                )),
                 None,
             )),
-            Err(stand) => Err(format!("reviewer: версия хоста: {stand}")),
+            Err(stand) => Err(format!("reviewer: scopes токена: {stand}")),
         },
+    }
+}
+
+/// Права ревьюера строки GitHub до записей клетки: нет права записи в репозиторий (план —
+/// collaborator с правом записи) или classic-токен без scope `repo` — предусловие (второе поле),
+/// иначе первая запись клетки получила бы 403 и дала бы ложный `fail`. У fine-grained токена
+/// заголовка scopes нет, проверяется только право записи. Отказ хоста на чтение — заметка, отказ
+/// транспорта и 5xx — ошибка исполнения.
+pub fn github_reviewer<T: Transport>(
+    reviewer: &Guarded<T>,
+) -> Result<(Option<String>, Option<String>), String> {
+    use crate::github::ApiError as GhError;
+    let review = ReviewTarget {
+        provider: Provider::GitHub,
+        host: reviewer.target().rest.clone(),
+        repo: reviewer.target().repo.clone(),
+        number: 0,
+    };
+    match github_adapter(reviewer, &review).and_then(|gh| gh.capabilities()) {
+        Ok(caps) if !caps.can_push => Ok((
+            None,
+            Some("предусловие: у ревьюера нет права записи в репозиторий песочницы".to_owned()),
+        )),
+        Ok(caps) => Ok((
+            None,
+            caps.token_scopes
+                .filter(|scopes| !scopes.iter().any(|scope| scope == "repo"))
+                .map(|scopes| {
+                    format!(
+                        "предусловие: токен без прав: у classic-токена ревьюера нет scope repo, есть {scopes:?}"
+                    )
+                }),
+        )),
+        Err(err @ (GhError::NotSent(_) | GhError::Transport(_))) => {
+            Err(format!("reviewer: права ревьюера: {err}"))
+        }
+        Err(err @ GhError::Status { status, .. }) if status >= 500 => {
+            Err(format!("reviewer: права ревьюера: {err}"))
+        }
+        Err(err) => Ok((
+            Some(format!(
+                "наблюдение: права ревьюера не прочитаны: {err}"
+            )),
+            None,
+        )),
+    }
+}
+
+/// Версия хоста не прочитана: отказ хоста — заметка, отказ транспорта и 5xx — ошибка исполнения.
+fn host_unread(err: &ApiError) -> Result<(Host, Option<String>, Option<String>), String> {
+    match classify_read(err) {
+        Ok(observed) => Ok((
+            Host::default(),
+            Some(format!("наблюдение: версия хоста не прочитана: {observed}")),
+            None,
+        )),
+        Err(stand) => Err(format!("reviewer: версия хоста: {stand}")),
     }
 }
 
@@ -2467,6 +2546,30 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
             "{precondition:?}"
         );
         assert!(reviewer.refused_writes().is_empty());
+
+        let mut fake = GitlabFake::new(FAKE_REPO);
+        fake.add_user(FAKE_REVIEWER, FAKE_REVIEWER_TOKEN, Some(Access::Developer));
+        fake.set_scopes(FAKE_REVIEWER, &["read_api"]);
+        let server = crate::fake::FakeServer::start(fake)?;
+        let trace = Trace::new();
+        let reviewer = fake_guard(server.base(), FAKE_REVIEWER_TOKEN, &trace);
+        let (_, note, precondition) = gitlab_host(&reviewer)?;
+        assert_eq!(note, None);
+        assert!(
+            precondition
+                .as_deref()
+                .is_some_and(|p| p
+                    .starts_with("предусловие: токен без прав: у токена ревьюера нет scope api")),
+            "{precondition:?}"
+        );
+        assert!(reviewer.refused_writes().is_empty());
+        assert!(
+            trace
+                .entries(&Scrubber::new())
+                .iter()
+                .all(|entry| entry.method == "GET" || entry.path.ends_with("/graphql")),
+            "до записей клетки"
+        );
         Ok(())
     }
 
@@ -2535,6 +2638,46 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
             "{}",
             result.reason
         );
+        Ok(())
+    }
+
+    #[test]
+    fn github_reviewer_without_write_access_is_a_precondition() -> Result<(), String> {
+        use crate::fake::github::{GithubFake, Permission};
+        for (permission, unmet) in [(Permission::Write, false), (Permission::Read, true)] {
+            let mut fake = GithubFake::new("probe-author", "shellio-review-sandbox");
+            fake.add_user(FAKE_REVIEWER, FAKE_REVIEWER_TOKEN, permission);
+            let server = crate::fake::FakeServer::start(fake)?;
+            let trace = Trace::new();
+            let credential =
+                crate::transport::http::Credential::bearer(Secret::new(FAKE_REVIEWER_TOKEN));
+            let reviewer = Guarded::new(
+                Traced::new(
+                    HttpTransport::new(HttpConfig::default(), Some(credential)),
+                    trace.clone(),
+                    "reviewer",
+                ),
+                GuardTarget::github(&crate::github::Endpoints::single(server.base()), FAKE_REPO),
+                WriteScope::Loopback,
+            );
+            let (note, precondition) = github_reviewer(&reviewer)?;
+            assert_eq!(note, None);
+            assert_eq!(
+                precondition
+                    .as_deref()
+                    .is_some_and(|p| p.starts_with("предусловие: у ревьюера нет права записи")),
+                unmet,
+                "{precondition:?}"
+            );
+            assert!(reviewer.refused_writes().is_empty());
+            assert!(
+                trace
+                    .entries(&Scrubber::new())
+                    .iter()
+                    .all(|entry| entry.method == "GET" || entry.path.ends_with("/graphql")),
+                "до записей клетки"
+            );
+        }
         Ok(())
     }
 
