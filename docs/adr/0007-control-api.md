@@ -47,6 +47,24 @@ CLI `shellioctl` (названия уточняются в P1.2):
 
 `agterm/.claude/rules/control-api.md`, `agterm/CLAUDE.md` (Cross-surface contracts), `agterm/plugins/agterm/skills/agterm/reference.md`.
 
+## Уточнено в P1.1
+
+Решение плана P1.1 `core-domain`, принятое при планировании 2026-11-21. Слой команд и транспорт не меняются.
+
+- **Команды P1.1:** `workspace.create`, `workspace.rename`, `project.add`, `workbench.create`, `workbench.rename`, `workbench.open`, `window.focus_workspace`. **Чтения:** `query.tree` с явной областью `Workspace(id)` или `All` ([ADR-0025](0025-workspaces-and-project-catalog.md): внешний CLI без контекста сессии задаёт область сам) и `query.status`.
+- **Формат JSON.**
+  - `Command` — внутренний тег `cmd` с именем команды, поля в `snake_case`: `{"cmd":"workspace.create","title":"Работа"}`. Неизвестная команда и лишнее поле отвергаются.
+  - `Query` — `{"query":"tree","scope":{"workspace":"…"}}` или `{"query":"tree","scope":"all"}`.
+  - `Reply` — `{"revision":12,"value":{…}}`.
+  - `Event` — `{"revision":12,"changes":[{"change":"workspace_renamed",…}]}`.
+  - `CoreError` — `{"code":"root_taken","message":"…","retryable":false,"details":{…}}`.
+- **Стабильные коды ошибок:** `invalid_argument`, `not_found`, `name_taken`, `root_taken`, `storage_unavailable`, `storage_conflict`, `busy`, `shutting_down`. Имена команд, чтений, изменений и коды закреплены эталонными JSON в `crates/shellio-core/tests/wire/`. После P1.1 они не переименовываются: новый смысл получает новый вариант.
+- **Ревизия.** Ревизия хранится в `state.db` и растёт в той же транзакции, что и изменение, поэтому монотонна через перезапуски. Курсор событий — ревизия. Журнал событий живёт в памяти: курсор старше буфера или из прошлого запуска получает снимок и ревизию. Команда, не меняющая состояние, отвечает без новой ревизии и без события.
+- Внутренние команды запуска ядра (первый воркспейс и фокус при пустом активном воркспейсе) в `Command` не входят и в JSON не сериализуются. Их изменения идут обычными событиями.
+- **Законченное действие в P1.1 — частично:** команда, обработчик, чтение результата и тесты.
+  - CLI каждой команды и чтения P1.1 — обязательная часть P1.2: `workspace new|rename|focus`, `project add`, `workbench new|rename|open`, `tree`, `status`. Вместе с ними P1.2 вводит конверт запроса с номером, `hello` с версией протокола, `events --since` и проверку области по ADR-0025.
+  - Имя в keymap и UI этих действий — P1.7.
+
 ## Условие пересмотра
 
 Потребность в управлении с другой машины.

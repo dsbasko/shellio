@@ -253,13 +253,17 @@ pub enum Route { WorkspaceHome, Workbench(WorkbenchId) }
 - Create: `crates/shellio-core/{Cargo.toml,src/lib.rs}`, `crates/shellio-store/{Cargo.toml,src/lib.rs}`
 - Modify: `Cargo.toml`, `Cargo.lock`
 
-- [ ] раздел «Уточнено в P1.1» в ADR-0001: идентификаторы UUIDv7, newtype на сущность, строковая форма в CLI и окружении, `BLOB` 16 байт в базе; `PanelId`, `SessionId`, `AgentId` заведены типами
-- [ ] раздел «Уточнено в P1.1» в ADR-0004 и ADR-0020: транспортная граница (сериализуемые сообщения `CoreHandle`), актор с потоком хранения, ответ после записи, очередь 256 и `busy`, атомарная подписка, буфер событий 1024 и `Reset(Snapshot)`, чистые обработчики с `Clock` и `IdGen`
-- [ ] раздел «Уточнено в P1.1» в ADR-0007: имена команд и чтений, формат JSON, стабильные коды ошибок, монотонная ревизия через перезапуски; CLI этих команд — обязательная часть P1.2
-- [ ] раздел «Уточнено в P1.1» в ADR-0018 и ADR-0025: прагмы, `user_version`, порядок открытия и резервная копия, отказ на новой схеме, построчная загрузка с диагностикой, схема v1 с `path` и `kind` у корней, `workbenches`, `window_state`, `meta.revision`, раскладка профиля при `SHELLIO_STATE_DIR`, правило ключа корня без поиска вверх
-- [ ] crate `shellio-core` и `shellio-store` в workspace с `[lints] workspace = true`, зависимости по «Правилам выбора», `Cargo.lock` обновлён только новыми пакетами; лицензии новых пакетов проверены по `cargo metadata` и перечислены здесь
-- [ ] тест-заглушка в каждом crate, чтобы `make check` собирал и тестировал оба
-- [ ] `make check` проходит
+- [x] раздел «Уточнено в P1.1» в ADR-0001: идентификаторы UUIDv7, newtype на сущность, строковая форма в CLI и окружении, `BLOB` 16 байт в базе; `PanelId`, `SessionId`, `AgentId` заведены типами
+- [x] раздел «Уточнено в P1.1» в ADR-0004 и ADR-0020: транспортная граница (сериализуемые сообщения `CoreHandle`), актор с потоком хранения, ответ после записи, очередь 256 и `busy`, атомарная подписка, буфер событий 1024 и `Reset(Snapshot)`, чистые обработчики с `Clock` и `IdGen`
+- [x] раздел «Уточнено в P1.1» в ADR-0007: имена команд и чтений, формат JSON, стабильные коды ошибок, монотонная ревизия через перезапуски; CLI этих команд — обязательная часть P1.2
+- [x] раздел «Уточнено в P1.1» в ADR-0018 и ADR-0025: прагмы, `user_version`, порядок открытия и резервная копия, отказ на новой схеме, построчная загрузка с диагностикой, схема v1 с `path` и `kind` у корней, `workbenches`, `window_state`, `meta.revision`, раскладка профиля при `SHELLIO_STATE_DIR`, правило ключа корня без поиска вверх
+- [x] crate `shellio-core` и `shellio-store` в workspace с `[lints] workspace = true`, зависимости по «Правилам выбора», `Cargo.lock` обновлён только новыми пакетами; лицензии новых пакетов проверены по `cargo metadata` и перечислены здесь
+  - Зависимости: `shellio-core` — `uuid` (`v7`, `serde`, без `fast-rng` и `macro-diagnostics`), `serde` с `derive`, `serde_json`, `tokio` (`rt`, `rt-multi-thread`, `sync`), в `dev-dependencies` `tokio` с `macros`, `tempfile` и сам `shellio-core` с `test-support`. `shellio-store` — `shellio-core`, `rusqlite 0.43.0` без функций по умолчанию с `backup` и `fallible_uint` (как в P0.7, без `bundled`), в `dev-dependencies` `shellio-core` и сам `shellio-store` с `test-support`, `serde_json`, `tempfile`, `tokio` с `macros`. `shellio-core` от `rusqlite` не зависит.
+  - `Cargo.lock` обновлён одной сборкой без `--locked`: версии прежних пакетов не изменились, `uuid 1.29.3` берёт уже закреплённый `getrandom 0.4.3`.
+  - Новые пакеты и лицензии по `cargo metadata`: `uuid 1.29.3` — Apache-2.0 OR MIT; `tokio-macros 2.7.2` — MIT; `slab 0.4.12` — MIT; `futures-core 0.3.34`, `futures-task 0.3.34`, `futures-util 0.3.34`, `js-sys 0.3.107`, `wasm-bindgen 0.2.130`, `wasm-bindgen-macro 0.2.130`, `wasm-bindgen-macro-support 0.2.130`, `wasm-bindgen-shared 0.2.130`, `bumpalo 3.20.4`, `rustversion 1.0.23` — MIT OR Apache-2.0. Все в списке раздела «Context». Пакеты `wasm-bindgen`, `js-sys` и их зависимости — целевые для `wasm32` у `uuid` и на macOS не собираются.
+- [x] тест-заглушка в каждом crate, чтобы `make check` собирал и тестировал оба
+  - Заглушка проверяет на этапе компиляции (`const { assert!(cfg!(feature = "test-support")) }`), что dev-зависимость crate на себя включила `test-support` без флагов.
+- [x] `make check` проходит
 
 ### Task 2: Идентификаторы и модель
 

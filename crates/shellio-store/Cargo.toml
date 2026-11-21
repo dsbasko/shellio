@@ -1,0 +1,24 @@
+[package]
+name = "shellio-store"
+description = "Хранилище shellio: изолированный профиль, SQLite, миграции и запись состояния ядра"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[features]
+test-support = ["shellio-core/test-support"]
+
+[dependencies]
+rusqlite = { version = "0.43.0", default-features = false, features = ["backup", "fallible_uint"] }
+shellio-core = { path = "../shellio-core" }
+
+[dev-dependencies]
+serde_json = "1.0"
+shellio-core = { path = "../shellio-core", features = ["test-support"] }
+shellio-store = { path = ".", features = ["test-support"] }
+tempfile = "3.27.0"
+tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "sync", "macros"] }
+
+[lints]
+workspace = true
