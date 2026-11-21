@@ -45,11 +45,32 @@ shellio — нативный для macOS хаб разработчика на R
 
 Закрытие окна, обновление и падение GUI не завершают сессии. Управляющий API и доставка сообщений работают, пока запущено приложение. Полный контракт — в [ADR-0004](adr/0004-process-model.md).
 
+## Единственный экземпляр
+
+На профиль (`SHELLIO_STATE_DIR`) приходится ровно один владелец: процесс, взявший неблокирующий `flock` на `<state>/shellio.lock` ([ADR-0006](adr/0006-single-instance.md)). Главный поток сразу запускает `NSApplication` с политикой `.prohibited`, роль выбирает фоновая задача.
+
+```text
+запуск shellio
+  ├─ flock взят → владелец: обработчики сигналов → .regular → state.db → ядро → готовность главного потока
+  │                → публикация <state>/shellio.sock → сервер управления → обработка своих аргументов
+  └─ flock занят → второй запуск (.prohibited, без Dock и фокуса), срок 10 с:
+       connect shellio.sock ─ нет сокета или отказ → ждать и снова пробовать flock
+       hello ─ владелец уходит → ждать и повторить
+       уступка активации PID владельца
+       launch {args, cwd} → квитанция в stdout, выход 0
+                           ↓
+       владелец: разбор аргументов → активация на главном потоке → квитанция
+```
+
+Отказы аргументов приходят в квитанции: папка до P1.7 получает `folder_open_unsupported`. Срок до отправки `launch` даёт код 75, срок или обрыв после неё — 74 «исход неизвестен». Переход переднего плана на владельца при втором запуске в P1.2 не достигнут, его доводит план `single-instance-activation`.
+
+`shellioctl` подключается к тому же сокету, а состояние без сокета различает пробой `flock`: файла нет или блокировка свободна — `not_running`, занята без сокета — `owner_starting`. Протокол и коды — в [ADR-0007](adr/0007-control-api.md).
+
 ## Структура репозитория
 
 ```text
 apps/
-  shellio/              точка сборки: окно, регистрация плагинов
+  shellio/              точка сборки: владелец экземпляра, окно, регистрация плагинов
   shellioctl/           CLI
   shellio-host/         хост сессии
 crates/
@@ -57,9 +78,9 @@ crates/
   shellio-store/        SQLite, миграции, конфигурация
   shellio-layout/       чистая модель раскладки
   shellio-keymap/       режимы, деревья последовательностей, keymap.toml
-  shellio-control/      протокол управления и клиент
+  shellio-control/      протокол управления, выбор владельца, сервер и клиент
   shellio-plugin-api/   контракт плагинов
-  shellio-appkit/       компоненты на objc2, темы
+  shellio-appkit/       NSApplication и активация, компоненты на objc2, темы
   shellio-sys-ghostty/  привязки ghostty.h
   shellio-ghostty/      безопасная обёртка поверхности
   shellio-session/      SessionBackend и протокол хоста
@@ -84,6 +105,8 @@ spikes/                 пробы фазы 0 (ADR-0034), продукт от н
   probe-appkit-shell/ probe-ghostty-surface/ probe-session-survival/ probe-update-lifecycle/
 vendor/                 собранный набор ghostty, не хранится в git
 ```
+
+Сейчас в репозитории есть `apps/shellio`, `apps/shellioctl`, `crates/shellio-core`, `shellio-store`, `shellio-control`, `shellio-appkit`, `shellio-sys-ghostty` и `shellio-ghostty`. Остальные части появляются в своих шагах [дорожной карты](roadmap.md). `shellio-appkit` пока содержит только `NSApplication` без окна, переход в `.regular`, активацию и завершение через AppKit, компоненты и темы добавляет P1.3.
 
 ## Правила зависимостей
 
