@@ -206,12 +206,13 @@ fn common_git_dir(dir: &Path) -> Result<Option<PathBuf>, RootError> {
 }
 
 /// Общий git-каталог worktree по файлу `.git` с содержимым `gitdir: <x>`. Относительный
-/// `<x>` отсчитывается от `dir`, относительный `commondir` — от `<x>`, как у git.
+/// `<x>` отсчитывается от `dir`, относительный `commondir` — от `<x>`, как у git. В конце
+/// обоих файлов обрезается только перевод строки: пробел в конце — часть пути.
 fn linked_git_dir(dir: &Path, dot_git: &Path) -> Result<PathBuf, RootError> {
     let text = read_link_file(dot_git)?.ok_or_else(|| RootError::git_link_invalid(dot_git))?;
     let target = text
         .strip_prefix("gitdir: ")
-        .map(str::trim_end)
+        .map(|target| target.trim_end_matches(['\n', '\r']))
         .filter(|target| !target.is_empty())
         .ok_or_else(|| RootError::git_link_invalid(dot_git))?;
     let git_dir = canonical_dir(&dir.join(target), dot_git)?;

@@ -5,6 +5,7 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use rusqlite::config::DbConfig;
 use rusqlite::{Connection, OpenFlags};
 use shellio_core::UnixMillis;
 use shellio_core::test_support::ManualClock;
@@ -370,6 +371,58 @@ fn newer_schema_is_refused_without_writing() -> TestResult {
     );
     assert_eq!(fs::read(fixture.db())?, before);
     assert_eq!(list_dir(fixture.profile.state_dir())?, ["state.db"]);
+    Ok(())
+}
+
+#[test]
+fn refusal_leaves_outstanding_wal_unapplied() -> TestResult {
+    let cases = [
+        ("новая схема", 2, "NewerSchema"),
+        ("отрицательная версия", -1, "Corrupt"),
+    ];
+    for (label, version, expected) in cases {
+        let fixture = Fixture::new()?;
+        fs::create_dir_all(fixture.profile.state_dir())?;
+        let mut wal = fixture.db().into_os_string();
+        wal.push("-wal");
+        let wal = PathBuf::from(wal);
+        {
+            // Как после сбоя другой версии: кадры с её схемой остались в `-wal`.
+            let raw = fixture.raw()?;
+            raw.set_db_config(DbConfig::SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, true)?;
+            let mode: String =
+                raw.pragma_update_and_check(None, "journal_mode", "WAL", |row| row.get(0))?;
+            assert_eq!(mode, "wal", "{label}");
+            raw.pragma_update(None, "wal_autocheckpoint", 0)?;
+            raw.execute_batch(&format!(
+                "CREATE TABLE future (x INTEGER); PRAGMA user_version = {version};"
+            ))?;
+        }
+        let before = fs::read(fixture.db())?;
+        let wal_before = fs::read(&wal)?;
+        assert!(!wal_before.is_empty(), "{label}: кадры остались в -wal");
+
+        let error = fixture.open().err();
+        let refused = match expected {
+            "NewerSchema" => matches!(
+                error,
+                Some(StoreError::NewerSchema {
+                    found: 2,
+                    supported: 1
+                })
+            ),
+            _ => matches!(error, Some(StoreError::Corrupt { .. })),
+        };
+        assert!(refused, "{label}: {error:?}");
+        assert!(
+            fs::read(fixture.db())? == before,
+            "{label}: кадры -wal перенесены в файл базы"
+        );
+        assert!(
+            fs::read(&wal).ok() == Some(wal_before),
+            "{label}: -wal изменён или удалён"
+        );
+    }
     Ok(())
 }
 

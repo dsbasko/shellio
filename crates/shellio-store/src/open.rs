@@ -4,6 +4,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use rusqlite::config::DbConfig;
 use rusqlite::{Connection, ErrorCode};
 use shellio_core::Clock;
 
@@ -23,10 +24,10 @@ pub struct Database {
 impl Database {
     /// Открыть `state.db` профиля со встроенными миграциями.
     ///
-    /// Порядок: каталог состояния с `0700`; чтение `user_version` и схемы до любой записи
-    /// (файл не база — [`StoreError::Corrupt`]); версия новее бинаря —
-    /// [`StoreError::NewerSchema`]; резервная копия, если есть что мигрировать в непустой
-    /// схеме; прагмы; миграции. Время из `clock` даёт имя копии.
+    /// Порядок: каталог состояния с `0700`; чтение `user_version` и схемы до любой записи и
+    /// без переноса кадров `-wal` при закрытии (файл не база — [`StoreError::Corrupt`]);
+    /// версия новее бинаря — [`StoreError::NewerSchema`]; резервная копия, если есть что
+    /// мигрировать в непустой схеме; прагмы; миграции. Время из `clock` даёт имя копии.
     pub fn open(profile: &Profile, clock: &dyn Clock) -> Result<Self, StoreError> {
         Self::open_inner(profile, clock, &Migrator::default())
     }
@@ -55,6 +56,10 @@ impl Database {
 
         let mut conn = Connection::open(&path).map_err(sqlite)?;
         conn.busy_timeout(BUSY_TIMEOUT).map_err(sqlite)?;
+        // Закрытие при отказе иначе перенесло бы в файл базы кадры `-wal`, оставленные сбоем
+        // другой версии, и удалило бы `-wal`.
+        conn.set_db_config(DbConfig::SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, true)
+            .map_err(sqlite)?;
         let (found, empty) = inspect(&conn).map_err(|source| classify(&path, source))?;
         let found = u32::try_from(found).map_err(|_| StoreError::Corrupt {
             path: path.clone(),
@@ -64,6 +69,8 @@ impl Database {
         if found > supported {
             return Err(StoreError::NewerSchema { found, supported });
         }
+        conn.set_db_config(DbConfig::SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, false)
+            .map_err(sqlite)?;
         if found < supported && !empty {
             migrate::backup(&conn, found, &profile.backups_dir(), clock.now())?;
         }

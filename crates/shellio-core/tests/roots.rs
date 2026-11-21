@@ -269,6 +269,19 @@ fn git_file_follows_relative_gitdir_and_commondir() {
 }
 
 #[test]
+fn gitdir_keeps_trailing_spaces_of_its_target() {
+    let (_dir, base) = temp().unwrap();
+    mkdir(&base.join("repo.git")).unwrap();
+    let spaced = mkdir(&base.join("repo.git ")).unwrap();
+    let wt = mkdir(&base.join("wt")).unwrap();
+    fs::write(wt.join(".git"), "gitdir: ../repo.git \r\n").unwrap();
+
+    let root = resolve(&wt).unwrap();
+    assert_eq!(root.kind, RootKind::Git);
+    assert_eq!(key(&root), spaced.to_str().unwrap());
+}
+
+#[test]
 fn broken_git_link_is_git_link_invalid() {
     let (_dir, base) = temp().unwrap();
     let store = mkdir(&base.join("store")).unwrap();
