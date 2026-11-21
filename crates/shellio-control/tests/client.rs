@@ -13,8 +13,8 @@ use std::time::Duration;
 
 use shellio_control::test_support::ManualClock;
 use shellio_control::{
-    Activation, Address, Client, ClientError, ControlErrorCode, Exit, HelloReply, LOCK_FILE,
-    Launch, LaunchHandler, LaunchReceipt, LineReader, OkValue, OwnerState, Ownership,
+    Activation, Address, Client, ClientError, ControlError, ControlErrorCode, Exit, HelloReply,
+    LOCK_FILE, Launch, LaunchHandler, LaunchReceipt, LineReader, OkValue, OwnerState, Ownership,
     REQUEST_LINE_LIMIT, RequestBody, RequestId, Response, SHUTDOWN_GRACE, SOCKET_FILE, Server,
     ServerConfig, Session, encode_line,
 };
@@ -391,7 +391,87 @@ async fn explicit_missing_socket_is_unavailable_without_probe() -> TestResult {
 }
 
 #[tokio::test]
-async fn deadline_before_sending_mutation_is_retryable() -> TestResult {
+async fn probe_failure_is_not_retryable() -> TestResult {
+    let dir = Dir::new()?;
+    // Каталог состояния — обычный файл: файл блокировки в нём не открыть (`ENOTDIR`).
+    fs::write(dir.profile.state_dir(), b"")?;
+    let (client, clock) = client(dir.address());
+
+    let outcome = client.call(tree_all()).await;
+    assert!(
+        matches!(&outcome, Err(ClientError::Failed(reason)) if reason.starts_with("проба владельца не удалась")),
+        "{outcome:?}"
+    );
+    assert_eq!(exit(&outcome), Exit::Failure);
+    assert_eq!(clock.waits(), 0, "повтора нет");
+    Ok(())
+}
+
+#[tokio::test]
+async fn hello_refusal_is_the_outcome_without_request() -> TestResult {
+    let refuse = async |fake: &Fake| -> TestResult<Peer> {
+        let mut peer = fake.accept().await?;
+        let hello = peer.read_line().await?.ok_or("hello не пришёл")?;
+        assert!(hello.contains("\"hello\""), "{hello}");
+        peer.write_frame(&Response::Error {
+            id: Some(RequestId(1)),
+            error: ControlError::protocol_mismatch(1),
+        })
+        .await?;
+        Ok(peer)
+    };
+    let is_mismatch = |frame: &Response| {
+        matches!(frame, Response::Error { id: Some(RequestId(1)), error }
+            if error.code() == ControlErrorCode::ProtocolMismatch)
+    };
+
+    let fake = Fake::bind()?;
+    let (client, _clock) = fake.client();
+    let call = tokio::spawn(async move { client.call(create("Альфа")).await });
+    let mut peer = refuse(&fake).await?;
+    let outcome = call.await?;
+    assert!(
+        matches!(&outcome, Ok(frame) if is_mismatch(frame)),
+        "{outcome:?}"
+    );
+    assert_eq!(exit(&outcome), Exit::Failure);
+    assert_eq!(peer.read_line().await?, None, "команда не отправлена");
+
+    let (client, _clock) = fake.client();
+    let subscribe = tokio::spawn(async move {
+        let mut subscription = client.subscribe().await?;
+        subscription.next().await
+    });
+    let mut peer = refuse(&fake).await?;
+    let first = subscribe.await?;
+    assert!(
+        matches!(&first, Ok(frame) if is_mismatch(frame)),
+        "{first:?}"
+    );
+    assert_eq!(exit(&first), Exit::Failure);
+    assert_eq!(peer.read_line().await?, None, "подписка не отправлена");
+    Ok(())
+}
+
+#[tokio::test]
+async fn request_over_server_limit_is_refused_before_sending() -> TestResult {
+    let fake = Fake::bind()?;
+    let (client, clock) = fake.client();
+    let title = "а".repeat(REQUEST_LINE_LIMIT / 2 + 1);
+    let call = tokio::spawn(async move { client.call(create(&title)).await });
+
+    let mut peer = fake.accept().await?;
+    peer.greet().await?;
+    let outcome = call.await?;
+    assert_eq!(refusal(&outcome), Some(ControlErrorCode::RequestTooLarge));
+    assert_eq!(exit(&outcome), Exit::Failure, "отказ не повторяется");
+    assert_eq!(clock.waits(), 0);
+    assert_eq!(peer.read_line().await?, None, "строка не отправлена");
+    Ok(())
+}
+
+#[tokio::test]
+async fn deadline_before_hello_reply_is_retryable_without_request() -> TestResult {
     let fake = Fake::bind()?;
     let (client, clock) = fake.client();
     let call = tokio::spawn(async move { client.call(create("Альфа")).await });
@@ -583,9 +663,22 @@ async fn session_keeps_one_deadline_across_requests() -> TestResult {
     session.hello("test-client 0.1.0").await?;
     let created = session.request(create("Альфа")).await?;
     assert!(matches!(created, Response::Ok { .. }), "{created:?}");
+    let revision = owner.memory.revision();
     clock.expire();
+    let outcome = session.request(create("Бета")).await;
+    assert_eq!(
+        refusal(&outcome),
+        Some(ControlErrorCode::Unavailable),
+        "команда, не отправленная до срока, повторяема"
+    );
+    assert_eq!(exit(&outcome), Exit::Retry);
     let outcome = session.request(tree_all()).await;
     assert_eq!(refusal(&outcome), Some(ControlErrorCode::Unavailable));
+    assert_eq!(
+        owner.memory.revision(),
+        revision,
+        "команда не дошла до ядра"
+    );
     owner.stop().await
 }
 

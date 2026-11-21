@@ -19,7 +19,7 @@ use tokio::net::UnixStream;
 use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 
 use crate::clock::{Clock, Expired};
-use crate::codec::{LineError, LineReader, RESPONSE_LINE_LIMIT, encode_line};
+use crate::codec::{LineError, LineReader, REQUEST_LINE_LIMIT, RESPONSE_LINE_LIMIT, encode_line};
 use crate::error::{ControlError, ControlErrorCode};
 use crate::instance::{Probe, probe_owner, socket_path};
 use crate::wire::{
@@ -117,21 +117,11 @@ impl Exit {
 #[derive(Debug)]
 pub enum ClientError {
     /// Отказ со стабильным кодом: `not_running`, `owner_starting`, `owner_leaving`,
-    /// `unavailable` или `outcome_unknown`.
+    /// `unavailable`, `outcome_unknown` или `request_too_large` до отправки.
     Control(ControlError),
     /// Неповторяемый отказ без кода протокола: ответ чтения не разобран, не относится к
     /// запросу или длиннее лимита клиента, проба блокировки не удалась.
     Failed(String),
-}
-
-impl ClientError {
-    /// Отказ со стабильным кодом, если он есть.
-    pub fn control(&self) -> Option<&ControlError> {
-        match self {
-            Self::Control(error) => Some(error),
-            Self::Failed(_) => None,
-        }
-    }
 }
 
 impl From<ControlError> for ClientError {
@@ -489,10 +479,14 @@ impl<C: Clock> Session<C> {
     }
 
     /// Записать строку запроса. Неполная отправка не исполняется сервером, поэтому её исход
-    /// повторяемый.
+    /// повторяемый. Строку длиннее лимита сервера клиент не отправляет: сервер закрыл бы
+    /// соединение посреди записи, и отказ выглядел бы повторяемым.
     async fn send(&mut self, request: &Request) -> Result<(), ClientError> {
         let line = encode_line(request)
             .map_err(|error| ClientError::Failed(format!("запрос не закодирован: {error}")))?;
+        if line.len() - 1 > REQUEST_LINE_LIMIT {
+            return Err(ControlError::request_too_large(REQUEST_LINE_LIMIT).into());
+        }
         match self
             .clock
             .within(self.deadline, self.writer.write_all(&line))
@@ -579,11 +573,6 @@ impl<C: Clock + Clone> Client<C> {
             timeout,
             name: name.into(),
         }
-    }
-
-    /// Адрес владельца.
-    pub fn address(&self) -> &Address {
-        &self.address
     }
 
     /// `hello`: кадр ответа как есть, в том числе с `owner: leaving`.

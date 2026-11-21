@@ -53,30 +53,10 @@ pub trait Clock: Send + Sync + 'static {
         F::Output: Send;
 }
 
-/// Часы продукта на `tokio::time`. Под `tokio::time::pause` ими управляют `advance`
-/// и автоматический сдвиг простаивающего runtime.
-#[derive(Clone, Copy, Debug)]
-pub struct TokioClock {
-    retry: Duration,
-}
-
-impl TokioClock {
-    /// Часы с интервалом попыток `retry`.
-    pub const fn new(retry: Duration) -> Self {
-        Self { retry }
-    }
-
-    /// Интервал между попытками.
-    pub const fn retry(&self) -> Duration {
-        self.retry
-    }
-}
-
-impl Default for TokioClock {
-    fn default() -> Self {
-        Self::new(RETRY_INTERVAL)
-    }
-}
+/// Часы продукта на `tokio::time` с интервалом попыток [`RETRY_INTERVAL`]. Под
+/// `tokio::time::pause` ими управляют `advance` и автоматический сдвиг простаивающего runtime.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TokioClock;
 
 /// `start + span`, а если сумма не помещается в часы — далёкое будущее.
 fn saturating_add(start: Instant, span: Duration) -> Instant {
@@ -93,17 +73,14 @@ impl Clock for TokioClock {
         saturating_add(Instant::now(), timeout)
     }
 
-    fn wait_retry(&self, deadline: Instant) -> impl Future<Output = Result<(), Expired>> + Send {
-        let retry = self.retry;
-        async move {
-            let next = saturating_add(Instant::now(), retry);
-            if next >= deadline {
-                tokio::time::sleep_until(deadline).await;
-                Err(Expired)
-            } else {
-                tokio::time::sleep_until(next).await;
-                Ok(())
-            }
+    async fn wait_retry(&self, deadline: Instant) -> Result<(), Expired> {
+        let next = saturating_add(Instant::now(), RETRY_INTERVAL);
+        if next >= deadline {
+            tokio::time::sleep_until(deadline).await;
+            Err(Expired)
+        } else {
+            tokio::time::sleep_until(next).await;
+            Ok(())
         }
     }
 
@@ -270,7 +247,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn tokio_clock_retries_until_deadline() {
-        let clock = TokioClock::default();
+        let clock = TokioClock;
         let start = Instant::now();
         let deadline = clock.deadline(Duration::from_millis(120));
 
@@ -286,7 +263,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn tokio_clock_bounds_operation_by_deadline() {
-        let clock = TokioClock::default();
+        let clock = TokioClock;
         let start = Instant::now();
         let deadline = clock.deadline(Duration::from_millis(300));
 
@@ -297,7 +274,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn tokio_clock_saturates_huge_timeout() {
-        let clock = TokioClock::default();
+        let clock = TokioClock;
         let deadline = clock.deadline(Duration::MAX);
         assert!(deadline > Instant::now() + Duration::from_secs(365 * 24 * 60 * 60));
         assert_eq!(clock.wait_retry(deadline).await, Ok(()));

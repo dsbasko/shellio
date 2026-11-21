@@ -550,7 +550,7 @@ async fn same_user_peer_is_admitted() {
     let own = accepted.peer_cred().unwrap().uid();
     assert!(is_own_uid(own));
     assert!(!is_own_uid(own.wrapping_add(1)));
-    let mut admitted = admit_peer(accepted).unwrap();
+    let mut admitted = admit_peer(accepted).expect("тот же пользователь допущен");
 
     client.write_all(b"x").await.unwrap();
     let mut byte = [0u8; 1];

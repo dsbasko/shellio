@@ -20,9 +20,8 @@ pub use clock::{Clock, Expired, RETRY_INTERVAL, TokioClock};
 pub use codec::{LineError, LineReader, REQUEST_LINE_LIMIT, RESPONSE_LINE_LIMIT, encode_line};
 pub use error::{ControlError, ControlErrorCode};
 pub use instance::{
-    InstanceError, LOCK_FILE, MAX_SOCKET_PATH, NodeKind, Ownership, PeerRefused, Probe,
-    SOCKET_FILE, SocketPaths, admit_peer, check_socket_path, is_own_uid, lock_path, probe_owner,
-    socket_path,
+    InstanceError, LOCK_FILE, MAX_SOCKET_PATH, NodeKind, Ownership, Probe, SOCKET_FILE,
+    SocketPaths, admit_peer, check_socket_path, is_own_uid, lock_path, probe_owner, socket_path,
 };
 pub use server::{LaunchHandler, SHUTDOWN_GRACE, Server, ServerConfig};
 pub use wire::{

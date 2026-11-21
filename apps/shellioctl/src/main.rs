@@ -52,7 +52,7 @@ fn run() -> Exit {
         Ok(runtime) => runtime,
         Err(error) => return output::failure(format_args!("runtime не запущен: {error}")),
     };
-    let client = Client::new(address, TokioClock::default(), CLIENT, timeout);
+    let client = Client::new(address, TokioClock, CLIENT, timeout);
     runtime.block_on(execute(&client, action, Printer::new(json)))
 }
 

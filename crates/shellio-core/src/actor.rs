@@ -6,7 +6,7 @@ use tokio::sync::{broadcast, mpsc, oneshot, watch};
 
 use crate::change::Change;
 use crate::clock::Clock;
-use crate::command::PreparedCommand;
+use crate::command::{CommandScope, PreparedCommand};
 use crate::error::CoreError;
 use crate::events::{EVENT_BUFFER, EventLog, EventsSince, Snapshot};
 use crate::handle::StartError;
@@ -15,7 +15,6 @@ use crate::ids::IdGen;
 use crate::model::{Revision, State};
 use crate::persist::{Persist, StorageThread};
 use crate::query::{Query, StorageInfo, read};
-use crate::tree::TreeScope;
 use crate::wire::{Event, Reply};
 
 /// Ёмкость очереди запросов ядра.
@@ -29,7 +28,7 @@ pub(crate) type ReplySender = oneshot::Sender<Result<Reply, CoreError>>;
 /// Запрос в очереди актора.
 pub(crate) enum Request {
     Command {
-        scope: TreeScope,
+        scope: CommandScope,
         command: PreparedCommand,
         reply: ReplySender,
     },
@@ -159,10 +158,10 @@ impl Actor {
 
     async fn command(
         &mut self,
-        scope: TreeScope,
+        scope: CommandScope,
         command: PreparedCommand,
     ) -> Result<Reply, CoreError> {
-        command.check_scope(&self.state, scope)?;
+        scope.check(&self.state)?;
         let mut ctx = Ctx::new(&*self.clock, &mut *self.ids);
         let Outcome { value, changes } = handle(&self.state, command, &mut ctx)?;
         if !changes.is_empty() {

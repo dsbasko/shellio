@@ -151,23 +151,21 @@ async fn run<U: Ui>(
         Err(error) => return fail(format_args!("профиль не вычислен: {error}")),
     };
     let state = profile.clone();
-    let cwd = blocking(move || {
-        let cwd = std::env::current_dir()
-            .map_err(|error| format!("рабочий каталог не прочитан: {error}"))?;
+    let prepared = blocking(move || {
         state
             .ensure_state_dir()
             .map_err(|error| error.to_string())?;
-        Ok::<_, String>(cwd)
+        launch::outgoing_from(args, std::env::current_dir())
     })
     .await;
-    let outgoing = match cwd {
-        Ok(cwd) => launch::outgoing(args, &cwd),
+    let outgoing = match prepared {
+        Ok(outgoing) => outgoing,
         Err(reason) => return fail(reason),
     };
     let ui_ref = &*ui;
     match claim(
         &profile,
-        TokioClock::default(),
+        TokioClock,
         SECOND_LAUNCH_TIMEOUT,
         &outgoing.launch,
         &|pid| ui_ref.yield_activation(pid),
@@ -481,7 +479,7 @@ async fn serve<U: Ui>(
         listener,
         core.clone(),
         launcher.clone(),
-        TokioClock::default(),
+        TokioClock,
         ServerConfig::new(VERSION),
     ) {
         Ok(server) => server,

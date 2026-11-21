@@ -229,7 +229,7 @@ async fn accept<C: Clock, L: LaunchHandler>(shared: Arc<Shared<C, L>>, listener:
             accepted = listener.accept() => match accepted {
                 Ok((stream, _)) => {
                     // Чужой собеседник закрывается без ответа.
-                    if let Ok(stream) = admit_peer(stream) {
+                    if let Some(stream) = admit_peer(stream) {
                         connections.spawn(Connection::new(Arc::clone(&shared), stream).serve());
                     }
                 }

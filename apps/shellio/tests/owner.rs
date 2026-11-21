@@ -24,12 +24,14 @@ use serde_json::Value;
 use shellio::owner::{Claim, SECOND_LAUNCH_TIMEOUT, Second, claim};
 use shellio_control::test_support::ManualClock;
 use shellio_control::{
-    Address, Client, Exit, Launch, OkValue, Ownership, Probe, RequestBody, Response, TokioClock,
-    lock_path, probe_owner, socket_path,
+    Activation, Address, Client, ControlError, ControlErrorCode, Exit, HelloReply, Launch,
+    LaunchReceipt, LineReader, OkValue, OwnerState, Ownership, PROTOCOL, Probe, REQUEST_LINE_LIMIT,
+    RequestBody, RequestId, Response, TokioClock, encode_line, lock_path, probe_owner, socket_path,
 };
 use shellio_core::{Command as CoreCommand, Query, ReplyValue, TreeScope, TreeView};
 use shellio_store::Profile;
 use tempfile::TempDir;
+use tokio::io::AsyncWriteExt;
 
 const FIXTURE: &str = env!("CARGO_BIN_EXE_shellio-owner-fixture");
 const READY: &str = "shellio: владелец готов, pid ";
@@ -110,7 +112,7 @@ impl Fixture {
     fn client(&self) -> Client<TokioClock> {
         Client::new(
             Address::Profile(self.profile()),
-            TokioClock::default(),
+            TokioClock,
             "owner-test",
             CLIENT_TIMEOUT,
         )
@@ -453,9 +455,11 @@ fn start_failure_keeps_foreign_node_and_frees_lock() {
 
 #[test]
 fn unusable_profile_is_refused_before_lock() {
+    let fixture = Fixture::new();
     let output = Command::new(FIXTURE)
         .env_clear()
         .env("SHELLIO_STATE_DIR", "relative")
+        .current_dir(fixture.work())
         .output()
         .unwrap();
     let stderr = text(&output.stderr);
@@ -463,6 +467,11 @@ fn unusable_profile_is_refused_before_lock() {
     assert!(
         stderr.starts_with("shellio: запуск не удался: профиль не вычислен"),
         "{stderr}"
+    );
+    assert_eq!(
+        fs::read_dir(fixture.work()).unwrap().count(),
+        0,
+        "относительный каталог состояния не создан"
     );
 }
 
@@ -494,29 +503,23 @@ async fn claimant_outlasts_client_probe_and_becomes_owner() {
     probe.try_lock_shared().unwrap();
 
     let clock = ManualClock::new();
-    let mut task = tokio::spawn({
+    let task = tokio::spawn({
         let (profile, clock, launch) = (profile.clone(), clock.clone(), launch(&fixture));
         async move { claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &no_yield).await }
     });
     clock.until_waiting(1).await;
     assert!(!task.is_finished(), "претендент ждёт, пока держится проба");
+    // Явное снятие: копия дескриптора у процесса, который соседний тест порождает до exec,
+    // держала бы блокировку после одного закрытия.
+    probe.unlock().unwrap();
     drop(probe);
-    // Процесс, порождаемый соседним тестом, до exec держит копию дескриптора пробы, и с ней
-    // блокировку: тогда претендент ждёт ещё одну попытку.
-    let mut waits = 1;
-    let claimed = loop {
-        clock.tick();
-        waits += 1;
-        tokio::select! {
-            claimed = &mut task => break claimed,
-            () = clock.until_waiting(waits) => {}
-        }
-    };
+    clock.tick();
 
-    match claimed.unwrap().unwrap() {
+    match task.await.unwrap().unwrap() {
         Claim::Owner(ownership) => ownership.release().unwrap(),
         Claim::Second(second) => panic!("второй запуск: {second:?}"),
     }
+    assert_eq!(clock.waits(), 1, "владелец с первой попытки после пробы");
     assert_eq!(probe_owner(&profile).unwrap(), Probe::NotRunning);
 }
 
@@ -573,7 +576,7 @@ async fn second_launch_yields_to_hello_pid_before_sending_launch() {
                     }
                 }
             };
-            let clock = TokioClock::default();
+            let clock = TokioClock;
             claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &yield_to).await
         }
     });
@@ -606,4 +609,217 @@ async fn second_launch_yields_to_hello_pid_before_sending_launch() {
     assert!(yields.try_recv().is_err(), "уступка одна");
     let (status, rest, stderr) = owner.stop(Signal::TERM);
     assert_clean_exit(status, &rest, &stderr, "SIGTERM");
+}
+
+/// PID поддельного владельца в `hello`.
+const FAKE_PID: u32 = 77;
+
+/// Поддельный владелец: блокировку профиля держит тест, на опубликованном сокете отвечают
+/// заданные кадры.
+struct FakeOwner {
+    listener: tokio::net::UnixListener,
+    ownership: Ownership,
+}
+
+impl FakeOwner {
+    fn start(profile: &Profile) -> Self {
+        let mut ownership = Ownership::try_acquire(profile).unwrap().unwrap();
+        let listener = tokio::net::UnixListener::from_std(ownership.publish().unwrap()).unwrap();
+        Self {
+            listener,
+            ownership,
+        }
+    }
+
+    async fn accept(&self) -> FakePeer {
+        let (stream, _) = self.listener.accept().await.unwrap();
+        let (reader, writer) = stream.into_split();
+        FakePeer {
+            reader: LineReader::new(tokio::io::BufReader::new(reader), REQUEST_LINE_LIMIT),
+            writer,
+        }
+    }
+
+    fn stop(self) {
+        drop(self.listener);
+        self.ownership.release().unwrap();
+    }
+}
+
+/// Соединение поддельного владельца со вторым запуском.
+struct FakePeer {
+    reader: LineReader<tokio::io::BufReader<tokio::net::unix::OwnedReadHalf>>,
+    writer: tokio::net::unix::OwnedWriteHalf,
+}
+
+impl FakePeer {
+    /// Следующая строка, `None` — второй запуск закрыл соединение.
+    async fn line(&mut self) -> Option<String> {
+        self.reader
+            .next_line()
+            .await
+            .unwrap()
+            .map(|line| String::from_utf8_lossy(line).into_owned())
+    }
+
+    async fn reply(&mut self, frame: &Response) {
+        self.writer
+            .write_all(&encode_line(frame).unwrap())
+            .await
+            .unwrap();
+    }
+
+    /// Прочитать `hello` и ответить владельцем в состоянии `owner`.
+    async fn hello(&mut self, owner: OwnerState) {
+        let line = self.line().await.unwrap();
+        assert!(line.contains("\"hello\""), "{line}");
+        self.reply(&Response::Ok {
+            id: RequestId(1),
+            value: OkValue::Hello(HelloReply {
+                protocol: PROTOCOL,
+                server: "fake".to_owned(),
+                pid: FAKE_PID,
+                owner,
+            }),
+        })
+        .await;
+    }
+
+    /// Прочитать `launch`.
+    async fn launch(&mut self) {
+        let line = self.line().await.unwrap();
+        assert!(line.contains("\"launch\""), "{line}");
+    }
+}
+
+fn spawn_claim(
+    profile: &Profile,
+    clock: &ManualClock,
+    fixture: &Fixture,
+) -> tokio::task::JoinHandle<Second> {
+    let (profile, clock, launch) = (profile.clone(), clock.clone(), launch(fixture));
+    tokio::spawn(async move {
+        match claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &no_yield).await {
+            Ok(Claim::Second(second)) => second,
+            other => panic!("ожидался второй запуск: {other:?}"),
+        }
+    })
+}
+
+/// После полной отправки `launch` обрыв даёт неизвестный исход без повтора: владелец не получит
+/// аргументы дважды.
+#[tokio::test]
+async fn launch_cut_after_full_send_is_unknown_without_retry() {
+    let fixture = Fixture::new();
+    let profile = claim_profile(&fixture);
+    let fake = FakeOwner::start(&profile);
+    let clock = ManualClock::new();
+    let task = spawn_claim(&profile, &clock, &fixture);
+
+    let mut peer = fake.accept().await;
+    peer.hello(OwnerState::Ready).await;
+    peer.launch().await;
+    drop(peer);
+
+    let second = task.await.unwrap();
+    assert!(matches!(second, Second::Unknown(_)), "{second:?}");
+    assert_eq!(second.exit(), Exit::OutcomeUnknown);
+    assert_eq!(clock.waits(), 0, "повтора нет");
+    fake.stop();
+}
+
+/// Отказ кадром на `hello` или на `launch` — исход второго запуска с кодом по кадру, без повтора.
+#[tokio::test]
+async fn refusal_frame_ends_second_launch_without_retry() {
+    let fixture = Fixture::new();
+    let profile = claim_profile(&fixture);
+    let fake = FakeOwner::start(&profile);
+    let clock = ManualClock::new();
+
+    let task = spawn_claim(&profile, &clock, &fixture);
+    let mut peer = fake.accept().await;
+    assert!(peer.line().await.unwrap().contains("\"hello\""));
+    peer.reply(&Response::Error {
+        id: Some(RequestId(1)),
+        error: ControlError::protocol_mismatch(PROTOCOL),
+    })
+    .await;
+    let second = task.await.unwrap();
+    assert!(
+        matches!(&second, Second::Refused(Response::Error { error, .. })
+            if error.code() == ControlErrorCode::ProtocolMismatch),
+        "{second:?}"
+    );
+    assert_eq!(second.exit(), Exit::Failure);
+    assert_eq!(peer.line().await, None, "launch не отправлен");
+
+    let task = spawn_claim(&profile, &clock, &fixture);
+    let mut peer = fake.accept().await;
+    peer.hello(OwnerState::Ready).await;
+    peer.launch().await;
+    peer.reply(&Response::Error {
+        id: Some(RequestId(2)),
+        error: ControlError::malformed_request("поддельный отказ"),
+    })
+    .await;
+    let second = task.await.unwrap();
+    assert!(
+        matches!(&second, Second::Refused(Response::Error { error, .. })
+            if error.code() == ControlErrorCode::MalformedRequest),
+        "{second:?}"
+    );
+    assert_eq!(second.exit(), Exit::Failure);
+    assert_eq!(clock.waits(), 0, "повтора нет");
+    fake.stop();
+}
+
+/// Владелец, который уходит (`hello` с `leaving` или `owner_leaving` на `launch`), `launch` не
+/// исполнил: второй запуск повторяет попытку с блокировки и доставляет аргументы следующему.
+#[tokio::test]
+async fn leaving_owner_is_retried_until_launch_is_delivered() {
+    let fixture = Fixture::new();
+    let profile = claim_profile(&fixture);
+    let fake = FakeOwner::start(&profile);
+    let clock = ManualClock::new();
+    let task = spawn_claim(&profile, &clock, &fixture);
+
+    let mut leaving = fake.accept().await;
+    leaving.hello(OwnerState::Leaving).await;
+    clock.until_waiting(1).await;
+    clock.tick();
+
+    let mut refusing = fake.accept().await;
+    assert_eq!(leaving.line().await, None, "уходящему launch не отправлен");
+    refusing.hello(OwnerState::Ready).await;
+    refusing.launch().await;
+    refusing
+        .reply(&Response::Error {
+            id: Some(RequestId(2)),
+            error: ControlError::owner_leaving(),
+        })
+        .await;
+    clock.until_waiting(2).await;
+    clock.tick();
+
+    let mut ready = fake.accept().await;
+    ready.hello(OwnerState::Ready).await;
+    ready.launch().await;
+    ready
+        .reply(&Response::Ok {
+            id: RequestId(2),
+            value: OkValue::Launch(LaunchReceipt {
+                activation: Activation::NoUi,
+                refused: Vec::new(),
+            }),
+        })
+        .await;
+
+    let second = task.await.unwrap();
+    assert!(
+        matches!(second, Second::Delivered { pid: FAKE_PID, .. }),
+        "{second:?}"
+    );
+    assert_eq!(second.exit(), Exit::Success);
+    assert_eq!(clock.waits(), 2);
+    fake.stop();
 }

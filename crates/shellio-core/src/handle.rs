@@ -178,7 +178,8 @@ impl CoreHandle {
     /// отвергается ещё до подготовки, без ввода-вывода.
     pub async fn request_in(&self, scope: TreeScope, command: Command) -> Result<Reply, CoreError> {
         self.shared.refuse_if_closing()?;
-        command.precheck_scope(scope)?;
+        let scope = command.in_scope(scope);
+        scope.precheck()?;
         let command = self.shared.prepare(command).await?;
         self.shared
             .call(|reply| Request::Command {
@@ -197,6 +198,7 @@ impl CoreHandle {
     /// неё. Брошенная квитанция принятую команду не отменяет.
     pub fn try_request(&self, command: Command) -> Result<ReplyReceipt, CoreError> {
         let (reply, receipt) = oneshot::channel();
+        let scope = command.in_scope(TreeScope::All);
         if command.needs_io() {
             let shared = Arc::clone(&self.shared);
             self.shared.runtime.spawn(async move {
@@ -207,7 +209,7 @@ impl CoreHandle {
                 let permit = prepared.and_then(|command| Ok((command, shared.try_reserve()?)));
                 match permit {
                     Ok((command, permit)) => permit.send(Request::Command {
-                        scope: TreeScope::All,
+                        scope,
                         command,
                         reply,
                     }),
@@ -221,7 +223,7 @@ impl CoreHandle {
         self.shared.refuse_if_closing()?;
         let command = command.prepare(&*self.shared.resolver)?;
         self.shared.try_reserve()?.send(Request::Command {
-            scope: TreeScope::All,
+            scope,
             command,
             reply,
         });

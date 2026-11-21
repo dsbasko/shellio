@@ -452,43 +452,9 @@ pub fn is_own_uid(uid: u32) -> bool {
     uid == rustix::process::getuid().as_raw()
 }
 
-/// Собеседник отвергнут: соединение закрыто без ответа.
-#[derive(Debug)]
-pub enum PeerRefused {
-    /// Собеседник работает под другим пользователем.
-    Foreign {
-        /// UID собеседника.
-        uid: u32,
-    },
-    /// UID собеседника не прочитан.
-    Unknown(io::Error),
-}
-
-impl fmt::Display for PeerRefused {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Foreign { uid } => write!(f, "собеседник под чужим UID {uid}"),
-            Self::Unknown(error) => write!(f, "UID собеседника не прочитан: {error}"),
-        }
-    }
-}
-
-impl Error for PeerRefused {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Unknown(error) => Some(error),
-            Self::Foreign { .. } => None,
-        }
-    }
-}
-
 /// Допустить принятое соединение, только если собеседник — тот же пользователь. Чужое
-/// соединение закрывается без ответа.
-pub fn admit_peer(stream: UnixStream) -> Result<UnixStream, PeerRefused> {
-    let uid = stream.peer_cred().map_err(PeerRefused::Unknown)?.uid();
-    if is_own_uid(uid) {
-        Ok(stream)
-    } else {
-        Err(PeerRefused::Foreign { uid })
-    }
+/// соединение и соединение с непрочитанным UID закрываются без ответа: `None`.
+pub fn admit_peer(stream: UnixStream) -> Option<UnixStream> {
+    let uid = stream.peer_cred().ok()?.uid();
+    is_own_uid(uid).then_some(stream)
 }

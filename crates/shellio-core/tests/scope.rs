@@ -470,6 +470,31 @@ async fn root_of_other_workspace_project_is_root_taken() {
     );
 }
 
+/// Имена воркспейсов уникальны среди всех воркспейсов: занятое чужим воркспейсом имя под своей
+/// областью даёт `name_taken` с id владельца имени, как `root_taken`, и ничего не меняет.
+#[tokio::test]
+async fn workspace_name_of_other_workspace_is_name_taken() {
+    let w = world().await.unwrap();
+    let before = snapshot(&w.core).await.unwrap().revision;
+    let error = w
+        .core
+        .request_in(
+            TreeScope::Workspace(w.home),
+            Command::WorkspaceRename {
+                workspace: w.home,
+                title: "Работа".into(),
+            },
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::NameTaken);
+    assert_eq!(
+        error.detail_str("existing"),
+        Some(w.work.to_string().as_str())
+    );
+    assert_eq!(snapshot(&w.core).await.unwrap().revision, before);
+}
+
 /// Состояние с живым активным воркспейсом и удалённым воркспейсом, в котором есть проект с
 /// рабочей областью.
 struct Deleted {

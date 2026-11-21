@@ -5,6 +5,7 @@
 
 use std::ffi::OsString;
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use serde_json::json;
@@ -86,6 +87,26 @@ pub fn outgoing(args: Vec<OsString>, cwd: &Path) -> Outgoing {
         },
         local,
     }
+}
+
+/// Собрать `launch` по результату чтения рабочего каталога. Каталог нужен только
+/// относительным путям: если он не прочитан, запуск без них уходит с `cwd` `/`, а с ними —
+/// отказ старта с причиной.
+pub fn outgoing_from(args: Vec<OsString>, cwd: io::Result<PathBuf>) -> Result<Outgoing, String> {
+    let error = match cwd {
+        Ok(cwd) => return Ok(outgoing(args, &cwd)),
+        Err(error) => error,
+    };
+    let relative = args.iter().any(|arg| {
+        arg.to_str()
+            .is_some_and(|arg| !is_flag(arg) && Path::new(arg).is_relative())
+    });
+    if relative {
+        return Err(format!(
+            "рабочий каталог не прочитан, относительный путь не передать: {error}"
+        ));
+    }
+    Ok(outgoing(args, Path::new("/")))
 }
 
 /// Путь `arg` от `cwd`: `.` и повторные разделители убраны, `..` и ссылки остаются.
@@ -222,6 +243,33 @@ mod tests {
                 reason: RefuseReason::ArgNotUtf8,
             }]
         );
+    }
+
+    #[test]
+    fn unreadable_cwd_blocks_only_relative_paths() {
+        let gone = || Err(io::Error::from(io::ErrorKind::NotFound));
+        let bad = OsString::from_vec(b"x\xff".to_vec());
+        let out = outgoing_from(
+            vec![OsString::from("/abs"), OsString::from("-x"), bad],
+            gone(),
+        )
+        .unwrap();
+        assert_eq!(out.launch.args, vec!["/abs".to_owned(), "-x".to_owned()]);
+        assert_eq!(out.launch.cwd, PathBuf::from("/"));
+        assert_eq!(out.local.len(), 1);
+        assert_eq!(
+            outgoing_from(Vec::new(), gone()).unwrap().launch.cwd,
+            PathBuf::from("/")
+        );
+
+        let refused = outgoing_from(os(&["/abs", "rel"]), gone()).unwrap_err();
+        assert!(
+            refused.starts_with("рабочий каталог не прочитан"),
+            "{refused}"
+        );
+
+        let read = outgoing_from(os(&["rel"]), Ok(PathBuf::from("/w"))).unwrap();
+        assert_eq!(read, outgoing(os(&["rel"]), Path::new("/w")));
     }
 
     #[test]

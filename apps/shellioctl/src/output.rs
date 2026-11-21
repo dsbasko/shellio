@@ -185,7 +185,10 @@ fn tree_text(revision: u64, tree: &TreeView) -> String {
         (Some(active), Some(route)) => {
             let _ = writeln!(out, "окно: воркспейс {active}, {}", route_text(route));
         }
-        (None, _) | (_, None) => out.push_str("окно: вне области\n"),
+        // У области всех воркспейсов маршрут есть всегда, а активного воркспейса нет, пока
+        // не создан ни один.
+        (None, Some(_)) => out.push_str("окно: активного воркспейса нет\n"),
+        (_, None) => out.push_str("окно: вне области\n"),
     }
     for workspace in &tree.workspaces {
         let _ = writeln!(out, "воркспейс {} «{}»", workspace.id, workspace.title);
@@ -370,6 +373,9 @@ mod tests {
         );
 
         tree.active_workspace = None;
+        let shown = out(&reply(tree.clone()));
+        assert!(shown.contains("окно: активного воркспейса нет"), "{shown}");
+
         tree.route = None;
         let shown = out(&reply(tree));
         assert!(shown.contains("окно: вне области"), "{shown}");
