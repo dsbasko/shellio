@@ -2,8 +2,12 @@
 
 #![forbid(unsafe_code)]
 
+mod migrate;
+mod open;
 mod profile;
 
+pub use migrate::{BackupError, Migration, Migrator};
+pub use open::{Database, StoreError};
 pub use profile::{Profile, ProfileError, STATE_DIR_VAR};
 
 /// Тестовая поддержка хранилища, доступная только с функцией `test-support`.
