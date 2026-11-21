@@ -1,4 +1,4 @@
-//! Управление shellio: протокол v1 управляющего сокета, выбор владельца и сроки.
+//! Управление shellio: протокол v1 управляющего сокета, выбор владельца, сроки и сервер.
 //! Без зависимостей от AppKit.
 
 #![forbid(unsafe_code)]
@@ -7,6 +7,7 @@ mod clock;
 mod codec;
 mod error;
 mod instance;
+mod server;
 mod wire;
 
 pub use clock::{Clock, Expired, RETRY_INTERVAL, TokioClock};
@@ -17,6 +18,7 @@ pub use instance::{
     SOCKET_FILE, SocketPaths, admit_peer, check_socket_path, is_own_uid, lock_path, probe_owner,
     socket_path,
 };
+pub use server::{LaunchHandler, SHUTDOWN_GRACE, Server, ServerConfig};
 pub use wire::{
     Activation, Hello, HelloReply, Launch, LaunchReceipt, OkValue, OwnerState, PROTOCOL,
     RefuseReason, RefusedArg, Rejected, Request, RequestBody, RequestId, Response,
@@ -26,6 +28,7 @@ pub use wire::{
 #[cfg(feature = "test-support")]
 pub mod test_support {
     pub use crate::clock::manual::{ManualClock, ManualDeadline};
+    pub use crate::server::hooks::{Hold, ServerHooks};
 }
 
 #[cfg(test)]
