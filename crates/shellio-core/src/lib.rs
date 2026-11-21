@@ -37,7 +37,7 @@ pub use model::{
 };
 pub use persist::{CommitError, LoadError, Loaded, Persist};
 pub use query::{Query, StatusView, StorageInfo, read};
-pub use root::{ResolvedRoot, RootError, RootKey, RootKind, RootResolver};
+pub use root::{FsRootResolver, ResolvedRoot, RootError, RootKey, RootKind, RootResolver};
 pub use title::{Title, TitleError};
 pub use tree::{TreeProject, TreeRoot, TreeScope, TreeView, TreeWorkbench, TreeWorkspace};
 pub use wire::{Event, Reply, ReplyValue};
