@@ -19,6 +19,7 @@ BUNDLE := scripts/bundle.sh
 CHECK_BUNDLE := scripts/check-bundle.sh
 TEST_BUNDLE := scripts/test-bundle.sh
 RUN := scripts/run.sh
+E2E_SINGLE_INSTANCE := scripts/e2e/single-instance.sh
 PROBE_APPKIT := spikes/probe-appkit-shell/run.sh
 PROBE_GHOSTTY := spikes/probe-ghostty-surface/run.sh
 PROBE_SESSION := spikes/probe-session-survival/run.sh
@@ -29,7 +30,7 @@ PROBE_RESOURCES := spikes/probe-resource-accounting/run.sh
 
 # Цели, читающие vendor/ghostty/, выполняют весь рецепт под одной блокировкой набора: рецепт цели X
 # лежит во внутренней цели locked-X и запускается вложенным make. Вторая такая цель сразу получает отказ.
-LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run test-bundle \
+LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run test-bundle e2e \
 	probe-ghostty probe-ghostty-demo probe-session-surface
 
 .PHONY: setup test-scripts probe-appkit probe-appkit-demo probe-session probe-update probe-update-tcc-grant probe-diff probe-diff-demo probe-review probe-review-live probe-resources $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
@@ -98,6 +99,15 @@ locked-run:
 	CARGO=$(CARGO) $(BUNDLE)
 	$(CHECK_BUNDLE)
 	$(RUN)
+
+# Продуктовый рубеж P1.2 вне check и CI: сценарий второго запуска. Бандл собирается и проверяется скриптами
+# внутри той же блокировки, shellioctl сценарий собирает сам. Нужны идентичность Shellio Dev, открытый сеанс GUI
+# и разблокированный экран. Итог — result.json в target/e2e/single-instance/<время>-<pid>/, код сценария 3 —
+# обязательный пункт не pass, 1 — ошибка исполнения.
+locked-e2e:
+	CARGO=$(CARGO) $(BUNDLE)
+	$(CHECK_BUNDLE)
+	CARGO=$(CARGO) $(E2E_SINGLE_INSTANCE)
 
 # Отказы check-bundle.sh на копиях бандла; нужна настоящая идентичность, поэтому не в test-scripts.
 locked-test-bundle:
