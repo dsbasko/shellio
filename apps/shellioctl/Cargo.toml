@@ -1,0 +1,22 @@
+[package]
+name = "shellioctl"
+description = "CLI управления shellio: команды и чтения ядра через управляющий сокет"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+shellio-control = { path = "../../crates/shellio-control" }
+shellio-core = { path = "../../crates/shellio-core" }
+shellio-store = { path = "../../crates/shellio-store" }
+tokio = { version = "1", default-features = false, features = ["net", "rt", "time"] }
+
+[dev-dependencies]
+shellio-control = { path = "../../crates/shellio-control", features = ["test-support"] }
+shellio-core = { path = "../../crates/shellio-core", features = ["test-support"] }
+tempfile = "3.27.0"
+tokio = { version = "1", default-features = false, features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
+
+[lints]
+workspace = true

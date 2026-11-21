@@ -1,8 +1,10 @@
-//! Управление shellio: протокол v1 управляющего сокета, выбор владельца, сроки и сервер.
+//! Управление shellio: протокол v1 управляющего сокета, выбор владельца, сроки, сервер
+//! и клиент.
 //! Без зависимостей от AppKit.
 
 #![forbid(unsafe_code)]
 
+mod client;
 mod clock;
 mod codec;
 mod error;
@@ -10,6 +12,10 @@ mod instance;
 mod server;
 mod wire;
 
+pub use client::{
+    Address, AddressError, CLI_TIMEOUT, Client, ClientError, ConnectError, Exit, SOCKET_VAR,
+    Session, Subscription,
+};
 pub use clock::{Clock, Expired, RETRY_INTERVAL, TokioClock};
 pub use codec::{LineError, LineReader, REQUEST_LINE_LIMIT, RESPONSE_LINE_LIMIT, encode_line};
 pub use error::{ControlError, ControlErrorCode};
