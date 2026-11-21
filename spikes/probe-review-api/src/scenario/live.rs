@@ -220,10 +220,12 @@ fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveE
             None
         }
     };
+    let mut precondition = None;
     match host_read {
-        Some(Ok((read, note))) => {
+        Some(Ok((read, note, unmet))) => {
             result.host = read;
             result.notes.extend(note);
+            precondition = unmet;
         }
         Some(Err(err)) => errors.push(err),
         None => {}
@@ -234,6 +236,10 @@ fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveE
     }
     if let Some(denied) = guard_denied(&guards) {
         denied.apply(result, &scrubber);
+        return;
+    }
+    if let Some(reason) = precondition {
+        Verdict::NotRun(reason).apply(result, &scrubber);
         return;
     }
     let secrets = (author_secret, reviewer_secret);
@@ -555,8 +561,11 @@ fn github_cloud_caps<T: Transport>(
 
 /// Версия и тариф облачного GitLab чтением возможностей ревьюера до записей клетки: `absent`
 /// без версии — ошибка исполнения. Отказ хоста на чтение — заметка, версия не записывается;
-/// отказ транспорта и 5xx — ошибка исполнения.
-pub fn gitlab_host<T: Transport>(reviewer: &Guarded<T>) -> Result<(Host, Option<String>), String> {
+/// отказ транспорта и 5xx — ошибка исполнения. Третье поле — предусловие песочницы: роль
+/// ревьюера ниже Developer, как в клетке `capabilities`.
+pub fn gitlab_host<T: Transport>(
+    reviewer: &Guarded<T>,
+) -> Result<(Host, Option<String>, Option<String>), String> {
     let review = ReviewTarget {
         provider: Provider::GitLab,
         host: gitlab_root(reviewer.target()),
@@ -578,11 +587,18 @@ pub fn gitlab_host<T: Transport>(reviewer: &Guarded<T>) -> Result<(Host, Option<
                 tier: caps.plan.clone(),
             },
             None,
+            (!caps.can_review()).then(|| {
+                format!(
+                    "предусловие: роль ревьюера {:?}, нужна Developer или выше",
+                    caps.access_level
+                )
+            }),
         )),
         Err(err) => match classify_read(&err) {
             Ok(observed) => Ok((
                 Host::default(),
                 Some(format!("наблюдение: версия хоста не прочитана: {observed}")),
+                None,
             )),
             Err(stand) => Err(format!("reviewer: версия хоста: {stand}")),
         },
@@ -2408,7 +2424,7 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
         let server = cloud_fake(true)?;
         let trace = Trace::new();
         let reviewer = fake_guard(server.base(), FAKE_REVIEWER_TOKEN, &trace);
-        let (host, note) = gitlab_host(&reviewer)?;
+        let (host, note, precondition) = gitlab_host(&reviewer)?;
         assert!(
             host.version
                 .as_deref()
@@ -2416,6 +2432,7 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
             "{host:?}"
         );
         assert_eq!(note, None);
+        assert_eq!(precondition, None);
         assert!(reviewer.refused_writes().is_empty());
         assert_eq!(
             gitlab_root(&GuardTarget::gitlab(&gitlab::Endpoints::cloud(), "a/b")),
@@ -2435,6 +2452,21 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
             gitlab_host(&guard).is_err(),
             "отказ транспорта — ошибка исполнения"
         );
+
+        use crate::fake::gitlab::{Access, GitlabFake};
+        let mut fake = GitlabFake::new(FAKE_REPO);
+        fake.add_user(FAKE_REVIEWER, FAKE_REVIEWER_TOKEN, Some(Access::Reporter));
+        let server = crate::fake::FakeServer::start(fake)?;
+        let trace = Trace::new();
+        let reviewer = fake_guard(server.base(), FAKE_REVIEWER_TOKEN, &trace);
+        let (_, _, precondition) = gitlab_host(&reviewer)?;
+        assert!(
+            precondition
+                .as_deref()
+                .is_some_and(|p| p.starts_with("предусловие: роль ревьюера")),
+            "{precondition:?}"
+        );
+        assert!(reviewer.refused_writes().is_empty());
         Ok(())
     }
 
