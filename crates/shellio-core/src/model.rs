@@ -30,6 +30,7 @@ impl Revision {
 
 /// Состояние ядра.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct State {
     pub workspaces: BTreeMap<WorkspaceId, Workspace>,
     pub projects: BTreeMap<ProjectId, Project>,
@@ -42,6 +43,7 @@ pub struct State {
 
 /// Воркспейс.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Workspace {
     pub id: WorkspaceId,
     pub title: Title,
@@ -59,6 +61,7 @@ impl Workspace {
 
 /// Проект воркспейса.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Project {
     pub id: ProjectId,
     pub workspace: WorkspaceId,
@@ -78,6 +81,7 @@ impl Project {
 
 /// Корень проекта.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProjectRoot {
     pub id: ProjectRootId,
     pub project: ProjectId,
@@ -88,6 +92,7 @@ pub struct ProjectRoot {
 
 /// Рабочая область проекта.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Workbench {
     pub id: WorkbenchId,
     pub project: ProjectId,
@@ -97,6 +102,7 @@ pub struct Workbench {
 
 /// Состояние окна.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WindowState {
     /// Активный воркспейс. `None` только до первого запуска.
     pub active_workspace: Option<WorkspaceId>,
@@ -116,6 +122,7 @@ pub enum Route {
 
 /// Находка загрузки: строка таблицы и причина.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Diagnostic {
     pub table: String,
     pub rowid: i64,

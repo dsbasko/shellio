@@ -1,0 +1,10 @@
+{
+  "code": "name_taken",
+  "message": "имя «shellio» уже занято: проект 00000000-0000-0000-0000-000000000002",
+  "retryable": false,
+  "details": {
+    "entity": "project",
+    "existing": "00000000-0000-0000-0000-000000000002",
+    "name": "shellio"
+  }
+}

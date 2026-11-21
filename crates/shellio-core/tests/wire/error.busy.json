@@ -1,0 +1,6 @@
+{
+  "code": "busy",
+  "message": "очередь команд ядра полна",
+  "retryable": true,
+  "details": {}
+}

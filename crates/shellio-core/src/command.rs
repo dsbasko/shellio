@@ -12,7 +12,7 @@ use crate::root::{ResolvedRoot, RootResolver};
 ///
 /// Имена приходят строкой как есть: их проверяет обработчик и отвечает `invalid_argument`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "cmd")]
+#[serde(tag = "cmd", deny_unknown_fields)]
 pub enum Command {
     /// Новый воркспейс в конец списка.
     #[serde(rename = "workspace.create")]
@@ -140,7 +140,7 @@ pub enum PreparedCommand {
 
 /// Значение ответа команды: идентификаторы созданных записей.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(untagged, deny_unknown_fields)]
 pub enum CommandValue {
     /// `project.add`.
     Project {

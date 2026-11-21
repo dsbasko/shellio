@@ -1,0 +1,6 @@
+{
+  "code": "storage_unavailable",
+  "message": "запись в state.db не удалась: disk I/O error",
+  "retryable": true,
+  "details": {}
+}

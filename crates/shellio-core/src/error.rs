@@ -114,6 +114,7 @@ impl Entity {
 
 /// Ошибка ядра: стабильный код, сообщение для человека, признак повтора и детали.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CoreError {
     code: ErrorCode,
     message: String,

@@ -1,0 +1,20 @@
+{
+  "change": "project_inserted",
+  "project": {
+    "id": "00000000-0000-0000-0000-000000000002",
+    "workspace": "00000000-0000-0000-0000-000000000001",
+    "title": "shellio",
+    "list_position": 0,
+    "removed_at": null,
+    "last_opened_at": null
+  },
+  "roots": [
+    {
+      "id": "00000000-0000-0000-0000-000000000003",
+      "project": "00000000-0000-0000-0000-000000000002",
+      "path": "/src/shellio",
+      "kind": "git",
+      "key": "/src/shellio/.git"
+    }
+  ]
+}

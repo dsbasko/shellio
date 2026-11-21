@@ -1,0 +1,10 @@
+{
+  "code": "invalid_argument",
+  "message": "путь src/shellio не абсолютный",
+  "retryable": false,
+  "details": {
+    "field": "path",
+    "path": "src/shellio",
+    "reason": "path_not_absolute"
+  }
+}

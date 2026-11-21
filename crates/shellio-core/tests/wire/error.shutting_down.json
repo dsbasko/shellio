@@ -1,0 +1,6 @@
+{
+  "code": "shutting_down",
+  "message": "ядро завершается",
+  "retryable": false,
+  "details": {}
+}

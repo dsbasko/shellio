@@ -1,0 +1,6 @@
+{
+  "code": "storage_conflict",
+  "message": "ревизия базы 5 не совпадает с ревизией ядра 4",
+  "retryable": false,
+  "details": {}
+}

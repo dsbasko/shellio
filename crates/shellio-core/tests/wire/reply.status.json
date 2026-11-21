@@ -1,0 +1,14 @@
+{
+  "revision": 12,
+  "value": {
+    "schema_version": 1,
+    "state_db": "/state/state.db",
+    "diagnostics": [
+      {
+        "table": "projects",
+        "rowid": 7,
+        "reason": "висячая ссылка workspace_id"
+      }
+    ]
+  }
+}
