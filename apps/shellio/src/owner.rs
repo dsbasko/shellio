@@ -19,9 +19,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use shellio_control::{
-    Activation, ClientError, Clock, ControlErrorCode, Exit, InstanceError, Launch, LaunchHandler,
-    LaunchReceipt, OkValue, OwnerState, Ownership, RefusedArg, RequestBody, Response, Server,
-    ServerConfig, Session, TokioClock, socket_path,
+    Activation, ClientError, Clock, ControlErrorCode, Exit, Expired, InstanceError, Launch,
+    LaunchHandler, LaunchReceipt, OkValue, OwnerState, Ownership, RefusedArg, RequestBody,
+    Response, Server, ServerConfig, Session, TokioClock, socket_path,
 };
 use shellio_core::{Core, CoreHandle, FsRootResolver, SystemClock, SystemIds};
 use shellio_store::{Database, Profile, ProfileError, SqlitePersist};
@@ -33,6 +33,9 @@ use crate::launch::{self, Outgoing};
 
 /// Срок второго запуска: подключение, `hello` и отправка `launch`.
 pub const SECOND_LAUNCH_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Срок передачи активации от получения `hello`, но не позже [`SECOND_LAUNCH_TIMEOUT`].
+pub const HANDOFF_TIMEOUT: Duration = Duration::from_secs(1);
 
 /// Версия сервера в ответе `hello`.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -52,9 +55,10 @@ pub trait Ui: Send + Sync + 'static {
     /// Выполняет активацию на главном потоке и возвращается после вызова.
     fn activate(&self) -> impl Future<Output = Activation> + Send;
 
-    /// Второй запуск перед отправкой `launch`: уступить активацию владельцу `pid`, чтобы его
-    /// [`Ui::activate`] получил передний план. Возвращается после вызова.
-    fn yield_activation(&self, pid: u32) -> impl Future<Output = ()> + Send;
+    /// Второй запуск перед отправкой `launch`: передать активацию владельцу `pid`, чтобы его
+    /// [`Ui::activate`] получил передний план, и вернуть факты передачи. Срок накладывает
+    /// [`claim`]: future, не завершившийся в срок, отбрасывается.
+    fn hand_off_activation(&self, pid: u32) -> impl Future<Output = Handoff> + Send;
 
     /// Запрос завершения от UI (`applicationShouldTerminate`). UI без такого запроса не
     /// завершает future никогда.
@@ -65,6 +69,71 @@ pub trait Ui: Send + Sync + 'static {
 
     /// Второй запуск или отказ старта: процесс выходит с кодом `code` после сброса вывода.
     fn exit(&self, code: u8);
+}
+
+/// Факты передачи активации вторым запуском.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Handoff {
+    /// Второй запуск был активен перед передачей.
+    pub self_active: bool,
+    /// Приложение владельца найдено по PID.
+    pub owner_found: bool,
+    /// Ответ запроса активации владельца, `None` — запрос не делался.
+    pub activated: Option<bool>,
+}
+
+/// Исход передачи активации.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HandoffOutcome {
+    /// Порт вернул факты в срок.
+    Done(Handoff),
+    /// Срок передачи истёк: `launch` отправляется без неё, если не истёк и срок второго
+    /// запуска.
+    Expired,
+}
+
+/// Строка исхода передачи владельцу `pid` для stderr второго запуска.
+pub fn handoff_line(pid: u32, outcome: HandoffOutcome) -> String {
+    let prefix = format!("shellio: передача активации pid {pid}");
+    match outcome {
+        HandoffOutcome::Expired => format!("{prefix}: срок передачи истёк"),
+        HandoffOutcome::Done(handoff) => {
+            let yes_no = |fact: bool| if fact { "да" } else { "нет" };
+            let activated = match handoff.activated {
+                Some(true) => "принята",
+                Some(false) => "отклонена",
+                None => "не запрашивалась",
+            };
+            format!(
+                "{prefix}: второй запуск активен — {}, приложение владельца найдено — {}, \
+                 активация владельца — {activated}",
+                yes_no(handoff.self_active),
+                yes_no(handoff.owner_found),
+            )
+        }
+    }
+}
+
+/// Передача активации вторым запуском в [`claim`]: вызов порта и запись исхода.
+pub trait ActivationHandoff: Sync {
+    /// Передать активацию владельцу `pid`. Срок накладывает [`claim`].
+    fn hand_off(&self, pid: u32) -> impl Future<Output = Handoff> + Send;
+
+    /// Исход передачи владельцу `pid`. Вызывается до отправки `launch`.
+    fn outcome(&self, pid: u32, outcome: HandoffOutcome);
+}
+
+/// Передача портом [`Ui`]: исход печатается строкой в stderr.
+struct UiHandoff<'a, U>(&'a U);
+
+impl<U: Ui> ActivationHandoff for UiHandoff<'_, U> {
+    fn hand_off(&self, pid: u32) -> impl Future<Output = Handoff> + Send {
+        self.0.hand_off_activation(pid)
+    }
+
+    fn outcome(&self, pid: u32, outcome: HandoffOutcome) {
+        say_err(handoff_line(pid, outcome));
+    }
 }
 
 /// Строка в stdout. Закрытый вывод не роняет процесс.
@@ -162,13 +231,12 @@ async fn run<U: Ui>(
         Ok(outgoing) => outgoing,
         Err(reason) => return fail(reason),
     };
-    let ui_ref = &*ui;
     match claim(
         &profile,
         TokioClock,
         SECOND_LAUNCH_TIMEOUT,
         &outgoing.launch,
-        &|pid| ui_ref.yield_activation(pid),
+        &UiHandoff(&*ui),
     )
     .await
     {
@@ -256,19 +324,19 @@ fn describe(frame: &Response) -> String {
 /// Блокировка занята — подключение к сокету. Сокета нет, его никто не слушает, владелец
 /// уходит или отказ пришёл до полной отправки `launch` — ждать попытки по `clock` и снова
 /// пробовать блокировку: освободилась — процесс становится владельцем. Каталог состояния уже
-/// создан. `yield_to` получает PID готового владельца из `hello` и завершается до отправки
-/// `launch`.
-pub async fn claim<C, Y, F>(
+/// создан. `handoff` получает PID готового владельца из `hello` и передаёт ему активацию до
+/// отправки `launch` под сроком [`HANDOFF_TIMEOUT`] внутри `timeout`. Срок передачи истёк —
+/// `launch` всё равно отправляется.
+pub async fn claim<C, H>(
     profile: &Profile,
     clock: C,
     timeout: Duration,
     launch: &Launch,
-    yield_to: &Y,
+    handoff: &H,
 ) -> Result<Claim, InstanceError>
 where
     C: Clock + Clone,
-    Y: Fn(u32) -> F + Sync,
-    F: Future<Output = ()> + Send,
+    H: ActivationHandoff,
 {
     let deadline = clock.deadline(timeout);
     let socket = socket_path(profile);
@@ -277,7 +345,7 @@ where
         if let Some(ownership) = blocking(move || Ownership::try_acquire(&candidate)).await? {
             return Ok(Claim::Owner(ownership));
         }
-        let reason = match forward(&clock, deadline, &socket, launch, yield_to).await {
+        let reason = match forward(&clock, deadline, &socket, launch, handoff).await {
             Attempt::Done(second) => return Ok(Claim::Second(second)),
             Attempt::Retry(reason) => reason,
         };
@@ -304,17 +372,16 @@ fn after_error(error: ClientError) -> Attempt {
     }
 }
 
-async fn forward<C, Y, F>(
+async fn forward<C, H>(
     clock: &C,
     deadline: C::Deadline,
     socket: &Path,
     launch: &Launch,
-    yield_to: &Y,
+    handoff: &H,
 ) -> Attempt
 where
     C: Clock + Clone,
-    Y: Fn(u32) -> F,
-    F: Future<Output = ()>,
+    H: ActivationHandoff,
 {
     let mut session = match Session::connect(clock.clone(), deadline, socket).await {
         Ok(session) => session,
@@ -331,7 +398,17 @@ where
         Ok(frame) => return Attempt::Done(Second::Refused(frame)),
         Err(error) => return after_error(error),
     };
-    yield_to(pid).await;
+    // Срок передачи выдаётся до вызова порта, а внешний `within` не даёт ему пережить срок
+    // второго запуска: тот истёк — `launch` получит отказ до отправки и повтор по сроку.
+    let cutoff = clock.deadline(HANDOFF_TIMEOUT);
+    let outcome = match clock
+        .within(deadline, clock.within(cutoff, handoff.hand_off(pid)))
+        .await
+    {
+        Ok(Ok(facts)) => HandoffOutcome::Done(facts),
+        Ok(Err(Expired)) | Err(Expired) => HandoffOutcome::Expired,
+    };
+    handoff.outcome(pid, outcome);
     match session.request(RequestBody::Launch(launch.clone())).await {
         Ok(Response::Ok {
             value: OkValue::Launch(receipt),
@@ -504,4 +581,44 @@ async fn serve<U: Ui>(
     server.shutdown().await;
     release(ownership).await;
     Finish::Terminate
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn done(self_active: bool, owner_found: bool, activated: Option<bool>) -> HandoffOutcome {
+        HandoffOutcome::Done(Handoff {
+            self_active,
+            owner_found,
+            activated,
+        })
+    }
+
+    #[test]
+    fn handoff_line_names_every_fact() {
+        assert_eq!(
+            handoff_line(7, done(true, true, Some(true))),
+            "shellio: передача активации pid 7: второй запуск активен — да, приложение владельца \
+             найдено — да, активация владельца — принята"
+        );
+        assert_eq!(
+            handoff_line(7, done(false, true, Some(false))),
+            "shellio: передача активации pid 7: второй запуск активен — нет, приложение владельца \
+             найдено — да, активация владельца — отклонена"
+        );
+        assert_eq!(
+            handoff_line(7, done(true, false, None)),
+            "shellio: передача активации pid 7: второй запуск активен — да, приложение владельца \
+             найдено — нет, активация владельца — не запрашивалась"
+        );
+    }
+
+    #[test]
+    fn handoff_line_reports_expired_handoff() {
+        assert_eq!(
+            handoff_line(42, HandoffOutcome::Expired),
+            "shellio: передача активации pid 42: срок передачи истёк"
+        );
+    }
 }

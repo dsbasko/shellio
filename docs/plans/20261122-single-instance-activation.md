@@ -157,11 +157,14 @@ pub struct Handoff {
 **Files:**
 - Modify: `apps/shellio/src/owner.rs`, `apps/shellio/src/app_ui.rs`, `apps/shellio/src/bin/shellio-owner-fixture.rs`, `apps/shellio/tests/owner.rs`
 
-- [ ] порт `Ui`: `yield_activation` → `hand_off_activation(pid) -> Handoff` (раздел «Порт `Ui`»); `claim` и `forward` ставят передачу под срок передачи (раздел «Сроки») через `Clock`; по истечении — исход «срок передачи истёк», `launch` всё равно отправляется
-- [ ] второй запуск печатает исход передачи одной строкой в stderr; квитанция в stdout не меняется
-- [ ] `AppUi` пока отображает новую форму на прежний вызов `App::yield_activation_to`, без новой логики AppKit (её даёт задача 3); `shellio-owner-fixture` возвращает исход без AppKit, а тест может его задержать
-- [ ] тесты: на ручных часах зависшая передача истекает через 1 с, `launch` отправлен, квитанция получена, код 0; передача, не уложившаяся в остаток срока 10 с, обрезается им; строка исхода в stderr для каждого поля; `second_launch_yields_to_hello_pid_before_sending_launch` переименован под передачу и по-прежнему падает при перестановке передачи после `launch`
-- [ ] `make check` проходит
+- [x] порт `Ui`: `yield_activation` → `hand_off_activation(pid) -> Handoff` (раздел «Порт `Ui`»); `claim` и `forward` ставят передачу под срок передачи (раздел «Сроки») через `Clock`; по истечении — исход «срок передачи истёк», `launch` всё равно отправляется
+- [x] второй запуск печатает исход передачи одной строкой в stderr; квитанция в stdout не меняется
+- [x] `AppUi` пока отображает новую форму на прежний вызов `App::yield_activation_to`, без новой логики AppKit (её даёт задача 3); `shellio-owner-fixture` возвращает исход без AppKit, а тест может его задержать
+- [x] тесты: на ручных часах зависшая передача истекает через 1 с, `launch` отправлен, квитанция получена, код 0; передача, не уложившаяся в остаток срока 10 с, обрезается им; строка исхода в stderr для каждого поля; `second_launch_yields_to_hello_pid_before_sending_launch` переименован под передачу и по-прежнему падает при перестановке передачи после `launch`
+- [x] `make check` проходит
+- ⚠️ решение исполнителя: ручные часы `ManualClock` (`crates/shellio-control/src/clock.rs`, вне списка файлов задачи) получили виртуальное время `advance(Duration)`: срок помнит свой момент и истекает, когда время до него дошло. Без этого «через 1 с» на ручных часах не выразить: `expire()` истекает все выданные сроки, включая срок второго запуска, и `launch` не ушёл бы. `expire()` и `tick()` не изменились, остальные наборы тестов их поведение не замечают; добавлен юнит-тест `advance_expires_only_deadlines_that_are_due`.
+- Форма порта: `Ui::hand_off_activation(pid) -> Handoff` (факты из раздела «Порт `Ui`»); `claim` принимает `ActivationHandoff` — вызов порта и запись исхода `HandoffOutcome` (`Done(Handoff)` или `Expired`). Срок передачи — вложенный `within`: внешний по сроку второго запуска, внутренний по `HANDOFF_TIMEOUT` (1 с), выданному сразу после `hello`. Продукт печатает исход строкой `shellio: передача активации pid <pid>: …` в stderr до отправки `launch`.
+- Задержка фикстуры: `SHELLIO_FIXTURE_HANDOFF=hang` делает передачу второго запуска фикстуры бесконечной; тест процесса `second_launch_process_delivers_launch_after_hung_handoff_expires` проверяет код 0, прежнюю квитанцию и строку «срок передачи истёк». Тест порядка переименован в `second_launch_hands_off_to_hello_pid_before_sending_launch` и переведён на ручные часы, чтобы реальный срок 1 с не отправил `launch` раньше соседнего процесса; перестановка передачи после `launch` проверена — тест падает.
 
 ### Task 3: Политика и передача в `shellio-appkit` (вариант 1)
 

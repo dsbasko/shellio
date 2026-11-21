@@ -10,18 +10,22 @@
 
 use std::ffi::OsString;
 use std::fs::{self, File};
+use std::future::{Future, pending};
 use std::io::{BufRead, BufReader, Read};
 use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 use std::process::{Child, ChildStdout, Command, ExitStatus, Output, Stdio};
-use std::sync::mpsc;
+use std::sync::{Mutex, mpsc};
 use std::thread;
 use std::time::Duration;
 
 use rustix::process::{Pid, Signal, kill_process};
 use serde_json::Value;
-use shellio::owner::{Claim, SECOND_LAUNCH_TIMEOUT, Second, claim};
+use shellio::owner::{
+    ActivationHandoff, Claim, HANDOFF_TIMEOUT, Handoff, HandoffOutcome, SECOND_LAUNCH_TIMEOUT,
+    Second, claim,
+};
 use shellio_control::test_support::ManualClock;
 use shellio_control::{
     Activation, Address, Client, ControlError, ControlErrorCode, Exit, HelloReply, Launch,
@@ -37,6 +41,8 @@ const FIXTURE: &str = env!("CARGO_BIN_EXE_shellio-owner-fixture");
 const READY: &str = "shellio: владелец готов, pid ";
 const HANDLED: &str = "shellio: запуск обработан ";
 const ACTIVATION: &str = "shellio-owner-fixture: активация без UI";
+/// Переменная фикстуры, задерживающая передачу активации второго запуска.
+const HANDOFF_VAR: &str = "SHELLIO_FIXTURE_HANDOFF";
 /// Срок клиента теста: ограничивает зависание, а не синхронизирует.
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -107,6 +113,11 @@ impl Fixture {
     /// Второй запуск до выхода.
     fn second(&self, args: &[OsString]) -> Output {
         self.command(args).output().unwrap()
+    }
+
+    /// Второй запуск, у которого передача активации не завершается.
+    fn second_with_hung_handoff(&self) -> Output {
+        self.command(&[]).env(HANDOFF_VAR, "hang").output().unwrap()
     }
 
     fn client(&self) -> Client<TokioClock> {
@@ -246,6 +257,14 @@ fn text(bytes: &[u8]) -> String {
     String::from_utf8(bytes.to_vec()).unwrap()
 }
 
+/// Строка исхода передачи второго запуска фикстуры владельцу `pid`.
+fn fixture_handoff_line(pid: u32) -> String {
+    format!(
+        "shellio: передача активации pid {pid}: второй запуск активен — нет, приложение владельца \
+         найдено — нет, активация владельца — не запрашивалась\n"
+    )
+}
+
 fn assert_clean_exit(status: ExitStatus, rest: &str, stderr: &str, cause: &str) {
     assert_eq!(status.code(), Some(0), "stderr: {stderr}");
     assert_eq!(rest, format!("shellio: завершение: {cause}\n"));
@@ -275,7 +294,11 @@ fn second_launch_forwards_arguments_to_owner() {
     let output = fixture.second(&args);
     let stderr = text(&output.stderr);
     assert_eq!(output.status.code(), Some(0), "stderr: {stderr}");
-    assert!(stderr.is_empty(), "stderr: {stderr}");
+    assert_eq!(
+        stderr,
+        fixture_handoff_line(pid),
+        "исход передачи одной строкой"
+    );
     assert_eq!(
         text(&output.stdout),
         format!(
@@ -306,6 +329,7 @@ fn second_launch_forwards_arguments_to_owner() {
         text(&output.stdout),
         format!("shellio: запуск передан владельцу (pid {pid}), активации нет: владелец без UI\n")
     );
+    assert_eq!(text(&output.stderr), fixture_handoff_line(pid));
     assert_eq!(owner.handled()["launch"]["args"], serde_json::json!([]));
 
     assert_eq!(fixture.hello_pid(), pid, "владелец прежний");
@@ -482,8 +506,77 @@ fn claim_profile(fixture: &Fixture) -> Profile {
     profile
 }
 
-fn no_yield(_pid: u32) -> std::future::Ready<()> {
-    std::future::ready(())
+/// Факты передачи, которые возвращают подделки порта.
+const FACTS: Handoff = Handoff {
+    self_active: true,
+    owner_found: true,
+    activated: Some(true),
+};
+
+/// Передача без UI: факты сразу, исход не записывается.
+struct NoHandoff;
+
+impl ActivationHandoff for NoHandoff {
+    fn hand_off(&self, _pid: u32) -> impl Future<Output = Handoff> + Send {
+        std::future::ready(FACTS)
+    }
+
+    fn outcome(&self, _pid: u32, _outcome: HandoffOutcome) {}
+}
+
+/// Передача, которую держит тест: сообщает PID начала, завершается фактами, отправленными
+/// тестом, и не завершается, пока их нет. Исходы записываются по порядку.
+struct HeldHandoff {
+    started: tokio::sync::mpsc::UnboundedSender<u32>,
+    facts: Mutex<Option<tokio::sync::oneshot::Receiver<Handoff>>>,
+    outcomes: tokio::sync::mpsc::UnboundedSender<(u32, HandoffOutcome)>,
+}
+
+/// Управление [`HeldHandoff`] из теста.
+struct HandoffControl {
+    started: tokio::sync::mpsc::UnboundedReceiver<u32>,
+    /// Отправка фактов завершает передачу. Брошенный отправитель — передача зависла.
+    facts: tokio::sync::oneshot::Sender<Handoff>,
+    outcomes: tokio::sync::mpsc::UnboundedReceiver<(u32, HandoffOutcome)>,
+}
+
+impl HeldHandoff {
+    fn new() -> (Self, HandoffControl) {
+        let (started, started_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (facts, facts_rx) = tokio::sync::oneshot::channel();
+        let (outcomes, outcomes_rx) = tokio::sync::mpsc::unbounded_channel();
+        let handoff = Self {
+            started,
+            facts: Mutex::new(Some(facts_rx)),
+            outcomes,
+        };
+        let control = HandoffControl {
+            started: started_rx,
+            facts,
+            outcomes: outcomes_rx,
+        };
+        (handoff, control)
+    }
+}
+
+impl ActivationHandoff for HeldHandoff {
+    fn hand_off(&self, pid: u32) -> impl Future<Output = Handoff> + Send {
+        let _ = self.started.send(pid);
+        let facts = self.facts.lock().unwrap().take();
+        async move {
+            match facts {
+                Some(facts) => match facts.await {
+                    Ok(facts) => facts,
+                    Err(_) => pending().await,
+                },
+                None => pending().await,
+            }
+        }
+    }
+
+    fn outcome(&self, pid: u32, outcome: HandoffOutcome) {
+        let _ = self.outcomes.send((pid, outcome));
+    }
 }
 
 fn launch(fixture: &Fixture) -> Launch {
@@ -505,7 +598,7 @@ async fn claimant_outlasts_client_probe_and_becomes_owner() {
     let clock = ManualClock::new();
     let task = tokio::spawn({
         let (profile, clock, launch) = (profile.clone(), clock.clone(), launch(&fixture));
-        async move { claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &no_yield).await }
+        async move { claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &NoHandoff).await }
     });
     clock.until_waiting(1).await;
     assert!(!task.is_finished(), "претендент ждёт, пока держится проба");
@@ -533,7 +626,7 @@ async fn claim_without_socket_expires_with_retry_code() {
     let clock = ManualClock::new();
     let task = tokio::spawn({
         let (profile, clock, launch) = (profile.clone(), clock.clone(), launch(&fixture));
-        async move { claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &no_yield).await }
+        async move { claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &NoHandoff).await }
     });
     clock.until_waiting(1).await;
     clock.expire();
@@ -546,19 +639,17 @@ async fn claim_without_socket_expires_with_retry_code() {
     assert!(!socket_path(&profile).exists());
 }
 
-/// Второй запуск уступает активацию PID владельца из `hello` и отправляет `launch` только после
-/// уступки: запуск соседнего процесса, прошедший целиком, пока уступка ждёт, владелец обрабатывает
-/// раньше.
+/// Второй запуск передаёт активацию PID владельца из `hello` и отправляет `launch` только после
+/// передачи: запуск соседнего процесса, прошедший целиком, пока передача ждёт, владелец
+/// обрабатывает раньше. Ручные часы не дают сроку передачи истечь, пока идёт соседний процесс.
 #[tokio::test]
-async fn second_launch_yields_to_hello_pid_before_sending_launch() {
+async fn second_launch_hands_off_to_hello_pid_before_sending_launch() {
     let fixture = Fixture::new();
     let mut owner = fixture.owner();
     let pid = owner.pid();
     owner.handled();
 
-    let (yielded, mut yields) = tokio::sync::mpsc::unbounded_channel();
-    let (release, released) = tokio::sync::oneshot::channel::<()>();
-    let released = std::sync::Mutex::new(Some(released));
+    let (handoff, mut control) = HeldHandoff::new();
     let marker = fixture.root.join("marker").display().to_string();
     let task = tokio::spawn({
         let profile = fixture.profile();
@@ -566,27 +657,16 @@ async fn second_launch_yields_to_hello_pid_before_sending_launch() {
             args: vec![marker.clone()],
             cwd: fixture.work(),
         };
-        async move {
-            let yield_to = |pid: u32| {
-                let _ = yielded.send(pid);
-                let wait = released.lock().unwrap().take();
-                async move {
-                    if let Some(wait) = wait {
-                        let _ = wait.await;
-                    }
-                }
-            };
-            let clock = TokioClock;
-            claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &yield_to).await
-        }
+        let clock = ManualClock::new();
+        async move { claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &handoff).await }
     });
 
     assert_eq!(
-        yields.recv().await,
+        control.started.recv().await,
         Some(pid),
-        "уступка получает PID из hello"
+        "передача получает PID из hello"
     );
-    assert!(!task.is_finished(), "запуск ждёт уступки");
+    assert!(!task.is_finished(), "запуск ждёт передачи");
     let output = fixture.second(&[]);
     assert_eq!(
         output.status.code(),
@@ -594,7 +674,7 @@ async fn second_launch_yields_to_hello_pid_before_sending_launch() {
         "stderr: {}",
         text(&output.stderr)
     );
-    release.send(()).unwrap();
+    control.facts.send(FACTS).unwrap();
 
     match task.await.unwrap().unwrap() {
         Claim::Second(Second::Delivered { pid: got, .. }) => assert_eq!(got, pid),
@@ -604,9 +684,40 @@ async fn second_launch_yields_to_hello_pid_before_sending_launch() {
     assert_eq!(
         owner.handled()["launch"]["args"],
         serde_json::json!([marker]),
-        "launch отправлен после уступки"
+        "launch отправлен после передачи"
     );
-    assert!(yields.try_recv().is_err(), "уступка одна");
+    assert_eq!(
+        control.outcomes.try_recv().unwrap(),
+        (pid, HandoffOutcome::Done(FACTS))
+    );
+    assert!(control.started.try_recv().is_err(), "передача одна");
+    assert!(control.outcomes.try_recv().is_err(), "исход один");
+    let (status, rest, stderr) = owner.stop(Signal::TERM);
+    assert_clean_exit(status, &rest, &stderr, "SIGTERM");
+}
+
+/// Передача второго запуска-процесса зависла: по сроку передачи `launch` всё равно доставлен,
+/// квитанция в stdout прежняя, исход «срок истёк» — одной строкой в stderr.
+#[test]
+fn second_launch_process_delivers_launch_after_hung_handoff_expires() {
+    let fixture = Fixture::new();
+    let mut owner = fixture.owner();
+    let pid = owner.pid();
+    owner.handled();
+
+    let output = fixture.second_with_hung_handoff();
+    let stderr = text(&output.stderr);
+    assert_eq!(output.status.code(), Some(0), "stderr: {stderr}");
+    assert_eq!(
+        text(&output.stdout),
+        format!("shellio: запуск передан владельцу (pid {pid}), активации нет: владелец без UI\n")
+    );
+    assert_eq!(
+        stderr,
+        format!("shellio: передача активации pid {pid}: срок передачи истёк\n")
+    );
+    assert_eq!(owner.handled()["launch"]["args"], serde_json::json!([]));
+
     let (status, rest, stderr) = owner.stop(Signal::TERM);
     assert_clean_exit(status, &rest, &stderr, "SIGTERM");
 }
@@ -697,13 +808,112 @@ fn spawn_claim(
     clock: &ManualClock,
     fixture: &Fixture,
 ) -> tokio::task::JoinHandle<Second> {
+    spawn_claim_with(profile, clock, fixture, NoHandoff)
+}
+
+fn spawn_claim_with(
+    profile: &Profile,
+    clock: &ManualClock,
+    fixture: &Fixture,
+    handoff: impl ActivationHandoff + Send + 'static,
+) -> tokio::task::JoinHandle<Second> {
     let (profile, clock, launch) = (profile.clone(), clock.clone(), launch(fixture));
     tokio::spawn(async move {
-        match claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &no_yield).await {
+        match claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &handoff).await {
             Ok(Claim::Second(second)) => second,
             other => panic!("ожидался второй запуск: {other:?}"),
         }
     })
+}
+
+fn receipt_frame() -> Response {
+    Response::Ok {
+        id: RequestId(2),
+        value: OkValue::Launch(LaunchReceipt {
+            activation: Activation::NoUi,
+            refused: Vec::new(),
+        }),
+    }
+}
+
+/// Зависшая передача истекает ровно через [`HANDOFF_TIMEOUT`] от `hello`: `launch` отправлен,
+/// квитанция получена, код 0. Передача, завершённая до этого момента, даёт свои факты.
+#[tokio::test]
+async fn hung_handoff_expires_after_handoff_timeout_and_launch_is_sent() {
+    let fixture = Fixture::new();
+    let profile = claim_profile(&fixture);
+    let fake = FakeOwner::start(&profile);
+    let clock = ManualClock::new();
+
+    let (handoff, mut hung) = HeldHandoff::new();
+    let task = spawn_claim_with(&profile, &clock, &fixture, handoff);
+    let mut peer = fake.accept().await;
+    peer.hello(OwnerState::Ready).await;
+    assert_eq!(hung.started.recv().await, Some(FAKE_PID));
+    clock.advance(HANDOFF_TIMEOUT);
+    assert_eq!(
+        hung.outcomes.recv().await,
+        Some((FAKE_PID, HandoffOutcome::Expired))
+    );
+    peer.launch().await;
+    peer.reply(&receipt_frame()).await;
+    let second = task.await.unwrap();
+    assert!(
+        matches!(second, Second::Delivered { pid: FAKE_PID, .. }),
+        "{second:?}"
+    );
+    assert_eq!(second.exit().code(), 0);
+
+    let (handoff, mut held) = HeldHandoff::new();
+    let task = spawn_claim_with(&profile, &clock, &fixture, handoff);
+    let mut peer = fake.accept().await;
+    peer.hello(OwnerState::Ready).await;
+    assert_eq!(held.started.recv().await, Some(FAKE_PID));
+    clock.advance(HANDOFF_TIMEOUT - Duration::from_millis(1));
+    held.facts.send(FACTS).unwrap();
+    assert_eq!(
+        held.outcomes.recv().await,
+        Some((FAKE_PID, HandoffOutcome::Done(FACTS))),
+        "срок передачи ещё не истёк"
+    );
+    peer.launch().await;
+    peer.reply(&receipt_frame()).await;
+    assert!(matches!(task.await.unwrap(), Second::Delivered { .. }));
+    assert_eq!(clock.waits(), 0, "повтора нет");
+    drop(hung);
+    fake.stop();
+}
+
+/// Передача, начатая меньше чем за [`HANDOFF_TIMEOUT`] до конца срока второго запуска,
+/// обрезается этим сроком: `launch` не отправлен, исход повторяемый, код 75.
+#[tokio::test]
+async fn handoff_is_cut_by_rest_of_second_launch_deadline() {
+    let fixture = Fixture::new();
+    let profile = claim_profile(&fixture);
+    let fake = FakeOwner::start(&profile);
+    let clock = ManualClock::new();
+
+    let (handoff, mut control) = HeldHandoff::new();
+    let task = spawn_claim_with(&profile, &clock, &fixture, handoff);
+    // Подключение принято: срок второго запуска уже выдан.
+    let mut peer = fake.accept().await;
+    let half = HANDOFF_TIMEOUT / 2;
+    clock.advance(SECOND_LAUNCH_TIMEOUT - half);
+    peer.hello(OwnerState::Ready).await;
+    assert_eq!(control.started.recv().await, Some(FAKE_PID));
+    clock.advance(half);
+
+    let second = task.await.unwrap();
+    assert!(matches!(second, Second::Expired(_)), "{second:?}");
+    assert_eq!(second.exit().code(), 75);
+    assert_eq!(
+        control.outcomes.try_recv().unwrap(),
+        (FAKE_PID, HandoffOutcome::Expired)
+    );
+    assert_eq!(peer.line().await, None, "launch не отправлен");
+    assert_eq!(clock.waits(), 0);
+    drop(control);
+    fake.stop();
 }
 
 /// После полной отправки `launch` обрыв даёт неизвестный исход без повтора: владелец не получит

@@ -118,9 +118,12 @@ pub(crate) mod manual {
 
     use super::{Clock, Expired};
 
-    /// Срок ручных часов: номер в порядке выдачи.
+    /// Срок ручных часов: номер в порядке выдачи и момент виртуального времени.
     #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-    pub struct ManualDeadline(u64);
+    pub struct ManualDeadline {
+        order: u64,
+        due: Duration,
+    }
 
     #[derive(Debug, Default)]
     struct State {
@@ -128,6 +131,8 @@ pub(crate) mod manual {
         issued: u64,
         /// Сроки с номером меньше этого истекли.
         expired_below: u64,
+        /// Виртуальное время от создания часов.
+        now: Duration,
         /// Начатые ожидания попытки.
         waits: u64,
         /// Разрешённые ожидания попытки.
@@ -136,12 +141,14 @@ pub(crate) mod manual {
 
     impl State {
         fn is_expired(&self, deadline: ManualDeadline) -> bool {
-            deadline.0 < self.expired_below
+            deadline.order < self.expired_below || self.now >= deadline.due
         }
     }
 
-    /// Ручные часы с барьером: тест решает, когда ожидание попытки продолжается и когда
-    /// истекают сроки. Реального времени они не читают. Клоны делят одно состояние.
+    /// Ручные часы с барьером: тест решает, когда ожидание попытки продолжается, когда
+    /// истекают сроки и насколько сдвигается виртуальное время. Реального времени они не
+    /// читают, ожидание попытки от виртуального времени не зависит. Клоны делят одно
+    /// состояние.
     #[derive(Clone, Debug)]
     pub struct ManualClock {
         state: Arc<watch::Sender<State>>,
@@ -185,15 +192,27 @@ pub(crate) mod manual {
             self.state
                 .send_modify(|state| state.expired_below = state.issued);
         }
+
+        /// Сдвинуть виртуальное время на `by`: истекают сроки, чей момент наступил.
+        pub fn advance(&self, by: Duration) {
+            self.state
+                .send_modify(|state| state.now = state.now.saturating_add(by));
+        }
     }
 
     impl Clock for ManualClock {
         type Deadline = ManualDeadline;
 
-        fn deadline(&self, _timeout: Duration) -> ManualDeadline {
-            let mut deadline = ManualDeadline(0);
+        fn deadline(&self, timeout: Duration) -> ManualDeadline {
+            let mut deadline = ManualDeadline {
+                order: 0,
+                due: Duration::ZERO,
+            };
             self.state.send_modify(|state| {
-                deadline = ManualDeadline(state.issued);
+                deadline = ManualDeadline {
+                    order: state.issued,
+                    due: state.now.saturating_add(timeout),
+                };
                 state.issued += 1;
             });
             deadline
@@ -390,6 +409,40 @@ mod tests {
             let result = clock.within(deadline, async { ran = true }).await;
             assert_eq!(result, Err(Expired));
             assert!(!ran);
+        }
+
+        #[tokio::test]
+        async fn advance_expires_only_deadlines_that_are_due() {
+            let clock = ManualClock::new();
+            let long = clock.deadline(Duration::from_secs(10));
+            clock.advance(Duration::from_millis(500));
+            let short = clock.deadline(Duration::from_secs(1));
+            let (started_tx, started_rx) = oneshot::channel();
+            let operation = tokio::spawn({
+                let clock = clock.clone();
+                async move {
+                    clock
+                        .within(
+                            long,
+                            clock.within(short, async move {
+                                let _ = started_tx.send(());
+                                pending::<()>().await
+                            }),
+                        )
+                        .await
+                }
+            });
+
+            started_rx.await.unwrap();
+            clock.advance(Duration::from_millis(999));
+            assert_eq!(clock.within(short, async { 1 }).await, Ok(1));
+            clock.advance(Duration::from_millis(1));
+            assert_eq!(operation.await.unwrap(), Ok(Err(Expired)));
+            assert_eq!(clock.within(long, async { 2 }).await, Ok(2));
+            clock.advance(Duration::from_millis(8_500));
+            assert_eq!(clock.within(long, async { 3 }).await, Err(Expired));
+            assert_eq!(clock.wait_retry(long).await, Err(Expired));
+            assert_eq!(clock.waits(), 0);
         }
 
         #[tokio::test]

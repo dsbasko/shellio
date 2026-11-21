@@ -4,7 +4,7 @@
 use std::future::Future;
 use std::sync::Arc;
 
-use shellio::owner::{self, Ui};
+use shellio::owner::{self, Handoff, Ui};
 use shellio_appkit::{App, Delegate, MainThread};
 use shellio_control::Activation;
 use tokio::sync::{oneshot, watch};
@@ -65,13 +65,16 @@ impl Ui for AppUi {
         }
     }
 
-    async fn yield_activation(&self, pid: u32) {
+    async fn hand_off_activation(&self, pid: u32) -> Handoff {
         // Уступка идёт от запущенного приложения: до `applicationDidFinishLaunching` его ещё нет.
         latch(&self.ready).await;
-        if self.on_main(move |app| app.yield_activation_to(pid)).await == Some(false) {
-            owner::say_err(format_args!(
-                "shellio: приложение владельца pid {pid} не найдено, активация не уступлена"
-            ));
+        let owner_found = self.on_main(move |app| app.yield_activation_to(pid)).await == Some(true);
+        // Под политикой `.prohibited` второй запуск активным не бывает, а активация владельца
+        // только уступается, но не запрашивается.
+        Handoff {
+            self_active: false,
+            owner_found,
+            activated: None,
         }
     }
 
