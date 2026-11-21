@@ -45,6 +45,17 @@ impl fmt::Display for TitleError {
 
 impl std::error::Error for TitleError {}
 
+impl TitleError {
+    /// Стабильная причина отказа: её несут `invalid_argument` и диагностика загрузки.
+    pub const fn reason(&self) -> &'static str {
+        match self {
+            Self::Empty => "title_empty",
+            Self::TooLong { .. } => "title_too_long",
+            Self::ControlChar { .. } => "title_control_char",
+        }
+    }
+}
+
 impl Title {
     /// Наибольшая длина имени в символах (`chars`).
     pub const MAX_CHARS: usize = 200;

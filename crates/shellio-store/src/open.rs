@@ -15,10 +15,6 @@ const BUSY_TIMEOUT: Duration = Duration::from_millis(5000);
 /// Открытая база состояния на последней известной версии схемы.
 #[derive(Debug)]
 pub struct Database {
-    #[cfg_attr(
-        not(feature = "test-support"),
-        expect(dead_code, reason = "соединение читает запись хранилища задачи 9")
-    )]
     conn: Connection,
     path: PathBuf,
     schema_version: u32,
@@ -105,6 +101,14 @@ impl Database {
     #[cfg(feature = "test-support")]
     pub fn connection(&self) -> &Connection {
         &self.conn
+    }
+
+    pub(crate) fn conn(&self) -> &Connection {
+        &self.conn
+    }
+
+    pub(crate) fn conn_mut(&mut self) -> &mut Connection {
+        &mut self.conn
     }
 }
 

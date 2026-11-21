@@ -150,12 +150,7 @@ impl CoreError {
 
     /// Неверное имя в поле `field`.
     pub fn invalid_title(field: &str, error: &TitleError) -> Self {
-        let reason = match error {
-            TitleError::Empty => "title_empty",
-            TitleError::TooLong { .. } => "title_too_long",
-            TitleError::ControlChar { .. } => "title_control_char",
-        };
-        Self::invalid_argument(field, reason, error.to_string())
+        Self::invalid_argument(field, error.reason(), error.to_string())
     }
 
     /// У родителя `scope` не осталось позиции после наибольшей.

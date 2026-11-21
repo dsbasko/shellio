@@ -2,12 +2,16 @@
 
 #![forbid(unsafe_code)]
 
+mod load;
 mod migrate;
 mod open;
+mod persist;
 mod profile;
+mod write;
 
 pub use migrate::{BackupError, Migration, Migrator};
 pub use open::{Database, StoreError};
+pub use persist::SqlitePersist;
 pub use profile::{Profile, ProfileError, STATE_DIR_VAR};
 
 /// Тестовая поддержка хранилища, доступная только с функцией `test-support`.
