@@ -2,7 +2,7 @@
 # Проверяет подписанный бандл shellio.app.
 #
 #   check-bundle.sh [<бандл>]         подпись, requirement, Info.plist, раскладка, бинарь и самопроверка
-#   check-bundle.sh --open [<бандл>]  запуск через open -W -n с временным SHELLIO_STATE_DIR и проверка вывода
+#   check-bundle.sh --open [<бандл>]  самопроверка через open -W -n с временным SHELLIO_STATE_DIR и проверка вывода
 #
 # Бандл по умолчанию — target/bundle/shellio.app. Ресурсы сверяются с манифестом опубликованного набора,
 # версия ghostty — с его штампом; набор только читается, блокировку держит цель make.
@@ -185,7 +185,7 @@ check_self_check() {
     mkdir -p "$tmp/isolated/$name"
     env_args+=("$name=$tmp/isolated/$name")
   done
-  (cd "$tmp" && env -i "${env_args[@]}" "$exe" >"$tmp/stdout" 2>"$tmp/stderr") || status=$?
+  (cd "$tmp" && env -i "${env_args[@]}" "$exe" --self-check >"$tmp/stdout" 2>"$tmp/stderr") || status=$?
   [[ $status -eq 0 ]] || die "самопроверка завершилась с кодом $status: $(tr '\n' ' ' <"$tmp/stderr")"
   check_report "$tmp/stdout" "$tmp/stderr"
   for name in "${ISOLATED[@]}"; do
@@ -194,8 +194,8 @@ check_self_check() {
 }
 
 # open не передаёт код выхода приложения, поэтому итог судится по выводу и пустому каталогу состояния.
-# Заглушка выходит раньше, чем open начинает её ждать, и open пишет «Unable to block on application»
-# в свой stderr; его вывод показывается только при ошибке самого open. Если заглушка вышла раньше, чем
+# Самопроверка выходит раньше, чем open начинает её ждать, и open пишет «Unable to block on application»
+# в свой stderr; его вывод показывается только при ошибке самого open. Если самопроверка вышла раньше, чем
 # open подписался на её завершение, kevent отвечает ESRCH и open возвращает 1, хотя приложение
 # отработало: такой отказ тоже судится по выводу.
 OPEN_EXITED_EARLY="initial call to kevent() failed: No such process"
@@ -207,7 +207,7 @@ check_open() {
   : >"$tmp/stdout"
   : >"$tmp/stderr"
   open -W -n --env "SHELLIO_STATE_DIR=$state" --stdout "$tmp/stdout" --stderr "$tmp/stderr" "$app" \
-    >"$tmp/open.log" 2>&1 || status=$?
+    --args --self-check >"$tmp/open.log" 2>&1 || status=$?
   if [[ $status -ne 0 ]] && ! { [[ $status -eq 1 ]] && grep -qF "$OPEN_EXITED_EARLY" "$tmp/open.log"; }; then
     die "open завершился с кодом $status: $(tr '\n' ' ' <"$tmp/open.log")"
   fi

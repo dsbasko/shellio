@@ -6,7 +6,18 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+serde_json = "1.0"
+shellio-appkit = { path = "../../crates/shellio-appkit" }
+shellio-control = { path = "../../crates/shellio-control" }
+shellio-core = { path = "../../crates/shellio-core" }
 shellio-ghostty = { path = "../../crates/shellio-ghostty" }
+shellio-store = { path = "../../crates/shellio-store" }
+tokio = { version = "1", default-features = false, features = ["macros", "rt", "rt-multi-thread", "signal", "sync", "time"] }
+
+[dev-dependencies]
+rustix = { version = "1.1.6", default-features = false, features = ["std", "process"] }
+shellio-control = { path = "../../crates/shellio-control", features = ["test-support"] }
+tempfile = "3.27.0"
 
 [lints]
 workspace = true

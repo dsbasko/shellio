@@ -70,8 +70,9 @@ copy="$(copy_app baseline)"
 expect_ok "копия бандла проходит check-bundle.sh" "$check" "$copy"
 expect_ok "копия бандла запускается через open" "$check" --open "$copy"
 
-# Подменённый open запускает бинарь бандла напрямую и завершается кодом и сообщением из FAKE_OPEN_*:
-# так воспроизводится гонка, в которой приложение выходит раньше, чем open подписывается на его завершение.
+# Подменённый open запускает бинарь бандла напрямую с аргументами после --args и завершается кодом и
+# сообщением из FAKE_OPEN_*: так воспроизводится гонка, в которой приложение выходит раньше, чем open
+# подписывается на его завершение.
 # FAKE_OPEN_STDOUT подменяет вывод приложения, FAKE_OPEN_STDERR дописывается в его stderr,
 # FAKE_OPEN_TOUCH_STATE=1 оставляет файл в SHELLIO_STATE_DIR.
 fake_open="$tmp/fake-open"
@@ -80,19 +81,29 @@ cat >"$fake_open/open" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 envs=()
+app_args=()
+app=""
 out=/dev/null
 err=/dev/null
-while [[ $# -gt 1 ]]; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
     -W | -n) shift ;;
     --env) envs+=("$2") && shift 2 ;;
     --stdout) out="$2" && shift 2 ;;
     --stderr) err="$2" && shift 2 ;;
-    *) echo "fake open: неизвестный аргумент $1" >&2 && exit 2 ;;
+    --args) shift && app_args=("$@") && break ;;
+    -*) echo "fake open: неизвестный аргумент $1" >&2 && exit 2 ;;
+    *)
+      [[ -z "$app" ]] || { echo "fake open: лишний аргумент $1" >&2 && exit 2; }
+      app="$1" && shift
+      ;;
   esac
 done
+[[ -n "$app" ]] || { echo "fake open: не задан бандл" >&2 && exit 2; }
+# Без самопроверки бинарь стал бы владельцем и не вышел бы: прогон завис бы, а не упал.
+[[ "${app_args[*]-}" == --self-check ]] || { echo "fake open: ожидались --args --self-check" >&2 && exit 2; }
 if [[ "$FAKE_OPEN_RUN" == 1 ]]; then
-  env ${envs[@]+"${envs[@]}"} "$1/Contents/MacOS/shellio" >"$out" 2>"$err" || true
+  env ${envs[@]+"${envs[@]}"} "$app/Contents/MacOS/shellio" "${app_args[@]}" >"$out" 2>"$err" || true
 fi
 [[ -z "${FAKE_OPEN_STDOUT:-}" ]] || printf '%s\n' "$FAKE_OPEN_STDOUT" >"$out"
 [[ -z "${FAKE_OPEN_STDERR:-}" ]] || printf '%s\n' "$FAKE_OPEN_STDERR" >>"$err"

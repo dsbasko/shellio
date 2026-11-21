@@ -121,6 +121,7 @@ fn isolated_dirs(root: &Path) -> Vec<(&'static str, PathBuf)> {
 
 fn run_isolated(exe: &Path, root: &Path, dirs: &[(&str, PathBuf)]) -> Output {
     Command::new(exe)
+        .arg("--self-check")
         .env_clear()
         .envs(dirs.iter().map(|(name, dir)| (name, dir)))
         .current_dir(root)

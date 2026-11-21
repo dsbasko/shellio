@@ -18,6 +18,7 @@ GHOSTTY_LINK_AUDIT := scripts/ghostty/link-audit.sh
 BUNDLE := scripts/bundle.sh
 CHECK_BUNDLE := scripts/check-bundle.sh
 TEST_BUNDLE := scripts/test-bundle.sh
+RUN := scripts/run.sh
 PROBE_APPKIT := spikes/probe-appkit-shell/run.sh
 PROBE_GHOSTTY := spikes/probe-ghostty-surface/run.sh
 PROBE_SESSION := spikes/probe-session-survival/run.sh
@@ -91,9 +92,12 @@ locked-check-bundle:
 	$(GHOSTTY_VENDOR) --verify
 	$(CHECK_BUNDLE)
 
+# Бандл собирается и проверяется скриптами внутри той же блокировки: вложенный вызов публичных целей
+# bundle и check-bundle получил бы «набор ghostty занят». Владелец работает с временным профилем до выхода.
 locked-run:
-	$(GHOSTTY_VENDOR) --verify
-	$(CHECK_BUNDLE) --open
+	CARGO=$(CARGO) $(BUNDLE)
+	$(CHECK_BUNDLE)
+	$(RUN)
 
 # Отказы check-bundle.sh на копиях бандла; нужна настоящая идентичность, поэтому не в test-scripts.
 locked-test-bundle:
