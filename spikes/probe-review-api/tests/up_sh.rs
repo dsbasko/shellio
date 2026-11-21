@@ -1,7 +1,7 @@
 //! `gitlab/up.sh` с подставной командой docker (`PROBE_REVIEW_DOCKER`): `not_run` при недоступном
-//! docker, малой памяти, остановившемся контейнере и истёкшем сроке, аргументы `docker run` и
-//! готовность через порт хоста против loopback-сервера. Срок готовности 0 с: опрос делает одну
-//! попытку и не ждёт.
+//! или зависшем docker, малой памяти, остановившемся контейнере и истёкшем сроке, аргументы
+//! `docker run` и готовность через порт хоста против loopback-сервера. Срок готовности 0 с: опрос
+//! делает одну попытку и не ждёт.
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -22,7 +22,9 @@ const FAKE_DOCKER: &str = r#"#!/bin/bash
 log="$FAKE_DIR/calls"
 ( IFS=$'\x1f'; printf '%s\n' "$*" ) >>"$log"
 case "$1" in
-info) [ "${FAKE_INFO:-ok}" = ok ] ;;
+info)
+    if [ "${FAKE_INFO:-ok}" = hang ]; then trap '' ALRM; exec sleep 30; fi
+    [ "${FAKE_INFO:-ok}" = ok ] ;;
 image)
     if [ "${3:-}" = --format ]; then echo "${FAKE_ARCH:-linux/arm64}"; fi ;;
 pull) exit 1 ;;
@@ -151,6 +153,26 @@ fn missing_or_silent_docker_is_not_run() -> TestResult {
     let stand = Stand::new()?;
     let output = stand.fake_run(&[("FAKE_INFO", "down")])?;
     assert_not_run(&stand, &output, "docker недоступен: docker info не ответил")?;
+    assert!(stand.call("run", "-d").is_none(), "контейнер не запускался");
+    Ok(())
+}
+
+/// Зависший `docker info`, глухой к SIGALRM, как рантайм Go: срок всё равно его обрывает.
+#[test]
+fn hung_docker_info_is_not_run_within_deadline() -> TestResult {
+    let stand = Stand::new()?;
+    let started = std::time::Instant::now();
+    let output = stand.fake_run(&[("FAKE_INFO", "hang"), ("PROBE_REVIEW_DOCKER_DEADLINE", "1")])?;
+    let elapsed = started.elapsed();
+    assert_not_run(
+        &stand,
+        &output,
+        "docker недоступен: docker info не ответил за 1 с",
+    )?;
+    assert!(
+        elapsed < std::time::Duration::from_secs(20),
+        "срок docker info не сработал: {elapsed:?}"
+    );
     assert!(stand.call("run", "-d").is_none(), "контейнер не запускался");
     Ok(())
 }

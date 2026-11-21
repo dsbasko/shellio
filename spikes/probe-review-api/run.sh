@@ -35,8 +35,11 @@
 # Процесс сценария gitlab_ce получает PROBE_REVIEW_GITLAB_CE (путь gitlab-ce.json) и
 # PROBE_REVIEW_GITLAB_CE_TOKENS (токены ролей) окружением.
 #
+# Команды docker идут со сроком через deadline.pl: по сроку команда получает SIGTERM, затем SIGKILL.
+#
 # Переменные для тестов: PROBE_REVIEW_LOCK_TIMEOUT (срок захвата, с), PROBE_REVIEW_DOCKER (команда
-# docker), SHELLIO_CACHE_DIR (каталог блокировки).
+# docker), PROBE_REVIEW_DOCKER_DEADLINE (срок docker info и docker ps, с, по умолчанию 10),
+# SHELLIO_CACHE_DIR (каталог блокировки).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -61,9 +64,10 @@ EXIT_NOT_STARTED=4
 LOCK="${SHELLIO_CACHE_DIR:-$HOME/.cache/shellio}/measure.lock"
 LOCK_TIMEOUT="${PROBE_REVIEW_LOCK_TIMEOUT:-300}"
 DOCKER="${PROBE_REVIEW_DOCKER:-docker}"
-DOCKER_DEADLINE=10
+DOCKER_DEADLINE="${PROBE_REVIEW_DOCKER_DEADLINE:-10}"
 DOCKER_LABEL="shellio.probe.run-id"
 UP="$ROOT/spikes/probe-review-api/gitlab/up.sh"
+DEADLINE="$ROOT/spikes/probe-review-api/deadline.pl"
 EXIT_ROOT_TOKEN=5
 
 # Личный токен root, если хост отказал в password grant: токен генерирует GitLab, в аргументах
@@ -98,11 +102,9 @@ usage() {
     exit "$EXIT_USAGE"
 }
 
-# Команда со сроком: perl alarm переживает exec, по сроку команда получает SIGALRM.
+# Команда со сроком: по сроку SIGTERM, затем SIGKILL и код 124 (deadline.pl).
 deadline() {
-    local secs="$1"
-    shift
-    /usr/bin/perl -e 'alarm shift @ARGV; exec @ARGV or exit 127' "$secs" "$@"
+    /usr/bin/perl "$DEADLINE" "$@"
 }
 
 contains() {

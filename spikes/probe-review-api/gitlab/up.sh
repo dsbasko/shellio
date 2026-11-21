@@ -7,7 +7,9 @@
 #
 # Окружение: GITLAB_ROOT_PASSWORD (пароль root прогона, в аргументы docker не попадает),
 # PROBE_REVIEW_DOCKER (команда docker), PROBE_REVIEW_GITLAB_DEADLINE (срок готовности, с,
-# по умолчанию 900), PROBE_REVIEW_PULL_DEADLINE (срок docker pull, с, по умолчанию 900).
+# по умолчанию 900), PROBE_REVIEW_PULL_DEADLINE (срок docker pull, с, по умолчанию 900),
+# PROBE_REVIEW_DOCKER_DEADLINE (срок docker info, с, по умолчанию 10). Команды docker идут со
+# сроком через ../deadline.pl: по сроку команда получает SIGTERM, затем SIGKILL.
 #
 # Итог в каталоге подъёма: url — корень инсталляции http://127.0.0.1:<порт>; not_run — причина
 # not_run клеток gitlab_ce (docker недоступен, мало памяти, нет образа arm64, GitLab не
@@ -28,6 +30,8 @@ NAME="shellio-probe-review-$RUN_ID"
 PLATFORM="linux/arm64"
 READY_DEADLINE="${PROBE_REVIEW_GITLAB_DEADLINE:-900}"
 PULL_DEADLINE="${PROBE_REVIEW_PULL_DEADLINE:-900}"
+INFO_DEADLINE="${PROBE_REVIEW_DOCKER_DEADLINE:-10}"
+DEADLINE="$(cd "$(dirname "$0")/.." && pwd)/deadline.pl"
 # Свободная память ВМ docker не меньше 6 ГБ (план, «Предусловия»).
 MIN_AVAILABLE_KB=$((6 * 1024 * 1024))
 POLL=10
@@ -43,10 +47,9 @@ CURL=/opt/gitlab/embedded/bin/curl
 }
 mkdir -p "$DIR"
 
+# Команда со сроком: по сроку SIGTERM, затем SIGKILL и код 124 (deadline.pl).
 deadline() {
-    local secs="$1"
-    shift
-    /usr/bin/perl -e 'alarm shift @ARGV; exec @ARGV or exit 127' "$secs" "$@"
+    /usr/bin/perl "$DEADLINE" "$@"
 }
 
 not_run() {
@@ -60,7 +63,8 @@ save_log() {
 }
 
 command -v "$DOCKER" >/dev/null 2>&1 || not_run "docker недоступен: команды docker нет"
-deadline 10 "$DOCKER" info >/dev/null 2>&1 || not_run "docker недоступен: docker info не ответил за 10 с"
+deadline "$INFO_DEADLINE" "$DOCKER" info >/dev/null 2>&1 ||
+    not_run "docker недоступен: docker info не ответил за $INFO_DEADLINE с"
 
 if ! deadline 30 "$DOCKER" image inspect "$IMAGE" >/dev/null 2>&1; then
     echo "up.sh: docker pull $IMAGE" >&2
