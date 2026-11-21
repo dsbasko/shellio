@@ -171,11 +171,13 @@ pub struct Handoff {
 **Files:**
 - Modify: `crates/shellio-appkit/src/app.rs`, `crates/shellio-appkit/src/lib.rs`, `apps/shellio/src/app_ui.rs`, `apps/shellio/src/main.rs`
 
-- [ ] `App::run` стартует с `.accessory`; документация модуля и `main.rs` описывают новую политику; комментарий у `App::activate` (`app.rs:66-68`) больше не ссылается на неудачу P1.2
-- [ ] делегат сообщает `applicationDidBecomeActive`; `App` даёт безопасные: «попросить передний план себе», «активен ли», «передать владельцу по PID» (`yieldActivationToApplication` и `activateFromApplication_options`) с возвратом фактов для `Handoff`
-- [ ] `AppUi::hand_off_activation` выполняет шаги 1–4 раздела «Solution Overview» на главном потоке без блокировки: ожидание активности — событием делегата через канал, а не опросом на главном потоке
-- [ ] тесты: чистые части — выбор политики по роли, сборка `Handoff` из фактов, текст строки исхода; `App::run` вне главного потока по-прежнему отказывает до AppKit
-- [ ] `make check` проходит; `make bundle` и `make check-bundle` проходят
+- [x] `App::run` стартует с `.accessory`; документация модуля и `main.rs` описывают новую политику; комментарий у `App::activate` (`app.rs:66-68`) больше не ссылается на неудачу P1.2
+- [x] делегат сообщает `applicationDidBecomeActive`; `App` даёт безопасные: «попросить передний план себе», «активен ли», «передать владельцу по PID» (`yieldActivationToApplication` и `activateFromApplication_options`) с возвратом фактов для `Handoff`
+- [x] `AppUi::hand_off_activation` выполняет шаги 1–4 раздела «Solution Overview» на главном потоке без блокировки: ожидание активности — событием делегата через канал, а не опросом на главном потоке
+- [x] тесты: чистые части — выбор политики по роли, сборка `Handoff` из фактов, текст строки исхода; `App::run` вне главного потока по-прежнему отказывает до AppKit
+- [x] `make check` проходит; `make bundle` и `make check-bundle` проходят
+- Форма: `App::run` и `App::become_regular` берут политику из чистой `policy(Role)` (`Launch` → `.accessory`, `Owner` → `.regular`), тест `launch_may_become_active_without_dock_and_owner_is_regular`. Себе второй запуск просит передний план отдельным `App::request_activation`, а не `App::activate` владельца: варианты 2–4 меняют только его. `App::hand_off_activation_to(pid)` на главном потоке читает `isActive`, затем `yieldActivationToApplication` и `activateFromApplication_options` у приложения владельца от `currentApplication()` с пустыми опциями и возвращает `Transfer`; `App::yield_activation_to` удалён. Делегат сообщает `did_become_active`, `AppUi` держит его флагом `watch`, а не событием: активность, данная LaunchServices до начала передачи, не теряется. Сборка `Handoff` из `Transfer` — чистая `app_ui::handoff`, её тесты и строка исхода для случая без главного потока. `Cargo.lock` не менялся.
+- Решение исполнителя по правилу плана (раздел «Сроки»): ожидание собственной активности ограничено только сроком передачи `claim`, второго таймера в `AppUi` нет. Активность не пришла за 1 с — исход «срок передачи истёк», шаг 4 не выполняется, `launch` уходит. Так строка «срок передачи истёк» в stderr прогонов задачи 5 значит, что за 1 с второй запуск не дождался `applicationDidFinishLaunching` или собственной активности, и правило «поднять до 3 с» относится именно к ней.
 
 ### Task 4: `make e2e`: терминал-предок, удержание, Dock, два владельца
 

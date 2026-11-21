@@ -5,7 +5,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use shellio::owner::{self, Handoff, Ui};
-use shellio_appkit::{App, Delegate, MainThread};
+use shellio_appkit::{App, Delegate, MainThread, Transfer};
 use shellio_control::Activation;
 use tokio::sync::{oneshot, watch};
 
@@ -13,6 +13,9 @@ use tokio::sync::{oneshot, watch};
 pub struct AppUi {
     main: MainThread,
     ready: watch::Sender<bool>,
+    /// Приложение хотя бы раз стало активным. Флаг, а не событие: активность, которую
+    /// LaunchServices дал до начала передачи, не теряется.
+    became_active: watch::Sender<bool>,
     terminate: watch::Sender<bool>,
 }
 
@@ -21,6 +24,7 @@ impl AppUi {
         Self {
             main: MainThread::new(),
             ready: watch::Sender::new(false),
+            became_active: watch::Sender::new(false),
             terminate: watch::Sender::new(false),
         }
     }
@@ -66,16 +70,26 @@ impl Ui for AppUi {
     }
 
     async fn hand_off_activation(&self, pid: u32) -> Handoff {
-        // Уступка идёт от запущенного приложения: до `applicationDidFinishLaunching` его ещё нет.
+        // Передача идёт от запущенного приложения: до `applicationDidFinishLaunching` его ещё нет.
         latch(&self.ready).await;
-        let owner_found = self.on_main(move |app| app.yield_activation_to(pid)).await == Some(true);
-        // Под политикой `.prohibited` второй запуск активным не бывает, а активация владельца
-        // только уступается, но не запрашивается.
-        Handoff {
-            self_active: false,
-            owner_found,
-            activated: None,
+        let Some(active) = self
+            .on_main(|app| {
+                app.request_activation();
+                app.is_active()
+            })
+            .await
+        else {
+            return handoff(None);
+        };
+        // Передать можно только свою активность. Не пришла — ожидание обрывает срок передачи
+        // в `claim`, и `launch` уходит без неё.
+        if !active {
+            latch(&self.became_active).await;
         }
+        handoff(
+            self.on_main(move |app| app.hand_off_activation_to(pid))
+                .await,
+        )
     }
 
     fn terminate_requested(&self) -> impl Future<Output = ()> + Send {
@@ -93,7 +107,28 @@ impl Ui for AppUi {
     }
 }
 
-/// Делегат приложения: отмечает готовность и запрос завершения и сразу возвращается.
+/// Факты передачи для порта. `None` — главный поток не выполнил передачу: UI уже нет.
+fn handoff(transfer: Option<Transfer>) -> Handoff {
+    match transfer {
+        Some(Transfer {
+            self_active,
+            owner_found,
+            activated,
+        }) => Handoff {
+            self_active,
+            owner_found,
+            activated,
+        },
+        None => Handoff {
+            self_active: false,
+            owner_found: false,
+            activated: None,
+        },
+    }
+}
+
+/// Делегат приложения: отмечает готовность, активность и запрос завершения и сразу
+/// возвращается.
 pub struct AppDelegate {
     ui: Arc<AppUi>,
 }
@@ -109,7 +144,67 @@ impl Delegate for AppDelegate {
         self.ui.ready.send_replace(true);
     }
 
+    fn did_become_active(&self, _app: &App) {
+        self.ui.became_active.send_replace(true);
+    }
+
     fn terminate_requested(&self, _app: &App) {
         self.ui.terminate.send_replace(true);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn handoff_keeps_every_fact_of_the_transfer() {
+        let transfer = |self_active, owner_found, activated| Transfer {
+            self_active,
+            owner_found,
+            activated,
+        };
+        assert_eq!(
+            handoff(Some(transfer(true, true, Some(true)))),
+            Handoff {
+                self_active: true,
+                owner_found: true,
+                activated: Some(true),
+            }
+        );
+        assert_eq!(
+            handoff(Some(transfer(false, true, Some(false)))),
+            Handoff {
+                self_active: false,
+                owner_found: true,
+                activated: Some(false),
+            }
+        );
+        assert_eq!(
+            handoff(Some(transfer(true, false, None))),
+            Handoff {
+                self_active: true,
+                owner_found: false,
+                activated: None,
+            }
+        );
+    }
+
+    #[test]
+    fn handoff_without_main_thread_reports_nothing_done() {
+        let facts = handoff(None);
+        assert_eq!(
+            facts,
+            Handoff {
+                self_active: false,
+                owner_found: false,
+                activated: None,
+            }
+        );
+        assert_eq!(
+            owner::handoff_line(7, owner::HandoffOutcome::Done(facts)),
+            "shellio: передача активации pid 7: второй запуск активен — нет, приложение владельца \
+             найдено — нет, активация владельца — не запрашивалась"
+        );
     }
 }
