@@ -399,11 +399,20 @@ pub enum Route { WorkspaceHome, Workbench(WorkbenchId) }
 **Files:**
 - Create: `crates/shellio-store/src/profile.rs`
 
-- [ ] `Profile::resolve`, `from_process_env`, `isolated`, `state_db`, `backups_dir` по разделу «Профиль»
-- [ ] создание каталога состояния с `0700` при открытии хранилища (функция профиля, вызываемая из задачи 8)
-- [ ] тесты таблицей окружений: без переменной, с абсолютной, с пустой, с относительной `SHELLIO_STATE_DIR`, без `HOME`, пустой `HOME`; `XDG_CONFIG_HOME` игнорируется
-- [ ] тест: новый каталог получает `0700`, права уже существующего каталога не меняются; путь, занятый файлом, — `ProfileError::NotADirectory`
-- [ ] `make check` проходит
+- [x] `Profile::resolve`, `from_process_env`, `isolated`, `state_db`, `backups_dir` по разделу «Профиль»
+  - `Profile`, `ProfileError` и `STATE_DIR_VAR` экспортированы из `shellio_store`, геттеры `state_dir` и `config_dir`. `SHELLIO_STATE_DIR` проверяется первым: при верном значении `HOME` не читается, пустое или относительное — ошибка и при верном `HOME`. `from_process_env` — единственное чтение окружения в crate (`std::env::var_os`), тесты его не вызывают. `isolated(dir)` без `test-support`, раскладка как у `SHELLIO_STATE_DIR=<dir>`.
+  - `ProfileError` — ручной `enum`: `HomeMissing`, `HomeEmpty`, `HomeNotAbsolute`, `StateDirEmpty`, `StateDirNotAbsolute`, `NotADirectory { path }`, `Io { path, source }`.
+  - ⚠️ Решение исполнителя (план не задаёт относительный `HOME`): относительный `HOME` — `ProfileError::HomeNotAbsolute`. Иначе каталог состояния зависел бы от текущего каталога процесса, это тот же тихий переход в чужое место, который ADR-0018 запрещает для `SHELLIO_STATE_DIR`.
+- [x] создание каталога состояния с `0700` при открытии хранилища (функция профиля, вызываемая из задачи 8)
+  - `Profile::ensure_state_dir` публичная: `DirBuilder` с `mode(0o700)`, существующий каталог (в том числе по символической ссылке) принимается без смены прав. Путь занят файлом или файл посреди пути — `ProfileError::NotADirectory` с путём этого файла, иначе `Io`.
+  - ⚠️ Решение исполнителя (план не задаёт недостающих родителей): недостающие родители создаются вместе с каталогом и тоже с `0700` (`recursive`), права существующих родителей не меняются. `SHELLIO_STATE_DIR` во вложенный несуществующий каталог работает без ручного `mkdir -p`, а новый родитель не открывает каталог состояния другим пользователям.
+- [x] тесты таблицей окружений: без переменной, с абсолютной, с пустой, с относительной `SHELLIO_STATE_DIR`, без `HOME`, пустой `HOME`; `XDG_CONFIG_HOME` игнорируется
+  - `environment_table` (девять строк, точные варианты ошибок и пути; сверх списка — абсолютная `SHELLIO_STATE_DIR` без `HOME` и относительный `HOME`), `only_state_dir_and_home_are_read` (окружение запрашивается только по `SHELLIO_STATE_DIR` и `HOME`, запрос `XDG_CONFIG_HOME` роняет тест), `isolated_matches_state_dir_variable`, `database_and_backups_live_in_state_dir`. Окружение — подставное замыкание, настоящий `HOME` не читается.
+- [x] тест: новый каталог получает `0700`, права уже существующего каталога не меняются; путь, занятый файлом, — `ProfileError::NotADirectory`
+  - `new_state_dir_gets_owner_only_mode` (подкаталог `TempDir`, повторный вызов, каталог конфигурации не создан), `missing_parents_are_created_owner_only`, `existing_state_dir_keeps_its_mode` (каталог с `0755` и файлом внутри), `state_dir_taken_by_file_is_not_a_directory`, `file_in_the_middle_of_state_path_is_not_a_directory`, `symlink_to_directory_is_accepted` (права цели `0750` не меняются). Файл на пути не изменяется.
+- [x] `make check` проходит
+  - 11 тестов `shellio-store` в выводе `make check`: 10 профиля и проверка `test-support`.
+  - ⚠️ Нестабильный тест пробы: первый прогон упал на тесте пробы P0.3 `fixture_reports_ready_reads_replies_and_winch_on_a_real_pty` (`ready.tty` не `/dev/tty…`): отдельно он трижды прошёл, повторный `make check` прошёл целиком; профиль этот тест не затрагивает.
 
 ### Task 8: Схема и миграции
 

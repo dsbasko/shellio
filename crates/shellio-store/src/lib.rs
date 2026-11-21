@@ -2,6 +2,10 @@
 
 #![forbid(unsafe_code)]
 
+mod profile;
+
+pub use profile::{Profile, ProfileError, STATE_DIR_VAR};
+
 /// Тестовая поддержка хранилища, доступная только с функцией `test-support`.
 #[cfg(feature = "test-support")]
 pub mod test_support {}
