@@ -11,7 +11,12 @@
 //!   окончанием `_token`, `_secret` или `_password` (`runners_token` в ответе `GET /projects/:id`
 //!   владельцу) в JSON, строке запроса и теле формы заменяется целиком, даже если значение не
 //!   известно заранее; значение ключа аватара (`avatar_url`, `avatarUrl`, `gravatar_id`) в JSON —
-//!   тоже: адрес аватара содержит хеш почты или ID аккаунта, а его вид у хоста заранее не известен.
+//!   тоже: адрес аватара содержит хеш почты или ID аккаунта, а его вид у хоста заранее не известен;
+//! - аккаунты ролей: в объекте JSON, где `login` или `username` — логин роли, значения `id` и
+//!   `node_id` заменяются меткой роли; числовой ID аккаунта роли в ключах-ссылках (`author_id`,
+//!   `reviewer_ids` и подобных) и в глобальном ID GraphQL `gid://gitlab/User/<id>` — тоже. Публичный
+//!   API обоих хостов переводит числовой ID в логин, поэтому ID рядом с меткой обратил бы её. По
+//!   значению числа не заменяются: ID ревью, заметок и номера строк совпадают с ID аккаунтов.
 //!
 //! Совпадения собираются за один проход по исходному тексту, поэтому метка не совпадает со
 //! следующим правилом. При наложении побеждает более раннее начало, затем категория (токен,
@@ -70,6 +75,28 @@ const SECRET_KEY_SUFFIXES: [&str; 3] = ["_token", "_secret", "_password"];
 /// Ключи JSON с адресом аватара или хешем почты.
 const AVATAR_KEYS: [&str; 3] = ["avatar_url", "avatarUrl", "gravatar_id"];
 
+/// Ключи объекта аккаунта с его логином.
+const ACCOUNT_LOGIN_KEYS: [&str; 2] = ["login", "username"];
+
+/// Ключи объекта аккаунта с его ID: `node_id` GitHub кодирует тот же числовой ID.
+const ACCOUNT_ID_KEYS: [&str; 2] = ["id", "node_id"];
+
+/// Ключи-ссылки на аккаунт числовым ID или массивом ID.
+const ACCOUNT_REF_KEYS: [&str; 9] = [
+    "author_id",
+    "user_id",
+    "creator_id",
+    "owner_id",
+    "reviewer_id",
+    "reviewer_ids",
+    "assignee_id",
+    "assignee_ids",
+    "merge_user_id",
+];
+
+/// Категория [`Scrubber::leaks`] для ID аккаунта роли, оставшегося в JSON.
+const ACCOUNT_ID_LEAK: &str = "ID аккаунта";
+
 /// Начала адреса Gravatar перед хешем почты: как есть, с `\/` из JSON и в процентной кодировке.
 const GRAVATAR_PREFIXES: [&str; 3] = [
     "gravatar.com/avatar/",
@@ -127,6 +154,8 @@ struct Span {
 #[derive(Clone, Debug, Default)]
 pub struct Scrubber {
     rules: Vec<Rule>,
+    /// Числовые ID аккаунтов ролей с метками.
+    accounts: Vec<(u64, &'static str)>,
 }
 
 impl Scrubber {
@@ -156,6 +185,92 @@ impl Scrubber {
     pub fn add_login(&mut self, login: &str, label: &'static str) -> &mut Scrubber {
         self.add(Category::Login, label, login, true);
         self
+    }
+
+    /// Числовой ID аккаунта роли: ключи-ссылки и `gid://gitlab/User/<id>` получают метку роли.
+    pub fn add_account_id(&mut self, id: u64, label: &'static str) -> &mut Scrubber {
+        self.accounts.push((id, label));
+        self.add(
+            Category::Login,
+            label,
+            &format!("gid://gitlab/User/{id}"),
+            true,
+        );
+        self
+    }
+
+    /// Метка роли, чей логин стоит в `login` или `username` объекта.
+    fn account_label(&self, map: &Map<String, Value>) -> Option<&'static str> {
+        ACCOUNT_LOGIN_KEYS.iter().find_map(|key| {
+            let login = map.get(*key)?.as_str()?.trim().to_ascii_lowercase();
+            self.rules
+                .iter()
+                .find(|rule| rule.category == Category::Login && rule.needles.contains(&login))
+                .map(|rule| rule.label)
+        })
+    }
+
+    /// Метка роли для зарегистрированного числового ID аккаунта.
+    fn account_id_label(&self, value: &Value) -> Option<&'static str> {
+        let id = value.as_u64()?;
+        self.accounts
+            .iter()
+            .find(|(known, _)| *known == id)
+            .map(|(_, label)| *label)
+    }
+
+    /// Значение ключа-ссылки: зарегистрированный ID — метка роли, в том числе внутри массива.
+    fn scrub_account_ref(&self, value: &Value) -> Value {
+        match value {
+            Value::Array(items) => {
+                Value::Array(items.iter().map(|v| self.scrub_account_ref(v)).collect())
+            }
+            other => match self.account_id_label(other) {
+                Some(label) => Value::String(label.to_owned()),
+                None => self.scrub_json(other),
+            },
+        }
+    }
+
+    /// Строка — метка логина роли.
+    fn is_login_label(&self, text: &str) -> bool {
+        self.rules
+            .iter()
+            .any(|rule| rule.category == Category::Login && rule.label == text)
+    }
+
+    /// ID аккаунта роли, оставшийся в JSON: `id` или `node_id` не меткой в объекте с логином роли
+    /// или его меткой, зарегистрированный ID в ключе-ссылке.
+    fn account_id_left(&self, value: &Value) -> bool {
+        match value {
+            Value::Array(items) => items.iter().any(|item| self.account_id_left(item)),
+            Value::Object(map) => {
+                let account = self.account_label(map).is_some()
+                    || ACCOUNT_LOGIN_KEYS.iter().any(|key| {
+                        map.get(*key)
+                            .and_then(Value::as_str)
+                            .is_some_and(|login| self.is_login_label(login))
+                    });
+                let id_left = ACCOUNT_ID_KEYS.iter().any(|key| {
+                    map.get(*key).is_some_and(|id| {
+                        !id.is_null() && !id.as_str().is_some_and(|id| self.is_login_label(id))
+                    })
+                });
+                (account && id_left)
+                    || map.iter().any(|(key, item)| {
+                        (ACCOUNT_REF_KEYS.contains(&key.as_str()) && self.ref_id_left(item))
+                            || self.account_id_left(item)
+                    })
+            }
+            _ => false,
+        }
+    }
+
+    fn ref_id_left(&self, value: &Value) -> bool {
+        match value {
+            Value::Array(items) => items.iter().any(|item| self.ref_id_left(item)),
+            other => self.account_id_label(other).is_some(),
+        }
     }
 
     /// Путь репозитория `владелец/имя` (у GitLab — с подгруппами) и каждое его пространство
@@ -275,16 +390,24 @@ impl Scrubber {
             Value::String(text) => Value::String(self.scrub_text(text)),
             Value::Array(items) => Value::Array(items.iter().map(|v| self.scrub_json(v)).collect()),
             Value::Object(map) => {
+                let account = self.account_label(map);
                 let mut out = Map::new();
                 for (key, item) in map {
-                    let item = match item {
-                        Value::String(text) if is_secret_key(key) && !text.is_empty() => {
+                    let id_label = account.filter(|_| ACCOUNT_ID_KEYS.contains(&key.as_str()));
+                    let item = match (item, id_label) {
+                        (Value::Number(_) | Value::String(_), Some(label)) => {
+                            Value::String(label.to_owned())
+                        }
+                        (Value::String(text), _) if is_secret_key(key) && !text.is_empty() => {
                             Value::String(LABEL_TOKEN.to_owned())
                         }
-                        Value::String(text) if is_avatar_key(key) && !text.is_empty() => {
+                        (Value::String(text), _) if is_avatar_key(key) && !text.is_empty() => {
                             Value::String(LABEL_AVATAR.to_owned())
                         }
-                        other => self.scrub_json(other),
+                        (other, _) if ACCOUNT_REF_KEYS.contains(&key.as_str()) => {
+                            self.scrub_account_ref(other)
+                        }
+                        (other, _) => self.scrub_json(other),
                     };
                     out.insert(self.scrub_text(key), item);
                 }
@@ -307,13 +430,18 @@ impl Scrubber {
 
     /// Что из известного и образцов осталось в тексте: категории без самих значений. Для
     /// проверки каталога данных перед коммитом. Известные значения ищутся и внутри слов,
-    /// поэтому проверка строже замены.
+    /// поэтому проверка строже замены. Текст JSON проверяется и на ID аккаунтов ролей.
     pub fn leaks(&self, text: &str) -> Vec<&'static str> {
         let mut found: Vec<&'static str> = self
             .spans(text, false)
             .iter()
             .map(|span| span.category.describe())
             .collect();
+        if let Ok(value) = serde_json::from_str::<Value>(text)
+            && self.account_id_left(&value)
+        {
+            found.push(ACCOUNT_ID_LEAK);
+        }
         found.sort_unstable();
         found.dedup();
         found
@@ -663,7 +791,7 @@ mod tests {
         assert_eq!(
             out,
             json!({
-                "user": {"login": "<author>", "email": "<email>", "id": 42},
+                "user": {"login": "<author>", "email": "<email>", "id": "<author>"},
                 "full_name": "<repo>",
                 "web_url": "http://<gitlab-ce>/<repo>",
                 "access_token": "<token>",
@@ -853,6 +981,64 @@ mod tests {
         assert!(!text.contains(SHA256_HASH) && !text.contains(&MD5_HASH.to_ascii_lowercase()));
         assert!(!text.contains("123456"));
         assert_clean(&text);
+    }
+
+    #[test]
+    fn account_ids_by_login_and_reference_keys() {
+        let mut s = scrubber();
+        s.add_account_id(3, LABEL_AUTHOR)
+            .add_account_id(4, LABEL_REVIEWER);
+        let input = json!({
+            "id": 3,
+            "creator_id": 4,
+            "line": 3,
+            "author": {"id": 4, "username": "Alice-Dev-Review", "state": "active"},
+            "user": {"login": "alice-dev", "id": 3, "node_id": "MDQ6VXNlcjM=", "type": "User"},
+            "stranger": {"login": "bob", "id": 9},
+            "notes": [{"id": 4, "author_id": 4, "reviewer_ids": [3, 9], "user_id": 9}],
+            "query": {"id": "gid://gitlab/User/3"},
+            "review": {"id": null, "username": "alice-dev"},
+        });
+        let out = s.scrub_json(&input);
+        assert_eq!(
+            out,
+            json!({
+                "id": 3,
+                "creator_id": "<reviewer>",
+                "line": 3,
+                "author": {"id": "<reviewer>", "username": "<reviewer>", "state": "active"},
+                "user": {
+                    "login": "<author>",
+                    "id": "<author>",
+                    "node_id": "<author>",
+                    "type": "User",
+                },
+                "stranger": {"login": "bob", "id": 9},
+                "notes": [{
+                    "id": 4,
+                    "author_id": "<reviewer>",
+                    "reviewer_ids": ["<author>", 9],
+                    "user_id": 9,
+                }],
+                "query": {"id": "<author>"},
+                "review": {"id": null, "username": "<author>"},
+            })
+        );
+        assert!(s.leaks(&out.to_string()).is_empty(), "{out}");
+        assert_eq!(s.scrub_text("gid://gitlab/User/30"), "gid://gitlab/User/30");
+        for left in [
+            json!({"user": {"login": "<author>", "id": 3}}),
+            json!({"author": {"username": "<reviewer>", "node_id": "MDQ6VXNlcjQ="}}),
+            json!([{"author_id": 4}]),
+            json!({"reviewer_ids": [9, 3]}),
+        ] {
+            assert_eq!(s.leaks(&left.to_string()), vec![ACCOUNT_ID_LEAK], "{left}");
+        }
+        assert_eq!(
+            s.leaks(r#"{"stranger": {"login": "bob", "id": 3}, "user_id": 9}"#),
+            Vec::<&str>::new()
+        );
+        assert_eq!(s.leaks("gid://gitlab/User/4"), vec!["логин"]);
     }
 
     #[test]

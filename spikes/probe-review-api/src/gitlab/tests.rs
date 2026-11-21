@@ -417,7 +417,14 @@ fn full_schema_reply_gives_mutations_and_plan_falls_back_to_metadata() -> TestRe
         "сводка {written} байт вместо тела {raw} байт"
     );
     let user = &entries[0].response_body;
-    assert_eq!(user["username"], "bob", "короткие ответы идут телом");
+    assert_eq!(
+        user["summary"], "account profile",
+        "профиль идёт сводкой ключей"
+    );
+    assert_eq!(user["keys"], json!(["username"]));
+    assert!(!user.to_string().contains("bob"), "{user}");
+    let metadata = &entries[1].response_body;
+    assert_eq!(metadata["version"], "19.6.1", "короткие ответы идут телом");
     Ok(())
 }
 

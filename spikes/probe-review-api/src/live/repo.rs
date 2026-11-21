@@ -24,10 +24,13 @@ pub struct Account {
 }
 
 impl Account {
-    /// Логин и отображаемое имя — в очиститель под меткой роли до первой записи следа: имя
-    /// профиля — те же персональные данные, что логин.
+    /// Логин, отображаемое имя и числовой ID — в очиститель под меткой роли до первой записи
+    /// следа: имя профиля — те же персональные данные, что логин, а ID публично переводится в
+    /// логин.
     pub fn register(&self, scrubber: &mut crate::scrub::Scrubber, label: &'static str) {
-        scrubber.add_login(&self.login, label);
+        scrubber
+            .add_login(&self.login, label)
+            .add_account_id(self.id, label);
         if let Some(name) = self.name.as_deref().filter(|name| !name.trim().is_empty()) {
             scrubber.add_login(name.trim(), label);
         }

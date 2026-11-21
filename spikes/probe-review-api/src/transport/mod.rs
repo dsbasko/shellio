@@ -399,12 +399,13 @@ impl TraceEntry {
                         )
                     })
                     .collect();
-                (
-                    response_body(&response.body, scrubber),
-                    rate_limit,
-                    None,
-                    None,
-                )
+                let body =
+                    if is_profile_read(&call.request) && (200..300).contains(&response.status) {
+                        profile_summary(&response.body, scrubber)
+                    } else {
+                        response_body(&response.body, scrubber)
+                    };
+                (body, rate_limit, None, None)
             }
             Err(failure) => (
                 Value::Null,
@@ -431,6 +432,30 @@ impl TraceEntry {
             duration_us: u64::try_from(call.duration.as_micros()).unwrap_or(u64::MAX),
         }
     }
+}
+
+/// Чтение профиля своего аккаунта: `GET /user` REST обоих хостов.
+fn is_profile_read(request: &Request) -> bool {
+    let path = request.path();
+    request.method == Method::Get && path.split('?').next().unwrap_or(path).ends_with("/user")
+}
+
+/// Тело `GET /user` для следа — сводка ключей вместо значений. Кроме логина, имени и почты профиль
+/// несёт ID аккаунта, биографию, место, организацию, сайты, внешние учётные записи и даты входа, а
+/// набор этих полей у хостов разный, поэтому очиститель по значениям и ключам его не покрывает.
+fn profile_summary(body: &[u8], scrubber: &Scrubber) -> Value {
+    let keys: Option<Vec<String>> = serde_json::from_slice::<Value>(body)
+        .ok()
+        .and_then(|value| {
+            value
+                .as_object()
+                .map(|map| map.keys().map(|key| scrubber.scrub_text(key)).collect())
+        });
+    json!({
+        "summary": "account profile",
+        "bytes": body.len(),
+        "keys": keys,
+    })
 }
 
 /// Тело ответа для следа: полная интроспекция — сводкой, остальное — через очиститель.

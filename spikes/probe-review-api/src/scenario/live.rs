@@ -735,7 +735,7 @@ fn prepared() -> Result<(CeHost, CeTokens, Pin), String> {
     Ok((host, tokens, Pin::embedded()?))
 }
 
-/// Очиститель столбца: токены, адрес, проект, логины и отображаемые имена ролей.
+/// Очиститель столбца: токены, адрес, проект, логины, отображаемые имена и ID аккаунтов ролей.
 pub fn ce_scrubber(host: &CeHost, tokens: &CeTokens) -> Scrubber {
     let mut scrubber = Scrubber::new();
     scrubber
@@ -745,8 +745,10 @@ pub fn ce_scrubber(host: &CeHost, tokens: &CeTokens) -> Scrubber {
         .add_repo(&host.project)
         .add_login(&host.author.username, LABEL_AUTHOR)
         .add_login(&host.author.name, LABEL_AUTHOR)
+        .add_account_id(host.author.id, LABEL_AUTHOR)
         .add_login(&host.reviewer.username, LABEL_REVIEWER)
-        .add_login(&host.reviewer.name, LABEL_REVIEWER);
+        .add_login(&host.reviewer.name, LABEL_REVIEWER)
+        .add_account_id(host.reviewer.id, LABEL_REVIEWER);
     if let Some(web_host) = &host.web_host {
         scrubber.add_gitlab_ce(web_host);
     }
