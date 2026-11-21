@@ -228,7 +228,9 @@ fn cloud(scenario: Scenario, ctx: &Context, result: &mut ResultFile, env: &LiveE
     match host_read {
         Some(Ok((read, note, unmet))) => {
             result.host = read;
-            result.notes.extend(note);
+            result
+                .notes
+                .extend(note.map(|note| scrubber.scrub_text(&note)));
             precondition = unmet;
         }
         Some(Err(err)) => errors.push(err),
@@ -565,10 +567,11 @@ fn github_cloud_caps<T: Transport>(
 
 /// Версия и тариф облачного GitLab чтением возможностей ревьюера до записей клетки: `absent`
 /// без версии — ошибка исполнения. Отказ хоста на чтение — заметка, версия не записывается;
-/// отказ транспорта и 5xx — ошибка исполнения. Третье поле — предусловие песочницы: роль
-/// ревьюера ниже Developer, как в клетке `capabilities`, или токен ревьюера без scope `api`
-/// (`GET /personal_access_tokens/self`): иначе первая запись клетки получила бы 403 и дала бы
-/// ложный `absent` или `fail`. Scopes не прочитаны — заметка.
+/// отказ транспорта и 5xx — ошибка исполнения. Третье поле — предусловие песочницы: 401, 403
+/// или 404 на чтение возможностей (токен без прав, ревьюер не участник проекта), роль ревьюера
+/// ниже Developer, как в клетке `capabilities`, или токен ревьюера без scope `api`
+/// (`GET /personal_access_tokens/self`): иначе первое обращение клетки получило бы отказ и дало
+/// бы ложный `absent` или `fail`. Scopes не прочитаны — заметка.
 pub fn gitlab_host<T: Transport>(
     reviewer: &Guarded<T>,
 ) -> Result<(Host, Option<String>, Option<String>), String> {
@@ -584,6 +587,13 @@ pub fn gitlab_host<T: Transport>(
     };
     let caps = match gl.capabilities() {
         Ok(caps) => caps,
+        Err(ApiError::Status {
+            status: status @ (401 | 403 | 404),
+            ..
+        }) => {
+            let reason = format!("предусловие: {}", caps_denied(status, "reviewer"));
+            return Ok((Host::default(), None, Some(reason)));
+        }
         Err(err) => return host_unread(&err),
     };
     let host = Host {
@@ -627,11 +637,12 @@ pub fn gitlab_host<T: Transport>(
     }
 }
 
-/// Права ревьюера строки GitHub до записей клетки: нет права записи в репозиторий (план —
-/// collaborator с правом записи) или classic-токен без scope `repo` — предусловие (второе поле),
-/// иначе первая запись клетки получила бы 403 и дала бы ложный `fail`. У fine-grained токена
-/// заголовка scopes нет, проверяется только право записи. Отказ хоста на чтение — заметка, отказ
-/// транспорта и 5xx — ошибка исполнения.
+/// Права ревьюера строки GitHub до записей клетки: 401, 403 или 404 на чтение возможностей
+/// (токен без прав, ревьюер не collaborator или не принял приглашение), нет права записи в
+/// репозиторий (план — collaborator с правом записи) или classic-токен без scope `repo` —
+/// предусловие (второе поле), иначе первое обращение клетки получило бы отказ и дало бы ложный
+/// `fail`. У fine-grained токена заголовка scopes нет, проверяется только право записи. Прочий
+/// отказ хоста на чтение — заметка, отказ транспорта и 5xx — ошибка исполнения.
 pub fn github_reviewer<T: Transport>(
     reviewer: &Guarded<T>,
 ) -> Result<(Option<String>, Option<String>), String> {
@@ -663,6 +674,13 @@ pub fn github_reviewer<T: Transport>(
         Err(err @ GhError::Status { status, .. }) if status >= 500 => {
             Err(format!("reviewer: права ревьюера: {err}"))
         }
+        Err(GhError::Status {
+            status: status @ (401 | 403 | 404),
+            ..
+        }) => Ok((
+            None,
+            Some(format!("предусловие: {}", caps_denied(status, "reviewer"))),
+        )),
         Err(err) => Ok((
             Some(format!(
                 "наблюдение: права ревьюера не прочитаны: {err}"
@@ -2513,6 +2531,16 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
         assert_eq!(note, None);
         assert_eq!(precondition, None);
         assert!(reviewer.refused_writes().is_empty());
+        let entries = trace.entries(&Scrubber::new());
+        let token = entries
+            .iter()
+            .find(|entry| entry.path.ends_with("/personal_access_tokens/self"))
+            .ok_or("нет чтения scopes в следе")?;
+        assert_eq!(token.response_body["scopes"], serde_json::json!(["api"]));
+        let body = token.response_body.to_string();
+        for leak in ["203.0.113.7", "sandbox token", "2026-11-20"] {
+            assert!(!body.contains(leak), "{leak}: {body}");
+        }
         assert_eq!(
             gitlab_root(&GuardTarget::gitlab(&gitlab::Endpoints::cloud(), "a/b")),
             "https://gitlab.com"
@@ -2544,6 +2572,21 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
                 .as_deref()
                 .is_some_and(|p| p.starts_with("предусловие: роль ревьюера")),
             "{precondition:?}"
+        );
+        assert!(reviewer.refused_writes().is_empty());
+
+        let mut fake = GitlabFake::new(FAKE_REPO);
+        fake.add_user(FAKE_REVIEWER, FAKE_REVIEWER_TOKEN, None);
+        let server = crate::fake::FakeServer::start(fake)?;
+        let trace = Trace::new();
+        let reviewer = fake_guard(server.base(), FAKE_REVIEWER_TOKEN, &trace);
+        let (_, note, precondition) = gitlab_host(&reviewer)?;
+        assert_eq!(note, None);
+        assert!(
+            precondition
+                .as_deref()
+                .is_some_and(|p| p.starts_with("предусловие: токен без прав") && p.contains("404")),
+            "не участник проекта: {precondition:?}"
         );
         assert!(reviewer.refused_writes().is_empty());
 
@@ -2644,7 +2687,20 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
     #[test]
     fn github_reviewer_without_write_access_is_a_precondition() -> Result<(), String> {
         use crate::fake::github::{GithubFake, Permission};
-        for (permission, unmet) in [(Permission::Write, false), (Permission::Read, true)] {
+        let cases = [
+            (Permission::Write, FAKE_REPO, None),
+            (
+                Permission::Read,
+                FAKE_REPO,
+                Some("предусловие: у ревьюера нет права записи"),
+            ),
+            (
+                Permission::Write,
+                "probe-author/not-shared",
+                Some("предусловие: токен без прав или нет репозитория: код 404"),
+            ),
+        ];
+        for (permission, repo, unmet) in cases {
             let mut fake = GithubFake::new("probe-author", "shellio-review-sandbox");
             fake.add_user(FAKE_REVIEWER, FAKE_REVIEWER_TOKEN, permission);
             let server = crate::fake::FakeServer::start(fake)?;
@@ -2657,18 +2713,20 @@ http://95b8b759b74e/x git@95b8b759b74e:x.git",
                     trace.clone(),
                     "reviewer",
                 ),
-                GuardTarget::github(&crate::github::Endpoints::single(server.base()), FAKE_REPO),
+                GuardTarget::github(&crate::github::Endpoints::single(server.base()), repo),
                 WriteScope::Loopback,
             );
             let (note, precondition) = github_reviewer(&reviewer)?;
             assert_eq!(note, None);
-            assert_eq!(
-                precondition
-                    .as_deref()
-                    .is_some_and(|p| p.starts_with("предусловие: у ревьюера нет права записи")),
-                unmet,
-                "{precondition:?}"
-            );
+            match unmet {
+                Some(prefix) => assert!(
+                    precondition
+                        .as_deref()
+                        .is_some_and(|p| p.starts_with(prefix)),
+                    "{prefix}: {precondition:?}"
+                ),
+                None => assert_eq!(precondition, None),
+            }
             assert!(reviewer.refused_writes().is_empty());
             assert!(
                 trace

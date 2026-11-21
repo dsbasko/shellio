@@ -1125,7 +1125,19 @@ impl GitlabFake {
         match (route, request.method) {
             (Route::User, Method::Get) => return ok(user_json(&user)),
             (Route::TokenSelf, Method::Get) => {
-                return ok(json!({"user_id": user.id, "scopes": user.scopes, "active": true}));
+                return ok(json!({
+                    "id": user.id + 9000,
+                    "name": format!("{} token", user.username),
+                    "description": format!("{} sandbox token", user.username),
+                    "revoked": false,
+                    "created_at": "2026-11-01T10:00:00.000Z",
+                    "scopes": user.scopes,
+                    "user_id": user.id,
+                    "last_used_at": "2026-11-20T10:00:00.000Z",
+                    "active": true,
+                    "expires_at": "2026-12-31",
+                    "last_used_ips": ["203.0.113.7"],
+                }));
             }
             (Route::Version, Method::Get) => {
                 return ok(json!({"version": self.version, "revision": "fake0001"}));

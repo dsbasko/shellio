@@ -399,12 +399,14 @@ impl TraceEntry {
                         )
                     })
                     .collect();
-                let body =
-                    if is_profile_read(&call.request) && (200..300).contains(&response.status) {
-                        profile_summary(&response.body, scrubber)
-                    } else {
-                        response_body(&response.body, scrubber)
-                    };
+                let success = (200..300).contains(&response.status);
+                let body = if success && is_profile_read(&call.request) {
+                    profile_summary(&response.body, scrubber)
+                } else if success && is_token_read(&call.request) {
+                    token_summary(&response.body, scrubber)
+                } else {
+                    response_body(&response.body, scrubber)
+                };
                 (body, rate_limit, None, None)
             }
             Err(failure) => (
@@ -455,6 +457,32 @@ fn profile_summary(body: &[u8], scrubber: &Scrubber) -> Value {
         "summary": "account profile",
         "bytes": body.len(),
         "keys": keys,
+    })
+}
+
+/// Чтение своего токена GitLab: `GET /personal_access_tokens/self`.
+fn is_token_read(request: &Request) -> bool {
+    let path = request.path();
+    request.method == Method::Get
+        && path
+            .split('?')
+            .next()
+            .unwrap_or(path)
+            .ends_with("/personal_access_tokens/self")
+}
+
+/// Тело `GET /personal_access_tokens/self` для следа — ключи и scopes. Остальные поля токена (имя
+/// и описание владельца, даты, `last_used_ips`) очиститель по значениям не покрывает.
+fn token_summary(body: &[u8], scrubber: &Scrubber) -> Value {
+    let value = serde_json::from_slice::<Value>(body).ok();
+    let object = value.as_ref().and_then(Value::as_object);
+    json!({
+        "summary": "access token",
+        "bytes": body.len(),
+        "keys": object.map(|map| map.keys().map(|key| scrubber.scrub_text(key)).collect::<Vec<_>>()),
+        "scopes": object
+            .and_then(|map| map.get("scopes"))
+            .map(|scopes| scrubber.scrub_json(scopes)),
     })
 }
 
