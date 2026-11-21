@@ -6,15 +6,23 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
+[features]
+test-support = []
+
 [dependencies]
+rustix = { version = "1.1.6", default-features = false, features = ["std", "process"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 shellio-core = { path = "../shellio-core" }
-tokio = { version = "1", default-features = false, features = ["io-util"] }
+shellio-store = { path = "../shellio-store" }
+tokio = { version = "1", default-features = false, features = ["io-util", "macros", "net", "sync", "time"] }
 
 [dev-dependencies]
+rustix = { version = "1.1.6", default-features = false, features = ["std", "process"] }
+shellio-control = { path = ".", features = ["test-support"] }
 shellio-core = { path = "../shellio-core", features = ["test-support"] }
-tokio = { version = "1", default-features = false, features = ["io-util", "rt", "macros"] }
+tempfile = "3.27.0"
+tokio = { version = "1", default-features = false, features = ["io-util", "macros", "net", "rt", "sync", "test-util", "time"] }
 
 [lints]
 workspace = true
