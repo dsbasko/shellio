@@ -407,6 +407,38 @@ fn root_key_taken_outside_core_is_conflict() {
 }
 
 #[test]
+fn root_path_not_in_utf8_is_conflict_and_changes_nothing() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    let Seed {
+        mut store,
+        mut ids,
+        workspace,
+        ..
+    } = seed().unwrap();
+    let site = Project {
+        list_position: Some(1),
+        ..project(&mut ids, workspace.id, "site").unwrap()
+    };
+    let mut site_root = root(&mut ids, site.id, "/src/site", RootKind::Folder);
+    site_root.path = PathBuf::from(OsStr::from_bytes(b"/src/\xff"));
+    let error = store
+        .assert_refused(
+            Revision(1),
+            &[Change::ProjectInserted {
+                project: site,
+                roots: vec![site_root],
+            }],
+        )
+        .unwrap();
+    assert_conflict(&error);
+    assert!(error.to_string().contains("UTF-8"), "{error}");
+    assert_eq!(store.count("projects").unwrap(), 1);
+    assert_eq!(store.count("project_roots").unwrap(), 1);
+}
+
+#[test]
 fn primary_and_foreign_key_violations_are_conflicts() {
     let Seed {
         mut store,

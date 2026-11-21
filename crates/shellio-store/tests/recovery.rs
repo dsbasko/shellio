@@ -401,6 +401,42 @@ async fn commit_fault_mid_transaction_changes_nothing_and_next_command_passes() 
     assert_eq!(reloaded.state, *after.state);
 }
 
+#[tokio::test]
+async fn foreign_write_while_running_is_storage_conflict_and_changes_nothing() {
+    let store = Store::new().unwrap();
+    let clock = ManualClock::new(NOW);
+    let core = start(store.persist().unwrap(), &clock, resolver()).unwrap();
+    let (before, mut events) = core.subscribe().await.unwrap();
+    let workspace = active(&before).unwrap();
+
+    // Ревизию сдвинули в обход ядра: базовая ревизия записи уже чужая.
+    store
+        .raw()
+        .unwrap()
+        .execute("UPDATE meta SET value = 7 WHERE key = 'revision'", [])
+        .unwrap();
+    let error = core
+        .request(Command::WorkspaceRename {
+            workspace,
+            title: "Работа".into(),
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::StorageConflict, "{error}");
+    assert!(!error.retryable());
+    assert_eq!(snapshot(&core).await.unwrap(), before);
+    assert_eq!(events.try_recv().unwrap_err(), TryRecvError::Empty);
+    core.shutdown().await;
+
+    assert_eq!(store.revision_in_db().unwrap(), 7);
+    let title: String = store
+        .raw()
+        .unwrap()
+        .query_row("SELECT title FROM workspaces", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(title, BOOTSTRAP_WORKSPACE);
+}
+
 fn title(name: &str) -> TestResult<Title> {
     Ok(Title::new(name)?)
 }
@@ -536,10 +572,11 @@ impl Rng {
     }
 }
 
-/// Ожидаемый исход команды по зеркалу. `Accepted` — успех, возможно пустое изменение.
+/// Ожидаемый исход команды по зеркалу: запись с новой ревизией, пустое изменение или отказ.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Expect {
-    Accepted,
+    Written,
+    Unchanged,
     Refused(ErrorCode),
 }
 
@@ -599,7 +636,7 @@ impl Generator {
     }
 
     fn command(&mut self, state: &State) -> TestResult<(Command, Expect)> {
-        use Expect::{Accepted, Refused};
+        use Expect::{Refused, Unchanged, Written};
 
         let workspaces: Vec<_> = state
             .workspaces
@@ -639,7 +676,7 @@ impl Generator {
                 let expect = match title {
                     None => Refused(ErrorCode::InvalidArgument),
                     Some(title) if workspace_taken(&title, None) => Refused(ErrorCode::NameTaken),
-                    Some(_) => Accepted,
+                    Some(_) => Written,
                 };
                 (Command::WorkspaceCreate { title: raw }, expect)
             }
@@ -649,11 +686,11 @@ impl Generator {
                 let expect = match (target.and_then(|id| state.live_workspace(id)), title) {
                     (None, _) => Refused(ErrorCode::NotFound),
                     (Some(_), None) => Refused(ErrorCode::InvalidArgument),
-                    (Some(record), Some(title)) if record.title == title => Accepted,
+                    (Some(record), Some(title)) if record.title == title => Unchanged,
                     (Some(record), Some(title)) if workspace_taken(&title, Some(record.id)) => {
                         Refused(ErrorCode::NameTaken)
                     }
-                    (Some(_), Some(_)) => Accepted,
+                    (Some(_), Some(_)) => Written,
                 };
                 let workspace = target.unwrap_or(unknown_workspace);
                 (
@@ -696,7 +733,7 @@ impl Generator {
                         {
                             Refused(ErrorCode::NameTaken)
                         }
-                        Some(_) => Accepted,
+                        Some(_) => Written,
                     }
                 } else {
                     Refused(ErrorCode::NotFound)
@@ -720,7 +757,7 @@ impl Generator {
                     (Some(project), Some(title)) if workbench_taken(project, &title, None) => {
                         Refused(ErrorCode::NameTaken)
                     }
-                    (Some(_), Some(_)) => Accepted,
+                    (Some(_), Some(_)) => Written,
                 };
                 let project = target.unwrap_or(unknown_project);
                 (
@@ -737,13 +774,13 @@ impl Generator {
                 let expect = match (target.and_then(|id| state.live_workbench(id)), title) {
                     (None, _) => Refused(ErrorCode::NotFound),
                     (Some(_), None) => Refused(ErrorCode::InvalidArgument),
-                    (Some(record), Some(title)) if record.title == title => Accepted,
+                    (Some(record), Some(title)) if record.title == title => Unchanged,
                     (Some(record), Some(title))
                         if workbench_taken(record.project, &title, Some(record.id)) =>
                     {
                         Refused(ErrorCode::NameTaken)
                     }
-                    (Some(_), Some(_)) => Accepted,
+                    (Some(_), Some(_)) => Written,
                 };
                 let workbench = target.unwrap_or(unknown_workbench);
                 (
@@ -756,13 +793,28 @@ impl Generator {
             }
             72..86 => {
                 let target = self.target(&workbenches);
-                let expect = target.map_or(Refused(ErrorCode::NotFound), |_| Accepted);
+                // Уже открытая область: окно на ней и она последняя в своём воркспейсе.
+                let expect = target.map_or(Refused(ErrorCode::NotFound), |workbench| {
+                    let workspace = state.workbench_workspace(workbench);
+                    let open = state.window.active_workspace == workspace
+                        && state.window.route == Route::Workbench(workbench)
+                        && workspace.is_some_and(|id| {
+                            state.workspaces[&id].last_workbench == Some(workbench)
+                        });
+                    if open { Unchanged } else { Written }
+                });
                 let workbench = target.unwrap_or(unknown_workbench);
                 (Command::WorkbenchOpen { workbench }, expect)
             }
             _ => {
                 let target = self.target(&workspaces);
-                let expect = target.map_or(Refused(ErrorCode::NotFound), |_| Accepted);
+                let expect = target.map_or(Refused(ErrorCode::NotFound), |workspace| {
+                    if state.window.active_workspace == Some(workspace) {
+                        Unchanged
+                    } else {
+                        Written
+                    }
+                });
                 let workspace = target.unwrap_or(unknown_workspace);
                 (Command::WindowFocusWorkspace { workspace }, expect)
             }
@@ -849,11 +901,12 @@ async fn run_seed(seed: u64, coverage: &mut Coverage) -> TestResult {
                 assert_eq!(error.code(), code, "{at}: {error:?}");
                 coverage.refused.insert(code.as_str());
             }
-            (Expect::Accepted, Ok(reply)) if reply.revision == revision => {
+            (Expect::Unchanged, Ok(reply)) => {
+                assert_eq!(reply.revision, revision, "{at}: ожидалось пустое изменение");
                 coverage.unchanged += 1;
             }
-            (Expect::Accepted, Ok(reply)) => {
-                assert_eq!(reply.revision, revision.next(), "{at}");
+            (Expect::Written, Ok(reply)) => {
+                assert_eq!(reply.revision, revision.next(), "{at}: ожидалась запись");
                 coverage.written.insert(name);
             }
             (expect, result) => panic!("{at}: ожидалось {expect:?}, получено {result:?}"),

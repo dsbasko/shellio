@@ -9,6 +9,7 @@ use tokio::sync::oneshot;
 
 use crate::change::Change;
 use crate::error::CoreError;
+use crate::handle::StartError;
 use crate::model::{Revision, State};
 use crate::query::StorageInfo;
 
@@ -84,21 +85,15 @@ pub(crate) struct StorageThread {
     thread: Option<JoinHandle<()>>,
 }
 
-/// Поток хранения не запустился или не загрузил состояние.
-pub(crate) enum SpawnError {
-    Spawn(std::io::Error),
-    Load(LoadError),
-}
-
 impl StorageThread {
     /// Запустить поток хранения и дождаться загрузки состояния на нём.
-    pub(crate) fn spawn(persist: Box<dyn Persist>) -> Result<(Self, Loaded), SpawnError> {
+    pub(crate) fn spawn(persist: Box<dyn Persist>) -> Result<(Self, Loaded), StartError> {
         let (jobs, inbox) = std_mpsc::channel();
         let (loaded_tx, loaded_rx) = std_mpsc::channel();
         let thread = thread::Builder::new()
             .name("shellio-storage".to_owned())
             .spawn(move || serve(persist, &loaded_tx, &inbox))
-            .map_err(SpawnError::Spawn)?;
+            .map_err(StartError::Spawn)?;
         let storage = Self {
             jobs: Some(jobs),
             thread: Some(thread),
@@ -107,11 +102,11 @@ impl StorageThread {
             Ok(Ok(loaded)) => Ok((storage, loaded)),
             Ok(Err(error)) => {
                 storage.stop_blocking();
-                Err(SpawnError::Load(error))
+                Err(StartError::Load(error))
             }
             Err(_) => {
                 storage.stop_blocking();
-                Err(SpawnError::Load(
+                Err(StartError::Load(
                     "поток хранения завершился до конца загрузки".into(),
                 ))
             }

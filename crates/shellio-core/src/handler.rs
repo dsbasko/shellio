@@ -15,23 +15,23 @@ use crate::title::Title;
 pub const BOOTSTRAP_WORKSPACE: &str = "Основной";
 
 /// Внедряемые источники времени и идентификаторов обработчика.
-pub struct Ctx<'a> {
+pub(crate) struct Ctx<'a> {
     clock: &'a dyn Clock,
     ids: &'a mut dyn IdGen,
 }
 
 impl<'a> Ctx<'a> {
     /// Контекст из часов и генератора идентификаторов.
-    pub fn new(clock: &'a dyn Clock, ids: &'a mut dyn IdGen) -> Self {
+    pub(crate) fn new(clock: &'a dyn Clock, ids: &'a mut dyn IdGen) -> Self {
         Self { clock, ids }
     }
 }
 
 /// Результат команды: значение ответа и дельты. Пустой список — состояние не меняется.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Outcome {
-    pub value: CommandValue,
-    pub changes: Vec<Change>,
+pub(crate) struct Outcome {
+    pub(crate) value: CommandValue,
+    pub(crate) changes: Vec<Change>,
 }
 
 impl Outcome {
@@ -45,7 +45,7 @@ impl Outcome {
 }
 
 /// Обработать подготовленную команду над снимком состояния.
-pub fn handle(
+pub(crate) fn handle(
     state: &State,
     command: PreparedCommand,
     ctx: &mut Ctx<'_>,
@@ -82,21 +82,30 @@ pub fn handle(
 ///
 /// Нет ни одного неудалённого воркспейса — первый воркспейс [`BOOTSTRAP_WORKSPACE`] и окно
 /// на его главной одной записью. Активный воркспейс пуст или удалён — фокус на первый
-/// неудалённый по `(position, id)`.
-pub fn startup(state: &State, ctx: &mut Ctx<'_>) -> Result<Option<Outcome>, CoreError> {
+/// неудалённый по `(position, id)`. Маршрут ведёт в скрытую рабочую область — маршрут
+/// активного воркспейса, как при фокусе на него.
+pub(crate) fn startup(state: &State, ctx: &mut Ctx<'_>) -> Result<Option<Outcome>, CoreError> {
     let Some(first) = state.workspaces_in_order().first().copied() else {
         let title = parse_title(BOOTSTRAP_WORKSPACE)?;
         return workspace_create(state, title, ctx).map(Some);
     };
-    Ok((!active_is_live(state)).then(|| focus(state, first)))
+    let Some(active) = live_active(state) else {
+        return Ok(Some(focus(state, first)));
+    };
+    Ok(match state.window.route {
+        Route::Workbench(workbench) if state.live_workbench(workbench).is_none() => {
+            Some(window_set(active.id, workspace_route(state, active)))
+        }
+        Route::Workbench(_) | Route::WorkspaceHome => None,
+    })
 }
 
-/// Активный воркспейс есть и не удалён.
-fn active_is_live(state: &State) -> bool {
+/// Активный воркспейс, если он есть и не удалён.
+fn live_active(state: &State) -> Option<&Workspace> {
     state
         .window
         .active_workspace
-        .is_some_and(|active| state.live_workspace(active).is_some())
+        .and_then(|active| state.live_workspace(active))
 }
 
 fn parse_title(raw: &str) -> Result<Title, CoreError> {
@@ -138,7 +147,7 @@ fn workspace_create(state: &State, title: Title, ctx: &mut Ctx<'_>) -> Result<Ou
             deleted_at: None,
         },
     }];
-    if !active_is_live(state) {
+    if live_active(state).is_none() {
         changes.push(Change::WindowSet {
             active: id,
             route: Route::WorkspaceHome,
@@ -367,19 +376,24 @@ fn focus(state: &State, workspace: &Workspace) -> Outcome {
     if state.window.active_workspace == Some(workspace.id) {
         return Outcome::unchanged();
     }
-    let route = workspace
+    window_set(workspace.id, workspace_route(state, workspace))
+}
+
+/// Последняя живая рабочая область воркспейса или его главная.
+fn workspace_route(state: &State, workspace: &Workspace) -> Route {
+    workspace
         .last_workbench
         .filter(|&last| {
             state.live_workbench(last).is_some()
                 && state.workbench_workspace(last) == Some(workspace.id)
         })
-        .map_or(Route::WorkspaceHome, Route::Workbench);
+        .map_or(Route::WorkspaceHome, Route::Workbench)
+}
+
+fn window_set(active: WorkspaceId, route: Route) -> Outcome {
     Outcome::new(
         CommandValue::None,
-        vec![Change::WindowSet {
-            active: workspace.id,
-            route,
-        }],
+        vec![Change::WindowSet { active, route }],
     )
 }
 
@@ -604,6 +618,43 @@ mod tests {
     }
 
     #[test]
+    fn startup_moves_route_out_of_removed_project() {
+        let mut h = Harness::new();
+        let main = h.bootstrap_workspace();
+        let (app, _) = h.add_project(main, "/src/shellio");
+        let review = h.create_workbench(app, "Ревью");
+        let (docs, _) = h.add_project(main, "/src/docs");
+        let notes = h.create_workbench(docs, "Заметки");
+        h.ok(Command::WorkbenchOpen { workbench: notes });
+        h.ok(Command::WorkbenchOpen { workbench: review });
+        assert_eq!(h.startup(), None);
+
+        // Маршрут и последняя область — в убранном проекте: главная воркспейса.
+        h.state.projects.get_mut(&app).unwrap().removed_at = Some(UnixMillis(5));
+        let outcome = h.startup().unwrap();
+        assert_eq!(
+            outcome.changes,
+            vec![Change::WindowSet {
+                active: main,
+                route: Route::WorkspaceHome,
+            }]
+        );
+
+        // Последняя область жива: маршрут на неё, как при фокусе.
+        h.state.workspaces.get_mut(&main).unwrap().last_workbench = Some(notes);
+        let outcome = h.startup().unwrap();
+        assert_eq!(
+            outcome.changes,
+            vec![Change::WindowSet {
+                active: main,
+                route: Route::Workbench(notes),
+            }]
+        );
+        h.commit(&outcome);
+        assert_eq!(h.startup(), None);
+    }
+
+    #[test]
     fn startup_bootstraps_when_every_workspace_is_deleted() {
         let mut h = Harness::new();
         let main = h.bootstrap_workspace();
@@ -802,6 +853,14 @@ mod tests {
             }]
         );
         assert_eq!(h.state.workbenches[&workbench].title, title("Ревью"));
+
+        // Смена только регистра — настоящее изменение.
+        let outcome = h.ok(Command::WorkbenchRename {
+            workbench,
+            title: "РЕВЬЮ".into(),
+        });
+        assert_eq!(outcome.changes.len(), 1);
+        assert_eq!(h.state.workbenches[&workbench].title, title("РЕВЬЮ"));
     }
 
     #[test]
@@ -908,6 +967,28 @@ mod tests {
                 route: Route::Workbench(workbench),
             }]
         );
+    }
+
+    #[test]
+    fn focus_workspace_skips_last_workbench_of_removed_project() {
+        let mut h = Harness::new();
+        let main = h.bootstrap_workspace();
+        let work = h.create_workspace("Работа");
+        let (app, _) = h.add_project(main, "/src/shellio");
+        let review = h.create_workbench(app, "Ревью");
+        h.ok(Command::WorkbenchOpen { workbench: review });
+        h.ok(Command::WindowFocusWorkspace { workspace: work });
+
+        h.state.projects.get_mut(&app).unwrap().removed_at = Some(UnixMillis(5));
+        let outcome = h.ok(Command::WindowFocusWorkspace { workspace: main });
+        assert_eq!(
+            outcome.changes,
+            vec![Change::WindowSet {
+                active: main,
+                route: Route::WorkspaceHome,
+            }]
+        );
+        assert_eq!(h.state.workspaces[&main].last_workbench, Some(review));
     }
 
     // --- пустые изменения ---
@@ -1417,6 +1498,31 @@ mod tests {
             &error,
             ErrorCode::InvalidArgument,
             &[("reason", "position_exhausted"), ("scope", "workspaces")],
+        );
+
+        let (app, _) = h.add_project(main, "/src/shellio");
+        h.state.projects.get_mut(&app).unwrap().list_position = Some(u32::MAX);
+        let error = h.err(Command::ProjectAdd {
+            workspace: main,
+            path: "/src/docs".into(),
+            title: None,
+        });
+        assert_error(
+            &error,
+            ErrorCode::InvalidArgument,
+            &[("reason", "position_exhausted"), ("scope", "project_list")],
+        );
+
+        let workbench = h.create_workbench(app, "Основная");
+        h.state.workbenches.get_mut(&workbench).unwrap().position = u32::MAX;
+        let error = h.err(Command::WorkbenchCreate {
+            project: app,
+            title: "Ревью".into(),
+        });
+        assert_error(
+            &error,
+            ErrorCode::InvalidArgument,
+            &[("reason", "position_exhausted"), ("scope", "workbenches")],
         );
     }
 }

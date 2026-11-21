@@ -163,8 +163,9 @@ fn copy_and_verify(conn: &Connection, path: &Path, version: u32) -> Result<(), B
     copy.pragma_update(None, "locking_mode", "EXCLUSIVE")?;
     {
         let backup = Backup::new(conn, &mut copy)?;
-        if !matches!(backup.step(-1)?, StepResult::Done) {
-            return Err(BackupError::Incomplete);
+        match backup.step(-1)? {
+            StepResult::Done => {}
+            result => return Err(BackupError::Incomplete(result)),
         }
     }
     // Копия наследует флаг WAL источника; режим DELETE делает её самодостаточным файлом.
@@ -198,8 +199,8 @@ pub enum BackupError {
     File(io::Error),
     /// Ошибка SQLite при копировании или проверке.
     Sqlite(rusqlite::Error),
-    /// Backup API не скопировал базу за один шаг.
-    Incomplete,
+    /// Backup API не скопировал базу за один шаг: исходная база занята или заблокирована.
+    Incomplete(StepResult),
     /// Копия не перешла в режим журнала `DELETE`.
     JournalMode(String),
     /// `user_version` копии не совпала с версией источника.
@@ -219,7 +220,10 @@ impl fmt::Display for BackupError {
             Self::Exists => f.write_str("копия с таким именем уже есть"),
             Self::File(error) => write!(f, "файл копии не создан: {error}"),
             Self::Sqlite(error) => write!(f, "ошибка SQLite: {error}"),
-            Self::Incomplete => f.write_str("копирование не завершилось за один шаг"),
+            Self::Incomplete(result) => write!(
+                f,
+                "копирование не завершилось за один шаг, база занята или заблокирована: {result:?}"
+            ),
             Self::JournalMode(mode) => write!(f, "копия осталась в режиме журнала {mode}"),
             Self::Version { expected, found } => {
                 write!(f, "user_version копии {found}, ожидалась {expected}")
@@ -233,7 +237,9 @@ impl std::error::Error for BackupError {
         match self {
             Self::Dir(error) | Self::File(error) => Some(error),
             Self::Sqlite(error) => Some(error),
-            Self::Exists | Self::Incomplete | Self::JournalMode(_) | Self::Version { .. } => None,
+            Self::Exists | Self::Incomplete(_) | Self::JournalMode(_) | Self::Version { .. } => {
+                None
+            }
         }
     }
 }

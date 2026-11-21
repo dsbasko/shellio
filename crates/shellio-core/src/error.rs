@@ -113,13 +113,38 @@ impl Entity {
 }
 
 /// Ошибка ядра: стабильный код, сообщение для человека, признак повтора и детали.
+///
+/// Признак повтора следует из кода: разбор JSON с другим признаком отказывает.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(try_from = "WireCoreError")]
 pub struct CoreError {
     code: ErrorCode,
     message: String,
     retryable: bool,
     details: Map<String, Value>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WireCoreError {
+    code: ErrorCode,
+    message: String,
+    retryable: bool,
+    details: Map<String, Value>,
+}
+
+impl TryFrom<WireCoreError> for CoreError {
+    type Error = String;
+
+    fn try_from(wire: WireCoreError) -> Result<Self, Self::Error> {
+        if wire.retryable != wire.code.retryable() {
+            return Err(format!(
+                "retryable {} не соответствует коду {}",
+                wire.retryable, wire.code
+            ));
+        }
+        Ok(Self::new(wire.code, wire.message, wire.details))
+    }
 }
 
 impl CoreError {
@@ -298,6 +323,19 @@ mod tests {
             assert_eq!(code.retryable(), retryable, "{name}");
             assert_eq!(serde_json::to_value(code).unwrap(), Value::from(name));
         }
+    }
+
+    #[test]
+    fn parse_rejects_retry_flag_other_than_code() {
+        let busy = CoreError::busy();
+        let mut json = serde_json::to_value(&busy).unwrap();
+        assert_eq!(
+            serde_json::from_value::<CoreError>(json.clone()).unwrap(),
+            busy
+        );
+        json["retryable"] = Value::Bool(false);
+        let error = serde_json::from_value::<CoreError>(json).unwrap_err();
+        assert!(error.to_string().contains("retryable"), "{error}");
     }
 
     #[test]

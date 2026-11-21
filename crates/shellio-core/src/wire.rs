@@ -37,18 +37,6 @@ impl From<CommandValue> for ReplyValue {
     }
 }
 
-impl From<TreeView> for ReplyValue {
-    fn from(value: TreeView) -> Self {
-        Self::Tree(value)
-    }
-}
-
-impl From<StatusView> for ReplyValue {
-    fn from(value: StatusView) -> Self {
-        Self::Status(value)
-    }
-}
-
 /// Событие: дельты одной записанной команды с её ревизией.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

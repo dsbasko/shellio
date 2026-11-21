@@ -304,6 +304,26 @@ fn broken_git_link_is_git_link_invalid() {
 }
 
 #[test]
+fn link_file_not_in_utf8_or_not_a_file_is_refused() {
+    let (_dir, base) = temp().unwrap();
+    let store = mkdir(&base.join("store")).unwrap();
+
+    let wt = mkdir(&base.join("bytes")).unwrap();
+    fs::write(wt.join(".git"), b"gitdir: ../st\xffore\n").unwrap();
+    let error = resolve(&wt).unwrap_err();
+    assert_eq!(error.reason(), "path_not_utf8");
+    assert_eq!(error.path(), wt.join(".git"));
+
+    // `commondir` — каталог, а не файл ссылки.
+    mkdir(&store.join("commondir")).unwrap();
+    let wt = mkdir(&base.join("dir-commondir")).unwrap();
+    fs::write(wt.join(".git"), "gitdir: ../store\n").unwrap();
+    let error = resolve(&wt).unwrap_err();
+    assert_eq!(error.reason(), "git_link_invalid");
+    assert_eq!(error.path(), store.join("commondir"));
+}
+
+#[test]
 fn unreadable_directory_is_path_unreadable() {
     let (_dir, base) = temp().unwrap();
     let locked = mkdir(&base.join("locked")).unwrap();

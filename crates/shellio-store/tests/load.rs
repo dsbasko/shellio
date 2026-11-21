@@ -11,9 +11,9 @@ use std::sync::Arc;
 use rusqlite::Connection;
 use shellio_core::test_support::{FakeRootResolver, ManualClock, SequentialIds};
 use shellio_core::{
-    Change, Command, CommandValue, Core, CoreHandle, Diagnostic, ErrorCode, EventsSince, Loaded,
-    Persist, ProjectId, ProjectRootId, Query, ReplyValue, Revision, RootResolver, Route,
-    StartError, State, TreeScope, UnixMillis, Violation, WorkbenchId, WorkspaceId,
+    Command, CommandValue, Core, CoreHandle, Diagnostic, ErrorCode, EventsSince, Loaded, Persist,
+    ProjectId, ProjectRootId, Query, ReplyValue, Revision, RootResolver, Route, StartError, State,
+    TreeScope, UnixMillis, Violation, WindowState, WorkbenchId, WorkspaceId,
 };
 use shellio_store::{Database, Profile, SqlitePersist, StoreError};
 use tempfile::TempDir;
@@ -458,6 +458,53 @@ fn values_outside_model_are_reset_or_reported() {
 }
 
 #[test]
+fn text_not_in_utf8_and_remaining_position_findings_are_reported() {
+    let db = Db::new().unwrap();
+    let raw = db.raw().unwrap();
+    let w = |n| id(WS, n);
+    let p = |n| id(PR, n);
+    let b = |n| id(WB, n);
+
+    workspace_row(&raw, 1, &w(1), "Работа", 0).unwrap();
+    workspace_row(&raw, 2, &w(2), "Дом", 1).unwrap();
+    raw.execute(
+        "UPDATE workspaces SET title = CAST(x'ff' AS TEXT) WHERE rowid = 2",
+        [],
+    )
+    .unwrap();
+    project_row(&raw, 1, &p(1), &w(1), "app", Some(0)).unwrap();
+    project_row(&raw, 2, &p(2), &w(1), "web", Some(0)).unwrap();
+    root_row(&raw, 1, &id(RT, 1), &p(1), "/src/app", "folder").unwrap();
+    raw.execute(
+        "UPDATE project_roots SET path = CAST(x'2fff' AS TEXT) WHERE rowid = 1",
+        [],
+    )
+    .unwrap();
+    workbench_row(&raw, 1, &b(1), &p(1), "main", 0).unwrap();
+    workbench_row(&raw, 2, &b(2), &p(1), "extra", -1).unwrap();
+    set_window(&raw, Some(&w(1)), None).unwrap();
+    drop(raw);
+
+    let state = db.load().unwrap().state;
+    assert_eq!(
+        state.diagnostics,
+        [
+            diag("workspaces", 2, "invalid_value"),
+            diag("project_roots", 1, "invalid_value"),
+            diag("workbenches", 2, "position_out_of_range"),
+            diag("projects", 2, "position_taken"),
+        ]
+    );
+    assert_eq!(keys(&state.workspaces), BTreeSet::from([workspace_id(1)]));
+    assert_eq!(
+        keys(&state.projects),
+        BTreeSet::from([project_id(1), project_id(2)])
+    );
+    assert!(state.roots.is_empty());
+    assert_eq!(keys(&state.workbenches), BTreeSet::from([workbench_id(1)]));
+}
+
+#[test]
 fn window_findings_fall_back_to_workspace_home() {
     let w = |n| id(WS, n);
     let p = |n| id(PR, n);
@@ -541,6 +588,7 @@ async fn after_position_collision_new_records_go_after_max_and_reload_keeps_rows
     set_revision(&raw, 4).unwrap();
     drop(raw);
 
+    // Находки загрузки: запуск сдвигает ревизию записью без дельт.
     let core = db.start(FakeRootResolver::new()).unwrap();
     let created = core
         .request(Command::WorkspaceCreate {
@@ -551,7 +599,7 @@ async fn after_position_collision_new_records_go_after_max_and_reload_keeps_rows
     let ReplyValue::Command(CommandValue::Workspace { workspace }) = created.value else {
         panic!("неожиданный ответ {created:?}");
     };
-    assert_eq!(created.revision, Revision(5));
+    assert_eq!(created.revision, Revision(6));
     let created = core
         .request(Command::WorkbenchCreate {
             project: project_id(1),
@@ -570,7 +618,7 @@ async fn after_position_collision_new_records_go_after_max_and_reload_keeps_rows
     assert_eq!(state.workbenches[&workbench].position, 3);
 
     let reloaded = db.load().unwrap();
-    assert_eq!(reloaded.revision, Revision(6));
+    assert_eq!(reloaded.revision, Revision(7));
     assert_eq!(reloaded.state, **state);
     assert_eq!(
         reloaded.state.diagnostics,
@@ -611,17 +659,15 @@ async fn dangling_active_workspace_is_reset_and_start_focuses_in_one_record() {
     );
     assert_eq!(snapshot.state.window.route, Route::WorkspaceHome);
 
-    let EventsSince::Events(events) = core.events_since(Revision(5)).await.unwrap() else {
-        panic!("ожидались события запуска");
-    };
-    assert_eq!(events.len(), 1);
-    assert_eq!(events[0].revision, Revision(6));
+    // Загрузка изменила состояние ревизии 5: курсор прошлого запуска на ней получает снимок,
+    // а не событие запуска поверх зеркала со сброшенным воркспейсом.
     assert_eq!(
-        events[0].changes,
-        [Change::WindowSet {
-            active: workspace_id(2),
-            route: Route::WorkspaceHome,
-        }]
+        core.events_since(Revision(5)).await.unwrap(),
+        EventsSince::Reset(snapshot.clone())
+    );
+    assert_eq!(
+        core.events_since(Revision(6)).await.unwrap(),
+        EventsSince::Events(Vec::new())
     );
 
     let status = core.query(Query::Status {}).await.unwrap();
@@ -644,6 +690,94 @@ async fn dangling_active_workspace_is_reset_and_start_focuses_in_one_record() {
         Some(workspace_id(2))
     );
     assert_eq!(reloaded.state.check_invariants(), Vec::new());
+}
+
+#[tokio::test]
+async fn findings_without_startup_change_still_move_revision_past_old_cursors() {
+    let db = Db::new().unwrap();
+    let raw = db.raw().unwrap();
+    workspace_row(&raw, 1, &id(WS, 1), "Работа", 0).unwrap();
+    workspace_row(&raw, 2, &id(WS, 2), "работа", 1).unwrap();
+    set_window(&raw, Some(&id(WS, 1)), None).unwrap();
+    set_revision(&raw, 4).unwrap();
+    drop(raw);
+    assert_eq!(
+        db.load().unwrap().state.diagnostics,
+        [diag("workspaces", 2, "name_taken")]
+    );
+
+    // Окно цело, внутренних команд нет: запуск пишет запись без дельт и без события.
+    let core = db.start(FakeRootResolver::new()).unwrap();
+    let (snapshot, _) = core.subscribe().await.unwrap();
+    assert_eq!(snapshot.revision, Revision(5));
+    assert_eq!(db.revision_in_db().unwrap(), 5);
+    assert_eq!(
+        core.events_since(Revision(4)).await.unwrap(),
+        EventsSince::Reset(snapshot.clone())
+    );
+    for _ in 0..2 {
+        assert_eq!(
+            core.events_since(snapshot.revision).await.unwrap(),
+            EventsSince::Events(Vec::new())
+        );
+    }
+    core.shutdown().await;
+    assert_eq!(db.revision_in_db().unwrap(), 5);
+}
+
+#[tokio::test]
+async fn route_into_removed_project_goes_home_on_start_and_focus_skips_it() {
+    let db = Db::new().unwrap();
+    let raw = db.raw().unwrap();
+    workspace_row(&raw, 1, &id(WS, 1), "Работа", 0).unwrap();
+    workspace_row(&raw, 2, &id(WS, 2), "Дом", 1).unwrap();
+    project_row(&raw, 1, &id(PR, 1), &id(WS, 1), "old", None).unwrap();
+    raw.execute(
+        "UPDATE projects SET removed_at = ?1 WHERE rowid = 1",
+        [NOW.0 - 1],
+    )
+    .unwrap();
+    workbench_row(&raw, 1, &id(WB, 1), &id(PR, 1), "Ревью", 0).unwrap();
+    raw.execute(
+        "UPDATE workspaces SET last_workbench_id = ?1 WHERE rowid = 1",
+        [&id(WB, 1)[..]],
+    )
+    .unwrap();
+    set_window(&raw, Some(&id(WS, 1)), Some(&id(WB, 1))).unwrap();
+    set_revision(&raw, 3).unwrap();
+    drop(raw);
+
+    // Область существует и принадлежит воркспейсу: загрузка оставляет обе ссылки.
+    let loaded = db.load().unwrap();
+    assert_eq!(loaded.state.diagnostics, Vec::new());
+    assert_eq!(loaded.state.window.route, Route::Workbench(workbench_id(1)));
+    assert_eq!(
+        loaded.state.workspaces[&workspace_id(1)].last_workbench,
+        Some(workbench_id(1))
+    );
+
+    let core = db.start(FakeRootResolver::new()).unwrap();
+    let (snapshot, _) = core.subscribe().await.unwrap();
+    assert_eq!(snapshot.revision, Revision(4));
+    assert_eq!(
+        snapshot.state.window,
+        WindowState {
+            active_workspace: Some(workspace_id(1)),
+            route: Route::WorkspaceHome,
+        }
+    );
+    assert_eq!(snapshot.state.check_invariants(), Vec::new());
+
+    for workspace in [workspace_id(2), workspace_id(1)] {
+        core.request(Command::WindowFocusWorkspace { workspace })
+            .await
+            .unwrap();
+    }
+    let (snapshot, _) = core.subscribe().await.unwrap();
+    assert_eq!(snapshot.revision, Revision(6));
+    assert_eq!(snapshot.state.window.route, Route::WorkspaceHome);
+    core.shutdown().await;
+    assert_eq!(db.revision_in_db().unwrap(), 6);
 }
 
 #[tokio::test]

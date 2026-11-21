@@ -77,7 +77,7 @@ impl Command {
 
     /// Подготовить команду для обработчика. Блокирует только для команд с [`Self::needs_io`]:
     /// корень `project.add` разрешается здесь, ошибка разрешения — `invalid_argument`.
-    pub fn prepare(self, resolver: &dyn RootResolver) -> Result<PreparedCommand, CoreError> {
+    pub(crate) fn prepare(self, resolver: &dyn RootResolver) -> Result<PreparedCommand, CoreError> {
         Ok(match self {
             Self::WorkspaceCreate { title } => PreparedCommand::WorkspaceCreate { title },
             Self::WorkspaceRename { workspace, title } => {
@@ -108,7 +108,7 @@ impl Command {
 
 /// Команда, готовая к чистому обработчику: весь ввод-вывод выполнен до актора.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum PreparedCommand {
+pub(crate) enum PreparedCommand {
     WorkspaceCreate {
         title: String,
     },

@@ -403,6 +403,51 @@ fn garbage_file_is_corrupt_and_untouched() -> TestResult {
 }
 
 #[test]
+fn foreign_schema_at_version_zero_is_backed_up_before_migration() -> TestResult {
+    // Чужая таблица рядом со схемой: миграция идёт поверх, копия хранит файл до неё.
+    let fixture = Fixture::new()?;
+    fs::create_dir_all(fixture.profile.state_dir())?;
+    fixture
+        .raw()?
+        .execute_batch("CREATE TABLE notes (x INTEGER); INSERT INTO notes VALUES (7);")?;
+    let db = fixture.open()?;
+    assert_eq!(user_version(db.connection())?, 1);
+    assert!(table_exists(db.connection(), "workspaces")?);
+    let kept: i64 = db
+        .connection()
+        .query_row("SELECT x FROM notes", [], |row| row.get(0))?;
+    assert_eq!(kept, 7);
+    drop(db);
+    let name = Fixture::backup_name(0);
+    assert_eq!(fixture.backups()?, [name.as_str()]);
+    let copy = Connection::open_with_flags(
+        fixture.profile.backups_dir().join(&name),
+        OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )?;
+    assert_eq!(user_version(&copy)?, 0);
+    assert!(table_exists(&copy, "notes")?);
+    assert!(!table_exists(&copy, "workspaces")?);
+    drop(copy);
+
+    // Чужая таблица с именем таблицы схемы: миграция откатывается, копия остаётся.
+    let fixture = Fixture::new()?;
+    fs::create_dir_all(fixture.profile.state_dir())?;
+    fixture
+        .raw()?
+        .execute_batch("CREATE TABLE workspaces (x INTEGER);")?;
+    let error = fixture.open().err();
+    assert!(
+        matches!(error, Some(StoreError::Migration { to: 1, .. })),
+        "{error:?}"
+    );
+    let raw = fixture.raw()?;
+    assert_eq!(user_version(&raw)?, 0);
+    assert!(!table_exists(&raw, "meta")?);
+    assert_eq!(fixture.backups()?, [Fixture::backup_name(0).as_str()]);
+    Ok(())
+}
+
+#[test]
 fn negative_user_version_is_corrupt() -> TestResult {
     let fixture = Fixture::new()?;
     fs::create_dir_all(fixture.profile.state_dir())?;

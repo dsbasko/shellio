@@ -24,11 +24,11 @@ mod wire;
 pub use actor::{QUEUE_CAPACITY, SUBSCRIBER_CAPACITY};
 pub use change::Change;
 pub use clock::{Clock, SystemClock, UnixMillis};
-pub use command::{Command, CommandValue, PreparedCommand};
+pub use command::{Command, CommandValue};
 pub use error::{CoreError, Entity, ErrorCode};
 pub use events::{EVENT_BUFFER, EventsSince, Snapshot};
 pub use handle::{Core, CoreHandle, ReplyReceipt, StartError};
-pub use handler::{BOOTSTRAP_WORKSPACE, Ctx, Outcome, handle, startup};
+pub use handler::BOOTSTRAP_WORKSPACE;
 pub use ids::{
     AgentId, IdGen, IdParseError, PanelId, ProjectId, ProjectRootId, SessionId, SystemIds,
     WorkbenchId, WorkspaceId,

@@ -13,7 +13,7 @@ use crate::handle::StartError;
 use crate::handler::{Ctx, Outcome, handle, startup};
 use crate::ids::IdGen;
 use crate::model::{Revision, State};
-use crate::persist::{Persist, SpawnError, StorageThread};
+use crate::persist::{Persist, StorageThread};
 use crate::query::{Query, StorageInfo, read};
 use crate::wire::{Event, Reply};
 
@@ -64,10 +64,7 @@ impl Actor {
         clock: Box<dyn Clock>,
         ids: Box<dyn IdGen>,
     ) -> Result<Self, StartError> {
-        let (storage, loaded) = StorageThread::spawn(persist).map_err(|error| match error {
-            SpawnError::Spawn(error) => StartError::Spawn(error),
-            SpawnError::Load(error) => StartError::Load(error),
-        })?;
+        let (storage, loaded) = StorageThread::spawn(persist)?;
         let (events, _) = broadcast::channel(SUBSCRIBER_CAPACITY);
         let mut actor = Self {
             state: Arc::new(loaded.state),
@@ -88,16 +85,26 @@ impl Actor {
         }
     }
 
+    /// Загрузка с находками описывает базу, которую правили в обход ядра: курсор прошлого
+    /// запуска на ревизии загрузки устарел. Тогда запуск записывает одну запись, пусть и без
+    /// дельт, и не кладёт её в буфер: курсоры этого запуска больше ревизии загрузки, а все
+    /// прежние получают снимок.
     fn startup(&mut self) -> Result<(), CoreError> {
         let mut ctx = Ctx::new(&*self.clock, &mut *self.ids);
-        let Some(Outcome { changes, .. }) = startup(&self.state, &mut ctx)? else {
+        let changes = startup(&self.state, &mut ctx)?.map(|outcome| outcome.changes);
+        if self.state.diagnostics.is_empty() {
+            if let Some(changes) = changes {
+                self.storage
+                    .commit_blocking(self.revision, changes.clone())?;
+                self.publish(changes);
+            }
             return Ok(());
-        };
-        if !changes.is_empty() {
-            self.storage
-                .commit_blocking(self.revision, changes.clone())?;
-            self.publish(changes);
         }
+        let changes = changes.unwrap_or_default();
+        self.storage
+            .commit_blocking(self.revision, changes.clone())?;
+        Arc::make_mut(&mut self.state).apply_all(&changes);
+        self.revision = self.revision.next();
         Ok(())
     }
 
