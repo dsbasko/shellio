@@ -868,6 +868,98 @@ fn draft_written_by_running_submission_is_not_edited_until_closed_or_done() -> T
 }
 
 #[test]
+fn draft_copy_from_closed_submission_is_held_while_new_one_publishes_it() -> TestResult {
+    let fx = Fixture::new()?;
+    let journal = fx.open()?;
+    let scope = journal.scope(&ProjectId::new("p1"));
+
+    let gl = scope.create_session(&session(Provider::GitLab, rev('a', 'b', 'c')?))?;
+    let draft = scope
+        .add_draft(gl, line(&held_file()?, Side::New, 2)?, "T1")?
+        .id;
+    let first = scope.plan_submission(
+        gl,
+        &[
+            planned(Operation::GitLabCreateDraftNote, &[draft]),
+            planned(Operation::GitLabPublishDraftNote, &[draft]),
+        ],
+    )?;
+    scope.begin(first.items[0].id)?;
+    scope.confirm(first.items[0].id, None)?;
+    scope.set_draft_remote_id(draft, &ProviderId::new("71"))?;
+    scope.begin(first.items[1].id)?;
+    scope.fail(first.items[1].id, "отказ")?;
+    scope.close_submission(first.id)?;
+
+    let publish_only =
+        scope.plan_submission(gl, &[planned(Operation::GitLabPublishDraftNote, &[draft])])?;
+    let publish = publish_only.items[0].id;
+    assert!(matches!(
+        scope.update_draft_body(draft, "T2"),
+        Err(JournalError::DraftHeld { item, state: ItemState::Planned, .. }) if item == publish
+    ));
+    let review = scope.session(gl)?;
+    assert!(matches!(
+        scope.save_head(gl, &review, &[scope.draft(draft)?]),
+        Err(JournalError::DraftHeld {
+            state: ItemState::Planned,
+            ..
+        })
+    ));
+    assert_eq!(scope.draft(draft)?.body, "T1");
+    scope.close_submission(publish_only.id)?;
+
+    let with_update = scope.plan_submission(
+        gl,
+        &[
+            planned(Operation::GitLabUpdateDraftNote, &[draft]),
+            planned(Operation::GitLabPublishDraftNote, &[draft]),
+        ],
+    )?;
+    scope.update_draft_body(draft, "T2")?;
+    scope.close_submission(with_update.id)?;
+
+    let gh = scope.create_session(&session(Provider::GitHub, rev('a', 'a', 'c')?))?;
+    let comment = scope
+        .add_draft(gh, line(&held_file()?, Side::New, 2)?, "T1")?
+        .id;
+    let pending = scope.plan(
+        gh,
+        &SubmissionSpec {
+            event: Some("COMMENT".to_owned()),
+            ..SubmissionSpec::default()
+        },
+        &[
+            planned(Operation::GitHubCreatePending, &[]),
+            planned(Operation::GitHubAddPendingComment, &[comment]),
+            planned(Operation::GitHubSubmitReview, &[]),
+        ],
+    )?;
+    for item in &pending.items[..2] {
+        scope.begin(item.id)?;
+        scope.confirm(item.id, None)?;
+    }
+    scope.set_draft_remote_id(comment, &ProviderId::new("81"))?;
+    scope.close_submission(pending.id)?;
+    let submit_only = scope.plan(
+        gh,
+        &SubmissionSpec {
+            event: Some("COMMENT".to_owned()),
+            ..SubmissionSpec::default()
+        },
+        &[planned(Operation::GitHubSubmitReview, &[])],
+    )?;
+    assert!(matches!(
+        scope.update_draft_body(comment, "T2"),
+        Err(JournalError::DraftHeld { item, state: ItemState::Planned, .. })
+            if item == submit_only.items[0].id
+    ));
+    scope.close_submission(submit_only.id)?;
+    scope.update_draft_body(comment, "T2")?;
+    Ok(())
+}
+
+#[test]
 fn refute_only_moves_known_object_operations_out_of_unknown() -> TestResult {
     let fx = Fixture::new()?;
     let journal = fx.open()?;

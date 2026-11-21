@@ -325,7 +325,9 @@ pub enum JournalError {
         session: SessionId,
     },
     /// Черновик держит элемент: в `in_flight` или `unknown` (до сверки) или в `planned`
-    /// незакрытой отправки. Он не входит в новую отправку, его текст и якорь не меняются.
+    /// незакрытой отправки. Он не входит в новую отправку. Текст и якорь не меняются, пока элемент
+    /// в `in_flight` или `unknown` или пока незакрытая отправка опубликовала бы прежнюю серверную
+    /// копию (правило `update_draft_body`); под `planned`, который сам несёт текст, они меняются.
     DraftHeld {
         draft: DraftId,
         item: ItemId,
@@ -684,7 +686,8 @@ impl Scope<'_> {
     /// Новый текст черновика. Черновик с элементом в `in_flight` или `unknown` не меняется до
     /// сверки: иначе сверка искала бы по содержимому другой текст. Не меняется и черновик, чью
     /// серверную копию записал подтверждённый элемент незакрытой отправки с незавершёнными
-    /// элементами: её продолжение опубликовало бы прежнюю копию.
+    /// элементами: её продолжение опубликовало бы прежнюю копию. То же, пока незакрытая отправка
+    /// публикует серверную копию черновика, не записывая его текст заново.
     pub fn update_draft_body(&self, draft: DraftId, body: &str) -> Result<(), JournalError> {
         self.draft(draft)?;
         if let Some((item, state)) = edit_hold(self.conn, draft)? {
@@ -1248,7 +1251,9 @@ fn held_by(
 /// Элемент, из-за которого черновик нельзя менять: [`held_by`] без `planned` или подтверждённый
 /// элемент с этим черновиком в незакрытой отправке, где ещё есть `planned`, `in_flight` или
 /// `unknown`. Серверную копию черновика такая отправка уже записала, и её продолжение
-/// опубликовало бы прежний текст или позицию.
+/// опубликовало бы прежний текст или позицию. Держит и `planned` публикации серверной копии
+/// черновика с ID (публикация `draft_note` по ID, Submit `PENDING`) в незакрытой отправке, где нет
+/// `planned` записи текста этого черновика: копию записала прежняя, уже закрытая отправка.
 fn edit_hold(
     conn: &Connection,
     draft: DraftId,
@@ -1275,7 +1280,36 @@ fn edit_hold(
             |row| row.get(0),
         )
         .optional()?;
-    Ok(written.map(|id| (ItemId(id), ItemState::Confirmed)))
+    if let Some(id) = written {
+        return Ok(Some((ItemId(id), ItemState::Confirmed)));
+    }
+    let publish: Option<u64> = conn
+        .query_row(
+            "SELECT p.id FROM drafts dr \
+             JOIN submissions s ON s.session_id = dr.session_id AND s.closed = 0 \
+             JOIN submit_items p ON p.submission_id = s.id AND p.state = ?2 \
+             WHERE dr.id = ?1 AND dr.remote_id IS NOT NULL \
+             AND (p.operation = ?3 OR (p.operation = ?4 AND EXISTS \
+             (SELECT 1 FROM submit_item_drafts pd WHERE pd.item_id = p.id AND pd.draft_id = dr.id))) \
+             AND NOT EXISTS (SELECT 1 FROM submit_items w \
+             JOIN submit_item_drafts wd ON wd.item_id = w.id \
+             WHERE w.submission_id = s.id AND w.state = ?2 AND wd.draft_id = dr.id \
+             AND w.operation IN (?5, ?6, ?7, ?8)) \
+             ORDER BY p.id LIMIT 1",
+            params![
+                draft.0,
+                ItemState::Planned.name(),
+                Operation::GitHubSubmitReview.name(),
+                Operation::GitLabPublishDraftNote.name(),
+                Operation::GitHubAddPendingComment.name(),
+                Operation::GitHubUpdatePendingComment.name(),
+                Operation::GitLabCreateDraftNote.name(),
+                Operation::GitLabUpdateDraftNote.name()
+            ],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(publish.map(|id| (ItemId(id), ItemState::Planned)))
 }
 
 fn row_id(value: i64) -> Result<u64, JournalError> {

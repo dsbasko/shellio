@@ -242,7 +242,7 @@ fn gitlab_update_of_range_start_alone_is_refuted_until_applied() -> TestResult {
 }
 
 #[test]
-fn gitlab_request_changes_without_reviewer_is_unresolved_and_other_state_refuted() -> TestResult {
+fn gitlab_reviewer_state_and_approval_mismatch_stays_unresolved() -> TestResult {
     let mut fake = GitlabFake::new("g/p");
     fake.add_user("bob", "tok-reviewer", Some(Access::Developer));
     fake.add_user("alice", "tok-author", Some(Access::Developer));
@@ -298,11 +298,40 @@ fn gitlab_request_changes_without_reviewer_is_unresolved_and_other_state_refuted
     assert_eq!(scope.item(item)?.state, ItemState::Unknown);
     assert!(!scope.submission(submission.id)?.closed);
     server.with(|fake| fake.add_reviewer(3, "bob"))?;
+    // Состояние ревьюера и одобрение обратимы: иное состояние не отличает неприменённую запись от
+    // применённой и затем изменённой другим участником.
     let unreviewed = verdict()?;
     assert!(
-        matches!(&unreviewed, Verdict::Refuted { detail } if detail.contains("UNREVIEWED")),
+        matches!(&unreviewed, Verdict::Unresolved { detail } if detail.contains("UNREVIEWED")),
         "{unreviewed:?}"
     );
+    apply(&scope, item, &unreviewed)?;
+    assert_eq!(scope.item(item)?.state, ItemState::Unknown);
+    assert!(!scope.submission(submission.id)?.closed);
+
+    let approval = scope.plan_submission(session_id, &[planned(Operation::GitLabApprove, &[])])?;
+    let approve = approval.items[0].id;
+    scope.begin(approve)?;
+    scope.mark_unknown(approve, "нет ответа")?;
+    let approval = scope.submission(approval.id)?;
+    let approve_item = scope.item(approve)?;
+    let not_approved = reconcile_gitlab(
+        &gitlab,
+        &GitLabLedger {
+            session: &session,
+            submission: &approval,
+            item: &approve_item,
+            drafts: &[],
+            own_drafts: &[],
+            own_notes: &[],
+        },
+    );
+    assert!(
+        matches!(&not_approved, Verdict::Unresolved { .. }),
+        "{not_approved:?}"
+    );
+    apply(&scope, approve, &not_approved)?;
+    assert_eq!(scope.item(approve)?.state, ItemState::Unknown);
     Ok(())
 }
 

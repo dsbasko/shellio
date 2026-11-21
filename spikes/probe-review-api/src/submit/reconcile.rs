@@ -415,11 +415,12 @@ pub fn reconcile_gitlab<T: Transport>(gitlab: &GitLab<T>, ledger: &GitLabLedger<
                         .iter()
                         .any(|name| name.eq_ignore_ascii_case(account))
                 });
+                // Одобрение обратимо: снятое другим клиентом читается так же, как неприменённое.
                 if own {
                     Verdict::Confirmed { remote: None }
                 } else {
-                    Verdict::Refuted {
-                        detail: "одобрения токена нет".to_owned(),
+                    Verdict::Unresolved {
+                        detail: "одобрения токена нет: не применено или снято".to_owned(),
                     }
                 }
             }
@@ -427,7 +428,8 @@ pub fn reconcile_gitlab<T: Transport>(gitlab: &GitLab<T>, ledger: &GitLabLedger<
         },
         (Operation::GitLabRequestChanges, []) => match gitlab.reviewer_state(account) {
             Ok(Some(ReviewerState::RequestedChanges)) => Verdict::Confirmed { remote: None },
-            Ok(Some(other)) => Verdict::Refuted {
+            // Состояние ревьюера меняют и другие участники: иное состояние не опровергает запись.
+            Ok(Some(other)) => Verdict::Unresolved {
                 detail: format!("состояние ревьюера {}", other.graphql()),
             },
             // Ревьюера нет в списке или у него нет состояния: отсутствие не опровергает запись.
