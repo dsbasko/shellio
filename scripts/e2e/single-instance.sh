@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Сценарий make e2e «единственный экземпляр» (P1.2): пункты матрицы приёмки плана single-instance-control на
-# подписанном бандле и временных профилях.
+# Сценарий make e2e «единственный экземпляр» (P1.2): пункты матрицы приёмки планов single-instance-control и
+# single-instance-activation на подписанном бандле и временных профилях.
 #
 #   single-instance.sh [<бандл>]
 #
@@ -11,6 +11,17 @@
 # Каталог прогона — target/e2e/single-instance/<время>-<pid>/: result.json (пункт, обязательность, статус,
 # причина, путь сырого вывода относительно каталога прогона), журнал сценария log и сырой вывод каждого пункта
 # в подкаталоге с его именем. Уборка пишет свой вывод в cleanup/.
+#
+# Второй запуск с наблюдением переднего плана (forward-open-n, forward-direct, two-owners-front) идёт после
+# подтверждённого вывода на передний план исходного приложения: Finder для open -n, терминала-предка для прямого
+# запуска бинаря. Терминал-предок — первый предок процесса сценария по цепочке ppid, которого знает lsappinfo,
+# поэтому сценарий запускается из приложения терминала, а не из tmux, screen или ssh: иначе ошибка исполнения до
+# первого пункта. С начала второго запуска до его выхода каждый замер пишет передний план в front.log пункта и
+# типы LaunchServices процессов бинаря прогона в dock.log: pass требует перехода на владельца не позже 3 с после
+# квитанции, удержания на нём 1 с и ни одного процесса бинаря прогона, кроме владельцев, с типом Foreground (в
+# Dock). Исход передачи активации из stderr второго запуска входит в причину пункта. Пункт two-owners-front
+# (второй запуск профиля A при живом владельце B) выполняется и обязателен только при варианте передачи через
+# LaunchServices (ADDRESSES_BUNDLE), иначе not_run.
 #
 # Сигналы и уборка адресуют только PID, полученные через hello сокетов прогона и сверенные с бинарём бандла
 # прогона. Передний план читается через lsappinfo, разрешения Accessibility и Screen Recording не нужны. Нужны
@@ -29,6 +40,7 @@ READY="shellio: владелец готов, pid "
 HANDLED="shellio: запуск обработан "
 RECEIPT="shellio: запуск передан владельцу (pid "
 TERMINATED="shellio: завершение: SIGTERM"
+HANDOFF="shellio: передача активации pid "
 # Приложение, вышедшее раньше, чем open -W подписался на его завершение, даёт open код 1 с этим текстом.
 OPEN_EXITED_EARLY="initial call to kevent() failed: No such process"
 FINDER_ID="com.apple.finder"
@@ -39,14 +51,20 @@ OWNER_START_S=20
 SECOND_LAUNCH_S=20
 EXIT_S=10
 KILL_S=5
-FINDER_S=5
+FOCUS_S=5
 FRONT_LIMIT_MS=3000
 FRONT_CAP_MS=10000
+HOLD_MS=1000
 POLL=0.1
 CTL_TIMEOUT_MS=2000
 
-ITEMS=(owner forward-open-n forward-direct folder-refused persist kill-recover two-profiles plain-open gui-quit)
-REQUIRED=(1 1 1 1 1 1 1 0 0)
+# 1 — второй запуск адресует приложение владельца через LaunchServices (варианты 3 и 4 плана
+# single-instance-activation): тогда пункт two-owners-front выполняется и обязателен.
+ADDRESSES_BUNDLE=0
+
+ITEMS=(owner forward-open-n forward-direct folder-refused persist kill-recover two-profiles two-owners-front
+  plain-open gui-quit)
+REQUIRED=(1 1 1 1 1 1 1 "$ADDRESSES_BUNDLE" 0 0)
 STATUS=()
 REASON=()
 for i in "${!ITEMS[@]}"; do
@@ -93,6 +111,20 @@ second_status=""
 receipt_ms=""
 front_ms=""
 front_last=""
+terminal_pid=""
+terminal_id=""
+# Наблюдение второго запуска: каталог пункта (пусто — замеров нет), владелец и второй допустимый владелец, момент
+# старта второго запуска, последний замер, момент перехода на владельца, первое нарушение удержания и Dock.
+fg_dir=""
+fg_owner=""
+fg_other=""
+t_start=""
+sample_ms=""
+sample_front=""
+front_abs=""
+hold_lost=""
+fg_stray=""
+fg_owner_seen=0
 
 log() {
   printf '%s\n' "$*"
@@ -227,8 +259,13 @@ wait_gone() {
   deadline=$(($(now_ms) + $2 * 1000))
   while alive "$pid"; do
     (($(now_ms) < deadline)) || return 1
+    [[ -z "$fg_dir" ]] || sample
     sleep "$POLL"
   done
+}
+
+parent_of() {
+  ps -o ppid= -p "$1" 2>/dev/null | tr -d '[:space:]' || true
 }
 
 # PID процессов с бинарём бандла прогона через пробел.
@@ -371,7 +408,8 @@ start_second_direct() {
   direct_jobs+=("$second_job")
 }
 
-# Квитанция с PID владельца в stdout второго запуска; момент, когда она замечена, — в receipt_ms.
+# Квитанция с PID владельца в stdout второго запуска; момент, когда она замечена, — в receipt_ms. Каждый круг —
+# замер наблюдения: передача активации идёт до квитанции.
 await_receipt() {
   local dir="$1" pid="$2" deadline
   receipt_ms=""
@@ -379,12 +417,21 @@ await_receipt() {
   while :; do
     if grep -qF "$RECEIPT$pid)" "$dir/second.stdout"; then
       receipt_ms="$(now_ms)"
+      mark "квитанция"
       return 0
     fi
+    sample
     alive "$second_job" || grep -qF "$RECEIPT$pid)" "$dir/second.stdout" || return 1
     (($(now_ms) < deadline)) || return 1
     sleep "$POLL"
   done
+}
+
+# Строка исхода передачи активации из stderr второго запуска.
+handoff_of() {
+  local line
+  line="$(grep -F "$HANDOFF" "$1/second.stderr" 2>/dev/null | tail -n 1 || true)"
+  printf '%s\n' "${line:-в stderr второго запуска нет строки исхода передачи}"
 }
 
 # Выход второго запуска в срок; его код (у open — код open) — в second_status.
@@ -421,42 +468,134 @@ finder_pid() {
     grep -oE '[0-9]+$' | head -n 1 || true
 }
 
-# Передний план на Finder, подтверждение по PID; ряд опроса — <dir>/finder.log. Отказ — ошибка исполнения:
-# без подтверждённого Finder переход на владельца не наблюдается.
-focus_finder() {
-  local dir="$1" finder front deadline
-  finder="$(finder_pid)"
-  [[ -n "$finder" ]] || fatal "предусловие: Finder не запущен"
-  open -b "$FINDER_ID" >"$dir/finder-open.log" 2>&1 ||
-    fatal "предусловие: open -b $FINDER_ID не выполнен: $(oneline "$dir/finder-open.log")"
-  deadline=$(($(now_ms) + FINDER_S * 1000))
+# Тип LaunchServices приложения по PID (Foreground, UIElement, BackgroundOnly); «нет», если lsappinfo его не знает.
+app_type() {
+  local asn type=""
+  asn="$("$LSAPPINFO" find "pid=$1" 2>/dev/null || true)"
+  if [[ -n "$asn" ]]; then
+    type="$("$LSAPPINFO" info -only ApplicationType "$asn" 2>/dev/null | sed -n 's/.*type="\([^"]*\)".*/\1/p' |
+      head -n 1 || true)"
+  fi
+  printf '%s\n' "${type:-нет}"
+}
+
+# Терминал-предок: первый предок процесса сценария по цепочке ppid, которого знает lsappinfo. PID — в
+# terminal_pid, идентификатор бандла — в terminal_id, цепочка — в журнале прогона.
+find_terminal() {
+  local pid asn chain=""
+  pid="$(parent_of $$)"
+  while [[ "$pid" =~ ^[0-9]+$ ]] && ((pid > 1)); do
+    chain="${chain:+$chain ← }$pid $(comm_of "$pid")"
+    asn="$("$LSAPPINFO" find "pid=$pid" 2>/dev/null || true)"
+    if [[ -n "$asn" ]]; then
+      log "цепочка предков: $chain"
+      terminal_pid="$pid"
+      terminal_id="$("$LSAPPINFO" info -only bundleid "$asn" 2>/dev/null |
+        sed -n 's/.*bundleID="\([^"]*\)".*/\1/p' | head -n 1 || true)"
+      [[ -n "$terminal_id" ]] ||
+        fatal "предусловие: у терминала-предка pid $pid нет идентификатора бандла, open -b его не выведет"
+      log "терминал-предок: pid $terminal_pid, $terminal_id"
+      return 0
+    fi
+    pid="$(parent_of "$pid")"
+  done
+  log "цепочка предков: $chain"
+  fatal "предусловие: make e2e запущен не из приложения терминала (tmux, screen, ssh)"
+}
+
+# Передний план на приложение pid через open -b id, подтверждение по PID за FOCUS_S; ряд опроса —
+# <dir>/<name>.log, вывод open — <dir>/<name>-open.log. Отказ — ошибка исполнения: без подтверждённой исходной
+# точки переход на владельца не наблюдается.
+focus_app() {
+  local dir="$1" name="$2" pid="$3" id="$4" label="$5" front deadline
+  open -b "$id" >"$dir/$name-open.log" 2>&1 ||
+    fatal "предусловие: open -b $id не выполнен: $(oneline "$dir/$name-open.log")"
+  deadline=$(($(now_ms) + FOCUS_S * 1000))
   while :; do
     front="$(front_pid)"
-    printf '%s %s\n' "$(now_ms)" "${front:-нет}" >>"$dir/finder.log"
-    [[ "$front" != "$finder" ]] || return 0
+    printf '%s %s\n' "$(now_ms)" "${front:-нет}" >>"$dir/$name.log"
+    [[ "$front" != "$pid" ]] || return 0
     (($(now_ms) < deadline)) ||
-      fatal "предусловие: передний план не перешёл на Finder (pid $finder) за $FINDER_S с, последний — pid ${front:-нет}: сеанс GUI закрыт, экран заблокирован или идёт ввод"
+      fatal "предусловие: передний план не перешёл на $label (pid $pid) за $FOCUS_S с, последний — pid ${front:-нет}: сеанс GUI закрыт, экран заблокирован или идёт ввод"
     sleep "$POLL"
   done
 }
 
-# Опрос переднего плана с момента t0 до PID want или до FRONT_CAP_MS; ряд «+мс pid бинарь» — <dir>/front.log.
-# Смещение первого совпадения от t0 — в front_ms, пусто, если совпадения не было.
+focus_finder() {
+  local finder
+  finder="$(finder_pid)"
+  [[ -n "$finder" ]] || fatal "предусловие: Finder не запущен"
+  focus_app "$1" finder "$finder" "$FINDER_ID" Finder
+}
+
+focus_terminal() {
+  alive "$terminal_pid" || fatal "предусловие: терминал-предок pid $terminal_pid завершился"
+  focus_app "$1" terminal "$terminal_pid" "$terminal_id" "терминал-предок $terminal_id"
+}
+
+# Строка-отметка в front.log с мс от старта второго запуска.
+mark() {
+  printf '# %s +%d\n' "$1" "$(($(now_ms) - t_start))" >>"$fg_dir/front.log"
+}
+
+# Замер наблюдения второго запуска: передний план — строка «+мс pid бинарь» в front.log, типы LaunchServices
+# процессов бинаря прогона — строка «+мс pid:тип …» в dock.log, мс от старта второго запуска. PID переднего
+# плана — в sample_front, момент — в sample_ms. Первый процесс бинаря прогона с типом Foreground, кроме
+# владельцев fg_owner и fg_other, — в fg_stray; тип Foreground у fg_owner — fg_owner_seen=1.
+sample() {
+  local front pid type line="" off
+  front="$(front_pid)"
+  sample_ms="$(now_ms)"
+  sample_front="$front"
+  off=$((sample_ms - t_start))
+  printf '+%d %s %s\n' "$off" "${front:-нет}" "$(comm_of "$front")" >>"$fg_dir/front.log"
+  for pid in $(run_processes); do
+    type="$(app_type "$pid")"
+    line="$line $pid:$type"
+    [[ "$type" == Foreground ]] || continue
+    if [[ "$pid" == "$fg_owner" ]]; then
+      fg_owner_seen=1
+    elif [[ "$pid" != "$fg_other" && -z "$fg_stray" ]]; then
+      fg_stray="pid $pid ($(comm_of "$pid")) через $off мс от старта второго запуска"
+    fi
+  done
+  printf '+%d%s\n' "$off" "${line:- нет}" >>"$fg_dir/dock.log"
+}
+
+# Замеры после квитанции до PID want на переднем плане или до FRONT_CAP_MS; смещение перехода от квитанции — в
+# front_ms, его момент — в front_abs, пусто, если перехода не было.
 watch_front() {
-  local dir="$1" want="$2" t0="$3" front off
+  local want="$1"
   front_ms=""
+  front_abs=""
   while :; do
-    front="$(front_pid)"
-    off=$(($(now_ms) - t0))
-    ((off >= 0)) || off=0
-    printf '+%d %s %s\n' "$off" "${front:-нет}" "$(comm_of "$front")" >>"$dir/front.log"
-    if [[ -n "$front" && "$front" == "$want" ]]; then
-      front_ms="$off"
+    sample
+    if [[ -n "$sample_front" && "$sample_front" == "$want" ]]; then
+      front_abs="$sample_ms"
+      front_ms=$((sample_ms - receipt_ms))
+      ((front_ms >= 0)) || front_ms=0
+      mark "владелец на переднем плане"
       return 0
     fi
-    ((off < FRONT_CAP_MS)) || return 1
+    ((sample_ms - receipt_ms < FRONT_CAP_MS)) || return 1
     sleep "$POLL"
   done
+}
+
+# Замеры HOLD_MS после перехода: каждый должен показать want, первое отклонение — в hold_lost.
+hold_front() {
+  local want="$1" off
+  hold_lost=""
+  while :; do
+    sleep "$POLL"
+    sample
+    off=$((sample_ms - front_abs))
+    if [[ "$sample_front" != "$want" && -z "$hold_lost" ]]; then
+      hold_lost="через $off мс после перехода — $(describe_pid "$sample_front" "$want" "$fg_other")"
+    fi
+    ((off < HOLD_MS)) || break
+  done
+  mark "конец удержания"
 }
 
 # Ряд переднего плана в течение ms без условия; последний PID — в front_last.
@@ -484,6 +623,8 @@ describe_pid() {
     echo "pid $pid (владелец профиля B)"
   elif [[ "$pid" == "$finder" ]]; then
     echo "pid $pid (Finder)"
+  elif [[ "$pid" == "$terminal_pid" ]]; then
+    echo "pid $pid (терминал-предок)"
   else
     echo "pid $pid ($(comm_of "$pid"))"
   fi
@@ -515,6 +656,7 @@ prepare() {
   left="$(run_processes)"
   [[ -z "$left" ]] || fatal "предусловие: бинарь бандла прогона уже запущен (PID $left), завершите его"
   [[ -n "$(finder_pid)" ]] || fatal "предусловие: Finder не запущен"
+  find_terminal
   build_ctl
   log "каталог прогона: $run"
   log "бандл: $app, shellioctl: $ctl_bin"
@@ -599,6 +741,7 @@ finish() {
   trap - ERR
   # Без -u: ошибка set -u в ловушке EXIT у bash 3.2 тоже даёт код 0, минуя exit "$code".
   set +eu
+  fg_dir=""
   if [[ $completed -ne 1 && -z "$error" ]]; then
     add_error "сценарий остановился до конца: код $status${err_at:+, последний отказ команды в строке $err_at}"
   fi
@@ -638,25 +781,28 @@ item_owner() {
   conclude "$item" "pid $OWNER_PID из hello — процесс бандла прогона, status и tree --all ответили"
 }
 
-# Второй запуск способом how (open или direct) при Finder на переднем плане.
-item_forward() {
-  local item="$1" how="$2" dir="$run/$1" pid before after
-  failures=()
+# Второй запуск профиля A способом how (open или direct) к владельцу pid с замерами наблюдения от старта до
+# выхода; other — второй живой владелец, которому тоже можно быть Foreground. Нарушения — в failures.
+second_front() {
+  local item="$1" how="$2" pid="$3" other="$4" dir="$run/$1"
+  fg_dir="$dir"
+  fg_owner="$pid"
+  fg_other="$other"
+  fg_stray=""
+  fg_owner_seen=0
   front_ms=""
-  log "== $item"
-  if ! verified_hello "$profile_a" "$dir/hello-before"; then
-    record "$item" fail "$WHY"
-    return 0
-  fi
-  pid="$HELLO_PID"
-  focus_finder "$dir"
-  before="$(handled_count "$owner_out_a")"
+  hold_lost=""
+  printf '# мс от старта второго запуска, pid переднего плана, бинарь\n' >"$dir/front.log"
+  printf '# мс от старта второго запуска, pid:тип LaunchServices процессов бинаря прогона\n' >"$dir/dock.log"
+  t_start="$(now_ms)"
   case "$how" in
     open) start_second_open "$profile_a" "$dir" ;;
     direct) start_second_direct "$profile_a" "$dir" "$dir" ;;
   esac
   if await_receipt "$dir" "$pid"; then
-    watch_front "$dir" "$pid" "$receipt_ms" || true
+    if watch_front "$pid"; then
+      hold_front "$pid"
+    fi
   else
     failures+=("в stdout второго запуска нет квитанции с pid $pid за $SECOND_LAUNCH_S с: $(oneline "$dir/second.stdout") $(oneline "$dir/second.stderr")")
   fi
@@ -673,6 +819,38 @@ item_forward() {
   else
     failures+=("второй запуск не вышел за $SECOND_LAUNCH_S с")
   fi
+  fg_dir=""
+  if [[ -n "$receipt_ms" ]]; then
+    if [[ -z "$front_ms" ]]; then
+      failures+=("передний план не перешёл на PID владельца $pid за $FRONT_CAP_MS мс после квитанции, последний — $(describe_pid "$sample_front" "$pid" "$other"), ряд — $item/front.log")
+    elif ((front_ms > FRONT_LIMIT_MS)); then
+      failures+=("передний план перешёл на PID владельца $pid через $front_ms мс после квитанции, позже $FRONT_LIMIT_MS мс")
+    fi
+    [[ -z "$hold_lost" ]] ||
+      failures+=("передний план не удержался на PID владельца $pid $HOLD_MS мс: $hold_lost, ряд — $item/front.log")
+  fi
+  [[ -z "$fg_stray" ]] ||
+    failures+=("процесс бинаря прогона, кроме владельца, был Foreground (в Dock): $fg_stray, ряд — $item/dock.log")
+  ((fg_owner_seen)) ||
+    failures+=("владелец pid $pid ни разу не показан lsappinfo с типом Foreground: проверка Dock ничего не наблюдала, ряд — $item/dock.log")
+}
+
+# Второй запуск способом how: open -n от Finder, прямой запуск бинаря от терминала-предка.
+item_forward() {
+  local item="$1" how="$2" dir="$run/$1" pid before after outcome
+  failures=()
+  log "== $item"
+  if ! verified_hello "$profile_a" "$dir/hello-before"; then
+    record "$item" fail "$WHY"
+    return 0
+  fi
+  pid="$HELLO_PID"
+  case "$how" in
+    open) focus_finder "$dir" ;;
+    direct) focus_terminal "$dir" ;;
+  esac
+  before="$(handled_count "$owner_out_a")"
+  second_front "$item" "$how" "$pid" ""
   after="$(handled_count "$owner_out_a")"
   [[ $after -eq $((before + 1)) ]] ||
     failures+=("строк обработки в журнале владельца было $before, стало $after, ожидалась одна новая")
@@ -681,14 +859,9 @@ item_forward() {
   else
     failures+=("владелец не ответил на hello после второго запуска")
   fi
-  if [[ -n "$receipt_ms" ]]; then
-    if [[ -z "$front_ms" ]]; then
-      failures+=("передний план не перешёл на PID владельца $pid за $FRONT_CAP_MS мс после квитанции, ряд — $item/front.log")
-    elif ((front_ms > FRONT_LIMIT_MS)); then
-      failures+=("передний план перешёл на PID владельца $pid через $front_ms мс после квитанции, позже $FRONT_LIMIT_MS мс")
-    fi
-  fi
-  conclude "$item" "квитанция, строка обработки, PID владельца $pid прежний, передний план — PID владельца через $front_ms мс после квитанции"
+  outcome="$(handoff_of "$dir")"
+  [[ -z "${failures[*]+x}" ]] || failures+=("исход передачи — $outcome")
+  conclude "$item" "квитанция, строка обработки, PID владельца $pid прежний, передний план — PID владельца через $front_ms мс после квитанции и держался $HOLD_MS мс, других процессов бинаря прогона с типом Foreground нет; исход передачи — $outcome"
 }
 
 item_folder() {
@@ -857,6 +1030,54 @@ item_two() {
   conclude "$item" "владелец A pid $pid_a и владелец B pid $OWNER_PID работают рядом"
 }
 
+# Второй запуск профиля A через open -n от Finder при живом владельце B: передний план — владелец A, а не B.
+item_two_front() {
+  local item=two-owners-front dir="$run/two-owners-front" pid_a pid_b before_a after_a before_b after_b outcome
+  if ((!ADDRESSES_BUNDLE)); then
+    record "$item" not_run "вариант не адресует бандл"
+    return 0
+  fi
+  failures=()
+  log "== $item"
+  if ! verified_hello "$profile_a" "$dir/hello-a"; then
+    record "$item" fail "профиль A: $WHY"
+    return 0
+  fi
+  pid_a="$HELLO_PID"
+  if [[ -z "$profile_b" || -z "$owner_out_b" ]]; then
+    record "$item" fail "владельца B нет: пункт two-profiles его не запустил"
+    return 0
+  fi
+  if ! verified_hello "$profile_b" "$dir/hello-b"; then
+    record "$item" fail "профиль B: $WHY"
+    return 0
+  fi
+  pid_b="$HELLO_PID"
+  focus_finder "$dir"
+  before_a="$(handled_count "$owner_out_a")"
+  before_b="$(handled_count "$owner_out_b")"
+  second_front "$item" open "$pid_a" "$pid_b"
+  after_a="$(handled_count "$owner_out_a")"
+  after_b="$(handled_count "$owner_out_b")"
+  [[ $after_a -eq $((before_a + 1)) ]] ||
+    failures+=("строк обработки у владельца A было $before_a, стало $after_a, ожидалась одна новая")
+  [[ $after_b -eq $before_b ]] ||
+    failures+=("строк обработки у владельца B было $before_b, стало $after_b, второй запуск профиля A дошёл до B")
+  if hello "$profile_a" "$dir/hello-a-after"; then
+    [[ "$HELLO_PID" == "$pid_a" ]] || failures+=("PID владельца A сменился: $pid_a → $HELLO_PID")
+  else
+    failures+=("владелец A не ответил на hello после второго запуска")
+  fi
+  if hello "$profile_b" "$dir/hello-b-after"; then
+    [[ "$HELLO_PID" == "$pid_b" ]] || failures+=("PID владельца B сменился: $pid_b → $HELLO_PID")
+  else
+    failures+=("владелец B не ответил на hello после второго запуска")
+  fi
+  outcome="$(handoff_of "$dir")"
+  [[ -z "${failures[*]+x}" ]] || failures+=("исход передачи — $outcome")
+  conclude "$item" "передний план — владелец A pid $pid_a через $front_ms мс после квитанции и держался $HOLD_MS мс, владелец B pid $pid_b не получил ни запуска, ни переднего плана; исход передачи — $outcome"
+}
+
 item_plain_open() {
   local item=plain-open dir="$run/plain-open" pid_a pid_b="" before_a after_a before_b=0 after_b=0 status=0 t0
   failures=()
@@ -912,6 +1133,7 @@ item_folder
 item_persist
 item_kill
 item_two
+item_two_front
 item_plain_open
 item_gui_quit
 completed=1
