@@ -10,7 +10,7 @@ use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate,
-    NSApplicationTerminateReply,
+    NSApplicationTerminateReply, NSRunningApplication,
 };
 use objc2_foundation::NSNotification;
 
@@ -63,11 +63,26 @@ impl App {
     /// Просит передний план. Возврат значит, что вызов выполнен, а не что приложение активно: факт
     /// переднего плана проверяет `make e2e`.
     pub fn activate(&self) {
-        // Вариант 1 правила «Активация» (ADR-0006). Кооперативный `activate()` отклоняется, пока активно
-        // другое приложение (P0.2: отказ 3 из 3), устаревший запрос с игнорированием других приложений
-        // прошёл 20 из 20. Замена — только по итогу `make e2e`.
-        #[allow(deprecated)]
-        self.ns_app().activateIgnoringOtherApps(true);
+        // Вариант 2 правила «Активация» (ADR-0006): кооперативный запрос, право на него даёт уступка
+        // второго запуска ([`App::yield_activation_to`]). `make e2e` перехода не показал ни у одного
+        // варианта, вариант 2 оставлен как неустаревший API; доводка — план `single-instance-activation`.
+        self.ns_app().activate();
+    }
+
+    /// Уступает активацию приложению с PID `pid`: его следующий кооперативный [`App::activate`]
+    /// система судит по состоянию активации этого процесса. Сам вызов никого не активирует.
+    /// `false` — среди приложений нет процесса с таким PID, уступки не было.
+    pub fn yield_activation_to(&self, pid: u32) -> bool {
+        let Ok(pid) = i32::try_from(pid) else {
+            return false;
+        };
+        match NSRunningApplication::runningApplicationWithProcessIdentifier(pid) {
+            Some(target) => {
+                self.ns_app().yieldActivationToApplication(&target);
+                true
+            }
+            None => false,
+        }
     }
 
     /// Порядок завершения выполнен: приложение отпускается, процесс выходит внутри AppKit с кодом 0.

@@ -141,6 +141,7 @@ fn assert_empty(dirs: &[(&str, PathBuf)]) {
 
 fn plutil_extract(key: &str, file: &Path) -> String {
     let output = Command::new("/usr/bin/plutil")
+        .env_clear()
         .args(["-extract", key, "raw", "-o", "-"])
         .arg(file)
         .output()
@@ -253,6 +254,7 @@ fn self_check_fails_without_terminfo() {
 fn info_plist_template_is_valid() {
     let plist = Path::new(env!("CARGO_MANIFEST_DIR")).join("Info.plist");
     let lint = Command::new("/usr/bin/plutil")
+        .env_clear()
         .arg("-lint")
         .arg(&plist)
         .output()

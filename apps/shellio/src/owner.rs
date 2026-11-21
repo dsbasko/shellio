@@ -52,6 +52,10 @@ pub trait Ui: Send + Sync + 'static {
     /// Выполняет активацию на главном потоке и возвращается после вызова.
     fn activate(&self) -> impl Future<Output = Activation> + Send;
 
+    /// Второй запуск перед отправкой `launch`: уступить активацию владельцу `pid`, чтобы его
+    /// [`Ui::activate`] получил передний план. Возвращается после вызова.
+    fn yield_activation(&self, pid: u32) -> impl Future<Output = ()> + Send;
+
     /// Запрос завершения от UI (`applicationShouldTerminate`). UI без такого запроса не
     /// завершает future никогда.
     fn terminate_requested(&self) -> impl Future<Output = ()> + Send;
@@ -160,11 +164,13 @@ async fn run<U: Ui>(
         Ok(cwd) => launch::outgoing(args, &cwd),
         Err(reason) => return fail(reason),
     };
+    let ui_ref = &*ui;
     match claim(
         &profile,
         TokioClock::default(),
         SECOND_LAUNCH_TIMEOUT,
         &outgoing.launch,
+        &|pid| ui_ref.yield_activation(pid),
     )
     .await
     {
@@ -252,13 +258,20 @@ fn describe(frame: &Response) -> String {
 /// Блокировка занята — подключение к сокету. Сокета нет, его никто не слушает, владелец
 /// уходит или отказ пришёл до полной отправки `launch` — ждать попытки по `clock` и снова
 /// пробовать блокировку: освободилась — процесс становится владельцем. Каталог состояния уже
-/// создан.
-pub async fn claim<C: Clock + Clone>(
+/// создан. `yield_to` получает PID готового владельца из `hello` и завершается до отправки
+/// `launch`.
+pub async fn claim<C, Y, F>(
     profile: &Profile,
     clock: C,
     timeout: Duration,
     launch: &Launch,
-) -> Result<Claim, InstanceError> {
+    yield_to: &Y,
+) -> Result<Claim, InstanceError>
+where
+    C: Clock + Clone,
+    Y: Fn(u32) -> F + Sync,
+    F: Future<Output = ()> + Send,
+{
     let deadline = clock.deadline(timeout);
     let socket = socket_path(profile);
     loop {
@@ -266,7 +279,7 @@ pub async fn claim<C: Clock + Clone>(
         if let Some(ownership) = blocking(move || Ownership::try_acquire(&candidate)).await? {
             return Ok(Claim::Owner(ownership));
         }
-        let reason = match forward(&clock, deadline, &socket, launch).await {
+        let reason = match forward(&clock, deadline, &socket, launch, yield_to).await {
             Attempt::Done(second) => return Ok(Claim::Second(second)),
             Attempt::Retry(reason) => reason,
         };
@@ -293,12 +306,18 @@ fn after_error(error: ClientError) -> Attempt {
     }
 }
 
-async fn forward<C: Clock + Clone>(
+async fn forward<C, Y, F>(
     clock: &C,
     deadline: C::Deadline,
     socket: &Path,
     launch: &Launch,
-) -> Attempt {
+    yield_to: &Y,
+) -> Attempt
+where
+    C: Clock + Clone,
+    Y: Fn(u32) -> F,
+    F: Future<Output = ()>,
+{
     let mut session = match Session::connect(clock.clone(), deadline, socket).await {
         Ok(session) => session,
         Err(error) => return Attempt::Retry(error.to_string()),
@@ -314,6 +333,7 @@ async fn forward<C: Clock + Clone>(
         Ok(frame) => return Attempt::Done(Second::Refused(frame)),
         Err(error) => return after_error(error),
     };
+    yield_to(pid).await;
     match session.request(RequestBody::Launch(launch.clone())).await {
         Ok(Response::Ok {
             value: OkValue::Launch(receipt),

@@ -31,6 +31,10 @@ impl Ui for NoUi {
         ready(Activation::NoUi)
     }
 
+    fn yield_activation(&self, _pid: u32) -> impl Future<Output = ()> + Send {
+        ready(())
+    }
+
     fn terminate_requested(&self) -> impl Future<Output = ()> + Send {
         pending()
     }

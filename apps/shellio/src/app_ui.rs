@@ -65,6 +65,16 @@ impl Ui for AppUi {
         }
     }
 
+    async fn yield_activation(&self, pid: u32) {
+        // Уступка идёт от запущенного приложения: до `applicationDidFinishLaunching` его ещё нет.
+        latch(&self.ready).await;
+        if self.on_main(move |app| app.yield_activation_to(pid)).await == Some(false) {
+            owner::say_err(format_args!(
+                "shellio: приложение владельца pid {pid} не найдено, активация не уступлена"
+            ));
+        }
+    }
+
     fn terminate_requested(&self) -> impl Future<Output = ()> + Send {
         latch(&self.terminate)
     }

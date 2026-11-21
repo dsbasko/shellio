@@ -482,6 +482,7 @@ fn release_and_drop_remove_own_socket_only() {
 /// Код `/bin/test -e /dev/fd/<fd>` в потомке, порождённом без оболочки.
 fn child_sees(fd: RawFd) -> TestResult<i32> {
     let status = Command::new("/bin/test")
+        .env_clear()
         .arg("-e")
         .arg(format!("/dev/fd/{fd}"))
         .status()?;
@@ -516,6 +517,7 @@ async fn descriptors_are_not_inherited() {
     // Положительный контроль из плана: дескриптор, переданный на номер 0, виден потомку.
     let control = File::open(lock_path(&profile)).unwrap();
     let status = Command::new("/bin/test")
+        .env_clear()
         .args(["-e", "/dev/fd/0"])
         .stdin(Stdio::from(control))
         .status()

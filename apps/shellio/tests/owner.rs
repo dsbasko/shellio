@@ -473,6 +473,10 @@ fn claim_profile(fixture: &Fixture) -> Profile {
     profile
 }
 
+fn no_yield(_pid: u32) -> std::future::Ready<()> {
+    std::future::ready(())
+}
+
 fn launch(fixture: &Fixture) -> Launch {
     Launch {
         args: Vec::new(),
@@ -492,7 +496,7 @@ async fn claimant_outlasts_client_probe_and_becomes_owner() {
     let clock = ManualClock::new();
     let mut task = tokio::spawn({
         let (profile, clock, launch) = (profile.clone(), clock.clone(), launch(&fixture));
-        async move { claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch).await }
+        async move { claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &no_yield).await }
     });
     clock.until_waiting(1).await;
     assert!(!task.is_finished(), "претендент ждёт, пока держится проба");
@@ -526,7 +530,7 @@ async fn claim_without_socket_expires_with_retry_code() {
     let clock = ManualClock::new();
     let task = tokio::spawn({
         let (profile, clock, launch) = (profile.clone(), clock.clone(), launch(&fixture));
-        async move { claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch).await }
+        async move { claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &no_yield).await }
     });
     clock.until_waiting(1).await;
     clock.expire();
@@ -537,4 +541,69 @@ async fn claim_without_socket_expires_with_retry_code() {
     }
     held.release().unwrap();
     assert!(!socket_path(&profile).exists());
+}
+
+/// Второй запуск уступает активацию PID владельца из `hello` и отправляет `launch` только после
+/// уступки: запуск соседнего процесса, прошедший целиком, пока уступка ждёт, владелец обрабатывает
+/// раньше.
+#[tokio::test]
+async fn second_launch_yields_to_hello_pid_before_sending_launch() {
+    let fixture = Fixture::new();
+    let mut owner = fixture.owner();
+    let pid = owner.pid();
+    owner.handled();
+
+    let (yielded, mut yields) = tokio::sync::mpsc::unbounded_channel();
+    let (release, released) = tokio::sync::oneshot::channel::<()>();
+    let released = std::sync::Mutex::new(Some(released));
+    let marker = fixture.root.join("marker").display().to_string();
+    let task = tokio::spawn({
+        let profile = fixture.profile();
+        let launch = Launch {
+            args: vec![marker.clone()],
+            cwd: fixture.work(),
+        };
+        async move {
+            let yield_to = |pid: u32| {
+                let _ = yielded.send(pid);
+                let wait = released.lock().unwrap().take();
+                async move {
+                    if let Some(wait) = wait {
+                        let _ = wait.await;
+                    }
+                }
+            };
+            let clock = TokioClock::default();
+            claim(&profile, clock, SECOND_LAUNCH_TIMEOUT, &launch, &yield_to).await
+        }
+    });
+
+    assert_eq!(
+        yields.recv().await,
+        Some(pid),
+        "уступка получает PID из hello"
+    );
+    assert!(!task.is_finished(), "запуск ждёт уступки");
+    let output = fixture.second(&[]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stderr: {}",
+        text(&output.stderr)
+    );
+    release.send(()).unwrap();
+
+    match task.await.unwrap().unwrap() {
+        Claim::Second(Second::Delivered { pid: got, .. }) => assert_eq!(got, pid),
+        other => panic!("ожидалась квитанция: {other:?}"),
+    }
+    assert_eq!(owner.handled()["launch"]["args"], serde_json::json!([]));
+    assert_eq!(
+        owner.handled()["launch"]["args"],
+        serde_json::json!([marker]),
+        "launch отправлен после уступки"
+    );
+    assert!(yields.try_recv().is_err(), "уступка одна");
+    let (status, rest, stderr) = owner.stop(Signal::TERM);
+    assert_clean_exit(status, &rest, &stderr, "SIGTERM");
 }
