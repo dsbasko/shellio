@@ -15,23 +15,33 @@
 //! P1.3 добавляет безопасный слой для видов: владельца вида со слабыми обратными вызовами и
 //! отвязкой в `Drop`, подписку на уведомления значением, изменения слоёв без неявных анимаций,
 //! счётчики экземпляров ([`instance_counts`], [`late_callbacks`]), подложку [`Surface`], наблюдатель
-//! ячейки темы [`CellObserver`] и монитор цикла главного потока [`LoopMonitor`].
+//! ячейки темы [`CellObserver`] и монитор цикла главного потока [`LoopMonitor`]. Окно владельца
+//! [`MainWindow`] с заголовком [`ChromeBar`] создаётся после выбора роли, главное меню
+//! [`MainMenu`] вызывает один обработчик действий, повторное открытие приложения приходит
+//! делегату ([`Delegate::reopen`]).
 
 #![deny(clippy::undocumented_unsafe_blocks)]
 
 mod app;
+mod chrome_bar;
 mod counters;
 mod layer;
+mod main_menu;
 mod notify;
 mod own;
 mod runloop;
 mod surface;
 mod theme_cell;
+mod window;
 
 pub use app::{App, Delegate, MainThread, Reopened, RunError, Transfer};
+pub use chrome_bar::{
+    ChromeBar, ChromeIntent, ChromeLayout, ChromeState, Frame, NO_WORKSPACE, shorten,
+};
 pub use counters::{
     CountKind, InstanceCount, LateCallbacks, instance_counts, late_callbacks, late_callbacks_total,
 };
+pub use main_menu::{MainMenu, MenuAction};
 pub use own::ComponentId;
 pub use runloop::{
     DrawMark, ITERATION_BUDGET_MS, IterationStats, LoopMonitor, LoopStats, MonitorError,
@@ -40,3 +50,4 @@ pub use surface::{
     FocusLayer, LINE_WIDTH, Surface, SurfaceFill, SurfacePaint, SurfaceRadius, SurfaceSpec,
 };
 pub use theme_cell::{CellObserver, SystemInputs, ThemeSelection};
+pub use window::{DEFAULT_TITLE, MainWindow, WINDOW_HEIGHT, WINDOW_WIDTH};

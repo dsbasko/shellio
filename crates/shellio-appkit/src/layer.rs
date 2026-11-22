@@ -26,6 +26,11 @@ fn srgb(color: Srgb8, alpha: f64) -> Retained<NSColor> {
     NSColor::colorWithSRGBRed_green_blue_alpha(unit.r, unit.g, unit.b, alpha)
 }
 
+/// Непрозрачный цвет токена в sRGB для контролов AppKit (текст, значки).
+pub(crate) fn ns_color(color: Srgb8) -> Retained<NSColor> {
+    srgb(color, 1.0)
+}
+
 /// Непрозрачная заливка слоя цветом токена.
 pub(crate) fn set_fill(layer: &CALayer, color: Srgb8) {
     layer.setBackgroundColor(Some(&srgb(color, 1.0).CGColor()));

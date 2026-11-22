@@ -4,13 +4,18 @@
 //!
 //! Передача активации вторым запуском сразу возвращает [`NO_UI_HANDOFF`]. С
 //! `SHELLIO_FIXTURE_HANDOFF=hang` она не завершается никогда: тест проверяет её срок.
+//!
+//! Аргументы разбираются как у `shellio`: `--gallery` выбирает режим владельца и требует явного
+//! профиля, окна у фикстуры нет. Зеркало состояния ведётся без UI.
 
 use std::future::{Future, pending, ready};
-use std::sync::Arc;
 use std::sync::mpsc::{Sender, channel};
+use std::sync::{Arc, Mutex};
 
-use shellio::owner::{self, Handoff, Reopen, Ui};
-use shellio_control::Activation;
+use shellio::launch::{self, Mode, WindowMode};
+use shellio::owner::{self, Handoff, MirrorSink, Reopen, Ui};
+use shellio_control::{Activation, Exit};
+use shellio_core::{Delivery, Mirror, MirrorStep};
 use shellio_store::Profile;
 
 /// Строка активации в stdout владельца.
@@ -31,6 +36,25 @@ struct NoUi {
     exit: Sender<u8>,
     /// Передача активации не завершается.
     hang_handoff: bool,
+    mirror: Mutex<Option<Mirror>>,
+}
+
+impl MirrorSink for NoUi {
+    fn deliver(&self, delivery: Delivery) -> impl Future<Output = Option<MirrorStep>> + Send {
+        let mut mirror = self
+            .mirror
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let step = match (&mut *mirror, delivery) {
+            (Some(mirror), delivery) => mirror.apply(delivery),
+            (None, Delivery::Snapshot(snapshot)) => {
+                *mirror = Some(Mirror::from_snapshot(snapshot));
+                MirrorStep::Applied
+            }
+            (None, Delivery::Event(_) | Delivery::Reset) => MirrorStep::NeedSnapshot,
+        };
+        ready(Some(step))
+    }
 }
 
 impl Ui for NoUi {
@@ -38,8 +62,8 @@ impl Ui for NoUi {
         ready(())
     }
 
-    fn become_owner(&self) -> impl Future<Output = ()> + Send {
-        ready(())
+    fn become_owner(&self, _window: WindowMode) -> impl Future<Output = Option<i64>> + Send {
+        ready(None)
     }
 
     fn activate(&self) -> impl Future<Output = Activation> + Send {
@@ -71,13 +95,30 @@ impl Ui for NoUi {
     }
 }
 
+/// Ошибка использования: сообщение и код 2.
+fn usage(message: impl std::fmt::Display) -> ! {
+    owner::say_err(format_args!("shellio-owner-fixture: {message}"));
+    owner::exit_process(Exit::Usage.code());
+}
+
 fn main() {
-    let (exit, code) = channel();
+    let run = match launch::mode(std::env::args_os().skip(1).collect()) {
+        Mode::Run(run) => run,
+        Mode::SelfCheck => usage("самопроверки у фикстуры нет"),
+        Mode::Usage(message) => usage(message),
+    };
     let profile = Profile::from_process_env();
+    if let Some(refusal) = launch::gallery_refusal(run.window, &profile) {
+        usage(refusal);
+    }
+    let (exit, code) = channel();
     let hang_handoff = std::env::var_os(HANDOFF_VAR).is_some_and(|value| value == "hang");
-    let args = std::env::args_os().skip(1).collect();
-    let ui = NoUi { exit, hang_handoff };
-    let _runtime = match owner::start(Arc::new(ui), args, profile) {
+    let ui = NoUi {
+        exit,
+        hang_handoff,
+        mirror: Mutex::new(None),
+    };
+    let _runtime = match owner::start(Arc::new(ui), run, profile) {
         Ok(runtime) => runtime,
         Err(error) => {
             owner::say_err(format_args!(

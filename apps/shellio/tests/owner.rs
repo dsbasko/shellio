@@ -95,7 +95,13 @@ impl Fixture {
 
     /// Запустить владельца и дождаться строки готовности.
     fn owner(&self) -> Owner {
-        let mut guard = self.spawn(&[]);
+        self.owner_with(&[], "normal")
+    }
+
+    /// Запустить владельца с аргументами `args` и дождаться строки готовности с режимом `mode`.
+    /// Окна у фикстуры нет.
+    fn owner_with(&self, args: &[OsString], mode: &str) -> Owner {
+        let mut guard = self.spawn(args);
         let stdout = BufReader::new(guard.child().stdout.take().unwrap());
         let mut owner = Owner { guard, stdout };
         let line = owner.line();
@@ -103,7 +109,7 @@ impl Fixture {
         assert_eq!(
             line,
             format!(
-                "{READY}{pid}, сокет {}",
+                "{READY}{pid}, сокет {}, режим {mode}, окно нет",
                 socket_path(&self.profile()).display()
             )
         );
@@ -335,6 +341,93 @@ fn second_launch_forwards_arguments_to_owner() {
     assert_eq!(fixture.hello_pid(), pid, "владелец прежний");
     let (status, rest, stderr) = owner.stop(Signal::TERM);
     assert_clean_exit(status, &rest, &stderr, "SIGTERM");
+}
+
+/// `--gallery` второго запуска живому владельцу: отказ в квитанции, код 0, режим владельца не
+/// меняется (ADR-0006, «Уточнено в P1.3»).
+#[test]
+fn second_launch_with_gallery_gets_refusal_in_receipt() {
+    let fixture = Fixture::new();
+    let mut owner = fixture.owner();
+    let pid = owner.pid();
+    owner.handled();
+
+    let output = fixture.second(&os(&["--gallery"]));
+    let stderr = text(&output.stderr);
+    assert_eq!(output.status.code(), Some(0), "stderr: {stderr}");
+    assert_eq!(stderr, fixture_handoff_line(pid));
+    assert_eq!(
+        text(&output.stdout),
+        format!(
+            "shellio: запуск передан владельцу (pid {pid}), активации нет: владелец без UI\n\
+             shellio: --gallery: gallery_not_at_start — галерея открывается только при запуске \
+             владельца\n"
+        )
+    );
+    let handled = owner.handled();
+    assert_eq!(handled["launch"]["args"], serde_json::json!(["--gallery"]));
+    assert_eq!(
+        handled["receipt"]["refused"],
+        serde_json::json!([{"arg": "--gallery", "reason": "gallery_not_at_start"}])
+    );
+
+    assert_eq!(fixture.hello_pid(), pid, "владелец прежний");
+    let (status, rest, stderr) = owner.stop(Signal::TERM);
+    assert_clean_exit(status, &rest, &stderr, "SIGTERM");
+}
+
+/// Владелец с `--gallery` называет режим в строке готовности, а его собственный `launch` идёт
+/// без флага и без отказов.
+#[test]
+fn gallery_owner_names_its_mode_and_handles_own_launch_without_flag() {
+    let fixture = Fixture::new();
+    let mut owner = fixture.owner_with(&os(&["--gallery"]), "gallery");
+    let own = owner.handled();
+    assert_eq!(own["launch"]["args"], serde_json::json!([]));
+    assert_eq!(own["receipt"]["refused"], serde_json::json!([]));
+
+    let output = fixture.second(&[]);
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(owner.handled()["receipt"]["refused"], serde_json::json!([]));
+    let (status, rest, stderr) = owner.stop(Signal::TERM);
+    assert_clean_exit(status, &rest, &stderr, "SIGTERM");
+}
+
+/// Галерея на профиле по умолчанию — ошибка использования до каталога состояния и блокировки.
+#[test]
+fn gallery_without_explicit_profile_is_a_usage_error() {
+    let fixture = Fixture::new();
+    let home = fixture.root.join("home");
+    fs::create_dir(&home).unwrap();
+    let output = Command::new(FIXTURE)
+        .env_clear()
+        .env("HOME", &home)
+        .arg("--gallery")
+        .current_dir(fixture.work())
+        .output()
+        .unwrap();
+    let stderr = text(&output.stderr);
+    assert_eq!(output.status.code(), Some(2), "stderr: {stderr}");
+    assert!(output.stdout.is_empty());
+    assert!(
+        stderr.contains("галерея запускается только на отдельном профиле"),
+        "{stderr}"
+    );
+    assert_eq!(
+        fs::read_dir(&home).unwrap().count(),
+        0,
+        "каталог состояния профиля по умолчанию не создан"
+    );
+
+    let output = Command::new(FIXTURE)
+        .env_clear()
+        .env("HOME", &home)
+        .args(["--gallery", "--self-check"])
+        .current_dir(fixture.work())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(text(&output.stderr).contains("--self-check"));
 }
 
 #[test]

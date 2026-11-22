@@ -223,6 +223,16 @@ fn response_golden(response: &Response) -> &'static str {
             ..
         } => "response.ok.events_since.reset",
         Response::Ok {
+            value: OkValue::Launch(receipt),
+            ..
+        } if receipt
+            .refused
+            .iter()
+            .any(|refused| refused.reason == RefuseReason::GalleryNotAtStart) =>
+        {
+            "response.ok.launch.gallery_not_at_start"
+        }
+        Response::Ok {
             value: OkValue::Launch(_),
             ..
         } => "response.ok.launch",
@@ -283,6 +293,14 @@ fn responses() -> Result<Vec<Response>, String> {
                     refused("/abs/missing", RefuseReason::PathNotFound),
                     refused("--unknown", RefuseReason::UnknownArgument),
                 ],
+            }),
+        ),
+        // P1.3: `--gallery` второго запуска; эталон P1.2 `response.ok.launch` не меняется.
+        ok(
+            7,
+            OkValue::Launch(LaunchReceipt {
+                activation: Activation::Requested,
+                refused: vec![refused("--gallery", RefuseReason::GalleryNotAtStart)],
             }),
         ),
         Response::CoreError {

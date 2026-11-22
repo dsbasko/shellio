@@ -17,7 +17,9 @@ use objc2_app_kit::{
     NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification,
 };
 use objc2_foundation::NSArray;
-use shellio_theme::{AppTheme, Cell, Motion, Overrides, ResolvedCell, Source};
+use shellio_theme::{
+    AppTheme, Appearance, AppearanceChoice, Cell, Motion, Overrides, ResolvedCell, Source,
+};
 
 use crate::app::App;
 use crate::notify::Subscription;
@@ -182,10 +184,6 @@ impl CellObserver {
     }
 
     /// Вид, чьё `effectiveAppearance` даёт светлоту: содержимое окна. Входы перечитываются сразу.
-    #[expect(
-        dead_code,
-        reason = "вид-источник привязывает окно владельца в задаче 5 плана P1.3"
-    )]
     pub(crate) fn attach(&self, view: &NSView) {
         *self.inner.source.borrow_mut() = Some(rc::Weak::new(view));
         self.inner.refresh();
@@ -206,6 +204,30 @@ impl ObserverInner {
             (self.on_change)(selection);
         }
     }
+}
+
+/// Светлота, которую переопределения задают окну поверх системы; `None` — окно следует системе.
+/// Окно с этим оформлением рисует системные части (полосы прокрутки, кольцо фокуса) в той же
+/// светлоте, что токены. Пока переопределения нет, оформление окна системное, и вид-источник
+/// читает настоящую светлоту системы.
+pub(crate) fn forced_appearance(overrides: Overrides) -> Option<Appearance> {
+    overrides.gallery_appearance.or(match overrides.choice {
+        AppearanceChoice::System => None,
+        AppearanceChoice::Light => Some(Appearance::Light),
+        AppearanceChoice::Dark => Some(Appearance::Dark),
+    })
+}
+
+/// Именованное оформление AppKit светлоты `appearance`.
+pub(crate) fn ns_appearance(appearance: Appearance) -> Option<Retained<NSAppearance>> {
+    // SAFETY: имена оформлений — неизменяемые константы AppKit.
+    let name = unsafe {
+        match appearance {
+            Appearance::Light => NSAppearanceNameAqua,
+            Appearance::Dark => NSAppearanceNameDarkAqua,
+        }
+    };
+    NSAppearance::appearanceNamed(name)
 }
 
 fn read_inputs(mtm: MainThreadMarker, source: Option<&NSView>) -> SystemInputs {
@@ -234,7 +256,7 @@ fn is_dark(appearance: &NSAppearance) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use shellio_theme::{Appearance, AppearanceChoice, Contrast};
+    use shellio_theme::Contrast;
 
     use super::*;
 
@@ -323,5 +345,39 @@ mod tests {
         assert_eq!(system.cell.cell.appearance, Appearance::Dark);
         assert_eq!(system.cell.appearance_source, Source::System);
         assert_eq!(tracker.set_overrides(Overrides::default()), None);
+    }
+
+    #[test]
+    fn window_follows_system_until_lightness_is_overridden() {
+        assert_eq!(forced_appearance(Overrides::default()), None);
+        for (choice, expected) in [
+            (AppearanceChoice::System, None),
+            (AppearanceChoice::Light, Some(Appearance::Light)),
+            (AppearanceChoice::Dark, Some(Appearance::Dark)),
+        ] {
+            let overrides = Overrides {
+                choice,
+                ..Overrides::default()
+            };
+            assert_eq!(forced_appearance(overrides), expected, "{choice:?}");
+            let gallery = Overrides {
+                gallery_appearance: Some(Appearance::Dark),
+                ..overrides
+            };
+            assert_eq!(
+                forced_appearance(gallery),
+                Some(Appearance::Dark),
+                "галерея старше выбора"
+            );
+        }
+        let contrast_only = Overrides {
+            gallery_contrast: Some(Contrast::Increased),
+            ..Overrides::default()
+        };
+        assert_eq!(
+            forced_appearance(contrast_only),
+            None,
+            "контраст светлоту не задаёт"
+        );
     }
 }

@@ -1,5 +1,5 @@
-//! `NSApplication` без окна приложения: цикл главного потока, политика активации, передача
-//! активации вторым запуском, готовность и завершение.
+//! `NSApplication`: цикл главного потока, политика активации, передача активации вторым запуском,
+//! готовность, повторное открытие и завершение. Окно владельца — [`crate::MainWindow`].
 
 use std::cell::{Cell, RefCell};
 use std::error::Error;
@@ -32,6 +32,11 @@ pub trait Delegate: 'static {
 
     /// `applicationDidBecomeActive`: приложение стало активным, то есть получило передний план.
     fn did_become_active(&self, app: &App);
+
+    /// `applicationShouldHandleReopen:hasVisibleWindows:`: приложение открыли снова (обычный
+    /// `open` бандла, щелчок по значку в Dock). Делегат сам показывает окно, AppKit больше ничего
+    /// не делает.
+    fn reopen(&self, app: &App, has_visible_windows: bool);
 
     /// `applicationShouldTerminate`: пользователь или система просят завершить приложение. AppKit уже
     /// получил `TerminateLater` и ждёт [`App::finish_terminate`], цикл главного потока при этом идёт.
@@ -68,6 +73,12 @@ impl App {
         app.run();
         app.setDelegate(None);
         Ok(())
+    }
+
+    /// Просит AppKit завершить приложение (`terminate:`): путь `applicationShouldTerminate`, ответ
+    /// `TerminateLater` и порядок завершения владельца. Возвращается до порядка завершения.
+    pub fn terminate(&self) {
+        self.ns_app().terminate(None);
     }
 
     /// Политика владельца `.regular`: иконка в Dock и право на передний план. `false` — AppKit отказал.
@@ -424,6 +435,17 @@ define_class!(
                 .did_become_active(&App { mtm: self.mtm() });
         }
 
+        // SAFETY: селектор, аргументы и результат — как у
+        // `applicationShouldHandleReopen:hasVisibleWindows:` протокола. `NO` — делегат обработал
+        // открытие сам.
+        #[unsafe(method(applicationShouldHandleReopen:hasVisibleWindows:))]
+        fn should_handle_reopen(&self, _sender: &NSApplication, has_visible_windows: bool) -> bool {
+            self.ivars()
+                .delegate
+                .reopen(&App { mtm: self.mtm() }, has_visible_windows);
+            false
+        }
+
         // SAFETY: селектор, аргумент и результат — как у `applicationShouldTerminate:` протокола.
         #[unsafe(method(applicationShouldTerminate:))]
         fn should_terminate(&self, _sender: &NSApplication) -> NSApplicationTerminateReply {
@@ -521,6 +543,10 @@ mod tests {
         }
 
         fn did_become_active(&self, _app: &App) {
+            self.0.fetch_add(1, Ordering::SeqCst);
+        }
+
+        fn reopen(&self, _app: &App, _has_visible_windows: bool) {
             self.0.fetch_add(1, Ordering::SeqCst);
         }
 

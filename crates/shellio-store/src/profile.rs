@@ -18,6 +18,7 @@ const STATE_DIR_MODE: u32 = 0o700;
 pub struct Profile {
     state_dir: PathBuf,
     config_dir: PathBuf,
+    explicit: bool,
 }
 
 impl Profile {
@@ -45,6 +46,7 @@ impl Profile {
         Ok(Self {
             state_dir: home.join("Library/Application Support/shellio"),
             config_dir: home.join(".config/shellio"),
+            explicit: false,
         })
     }
 
@@ -53,14 +55,21 @@ impl Profile {
         Self::resolve(|name| std::env::var_os(name))
     }
 
-    /// Профиль в указанном каталоге с раскладкой `SHELLIO_STATE_DIR`.
+    /// Профиль в указанном каталоге с раскладкой `SHELLIO_STATE_DIR`. Каталог задан явно.
     pub fn isolated(dir: impl Into<PathBuf>) -> Self {
         let state_dir = dir.into();
         let config_dir = state_dir.join("config");
         Self {
             state_dir,
             config_dir,
+            explicit: true,
         }
+    }
+
+    /// Каталог задан явно (`SHELLIO_STATE_DIR` или [`Profile::isolated`]), а не выведен из `HOME`.
+    /// Временность каталога признак не доказывает.
+    pub fn is_explicit(&self) -> bool {
+        self.explicit
     }
 
     /// Каталог состояния.
@@ -213,10 +222,11 @@ mod tests {
         (result, read.into_inner())
     }
 
-    fn profile(state: &str, config: &str) -> Profile {
+    fn profile(state: &str, config: &str, explicit: bool) -> Profile {
         Profile {
             state_dir: PathBuf::from(state),
             config_dir: PathBuf::from(config),
+            explicit,
         }
     }
 
@@ -229,8 +239,9 @@ mod tests {
         let home_layout = profile(
             "/Users/test/Library/Application Support/shellio",
             "/Users/test/.config/shellio",
+            false,
         );
-        let state_layout = profile("/tmp/shellio-state", "/tmp/shellio-state/config");
+        let state_layout = profile("/tmp/shellio-state", "/tmp/shellio-state/config", true);
         let cases: [(&str, Vars<'_>, Result<Profile, &str>); 9] = [
             (
                 "без SHELLIO_STATE_DIR",
@@ -297,6 +308,23 @@ mod tests {
         assert_eq!(read, ["SHELLIO_STATE_DIR", "HOME"]);
         let (_, read) = resolve_with(&[("SHELLIO_STATE_DIR", "/tmp/shellio-state")]);
         assert_eq!(read, ["SHELLIO_STATE_DIR"]);
+    }
+
+    #[test]
+    fn explicit_only_when_state_dir_is_given() {
+        let (given, _) = resolve_with(&[
+            ("SHELLIO_STATE_DIR", "/tmp/shellio-state"),
+            ("HOME", "/Users/test"),
+        ]);
+        assert!(given.unwrap().is_explicit(), "заданный SHELLIO_STATE_DIR");
+        let (absent, _) = resolve_with(&[("HOME", "/Users/test")]);
+        assert!(!absent.unwrap().is_explicit(), "профиль из HOME");
+        let (empty, _) = resolve_with(&[("SHELLIO_STATE_DIR", ""), ("HOME", "/Users/test")]);
+        assert!(
+            matches!(empty, Err(ProfileError::StateDirEmpty)),
+            "пустой SHELLIO_STATE_DIR не становится профилем из HOME: {empty:?}"
+        );
+        assert!(Profile::isolated("/tmp/shellio-state").is_explicit());
     }
 
     #[test]

@@ -8,8 +8,10 @@
 //! Ни один выход не выполняет деструкторов: владелец выходит внутри UI после
 //! [`Ui::finish_terminate`], второй запуск и отказ старта — через [`Ui::exit`]. Поэтому
 //! сервер, ядро и блокировка закрываются явно, до вызова порта.
+//!
+//! Зеркало состояния UI (ADR-0020) ведёт задача владельца: подписка на ядро, снимок и события
+//! уходят порту [`MirrorSink`], разрыв ревизий даёт новый снимок.
 
-use std::ffi::OsString;
 use std::fmt::Display;
 use std::future::{Future, pending};
 use std::io::{self, Write};
@@ -23,13 +25,16 @@ use shellio_control::{
     LaunchHandler, LaunchReceipt, OkValue, OwnerState, Ownership, RefusedArg, RequestBody,
     Response, Server, ServerConfig, Session, TokioClock, socket_path,
 };
-use shellio_core::{Core, CoreHandle, FsRootResolver, SystemClock, SystemIds};
+use shellio_core::{
+    Core, CoreHandle, Delivery, Event, FsRootResolver, MirrorStep, SystemClock, SystemIds,
+};
 use shellio_store::{Database, Profile, ProfileError, SqlitePersist};
 use tokio::runtime::{Builder, Handle, Runtime};
 use tokio::signal::unix::{Signal, SignalKind, signal};
-use tokio::task::spawn_blocking;
+use tokio::sync::broadcast::{self, error::RecvError};
+use tokio::task::{JoinHandle, spawn_blocking};
 
-use crate::launch::{self, Outgoing};
+use crate::launch::{self, Outgoing, Run, WindowMode};
 
 /// Срок второго запуска: подключение, `hello` и отправка `launch`.
 pub const SECOND_LAUNCH_TIMEOUT: Duration = Duration::from_secs(10);
@@ -43,14 +48,22 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Имя второго запуска в `hello`.
 const CLIENT: &str = concat!("shellio ", env!("CARGO_PKG_VERSION"));
 
+/// Получатель зеркала состояния на главном потоке.
+pub trait MirrorSink: Send + Sync + 'static {
+    /// Применить доставку к зеркалу и вернуть исход. `None` — главный поток её не выполнил: UI
+    /// уже нет.
+    fn deliver(&self, delivery: Delivery) -> impl Future<Output = Option<MirrorStep>> + Send;
+}
+
 /// Порт UI владельца. Методы зовутся из задач runtime и не ждут главного потока синхронно.
-pub trait Ui: Send + Sync + 'static {
+pub trait Ui: MirrorSink {
     /// Готовность главного потока (`applicationDidFinishLaunching`). Готовность, наступившая
     /// до вызова, не теряется.
     fn ready(&self) -> impl Future<Output = ()> + Send;
 
-    /// Роль выбрана: владелец переводит приложение в `.regular`.
-    fn become_owner(&self) -> impl Future<Output = ()> + Send;
+    /// Роль выбрана: владелец переводит приложение в `.regular` и создаёт окно в режиме
+    /// `window`. Возвращает `windowNumber` окна, `None` — окна нет.
+    fn become_owner(&self, window: WindowMode) -> impl Future<Output = Option<i64>> + Send;
 
     /// Выполняет активацию на главном потоке и возвращается после вызова.
     fn activate(&self) -> impl Future<Output = Activation> + Send;
@@ -200,19 +213,20 @@ pub fn exit_process(code: u8) -> ! {
     std::process::exit(i32::from(code))
 }
 
-/// Создать runtime и запустить на нём задачу процесса с аргументами `args` без имени
-/// программы. Runtime должен жить до выхода процесса. Главный поток после вызова крутит цикл
-/// UI или ждёт [`Ui::exit`] и [`Ui::finish_terminate`].
+/// Создать runtime и запустить на нём задачу процесса с разобранными аргументами `run`
+/// ([`launch::mode`]). Отказ галерее на профиле по умолчанию ([`launch::gallery_refusal`])
+/// вызывающий проверяет до этого вызова. Runtime должен жить до выхода процесса. Главный поток
+/// после вызова крутит цикл UI или ждёт [`Ui::exit`] и [`Ui::finish_terminate`].
 pub fn start<U: Ui>(
     ui: Arc<U>,
-    args: Vec<OsString>,
+    run: Run,
     profile: Result<Profile, ProfileError>,
 ) -> io::Result<Runtime> {
     let runtime = Builder::new_multi_thread()
         .enable_all()
         .thread_name("shellio-owner")
         .build()?;
-    let main = runtime.spawn(run(Arc::clone(&ui), args, profile));
+    let main = runtime.spawn(process(Arc::clone(&ui), run, profile));
     runtime.spawn(async move {
         match main.await {
             Ok(Finish::Terminate) => ui.finish_terminate(),
@@ -252,16 +266,13 @@ async fn blocking<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) 
     }
 }
 
-async fn run<U: Ui>(
-    ui: Arc<U>,
-    args: Vec<OsString>,
-    profile: Result<Profile, ProfileError>,
-) -> Finish {
+async fn process<U: Ui>(ui: Arc<U>, run: Run, profile: Result<Profile, ProfileError>) -> Finish {
     let profile = match profile {
         Ok(profile) => profile,
         Err(error) => return fail(format_args!("профиль не вычислен: {error}")),
     };
     let state = profile.clone();
+    let args = run.args.clone();
     let prepared = blocking(move || {
         state
             .ensure_state_dir()
@@ -273,16 +284,17 @@ async fn run<U: Ui>(
         Ok(outgoing) => outgoing,
         Err(reason) => return fail(reason),
     };
+    let forwarded = run.forwarded(&outgoing.launch);
     match claim(
         &profile,
         TokioClock,
         SECOND_LAUNCH_TIMEOUT,
-        &outgoing.launch,
+        &forwarded,
         &UiHandoff(&*ui),
     )
     .await
     {
-        Ok(Claim::Owner(ownership)) => serve(ui, profile, ownership, outgoing).await,
+        Ok(Claim::Owner(ownership)) => serve(ui, profile, ownership, outgoing, run.window).await,
         Ok(Claim::Second(second)) => Finish::Exit(second.report(&outgoing.local)),
         Err(error) => fail(error),
     }
@@ -561,6 +573,7 @@ async fn serve<U: Ui>(
     profile: Profile,
     ownership: Ownership,
     outgoing: Outgoing,
+    mode: WindowMode,
 ) -> Finish {
     let signals = match Signals::install() {
         Ok(signals) => signals,
@@ -569,7 +582,7 @@ async fn serve<U: Ui>(
             return fail(format_args!("обработчики сигналов не поставлены: {error}"));
         }
     };
-    ui.become_owner().await;
+    let window = ui.become_owner(mode).await;
     // Разбор незавершённого обновления встанет здесь, до открытия `state.db` (P5.2).
     let core = match load_core(profile.clone()).await {
         Ok(core) => core,
@@ -607,10 +620,14 @@ async fn serve<U: Ui>(
             return abort(core, ownership, reason).await;
         }
     };
-    say(format_args!(
-        "shellio: владелец готов, pid {}, сокет {}",
+    // Первый снимок зеркала встаёт в очередь главного потока раньше активации собственного
+    // запуска: первая отрисовка окна key уже содержит его.
+    let _mirror = start_mirror(Arc::clone(&ui), core.clone()).await;
+    say(ready_line(
         std::process::id(),
-        socket_path(&profile).display()
+        &socket_path(&profile),
+        mode,
+        window,
     ));
 
     for refused in &outgoing.local {
@@ -625,9 +642,194 @@ async fn serve<U: Ui>(
     Finish::Terminate
 }
 
+/// Строка готовности владельца: PID, сокет, режим окна и `windowNumber`. Сценарии берут PID из
+/// начала строки, поэтому новые поля только дописываются в конец.
+pub fn ready_line(pid: u32, socket: &Path, mode: WindowMode, window: Option<i64>) -> String {
+    let window = window.map_or_else(|| "нет".to_owned(), |number| number.to_string());
+    format!(
+        "shellio: владелец готов, pid {pid}, сокет {}, режим {}, окно {window}",
+        socket.display(),
+        mode.as_str()
+    )
+}
+
+/// Запустить зеркало UI: первый снимок ядра доставляется до возврата, события и новые снимки —
+/// задачей. Задача заканчивается, когда ядро закрыто или UI больше не выполняет доставок.
+pub async fn start_mirror<S: MirrorSink>(sink: Arc<S>, core: CoreHandle) -> JoinHandle<()> {
+    let first = deliver_snapshot(&*sink, &core).await;
+    tokio::spawn(async move {
+        let Some(mut events) = first else {
+            return;
+        };
+        while forward_events(&*sink, &mut events).await {
+            match deliver_snapshot(&*sink, &core).await {
+                Some(next) => events = next,
+                None => return,
+            }
+        }
+    })
+}
+
+/// Новая подписка и её снимок зеркалу. `None` — ядро закрыто или UI нет.
+async fn deliver_snapshot<S: MirrorSink>(
+    sink: &S,
+    core: &CoreHandle,
+) -> Option<broadcast::Receiver<Event>> {
+    let (snapshot, events) = core.subscribe().await.ok()?;
+    // Снимок свежей подписки не старее зеркала: исход только подтверждает доставку.
+    let _applied: MirrorStep = sink.deliver(Delivery::Snapshot(snapshot)).await?;
+    Some(events)
+}
+
+/// События подписки зеркалу до разрыва. `true` — зеркалу нужен новый снимок, `false` — ядро
+/// закрыто или UI нет.
+async fn forward_events<S: MirrorSink>(sink: &S, events: &mut broadcast::Receiver<Event>) -> bool {
+    loop {
+        let delivery = match events.recv().await {
+            Ok(event) => Delivery::Event(event),
+            Err(RecvError::Lagged(_)) => Delivery::Reset,
+            Err(RecvError::Closed) => return false,
+        };
+        match sink.deliver(delivery).await {
+            None => return false,
+            Some(MirrorStep::NeedSnapshot) => return true,
+            Some(MirrorStep::Applied | MirrorStep::Ignored) => {}
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
+
+    use shellio_core::test_support::{
+        FakeRootResolver, ManualClock as CoreClock, MemoryPersist, SequentialIds,
+    };
+    use shellio_core::{Command, Mirror, Revision, Snapshot, UnixMillis, workspace_name};
+
     use super::*;
+
+    #[test]
+    fn ready_line_keeps_pid_prefix_and_names_mode_and_window() {
+        let socket = Path::new("/tmp/p/shellio.sock");
+        assert_eq!(
+            ready_line(7, socket, WindowMode::Gallery, Some(4242)),
+            "shellio: владелец готов, pid 7, сокет /tmp/p/shellio.sock, режим gallery, окно 4242"
+        );
+        assert_eq!(
+            ready_line(8, socket, WindowMode::Normal, None),
+            "shellio: владелец готов, pid 8, сокет /tmp/p/shellio.sock, режим normal, окно нет"
+        );
+    }
+
+    /// Зеркало без UI: применяет доставки, а событие ревизии `lose` один раз теряет, как разрыв.
+    struct LossyMirror {
+        mirror: Mutex<Option<Mirror>>,
+        lose: Revision,
+        lost: Mutex<bool>,
+        snapshots: Mutex<u32>,
+        revision: tokio::sync::watch::Sender<Option<Revision>>,
+    }
+
+    impl MirrorSink for LossyMirror {
+        fn deliver(&self, delivery: Delivery) -> impl Future<Output = Option<MirrorStep>> + Send {
+            let mut mirror = self.mirror.lock().unwrap();
+            let step = match (&mut *mirror, delivery) {
+                (_, Delivery::Event(event))
+                    if event.revision == self.lose && !*self.lost.lock().unwrap() =>
+                {
+                    *self.lost.lock().unwrap() = true;
+                    MirrorStep::Ignored
+                }
+                (None, Delivery::Snapshot(snapshot)) => {
+                    *self.snapshots.lock().unwrap() += 1;
+                    *mirror = Some(Mirror::from_snapshot(snapshot));
+                    MirrorStep::Applied
+                }
+                (None, Delivery::Event(_) | Delivery::Reset) => MirrorStep::NeedSnapshot,
+                (Some(mirror), delivery) => {
+                    if matches!(delivery, Delivery::Snapshot(_)) {
+                        *self.snapshots.lock().unwrap() += 1;
+                    }
+                    mirror.apply(delivery)
+                }
+            };
+            self.revision
+                .send_replace(mirror.as_ref().map(Mirror::revision));
+            std::future::ready(Some(step))
+        }
+    }
+
+    impl LossyMirror {
+        fn revision(&self) -> Option<Revision> {
+            *self.revision.borrow()
+        }
+    }
+
+    async fn snapshot(core: &CoreHandle) -> Snapshot {
+        core.subscribe().await.unwrap().0
+    }
+
+    /// Снимок и события держат зеркало равным ядру. Потерянное событие даёт разрыв на
+    /// следующем, задача берёт новый снимок, затем закрытое ядро её завершает.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn mirror_follows_core_and_takes_new_snapshot_after_gap() {
+        let core = Core::start(
+            &Handle::current(),
+            Box::new(MemoryPersist::new()),
+            Box::new(CoreClock::new(UnixMillis(1_700_000_000_000))),
+            Box::new(SequentialIds::new()),
+            Arc::new(FakeRootResolver::new()),
+        )
+        .unwrap();
+        let start = snapshot(&core).await.revision;
+        let sink = Arc::new(LossyMirror {
+            mirror: Mutex::new(None),
+            lose: start.next().next(),
+            lost: Mutex::new(false),
+            snapshots: Mutex::new(0),
+            revision: tokio::sync::watch::Sender::new(None),
+        });
+        let pump = start_mirror(Arc::clone(&sink), core.clone()).await;
+        assert_eq!(
+            sink.revision(),
+            Some(start),
+            "первый снимок доставлен до возврата"
+        );
+
+        let mut last = start;
+        for title in ["Один", "Два", "Три"] {
+            let reply = core
+                .request(Command::WorkspaceCreate {
+                    title: title.to_owned(),
+                })
+                .await
+                .unwrap();
+            last = reply.revision;
+        }
+        let expected = snapshot(&core).await;
+        assert_eq!(expected.revision, last);
+        let mut revision = sink.revision.subscribe();
+        revision
+            .wait_for(|revision| *revision == Some(last))
+            .await
+            .unwrap();
+        let mirror = sink.mirror.lock().unwrap().clone().unwrap();
+        assert_eq!(*mirror.state(), *expected.state);
+        assert_eq!(
+            workspace_name(mirror.state()),
+            workspace_name(&expected.state)
+        );
+        assert!(*sink.lost.lock().unwrap());
+        assert_eq!(
+            *sink.snapshots.lock().unwrap(),
+            2,
+            "разрыв дал второй снимок"
+        );
+
+        core.shutdown().await;
+        pump.await.unwrap();
+    }
 
     fn done(self_active: bool, owner_found: bool, activated: Option<bool>) -> HandoffOutcome {
         reopened(self_active, owner_found, activated, Reopen::NotRequested)

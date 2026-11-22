@@ -20,6 +20,7 @@ mod query;
 mod root;
 mod title;
 mod tree;
+mod ui_command;
 mod wire;
 
 pub use actor::{QUEUE_CAPACITY, SUBSCRIBER_CAPACITY};
@@ -44,6 +45,7 @@ pub use query::{Query, StatusView, StorageInfo, read};
 pub use root::{FsRootResolver, ResolvedRoot, RootError, RootKey, RootKind, RootResolver};
 pub use title::{Title, TitleError};
 pub use tree::{TreeProject, TreeRoot, TreeScope, TreeView, TreeWorkbench, TreeWorkspace};
+pub use ui_command::{AppearanceChoice, UiCommand};
 pub use wire::{Event, Reply, ReplyValue};
 
 /// Тестовая поддержка ядра, доступная только с функцией `test-support`.

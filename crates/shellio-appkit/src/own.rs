@@ -135,12 +135,11 @@ impl<V: Message + AsRef<NSView>, T> Drop for View<V, T> {
     }
 }
 
+pub(crate) use action::Targets;
+
 /// Цели действий кнопок и пунктов меню. AppKit хранит цель слабо, поэтому её держит владелец
-/// (инвариант 2) и в `Drop` снимает с контрола до освобождения.
-#[expect(
-    dead_code,
-    reason = "цели подключают ChromeBar и главное меню в задаче 5 плана P1.3"
-)]
+/// (инвариант 2) и в `Drop` снимает с контрола до освобождения. Владелец с видом привязывает
+/// цели через [`View::bind_action`], владелец без вида (главное меню, `Menu`) — через [`Targets`].
 mod action {
     use objc2::rc::{self, Retained};
     use objc2::runtime::{AnyObject, NSObject, NSObjectProtocol};
@@ -149,7 +148,7 @@ mod action {
     };
     use objc2_app_kit::{NSControl, NSMenuItem, NSView};
 
-    use super::{Callback, View};
+    use super::{Callback, Detach, View};
     use crate::counters::{Live, counter};
 
     counter!(ACTION_TARGET, Class, "ShellioActionTarget");
@@ -217,6 +216,25 @@ mod action {
         }
     }
 
+    /// Ставит на контрол цель с действием `perform`; отвязка в `detach` снимает её с контрола, если
+    /// тот ещё жив, и отпускает цель.
+    fn bind<C: Actionable + 'static>(
+        detach: &mut Detach,
+        mtm: MainThreadMarker,
+        control: &C,
+        perform: Box<dyn Fn()>,
+    ) {
+        let target = ActionTarget::new(mtm, perform);
+        control.set_action_target(Some(&target));
+        let control = rc::Weak::new(control);
+        detach.push(move || {
+            if let Some(control) = control.load() {
+                control.set_action_target(None);
+            }
+            drop(target);
+        });
+    }
+
     impl<V: Message + AsRef<NSView> + MainThreadOnly, T: 'static> View<V, T> {
         /// Привязывает действие контрола к Rust-части: `perform` получает её, пока она жива.
         /// Цель держит владелец, отвязка снимает её с контрола, если тот ещё жив.
@@ -227,20 +245,40 @@ mod action {
             perform: impl Fn(&T) + 'static,
         ) {
             let callback = Callback::new(&self.rust, site);
-            let target = ActionTarget::new(
-                self.view.mtm(),
+            let mtm = self.view.mtm();
+            bind(
+                &mut self.detach,
+                mtm,
+                control,
                 Box::new(move || {
                     callback.call(&perform);
                 }),
             );
-            control.set_action_target(Some(&target));
-            let control = rc::Weak::new(control);
-            self.detach.push(move || {
-                if let Some(control) = control.load() {
-                    control.set_action_target(None);
-                }
-                drop(target);
-            });
+        }
+    }
+
+    /// Цели владельца без вида. `Drop` снимает их с контролов до освобождения целей.
+    pub(crate) struct Targets {
+        mtm: MainThreadMarker,
+        detach: Detach,
+    }
+
+    impl Targets {
+        pub(crate) fn new(mtm: MainThreadMarker) -> Targets {
+            Targets {
+                mtm,
+                detach: Detach::default(),
+            }
+        }
+
+        /// Привязывает действие контрола к `perform`. Слабую ссылку на получателя `perform`
+        /// держит сам: цель не продлевает жизнь владельца.
+        pub(crate) fn bind<C: Actionable + 'static>(
+            &mut self,
+            control: &C,
+            perform: impl Fn() + 'static,
+        ) {
+            bind(&mut self.detach, self.mtm, control, Box::new(perform));
         }
     }
 }

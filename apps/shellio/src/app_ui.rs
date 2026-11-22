@@ -1,14 +1,19 @@
 //! Порт [`Ui`] владельца над `shellio-appkit`: главный поток получает работу только через
-//! [`MainThread`], ответы возвращаются каналами, делегат лишь отмечает события.
+//! [`MainThread`], ответы возвращаются каналами, делегат лишь отмечает события. Окно владельца,
+//! зеркало и обработчик действий интерфейса живут на главном потоке в [`crate::window_ui`].
 
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
-use shellio::owner::{self, Handoff, Reopen, Ui};
+use shellio::launch::WindowMode;
+use shellio::owner::{self, Handoff, MirrorSink, Reopen, Ui};
 use shellio_appkit::{App, Delegate, MainThread, Reopened, Transfer};
 use shellio_control::Activation;
+use shellio_core::{Delivery, MirrorStep};
 use tokio::sync::{oneshot, watch};
+
+use crate::window_ui;
 
 /// Сколько второй запуск ждёт собственной активности, прежде чем просить LaunchServices. Своя
 /// активность передаётся по PID и верна при любом числе владельцев, LaunchServices выбирает
@@ -88,19 +93,36 @@ async fn latch(flag: &watch::Sender<bool>) {
     let _ = receiver.wait_for(|set| *set).await;
 }
 
+impl MirrorSink for AppUi {
+    fn deliver(&self, delivery: Delivery) -> impl Future<Output = Option<MirrorStep>> + Send {
+        self.on_main(move |app| window_ui::deliver(app, delivery))
+    }
+}
+
 impl Ui for AppUi {
     fn ready(&self) -> impl Future<Output = ()> + Send {
         latch(&self.ready)
     }
 
-    async fn become_owner(&self) {
-        if self.on_main(App::become_regular).await == Some(false) {
-            owner::say_err("shellio: AppKit отказал в политике .regular, активации не будет");
-        }
+    async fn become_owner(&self, window: WindowMode) -> Option<i64> {
+        // Окно — только после роли «владелец»: до неё процесс мог оказаться вторым запуском.
+        self.on_main(move |app| {
+            if !app.become_regular() {
+                owner::say_err("shellio: AppKit отказал в политике .regular, активации не будет");
+            }
+            window_ui::create(app, window)
+        })
+        .await
     }
 
     async fn activate(&self) -> Activation {
-        match self.on_main(App::activate).await {
+        // Правило «Первый передний план», вариант 1: окно `makeKeyAndOrderFront`, затем
+        // кооперативный `activate()`. Пересланный `launch` второго запуска показывает окно так же.
+        let shown = self.on_main(|app| {
+            window_ui::show(app);
+            app.activate();
+        });
+        match shown.await {
             Some(()) => Activation::Requested,
             // Главный поток не выполнил вызов: UI уже нет.
             None => Activation::NoUi,
@@ -274,6 +296,10 @@ impl Delegate for AppDelegate {
 
     fn did_become_active(&self, _app: &App) {
         self.ui.became_active.send_replace(true);
+    }
+
+    fn reopen(&self, app: &App, _has_visible_windows: bool) {
+        window_ui::reopen(app);
     }
 
     fn terminate_requested(&self, _app: &App) {

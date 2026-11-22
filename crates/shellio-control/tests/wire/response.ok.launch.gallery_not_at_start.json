@@ -1,0 +1,14 @@
+{
+  "id": 7,
+  "ok": {
+    "launch": {
+      "activation": "requested",
+      "refused": [
+        {
+          "arg": "--gallery",
+          "reason": "gallery_not_at_start"
+        }
+      ]
+    }
+  }
+}

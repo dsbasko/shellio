@@ -1,9 +1,13 @@
 //! Монитор цикла главного потока (ADR-0020, «Уточнено в P1.3 (планирование)»). Метрики называются
 //! тем, что меряют:
 //!
-//! - «занятость итерации цикла» — от пробуждения цикла (`Entry`, `AfterWaiting`) до засыпания или
-//!   выхода (`BeforeWaiting`, `Exit`) после фиксации транзакции Core Animation;
-//! - «проходы отображения» — вызовы наблюдателя с порядком после этой фиксации;
+//! - «занятость итерации цикла» — от пробуждения цикла (`Entry`, `AfterWaiting`) до засыпания
+//!   (`BeforeWaiting`) после фиксации транзакции Core Animation. AppKit выходит из цикла на каждое
+//!   событие (`Exit`), обрабатывает его вне цикла и входит снова, поэтому выход итерацию не
+//!   закрывает: обработка события входит в итерацию своего пробуждения;
+//! - «проходы отображения» — вызовы наблюдателя с порядком после этой фиксации: засыпание и выход
+//!   цикла, на обоих AppKit фиксирует транзакцию. Пробуждение с событием даёт два прохода и
+//!   больше, поэтому число проходов не равно числу пробуждений: пробуждения считаются отдельно;
 //! - «отрисовка поколения N» — отметка, которую компонент ставит в `drawRect:` или `updateLayer`
 //!   с поколением состояния, действующим в этот момент.
 //!
@@ -44,10 +48,14 @@ pub(crate) fn uptime() -> f64 {
 
 /// Учёт итераций цикла по событиям наблюдателей. Время — секунды с загрузки.
 ///
-/// Вложенный цикл (отслеживание меню) засыпает и просыпается внутри итерации внешнего: его
-/// `BeforeWaiting` закрывает начатую итерацию, а `Exit` закрывает свою и начинает новую, потому
-/// что внешний цикл после выхода вложенного продолжает работу. Засыпание без пробуждения
-/// считается непарным и в занятость не входит.
+/// Порядок записан в задаче 5 плана P1.3 по настоящему окну владельца: в простое пробуждений
+/// нет; пробуждение с событием — `AfterWaiting`, `Exit`, обработка вне цикла, `Entry`, … `Exit`,
+/// `Entry`, `BeforeWaiting` (так идёт и нажатие клавиши: `keyDown` и отрисовка между выходом и
+/// повторным входом); пробуждение без события — `AfterWaiting` и `BeforeWaiting`. Поэтому
+/// итерация длится от пробуждения до засыпания, а `Exit` только считает проход отображения. Вложенный цикл
+/// (отслеживание меню) засыпает и просыпается внутри итерации внешнего: его `BeforeWaiting`
+/// закрывает начатую итерацию, его пробуждение открывает следующую, которую закрывает засыпание
+/// внешнего. Засыпание без пробуждения считается непарным и в занятость не входит.
 #[derive(Debug, Default)]
 pub(crate) struct LoopLog {
     awake_since: Option<f64>,
@@ -80,12 +88,11 @@ impl LoopLog {
         self.close(at)
     }
 
-    /// `Exit`: проход отображения выполнен, цикл вышел; внешний цикл продолжает работу.
-    pub(crate) fn exit(&mut self, at: f64) -> Option<f64> {
+    /// `Exit`: проход отображения выполнен, цикл вышел. Поток не спит: AppKit обрабатывает событие
+    /// и снова входит в цикл, поэтому итерация продолжается.
+    pub(crate) fn exit(&mut self, at: f64) {
         self.passes += 1;
-        let busy = self.close(at);
-        self.awake_since = Some(at);
-        busy
+        self.awake_since.get_or_insert(at);
     }
 
     fn close(&mut self, at: f64) -> Option<f64> {
@@ -224,8 +231,12 @@ thread_local! {
     static LOOP: RefCell<LoopState> = RefCell::new(LoopState::default());
 }
 
+/// Работа с состоянием монитора. `None` — состояние занято (повторный вход из наблюдателя) или
+/// уже уничтожено деструкторами потока при выходе процесса.
 fn with_state<R>(f: impl FnOnce(&mut LoopState) -> R) -> Option<R> {
-    LOOP.with(|state| state.try_borrow_mut().ok().map(|mut state| f(&mut state)))
+    LOOP.try_with(|state| state.try_borrow_mut().ok().map(|mut state| f(&mut state)))
+        .ok()
+        .flatten()
 }
 
 /// Отметка отрисовки компонента: вызывается из его `drawRect:` или `updateLayer`. Отметки
@@ -312,7 +323,8 @@ fn install_observers() -> Result<Vec<CFRetained<CFRunLoopObserver>>, MonitorErro
         |activity, at| {
             let busy = with_state(|state| {
                 if activity == CFRunLoopActivity::Exit {
-                    state.log.exit(at)
+                    state.log.exit(at);
+                    None
                 } else {
                     state.log.sleep(at)
                 }
@@ -398,20 +410,62 @@ mod tests {
     }
 
     #[test]
-    fn nested_loop_closes_and_reopens_outer_iteration() {
+    fn nested_loop_sleeps_inside_outer_iteration() {
         let mut log = LoopLog::default();
         // Внешний цикл проснулся и в обработчике запустил вложенный (отслеживание меню).
         log.wake(1.0);
         log.entry(1.0 + 2.0 * MS);
         assert_eq!(log.sleep(1.0 + 3.0 * MS).map(round), Some(3.0));
         log.wake(1.5);
-        // Вложенный вышел: его итерация закрыта, внешняя продолжается.
-        assert_eq!(log.exit(1.5 + 1.0 * MS).map(round), Some(1.0));
-        assert_eq!(log.sleep(1.5 + 6.0 * MS).map(round), Some(5.0));
+        // Вложенный вышел, внешний продолжает ту же итерацию до своего засыпания.
+        log.exit(1.5 + 1.0 * MS);
+        assert_eq!(log.sleep(1.5 + 6.0 * MS).map(round), Some(6.0));
         let stats = log.stats();
-        assert_eq!(stats.iterations, 3);
+        assert_eq!(stats.iterations, 2);
         assert_eq!(stats.display_passes, 3);
         assert_eq!(stats.unpaired, 0);
+    }
+
+    /// Порядок одного нажатия клавиши, записанный в задаче 5 плана P1.3: AppKit выходит из цикла,
+    /// обрабатывает событие вне его и входит снова. Нажатие — одна итерация от пробуждения до
+    /// засыпания, выходы — проходы отображения.
+    #[test]
+    fn key_press_with_exit_and_reentry_is_one_iteration() {
+        let mut log = LoopLog::default();
+        let at = |ms: f64| 10.0 + ms * MS;
+        log.wake(at(0.0));
+        log.exit(at(0.3));
+        // keyDown вне цикла, затем повторные входы с отрисовкой.
+        log.entry(at(62.0));
+        log.exit(at(62.5));
+        log.entry(at(62.6));
+        log.exit(at(62.7));
+        log.entry(at(62.8));
+        assert_eq!(log.sleep(at(62.9)).map(round), Some(62.9));
+        let stats = log.stats();
+        assert_eq!(stats.iterations, 1);
+        assert_eq!(stats.wakeups, 1);
+        assert_eq!(stats.display_passes, 4);
+        assert_eq!(stats.unpaired, 0);
+        assert_eq!(stats.over_budget, 1);
+        assert_eq!(stats.p95_ms.map(round), Some(62.9));
+    }
+
+    #[test]
+    fn idle_wakeup_without_exit_is_one_iteration() {
+        let mut log = LoopLog::default();
+        log.wake(5.0);
+        assert_eq!(log.sleep(5.0 + 1.2 * MS).map(round), Some(1.2));
+        let stats = log.stats();
+        assert_eq!((stats.iterations, stats.display_passes), (1, 1));
+    }
+
+    #[test]
+    fn exit_without_wakeup_starts_the_iteration() {
+        let mut log = LoopLog::default();
+        log.exit(3.0);
+        assert_eq!(log.sleep(3.0 + 2.0 * MS).map(round), Some(2.0));
+        assert_eq!(log.stats().unpaired, 0);
     }
 
     #[test]

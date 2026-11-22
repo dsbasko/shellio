@@ -541,16 +541,20 @@ pub enum RefuseReason {
     UnknownArgument,
     /// Аргумент не в UTF-8. Ставится вторым запуском локально, владельцу не отправляется.
     ArgNotUtf8,
+    /// `--gallery`, пересланный вторым запуском живому владельцу: режим галереи выбирается
+    /// только при запуске владельца.
+    GalleryNotAtStart,
 }
 
 impl RefuseReason {
     /// Все причины.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::FolderOpenUnsupported,
         Self::NotADirectory,
         Self::PathNotFound,
         Self::UnknownArgument,
         Self::ArgNotUtf8,
+        Self::GalleryNotAtStart,
     ];
 
     /// Имя причины в JSON.
@@ -561,6 +565,7 @@ impl RefuseReason {
             Self::PathNotFound => "path_not_found",
             Self::UnknownArgument => "unknown_argument",
             Self::ArgNotUtf8 => "arg_not_utf8",
+            Self::GalleryNotAtStart => "gallery_not_at_start",
         }
     }
 
@@ -574,6 +579,7 @@ impl RefuseReason {
             Self::PathNotFound => "не открыт: путь не найден",
             Self::UnknownArgument => "неизвестный аргумент",
             Self::ArgNotUtf8 => "не передан: аргумент не в UTF-8",
+            Self::GalleryNotAtStart => "галерея открывается только при запуске владельца",
         }
     }
 }
@@ -598,6 +604,7 @@ mod tests {
             "path_not_found",
             "unknown_argument",
             "arg_not_utf8",
+            "gallery_not_at_start",
         ];
         assert_eq!(RefuseReason::ALL.len(), expected.len());
         for (reason, name) in RefuseReason::ALL.into_iter().zip(expected) {

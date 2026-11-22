@@ -1,7 +1,8 @@
 //! Аргументы запуска: режим процесса, исходящий `launch` второго запуска, разбор аргументов
 //! владельцем и тексты квитанции (ADR-0006).
 //!
-//! В P1.2 владелец отказывает каждому аргументу: открытие папки появится в P1.7.
+//! В P1.2 владелец отказывает каждому аргументу: открытие папки появится в P1.7. С P1.3
+//! `--gallery` выбирает режим окна процесса, который станет владельцем.
 
 use std::ffi::OsString;
 use std::fs;
@@ -10,30 +11,103 @@ use std::path::{Path, PathBuf};
 
 use serde_json::json;
 use shellio_control::{Activation, Launch, LaunchReceipt, RefuseReason, RefusedArg};
+use shellio_store::{Profile, ProfileError};
 
 /// Флаг самопроверки бандла P0.1.
 pub const SELF_CHECK: &str = "--self-check";
+
+/// Флаг режима галереи компонентов (P1.3).
+pub const GALLERY: &str = "--gallery";
+
+/// Режим окна владельца. Его задают аргументы процесса, взявшего блокировку, и до выхода
+/// процесса он не меняется.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum WindowMode {
+    /// Обычное содержимое окна.
+    #[default]
+    Normal,
+    /// Галерея компонентов.
+    Gallery,
+}
+
+impl WindowMode {
+    /// Имя режима в строке готовности и в `ui.window`.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Normal => "normal",
+            Self::Gallery => "gallery",
+        }
+    }
+}
+
+/// Аргументы владельца или второго запуска: флаг режима отдельно от остальных.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Run {
+    /// Аргументы без флага режима.
+    pub args: Vec<OsString>,
+    /// Режим окна, если процесс станет владельцем.
+    pub window: WindowMode,
+}
+
+impl Run {
+    /// Кадр `launch`, который второй запуск пересылает владельцу: флаг режима снова среди
+    /// аргументов, чтобы владелец ответил на него отказом. Собственный `launch` владельца идёт без
+    /// флага.
+    pub fn forwarded(&self, own: &Launch) -> Launch {
+        match self.window {
+            WindowMode::Normal => own.clone(),
+            WindowMode::Gallery => Launch {
+                args: std::iter::once(GALLERY.to_owned())
+                    .chain(own.args.iter().cloned())
+                    .collect(),
+                cwd: own.cwd.clone(),
+            },
+        }
+    }
+}
 
 /// Что делает процесс по своим аргументам.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Mode {
     /// Самопроверка: до профиля, блокировки и хранилища.
     SelfCheck,
-    /// Владелец или второй запуск с этими аргументами.
-    Run(Vec<OsString>),
+    /// Владелец или второй запуск.
+    Run(Run),
     /// Ошибка использования, код 2.
     Usage(String),
 }
 
-/// Режим по аргументам без имени программы. `--self-check` допустим только один.
+/// Режим по аргументам без имени программы. `--self-check` допустим только один,
+/// `--gallery` в любом месте и любое число раз выбирает галерею.
 pub fn mode(args: Vec<OsString>) -> Mode {
-    if !args.iter().any(|arg| arg == SELF_CHECK) {
-        return Mode::Run(args);
+    if args.iter().any(|arg| arg == SELF_CHECK) {
+        return if args.len() == 1 {
+            Mode::SelfCheck
+        } else {
+            Mode::Usage(format!("{SELF_CHECK} не сочетается с другими аргументами"))
+        };
     }
-    if args.len() == 1 {
-        Mode::SelfCheck
+    let (flags, args): (Vec<_>, Vec<_>) = args.into_iter().partition(|arg| arg == GALLERY);
+    let window = if flags.is_empty() {
+        WindowMode::Normal
     } else {
-        Mode::Usage(format!("{SELF_CHECK} не сочетается с другими аргументами"))
+        WindowMode::Gallery
+    };
+    Mode::Run(Run { args, window })
+}
+
+/// Отказ галерее на профиле по умолчанию: текст ошибки использования, код 2. Проверка идёт после
+/// вычисления профиля и до каталога состояния, блокировки и AppKit. Невычисленный профиль здесь
+/// не отказ: его отвергает старт владельца прежним отказом.
+pub fn gallery_refusal(
+    window: WindowMode,
+    profile: &Result<Profile, ProfileError>,
+) -> Option<String> {
+    match (window, profile) {
+        (WindowMode::Gallery, Ok(profile)) if !profile.is_explicit() => Some(format!(
+            "{GALLERY}: галерея запускается только на отдельном профиле, задайте SHELLIO_STATE_DIR"
+        )),
+        _ => None,
     }
 }
 
@@ -130,6 +204,10 @@ pub fn judge(launch: &Launch) -> Vec<RefusedArg> {
 }
 
 fn reason(cwd: &Path, arg: &str) -> RefuseReason {
+    // Режим окна выбирают только аргументы процесса, взявшего блокировку.
+    if arg == GALLERY {
+        return RefuseReason::GalleryNotAtStart;
+    }
     if is_flag(arg) {
         return RefuseReason::UnknownArgument;
     }
@@ -185,14 +263,93 @@ mod tests {
         args.iter().map(OsString::from).collect()
     }
 
+    fn run(args: &[&str], window: WindowMode) -> Mode {
+        Mode::Run(Run {
+            args: os(args),
+            window,
+        })
+    }
+
     #[test]
     fn self_check_only_alone() {
         assert_eq!(mode(os(&["--self-check"])), Mode::SelfCheck);
-        assert_eq!(mode(Vec::new()), Mode::Run(Vec::new()));
-        assert_eq!(mode(os(&["/a", "-x"])), Mode::Run(os(&["/a", "-x"])));
-        for args in [&["--self-check", "/a"][..], &["/a", "--self-check"]] {
+        assert_eq!(mode(Vec::new()), run(&[], WindowMode::Normal));
+        assert_eq!(
+            mode(os(&["/a", "-x"])),
+            run(&["/a", "-x"], WindowMode::Normal)
+        );
+        for args in [
+            &["--self-check", "/a"][..],
+            &["/a", "--self-check"],
+            &["--self-check", "--gallery"],
+            &["--gallery", "--self-check"],
+        ] {
             assert!(matches!(mode(os(args)), Mode::Usage(text) if text.contains(SELF_CHECK)));
         }
+    }
+
+    #[test]
+    fn gallery_flag_is_taken_apart_from_arguments() {
+        assert_eq!(mode(os(&["--gallery"])), run(&[], WindowMode::Gallery));
+        assert_eq!(
+            mode(os(&["/a", "--gallery", "-x", "--gallery"])),
+            run(&["/a", "-x"], WindowMode::Gallery)
+        );
+        assert_eq!(
+            mode(os(&["--gallery=1", "--galleryx"])),
+            run(&["--gallery=1", "--galleryx"], WindowMode::Normal),
+            "только точное имя флага"
+        );
+        assert_eq!(WindowMode::Normal.as_str(), "normal");
+        assert_eq!(WindowMode::Gallery.as_str(), "gallery");
+    }
+
+    #[test]
+    fn second_launch_forwards_gallery_flag_and_owner_launch_goes_without_it() {
+        let own = Launch {
+            args: vec!["/w/a".to_owned(), "-x".to_owned()],
+            cwd: PathBuf::from("/w"),
+        };
+        let gallery = Run {
+            args: os(&["a", "-x"]),
+            window: WindowMode::Gallery,
+        };
+        assert_eq!(
+            gallery.forwarded(&own),
+            Launch {
+                args: vec!["--gallery".to_owned(), "/w/a".to_owned(), "-x".to_owned()],
+                cwd: PathBuf::from("/w"),
+            }
+        );
+        let normal = Run {
+            args: os(&["a", "-x"]),
+            window: WindowMode::Normal,
+        };
+        assert_eq!(normal.forwarded(&own), own);
+        assert_eq!(
+            outgoing(gallery.args.clone(), Path::new("/w")).launch,
+            own,
+            "собственный launch владельца без флага"
+        );
+    }
+
+    #[test]
+    fn gallery_needs_explicit_profile() {
+        let explicit = Ok(Profile::isolated("/tmp/shellio-state"));
+        let default =
+            Profile::resolve(|name| (name == "HOME").then(|| OsString::from("/Users/test")));
+        assert!(default.as_ref().is_ok_and(|profile| !profile.is_explicit()));
+        assert_eq!(gallery_refusal(WindowMode::Gallery, &explicit), None);
+        assert_eq!(gallery_refusal(WindowMode::Normal, &default), None);
+        let refusal = gallery_refusal(WindowMode::Gallery, &default).unwrap();
+        assert!(refusal.contains("отдельном профиле"), "{refusal}");
+        assert!(refusal.contains("SHELLIO_STATE_DIR"), "{refusal}");
+        let unresolved = Err(ProfileError::HomeMissing);
+        assert_eq!(
+            gallery_refusal(WindowMode::Gallery, &unresolved),
+            None,
+            "невычисленный профиль отвергает старт владельца"
+        );
     }
 
     #[test]
@@ -302,6 +459,22 @@ mod tests {
                 RefuseReason::UnknownArgument,
                 RefuseReason::FolderOpenUnsupported,
             ]
+        );
+    }
+
+    #[test]
+    fn gallery_from_socket_is_refused_not_unknown() {
+        let launch = Launch {
+            args: vec!["--gallery".to_owned(), "--gallery=1".to_owned()],
+            cwd: PathBuf::from("/"),
+        };
+        let refused = judge(&launch);
+        assert_eq!(refused[0].reason, RefuseReason::GalleryNotAtStart);
+        assert_eq!(refused[1].reason, RefuseReason::UnknownArgument);
+        assert_eq!(
+            refusal_line(&refused[0]),
+            "shellio: --gallery: gallery_not_at_start — галерея открывается только при запуске \
+             владельца"
         );
     }
 
