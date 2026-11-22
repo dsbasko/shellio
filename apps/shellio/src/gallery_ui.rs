@@ -6,14 +6,18 @@
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use shellio::gallery::{self, Gallery, Intent, MenuFixtureItem, ids};
+use shellio::gallery::{
+    self, Gallery, GalleryState, Intent, MenuFixtureItem, StripHost, StripStatus, StripZone,
+    TabAction, ids,
+};
 use shellio_appkit::{
     App, FocusLayer, Frame, GenerationMarker, InspectNode, MainWindow, MenuButton, MenuEntry,
-    MenuIntent, MenuItem, MenuKey, Piece, Surface, SurfaceFill, SurfaceRadius, SurfaceSpec,
-    TextField, TextFieldIntent, TextFieldState, ViewWatch, text_field_height,
+    MenuIntent, MenuItem, MenuKey, Piece, Presentation, Surface, SurfaceFill, SurfaceRadius,
+    SurfaceSpec, Tab, TabIntent, TabStatus, TabStrip, TabStripState, TextField, TextFieldIntent,
+    TextFieldState, Transition, ViewWatch, ZoneSide, text_field_height,
 };
-use shellio_control::{ClassAliveView, GalleryFocus, GalleryTreeView};
-use shellio_theme::{AppTheme, KeyMode};
+use shellio_control::{ClassAliveView, GalleryFocus, GalleryStrip, GalleryTreeView};
+use shellio_theme::{AppTheme, KeyMode, Motion};
 
 /// Сколько прежних деревьев держит `ui.stats.gallery_trees`.
 const RETIRED_TREES: usize = 64;
@@ -22,6 +26,8 @@ const RETIRED_TREES: usize = 64;
 struct Tree {
     number: u64,
     // Порядок полей — порядок освобождения: сначала содержимое подложки.
+    /// Полосы вкладок в порядке [`GalleryStrip::ALL`].
+    strips: Vec<(GalleryStrip, TabStrip)>,
     field: TextField,
     menu: MenuButton,
     focus: Surface,
@@ -73,13 +79,15 @@ impl GalleryUi {
 
     /// Строит дерево с номером модели по текущему состоянию галереи.
     pub fn build(&mut self, app: &App, window: &MainWindow, generation: u64) {
-        let theme = window.selection().theme();
+        let selection = window.selection();
+        let theme = selection.theme();
         let (width, height) = window.content_size();
         let layout = gallery::layout(
             width,
             height,
             theme.metrics.titlebar,
             text_field_height(&theme),
+            theme.metrics.tabbar,
         );
         let fixture = gallery::field_fixture();
         let state = TextFieldState {
@@ -130,6 +138,31 @@ impl GalleryUi {
         window.place(&plain, frame(layout.plain));
         focus.place(&field, frame(layout.field));
         focus.place(&menu, frame(layout.menu));
+        let mut strips = Vec::new();
+        for strip in GalleryStrip::ALL {
+            let on_intent = Rc::clone(&self.on_intent);
+            let state = strip_state(strip, self.model.state());
+            let built = TabStrip::new(app, &theme, selection.motion, state, move |intent| {
+                on_intent(Intent::Tab(strip, tab_action(intent)));
+            });
+            let built = match built {
+                Ok(built) => built,
+                Err(error) => {
+                    // Фикстуры закреплены тестом уникальности id: отказ — нарушенный инвариант.
+                    shellio::owner::say_err(format_args!(
+                        "shellio: полоса вкладок {} не построена: {error}",
+                        ids::strip(strip)
+                    ));
+                    continue;
+                }
+            };
+            let rect = frame(layout.strip(strip));
+            match gallery::strip_fixture(strip).host {
+                StripHost::FocusSurface => focus.place(&built, rect),
+                StripHost::Window => window.place(&built, rect),
+            }
+            strips.push((strip, built));
+        }
         let mut watch = ViewWatch::new();
         for piece in [
             Piece::from(&marker),
@@ -138,8 +171,12 @@ impl GalleryUi {
         ] {
             watch.watch(piece);
         }
+        for (_, strip) in &strips {
+            watch.watch(Piece::from(strip));
+        }
         self.tree = Some(Tree {
             number: self.model.tree(),
+            strips,
             field,
             menu,
             focus,
@@ -181,12 +218,40 @@ impl GalleryUi {
         self.retired.push_back(Retired { number, watch });
     }
 
-    pub fn set_theme(&self, theme: &AppTheme) {
-        if let Some(tree) = &self.tree {
-            tree.focus.set_theme(theme);
-            tree.plain.set_theme(theme);
-            tree.field.set_theme(theme);
-            tree.menu.set_theme(theme);
+    /// Компоненты получают ячейку и движение. Возвращает смены полос для журнала анимаций.
+    pub fn set_theme(&self, theme: &AppTheme, motion: Motion) -> Vec<(&'static str, Transition)> {
+        let Some(tree) = &self.tree else {
+            return Vec::new();
+        };
+        tree.focus.set_theme(theme);
+        tree.plain.set_theme(theme);
+        tree.field.set_theme(theme);
+        tree.menu.set_theme(theme);
+        tree.strips
+            .iter()
+            .map(|(strip, view)| {
+                view.set_motion(motion);
+                (ids::strip(*strip), view.set_theme(theme))
+            })
+            .collect()
+    }
+
+    /// Полоса `strip` приводится к состоянию модели. Возвращает смену для журнала анимаций.
+    pub fn show_tabs(&self, strip: GalleryStrip) -> Option<(&'static str, Transition)> {
+        let tree = self.tree.as_ref()?;
+        let (_, view) = tree
+            .strips
+            .iter()
+            .find(|(candidate, _)| *candidate == strip)?;
+        match view.set_state(strip_state(strip, self.model.state())) {
+            Ok(transition) => Some((ids::strip(strip), transition)),
+            Err(error) => {
+                shellio::owner::say_err(format_args!(
+                    "shellio: полоса вкладок {} не обновлена: {error}",
+                    ids::strip(strip)
+                ));
+                None
+            }
         }
     }
 
@@ -204,7 +269,16 @@ impl GalleryUi {
                     shellio::owner::say_err("shellio: поле галереи не приняло фокус");
                 }
             }
-            (GalleryFocus::Field, None) => {}
+            (GalleryFocus::Tabs, Some(tree)) => {
+                let side = tree
+                    .strips
+                    .iter()
+                    .find(|(strip, _)| *strip == GalleryStrip::Side);
+                if !side.is_some_and(|(_, view)| view.focus()) {
+                    shellio::owner::say_err("shellio: полоса вкладок галереи не приняла фокус");
+                }
+            }
+            (GalleryFocus::Field | GalleryFocus::Tabs, None) => {}
             (GalleryFocus::Window, _) => {
                 window.clear_focus();
             }
@@ -217,10 +291,24 @@ impl GalleryUi {
         }
     }
 
-    /// Вид приводится к состоянию фикстуры: меню закрыто, поле с её значением, фокус у окна.
-    pub fn reset_view(&self, window: &MainWindow) {
+    /// Вид приводится к состоянию фикстуры: меню закрыто, поле с её значением, полосы с выбором
+    /// фикстуры без анимации прокрутки, фокус у окна. Возвращает смены полос для журнала.
+    pub fn reset_view(
+        &self,
+        window: &MainWindow,
+        motion: Motion,
+    ) -> Vec<(&'static str, Transition)> {
+        let mut transitions = Vec::new();
         if let Some(tree) = &self.tree {
             tree.menu.menu().close();
+            for (strip, view) in &tree.strips {
+                view.menu().menu().close();
+                view.set_motion(Motion::Reduced);
+                if let Ok(transition) = view.set_state(strip_state(*strip, self.model.state())) {
+                    transitions.push((ids::strip(*strip), transition));
+                }
+                view.set_motion(motion);
+            }
             let fixture = gallery::field_fixture();
             tree.field.set_state(TextFieldState {
                 value: self.model.state().field_value.clone(),
@@ -229,6 +317,7 @@ impl GalleryUi {
             });
         }
         window.clear_focus();
+        transitions
     }
 
     /// Узлы галереи для `ui.inspect`.
@@ -241,6 +330,13 @@ impl GalleryUi {
         nodes.extend(tree.field.inspect(ids::FIELD, Some(ids::SURFACE_FOCUS)));
         nodes.extend(tree.menu.inspect(ids::MENU, Some(ids::SURFACE_FOCUS)));
         nodes.extend(tree.plain.inspect(ids::SURFACE_PLAIN, None));
+        for (strip, view) in &tree.strips {
+            let parent = match gallery::strip_fixture(*strip).host {
+                StripHost::FocusSurface => Some(ids::SURFACE_FOCUS),
+                StripHost::Window => None,
+            };
+            nodes.extend(view.inspect(ids::strip(*strip), parent));
+        }
         nodes
     }
 
@@ -270,6 +366,61 @@ impl GalleryUi {
 
 fn frame(rect: gallery::Rect) -> Frame {
     Frame::new(rect.x, rect.y, rect.width, rect.height)
+}
+
+/// Действия панели в меню «…» полос галереи.
+fn panel_actions() -> Vec<MenuEntry> {
+    vec![
+        MenuEntry::Item(MenuItem::new("panel.rename", "Переименовать панель")),
+        MenuEntry::Item(MenuItem::new("panel.close", "Закрыть панель")),
+    ]
+}
+
+/// Состояние полосы `strip` по фикстуре и выбору модели.
+fn strip_state(strip: GalleryStrip, state: &GalleryState) -> TabStripState {
+    let fixture = gallery::strip_fixture(strip);
+    let zone = match fixture.zone {
+        StripZone::Side => ZoneSide::Side,
+        StripZone::Center => ZoneSide::Center,
+    };
+    let tabs: Vec<Tab> = fixture
+        .tabs
+        .iter()
+        .map(|tab| Tab::new(tab.id, tab.title, tab.kind, tab.icon, status(tab.status)))
+        .collect();
+    let selected = tabs.get(state.selected(strip)).map(|tab| tab.id.clone());
+    TabStripState {
+        tabs,
+        selected,
+        payload: Some(fixture.payload.to_owned()),
+        focused: fixture.focused,
+        mode: KeyMode::Navigation,
+        actions: panel_actions(),
+        ..TabStripState::new(fixture.label, Presentation::new(zone))
+    }
+}
+
+const fn status(status: StripStatus) -> TabStatus {
+    match status {
+        StripStatus::None => TabStatus::None,
+        StripStatus::Running => TabStatus::Running,
+        StripStatus::Waiting => TabStatus::Waiting,
+        StripStatus::Error => TabStatus::Error,
+        StripStatus::Done => TabStatus::Done,
+        StripStatus::Idle => TabStatus::Idle,
+        StripStatus::Exited => TabStatus::Exited,
+    }
+}
+
+fn tab_action(intent: TabIntent) -> TabAction {
+    match intent {
+        TabIntent::Select { id } => TabAction::Select(id),
+        TabIntent::Close { id } => TabAction::Close(id),
+        TabIntent::Split(axis) => TabAction::Split(axis.name()),
+        TabIntent::Zoom => TabAction::Zoom,
+        TabIntent::Restore => TabAction::Restore,
+        TabIntent::Menu { id } => TabAction::Menu(id),
+    }
 }
 
 fn menu_entries(items: &[MenuFixtureItem]) -> Vec<MenuEntry> {

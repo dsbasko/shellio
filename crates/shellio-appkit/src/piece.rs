@@ -9,6 +9,7 @@ use objc2_foundation::{NSObject, NSPoint, NSRect, NSSize};
 
 use crate::chrome_bar::Frame;
 use crate::components::menu::MenuButton;
+use crate::components::tab_strip::TabStrip;
 use crate::components::text_field::TextField;
 use crate::marker::GenerationMarker;
 use crate::surface::Surface;
@@ -20,6 +21,7 @@ pub enum Piece<'a> {
     Surface(&'a Surface),
     TextField(&'a TextField),
     MenuButton(&'a MenuButton),
+    TabStrip(&'a TabStrip),
     Marker(&'a GenerationMarker),
 }
 
@@ -29,6 +31,7 @@ impl Piece<'_> {
             Piece::Surface(surface) => surface.ns_view(),
             Piece::TextField(field) => field.ns_view(),
             Piece::MenuButton(button) => button.ns_view(),
+            Piece::TabStrip(strip) => strip.ns_view(),
             Piece::Marker(marker) => marker.ns_view(),
         }
     }
@@ -49,6 +52,12 @@ impl<'a> From<&'a TextField> for Piece<'a> {
 impl<'a> From<&'a MenuButton> for Piece<'a> {
     fn from(button: &'a MenuButton) -> Self {
         Piece::MenuButton(button)
+    }
+}
+
+impl<'a> From<&'a TabStrip> for Piece<'a> {
+    fn from(strip: &'a TabStrip) -> Self {
+        Piece::TabStrip(strip)
     }
 }
 

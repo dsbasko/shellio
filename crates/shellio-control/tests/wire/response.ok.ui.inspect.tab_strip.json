@@ -1,0 +1,99 @@
+{
+  "id": 8,
+  "ok": {
+    "ui": {
+      "inspect": {
+        "window_number": 4242,
+        "content": {
+          "width": 1180.0,
+          "height": 720.0
+        },
+        "generation": 12,
+        "components": [
+          {
+            "id": "gallery.tabs.side",
+            "class": "TabStrip",
+            "object": 105553116268800,
+            "parent": "gallery.surface.focus",
+            "frame": {
+              "x": 60.0,
+              "y": 530.0,
+              "width": 372.0,
+              "height": 34.0
+            },
+            "visible": true,
+            "first_responder": true,
+            "enabled": null,
+            "role": "AXTabGroup",
+            "label": "Вкладки боковой зоны",
+            "help": null,
+            "selected": null,
+            "expanded": null,
+            "animation_keys": 1,
+            "state": {
+              "tab_strip": {
+                "label": "Вкладки боковой зоны",
+                "zone": "side",
+                "axis": "rows",
+                "navigator": false,
+                "zoomed": false,
+                "focused": true,
+                "keyboard_focus": true,
+                "regime": "scroll",
+                "selected": "review",
+                "payload": "1,24 ГБ · 3,5 % CPU",
+                "payload_visible": false,
+                "offset": 312.5,
+                "max_offset": 312.5,
+                "tabs": [
+                  {
+                    "id": "term",
+                    "title": "zsh",
+                    "kind": "terminal",
+                    "status": "running",
+                    "icon": null,
+                    "close_visible": false,
+                    "fully_visible": false
+                  },
+                  {
+                    "id": "review",
+                    "title": "Ревью",
+                    "kind": "terminal",
+                    "status": "none",
+                    "icon": null,
+                    "close_visible": false,
+                    "fully_visible": true
+                  }
+                ],
+                "buttons": [
+                  {
+                    "id": "split",
+                    "label": "Разделить: одна над другой",
+                    "symbol": "rectangle.split.1x2",
+                    "hint": "Разделить: одна над другой. Клавиша не назначена",
+                    "help": "Клавиша не назначена"
+                  },
+                  {
+                    "id": "zoom",
+                    "label": "Развернуть панель",
+                    "symbol": "arrow.up.left.and.arrow.down.right",
+                    "hint": "Развернуть панель. Клавиша не назначена",
+                    "help": "Клавиша не назначена"
+                  },
+                  {
+                    "id": "menu",
+                    "label": "Действия панели",
+                    "symbol": "ellipsis",
+                    "hint": "Действия панели. Клавиша не назначена",
+                    "help": "Клавиша не назначена"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "materials": []
+      }
+    }
+  }
+}

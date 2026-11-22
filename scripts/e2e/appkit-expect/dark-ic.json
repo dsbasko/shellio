@@ -10,14 +10,14 @@
     {
       "id": "surface.focus.background",
       "component": "gallery.surface.focus",
-      "rect": { "x": 24, "y": 560, "width": 120, "height": 48 },
+      "rect": { "x": 24, "y": 460, "width": 120, "height": 48 },
       "slot": "panel",
       "layer": "tone_navigation"
     },
     {
       "id": "surface.plain.background",
       "component": "gallery.surface.plain",
-      "rect": { "x": 24, "y": 560, "width": 120, "height": 48 },
+      "rect": { "x": 24, "y": 460, "width": 120, "height": 48 },
       "slot": "panel",
       "layer": "veil"
     },
@@ -26,6 +26,31 @@
       "component": "gallery.field",
       "rect": { "x": 180, "y": 8, "width": 88, "height": 16 },
       "slot": "surface",
+      "layer": "tone_navigation"
+    },
+    {
+      "id": "tabs.wide.head",
+      "component": "gallery.tabs.wide",
+      "rect": { "x": 560, "y": 8, "width": 300, "height": 18 },
+      "slot": "panel-head"
+    },
+    {
+      "id": "tabs.half.head",
+      "component": "gallery.tabs.half",
+      "rect": { "x": 380, "y": 8, "width": 80, "height": 18 },
+      "slot": "panel-head"
+    },
+    {
+      "id": "tabs.wide.selected",
+      "component": "gallery.tabs.wide.tab.build",
+      "rect": { "x": 4, "y": 5, "width": 4, "height": 16 },
+      "slot": "panel"
+    },
+    {
+      "id": "tabs.side.selected",
+      "component": "gallery.tabs.side.tab.term",
+      "rect": { "x": 4, "y": 5, "width": 4, "height": 16 },
+      "slot": "panel",
       "layer": "tone_navigation"
     }
   ]

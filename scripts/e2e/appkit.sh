@@ -84,8 +84,8 @@ CYCLES=10
 
 ITEMS=(first-front window mirror close-reopen quit gui-quit-pid snapshot-light snapshot-dark contrast-cells
   system-appearance material text-field menu-tracking ax voiceover window-cycle idle startup-warm startup-cold
-  single-instance)
-REQUIRED=(1 1 1 1 1 0 1 1 1 0 1 1 1 1 0 1 1 1 0 1)
+  tabstrip-regimes tab-underline reduce-motion single-instance)
+REQUIRED=(1 1 1 1 1 0 1 1 1 0 1 1 1 1 0 1 1 1 0 1 1 1 1)
 STATUS=()
 REASON=()
 for i in "${!ITEMS[@]}"; do
@@ -761,12 +761,18 @@ comp() {
 
 # --- снимки и оракул ---
 
-# Снимок окна владельца и сравнение оракулом с файлом ожиданий expect при поколении gen. Повтор, пока маркер не
-# совпал (код оракула 4), не дольше MARKER_MS. Код оракула — в snap_code, причина расхождения — в snap_reason.
+# Снимок окна владельца и сравнение оракулом с файлом ожиданий expect при поколении gen; expect вида
+# underline:<id вкладки>:<слой> — поперечная серия линии под вкладкой. Повтор, пока маркер не совпал (код оракула
+# 4), не дольше MARKER_MS. Код оракула — в snap_code, причина расхождения — в snap_reason.
 # Сырые файлы — <dir>/<name>.{window.json,inspect.json,raw.png,png,report.json,oracle.stderr}. Отказ захвата,
 # неверный номер окна и ошибка исполнения оракула — ошибка исполнения прогона.
 snapshot() {
-  local state="$1" dir="$2" name="$3" expect="$4" gen="$5" deadline number tries=0 code
+  local state="$1" dir="$2" name="$3" expect="$4" gen="$5" deadline number tries=0 code spec
+  local oracle_args=(compare --expect "$expect")
+  if [[ "$expect" == underline:* ]]; then
+    spec="${expect#underline:}"
+    oracle_args=(underline --tab "${spec%%:*}" --layer "${spec#*:}")
+  fi
   snap_code=""
   snap_reason=""
   deadline=$(($(now_ms) + MARKER_MS))
@@ -785,7 +791,7 @@ snapshot() {
     sips --matchTo "$SRGB_PROFILE" "$dir/$name.raw.png" --out "$dir/$name.png" >"$dir/$name.sips.log" 2>&1 ||
       fatal "снимок $name: sips не перевёл PNG в sRGB: $(oneline "$dir/$name.sips.log")"
     code=0
-    "$oracle_bin" compare --expect "$expect" --inspect "$dir/$name.inspect.stdout" \
+    "$oracle_bin" "${oracle_args[@]}" --inspect "$dir/$name.inspect.stdout" \
       --window "$dir/$name.window.stdout" --png "$dir/$name.png" --generation "$gen" \
       >"$dir/$name.report.json" 2>"$dir/$name.oracle.stderr" || code=$?
     case $code in
@@ -1425,14 +1431,19 @@ item_startup_warm() {
 # --- галерея ---
 
 launch_gallery() {
-  local dir="$run/gallery"
+  local dir="$run/gallery" deadline
   mkdir -p "$dir"
   new_profile
   profile_g="$NEW_PROFILE"
   log "== галерея: профиль $profile_g"
   launch_owner "$profile_g" "$dir" --gallery || fatal "владелец галереи не поднят: $WHY"
   owner_pid_g="$OWNER_PID"
-  grep -qF "режим gallery" "$dir/owner.stdout" || fatal "строка готовности владельца галереи не называет режим gallery: $(oneline "$dir/owner.stdout")"
+  # hello отвечает раньше, чем владелец допишет строку готовности: строка ждётся со сроком.
+  deadline=$(($(now_ms) + OWNER_START_S * 1000))
+  until grep -qF "режим gallery" "$dir/owner.stdout"; do
+    (($(now_ms) < deadline)) || fatal "строка готовности владельца галереи не называет режим gallery за $OWNER_START_S с: $(oneline "$dir/owner.stdout")"
+    sleep "$POLL"
+  done
 }
 
 # Сводка ui.stats для window-cycle: живые по классам и владельцам, поздние вызовы, прежние деревья с номером не
@@ -1672,7 +1683,7 @@ item_contrast_cells() {
     cell_snapshot "$dir" "$lightness-ic" "$expect_dir/$lightness-ic.json" "$lightness" gallery increased
   done
   ui_cmd "$profile_g" "$dir/cell-auto" gallery cell auto auto || failures+=("сброс ячейки: $WHY")
-  conclude "$item" "Increase Contrast светлой и тёмной ячеек: участки ChromeBar, обеих Surface и поля в допуске"
+  conclude "$item" "Increase Contrast светлой и тёмной ячеек: участки ChromeBar, обеих Surface, поля и полос вкладок в допуске"
 }
 
 item_material() {
@@ -1881,7 +1892,7 @@ item_menu_tracking() {
 }
 
 # Элементы окна процесса pid по System Events: JSON с заголовком окна и списком элементов (роль, подроль,
-# заголовок, описание, AXSelected, AXExpanded), обход до глубины 6.
+# заголовок, описание, AXSelected, AXExpanded, AXHelp, описание ближайшей AXTabGroup), обход до глубины 6.
 ax_dump() {
   osascript -l JavaScript -e "
     const se = Application('System Events');
@@ -1889,17 +1900,20 @@ ax_dump() {
     function attr(e, name) { try { return e.attributes.byName(name).value(); } catch (x) { return null; } }
     function prop(f) { try { const v = f(); return v === undefined ? null : v; } catch (x) { return null; } }
     const out = [];
-    function walk(e, depth) {
-      out.push({ role: prop(() => e.role()), subrole: prop(() => e.subrole()), title: prop(() => e.name()),
-        description: prop(() => e.description()), selected: attr(e, 'AXSelected'), expanded: attr(e, 'AXExpanded') });
+    function walk(e, depth, group) {
+      const role = prop(() => e.role());
+      const description = prop(() => e.description());
+      out.push({ role: role, subrole: prop(() => e.subrole()), title: prop(() => e.name()),
+        description: description, selected: attr(e, 'AXSelected'), expanded: attr(e, 'AXExpanded'),
+        help: attr(e, 'AXHelp'), group: group });
       if (depth >= 6) return;
       let kids = [];
       try { kids = e.uiElements(); } catch (x) {}
-      for (const k of kids) walk(k, depth + 1);
+      for (const k of kids) walk(k, depth + 1, role === 'AXTabGroup' ? description : group);
     }
     let kids = [];
     try { kids = w.uiElements(); } catch (x) {}
-    for (const k of kids) walk(k, 1);
+    for (const k of kids) walk(k, 1, null);
     JSON.stringify({ title: prop(() => w.name()), elements: out });"
 }
 
@@ -1920,19 +1934,37 @@ ax_compare() {
       "chrome.appearance" => ["AXButton", "Оформление: $choice"],
       "gallery.field" => ["AXTextField", "Фильтр галереи"],
       "gallery.menu" => ["AXButton", "Ещё"],
+      "gallery.tabs.side" => ["AXTabGroup", "Вкладки боковой зоны"],
+      "gallery.tabs.side.tab.term" => ["AXRadioButton", "zsh", "Вкладки боковой зоны"],
+      "gallery.tabs.side.tab.build" => ["AXRadioButton", "Сборка", "Вкладки боковой зоны"],
+      "gallery.tabs.side.split" => ["AXButton", "Разделить: одна над другой", "Вкладки боковой зоны"],
+      "gallery.tabs.side.zoom" => ["AXButton", "Развернуть панель", "Вкладки боковой зоны"],
+      "gallery.tabs.side.menu" => ["AXButton", "Действия панели", "Вкладки боковой зоны"],
+      "gallery.tabs.center" => ["AXTabGroup", "Вкладки центра"],
+      "gallery.tabs.center.split" => ["AXButton", "Разделить: части рядом", "Вкладки центра"],
+      "gallery.tabs.half" => ["AXTabGroup", "Вкладки половины центра"],
+      "gallery.tabs.wide" => ["AXTabGroup", "Вкладки широкого центра"],
+      "gallery.tabs.wide.tab.term" => ["AXRadioButton", "zsh", "Вкладки широкого центра"],
+      "gallery.tabs.wide.tab.build" => ["AXRadioButton", "Сборка", "Вкладки широкого центра"],
     );
     my %seen;
     my $norm = sub { my $v = shift; return "нет" unless defined $v; JSON::PP::is_bool($v) ? ($v ? "true" : "false") : "$v" };
     for my $c (@{$i->{components}}) {
       my $want = $fixture{$c->{id}} or next;
       $seen{$c->{id}} = 1;
-      my ($role, $label) = @$want;
+      my ($role, $label, $group) = @$want;
       my $got_role = $c->{role} // "нет";
       my $got_label = $c->{label} // "нет";
       print "$c->{id}: ui.inspect роль $got_role, имя «${got_label}», фикстура — $role «${label}»\n"
         if $got_role ne $role || $got_label ne $label;
-      my ($el) = grep { ($_->{role} // "") eq $got_role && ($_->{description} // "") eq $got_label } @{$a->{elements}};
-      if (!$el) { print "$c->{id}: System Events не нашёл элемент $got_role «${got_label}»\n"; next }
+      my ($el) = grep { ($_->{role} // "") eq $got_role && ($_->{description} // "") eq $got_label
+        && (!defined $group || ($_->{group} // "") eq $group) } @{$a->{elements}};
+      my $where = defined $group ? " в «${group}»" : "";
+      if (!$el) { print "$c->{id}: System Events не нашёл элемент $got_role «${got_label}»$where\n"; next }
+      if (($c->{help} // "") ne "" || ($el->{help} // "") ne "") {
+        my ($mine, $theirs) = ($c->{help} // "нет", $el->{help} // "нет");
+        print "$c->{id}: accessibilityHelp в ui.inspect «${mine}», у System Events «${theirs}»\n" if $mine ne $theirs;
+      }
       for my $f (qw(selected expanded)) {
         my $mine = $norm->($c->{$f});
         my $theirs = $norm->($el->{$f});
@@ -1994,7 +2026,284 @@ item_ax() {
   else
     failures+=("$WHY")
   fi
-  conclude "$item" "System Events от окна pid $pid дошёл до частей ChromeBar, поля и кнопки меню: роль, имя, выбор и раскрытие совпали с фикстурой и ui.inspect, заголовок окна «${ax_title}»; Tab — кнопка оформления, Space — тёмное"
+  conclude "$item" "System Events от окна pid $pid дошёл до частей ChromeBar, поля, кнопки меню и полос вкладок (группы, вкладки с выбором, кнопки с accessibilityHelp): роль, имя, выбор и раскрытие совпали с фикстурой и ui.inspect, заголовок окна «${ax_title}»; Tab — кнопка оформления, Space — тёмное"
+}
+
+# --- полосы вкладок (задача 11) ---
+
+# Значение поля полосы strip_id в ответе ui.inspect.
+strip() {
+  comp "$1" "$strip_id" "state.tab_strip.$2"
+}
+
+# Выбранная вкладка полосы strip_id — strip_want и видима целиком.
+strip_selected() {
+  [[ "$(strip "$1" selected)" == "$strip_want" &&
+    "$(jv "$1" "ok.ui.inspect.components[id=$strip_id].state.tab_strip.tabs[id=$strip_want].fully_visible")" == true ]]
+}
+
+strip_focused() {
+  [[ "$(comp "$1" "$strip_id" first_responder)" == true ]]
+}
+
+strip_menu_open() {
+  [[ "$(comp "$1" "$strip_id.menu" state.menu.open)" == true ]]
+}
+
+strip_menu_closed() {
+  [[ "$(comp "$1" "$strip_id.menu" state.menu.open)" == false ]]
+}
+
+# Последняя вкладка полосы strip_id в ответе ui.inspect.
+strip_last() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my ($id) = @ARGV; my $i = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{inspect};
+    my ($c) = grep { $_->{id} eq $id } @{$i->{components}} or exit 1;
+    print $c->{state}{tab_strip}{tabs}[-1]{id}' "$strip_id" <"$1"
+}
+
+# Геометрия и признаки всех полос по ответу ui.inspect: нарушения построчно, пусто — всё сходится.
+strip_geometry() {
+  /usr/bin/perl -COEA -Mutf8 -MJSON::PP -e '
+    local $/; my $i = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{inspect};
+    my %c = map { $_->{id} => $_ } @{$i->{components}};
+    my %regime = ("side" => "scroll", "center" => "scroll", "half" => "in_menu", "wide" => "visible");
+    my $inside = sub { my ($a, $b) = @_; $a->{x} >= $b->{x} - 0.5 && $a->{y} >= $b->{y} - 0.5
+      && $a->{x} + $a->{width} <= $b->{x} + $b->{width} + 0.5 && $a->{y} + $a->{height} <= $b->{y} + $b->{height} + 0.5 };
+    my $cross = sub { my ($a, $b) = @_; $a->{x} < $b->{x} + $b->{width} - 0.5 && $b->{x} < $a->{x} + $a->{width} - 0.5
+      && $a->{y} < $b->{y} + $b->{height} - 0.5 && $b->{y} < $a->{y} + $a->{height} - 0.5 };
+    for my $name (qw(side center half wide)) {
+      my $id = "gallery.tabs.$name";
+      my $s = $c{$id} or do { print "$id: нет в ui.inspect\n"; next };
+      my $t = $s->{state}{tab_strip};
+      print "$id: режим $t->{regime}, фикстура — $regime{$name}\n" if $t->{regime} ne $regime{$name};
+      my @tabs = grep { ($_->{parent} // "") eq $id && $_->{class} eq "Tab" && $_->{visible} && $_->{frame}{width} > 0 }
+        @{$i->{components}};
+      print "$id: нет видимых вкладок\n" unless @tabs;
+      my @buttons = map { "$id.$_->{id}" } @{$t->{buttons}};
+      print "$id: кнопок " . scalar(@buttons) . ", ожидалось 3\n" unless @buttons == 3;
+      for my $bid (@buttons) {
+        my $b = $c{$bid} or do { print "$bid: нет в ui.inspect\n"; next };
+        print "$bid: кадр кнопки вне полосы\n" unless $inside->($b->{frame}, $s->{frame});
+        for my $tab (@tabs) { print "$bid: кадр пересекает вкладку $tab->{id}\n" if $cross->($b->{frame}, $tab->{frame}) }
+        print "$bid: AX-имя пусто\n" unless length($b->{label} // "");
+        print "$bid: accessibilityHelp «" . ($b->{help} // "нет") . "», ожидалось «Клавиша не назначена»\n"
+          if ($b->{help} // "") ne "Клавиша не назначена";
+      }
+      if ($name eq "half") {
+        print "$id: нагрузка видна в полосе в режиме «в меню»\n" if $t->{payload_visible};
+        my ($head) = grep { !$_->{separator} } @{$c{"$id.menu"}{state}{menu}{items} // []};
+        print "$id.menu: заголовок меню «" . ($head->{title} // "нет") . "», нагрузка — «$t->{payload}»\n"
+          if !$head || $head->{title} ne $t->{payload};
+      }
+      print "$id: нагрузка скрыта в режиме «видна»\n" if $name eq "wide" && !$t->{payload_visible};
+    }
+    my ($side, $center) = map { $c{"gallery.tabs.$_"}{state}{tab_strip} } qw(side center);
+    if ($side && $center) {
+      my @si = grep { defined $_->{icon} } @{$side->{tabs}};
+      my @ci = grep { !defined $_->{icon} } @{$center->{tabs}};
+      print "боковая полоса: значок типа у " . scalar(@si) . " вкладок\n" if @si;
+      print "полоса центра: без значка типа " . scalar(@ci) . " вкладок\n" if @ci;
+      my ($ss) = map { $_->{symbol} } grep { $_->{id} eq "split" } @{$side->{buttons}};
+      my ($cs) = map { $_->{symbol} } grep { $_->{id} eq "split" } @{$center->{buttons}};
+      print "глиф «Разделить» боковой и центральной полосы одинаков: " . ($ss // "нет") . "\n"
+        if ($ss // "") eq ($cs // "");
+    }' <"$1" 2>&1
+}
+
+# AXPress кнопки «Действия панели» в группе вкладок с описанием group окна pid через System Events в фоне;
+# задание — в bg_job.
+press_strip_menu() {
+  local pid="$1" group="$2" out="$3"
+  osascript -l JavaScript -e "
+    const se = Application('System Events');
+    const w = se.processes.whose({unixId: $pid})[0].windows[0];
+    function prop(f) { try { return f(); } catch (x) { return null; } }
+    function find(e, depth, test) {
+      let kids = [];
+      try { kids = e.uiElements(); } catch (x) {}
+      for (const k of kids) {
+        if (test(k)) return k;
+        if (depth < 6) { const hit = find(k, depth + 1, test); if (hit) return hit; }
+      }
+      return null;
+    }
+    const g = find(w, 1, k => prop(() => k.role()) === 'AXTabGroup' && prop(() => k.description()) === '$group');
+    if (!g) throw new Error('нет группы $group');
+    const b = find(g, 1, k => prop(() => k.role()) === 'AXButton' && prop(() => k.description()) === 'Действия панели');
+    if (!b) throw new Error('нет кнопки «Действия панели» в $group');
+    b.actions.byName('AXPress').perform();
+    'pressed'" >"$out.stdout" 2>"$out.stderr" &
+  bg_job=$!
+  bg_jobs+=("$bg_job")
+}
+
+strip_id=""
+strip_want=""
+item_tabstrip_regimes() {
+  local item=tabstrip-regimes dir="$run/tabstrip-regimes" pid="$owner_pid_g" bad last t0 next
+  failures=()
+  log "== $item"
+  if ! ui_cmd "$profile_g" "$dir/reset" gallery reset || ! ui_read "$profile_g" "$dir/fixture" inspect; then
+    record "$item" fail "${WHY:-ui.inspect не прочитан}"
+    return 0
+  fi
+  bad="$(strip_geometry "$dir/fixture.stdout")"
+  [[ -z "$bad" ]] || failures+=("$(printf '%s' "$bad" | tr '\n' ';' | sed 's/;$//; s/;/; /g')")
+  strip_id=gallery.tabs.side
+  last="$(strip_last "$dir/fixture.stdout")" || last=""
+  if [[ -z "$last" ]]; then
+    failures+=("у боковой полосы нет вкладок в ui.inspect")
+  elif ui_cmd "$profile_g" "$dir/select-last" gallery tabs select side 7; then
+    strip_want="$last"
+    poll_inspect "$profile_g" "$dir/last" "$STATE_MS" strip_selected ||
+      failures+=("прокрутка: выбор $(strip "$dir/last.stdout" selected || echo ?), последняя вкладка $last не выбрана или не видна целиком")
+    bad="$(strip_geometry "$dir/last.stdout")"
+    [[ -z "$bad" ]] || failures+=("после выбора последней: $(printf '%s' "$bad" | tr '\n' ';' | sed 's/;$//; s/;/; /g')")
+  else
+    failures+=("$WHY")
+  fi
+  # Меню «…» полосы в режиме «в меню»: заголовок — полная нагрузка.
+  strip_id=gallery.tabs.half
+  if ! ui_cmd "$profile_g" "$dir/reset-menu" gallery reset || ! front_owner "$pid" "$dir" || ! input_ready "$pid"; then
+    failures+=("меню «…»: $WHY")
+  else
+    t0="$(now_ms)"
+    press_strip_menu "$pid" "Вкладки половины центра" "$dir/press"
+    if poll_inspect "$profile_g" "$dir/menu-open" "$STATE_MS" strip_menu_open; then
+      bad="$(strip_geometry "$dir/menu-open.stdout" | grep 'menu: заголовок' || true)"
+      [[ -z "$bad" ]] || failures+=("открытое меню: $bad")
+      if input_ready "$pid"; then
+        se_key "$dir" 53 || failures+=("Escape не отправлен: $(oneline "$dir/keys.log")")
+        poll_inspect "$profile_g" "$dir/menu-closed" "$STATE_MS" strip_menu_closed || failures+=("меню «…» открыто после Escape")
+      else
+        failures+=("$WHY")
+      fi
+    else
+      failures+=("меню «…» полосы half не открылось за $STATE_MS мс после AXPress: $(oneline "$dir/press.stderr")")
+    fi
+    if await_bg "$bg_job" "$t0"; then
+      [[ "$VALUE" == 0 ]] || failures+=("фоновый AXPress меню «…» вышел с кодом $VALUE: $(oneline "$dir/press.stderr")")
+    else
+      failures+=("$WHY")
+    fi
+  fi
+  # Стрелки при фокусе в боковой полосе.
+  strip_id=gallery.tabs.side
+  if ! ui_cmd "$profile_g" "$dir/reset-keys" gallery reset || ! front_owner "$pid" "$dir" ||
+    ! ui_cmd "$profile_g" "$dir/focus" gallery focus tabs; then
+    failures+=("стрелки: $WHY")
+  elif ! poll_inspect "$profile_g" "$dir/focused" "$STATE_MS" strip_focused; then
+    failures+=("gallery.focus tabs: боковая полоса не first responder ($(responders "$dir/focused.stdout"))")
+  else
+    next="$(jv "$dir/focused.stdout" "ok.ui.inspect.components[id=$strip_id].state.tab_strip.tabs[1].id" || echo ?)"
+    strip_want="$next"
+    if input_ready "$pid" && se_key "$dir" 124; then
+      poll_inspect "$profile_g" "$dir/right" "$STATE_MS" strip_selected ||
+        failures+=("Right: выбор $(strip "$dir/right.stdout" selected || echo ?), ожидалась $next")
+    else
+      failures+=("Right: ${WHY:-не отправлена: $(oneline "$dir/keys.log")}")
+    fi
+    strip_want="$(jv "$dir/focused.stdout" "ok.ui.inspect.components[id=$strip_id].state.tab_strip.tabs[0].id" || echo ?)"
+    if input_ready "$pid" && se_key "$dir" 123; then
+      poll_inspect "$profile_g" "$dir/left" "$STATE_MS" strip_selected ||
+        failures+=("Left: выбор $(strip "$dir/left.stdout" selected || echo ?), ожидалась $strip_want")
+    else
+      failures+=("Left: ${WHY:-не отправлена: $(oneline "$dir/keys.log")}")
+    fi
+  fi
+  ui_cmd "$profile_g" "$dir/reset-end" gallery reset || failures+=("сброс: $WHY")
+  conclude "$item" "режимы side и center — scroll, half — in_menu, wide — visible; кнопки внутри полос и не пересекают вкладки во всех режимах, AX-имя действия и «Клавиша не назначена»; открытое меню «…» полосы half несёт полную нагрузку в заголовке; последняя вкладка $last выбрана и видима; боковая и центральная полосы различаются значком типа и глифом «Разделить»; Right и Left меняют выбор"
+}
+
+item_tab_underline() {
+  local item=tab-underline dir="$run/tab-underline" lightness contrast name tab notes=""
+  failures=()
+  log "== $item"
+  if ! ui_cmd "$profile_g" "$dir/reset" gallery reset || ! ui_read "$profile_g" "$dir/fixture" inspect; then
+    record "$item" fail "${WHY:-ui.inspect не прочитан}"
+    return 0
+  fi
+  tab="$(comp "$dir/fixture.stdout" gallery.tabs.side state.tab_strip.selected)" || tab=""
+  if [[ -z "$tab" ]]; then
+    record "$item" fail "у боковой полосы нет выбранной вкладки в ui.inspect"
+    return 0
+  fi
+  for lightness in light dark; do
+    for contrast in normal increased; do
+      name="$lightness-$contrast"
+      if ! ui_cmd "$profile_g" "$dir/cell-$name" gallery cell "$lightness" "$contrast"; then
+        failures+=("$name: $WHY")
+        continue
+      fi
+      snapshot "$profile_g" "$dir" "$name" "underline:gallery.tabs.side.tab.$tab:tone_navigation" "$GEN"
+      case "$snap_code" in
+        0) notes="${notes:+$notes, }$name $(jv "$dir/$name.report.json" thickness_points || echo ?) из $(jv "$dir/$name.report.json" expected_points || echo ?) точ." ;;
+        3) failures+=("$name: линия вне допуска — $snap_reason, отчёт — $(basename "$dir")/$name.report.json") ;;
+        *) failures+=("$name: $snap_reason") ;;
+      esac
+    done
+  done
+  ui_cmd "$profile_g" "$dir/cell-auto" gallery cell auto auto || failures+=("сброс ячейки: $WHY")
+  conclude "$item" "линия под выбранной вкладкой $tab боковой полосы в подложке с фокусом: оба края найдены, толщина — --focus-h ячейки ±0,5 точки, цвет середины в допуске ($notes)"
+}
+
+# Запись журнала анимаций ui.stats за поколение anim_gen у компонента anim_component: «путь добавлено».
+anim_entry() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my ($gen, $id) = @ARGV;
+    my $s = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{stats};
+    my @e = grep { $_->{generation} == $gen && $_->{component} eq $id } @{$s->{animations}} or exit 1;
+    my $added = 0; $added += $_->{added} for @e;
+    my %paths = map { $_->{path} => 1 } @e;
+    print join("+", sort keys %paths), " $added"' "$anim_gen" "$anim_component" <"$1"
+}
+
+anim_present() {
+  anim_entry "$1" >/dev/null
+}
+
+anim_gen=0
+anim_component=""
+item_reduce_motion() {
+  local item=reduce-motion dir="$run/reduce-motion" motion entry last keys reduced="" control=""
+  failures=()
+  log "== $item"
+  anim_component=gallery.tabs.side
+  strip_id=gallery.tabs.side
+  for motion in reduced normal; do
+    if ! ui_cmd "$profile_g" "$dir/reset-$motion" gallery reset || ! ui_cmd "$profile_g" "$dir/motion-$motion" gallery motion "$motion" ||
+      ! ui_read "$profile_g" "$dir/before-$motion" inspect; then
+      failures+=("$motion: ${WHY:-ui.inspect не прочитан}")
+      continue
+    fi
+    last="$(strip_last "$dir/before-$motion.stdout")" || last=""
+    if [[ -z "$last" ]] || ! ui_cmd "$profile_g" "$dir/select-$motion" gallery tabs select side 7; then
+      failures+=("$motion: ${WHY:-у боковой полосы нет вкладок}")
+      continue
+    fi
+    anim_gen="$GEN"
+    if ! poll_stats "$profile_g" "$dir/stats-$motion" "$STATE_MS" anim_present; then
+      failures+=("$motion: в журнале анимаций ui.stats нет записи боковой полосы за поколение $anim_gen")
+      continue
+    fi
+    entry="$(anim_entry "$dir/stats-$motion.stdout")"
+    strip_want="$last"
+    poll_inspect "$profile_g" "$dir/after-$motion" "$STATE_MS" strip_selected ||
+      failures+=("$motion: выбранная вкладка $last не видна целиком после выбора")
+    keys="$(comp "$dir/after-$motion.stdout" gallery.tabs.side animation_keys || echo ?)"
+    if [[ "$motion" == reduced ]]; then
+      reduced="путь ${entry% *}, добавлено ${entry#* }, ключей анимаций у полосы $keys"
+      [[ "${entry% *}" == instant && "${entry#* }" == 0 ]] ||
+        failures+=("reduced: журнал за поколение $anim_gen — путь ${entry% *}, добавлено анимаций ${entry#* }, ожидался путь без анимации")
+      [[ "$(strip "$dir/after-$motion.stdout" offset)" == "$(strip "$dir/after-$motion.stdout" max_offset)" ]] ||
+        failures+=("reduced: смещение $(strip "$dir/after-$motion.stdout" offset || echo ?), конечное $(strip "$dir/after-$motion.stdout" max_offset || echo ?)")
+    else
+      control="путь ${entry% *}, добавлено ${entry#* }"
+      [[ "${entry% *}" == animated ]] && fcmp "${entry#* }" ">=" 1 ||
+        failures+=("контроль normal: журнал за поколение $anim_gen — путь ${entry% *}, добавлено ${entry#* }, ожидался анимированный путь")
+    fi
+  done
+  ui_cmd "$profile_g" "$dir/reset-end" gallery reset || failures+=("сброс: $WHY")
+  conclude "$item" "motion reduced, выбор последней вкладки боковой полосы: $reduced, конечное смещение достигнуто, вкладка видима; контроль motion normal: $control"
 }
 
 item_single_instance() {
@@ -2042,6 +2351,9 @@ item_material
 item_text_field
 item_menu_tracking
 item_ax
+item_tabstrip_regimes
+item_tab_underline
+item_reduce_motion
 record system-appearance not_run "переключение системного оформления и Increase Contrast меняет глобальные настройки пользователя; путь уведомления покрыт модульным тестом"
 record voiceover not_run "речь VoiceOver автоматика не слышит; чтение AX — пункт ax"
 record startup-cold not_run "нет подтверждённого протокола холодных кэшей: сброс требует sudo purge или перезагрузки"

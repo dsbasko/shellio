@@ -237,7 +237,7 @@ impl TextField {
 
     /// Поле для `ui.inspect`: кадр подложки, AX-роль и имя ячейки, first responder — field editor
     /// поля во время ввода, состояние.
-    pub fn inspect(&self, id: &'static str, parent: Option<&'static str>) -> Vec<InspectNode> {
+    pub fn inspect(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {
         let field = self.field();
         let state = NodeState::TextField {
             state: self.state(),

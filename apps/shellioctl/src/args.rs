@@ -11,7 +11,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use shellio_control::{
-    CLI_TIMEOUT, Contrast, GalleryCommand, GalleryFocus, Lightness, Motion, UiRequest,
+    CLI_TIMEOUT, Contrast, GalleryCommand, GalleryFocus, GalleryStrip, Lightness, Motion, UiRequest,
 };
 use shellio_core::{
     AppearanceChoice, Command, ProjectId, Revision, TreeScope, UiCommand, WorkbenchId, WorkspaceId,
@@ -42,12 +42,13 @@ pub const USAGE: &str = "\
   app quit
   gallery cell <light|dark|auto> <normal|increased|auto>
   gallery motion <normal|reduced>
-  gallery focus <field|window>
+  gallery focus <field|window|tabs>
   gallery menu open
   gallery rebuild
   gallery window recreate
   gallery place <экран>
   gallery reset
+  gallery tabs select <side|center|half|wide> <номер вкладки>
 
 У команд с целью-воркспейсом --target по умолчанию равен --workspace, с --all он обязателен.
 --json печатает кадры ответа построчно, --timeout задаёт срок вызова (по умолчанию 5000 мс).
@@ -538,7 +539,7 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 .find(|focus| focus.as_str() == value)
                 .ok_or_else(|| {
                     usage(format!(
-                        "{call}: ожидается field или window, получено «{value}»"
+                        "{call}: ожидается field, window или tabs, получено «{value}»"
                     ))
                 })?;
             Ok(gallery(GalleryCommand::Focus(focus)))
@@ -560,6 +561,27 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
             } else {
                 GalleryCommand::Reset
             }))
+        }
+        "gallery tabs" => {
+            given.only(call, &[])?;
+            let [verb, strip, tab] = operands(call, rest)?;
+            if verb != "select" {
+                return Err(usage(format!("неизвестный вызов «{call} {verb}»")));
+            }
+            let strip = GalleryStrip::ALL
+                .into_iter()
+                .find(|candidate| candidate.as_str() == strip)
+                .ok_or_else(|| {
+                    usage(format!(
+                        "{call} select: ожидается side, center, half или wide, получено «{strip}»"
+                    ))
+                })?;
+            let tab = tab.parse().map_err(|_| {
+                usage(format!(
+                    "{call} select: ожидается номер вкладки с нуля, получено «{tab}»"
+                ))
+            })?;
+            Ok(gallery(GalleryCommand::TabsSelect { strip, tab }))
         }
         "gallery place" => {
             given.only(call, &[])?;
@@ -854,11 +876,17 @@ mod tests {
             action_of(&["gallery", "reset"]),
             gallery(GalleryCommand::Reset)
         );
+        for strip in GalleryStrip::ALL {
+            assert_eq!(
+                action_of(&["gallery", "tabs", "select", strip.as_str(), "7"]),
+                gallery(GalleryCommand::TabsSelect { strip, tab: 7 })
+            );
+        }
     }
 
     #[test]
     fn gallery_calls_check_operands() {
-        let cases: [(&[&str], &str); 10] = [
+        let cases: [(&[&str], &str); 13] = [
             (&["gallery"], "не указано действие"),
             (&["gallery", "cell", "light"], "операндов"),
             (
@@ -870,7 +898,19 @@ mod tests {
                 "normal, increased или auto",
             ),
             (&["gallery", "motion", "slow"], "normal или reduced"),
-            (&["gallery", "focus", "list"], "field или window"),
+            (&["gallery", "focus", "list"], "field, window или tabs"),
+            (
+                &["gallery", "tabs", "close", "side", "1"],
+                "неизвестный вызов",
+            ),
+            (
+                &["gallery", "tabs", "select", "left", "1"],
+                "side, center, half или wide",
+            ),
+            (
+                &["gallery", "tabs", "select", "side", "первая"],
+                "номер вкладки",
+            ),
             (&["gallery", "menu", "close"], "неизвестный вызов"),
             (&["gallery", "window", "close"], "неизвестный вызов"),
             (&["gallery", "place", "первый"], "номер экрана"),

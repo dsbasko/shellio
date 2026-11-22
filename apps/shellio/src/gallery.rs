@@ -11,7 +11,9 @@
 
 use std::collections::VecDeque;
 
-use shellio_control::{GalleryCommand, GalleryFocus, IntentKind, IntentRecord, UiRefusal};
+use shellio_control::{
+    GalleryCommand, GalleryFocus, GalleryStrip, IntentKind, IntentRecord, UiRefusal,
+};
 use shellio_theme::{Appearance, Contrast, Motion};
 
 use crate::launch::WindowMode;
@@ -48,6 +50,20 @@ pub mod ids {
     pub const SURFACE_PLAIN: &str = "gallery.surface.plain";
     pub const FIELD: &str = "gallery.field";
     pub const MENU: &str = "gallery.menu";
+    pub const TABS_SIDE: &str = "gallery.tabs.side";
+    pub const TABS_CENTER: &str = "gallery.tabs.center";
+    pub const TABS_HALF: &str = "gallery.tabs.half";
+    pub const TABS_WIDE: &str = "gallery.tabs.wide";
+
+    /// Идентификатор полосы вкладок.
+    pub const fn strip(strip: shellio_control::GalleryStrip) -> &'static str {
+        match strip {
+            shellio_control::GalleryStrip::Side => TABS_SIDE,
+            shellio_control::GalleryStrip::Center => TABS_CENTER,
+            shellio_control::GalleryStrip::Half => TABS_HALF,
+            shellio_control::GalleryStrip::Wide => TABS_WIDE,
+        }
+    }
 }
 
 /// Фикстура поля ввода.
@@ -119,6 +135,178 @@ pub fn menu_fixture() -> MenuFixture {
     }
 }
 
+/// Сторона зоны полосы вкладок галереи.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StripZone {
+    Side,
+    Center,
+}
+
+/// Статус вкладки фикстуры.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StripStatus {
+    None,
+    Running,
+    Waiting,
+    Error,
+    Done,
+    Idle,
+    Exited,
+}
+
+/// Вкладка фикстуры.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TabFixture {
+    pub id: &'static str,
+    pub title: &'static str,
+    pub kind: &'static str,
+    /// Системный значок типа.
+    pub icon: &'static str,
+    pub status: StripStatus,
+}
+
+/// Где стоит полоса галереи.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StripHost {
+    /// В подложке с фокусом, под её слоем тона.
+    FocusSurface,
+    /// На уровне окна поверх подложек: 560 и 1100 точек не помещаются в подложку.
+    Window,
+}
+
+/// Фикстура полосы вкладок. Режим по ширине (ADR-0032) задают ширина, вкладки и нагрузка:
+/// `side` и `center` — прокрутка, `half` — нагрузка в меню «…», `wide` — всё видно.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StripFixture {
+    pub strip: GalleryStrip,
+    pub width: f64,
+    pub zone: StripZone,
+    pub host: StripHost,
+    /// Фокус у части: линия под активной вкладкой.
+    pub focused: bool,
+    /// Имя полосы для доступности.
+    pub label: &'static str,
+    pub tabs: Vec<TabFixture>,
+    /// Номер выбранной вкладки в фикстуре.
+    pub selected: usize,
+    pub payload: &'static str,
+}
+
+/// Восемь вкладок с типами и статусами.
+pub const TABS: [TabFixture; 8] = [
+    tab("term", "zsh", "terminal", "terminal", StripStatus::Running),
+    tab("build", "Сборка", "task", "hammer", StripStatus::Done),
+    tab("agent", "Агент", "agent", "sparkles", StripStatus::Waiting),
+    tab(
+        "changes",
+        "Изменения",
+        "changes",
+        "plusminus",
+        StripStatus::None,
+    ),
+    tab("log", "Журнал", "log", "doc.plaintext", StripStatus::Error),
+    tab("nvim", "nvim", "editor", "pencil", StripStatus::Idle),
+    tab(
+        "tests",
+        "Тесты",
+        "task",
+        "checkmark.circle",
+        StripStatus::Exited,
+    ),
+    tab(
+        "review",
+        "Ревью",
+        "review",
+        "text.bubble",
+        StripStatus::None,
+    ),
+];
+
+const fn tab(
+    id: &'static str,
+    title: &'static str,
+    kind: &'static str,
+    icon: &'static str,
+    status: StripStatus,
+) -> TabFixture {
+    TabFixture {
+        id,
+        title,
+        kind,
+        icon,
+        status,
+    }
+}
+
+/// Ширины полос галереи (план P1.3).
+pub const STRIP_NARROW: f64 = 372.0;
+pub const STRIP_HALF: f64 = 560.0;
+pub const STRIP_WIDE: f64 = 1100.0;
+
+/// Фикстура полосы `strip`.
+pub fn strip_fixture(strip: GalleryStrip) -> StripFixture {
+    let short = "1,24 ГБ · 3,5 % CPU";
+    match strip {
+        GalleryStrip::Side => StripFixture {
+            strip,
+            width: STRIP_NARROW,
+            zone: StripZone::Side,
+            host: StripHost::FocusSurface,
+            focused: true,
+            label: "Вкладки боковой зоны",
+            tabs: TABS.to_vec(),
+            selected: 0,
+            payload: short,
+        },
+        GalleryStrip::Center => StripFixture {
+            strip,
+            width: STRIP_NARROW,
+            zone: StripZone::Center,
+            host: StripHost::FocusSurface,
+            focused: true,
+            label: "Вкладки центра",
+            tabs: TABS.to_vec(),
+            selected: 0,
+            payload: short,
+        },
+        GalleryStrip::Half => StripFixture {
+            strip,
+            width: STRIP_HALF,
+            zone: StripZone::Center,
+            host: StripHost::Window,
+            focused: false,
+            label: "Вкладки половины центра",
+            tabs: TABS[..3].to_vec(),
+            selected: 0,
+            payload: "Память 1,24 ГБ · CPU 3,5 % · 12 процессов · 4 потока ввода",
+        },
+        GalleryStrip::Wide => StripFixture {
+            strip,
+            width: STRIP_WIDE,
+            zone: StripZone::Center,
+            host: StripHost::Window,
+            focused: false,
+            label: "Вкладки широкого центра",
+            tabs: TABS[..4].to_vec(),
+            selected: 1,
+            payload: short,
+        },
+    }
+}
+
+/// Действие полосы вкладок галереи.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TabAction {
+    Select(String),
+    Close(String),
+    /// «Разделить»; значение — имя оси.
+    Split(&'static str),
+    Zoom,
+    Restore,
+    /// Пункт меню «…».
+    Menu(String),
+}
+
 /// Сколько последних намерений держит журнал.
 pub const INTENT_LOG: usize = 256;
 
@@ -129,6 +317,7 @@ pub enum Intent {
     FieldSubmitted(String),
     FieldCancelled,
     MenuChosen(String),
+    Tab(GalleryStrip, TabAction),
 }
 
 impl Intent {
@@ -140,6 +329,17 @@ impl Intent {
             }
             Intent::FieldCancelled => (ids::FIELD, IntentKind::Cancelled, None),
             Intent::MenuChosen(id) => (ids::MENU, IntentKind::Chosen, Some(id.clone())),
+            Intent::Tab(strip, action) => {
+                let (intent, value) = match action {
+                    TabAction::Select(id) => (IntentKind::Select, Some(id.clone())),
+                    TabAction::Close(id) => (IntentKind::Close, Some(id.clone())),
+                    TabAction::Split(axis) => (IntentKind::Split, Some((*axis).to_owned())),
+                    TabAction::Zoom => (IntentKind::Zoom, None),
+                    TabAction::Restore => (IntentKind::Restore, None),
+                    TabAction::Menu(id) => (IntentKind::Chosen, Some(id.clone())),
+                };
+                (ids::strip(*strip), intent, value)
+            }
         };
         IntentRecord {
             generation,
@@ -163,10 +363,17 @@ pub struct GalleryState {
     pub screen: Option<u32>,
     /// Значение поля, которое показывает вид: владелец следует намерениям `changed`.
     pub field_value: String,
+    /// Выбранная вкладка каждой полосы в порядке [`GalleryStrip::ALL`].
+    pub tabs: [usize; 4],
     pub intents: VecDeque<IntentRecord>,
 }
 
 impl GalleryState {
+    /// Номер выбранной вкладки полосы `strip`.
+    pub fn selected(&self, strip: GalleryStrip) -> usize {
+        self.tabs[strip_index(strip)]
+    }
+
     pub fn fixture() -> GalleryState {
         GalleryState {
             appearance: None,
@@ -175,6 +382,7 @@ impl GalleryState {
             focus: GalleryFocus::Window,
             screen: None,
             field_value: field_fixture().value,
+            tabs: GalleryStrip::ALL.map(|strip| strip_fixture(strip).selected),
             intents: VecDeque::new(),
         }
     }
@@ -195,8 +403,19 @@ pub enum Effect {
     RecreateWindow,
     /// Перенести окно на экран.
     Place(u32),
-    /// Состояние вернулось к фикстуре: тема, поле, фокус и меню приводятся к нему.
+    /// Состояние вернулось к фикстуре: тема, поле, фокус, меню и полосы приводятся к нему.
     Reset,
+    /// Выбор вкладки полосы изменился.
+    Tabs(GalleryStrip),
+}
+
+const fn strip_index(strip: GalleryStrip) -> usize {
+    match strip {
+        GalleryStrip::Side => 0,
+        GalleryStrip::Center => 1,
+        GalleryStrip::Half => 2,
+        GalleryStrip::Wide => 3,
+    }
 }
 
 /// Модель галереи. Номера дерева и окна, как и поколение, не сбрасываются.
@@ -274,22 +493,46 @@ impl Gallery {
                 self.state = GalleryState::fixture();
                 Effect::Reset
             }
+            GalleryCommand::TabsSelect { strip, tab } => {
+                // Номер за пределами фикстуры выбора не меняет: полоса остаётся прежней.
+                let count = strip_fixture(strip).tabs.len();
+                if let Ok(tab) = usize::try_from(tab)
+                    && tab < count
+                {
+                    self.state.tabs[strip_index(strip)] = tab;
+                }
+                Effect::Tabs(strip)
+            }
         };
         generation.bump();
         effect
     }
 
     /// Записать намерение компонента. Поле владелец не перерисовывает: вид уже показывает
-    /// значение, а эхо отставшего значения стёрло бы ввод, пришедший после намерения.
-    pub fn intent(&mut self, intent: &Intent, generation: &mut Generation) {
+    /// значение, а эхо отставшего значения стёрло бы ввод, пришедший после намерения. Выбор
+    /// вкладки меняет состояние полосы: возвращается полоса, которую вид приводит к нему.
+    pub fn intent(&mut self, intent: &Intent, generation: &mut Generation) -> Option<GalleryStrip> {
         let generation = generation.bump();
-        if let Intent::FieldChanged(value) = intent {
-            value.clone_into(&mut self.state.field_value);
+        let mut changed = None;
+        match intent {
+            Intent::FieldChanged(value) => value.clone_into(&mut self.state.field_value),
+            Intent::Tab(strip, TabAction::Select(id)) => {
+                let found = strip_fixture(*strip)
+                    .tabs
+                    .iter()
+                    .position(|tab| tab.id == id);
+                if let Some(index) = found {
+                    self.state.tabs[strip_index(*strip)] = index;
+                    changed = Some(*strip);
+                }
+            }
+            _ => {}
         }
         if self.state.intents.len() == INTENT_LOG {
             self.state.intents.pop_front();
         }
         self.state.intents.push_back(intent.record(generation));
+        changed
     }
 }
 
@@ -367,8 +610,9 @@ pub const MARKER_SIZE: f64 = MARKER_CELL * MARKER_CELLS as f64;
 pub const FIELD_WIDTH: f64 = 280.0;
 pub const MENU_BUTTON: f64 = 24.0;
 
-/// Раскладка галереи в содержимом окна. Маркер и подложки — в координатах содержимого, поле и
-/// кнопка «…» — в координатах подложки с фокусом.
+/// Раскладка галереи в содержимом окна. Маркер, подложки и полосы `half` и `wide` — в
+/// координатах содержимого, поле, кнопка «…» и полосы `side` и `center` — в координатах подложки
+/// с фокусом.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Layout {
     pub marker: Rect,
@@ -376,17 +620,29 @@ pub struct Layout {
     pub plain: Rect,
     pub field: Rect,
     pub menu: Rect,
+    /// Полосы вкладок в порядке [`GalleryStrip::ALL`].
+    pub strips: [Rect; 4],
 }
 
-/// Раскладка для содержимого `width`×`height` под заголовком высотой `titlebar` и поля высотой
-/// `field_height`. Маркер стоит в левом верхнем углу под заголовком: вдали от скруглённых углов
-/// окна и от кнопок заголовка. Края — на целых точках.
-pub fn layout(width: f64, height: f64, titlebar: f64, field_height: f64) -> Layout {
+impl Layout {
+    pub const fn strip(&self, strip: GalleryStrip) -> Rect {
+        self.strips[strip_index(strip)]
+    }
+}
+
+/// Раскладка для содержимого `width`×`height` под заголовком высотой `titlebar`, поля высотой
+/// `field_height` и полосы вкладок высотой `tabbar`. Маркер стоит в левом верхнем углу под
+/// заголовком: вдали от скруглённых углов окна и от кнопок заголовка. Полосы `side` и `center`
+/// лежат в подложке с фокусом под полем. `wide` и `half` шире подложки, поэтому лежат на уровне
+/// окна под подложками, не накрывая их: участок внутри полосы поверх подложки оракул отверг бы
+/// как участок у чужого узла. Края — на целых точках.
+pub fn layout(width: f64, height: f64, titlebar: f64, field_height: f64, tabbar: f64) -> Layout {
     let top = titlebar + PAD;
     let marker = Rect::new(PAD, top, MARKER_SIZE, MARKER_SIZE);
     let left = marker.right() + PAD;
     let surface_width = ((width - left - 2.0 * PAD) / 2.0).floor().max(0.0);
-    let surface_height = (height - top - PAD).max(0.0);
+    let band = 2.0 * (tabbar + PAD);
+    let surface_height = (height - top - PAD - band).max(0.0);
     let focus = Rect::new(left, top, surface_width, surface_height);
     let plain = Rect::new(focus.right() + PAD, top, surface_width, surface_height);
     let field = Rect::new(PAD, PAD, FIELD_WIDTH, field_height);
@@ -396,12 +652,17 @@ pub fn layout(width: f64, height: f64, titlebar: f64, field_height: f64) -> Layo
         MENU_BUTTON,
         MENU_BUTTON,
     );
+    let side = Rect::new(PAD, field.bottom() + PAD, STRIP_NARROW, tabbar);
+    let center = Rect::new(PAD, side.bottom() + PAD, STRIP_NARROW, tabbar);
+    let wide = Rect::new(focus.x, focus.bottom() + PAD, STRIP_WIDE, tabbar);
+    let half = Rect::new(focus.x, wide.bottom() + PAD, STRIP_HALF, tabbar);
     Layout {
         marker,
         focus,
         plain,
         field,
         menu,
+        strips: [side, center, half, wide],
     }
 }
 
@@ -427,6 +688,10 @@ mod tests {
             GalleryCommand::WindowRecreate,
             GalleryCommand::Place { screen: 1 },
             GalleryCommand::Reset,
+            GalleryCommand::TabsSelect {
+                strip: GalleryStrip::Side,
+                tab: 3,
+            },
         ]
     }
 
@@ -477,6 +742,7 @@ mod tests {
                 Effect::RecreateWindow,
                 Effect::Place(1),
                 Effect::Reset,
+                Effect::Tabs(GalleryStrip::Side),
             ]
         );
 
@@ -605,7 +871,7 @@ mod tests {
     #[test]
     fn layout_keeps_parts_apart_inside_the_content() {
         let (width, height, titlebar, field) = (1180.0, 720.0, 40.0, 32.0);
-        let layout = layout(width, height, titlebar, field);
+        let layout = layout(width, height, titlebar, field, 34.0);
         let content = Rect::new(0.0, titlebar, width, height - titlebar);
         for part in [layout.marker, layout.focus, layout.plain] {
             assert!(content.contains(&part), "{part:?}");
@@ -625,5 +891,171 @@ mod tests {
         assert!(!layout.field.intersects(&layout.menu));
         // Под полем остаётся пустая часть подложки для участка фона.
         assert!(layout.focus.height - layout.field.bottom() > 200.0);
+    }
+
+    /// Участки фона подложек и поля из ожиданий оракула (`scripts/e2e/appkit-expect`): (24, 460)
+    /// 120×48 в подложке и (180, 8) 88×16 в поле. Полосы держатся от них дальше 4 точек, полосы
+    /// уровня окна не накрывают подложек.
+    #[test]
+    fn strips_stay_clear_of_the_fixed_oracle_regions() {
+        let layout = layout(1180.0, 720.0, 40.0, 32.0, 34.0);
+        let inflate = |rect: Rect, by: f64| {
+            Rect::new(
+                rect.x - by,
+                rect.y - by,
+                rect.width + 2.0 * by,
+                rect.height + 2.0 * by,
+            )
+        };
+        let in_focus = |rect: Rect| {
+            Rect::new(
+                rect.x + layout.focus.x,
+                rect.y + layout.focus.y,
+                rect.width,
+                rect.height,
+            )
+        };
+        let regions = [
+            in_focus(Rect::new(24.0, 460.0, 120.0, 48.0)),
+            Rect::new(layout.plain.x + 24.0, layout.plain.y + 460.0, 120.0, 48.0),
+            in_focus(Rect::new(
+                layout.field.x + 180.0,
+                layout.field.y + 8.0,
+                88.0,
+                16.0,
+            )),
+        ];
+        assert!(
+            layout.focus.height >= 512.0,
+            "участки подложек целиком внутри"
+        );
+        let content = Rect::new(0.0, 40.0, 1180.0, 680.0);
+        for strip in GalleryStrip::ALL {
+            let fixture = strip_fixture(strip);
+            let rect = match fixture.host {
+                StripHost::FocusSurface => {
+                    let inner = Rect::new(0.0, 0.0, layout.focus.width, layout.focus.height);
+                    assert!(inner.contains(&layout.strip(strip)), "{strip:?} в подложке");
+                    in_focus(layout.strip(strip))
+                }
+                StripHost::Window => {
+                    let strip_rect = layout.strip(strip);
+                    for surface in [layout.focus, layout.plain] {
+                        assert!(
+                            !inflate(strip_rect, 4.0).intersects(&surface),
+                            "{strip:?} не накрывает подложку"
+                        );
+                    }
+                    strip_rect
+                }
+            };
+            assert_eq!(rect.width, fixture.width, "{strip:?}");
+            assert!(content.contains(&rect), "{strip:?} в содержимом");
+            assert!(!rect.intersects(&layout.marker), "{strip:?} и маркер");
+            assert!(
+                !inflate(rect, 4.0).intersects(&in_focus(layout.field)),
+                "{strip:?} и поле"
+            );
+            for region in regions {
+                assert!(
+                    !inflate(rect, 4.0).intersects(&region),
+                    "{strip:?} и {region:?}"
+                );
+            }
+            for other in GalleryStrip::ALL
+                .into_iter()
+                .filter(|other| *other != strip)
+            {
+                let other_rect = match strip_fixture(other).host {
+                    StripHost::FocusSurface => in_focus(layout.strip(other)),
+                    StripHost::Window => layout.strip(other),
+                };
+                assert!(!rect.intersects(&other_rect), "{strip:?} и {other:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn strip_fixtures_name_their_regimes_and_select_existing_tabs() {
+        for strip in GalleryStrip::ALL {
+            let fixture = strip_fixture(strip);
+            assert!(fixture.selected < fixture.tabs.len(), "{strip:?}");
+            let mut ids: Vec<&str> = fixture.tabs.iter().map(|tab| tab.id).collect();
+            ids.sort_unstable();
+            ids.dedup();
+            assert_eq!(ids.len(), fixture.tabs.len(), "{strip:?}: id уникальны");
+        }
+        let side = strip_fixture(GalleryStrip::Side);
+        let center = strip_fixture(GalleryStrip::Center);
+        assert_eq!(side.width, center.width, "пара одной ширины");
+        assert_eq!(side.tabs, center.tabs);
+        assert_ne!(side.zone, center.zone);
+        assert_eq!(side.tabs.len(), 8);
+        assert!(
+            TABS.iter().any(|tab| tab.status == StripStatus::Running)
+                && TABS.iter().any(|tab| tab.status == StripStatus::None),
+            "статусы разные"
+        );
+    }
+
+    #[test]
+    fn tab_selection_follows_commands_and_select_intents() {
+        let mut gallery = Gallery::new();
+        let mut generation = Generation::default();
+        let effect = gallery.apply(
+            GalleryCommand::TabsSelect {
+                strip: GalleryStrip::Side,
+                tab: 7,
+            },
+            &mut generation,
+        );
+        assert_eq!(effect, Effect::Tabs(GalleryStrip::Side));
+        assert_eq!(gallery.state().selected(GalleryStrip::Side), 7);
+        gallery.apply(
+            GalleryCommand::TabsSelect {
+                strip: GalleryStrip::Side,
+                tab: 8,
+            },
+            &mut generation,
+        );
+        assert_eq!(
+            gallery.state().selected(GalleryStrip::Side),
+            7,
+            "номер за фикстурой выбора не меняет"
+        );
+        let changed = gallery.intent(
+            &Intent::Tab(GalleryStrip::Center, TabAction::Select("agent".into())),
+            &mut generation,
+        );
+        assert_eq!(changed, Some(GalleryStrip::Center));
+        assert_eq!(gallery.state().selected(GalleryStrip::Center), 2);
+        let closed = gallery.intent(
+            &Intent::Tab(GalleryStrip::Center, TabAction::Close("agent".into())),
+            &mut generation,
+        );
+        assert_eq!(closed, None, "закрытие только записывается");
+        gallery.intent(
+            &Intent::Tab(GalleryStrip::Wide, TabAction::Split("columns")),
+            &mut generation,
+        );
+        let records: Vec<(&str, IntentKind, Option<&str>)> = gallery
+            .state()
+            .intents
+            .iter()
+            .map(|r| (r.component.as_str(), r.intent, r.value.as_deref()))
+            .collect();
+        assert_eq!(
+            records,
+            [
+                (ids::TABS_CENTER, IntentKind::Select, Some("agent")),
+                (ids::TABS_CENTER, IntentKind::Close, Some("agent")),
+                (ids::TABS_WIDE, IntentKind::Split, Some("columns")),
+            ]
+        );
+        gallery.apply(GalleryCommand::Reset, &mut generation);
+        assert_eq!(
+            gallery.state().selected(GalleryStrip::Side),
+            strip_fixture(GalleryStrip::Side).selected
+        );
     }
 }

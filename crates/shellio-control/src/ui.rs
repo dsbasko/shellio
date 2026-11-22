@@ -58,6 +58,9 @@ pub enum GalleryCommand {
     Place { screen: u32 },
     /// `gallery.reset`: вернуть состояние галереи к фикстуре; поколение не сбрасывается.
     Reset,
+    /// `gallery.tabs.select`: выбрать вкладку с номером `tab` в полосе `strip` тем же путём, что
+    /// намерение выбора полосы.
+    TabsSelect { strip: GalleryStrip, tab: u32 },
 }
 
 impl GalleryCommand {
@@ -72,6 +75,34 @@ impl GalleryCommand {
             Self::WindowRecreate => "gallery.window.recreate",
             Self::Place { .. } => "gallery.place",
             Self::Reset => "gallery.reset",
+            Self::TabsSelect { .. } => "gallery.tabs.select",
+        }
+    }
+}
+
+/// Полоса вкладок галереи.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GalleryStrip {
+    /// Боковая зона, 372 точки, в подложке с фокусом.
+    Side,
+    /// Центр той же ширины, в подложке с фокусом.
+    Center,
+    /// Половина центра, 560 точек, в подложке без фокуса.
+    Half,
+    /// Широкий центр, 1100 точек, в своей плитке.
+    Wide,
+}
+
+impl GalleryStrip {
+    pub const ALL: [Self; 4] = [Self::Side, Self::Center, Self::Half, Self::Wide];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Side => "side",
+            Self::Center => "center",
+            Self::Half => "half",
+            Self::Wide => "wide",
         }
     }
 }
@@ -84,15 +115,18 @@ pub enum GalleryFocus {
     Window,
     /// Поле ввода: first responder — его field editor.
     Field,
+    /// Боковая полоса вкладок: стрелки меняют выбор.
+    Tabs,
 }
 
 impl GalleryFocus {
-    pub const ALL: [Self; 2] = [Self::Window, Self::Field];
+    pub const ALL: [Self; 3] = [Self::Window, Self::Field, Self::Tabs];
 
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Window => "window",
             Self::Field => "field",
+            Self::Tabs => "tabs",
         }
     }
 }
@@ -168,6 +202,13 @@ struct PlaceArgs {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TabsSelectArgs {
+    strip: GalleryStrip,
+    tab: u32,
+}
+
+#[derive(Serialize, Deserialize)]
 enum WireUiRequest {
     #[serde(rename = "ui.window")]
     Window(NoArgs),
@@ -197,6 +238,8 @@ enum WireUiRequest {
     GalleryPlace(PlaceArgs),
     #[serde(rename = "gallery.reset")]
     GalleryReset(NoArgs),
+    #[serde(rename = "gallery.tabs.select")]
+    GalleryTabsSelect(TabsSelectArgs),
 }
 
 impl From<WireUiRequest> for UiRequest {
@@ -232,6 +275,9 @@ impl From<WireUiRequest> for UiRequest {
                 Self::Gallery(GalleryCommand::Place { screen })
             }
             WireUiRequest::GalleryReset(NoArgs {}) => Self::Gallery(GalleryCommand::Reset),
+            WireUiRequest::GalleryTabsSelect(TabsSelectArgs { strip, tab }) => {
+                Self::Gallery(GalleryCommand::TabsSelect { strip, tab })
+            }
         }
     }
 }
@@ -262,6 +308,9 @@ impl From<UiRequest> for WireUiRequest {
                 GalleryCommand::WindowRecreate => Self::GalleryWindowRecreate(NoArgs {}),
                 GalleryCommand::Place { screen } => Self::GalleryPlace(PlaceArgs { screen }),
                 GalleryCommand::Reset => Self::GalleryReset(NoArgs {}),
+                GalleryCommand::TabsSelect { strip, tab } => {
+                    Self::GalleryTabsSelect(TabsSelectArgs { strip, tab })
+                }
             },
         }
     }
@@ -460,7 +509,8 @@ pub struct IntentRecord {
     /// Идентификатор компонента в `ui.inspect`.
     pub component: String,
     pub intent: IntentKind,
-    /// Значение поля у `changed` и `submitted`, id пункта у `chosen`.
+    /// Значение поля у `changed` и `submitted`, id пункта у `chosen`, id вкладки у `select` и
+    /// `close`, ось у `split`.
     pub value: Option<String>,
 }
 
@@ -472,6 +522,16 @@ pub enum IntentKind {
     Submitted,
     Cancelled,
     Chosen,
+    /// Выбор вкладки; значение — id вкладки.
+    Select,
+    /// Закрытие вкладки; значение — id вкладки.
+    Close,
+    /// «Разделить»; значение — ось.
+    Split,
+    /// «Развернуть панель».
+    Zoom,
+    /// «Вернуть раскладку».
+    Restore,
 }
 
 /// Компонент или его часть.
@@ -506,12 +566,115 @@ pub struct ComponentView {
 }
 
 /// Состояние компонента по классу.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ComponentState {
     Chrome(ChromeView),
     TextField(TextFieldView),
     Menu(MenuView),
+    TabStrip(Box<TabStripView>),
+}
+
+/// Сторона зоны полосы вкладок.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TabZone {
+    Side,
+    Center,
+    Bottom,
+}
+
+/// Ось деления зоны.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TabAxis {
+    /// Части рядом.
+    Columns,
+    /// Части одна над другой.
+    Rows,
+}
+
+/// Режим полосы вкладок по ширине (ADR-0032).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TabRegime {
+    /// Вкладки, нагрузка и кнопки видны.
+    Visible,
+    /// Нагрузка в заголовке меню «…».
+    InMenu,
+    /// Вкладки прокручиваются.
+    Scroll,
+}
+
+/// Статус вкладки.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TabStatusView {
+    None,
+    Running,
+    Waiting,
+    Error,
+    Done,
+    Idle,
+    Exited,
+}
+
+/// Состояние `TabStrip`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TabStripView {
+    /// AX-имя полосы.
+    pub label: String,
+    pub zone: TabZone,
+    pub axis: TabAxis,
+    pub navigator: bool,
+    pub zoomed: bool,
+    /// Фокус у части: тон и линия под активной вкладкой.
+    pub focused: bool,
+    /// Полоса — first responder окна.
+    pub keyboard_focus: bool,
+    /// Режим по последней раскладке; `None` — раскладки ещё не было.
+    pub regime: Option<TabRegime>,
+    pub selected: Option<String>,
+    pub payload: Option<String>,
+    /// Нагрузка видна в строке.
+    pub payload_visible: bool,
+    /// Смещение прокрутки ряда вкладок в точках.
+    pub offset: f64,
+    pub max_offset: f64,
+    pub tabs: Vec<TabItemView>,
+    /// Кнопки справа по порядку.
+    pub buttons: Vec<StripButtonView>,
+}
+
+/// Вкладка полосы.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TabItemView {
+    pub id: String,
+    pub title: String,
+    pub kind: String,
+    pub status: TabStatusView,
+    /// Показанный значок типа; `None` — значка нет (боковая зона).
+    pub icon: Option<String>,
+    pub close_visible: bool,
+    /// Вкладка видна в ряду целиком.
+    pub fully_visible: bool,
+}
+
+/// Кнопка полосы.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StripButtonView {
+    /// `split`, `zoom`, `restore` или `menu`.
+    pub id: String,
+    pub label: String,
+    /// Системный значок; у «Разделить» он показывает ось.
+    pub symbol: String,
+    /// `toolTip`: действие и клавиша.
+    pub hint: String,
+    /// `accessibilityHelp`: клавиша или «Клавиша не назначена».
+    pub help: String,
 }
 
 /// Состояние `ChromeBar`.

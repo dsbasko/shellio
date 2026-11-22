@@ -12,6 +12,7 @@
 //! состояние изнутри вызова AppKit нет.
 
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::mem::ManuallyDrop;
 
 use shellio::gallery::{self, Effect, Generation, Intent};
@@ -19,14 +20,16 @@ use shellio::launch::WindowMode;
 use shellio::owner;
 use shellio_appkit::{
     App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, LoopMonitor, MainMenu,
-    MainThread, MainWindow, MenuAction, MenuEntry, MenuState, NodeState, Startup, TextFieldState,
-    ThemeSelection, instance_counts, late_callbacks,
+    MainThread, MainWindow, MenuAction, MenuEntry, MenuState, NodeState, Regime, SplitAxis,
+    Startup, TabStatus, TabStripFacts, TextFieldState, ThemeSelection, Transition, TransitionPath,
+    ZoneSide, instance_counts, late_callbacks,
 };
 use shellio_control::{
-    Accepted, Axis, AxisSource, ChromeView, ColorSpaceView, ComponentState, ComponentView,
-    GalleryCommand, GalleryView, InspectView, InstanceKind, InstanceView, LateCallbackView,
-    MaterialView, MenuItemView, MenuView, Rect, RunLoopView, ScreenView, Size, StartupView,
-    StatsView, TextFieldView, UiRefusal, UiReply, UiRequest, WindowView,
+    Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, ChromeView, ColorSpaceView,
+    ComponentState, ComponentView, GalleryCommand, GalleryView, InspectView, InstanceKind,
+    InstanceView, LateCallbackView, MaterialView, MenuItemView, MenuView, Rect, RunLoopView,
+    ScreenView, Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime,
+    TabStatusView, TabStripView, TabZone, TextFieldView, UiRefusal, UiReply, UiRequest, WindowView,
 };
 use shellio_core::{AppearanceChoice, Delivery, Mirror, MirrorStep, UiCommand};
 use shellio_theme::AppearanceChoice as ThemeChoice;
@@ -43,6 +46,9 @@ thread_local! {
     /// Зеркало состояния ядра; ведёт его задача владельца доставками.
     static MIRROR: RefCell<Option<Mirror>> = const { RefCell::new(None) };
 }
+
+/// Сколько последних записей держит журнал анимаций `ui.stats`.
+const ANIMATION_LOG: usize = 256;
 
 struct OwnerWindow {
     mode: WindowMode,
@@ -62,6 +68,10 @@ struct OwnerWindow {
     /// Пересоздаваемая часть: окно и дерево галереи.
     window: MainWindow,
     gallery: Option<GalleryUi>,
+    /// Смены компонентов, ещё не записанные в журнал: запись получает поколение публикации.
+    pending: Vec<(&'static str, Transition)>,
+    /// Журнал анимаций `ui.stats`.
+    animations: VecDeque<AnimationRecord>,
 }
 
 impl OwnerWindow {
@@ -70,9 +80,24 @@ impl OwnerWindow {
         self.publish();
     }
 
-    /// Текущее поколение получают монитор цикла и маркер галереи.
-    fn publish(&self) {
+    /// Текущее поколение получают монитор цикла и маркер галереи, смены компонентов уходят в
+    /// журнал анимаций с этим поколением.
+    fn publish(&mut self) {
         let generation = self.generation.get();
+        for (component, transition) in self.pending.drain(..) {
+            if self.animations.len() == ANIMATION_LOG {
+                self.animations.pop_front();
+            }
+            self.animations.push_back(AnimationRecord {
+                generation,
+                component: component.to_owned(),
+                path: match transition.path {
+                    TransitionPath::Animated => AnimationPath::Animated,
+                    TransitionPath::Instant => AnimationPath::Instant,
+                },
+                added: transition.added,
+            });
+        }
         if let Some(monitor) = &self.monitor {
             monitor.set_generation(generation);
         }
@@ -90,7 +115,8 @@ impl OwnerWindow {
         }
         self.applied = selection;
         if let Some(gallery) = &self.gallery {
-            gallery.set_theme(&selection.theme());
+            let transitions = gallery.set_theme(&selection.theme(), selection.motion);
+            self.pending.extend(transitions);
         }
         true
     }
@@ -165,9 +191,15 @@ impl OwnerWindow {
             }
             Effect::Reset => {
                 self.window.set_overrides(self.overrides());
+                let motion = self.window.selection().motion;
                 if let Some(gallery) = &self.gallery {
-                    gallery.reset_view(&self.window);
+                    let transitions = gallery.reset_view(&self.window, motion);
+                    self.pending.extend(transitions);
                 }
+            }
+            Effect::Tabs(strip) => {
+                let transition = gallery.show_tabs(strip);
+                self.pending.extend(transition);
             }
         }
         self.sync_theme();
@@ -206,7 +238,11 @@ impl OwnerWindow {
 
     fn gallery_intent(&mut self, intent: &Intent) {
         if let Some(gallery) = self.gallery.as_mut() {
-            gallery.model_mut().intent(intent, &mut self.generation);
+            let changed = gallery.model_mut().intent(intent, &mut self.generation);
+            if let Some(strip) = changed {
+                let transition = gallery.show_tabs(strip);
+                self.pending.extend(transition);
+            }
             self.publish();
         }
     }
@@ -373,7 +409,7 @@ impl OwnerWindow {
                 key_ms: startup.key_ms,
                 key_draw_ms: startup.key_draw_ms,
             }),
-            animations: Vec::new(),
+            animations: self.animations.iter().cloned().collect(),
             row_views: Vec::new(),
             gallery_trees: self
                 .gallery
@@ -476,16 +512,86 @@ fn component_state(state: NodeState) -> ComponentState {
             ComponentState::TextField(text_field_view(state, editing))
         }
         NodeState::Menu(state) => ComponentState::Menu(menu_view(state)),
+        NodeState::TabStrip(facts) => ComponentState::TabStrip(Box::new(tab_strip_view(*facts))),
+    }
+}
+
+fn tab_strip_view(facts: TabStripFacts) -> TabStripView {
+    let state = facts.state;
+    let presentation = state.presentation;
+    let tabs = state
+        .tabs
+        .iter()
+        .map(|tab| {
+            let seen = facts.tabs.iter().find(|seen| seen.id == tab.id);
+            TabItemView {
+                id: tab.id.clone(),
+                title: tab.title.clone(),
+                kind: tab.kind.clone(),
+                status: match tab.status {
+                    TabStatus::None => TabStatusView::None,
+                    TabStatus::Running => TabStatusView::Running,
+                    TabStatus::Waiting => TabStatusView::Waiting,
+                    TabStatus::Error => TabStatusView::Error,
+                    TabStatus::Done => TabStatusView::Done,
+                    TabStatus::Idle => TabStatusView::Idle,
+                    TabStatus::Exited => TabStatusView::Exited,
+                },
+                icon: seen
+                    .is_some_and(|seen| seen.icon_shown)
+                    .then(|| tab.icon.clone()),
+                close_visible: seen.is_some_and(|seen| seen.close_visible),
+                fully_visible: seen.is_some_and(|seen| seen.fully_visible),
+            }
+        })
+        .collect();
+    TabStripView {
+        label: state.label.clone(),
+        zone: match presentation.zone {
+            ZoneSide::Side => TabZone::Side,
+            ZoneSide::Center => TabZone::Center,
+            ZoneSide::Bottom => TabZone::Bottom,
+        },
+        axis: match presentation.axis() {
+            SplitAxis::Columns => TabAxis::Columns,
+            SplitAxis::Rows => TabAxis::Rows,
+        },
+        navigator: presentation.navigator,
+        zoomed: presentation.zoomed,
+        focused: state.focused,
+        keyboard_focus: facts.keyboard_focus,
+        regime: facts.regime.map(|regime| match regime {
+            Regime::Visible => TabRegime::Visible,
+            Regime::InMenu => TabRegime::InMenu,
+            Regime::Scroll => TabRegime::Scroll,
+        }),
+        selected: state.selected.clone(),
+        payload: state.payload.clone(),
+        payload_visible: facts.payload_visible,
+        offset: facts.offset,
+        max_offset: facts.max_offset,
+        tabs,
+        buttons: facts
+            .buttons
+            .into_iter()
+            .map(|button| StripButtonView {
+                id: button.button.id().to_owned(),
+                label: button.button.label().to_owned(),
+                symbol: button.symbol.to_owned(),
+                hint: button.hint,
+                help: button.help,
+            })
+            .collect(),
     }
 }
 
 fn component(node: InspectNode) -> ComponentView {
     let facts = node.facts;
     ComponentView {
-        id: node.id.to_owned(),
+        id: node.id,
         class: node.class.to_owned(),
         object: node.object,
-        parent: node.parent.map(str::to_owned),
+        parent: node.parent,
         frame: rect(facts.frame),
         visible: facts.visible,
         first_responder: facts.first_responder,
@@ -574,6 +680,8 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             applied,
             window,
             gallery,
+            pending: Vec::new(),
+            animations: VecDeque::new(),
         }));
     });
     if let Some(projection) = projection {

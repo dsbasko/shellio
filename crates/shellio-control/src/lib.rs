@@ -28,10 +28,11 @@ pub use server::{LaunchHandler, SHUTDOWN_GRACE, Server, ServerConfig, UiHandler,
 pub use ui::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, ChromeView, ClassAliveView,
     ColorSpaceView, ComponentState, ComponentView, Contrast, GalleryCommand, GalleryFocus,
-    GalleryTreeView, GalleryView, InspectView, InstanceKind, InstanceView, IntentKind,
-    IntentRecord, LateCallbackView, Lightness, MaterialView, MenuItemView, MenuView, Motion, Rect,
-    RowViewsView, RunLoopView, ScreenView, Size, StartupView, StatsView, TextFieldView, UI_TIMEOUT,
-    UiGate, UiRefusal, UiReply, UiRequest, WindowMode, WindowView,
+    GalleryStrip, GalleryTreeView, GalleryView, InspectView, InstanceKind, InstanceView,
+    IntentKind, IntentRecord, LateCallbackView, Lightness, MaterialView, MenuItemView, MenuView,
+    Motion, Rect, RowViewsView, RunLoopView, ScreenView, Size, StartupView, StatsView,
+    StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone,
+    TextFieldView, UI_TIMEOUT, UiGate, UiRefusal, UiReply, UiRequest, WindowMode, WindowView,
 };
 pub use wire::{
     Activation, Hello, HelloReply, Launch, LaunchReceipt, OkValue, OwnerState, PROTOCOL,

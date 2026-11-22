@@ -15,14 +15,15 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use shellio_control::{
-    Accepted, Activation, Axis, AxisSource, ChromeView, ClassAliveView, ColorSpaceView,
-    ComponentState, ComponentView, Contrast, ControlError, ControlErrorCode, GalleryCommand,
-    GalleryFocus, GalleryTreeView, GalleryView, Hello, HelloReply, InspectView, InstanceKind,
-    InstanceView, IntentKind, IntentRecord, LateCallbackView, Launch, LaunchReceipt, Lightness,
-    MaterialView, MenuItemView, MenuView, Motion, OkValue, OwnerState, PROTOCOL,
-    REQUEST_LINE_LIMIT, Rect, RefuseReason, RefusedArg, Rejected, Request, RequestBody, RequestId,
-    Response, RunLoopView, ScreenView, Size, StartupView, StatsView, TextFieldView, UI_TIMEOUT,
-    UiReply, UiRequest, WindowMode, WindowView,
+    Accepted, Activation, AnimationPath, AnimationRecord, Axis, AxisSource, ChromeView,
+    ClassAliveView, ColorSpaceView, ComponentState, ComponentView, Contrast, ControlError,
+    ControlErrorCode, GalleryCommand, GalleryFocus, GalleryStrip, GalleryTreeView, GalleryView,
+    Hello, HelloReply, InspectView, InstanceKind, InstanceView, IntentKind, IntentRecord,
+    LateCallbackView, Launch, LaunchReceipt, Lightness, MaterialView, MenuItemView, MenuView,
+    Motion, OkValue, OwnerState, PROTOCOL, REQUEST_LINE_LIMIT, Rect, RefuseReason, RefusedArg,
+    Rejected, Request, RequestBody, RequestId, Response, RunLoopView, ScreenView, Size,
+    StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView,
+    TabStripView, TabZone, TextFieldView, UI_TIMEOUT, UiReply, UiRequest, WindowMode, WindowView,
 };
 use shellio_core::test_support::SequentialIds;
 use shellio_core::{
@@ -170,6 +171,7 @@ fn request_golden(request: &Request) -> &'static str {
             GalleryCommand::WindowRecreate => "request.ui.gallery_window_recreate",
             GalleryCommand::Place { .. } => "request.ui.gallery_place",
             GalleryCommand::Reset => "request.ui.gallery_reset",
+            GalleryCommand::TabsSelect { .. } => "request.ui.gallery_tabs_select",
         },
     }
 }
@@ -271,6 +273,14 @@ fn requests() -> Vec<Request> {
             20,
             RequestBody::Ui(UiRequest::Gallery(GalleryCommand::Reset)),
         ),
+        // P1.3, задача 11: выбор вкладки полосы галереи.
+        request(
+            21,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::TabsSelect {
+                strip: GalleryStrip::Side,
+                tab: 7,
+            })),
+        ),
     ]
 }
 
@@ -323,6 +333,13 @@ fn response_golden(response: &Response) -> &'static str {
             }
             UiReply::Inspect(inspect)
                 if inspect.components.iter().any(|component| {
+                    matches!(component.state, Some(ComponentState::TabStrip(_)))
+                }) =>
+            {
+                "response.ok.ui.inspect.tab_strip"
+            }
+            UiReply::Inspect(inspect)
+                if inspect.components.iter().any(|component| {
                     matches!(
                         component.state,
                         Some(ComponentState::TextField(_) | ComponentState::Menu(_))
@@ -334,6 +351,9 @@ fn response_golden(response: &Response) -> &'static str {
             UiReply::Inspect(_) => "response.ok.ui.inspect",
             UiReply::Stats(stats) if !stats.gallery_trees.is_empty() => {
                 "response.ok.ui.stats.gallery"
+            }
+            UiReply::Stats(stats) if !stats.animations.is_empty() => {
+                "response.ok.ui.stats.animations"
             }
             UiReply::Stats(_) => "response.ok.ui.stats",
             UiReply::Accepted(_) => "response.ok.ui.accepted",
@@ -417,6 +437,31 @@ fn responses() -> Result<Vec<Response>, String> {
         ok(
             8,
             OkValue::Ui(UiReply::Inspect(Box::new(inspect_gallery_view()))),
+        ),
+        // P1.3, задача 11: состояние `TabStrip` и журнал анимаций; прежние эталоны не меняются.
+        ok(
+            8,
+            OkValue::Ui(UiReply::Inspect(Box::new(inspect_tab_strip_view()))),
+        ),
+        ok(
+            9,
+            OkValue::Ui(UiReply::Stats(Box::new(StatsView {
+                animations: vec![
+                    AnimationRecord {
+                        generation: 12,
+                        component: "gallery.tabs.side".into(),
+                        path: AnimationPath::Animated,
+                        added: 1,
+                    },
+                    AnimationRecord {
+                        generation: 13,
+                        component: "gallery.tabs.side".into(),
+                        path: AnimationPath::Instant,
+                        added: 0,
+                    },
+                ],
+                ..stats_view()
+            }))),
         ),
         ok(9, OkValue::Ui(UiReply::Stats(Box::new(stats_view())))),
         // P1.3, задача 10: прежние деревья галереи с живыми по классам; эталон
@@ -680,6 +725,81 @@ fn inspect_gallery_view() -> InspectView {
                 },
             ],
         }),
+    }
+}
+
+fn inspect_tab_strip_view() -> InspectView {
+    let tab = |id: &str, title: &str, status, icon: Option<&str>, close_visible, fully_visible| {
+        TabItemView {
+            id: id.into(),
+            title: title.into(),
+            kind: "terminal".into(),
+            status,
+            icon: icon.map(str::to_owned),
+            close_visible,
+            fully_visible,
+        }
+    };
+    let button = |id: &str, label: &str, symbol: &str| StripButtonView {
+        id: id.into(),
+        label: label.into(),
+        symbol: symbol.into(),
+        hint: format!("{label}. Клавиша не назначена"),
+        help: "Клавиша не назначена".into(),
+    };
+    InspectView {
+        window_number: 4242,
+        content: Size {
+            width: 1180.0,
+            height: 720.0,
+        },
+        generation: 12,
+        components: vec![ComponentView {
+            id: "gallery.tabs.side".into(),
+            class: "TabStrip".into(),
+            object: 105_553_116_268_800,
+            parent: Some("gallery.surface.focus".into()),
+            frame: rect(60.0, 530.0, 372.0, 34.0),
+            visible: true,
+            first_responder: true,
+            enabled: None,
+            role: Some("AXTabGroup".into()),
+            label: Some("Вкладки боковой зоны".into()),
+            help: None,
+            selected: None,
+            expanded: None,
+            animation_keys: 1,
+            state: Some(ComponentState::TabStrip(Box::new(TabStripView {
+                label: "Вкладки боковой зоны".into(),
+                zone: TabZone::Side,
+                axis: TabAxis::Rows,
+                navigator: false,
+                zoomed: false,
+                focused: true,
+                keyboard_focus: true,
+                regime: Some(TabRegime::Scroll),
+                selected: Some("review".into()),
+                payload: Some("1,24 ГБ · 3,5 % CPU".into()),
+                payload_visible: false,
+                offset: 312.5,
+                max_offset: 312.5,
+                tabs: vec![
+                    tab("term", "zsh", TabStatusView::Running, None, false, false),
+                    tab("review", "Ревью", TabStatusView::None, None, false, true),
+                ],
+                buttons: vec![
+                    button("split", "Разделить: одна над другой", "rectangle.split.1x2"),
+                    button(
+                        "zoom",
+                        "Развернуть панель",
+                        "arrow.up.left.and.arrow.down.right",
+                    ),
+                    button("menu", "Действия панели", "ellipsis"),
+                ],
+            }))),
+        }],
+        materials: Vec::new(),
+        gallery: None,
     }
 }
 

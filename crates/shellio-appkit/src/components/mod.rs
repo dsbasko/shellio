@@ -3,4 +3,5 @@
 //! главном потоке, который применяет операции к AppKit. Доменное состояние в `NSView` не хранится.
 
 pub(crate) mod menu;
+pub(crate) mod tab_strip;
 pub(crate) mod text_field;

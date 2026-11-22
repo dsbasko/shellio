@@ -10,6 +10,7 @@ use objc2_quartz_core::CALayer;
 
 use crate::chrome_bar::{ChromeState, Frame};
 use crate::components::menu::MenuState;
+use crate::components::tab_strip::TabStripFacts;
 use crate::components::text_field::TextFieldState;
 
 /// Факты одного вида.
@@ -32,7 +33,7 @@ pub struct ViewFacts {
 }
 
 /// Состояние компонента по классу.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum NodeState {
     Chrome(ChromeState),
     /// Поле ввода: состояние, которое показывает вид, и идёт ли ввод.
@@ -42,17 +43,19 @@ pub enum NodeState {
     },
     /// Меню кнопки: пункты, открыто ли, подсвеченный пункт.
     Menu(MenuState),
+    /// Полоса вкладок: состояние, режим по ширине, прокрутка и факты частей.
+    TabStrip(Box<TabStripFacts>),
 }
 
 /// Компонент или его часть в дереве `ui.inspect`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct InspectNode {
     /// Устойчивое имя в окне.
-    pub id: &'static str,
+    pub id: String,
     pub class: &'static str,
     /// Адрес объекта вида: идентичность в процессе.
     pub object: u64,
-    pub parent: Option<&'static str>,
+    pub parent: Option<String>,
     pub facts: ViewFacts,
     pub state: Option<NodeState>,
 }
@@ -172,18 +175,18 @@ const UNKNOWN_ROLE: &str = "AXUnknown";
 
 /// Узел дерева по виду.
 pub(crate) fn node(
-    id: &'static str,
+    id: &str,
     class: &'static str,
-    parent: Option<&'static str>,
+    parent: Option<&str>,
     view: &NSView,
     enabled: Option<bool>,
     state: Option<NodeState>,
 ) -> InspectNode {
     InspectNode {
-        id,
+        id: id.to_owned(),
         class,
         object: object_id(view),
-        parent,
+        parent: parent.map(str::to_owned),
         facts: facts(view, enabled),
         state,
     }
@@ -300,4 +303,61 @@ pub(crate) fn screen_index(window: &NSWindow, mtm: MainThreadMarker) -> Option<u
     NSScreen::screens(mtm)
         .iter()
         .position(|candidate| std::ptr::eq(&*candidate, &*screen))
+}
+
+/// Путь смены состояния компонента: с анимацией или без.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TransitionPath {
+    Animated,
+    Instant,
+}
+
+/// Смена состояния компонента для журнала анимаций `ui.stats`: путь и число анимаций, которых не
+/// было у слоёв компонента до смены.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Transition {
+    pub path: TransitionPath,
+    pub added: u32,
+}
+
+impl Transition {
+    /// Смена без анимаций.
+    pub const INSTANT: Transition = Transition {
+        path: TransitionPath::Instant,
+        added: 0,
+    };
+}
+
+/// Анимации у слоя и всех его подслоёв: адрес слоя, ключ и адрес объекта анимации.
+pub(crate) fn animation_set(layer: &CALayer) -> Vec<(usize, String, usize)> {
+    let mut found = Vec::new();
+    collect_animations(layer, &mut found);
+    found
+}
+
+fn collect_animations(layer: &CALayer, found: &mut Vec<(usize, String, usize)>) {
+    if let Some(keys) = layer.animationKeys() {
+        for key in keys.iter() {
+            // SAFETY: ключ взят из `animationKeys` того же слоя на главном потоке, результат
+            // читается сразу.
+            let animation = unsafe { layer.animationForKey(&key) };
+            let address = animation.map_or(0, |animation| object_id(&*animation) as usize);
+            found.push((object_id(layer) as usize, key.to_string(), address));
+        }
+    }
+    // SAFETY: `sublayers` у живого слоя на главном потоке; массив читается сразу.
+    if let Some(children) = unsafe { layer.sublayers() } {
+        for child in children.iter() {
+            collect_animations(&child, found);
+        }
+    }
+}
+
+/// Сколько анимаций из `after` не было в `before`: новая анимация под прежним ключом тоже новая.
+pub(crate) fn added_animations(
+    before: &[(usize, String, usize)],
+    after: &[(usize, String, usize)],
+) -> u32 {
+    let added = after.iter().filter(|entry| !before.contains(entry)).count();
+    u32::try_from(added).unwrap_or(u32::MAX)
 }

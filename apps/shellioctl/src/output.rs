@@ -10,7 +10,7 @@ use std::io::{self, Write};
 use shellio_control::{
     Activation, AxisSource, ClientError, ComponentState, ComponentView, Contrast, ControlError,
     Exit, GalleryView, HelloReply, InspectView, IntentKind, LaunchReceipt, Lightness, Motion,
-    OkValue, OwnerState, Rect, Response, StatsView, UiReply, WindowView, encode_line,
+    OkValue, OwnerState, Rect, Response, StatsView, TabRegime, UiReply, WindowView, encode_line,
 };
 use shellio_core::{
     Change, CommandValue, Event, EventsSince, Reply, ReplyValue, RootKind, Route, StatusView,
@@ -424,6 +424,18 @@ fn component_text(component: &ComponentView) -> String {
             yes_no(menu.open),
             menu.items.len()
         )),
+        Some(ComponentState::TabStrip(strip)) => facts.push(format!(
+            "вкладок {}, выбрана {}, режим {}, нагрузка в строке — {}, смещение {}",
+            strip.tabs.len(),
+            strip.selected.as_deref().unwrap_or("нет"),
+            strip.regime.map_or("нет", |regime| match regime {
+                TabRegime::Visible => "visible",
+                TabRegime::InMenu => "in_menu",
+                TabRegime::Scroll => "scroll",
+            }),
+            yes_no(strip.payload_visible),
+            strip.offset
+        )),
         None => {}
     }
     format!(
@@ -487,6 +499,11 @@ const fn intent_text(value: IntentKind) -> &'static str {
         IntentKind::Submitted => "submitted",
         IntentKind::Cancelled => "cancelled",
         IntentKind::Chosen => "chosen",
+        IntentKind::Select => "select",
+        IntentKind::Close => "close",
+        IntentKind::Split => "split",
+        IntentKind::Zoom => "zoom",
+        IntentKind::Restore => "restore",
     }
 }
 

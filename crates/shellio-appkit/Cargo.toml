@@ -33,6 +33,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "NSFont",
     "NSFontDescriptor",
     "NSGraphics",
+    "NSGraphicsContext",
     "NSImage",
     "NSImageView",
     "NSLayoutConstraint",
@@ -44,6 +45,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "NSScreen",
     "NSText",
     "NSTextField",
+    "NSTrackingArea",
     "NSView",
     "NSWindow",
     "NSWorkspace",
@@ -65,6 +67,7 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "NSThread",
     "NSURL",
     "NSUserDefaults",
+    "NSValue",
 ] }
 objc2-core-foundation = { version = "0.3.2", default-features = false, features = [
     "std",
@@ -76,8 +79,11 @@ objc2-quartz-core = { version = "0.3.2", default-features = false, features = [
     "std",
     "objc2-core-foundation",
     "objc2-core-graphics",
+    "CAAnimation",
     "CABase",
     "CALayer",
+    "CAMediaTiming",
+    "CAMediaTimingFunction",
     "CATransaction",
 ] }
 shellio-theme = { path = "../shellio-theme" }

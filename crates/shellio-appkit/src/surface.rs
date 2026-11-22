@@ -185,7 +185,7 @@ impl Surface {
     }
 
     /// Подложка для `ui.inspect`.
-    pub fn inspect(&self, id: &'static str, parent: Option<&'static str>) -> Vec<InspectNode> {
+    pub fn inspect(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {
         vec![inspect::node(
             id,
             "Surface",

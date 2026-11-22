@@ -18,8 +18,9 @@
 //! ячейки темы [`CellObserver`] и монитор цикла главного потока [`LoopMonitor`]. Окно владельца
 //! [`MainWindow`] с заголовком [`ChromeBar`] создаётся после выбора роли, главное меню
 //! [`MainMenu`] вызывает один обработчик действий, повторное открытие приложения приходит
-//! делегату ([`Delegate::reopen`]). Компоненты ADR-0002 [`TextField`] и [`Menu`] (с кнопкой
-//! [`MenuButton`]) разделены на чистую часть и вид; главное меню построено на [`Menu`].
+//! делегату ([`Delegate::reopen`]). Компоненты ADR-0002 [`TextField`], [`Menu`] (с кнопкой
+//! [`MenuButton`]) и [`TabStrip`] разделены на чистую часть и вид; главное меню построено на
+//! [`Menu`]. Смена состояния компонента отдаёт [`Transition`] для журнала анимаций.
 //! Компоненты размещаются в окне и в подложке через [`Piece`], галерея получает маркер поколения
 //! [`GenerationMarker`] и слабое наблюдение за видами освобождённого дерева [`ViewWatch`].
 
@@ -49,6 +50,16 @@ pub use components::menu::{
     ItemChange, Menu, MenuButton, MenuEntry, MenuError, MenuIntent, MenuItem, MenuKey, MenuOp,
     MenuState, check_ids as check_menu_ids, diff as menu_diff,
 };
+pub use components::tab_strip::layout::{
+    Regime, StripLayout, TabParts, layout as tab_strip_layout, regime as tab_strip_regime,
+    tab_parts,
+};
+pub use components::tab_strip::model::{
+    ButtonKeys, NO_KEY, PAYLOAD_ITEM, Presentation, SplitAxis, StripButton, StripKey, StripOp, Tab,
+    TabChange, TabError, TabIntent, TabOp, TabStatus, TabStripState, ZoneSide,
+    diff as tab_strip_diff, diff_tabs, key_intent, menu_entries as tab_menu_entries,
+};
+pub use components::tab_strip::{ButtonFacts, TabFacts, TabStrip, TabStripFacts};
 pub use components::text_field::{
     TextField, TextFieldIntent, TextFieldOp, TextFieldState, preferred_height as text_field_height,
 };
@@ -56,7 +67,8 @@ pub use counters::{
     CountKind, InstanceCount, LateCallbacks, instance_counts, late_callbacks, late_callbacks_total,
 };
 pub use inspect::{
-    InspectNode, Inspection, MaterialFact, NodeState, ScreenFacts, ViewFacts, WindowFacts,
+    InspectNode, Inspection, MaterialFact, NodeState, ScreenFacts, Transition, TransitionPath,
+    ViewFacts, WindowFacts,
 };
 pub use main_menu::{MainMenu, MenuAction};
 pub use marker::{GenerationMarker, MARKER_CELL, MARKER_CELLS, marker_bit};

@@ -922,7 +922,7 @@ impl MenuButton {
     }
 
     /// Кнопка для `ui.inspect` с состоянием меню: пункты, открыто ли, подсвеченный пункт.
-    pub fn inspect(&self, id: &'static str, parent: Option<&'static str>) -> Vec<InspectNode> {
+    pub fn inspect(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {
         let button = self.view.view();
         vec![inspect::node(
             id,

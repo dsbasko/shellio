@@ -1,0 +1,9 @@
+{
+  "id": 21,
+  "ui": {
+    "gallery.tabs.select": {
+      "strip": "side",
+      "tab": 7
+    }
+  }
+}

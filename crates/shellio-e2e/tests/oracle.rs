@@ -9,9 +9,10 @@ use std::path::Path;
 use std::process::Command;
 
 use serde_json::json;
-use shellio_e2e::css::{Appearance, Cell, Contrast, Palette, Rgb};
+use shellio_e2e::css::{Appearance, Cell, Contrast, Layer, Palette, Rgb};
 use shellio_e2e::expect::{self, Expectations, Geometry, InspectView, WindowView};
 use shellio_e2e::png::{self as snapshot, Image, SrgbTag};
+use shellio_e2e::underline::{UnderlineInputs, UnderlineReport, underline};
 use shellio_e2e::{Inputs, Report, TOLERANCE, Verdict, compare, read_marker};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -39,7 +40,7 @@ const fn top(x: f64, y: f64, w: f64, h: f64) -> Top {
 
 /// Узлы галереи как в дымовом прогоне задачи 8: id, родитель, кадр протокола (начало внизу
 /// слева) и тот же кадр сверху слева.
-const NODES: [(&str, Option<&str>, [f64; 4], Top); 10] = [
+const NODES: [(&str, Option<&str>, [f64; 4], Top); 15] = [
     (
         "chrome",
         None,
@@ -79,8 +80,8 @@ const NODES: [(&str, Option<&str>, [f64; 4], Top); 10] = [
     (
         "gallery.surface.focus",
         None,
-        [48.0, 12.0, 554.0, 656.0],
-        top(48.0, 52.0, 554.0, 656.0),
+        [48.0, 104.0, 554.0, 564.0],
+        top(48.0, 52.0, 554.0, 564.0),
     ),
     (
         "gallery.field",
@@ -97,8 +98,40 @@ const NODES: [(&str, Option<&str>, [f64; 4], Top); 10] = [
     (
         "gallery.surface.plain",
         None,
-        [614.0, 12.0, 554.0, 656.0],
-        top(614.0, 52.0, 554.0, 656.0),
+        [614.0, 104.0, 554.0, 564.0],
+        top(614.0, 52.0, 554.0, 564.0),
+    ),
+    // Полосы вкладок по раскладке задачи 11: `side` в подложке с фокусом, `wide` и `half` под
+    // подложками.
+    (
+        "gallery.tabs.side",
+        Some("gallery.surface.focus"),
+        [60.0, 578.0, 372.0, 34.0],
+        top(60.0, 108.0, 372.0, 34.0),
+    ),
+    (
+        "gallery.tabs.side.tab.term",
+        Some("gallery.tabs.side"),
+        [64.0, 583.0, 51.0, 26.0],
+        top(64.0, 111.0, 51.0, 26.0),
+    ),
+    (
+        "gallery.tabs.wide",
+        None,
+        [48.0, 58.0, 1100.0, 34.0],
+        top(48.0, 628.0, 1100.0, 34.0),
+    ),
+    (
+        "gallery.tabs.wide.tab.build",
+        Some("gallery.tabs.wide"),
+        [148.0, 63.0, 119.0, 26.0],
+        top(148.0, 631.0, 119.0, 26.0),
+    ),
+    (
+        "gallery.tabs.half",
+        None,
+        [48.0, 12.0, 560.0, 34.0],
+        top(48.0, 674.0, 560.0, 34.0),
     ),
 ];
 
@@ -115,13 +148,18 @@ const DARK_IC: Cell = Cell::new(Appearance::Dark, Contrast::Increased);
 const LIGHT_IC: Cell = Cell::new(Appearance::Light, Contrast::Increased);
 
 /// Цвета частей галереи, посчитанные вручную: заливка `chrome`; `panel` под тоном навигации;
-/// `panel` под вуалью; `surface` поля под тоном навигации подложки.
+/// `panel` под вуалью; `surface` поля под тоном навигации подложки; `panel` и `panel-head` без
+/// слоя — столбцы таблицы ADR-0027; `--nav-line` ячейки — линия под вкладкой (под тоном того же
+/// цвета она не меняется).
 #[derive(Clone, Copy)]
 struct Colors {
     chrome: Rgb,
     focus: Rgb,
     plain: Rgb,
     field: Rgb,
+    panel: Rgb,
+    panel_head: Rgb,
+    line: Rgb,
 }
 
 fn colors(cell: Cell) -> Colors {
@@ -132,24 +170,36 @@ fn colors(cell: Cell) -> Colors {
             focus: rgb(16, 16, 17),
             plain: rgb(28, 26, 24),
             field: rgb(30, 31, 31),
+            panel: rgb(10, 9, 8),
+            panel_head: rgb(17, 16, 14),
+            line: rgb(127, 155, 192),
         },
         (Appearance::Light, Contrast::Normal) => Colors {
             chrome: rgb(239, 237, 232),
             focus: rgb(251, 252, 253),
             plain: rgb(244, 243, 242),
             field: rgb(246, 246, 244),
+            panel: rgb(255, 255, 255),
+            panel_head: rgb(248, 247, 243),
+            line: rgb(72, 103, 140),
         },
         (Appearance::Dark, Contrast::Increased) => Colors {
             chrome: rgb(30, 29, 27),
             focus: rgb(17, 18, 19),
             plain: rgb(27, 26, 25),
             field: rgb(31, 32, 32),
+            panel: rgb(10, 9, 8),
+            panel_head: rgb(17, 16, 14),
+            line: rgb(127, 155, 192),
         },
         (Appearance::Light, Contrast::Increased) => Colors {
             chrome: rgb(239, 237, 232),
             focus: rgb(248, 249, 250),
             plain: rgb(236, 236, 235),
             field: rgb(243, 243, 242),
+            panel: rgb(255, 255, 255),
+            panel_head: rgb(248, 247, 243),
+            line: rgb(72, 103, 140),
         },
     }
 }
@@ -231,8 +281,25 @@ impl Canvas {
         canvas.fill(node("gallery.surface.plain"), colors.plain);
         canvas.fill(node("gallery.field"), colors.field);
         canvas.fill(node("gallery.menu"), BUTTON);
+        canvas.fill(node("gallery.tabs.side"), BUTTON);
+        canvas.fill(node("gallery.tabs.side.tab.term"), colors.focus);
+        canvas.fill(node("gallery.tabs.wide"), colors.panel_head);
+        canvas.fill(node("gallery.tabs.wide.tab.build"), colors.panel);
+        canvas.fill(node("gallery.tabs.half"), colors.panel_head);
         canvas.marker(generation);
         canvas
+    }
+
+    /// Линия под вкладкой `gallery.tabs.side.tab.term` толщиной `thickness` точек: низ на 4
+    /// точки ниже вкладки, отступ 8 точек от её краёв, под ней линия полосы в 1 точку.
+    fn underline(&mut self, color: Rgb, thickness: f64) {
+        let tab = node("gallery.tabs.side.tab.term");
+        let bottom = tab.y + tab.h + 4.0;
+        self.fill(
+            top(tab.x + 8.0, bottom - thickness, tab.w - 16.0, thickness),
+            color,
+        );
+        self.fill(top(tab.x - 4.0, bottom, tab.w + 8.0, 1.0), BUTTON);
     }
 }
 
@@ -446,7 +513,7 @@ fn matching_snapshot_passes_in_every_cell() -> Result<()> {
         let png = encode(&Canvas::gallery(2.0, colors(cell), 9), Tag::Srgb)?;
         let report = Case::new(cell, 9)?.run(&png)?;
         assert_eq!(report.verdict, Verdict::Pass, "{cell}: {:?}", report.reason);
-        assert_eq!(report.regions.len(), 4, "{cell}");
+        assert_eq!(report.regions.len(), 8, "{cell}");
         for region in &report.regions {
             assert_eq!(region.max_delta, 0, "{cell}: {}", region.id);
             assert_eq!(region.transparent, 0);
@@ -501,13 +568,15 @@ fn flipped_snapshot_fails() -> Result<()> {
         .filter(|region| !region.pass)
         .map(|region| region.id.as_str())
         .collect();
-    // Подложка без фокуса тянется почти на всю высоту и под отражением остаётся собой.
+    // Участки подложек лежат в середине высоты и под отражением остаются в своих подложках;
+    // участок поля попадает на заголовок полосы `wide`, который в светлой ячейке ближе допуска.
     assert_eq!(
         failed,
         [
             "chrome.background",
-            "surface.focus.background",
-            "field.background"
+            "tabs.wide.head",
+            "tabs.half.head",
+            "tabs.wide.selected"
         ]
     );
     Ok(())
@@ -544,7 +613,7 @@ fn four_units_off_fails_and_three_passes() -> Result<()> {
 fn median_ignores_a_minority_of_outliers() -> Result<()> {
     let mut canvas = Canvas::gallery(2.0, colors(DARK), 9);
     canvas.fill(
-        top(48.0 + 24.0, 52.0 + 560.0, 20.0, 48.0),
+        top(48.0 + 24.0, 52.0 + 460.0, 20.0, 48.0),
         Rgb::new(250, 250, 250),
     );
     let report = Case::new(DARK, 9)?.run(&encode(&canvas, Tag::Srgb)?)?;
@@ -795,6 +864,10 @@ fn committed_expectations_cover_the_milestone_regions() -> Result<()> {
         "surface.focus.background",
         "surface.plain.background",
         "field.background",
+        "tabs.wide.head",
+        "tabs.half.head",
+        "tabs.wide.selected",
+        "tabs.side.selected",
     ];
     for cell in [LIGHT, DARK, LIGHT_IC, DARK_IC] {
         let expectations = load_expectations(cell)?;
@@ -928,5 +1001,177 @@ fn binary_reports_verdicts_with_exit_codes() -> Result<()> {
     assert_eq!(oracle(&["unknown"])?.0, 2);
     assert_eq!(oracle(&[])?.0, 2);
     assert_eq!(oracle(&["--help"])?.0, 0);
+    Ok(())
+}
+
+const SIDE_TAB: &str = "gallery.tabs.side.tab.term";
+
+fn underline_report(
+    cell: Cell,
+    scale: f64,
+    canvas: &Canvas,
+    expected_generation: u64,
+) -> std::result::Result<UnderlineReport, String> {
+    let palette = Palette::embedded().map_err(|e| e.to_string())?;
+    let window = expect::parse_window(&window_json(cell, scale, expected_generation))
+        .map_err(|e| e.to_string())?;
+    let inspect =
+        expect::parse_inspect(&inspect_json(expected_generation)).map_err(|e| e.to_string())?;
+    let png = encode(canvas, Tag::Srgb).map_err(|e| e.to_string())?;
+    let image = snapshot::decode(&png).map_err(|e| e.to_string())?;
+    underline(&UnderlineInputs {
+        palette: &palette,
+        window: &window,
+        inspect: &inspect,
+        image: &image,
+        tab: SIDE_TAB,
+        layer: Layer::ToneNavigation,
+        generation: expected_generation,
+    })
+    .map_err(|e| e.to_string())
+}
+
+/// `--focus-h` каждой ячейки, выписанный вручную из `tokens.css`: 2px, в Increase Contrast 3px.
+fn focus_h(cell: Cell) -> f64 {
+    match cell.contrast {
+        Contrast::Normal => 2.0,
+        Contrast::Increased => 3.0,
+    }
+}
+
+#[test]
+fn underline_of_its_cell_thickness_passes_at_both_scales() -> Result<()> {
+    for scale in [2.0, 1.0] {
+        for cell in Cell::ALL {
+            let mut canvas = Canvas::gallery(scale, colors(cell), 9);
+            canvas.underline(colors(cell).line, focus_h(cell));
+            let report = underline_report(cell, scale, &canvas, 9)?;
+            assert_eq!(
+                report.verdict,
+                Verdict::Pass,
+                "{cell} × {scale}: {:?}",
+                report.reason
+            );
+            assert_eq!(report.thickness_points, Some(focus_h(cell)), "{cell}");
+            assert_eq!(report.expected_points, Some(focus_h(cell)));
+            assert_eq!(report.middle, Some(colors(cell).line));
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn underline_of_another_thickness_or_none_fails() -> Result<()> {
+    // Толщина другой ячейки: 3 точки в обычной, 2 — в Increase Contrast.
+    for cell in Cell::ALL {
+        let mut canvas = Canvas::gallery(2.0, colors(cell), 9);
+        canvas.underline(colors(cell).line, 5.0 - focus_h(cell));
+        let report = underline_report(cell, 2.0, &canvas, 9)?;
+        assert_eq!(report.verdict, Verdict::Mismatch, "{cell}");
+        assert!(
+            report
+                .reason
+                .as_deref()
+                .is_some_and(|r| r.contains("толщина")),
+            "{:?}",
+            report.reason
+        );
+    }
+    let canvas = Canvas::gallery(2.0, colors(DARK), 9);
+    let report = underline_report(DARK, 2.0, &canvas, 9)?;
+    assert_eq!(report.verdict, Verdict::Mismatch, "линии нет");
+    // Линия цвета другой ячейки не принимается.
+    let mut canvas = Canvas::gallery(2.0, colors(DARK), 9);
+    canvas.underline(colors(LIGHT).line, 2.0);
+    let report = underline_report(DARK, 2.0, &canvas, 9)?;
+    assert_eq!(report.verdict, Verdict::Mismatch, "чужой цвет");
+    Ok(())
+}
+
+#[test]
+fn underline_without_its_edge_fails() -> Result<()> {
+    // Линия цвета `--focus` от низа вкладки до конца столбца: нижнего края нет.
+    let mut canvas = Canvas::gallery(2.0, colors(DARK), 9);
+    let tab = node(SIDE_TAB);
+    canvas.fill(
+        top(tab.x + 8.0, tab.y + tab.h + 2.0, tab.w - 16.0, 20.0),
+        colors(DARK).line,
+    );
+    let report = underline_report(DARK, 2.0, &canvas, 9)?;
+    assert_eq!(report.verdict, Verdict::Mismatch);
+    assert!(
+        report.reason.as_deref().is_some_and(|r| r.contains("край")),
+        "{:?}",
+        report.reason
+    );
+    Ok(())
+}
+
+#[test]
+fn underline_of_another_generation_is_not_observed() -> Result<()> {
+    let mut canvas = Canvas::gallery(2.0, colors(DARK), 5);
+    canvas.underline(colors(DARK).line, 2.0);
+    let report = underline_report(DARK, 2.0, &canvas, 9)?;
+    assert_eq!(report.verdict, Verdict::Generation);
+    assert!(report.thickness_points.is_none(), "линия не мерилась");
+    Ok(())
+}
+
+#[test]
+fn binary_measures_the_underline_with_exit_codes() -> Result<()> {
+    let dir = tempfile::tempdir()?;
+    let dir = dir.path();
+    let window = write(dir, "window.json", window_json(DARK_IC, 2.0, 9).as_bytes())?;
+    let inspect = write(dir, "inspect.json", inspect_json(9).as_bytes())?;
+    let mut canvas = Canvas::gallery(2.0, colors(DARK_IC), 9);
+    canvas.underline(colors(DARK_IC).line, 3.0);
+    let good = write(dir, "good.png", &encode(&canvas, Tag::Srgb)?)?;
+    let mut thin = Canvas::gallery(2.0, colors(DARK_IC), 9);
+    thin.underline(colors(DARK_IC).line, 2.0);
+    let thin = write(dir, "thin.png", &encode(&thin, Tag::Srgb)?)?;
+    let args = |png: &str| {
+        vec![
+            "underline",
+            "--tab",
+            SIDE_TAB,
+            "--layer",
+            "tone_navigation",
+            "--inspect",
+            inspect.as_str(),
+            "--window",
+            window.as_str(),
+            "--png",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .chain([png.to_owned()])
+        .collect::<Vec<String>>()
+    };
+    let run = |args: Vec<String>| {
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
+        oracle(&args)
+    };
+    let (code, stdout, _) = run(args(&good))?;
+    assert_eq!(code, 0, "{stdout}");
+    let report: serde_json::Value = serde_json::from_str(&stdout)?;
+    assert_eq!(report["verdict"], "pass");
+    assert_eq!(report["thickness_points"], 3.0);
+    let (code, _, _) = run(args(&thin))?;
+    assert_eq!(code, 3);
+    let mut later = args(&good);
+    later.extend(["--generation".to_owned(), "10".to_owned()]);
+    assert_eq!(run(later)?.0, 4);
+    let (code, _, _) = run(vec![
+        "underline".to_owned(),
+        "--inspect".to_owned(),
+        inspect.clone(),
+    ])?;
+    assert_eq!(code, 2, "без --tab");
+    let mut bad_layer = args(&good);
+    bad_layer[4] = "glass".to_owned();
+    assert_eq!(run(bad_layer)?.0, 2);
+    let mut compare_with_tab = args(&good);
+    compare_with_tab[0] = "compare".to_owned();
+    assert_eq!(run(compare_with_tab)?.0, 2);
     Ok(())
 }
