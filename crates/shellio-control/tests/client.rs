@@ -16,7 +16,7 @@ use shellio_control::{
     Activation, Address, Client, ClientError, ControlError, ControlErrorCode, Exit, HelloReply,
     LOCK_FILE, Launch, LaunchHandler, LaunchReceipt, LineReader, OkValue, OwnerState, Ownership,
     REQUEST_LINE_LIMIT, RequestBody, RequestId, Response, SHUTDOWN_GRACE, SOCKET_FILE, Server,
-    ServerConfig, Session, encode_line,
+    ServerConfig, Session, WithoutUi, encode_line,
 };
 use shellio_core::test_support::{
     FakeRootResolver, ManualClock as CoreClock, MemoryPersist, SequentialIds,
@@ -118,6 +118,7 @@ impl Owner {
             listener,
             core,
             Launcher,
+            WithoutUi,
             ManualClock::new(),
             config,
         )?;

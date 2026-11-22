@@ -8,8 +8,9 @@ use std::fmt::{self, Write as _};
 use std::io::{self, Write};
 
 use shellio_control::{
-    Activation, ClientError, ControlError, Exit, HelloReply, LaunchReceipt, OkValue, OwnerState,
-    Response, encode_line,
+    Activation, AxisSource, ClientError, ComponentState, ComponentView, Contrast, ControlError,
+    Exit, HelloReply, InspectView, LaunchReceipt, Lightness, Motion, OkValue, OwnerState, Rect,
+    Response, StatsView, UiReply, WindowView, encode_line,
 };
 use shellio_core::{
     Change, CommandValue, Event, EventsSince, Reply, ReplyValue, RootKind, Route, StatusView,
@@ -126,6 +127,7 @@ fn text(frame: &Response) -> Text {
             OkValue::Reply(reply) => reply_text(reply),
             OkValue::EventsSince(since) => events_since_text(since),
             OkValue::Launch(receipt) => receipt_text(receipt),
+            OkValue::Ui(reply) => ui_text(reply),
         }),
         Response::Snapshot { snapshot, .. } => {
             Text::Out(format!("снимок: ревизия {}\n", snapshot.revision.0))
@@ -294,6 +296,212 @@ fn receipt_text(receipt: &LaunchReceipt) -> String {
     for refused in &receipt.refused {
         let _ = writeln!(out, "{}: {}", refused.arg, refused.reason.message());
     }
+    out
+}
+
+fn ui_text(reply: &UiReply) -> String {
+    match reply {
+        UiReply::Window(window) => window_text(window),
+        UiReply::Inspect(inspect) => inspect_text(inspect),
+        UiReply::Stats(stats) => stats_text(stats),
+        UiReply::Accepted(accepted) => format!(
+            "принято: {}, PID {}, поколение {}\n",
+            accepted.command, accepted.pid, accepted.generation
+        ),
+    }
+}
+
+fn rect_text(rect: &Rect) -> String {
+    format!("{}×{} в ({}, {})", rect.width, rect.height, rect.x, rect.y)
+}
+
+fn yes_no(fact: bool) -> &'static str {
+    if fact { "да" } else { "нет" }
+}
+
+fn source_text(source: AxisSource) -> &'static str {
+    match source {
+        AxisSource::System => "система",
+        AxisSource::UiAppearance => "ui.appearance",
+        AxisSource::Gallery => "галерея",
+    }
+}
+
+fn window_text(window: &WindowView) -> String {
+    let mut out = format!(
+        "окно {} владельца PID {}, режим {}\n",
+        window.window_number,
+        window.pid,
+        match window.mode {
+            shellio_control::WindowMode::Normal => "normal",
+            shellio_control::WindowMode::Gallery => "gallery",
+        }
+    );
+    let _ = writeln!(out, "заголовок «{}»", window.title);
+    let _ = writeln!(
+        out,
+        "кадр {}, масштаб {}, видимо — {}, key — {}",
+        rect_text(&window.frame),
+        window.backing_scale_factor,
+        yes_no(window.visible),
+        yes_no(window.key)
+    );
+    let _ = writeln!(
+        out,
+        "пространство цвета {}, sRGB — {}",
+        window.color_space.name.as_deref().unwrap_or("нет"),
+        yes_no(window.color_space.srgb)
+    );
+    let _ = writeln!(
+        out,
+        "оформление {}: светлота {} ({}), контраст {} ({}), движение {} ({})",
+        window.appearance_choice.as_str(),
+        match window.lightness.value {
+            Lightness::Light => "светлая",
+            Lightness::Dark => "тёмная",
+        },
+        source_text(window.lightness.source),
+        match window.contrast.value {
+            Contrast::Normal => "обычный",
+            Contrast::Increased => "повышенный",
+        },
+        source_text(window.contrast.source),
+        match window.motion.value {
+            Motion::Normal => "обычное",
+            Motion::Reduced => "уменьшенное",
+        },
+        source_text(window.motion.source),
+    );
+    for screen in &window.screens {
+        let current = if window.screen == Some(screen.index) {
+            ", окно здесь"
+        } else {
+            ""
+        };
+        let _ = writeln!(
+            out,
+            "экран {} «{}»: {}, масштаб {}, до {} кадров/с{current}",
+            screen.index,
+            screen.name,
+            rect_text(&screen.frame),
+            screen.backing_scale_factor,
+            screen.maximum_frames_per_second
+        );
+    }
+    let revision = window
+        .mirror_revision
+        .map_or_else(|| "нет".to_owned(), |revision| revision.to_string());
+    let _ = writeln!(
+        out,
+        "ревизия зеркала {revision}, поколение {}",
+        window.generation
+    );
+    out
+}
+
+fn component_text(component: &ComponentView) -> String {
+    let mut facts = vec![rect_text(&component.frame)];
+    if let Some(role) = &component.role {
+        facts.push(format!("роль {role}"));
+    }
+    if let Some(label) = &component.label {
+        facts.push(format!("«{label}»"));
+    }
+    if let Some(enabled) = component.enabled {
+        facts.push(format!("доступен — {}", yes_no(enabled)));
+    }
+    facts.push(format!("видим — {}", yes_no(component.visible)));
+    if component.first_responder {
+        facts.push("first responder".to_owned());
+    }
+    if component.animation_keys > 0 {
+        facts.push(format!("анимаций {}", component.animation_keys));
+    }
+    if let Some(ComponentState::Chrome(chrome)) = &component.state {
+        facts.push(format!(
+            "воркспейс «{}», оформление {}",
+            chrome.workspace_text,
+            chrome.appearance_choice.as_str()
+        ));
+    }
+    format!(
+        "{} ({}): {}\n",
+        component.id,
+        component.class,
+        facts.join(", ")
+    )
+}
+
+fn inspect_text(inspect: &InspectView) -> String {
+    let mut out = format!(
+        "окно {}, содержимое {}×{}, поколение {}\n",
+        inspect.window_number, inspect.content.width, inspect.content.height, inspect.generation
+    );
+    for component in &inspect.components {
+        out.push_str(&component_text(component));
+    }
+    if inspect.materials.is_empty() {
+        out.push_str("материал: нет\n");
+    }
+    for material in &inspect.materials {
+        let _ = writeln!(
+            out,
+            "материал {}: видим — {}, свой — {}",
+            material.class,
+            yes_no(material.visible),
+            yes_no(material.own)
+        );
+    }
+    out
+}
+
+fn stats_text(stats: &StatsView) -> String {
+    let mut out = format!("PID {}, поколение {}\n", stats.pid, stats.generation);
+    match &stats.run_loop {
+        Some(run_loop) => {
+            let p95 = run_loop
+                .p95_ms
+                .map_or_else(|| "нет".to_owned(), |p95| format!("{p95:.2} мс"));
+            let _ = writeln!(
+                out,
+                "цикл: итераций {}, пробуждений {}, проходов отображения {}, отрисовок {}, \
+                 сверх бюджета {}, максимум {:.2} мс, p95 {p95}",
+                run_loop.iterations,
+                run_loop.wakeups,
+                run_loop.display_passes,
+                run_loop.draws,
+                run_loop.over_budget,
+                run_loop.max_ms
+            );
+        }
+        None => out.push_str("цикл: монитор не поставлен\n"),
+    }
+    match &stats.startup {
+        Some(startup) => {
+            let _ = writeln!(
+                out,
+                "старт: отрисовка {:.1} мс, key {:.1} мс, окно key с первым снимком {:.1} мс",
+                startup.first_draw_ms, startup.key_ms, startup.key_draw_ms
+            );
+        }
+        None => out.push_str("старт: не наблюдался\n"),
+    }
+    for instance in &stats.instances {
+        let _ = writeln!(
+            out,
+            "{} {}: создано {}, освобождено {}, живо {}",
+            match instance.kind {
+                shellio_control::InstanceKind::Class => "класс",
+                shellio_control::InstanceKind::Owner => "владелец",
+            },
+            instance.name,
+            instance.created,
+            instance.released,
+            instance.live
+        );
+    }
+    let late: u64 = stats.late_callbacks.iter().map(|late| late.count).sum();
+    let _ = writeln!(out, "поздних обратных вызовов: {late}");
     out
 }
 
@@ -503,6 +711,48 @@ mod tests {
             error: ControlError::owner_leaving(),
         };
         assert!(matches!(text(&frame), Text::Err(text) if text.starts_with("owner_leaving: ")));
+    }
+
+    #[test]
+    fn ui_accepted_and_reads_have_text() {
+        use shellio_control::{Accepted, InspectView, Size, StatsView};
+
+        let accepted = UiReply::Accepted(Accepted {
+            command: "app.quit".into(),
+            pid: 42,
+            generation: 3,
+        });
+        assert_eq!(
+            ui_text(&accepted),
+            "принято: app.quit, PID 42, поколение 3\n"
+        );
+        let empty = InspectView {
+            window_number: 7,
+            content: Size {
+                width: 1180.0,
+                height: 720.0,
+            },
+            generation: 3,
+            components: Vec::new(),
+            materials: Vec::new(),
+        };
+        let shown = ui_text(&UiReply::Inspect(Box::new(empty)));
+        assert!(shown.starts_with("окно 7, содержимое 1180×720"), "{shown}");
+        assert!(shown.contains("материал: нет"), "{shown}");
+        let stats = StatsView {
+            pid: 42,
+            generation: 3,
+            instances: Vec::new(),
+            late_callbacks: Vec::new(),
+            run_loop: None,
+            startup: None,
+            animations: Vec::new(),
+            row_views: Vec::new(),
+            gallery_trees: Vec::new(),
+        };
+        let shown = ui_text(&UiReply::Stats(Box::new(stats)));
+        assert!(shown.contains("монитор не поставлен"), "{shown}");
+        assert!(shown.contains("старт: не наблюдался"), "{shown}");
     }
 
     #[test]

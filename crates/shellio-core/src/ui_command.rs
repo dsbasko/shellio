@@ -4,8 +4,11 @@
 //! клавиша и палитра вызывают его. Актор ядра эти действия не видит, поэтому они не входят в
 //! [`crate::Command`].
 
-/// Выбор оформления: светлота или следование системе.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+use serde::{Deserialize, Serialize};
+
+/// Выбор оформления: светлота или следование системе. В JSON — значение [`Self::as_str`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AppearanceChoice {
     Light,
     Dark,
@@ -127,6 +130,14 @@ mod tests {
             assert_eq!(AppearanceChoice::parse(value), Some(choice));
         }
         assert_eq!(AppearanceChoice::parse("Light"), None);
+        for choice in AppearanceChoice::ALL {
+            let json = serde_json::to_value(choice).unwrap();
+            assert_eq!(json, serde_json::Value::from(choice.as_str()));
+            assert_eq!(
+                serde_json::from_value::<AppearanceChoice>(json).unwrap(),
+                choice
+            );
+        }
         assert_eq!(AppearanceChoice::System.next(), AppearanceChoice::Light);
         assert_eq!(AppearanceChoice::Light.next(), AppearanceChoice::Dark);
         assert_eq!(AppearanceChoice::Dark.next(), AppearanceChoice::System);

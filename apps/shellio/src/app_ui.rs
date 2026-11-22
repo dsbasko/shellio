@@ -9,7 +9,7 @@ use std::time::Duration;
 use shellio::launch::WindowMode;
 use shellio::owner::{self, Handoff, MirrorSink, Reopen, Ui};
 use shellio_appkit::{App, Delegate, MainThread, Reopened, Transfer};
-use shellio_control::Activation;
+use shellio_control::{Activation, UiGate, UiRefusal, UiReply, UiRequest};
 use shellio_core::{Delivery, MirrorStep};
 use tokio::sync::{oneshot, watch};
 
@@ -86,6 +86,23 @@ async fn awaited<A, T: Send + 'static>(
     answer.await.ok()
 }
 
+/// Поставить `work` в очередь `enqueue` под отметкой начала `gate` и дождаться результата. Работа
+/// выполняется, только если [`UiGate::begin`] ответил `true`: срок сервера, отменивший её в очереди,
+/// не даёт ей начаться позже. `None` — результата не будет.
+async fn gated<A, T: Send + 'static>(
+    enqueue: impl FnOnce(Job<A>),
+    gate: UiGate,
+    work: impl FnOnce(&A) -> T + Send + 'static,
+) -> Option<T> {
+    let (reply, answer) = oneshot::channel();
+    enqueue(Box::new(move |target| {
+        if gate.begin() {
+            let _ = reply.send(work(target));
+        }
+    }));
+    answer.await.ok()
+}
+
 /// Дождаться, пока флаг станет `true`. Отправитель живёт в [`AppUi`], поэтому канал не
 /// закрывается, пока ждут.
 async fn latch(flag: &watch::Sender<bool>) {
@@ -127,6 +144,18 @@ impl Ui for AppUi {
             // Главный поток не выполнил вызов: UI уже нет.
             None => Activation::NoUi,
         }
+    }
+
+    async fn ui_request(&self, request: UiRequest, gate: UiGate) -> Result<UiReply, UiRefusal> {
+        let main = self.main;
+        gated(
+            move |job| main.exec(move |app| job(app)),
+            gate,
+            move |app| window_ui::request(app, request),
+        )
+        .await
+        // Главный поток не выполнил работу: UI уже нет.
+        .unwrap_or(Err(UiRefusal::NoUi))
     }
 
     async fn hand_off_activation(&self, pid: u32) -> Handoff {
@@ -431,6 +460,45 @@ mod tests {
             job(&());
         }
         assert!(!*ran.lock().unwrap());
+    }
+
+    /// Работа, отменённая сроком сервера, пока стояла в очереди главного потока, не выполняется.
+    #[tokio::test]
+    async fn gated_work_cancelled_in_the_queue_does_not_run() {
+        let queue: Mutex<Vec<Job<()>>> = Mutex::new(Vec::new());
+        let ran = Arc::new(Mutex::new(false));
+        let work_ran = Arc::clone(&ran);
+        let gate = UiGate::new();
+        let mut pending = std::pin::pin!(gated(
+            |job| queue.lock().unwrap().push(job),
+            gate.clone(),
+            move |()| {
+                *work_ran.lock().unwrap() = true;
+            },
+        ));
+        // Один опрос ставит работу в очередь и оставляет ожидание ответа.
+        tokio::select! {
+            biased;
+            answer = &mut pending => panic!("ответ до выполнения очереди: {answer:?}"),
+            () = std::future::ready(()) => {}
+        }
+        assert!(gate.cancel(), "работа ещё в очереди");
+        let jobs = std::mem::take(&mut *queue.lock().unwrap());
+        assert_eq!(jobs.len(), 1);
+        for job in jobs {
+            job(&());
+        }
+        assert_eq!(pending.await, None);
+        assert!(!*ran.lock().unwrap());
+    }
+
+    /// Начатая работа доходит до ответа, и срок её уже не отменяет.
+    #[tokio::test]
+    async fn gated_work_started_answers_and_cannot_be_cancelled() {
+        let gate = UiGate::new();
+        let answer = gated(|job: Job<u32>| job(&41), gate.clone(), |target| *target + 1).await;
+        assert_eq!(answer, Some(42));
+        assert!(!gate.cancel());
     }
 
     const PID: u32 = 7;

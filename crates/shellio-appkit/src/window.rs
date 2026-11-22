@@ -13,6 +13,7 @@ use std::rc::Rc;
 use objc2::rc::Retained;
 use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
+use objc2_app_kit::NSRunningApplication;
 use objc2_app_kit::{
     NSAppearanceCustomization, NSAutoresizingMaskOptions, NSBackingStoreType, NSColorSpace,
     NSResponder, NSTitlebarSeparatorStyle, NSView, NSViewLayerContentsRedrawPolicy, NSWindow,
@@ -24,9 +25,10 @@ use shellio_theme::{AppTheme, Overrides};
 use crate::app::App;
 use crate::chrome_bar::{ChromeBar, ChromeIntent};
 use crate::counters::{Live, counter};
+use crate::inspect::{self, Inspection, WindowFacts};
 use crate::layer::{self, without_actions};
 use crate::own::{Callback, ComponentId};
-use crate::runloop;
+use crate::runloop::{self, LoopMonitor};
 use crate::theme_cell::{self, CellObserver, ThemeSelection};
 
 counter!(MAIN_WINDOW_OWNER, Owner, "MainWindow");
@@ -51,6 +53,8 @@ struct Parts {
     window: Retained<NSWindow>,
     selection: Cell<ThemeSelection>,
     on_theme: Box<dyn Fn(ThemeSelection)>,
+    /// Время с загрузки, когда окно впервые стало key.
+    first_key: Cell<Option<f64>>,
 }
 
 impl Parts {
@@ -105,6 +109,7 @@ impl MainWindow {
                 window: new_window(mtm, &theme),
                 selection: Cell::new(selection),
                 on_theme: Box::new(on_theme),
+                first_key: Cell::new(None),
             }
         });
         let _ = parts
@@ -192,6 +197,71 @@ impl MainWindow {
     pub fn id(&self) -> ComponentId {
         self.parts.id
     }
+
+    /// Окно для `ui.window`.
+    pub fn facts(&self, app: &App) -> WindowFacts {
+        let window = &self.parts.window;
+        let mtm = app.mtm();
+        let color_space = window.colorSpace();
+        let srgb = color_space
+            .as_ref()
+            .is_some_and(|space| **space == *NSColorSpace::sRGBColorSpace());
+        WindowFacts {
+            number: self.number(),
+            frame: inspect::frame_of(window.frame()),
+            backing_scale_factor: window.backingScaleFactor(),
+            visible: window.isVisible(),
+            key: window.isKeyWindow(),
+            color_space: color_space
+                .and_then(|space| space.localizedName())
+                .map(|name| name.to_string()),
+            color_space_srgb: srgb,
+            title: self.title(),
+            screen: inspect::screen_index(window, mtm),
+            screens: inspect::screens(mtm),
+        }
+    }
+
+    /// Видимое дерево компонентов окна для `ui.inspect`.
+    pub fn inspect(&self) -> Inspection {
+        let size = self.parts.root.bounds().size;
+        Inspection {
+            content: (size.width, size.height),
+            nodes: self.parts.chrome.inspect(),
+            materials: inspect::materials(&self.parts.window, &self.parts.root),
+        }
+    }
+
+    /// Старт процесса: от `launchDate` до первой отрисовки окна с поколением не меньше
+    /// `generation` и до первого key. `None` — дата запуска неизвестна или окно ещё не отрисовано
+    /// с этим поколением и не становилось key.
+    pub fn startup(&self, monitor: &LoopMonitor, generation: u64) -> Option<Startup> {
+        let launched = NSRunningApplication::currentApplication().launchDate()?;
+        let launch = runloop::uptime() + launched.timeIntervalSinceNow();
+        let draw = [self.parts.id, self.parts.chrome.id()]
+            .into_iter()
+            .filter_map(|component| monitor.first_draw(component, generation))
+            .map(|mark| mark.at)
+            .min_by(f64::total_cmp)?;
+        let key = self.parts.first_key.get()?;
+        let ms = |at: f64| (at - launch) * 1000.0;
+        Some(Startup {
+            first_draw_ms: ms(draw),
+            key_ms: ms(key),
+            key_draw_ms: ms(draw.max(key)),
+        })
+    }
+}
+
+/// Старт процесса в мс от `launchDate`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Startup {
+    /// Первая отрисовка окна с первым снимком зеркала.
+    pub first_draw_ms: f64,
+    /// Окно впервые стало key.
+    pub key_ms: f64,
+    /// Позднее из двух: окно key показывает первый снимок.
+    pub key_draw_ms: f64,
 }
 
 impl Drop for MainWindow {
@@ -350,6 +420,11 @@ define_class!(
         // SAFETY: селектор и аргумент — как у `windowDidBecomeKey:` протокола.
         #[unsafe(method(windowDidBecomeKey:))]
         fn window_did_become_key(&self, _notification: &NSNotification) {
+            self.call(|parts| {
+                if parts.first_key.get().is_none() {
+                    parts.first_key.set(Some(runloop::uptime()));
+                }
+            });
             self.relayout();
         }
 

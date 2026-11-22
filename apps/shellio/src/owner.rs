@@ -11,6 +11,8 @@
 //!
 //! Зеркало состояния UI (ADR-0020) ведёт задача владельца: подписка на ядро, снимок и события
 //! уходят порту [`MirrorSink`], разрыв ревизий даёт новый снимок.
+//!
+//! Запросы `ui` управляющего API сервер передаёт порту [`Ui::ui_request`] через [`UiPort`].
 
 use std::fmt::Display;
 use std::future::{Future, pending};
@@ -23,7 +25,8 @@ use std::time::Duration;
 use shellio_control::{
     Activation, ClientError, Clock, ControlErrorCode, Exit, Expired, InstanceError, Launch,
     LaunchHandler, LaunchReceipt, OkValue, OwnerState, Ownership, RefusedArg, RequestBody,
-    Response, Server, ServerConfig, Session, TokioClock, socket_path,
+    Response, Server, ServerConfig, Session, TokioClock, UiGate, UiHandler, UiRefusal, UiReply,
+    UiRequest, socket_path,
 };
 use shellio_core::{
     Core, CoreHandle, Delivery, Event, FsRootResolver, MirrorStep, SystemClock, SystemIds,
@@ -67,6 +70,14 @@ pub trait Ui: MirrorSink {
 
     /// Выполняет активацию на главном потоке и возвращается после вызова.
     fn activate(&self) -> impl Future<Output = Activation> + Send;
+
+    /// Запрос `ui` управляющего API на главном потоке. Работа начинается только после
+    /// [`UiGate::begin`] с ответом `true`; срок накладывает сервер.
+    fn ui_request(
+        &self,
+        request: UiRequest,
+        gate: UiGate,
+    ) -> impl Future<Output = Result<UiReply, UiRefusal>> + Send;
 
     /// Второй запуск перед отправкой `launch`: передать активацию владельцу `pid`, чтобы его
     /// [`Ui::activate`] получил передний план, и вернуть факты передачи. Срок накладывает
@@ -508,6 +519,21 @@ impl<U: Ui> LaunchHandler for Launcher<U> {
     }
 }
 
+/// Порт `ui` сервера над портом [`Ui`] владельца.
+struct UiPort<U> {
+    ui: Arc<U>,
+}
+
+impl<U: Ui> UiHandler for UiPort<U> {
+    fn ui(
+        &self,
+        request: UiRequest,
+        gate: UiGate,
+    ) -> impl Future<Output = Result<UiReply, UiRefusal>> + Send {
+        self.ui.ui_request(request, gate)
+    }
+}
+
 /// Сигналы завершения владельца.
 struct Signals {
     term: Signal,
@@ -611,6 +637,9 @@ async fn serve<U: Ui>(
         listener,
         core.clone(),
         launcher.clone(),
+        UiPort {
+            ui: Arc::clone(&ui),
+        },
         TokioClock,
         ServerConfig::new(VERSION),
     ) {

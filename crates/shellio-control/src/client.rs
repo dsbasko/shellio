@@ -22,6 +22,7 @@ use crate::clock::{Clock, Expired};
 use crate::codec::{LineError, LineReader, REQUEST_LINE_LIMIT, RESPONSE_LINE_LIMIT, encode_line};
 use crate::error::{ControlError, ControlErrorCode};
 use crate::instance::{Probe, probe_owner, socket_path};
+use crate::ui::UiRequest;
 use crate::wire::{
     Hello, OkValue, OwnerState, PROTOCOL, Request, RequestBody, RequestId, Response,
 };
@@ -69,13 +70,16 @@ impl Exit {
             ControlErrorCode::OutcomeUnknown => Self::OutcomeUnknown,
             ControlErrorCode::OwnerLeaving
             | ControlErrorCode::OwnerStarting
-            | ControlErrorCode::Unavailable => Self::Retry,
+            | ControlErrorCode::Unavailable
+            | ControlErrorCode::UiTimeout => Self::Retry,
             ControlErrorCode::HelloRequired
             | ControlErrorCode::ProtocolMismatch
             | ControlErrorCode::MalformedRequest
             | ControlErrorCode::RequestTooLarge
             | ControlErrorCode::ScopeRequired
-            | ControlErrorCode::ScopeUnsupported => Self::Failure,
+            | ControlErrorCode::ScopeUnsupported
+            | ControlErrorCode::NoUi
+            | ControlErrorCode::GalleryOnly => Self::Failure,
         }
     }
 
@@ -310,6 +314,8 @@ enum Expect {
     Reply,
     EventsSince,
     Launch,
+    /// Ответ `ui` того же запроса.
+    Ui(UiRequest),
 }
 
 impl Expect {
@@ -319,6 +325,10 @@ impl Expect {
             OkValue::Reply(_) => matches!(self, Self::Reply),
             OkValue::EventsSince(_) => matches!(self, Self::EventsSince),
             OkValue::Launch(_) => matches!(self, Self::Launch),
+            OkValue::Ui(reply) => match self {
+                Self::Ui(request) => request.answered_by(reply),
+                Self::Hello | Self::Reply | Self::EventsSince | Self::Launch => false,
+            },
         }
     }
 }
@@ -418,8 +428,9 @@ impl<C: Clock> Session<C> {
 
     /// Запрос после `hello`. Кадр ответа — успех, отказ ядра или отказ транспорта.
     ///
-    /// До полной отправки исход срока повторяемый. После полной отправки команды или
-    /// `launch` срок, обрыв или негодный ответ — `outcome_unknown`, у остальных запросов —
+    /// До полной отправки исход срока повторяемый. После полной отправки команды, `launch` или
+    /// изменяющего запроса `ui` срок, обрыв или негодный ответ — `outcome_unknown`, у остальных
+    /// запросов —
     /// повторяемый `unavailable`, а негодный ответ — неповторяемый отказ. Подписка идёт через
     /// [`Self::subscribe`].
     pub async fn request(&mut self, body: RequestBody) -> Result<Response, ClientError> {
@@ -429,6 +440,7 @@ impl<C: Clock> Session<C> {
             RequestBody::Query(_) => (Expect::Reply, false),
             RequestBody::EventsSince { .. } => (Expect::EventsSince, false),
             RequestBody::Launch(_) => (Expect::Launch, true),
+            RequestBody::Ui(request) => (Expect::Ui(*request), request.is_mutation()),
             RequestBody::Subscribe => {
                 return Err(ClientError::Failed(
                     "подписка идёт через Session::subscribe".to_owned(),
@@ -679,6 +691,9 @@ mod tests {
             (ControlErrorCode::OwnerStarting, 75),
             (ControlErrorCode::Unavailable, 75),
             (ControlErrorCode::OutcomeUnknown, 74),
+            (ControlErrorCode::NoUi, 1),
+            (ControlErrorCode::UiTimeout, 75),
+            (ControlErrorCode::GalleryOnly, 1),
         ];
         assert_eq!(expected.len(), ControlErrorCode::ALL.len());
         for (code, exit) in expected {

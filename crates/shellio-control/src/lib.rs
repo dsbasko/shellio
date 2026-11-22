@@ -10,6 +10,7 @@ mod codec;
 mod error;
 mod instance;
 mod server;
+mod ui;
 mod wire;
 
 pub use client::{
@@ -23,7 +24,14 @@ pub use instance::{
     InstanceError, LOCK_FILE, MAX_SOCKET_PATH, NodeKind, Ownership, Probe, SOCKET_FILE,
     SocketPaths, admit_peer, check_socket_path, is_own_uid, lock_path, probe_owner, socket_path,
 };
-pub use server::{LaunchHandler, SHUTDOWN_GRACE, Server, ServerConfig};
+pub use server::{LaunchHandler, SHUTDOWN_GRACE, Server, ServerConfig, UiHandler, WithoutUi};
+pub use ui::{
+    Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, ChromeView, ColorSpaceView,
+    ComponentState, ComponentView, Contrast, GalleryTreeView, InspectView, InstanceKind,
+    InstanceView, LateCallbackView, Lightness, MaterialView, Motion, Rect, RowViewsView,
+    RunLoopView, ScreenView, Size, StartupView, StatsView, UI_TIMEOUT, UiGate, UiRefusal, UiReply,
+    UiRequest, WindowMode, WindowView,
+};
 pub use wire::{
     Activation, Hello, HelloReply, Launch, LaunchReceipt, OkValue, OwnerState, PROTOCOL,
     RefuseReason, RefusedArg, Rejected, Request, RequestBody, RequestId, Response,

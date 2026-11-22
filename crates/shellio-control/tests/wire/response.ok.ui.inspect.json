@@ -1,0 +1,76 @@
+{
+  "id": 8,
+  "ok": {
+    "ui": {
+      "inspect": {
+        "window_number": 4242,
+        "content": {
+          "width": 1180.0,
+          "height": 720.0
+        },
+        "generation": 7,
+        "components": [
+          {
+            "id": "chrome",
+            "class": "ChromeBar",
+            "object": 105553116266496,
+            "parent": null,
+            "frame": {
+              "x": 0.0,
+              "y": 680.0,
+              "width": 1180.0,
+              "height": 40.0
+            },
+            "visible": true,
+            "first_responder": false,
+            "enabled": null,
+            "role": "AXGroup",
+            "label": null,
+            "help": null,
+            "selected": null,
+            "expanded": null,
+            "animation_keys": 0,
+            "state": {
+              "chrome": {
+                "workspace": "Работа",
+                "workspace_text": "Работа",
+                "appearance_choice": "system",
+                "workspace_menu": false,
+                "zones": false
+              }
+            }
+          },
+          {
+            "id": "chrome.workspace",
+            "class": "WorkspaceButton",
+            "object": 105553116267008,
+            "parent": "chrome",
+            "frame": {
+              "x": 84.0,
+              "y": 689.0,
+              "width": 96.0,
+              "height": 22.0
+            },
+            "visible": true,
+            "first_responder": false,
+            "enabled": true,
+            "role": "AXButton",
+            "label": "Воркспейс: Работа",
+            "help": null,
+            "selected": null,
+            "expanded": null,
+            "animation_keys": 0,
+            "state": null
+          }
+        ],
+        "materials": [
+          {
+            "class": "NSTitlebarBackgroundView",
+            "visible": false,
+            "own": false
+          }
+        ]
+      }
+    }
+  }
+}

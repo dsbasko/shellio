@@ -25,6 +25,7 @@
 mod app;
 mod chrome_bar;
 mod counters;
+mod inspect;
 mod layer;
 mod main_menu;
 mod notify;
@@ -41,6 +42,9 @@ pub use chrome_bar::{
 pub use counters::{
     CountKind, InstanceCount, LateCallbacks, instance_counts, late_callbacks, late_callbacks_total,
 };
+pub use inspect::{
+    InspectNode, Inspection, MaterialFact, NodeState, ScreenFacts, ViewFacts, WindowFacts,
+};
 pub use main_menu::{MainMenu, MenuAction};
 pub use own::ComponentId;
 pub use runloop::{
@@ -50,4 +54,4 @@ pub use surface::{
     FocusLayer, LINE_WIDTH, Surface, SurfaceFill, SurfacePaint, SurfaceRadius, SurfaceSpec,
 };
 pub use theme_cell::{CellObserver, SystemInputs, ThemeSelection};
-pub use window::{DEFAULT_TITLE, MainWindow, WINDOW_HEIGHT, WINDOW_WIDTH};
+pub use window::{DEFAULT_TITLE, MainWindow, Startup, WINDOW_HEIGHT, WINDOW_WIDTH};

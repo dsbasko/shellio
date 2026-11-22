@@ -64,6 +64,7 @@ async fn execute(client: &Client<TokioClock>, action: Action, printer: Printer) 
         Action::Tree(scope) => RequestBody::Query(Query::Tree { scope }),
         Action::Command { command, scope } => RequestBody::Command { command, scope },
         Action::EventsSince(cursor) => RequestBody::EventsSince { cursor },
+        Action::Ui(request) => RequestBody::Ui(request),
     };
     finish(printer, client.call(body).await)
 }

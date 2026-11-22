@@ -17,6 +17,7 @@ use shellio_control::test_support::ManualClock;
 use shellio_control::{
     Activation, ControlErrorCode, LOCK_FILE, Launch, LaunchHandler, LaunchReceipt, OkValue,
     OwnerState, Ownership, RequestId, Response, SHUTDOWN_GRACE, SOCKET_FILE, Server, ServerConfig,
+    UiGate, UiHandler, UiRefusal, UiReply, UiRequest, WithoutUi,
 };
 use shellio_core::test_support::{ManualClock as CoreClock, MemoryPersist, SequentialIds};
 use shellio_core::{
@@ -158,13 +159,20 @@ async fn run(mut command: Command) -> TestResult<Run> {
 }
 
 /// Владелец профиля: блокировка, опубликованный сокет и сервер над ядром в памяти.
-struct Owner {
-    server: Option<Server<ManualClock, Launcher>>,
+struct Owner<U: UiHandler = WithoutUi> {
+    server: Option<Server<ManualClock, Launcher, U>>,
     ownership: Option<Ownership>,
+    clock: ManualClock,
 }
 
 impl Owner {
     async fn start(dir: &Dir) -> TestResult<Self> {
+        Self::start_with(dir, WithoutUi).await
+    }
+}
+
+impl<U: UiHandler> Owner<U> {
+    async fn start_with(dir: &Dir, ui: U) -> TestResult<Self> {
         let mut ownership = dir.hold()?;
         let listener = ownership.publish()?;
         let core = Core::start(
@@ -179,17 +187,20 @@ impl Owner {
             pid: PID,
             grace: SHUTDOWN_GRACE,
         };
+        let clock = ManualClock::new();
         let server = Server::start(
             &Handle::current(),
             listener,
             core,
             Launcher,
-            ManualClock::new(),
+            ui,
+            clock.clone(),
             config,
         )?;
         Ok(Self {
             server: Some(server),
             ownership: Some(ownership),
+            clock,
         })
     }
 
@@ -788,4 +799,73 @@ async fn missing_profile_environment_fails_without_socket() -> TestResult {
     let bare = run(bare).await?.expect(1)?;
     assert!(bare.stderr.contains("профиль"), "{bare:?}");
     Ok(())
+}
+
+/// Порт UI, который отдаёт тесту отметку начала каждого запроса и не отвечает никогда.
+#[derive(Clone)]
+struct StuckUi {
+    gates: mpsc::UnboundedSender<UiGate>,
+}
+
+impl UiHandler for StuckUi {
+    fn ui(
+        &self,
+        _request: UiRequest,
+        gate: UiGate,
+    ) -> impl Future<Output = Result<UiReply, UiRefusal>> + Send {
+        let _ = self.gates.send(gate);
+        std::future::pending()
+    }
+}
+
+/// Срок порта UI: работа, не начатая на главном потоке, — повторяемый `ui_timeout` (75); начатое
+/// действие — `outcome_unknown` (74) без повтора, в JSON и в тексте.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ui_deadline_codes_are_75_and_74() -> TestResult {
+    let dir = Dir::new()?;
+    let (gates, mut started) = mpsc::unbounded_channel();
+    let owner = Owner::start_with(&dir, StuckUi { gates }).await?;
+    for (args, begin, code, error) in [
+        (
+            &["ui", "window", "--json"][..],
+            false,
+            75,
+            ControlErrorCode::UiTimeout,
+        ),
+        (
+            &["window", "close", "--json"],
+            true,
+            74,
+            ControlErrorCode::OutcomeUnknown,
+        ),
+        (
+            &["ui", "appearance", "light", "--json"],
+            false,
+            75,
+            ControlErrorCode::UiTimeout,
+        ),
+    ] {
+        let process = tokio::spawn(run(dir.ctl(args)));
+        let gate = started.recv().await.ok_or("порт не вызван")?;
+        if begin {
+            assert!(gate.begin());
+        }
+        owner.clock.expire();
+        let done = process.await??.expect(code)?;
+        assert_eq!(done.control_code()?, error, "{args:?}");
+        if !begin {
+            assert!(!gate.begin(), "отменённая работа не начинается");
+        }
+    }
+    let process = tokio::spawn(run(dir.ctl(&["app", "quit"])));
+    let gate = started.recv().await.ok_or("порт не вызван")?;
+    assert!(gate.begin());
+    owner.clock.expire();
+    let done = process.await??.expect(74)?;
+    assert!(done.stdout.is_empty(), "{done:?}");
+    assert!(
+        done.stderr.starts_with("shellioctl: outcome_unknown: "),
+        "{done:?}"
+    );
+    owner.stop().await
 }

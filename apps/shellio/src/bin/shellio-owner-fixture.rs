@@ -6,7 +6,8 @@
 //! `SHELLIO_FIXTURE_HANDOFF=hang` она не завершается никогда: тест проверяет её срок.
 //!
 //! Аргументы разбираются как у `shellio`: `--gallery` выбирает режим владельца и требует явного
-//! профиля, окна у фикстуры нет. Зеркало состояния ведётся без UI.
+//! профиля, окна у фикстуры нет. Зеркало состояния ведётся без UI, запросы `ui` получают
+//! `no_ui`.
 
 use std::future::{Future, pending, ready};
 use std::sync::mpsc::{Sender, channel};
@@ -14,7 +15,7 @@ use std::sync::{Arc, Mutex};
 
 use shellio::launch::{self, Mode, WindowMode};
 use shellio::owner::{self, Handoff, MirrorSink, Reopen, Ui};
-use shellio_control::{Activation, Exit};
+use shellio_control::{Activation, Exit, UiGate, UiRefusal, UiReply, UiRequest};
 use shellio_core::{Delivery, Mirror, MirrorStep};
 use shellio_store::Profile;
 
@@ -69,6 +70,14 @@ impl Ui for NoUi {
     fn activate(&self) -> impl Future<Output = Activation> + Send {
         owner::say(ACTIVATION_LINE);
         ready(Activation::NoUi)
+    }
+
+    fn ui_request(
+        &self,
+        _request: UiRequest,
+        _gate: UiGate,
+    ) -> impl Future<Output = Result<UiReply, UiRefusal>> + Send {
+        ready(Err(UiRefusal::NoUi))
     }
 
     fn hand_off_activation(&self, _pid: u32) -> impl Future<Output = Handoff> + Send {

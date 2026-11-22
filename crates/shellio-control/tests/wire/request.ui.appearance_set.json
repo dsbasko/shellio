@@ -1,0 +1,8 @@
+{
+  "id": 12,
+  "ui": {
+    "ui.appearance.set": {
+      "appearance": "light"
+    }
+  }
+}

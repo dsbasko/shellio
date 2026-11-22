@@ -14,6 +14,7 @@ use shellio_core::{
 };
 
 use crate::error::ControlError;
+use crate::ui::{UiReply, UiRequest};
 
 /// Версия протокола, которую говорят сервер и клиент этой сборки.
 pub const PROTOCOL: u32 = 1;
@@ -42,11 +43,18 @@ pub struct Request {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RequestBody {
     Hello(Hello),
-    Command { command: Command, scope: TreeScope },
+    Command {
+        command: Command,
+        scope: TreeScope,
+    },
     Query(Query),
-    EventsSince { cursor: Revision },
+    EventsSince {
+        cursor: Revision,
+    },
     Subscribe,
     Launch(Launch),
+    /// Запрос к UI владельца (P1.3): выполняется на главном потоке.
+    Ui(UiRequest),
 }
 
 impl RequestBody {
@@ -59,6 +67,7 @@ impl RequestBody {
             Self::EventsSince { .. } => "events_since",
             Self::Subscribe => "subscribe",
             Self::Launch(_) => "launch",
+            Self::Ui(_) => "ui",
         }
     }
 }
@@ -120,10 +129,12 @@ struct WireRequest {
     #[serde(default, deserialize_with = "present")]
     launch: Option<Launch>,
     #[serde(default, deserialize_with = "present")]
+    ui: Option<UiRequest>,
+    #[serde(default, deserialize_with = "present")]
     scope: Option<TreeScope>,
 }
 
-const REQUEST_KINDS: &str = "hello, command, query, events_since, subscribe, launch";
+const REQUEST_KINDS: &str = "hello, command, query, events_since, subscribe, launch, ui";
 
 /// У вида `kind` поля `scope` нет.
 fn without_scope(kind: &str, scope: Option<TreeScope>) -> Result<(), ControlError> {
@@ -154,6 +165,7 @@ impl WireRequest {
             events_since,
             subscribe,
             launch,
+            ui,
             scope,
         } = self;
         let kinds = [
@@ -163,6 +175,7 @@ impl WireRequest {
             events_since.is_some(),
             subscribe.is_some(),
             launch.is_some(),
+            ui.is_some(),
         ]
         .into_iter()
         .filter(|present| *present)
@@ -190,6 +203,9 @@ impl WireRequest {
         } else if let Some(launch) = launch {
             without_scope("launch", scope)?;
             Ok(RequestBody::Launch(launch))
+        } else if let Some(ui) = ui {
+            without_scope("ui", scope)?;
+            Ok(RequestBody::Ui(ui))
         } else {
             Err(ControlError::malformed_request(format_args!(
                 "нет вида запроса, ожидается одно из: {REQUEST_KINDS}"
@@ -283,6 +299,7 @@ impl Serialize for Request {
                 map.serialize_entry("scope", &TreeScope::All)?;
             }
             RequestBody::Launch(launch) => map.serialize_entry(kind, launch)?,
+            RequestBody::Ui(ui) => map.serialize_entry(kind, ui)?,
         }
         map.end()
     }
@@ -291,7 +308,7 @@ impl Serialize for Request {
 /// Кадр сервера: ответ на запрос или кадр потока подписки.
 ///
 /// Номер равен `null` только у отказа транспорта, когда номер запроса не разобран.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(try_from = "WireResponse")]
 pub enum Response {
     /// Успех запроса.
@@ -417,9 +434,9 @@ impl TryFrom<WireResponse> for Response {
     }
 }
 
-/// Значение успешного ответа. `Reply` и `EventsSince` идут как есть, `hello` и `launch` —
-/// под своим ключом.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+/// Значение успешного ответа. `Reply` и `EventsSince` идут как есть, `hello`, `launch` и
+/// `ui` — под своим ключом.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(from = "WireOk")]
 pub enum OkValue {
     /// Ответ `hello`.
@@ -430,6 +447,8 @@ pub enum OkValue {
     EventsSince(EventsSince),
     /// Квитанция `launch`.
     Launch(LaunchReceipt),
+    /// Ответ запроса `ui`.
+    Ui(UiReply),
 }
 
 impl Serialize for OkValue {
@@ -439,6 +458,7 @@ impl Serialize for OkValue {
             Self::Reply(reply) => reply.serialize(serializer),
             Self::EventsSince(since) => since.serialize(serializer),
             Self::Launch(receipt) => keyed(serializer, "launch", receipt),
+            Self::Ui(reply) => keyed(serializer, "ui", reply),
         }
     }
 }
@@ -468,6 +488,7 @@ enum WireOk {
 enum KeyedOk {
     Hello(HelloReply),
     Launch(LaunchReceipt),
+    Ui(UiReply),
 }
 
 impl From<WireOk> for OkValue {
@@ -475,6 +496,7 @@ impl From<WireOk> for OkValue {
         match wire {
             WireOk::Keyed(KeyedOk::Hello(hello)) => Self::Hello(hello),
             WireOk::Keyed(KeyedOk::Launch(receipt)) => Self::Launch(receipt),
+            WireOk::Keyed(KeyedOk::Ui(reply)) => Self::Ui(reply),
             WireOk::Reply(reply) => Self::Reply(reply),
             WireOk::EventsSince(since) => Self::EventsSince(since),
         }

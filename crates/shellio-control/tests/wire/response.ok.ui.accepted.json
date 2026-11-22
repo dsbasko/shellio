@@ -1,0 +1,12 @@
+{
+  "id": 10,
+  "ok": {
+    "ui": {
+      "accepted": {
+        "command": "window.close",
+        "pid": 123,
+        "generation": 5
+      }
+    }
+  }
+}

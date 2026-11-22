@@ -1,0 +1,8 @@
+{
+  "code": "ui_timeout",
+  "message": "главный поток не начал запрос за 2000 мс, повторите позже",
+  "retryable": true,
+  "details": {
+    "timeout_ms": 2000
+  }
+}

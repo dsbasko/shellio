@@ -23,6 +23,7 @@ use shellio_theme::{AppTheme, AppearanceChoice};
 
 use crate::app::App;
 use crate::counters::{Live, counter};
+use crate::inspect::{self, InspectNode, NodeState};
 use crate::layer::{self, without_actions};
 use crate::own::{Callback, ComponentId, View};
 use crate::runloop;
@@ -345,6 +346,67 @@ impl ChromeBar {
 
     pub(crate) fn ns_view(&self) -> &NSView {
         self.view.view()
+    }
+
+    /// Заголовок и его части для `ui.inspect`: сам заголовок с состоянием, кнопка воркспейса,
+    /// поле поиска, группа и кнопки зон, кнопка оформления.
+    pub(crate) fn inspect(&self) -> Vec<InspectNode> {
+        const BAR: Option<&str> = Some("chrome");
+        const ZONES: Option<&str> = Some("chrome.zones");
+        let view = self.view.view();
+        let parts = view.ivars();
+        let state = self.state();
+        let mut nodes = vec![
+            inspect::node(
+                "chrome",
+                "ChromeBar",
+                None,
+                view,
+                None,
+                Some(NodeState::Chrome(state)),
+            ),
+            inspect::node(
+                "chrome.workspace",
+                "WorkspaceButton",
+                BAR,
+                &parts.workspace,
+                Some(parts.workspace.isEnabled()),
+                None,
+            ),
+            inspect::node(
+                "chrome.search",
+                "SearchField",
+                BAR,
+                &parts.search,
+                None,
+                None,
+            ),
+            inspect::node("chrome.zones", "ZoneGroup", BAR, &parts.zones, None, None),
+        ];
+        let zone_ids = [
+            "chrome.zone.left",
+            "chrome.zone.bottom",
+            "chrome.zone.right",
+        ];
+        for (id, button) in zone_ids.into_iter().zip(&parts.zone_buttons) {
+            nodes.push(inspect::node(
+                id,
+                "ZoneButton",
+                ZONES,
+                button,
+                Some(button.isEnabled()),
+                None,
+            ));
+        }
+        nodes.push(inspect::node(
+            "chrome.appearance",
+            "AppearanceButton",
+            BAR,
+            &parts.appearance,
+            Some(parts.appearance.isEnabled()),
+            None,
+        ));
+        nodes
     }
 
     fn update(&self, change: impl FnOnce(&mut ChromeState)) {

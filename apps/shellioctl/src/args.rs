@@ -10,8 +10,10 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
 
-use shellio_control::CLI_TIMEOUT;
-use shellio_core::{Command, ProjectId, Revision, TreeScope, WorkbenchId, WorkspaceId};
+use shellio_control::{CLI_TIMEOUT, UiRequest};
+use shellio_core::{
+    AppearanceChoice, Command, ProjectId, Revision, TreeScope, UiCommand, WorkbenchId, WorkspaceId,
+};
 
 /// Справка.
 pub const USAGE: &str = "\
@@ -30,6 +32,12 @@ pub const USAGE: &str = "\
   workbench open --target <id> (--workspace <id> | --all)
   events --since <курсор> --all
   events --follow --all
+  ui window
+  ui inspect
+  ui stats
+  ui appearance <light|dark|system>
+  window close
+  app quit
 
 У команд с целью-воркспейсом --target по умолчанию равен --workspace, с --all он обязателен.
 --json печатает кадры ответа построчно, --timeout задаёт срок вызова (по умолчанию 5000 мс).
@@ -62,9 +70,14 @@ pub enum Action {
     Version,
     Status,
     Tree(TreeScope),
-    Command { command: Command, scope: TreeScope },
+    Command {
+        command: Command,
+        scope: TreeScope,
+    },
     EventsSince(Revision),
     Follow,
+    /// Запрос к UI владельца.
+    Ui(UiRequest),
 }
 
 /// Ошибка использования.
@@ -337,7 +350,12 @@ pub fn parse(
 fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Result<Action, Usage> {
     let (call, rest) = match given.operands.split_first() {
         None => return Err(usage("не указан вызов")),
-        Some((group, rest)) if matches!(group.as_str(), "workspace" | "project" | "workbench") => {
+        Some((group, rest))
+            if matches!(
+                group.as_str(),
+                "workspace" | "project" | "workbench" | "ui" | "window" | "app" | "gallery"
+            ) =>
+        {
             match rest.split_first() {
                 Some((verb, rest)) => (format!("{group} {verb}"), rest),
                 None => return Err(usage(format!("{group}: не указано действие"))),
@@ -440,6 +458,30 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 (None, true) => Ok(Action::Follow),
                 (None, false) => Err(usage("events: нужен --since <курсор> или --follow")),
             }
+        }
+        "ui window" | "ui inspect" | "ui stats" | "window close" | "app quit" => {
+            given.only(call, &[])?;
+            operands::<0>(call, rest)?;
+            let request = match call {
+                "ui window" => UiRequest::Window,
+                "ui inspect" => UiRequest::Inspect,
+                "ui stats" => UiRequest::Stats,
+                "window close" => UiRequest::Command(UiCommand::WindowClose),
+                _ => UiRequest::Command(UiCommand::AppQuit),
+            };
+            Ok(Action::Ui(request))
+        }
+        "ui appearance" => {
+            given.only(call, &[])?;
+            let [value] = operands(call, rest)?;
+            let choice = AppearanceChoice::parse(&value).ok_or_else(|| {
+                usage(format!(
+                    "{call}: ожидается light, dark или system, получено «{value}»"
+                ))
+            })?;
+            Ok(Action::Ui(UiRequest::Command(UiCommand::AppearanceSet(
+                choice,
+            ))))
         }
         other => Err(usage(format!("неизвестный вызов «{other}»"))),
     }
@@ -597,6 +639,56 @@ mod tests {
             Action::EventsSince(Revision(12))
         );
         assert_eq!(action_of(&["events", "--follow", "--all"]), Action::Follow);
+        assert_eq!(action_of(&["ui", "window"]), Action::Ui(UiRequest::Window));
+        assert_eq!(
+            action_of(&["ui", "inspect"]),
+            Action::Ui(UiRequest::Inspect)
+        );
+        assert_eq!(action_of(&["ui", "stats"]), Action::Ui(UiRequest::Stats));
+        for choice in AppearanceChoice::ALL {
+            assert_eq!(
+                action_of(&["ui", "appearance", choice.as_str()]),
+                Action::Ui(UiRequest::Command(UiCommand::AppearanceSet(choice)))
+            );
+        }
+        assert_eq!(
+            action_of(&["window", "close"]),
+            Action::Ui(UiRequest::Command(UiCommand::WindowClose))
+        );
+        assert_eq!(
+            action_of(&["app", "quit"]),
+            Action::Ui(UiRequest::Command(UiCommand::AppQuit))
+        );
+    }
+
+    #[test]
+    fn ui_calls_take_no_scope_and_check_operands() {
+        for args in [
+            &["ui", "window", "--all"][..],
+            &["ui", "stats", "--workspace", WORK],
+            &["window", "close", "--all"],
+            &["app", "quit", "--target", WORK],
+            &["ui", "appearance", "dark", "--all"],
+        ] {
+            let message = refused(args);
+            assert!(message.contains("не применим"), "{args:?}: {message}");
+        }
+        let cases: [(&[&str], &str); 7] = [
+            (&["ui"], "не указано действие"),
+            (&["ui", "window", "extra"], "операндов"),
+            (&["ui", "appearance"], "операндов"),
+            (&["ui", "appearance", "sepia"], "light, dark или system"),
+            (&["ui", "appearance", "Dark"], "light, dark или system"),
+            (&["app", "restart"], "неизвестный вызов"),
+            (&["gallery", "reset"], "неизвестный вызов"),
+        ];
+        for (args, expected) in cases {
+            let message = refused(args);
+            assert!(message.contains(expected), "{args:?}: {message}");
+        }
+        let flagged = run(&["--json", "ui", "window", "--timeout", "50"]);
+        assert!(flagged.json);
+        assert_eq!(flagged.action, Action::Ui(UiRequest::Window));
     }
 
     #[test]

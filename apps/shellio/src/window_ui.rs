@@ -1,5 +1,5 @@
 //! Окно владельца на главном потоке: окно с заголовком, главное меню, зеркало состояния, монитор
-//! цикла и единый обработчик [`UiCommand`].
+//! цикла, единый обработчик [`UiCommand`] и ответы на запросы `ui` управляющего API.
 //!
 //! Состояние живёт только на главном потоке. Функции модуля вызываются из замыканий
 //! [`MainThread::exec`]. Обратные вызовы AppKit (меню, кнопки заголовка, смена ячейки) не трогают
@@ -12,10 +12,18 @@ use std::mem::ManuallyDrop;
 use shellio::launch::WindowMode;
 use shellio::owner;
 use shellio_appkit::{
-    App, ChromeIntent, LoopMonitor, MainMenu, MainThread, MainWindow, MenuAction, ThemeSelection,
+    App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, LoopMonitor, MainMenu,
+    MainThread, MainWindow, MenuAction, NodeState, Startup, ThemeSelection, instance_counts,
+    late_callbacks,
+};
+use shellio_control::{
+    Accepted, Axis, AxisSource, ChromeView, ColorSpaceView, ComponentState, ComponentView,
+    InspectView, InstanceKind, InstanceView, LateCallbackView, MaterialView, Rect, RunLoopView,
+    ScreenView, Size, StartupView, StatsView, UiRefusal, UiReply, UiRequest, WindowView,
 };
 use shellio_core::{AppearanceChoice, Delivery, Mirror, MirrorStep, UiCommand};
 use shellio_theme::AppearanceChoice as ThemeChoice;
+use shellio_theme::{Appearance, Contrast, Motion, Source};
 
 thread_local! {
     /// Окно владельца; создаётся один раз после выбора роли и живёт до выхода процесса.
@@ -35,6 +43,10 @@ struct OwnerWindow {
     choice: AppearanceChoice,
     /// Поколение отрисовки: растёт с каждой видимой сменой состояния окна.
     generation: u64,
+    /// Поколение первой проекции снимка зеркала: старт процесса считается до отрисовки с ним.
+    first_snapshot: Option<u64>,
+    /// Старт процесса, однажды наблюдённый.
+    startup: Option<Startup>,
 }
 
 impl OwnerWindow {
@@ -65,6 +77,208 @@ impl OwnerWindow {
             .chrome()
             .set_workspace(projection.workspace.as_deref());
         self.bump();
+        self.first_snapshot.get_or_insert(self.generation);
+    }
+
+    fn window_view(&self, app: &App, mirror_revision: Option<u64>) -> WindowView {
+        let facts = self.window.facts(app);
+        let selection = self.window.selection();
+        let cell = selection.cell;
+        let screen = facts.screen;
+        WindowView {
+            pid: std::process::id(),
+            mode: wire_mode(self.mode),
+            window_number: facts.number,
+            frame: rect(facts.frame),
+            backing_scale_factor: facts.backing_scale_factor,
+            visible: facts.visible,
+            key: facts.key,
+            color_space: ColorSpaceView {
+                name: facts.color_space,
+                srgb: facts.color_space_srgb,
+            },
+            title: facts.title,
+            appearance_choice: self.choice,
+            lightness: Axis {
+                value: match cell.cell.appearance {
+                    Appearance::Light => shellio_control::Lightness::Light,
+                    Appearance::Dark => shellio_control::Lightness::Dark,
+                },
+                source: source(cell.appearance_source),
+            },
+            contrast: Axis {
+                value: match cell.cell.contrast {
+                    Contrast::Normal => shellio_control::Contrast::Normal,
+                    Contrast::Increased => shellio_control::Contrast::Increased,
+                },
+                source: source(cell.contrast_source),
+            },
+            motion: Axis {
+                value: match selection.motion {
+                    Motion::Normal => shellio_control::Motion::Normal,
+                    Motion::Reduced => shellio_control::Motion::Reduced,
+                },
+                source: source(selection.motion_source),
+            },
+            screen: screen.and_then(|index| u32::try_from(index).ok()),
+            maximum_frames_per_second: screen
+                .and_then(|index| facts.screens.get(index))
+                .map(|screen| screen.maximum_frames_per_second),
+            screens: facts
+                .screens
+                .into_iter()
+                .enumerate()
+                .map(|(index, screen)| ScreenView {
+                    index: u32::try_from(index).unwrap_or(u32::MAX),
+                    name: screen.name,
+                    frame: rect(screen.frame),
+                    backing_scale_factor: screen.backing_scale_factor,
+                    maximum_frames_per_second: screen.maximum_frames_per_second,
+                })
+                .collect(),
+            mirror_revision,
+            generation: self.generation,
+        }
+    }
+
+    fn inspect_view(&self) -> InspectView {
+        let inspection = self.window.inspect();
+        let (width, height) = inspection.content;
+        InspectView {
+            window_number: self.window.number(),
+            content: Size { width, height },
+            generation: self.generation,
+            components: inspection.nodes.into_iter().map(component).collect(),
+            materials: inspection
+                .materials
+                .into_iter()
+                .map(|material| MaterialView {
+                    class: material.class,
+                    visible: material.visible,
+                    own: material.own,
+                })
+                .collect(),
+        }
+    }
+
+    fn stats_view(&mut self) -> StatsView {
+        if self.startup.is_none()
+            && let (Some(monitor), Some(generation)) = (&self.monitor, self.first_snapshot)
+        {
+            self.startup = self.window.startup(monitor, generation);
+        }
+        StatsView {
+            pid: std::process::id(),
+            generation: self.generation,
+            instances: instance_counts()
+                .into_iter()
+                .map(|count| InstanceView {
+                    kind: match count.kind {
+                        CountKind::Class => InstanceKind::Class,
+                        CountKind::Owner => InstanceKind::Owner,
+                    },
+                    name: count.name.to_owned(),
+                    created: count.created,
+                    released: count.released,
+                    live: count.live(),
+                })
+                .collect(),
+            late_callbacks: late_callbacks()
+                .into_iter()
+                .map(|late| LateCallbackView {
+                    site: late.site.to_owned(),
+                    count: late.count,
+                })
+                .collect(),
+            run_loop: self.monitor.as_ref().map(|monitor| {
+                let stats = monitor.stats();
+                let loops = stats.iterations;
+                RunLoopView {
+                    iterations: loops.iterations,
+                    wakeups: loops.wakeups,
+                    unpaired: loops.unpaired,
+                    display_passes: loops.display_passes,
+                    over_budget: loops.over_budget,
+                    max_ms: loops.max_ms,
+                    p95_ms: loops.p95_ms,
+                    window: u64::try_from(loops.window).unwrap_or(u64::MAX),
+                    draws: stats.draws,
+                }
+            }),
+            startup: self.startup.map(|startup| StartupView {
+                first_draw_ms: startup.first_draw_ms,
+                key_ms: startup.key_ms,
+                key_draw_ms: startup.key_draw_ms,
+            }),
+            animations: Vec::new(),
+            row_views: Vec::new(),
+            gallery_trees: Vec::new(),
+        }
+    }
+
+    fn accepted(&self, command: UiCommand) -> UiReply {
+        UiReply::Accepted(Accepted {
+            command: command.name().to_owned(),
+            pid: std::process::id(),
+            generation: self.generation,
+        })
+    }
+}
+
+fn rect(frame: Frame) -> Rect {
+    Rect {
+        x: frame.x,
+        y: frame.y,
+        width: frame.width,
+        height: frame.height,
+    }
+}
+
+fn wire_mode(mode: WindowMode) -> shellio_control::WindowMode {
+    match mode {
+        WindowMode::Normal => shellio_control::WindowMode::Normal,
+        WindowMode::Gallery => shellio_control::WindowMode::Gallery,
+    }
+}
+
+fn source(source: Source) -> AxisSource {
+    match source {
+        Source::System => AxisSource::System,
+        Source::Choice => AxisSource::UiAppearance,
+        Source::Gallery => AxisSource::Gallery,
+    }
+}
+
+fn chrome_view(state: ChromeState) -> ChromeView {
+    ChromeView {
+        workspace_text: state.workspace_text().to_owned(),
+        workspace: state.workspace,
+        appearance_choice: core_choice(state.choice),
+        workspace_menu: state.workspace_menu,
+        zones: state.zones,
+    }
+}
+
+fn component(node: InspectNode) -> ComponentView {
+    let facts = node.facts;
+    ComponentView {
+        id: node.id.to_owned(),
+        class: node.class.to_owned(),
+        object: node.object,
+        parent: node.parent.map(str::to_owned),
+        frame: rect(facts.frame),
+        visible: facts.visible,
+        first_responder: facts.first_responder,
+        enabled: facts.enabled,
+        role: facts.role,
+        label: facts.label,
+        help: facts.help,
+        selected: facts.selected,
+        expanded: facts.expanded,
+        animation_keys: facts.animation_keys,
+        state: node.state.map(|state| match state {
+            NodeState::Chrome(state) => ComponentState::Chrome(chrome_view(state)),
+        }),
     }
 }
 
@@ -131,18 +345,14 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             monitor,
             choice: AppearanceChoice::System,
             generation: 0,
+            first_snapshot: None,
+            startup: None,
         }));
     });
     if let Some(projection) = projection {
         with_window(|owner| owner.project(&projection));
     }
     number
-}
-
-/// Режим окна владельца; `None` — окна нет.
-#[expect(dead_code, reason = "режим читает ui.window в задаче 6 плана P1.3")]
-pub fn mode() -> Option<WindowMode> {
-    with_window(|owner| owner.mode)
 }
 
 /// Показывает окно владельца (`makeKeyAndOrderFront`). `false` — окна нет: процесс не владелец.
@@ -182,13 +392,34 @@ pub fn deliver(_app: &App, delivery: Delivery) -> MirrorStep {
     step
 }
 
-/// Единый обработчик действий интерфейса: меню, кнопка заголовка, с задачи 6 — CLI.
+/// Запрос `ui` управляющего API. Без окна — `no_ui`. Действие выполняет [`handle`]; `app.quit`
+/// отвечает квитанцией до `terminate:`, который [`App::terminate`] ставит таймером цикла.
+pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
+    let reply = match request {
+        UiRequest::Window => {
+            let revision = MIRROR.with(|mirror| mirror.borrow().as_ref().map(|m| m.revision().0));
+            with_window(|owner| UiReply::Window(Box::new(owner.window_view(app, revision))))
+        }
+        UiRequest::Inspect => with_window(|owner| UiReply::Inspect(Box::new(owner.inspect_view()))),
+        UiRequest::Stats => with_window(|owner| UiReply::Stats(Box::new(owner.stats_view()))),
+        UiRequest::Command(command) => {
+            let owner = with_window(|_| ());
+            owner.and_then(|()| {
+                handle(app, command);
+                with_window(|owner| owner.accepted(command))
+            })
+        }
+    };
+    reply.ok_or(UiRefusal::NoUi)
+}
+
+/// Единый обработчик действий интерфейса: меню, кнопка заголовка и CLI.
 pub fn handle(app: &App, command: UiCommand) {
     match command {
         UiCommand::WindowClose => {
             with_window(|owner| owner.window.hide());
         }
-        // Вне состояния окна: `terminate:` синхронно спрашивает делегата приложения.
+        // Вне состояния окна: `terminate:` спрашивает делегата приложения на следующем обороте цикла.
         UiCommand::AppQuit => app.terminate(),
         UiCommand::AppearanceSet(choice) => {
             with_window(|owner| owner.set_choice(choice));

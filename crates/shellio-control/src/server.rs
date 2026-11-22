@@ -8,8 +8,13 @@
 //! допуск и слушатель, отменить бездействующие соединения и подписки, довести допущенные
 //! запросы до ответа, остановить ядро. Шаг 5 — удаление сокета и снятие блокировки — делает
 //! держатель [`crate::Ownership`].
+//!
+//! Запрос `ui` уходит порту [`UiHandler`] владельца со сроком [`UI_TIMEOUT`]: обработчик отмечает
+//! начало работы на главном потоке через [`UiGate`], и по сроку сервер отличает работу, которая не
+//! начиналась и уже не начнётся (`ui_timeout`), от начатой (`outcome_unknown` у изменяющего
+//! запроса).
 
-use std::future::{Future, pending};
+use std::future::{Future, pending, ready};
 use std::io;
 use std::os::unix::net::UnixListener as StdUnixListener;
 use std::panic::resume_unwind;
@@ -25,10 +30,11 @@ use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::watch;
 use tokio::task::{JoinError, JoinHandle, JoinSet};
 
-use crate::clock::{Clock, RETRY_INTERVAL};
+use crate::clock::{Clock, Expired, RETRY_INTERVAL};
 use crate::codec::{LineError, LineReader, REQUEST_LINE_LIMIT, encode_line};
 use crate::error::{ControlError, ControlErrorCode};
 use crate::instance::admit_peer;
+use crate::ui::{UI_TIMEOUT, UiGate, UiRefusal, UiReply, UiRequest};
 use crate::wire::{
     Hello, HelloReply, Launch, LaunchReceipt, OkValue, OwnerState, PROTOCOL, Rejected, Request,
     RequestBody, RequestId, Response,
@@ -42,6 +48,33 @@ pub const SHUTDOWN_GRACE: Duration = Duration::from_secs(1);
 pub trait LaunchHandler: Send + Sync + 'static {
     /// Обработать аргументы запуска и вернуть квитанцию.
     fn launch(&self, launch: Launch) -> impl Future<Output = LaunchReceipt> + Send;
+}
+
+/// Порт UI владельца: запрос `ui` выполняется на главном потоке.
+///
+/// Обработчик вызывает [`UiGate::begin`] непосредственно перед работой и не выполняет её, если
+/// получил `false`. Future, который сервер отбросил по сроку, ответа не ждёт.
+pub trait UiHandler: Send + Sync + 'static {
+    /// Выполнить запрос и вернуть ответ или отказ.
+    fn ui(
+        &self,
+        request: UiRequest,
+        gate: UiGate,
+    ) -> impl Future<Output = Result<UiReply, UiRefusal>> + Send;
+}
+
+/// Владелец без UI: каждый запрос `ui` получает `no_ui`.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct WithoutUi;
+
+impl UiHandler for WithoutUi {
+    fn ui(
+        &self,
+        _request: UiRequest,
+        _gate: UiGate,
+    ) -> impl Future<Output = Result<UiReply, UiRefusal>> + Send {
+        ready(Err(UiRefusal::NoUi))
+    }
 }
 
 /// Сведения сервера для ответа `hello` и срок завершения.
@@ -70,12 +103,12 @@ impl ServerConfig {
 ///
 /// Брошенный без [`Self::shutdown`] сервер закрывает допуск и слушатель и отменяет
 /// соединения, но ядро не останавливает.
-pub struct Server<C: Clock, L: LaunchHandler> {
-    shared: Arc<Shared<C, L>>,
+pub struct Server<C: Clock, L: LaunchHandler, U: UiHandler = WithoutUi> {
+    shared: Arc<Shared<C, L, U>>,
     accept: Option<JoinHandle<()>>,
 }
 
-impl<C: Clock, L: LaunchHandler> std::fmt::Debug for Server<C, L> {
+impl<C: Clock, L: LaunchHandler, U: UiHandler> std::fmt::Debug for Server<C, L, U> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Server")
             .field("config", &self.shared.config)
@@ -87,16 +120,17 @@ impl<C: Clock, L: LaunchHandler> std::fmt::Debug for Server<C, L> {
 /// Состояние допуска: `None` — владелец готов, `Some` — уходит, со сроком шагов завершения.
 type Leaving<D> = watch::Sender<Option<D>>;
 
-struct Shared<C: Clock, L> {
+struct Shared<C: Clock, L, U> {
     core: CoreHandle,
     launcher: L,
+    ui: U,
     clock: C,
     config: ServerConfig,
     leaving: Leaving<C::Deadline>,
     hooks: hooks::ServerHooks,
 }
 
-impl<C: Clock, L> Shared<C, L> {
+impl<C: Clock, L, U> Shared<C, L, U> {
     fn is_leaving(&self) -> bool {
         self.leaving.borrow().is_some()
     }
@@ -132,14 +166,16 @@ async fn wait_leaving<D: Copy>(leaving: &mut watch::Receiver<Option<D>>) -> D {
     }
 }
 
-impl<C: Clock, L: LaunchHandler> Server<C, L> {
+impl<C: Clock, L: LaunchHandler, U: UiHandler> Server<C, L, U> {
     /// Запустить сервер на `runtime` над слушателем `listener`, например из
-    /// [`crate::Ownership::publish`]. Слушатель переводится в неблокирующий режим.
+    /// [`crate::Ownership::publish`]. Слушатель переводится в неблокирующий режим. Запросы
+    /// `launch` идут обработчику `launcher`, запросы `ui` — порту `ui`.
     pub fn start(
         runtime: &Handle,
         listener: StdUnixListener,
         core: CoreHandle,
         launcher: L,
+        ui: U,
         clock: C,
         config: ServerConfig,
     ) -> io::Result<Self> {
@@ -151,6 +187,7 @@ impl<C: Clock, L: LaunchHandler> Server<C, L> {
         let shared = Arc::new(Shared {
             core,
             launcher,
+            ui,
             clock,
             config,
             leaving: watch::Sender::new(None),
@@ -200,7 +237,7 @@ impl<C: Clock, L: LaunchHandler> Server<C, L> {
     }
 }
 
-impl<C: Clock, L: LaunchHandler> Drop for Server<C, L> {
+impl<C: Clock, L: LaunchHandler, U: UiHandler> Drop for Server<C, L, U> {
     fn drop(&mut self) {
         if self.accept.is_some() {
             self.leave();
@@ -218,7 +255,10 @@ fn rethrow(joined: Result<(), JoinError>) {
 }
 
 /// Цикл приёма до `leaving`, затем ожидание конца всех соединений.
-async fn accept<C: Clock, L: LaunchHandler>(shared: Arc<Shared<C, L>>, listener: UnixListener) {
+async fn accept<C: Clock, L: LaunchHandler, U: UiHandler>(
+    shared: Arc<Shared<C, L, U>>,
+    listener: UnixListener,
+) {
     let mut leaving = shared.leaving.subscribe();
     let mut connections = JoinSet::new();
     loop {
@@ -283,7 +323,10 @@ const fn names_request_kind(code: ControlErrorCode) -> bool {
         | ControlErrorCode::NotRunning
         | ControlErrorCode::OwnerStarting
         | ControlErrorCode::Unavailable
-        | ControlErrorCode::OutcomeUnknown => false,
+        | ControlErrorCode::OutcomeUnknown
+        | ControlErrorCode::NoUi
+        | ControlErrorCode::UiTimeout
+        | ControlErrorCode::GalleryOnly => false,
     }
 }
 
@@ -291,16 +334,16 @@ fn transport_error(id: Option<RequestId>, error: ControlError) -> Response {
     Response::Error { id, error }
 }
 
-struct Connection<C: Clock, L> {
-    shared: Arc<Shared<C, L>>,
+struct Connection<C: Clock, L, U> {
+    shared: Arc<Shared<C, L, U>>,
     reader: LineReader<BufReader<OwnedReadHalf>>,
     writer: OwnedWriteHalf,
     leaving: watch::Receiver<Option<C::Deadline>>,
     greeted: bool,
 }
 
-impl<C: Clock, L: LaunchHandler> Connection<C, L> {
-    fn new(shared: Arc<Shared<C, L>>, stream: UnixStream) -> Self {
+impl<C: Clock, L: LaunchHandler, U: UiHandler> Connection<C, L, U> {
+    fn new(shared: Arc<Shared<C, L, U>>, stream: UnixStream) -> Self {
         let (reader, writer) = stream.into_split();
         let leaving = shared.leaving.subscribe();
         Self {
@@ -389,7 +432,46 @@ impl<C: Clock, L: LaunchHandler> Connection<C, L> {
                 let receipt = self.shared.launcher.launch(launch).await;
                 self.reply(id, Ok(OkValue::Launch(receipt))).await
             }
+            RequestBody::Ui(request) => {
+                let result = self.ui(request).await;
+                self.shared.hooks.before_reply().await;
+                let response = match result {
+                    Ok(reply) => Response::Ok {
+                        id,
+                        value: OkValue::Ui(reply),
+                    },
+                    Err(error) => transport_error(Some(id), error),
+                };
+                self.send(&response).await
+            }
             RequestBody::Subscribe => self.stream(id).await,
+        }
+    }
+
+    /// Запрос `ui` порту владельца под сроком [`UI_TIMEOUT`]. По сроку работа, которая не
+    /// начиналась, отменяется (`ui_timeout`, повторяемый). Начатый изменяющий запрос срок не
+    /// прерывает, а ответ — `outcome_unknown` без повтора. Начатое чтение по сроку тоже даёт
+    /// `ui_timeout`: у него нет последствий.
+    async fn ui(&self, request: UiRequest) -> Result<UiReply, ControlError> {
+        let gate = UiGate::new();
+        let deadline = self.shared.clock.deadline(UI_TIMEOUT);
+        let handled = self
+            .shared
+            .clock
+            .within(deadline, self.shared.ui.ui(request, gate.clone()))
+            .await;
+        match handled {
+            Ok(Ok(reply)) => Ok(reply),
+            Ok(Err(UiRefusal::NoUi)) => Err(ControlError::no_ui()),
+            Ok(Err(UiRefusal::GalleryOnly)) => Err(ControlError::gallery_only()),
+            Err(Expired) if !gate.cancel() && request.is_mutation() => {
+                Err(ControlError::outcome_unknown(format_args!(
+                    "{} начат на главном потоке и не закончен за {} мс",
+                    request.name(),
+                    UI_TIMEOUT.as_millis()
+                )))
+            }
+            Err(Expired) => Err(ControlError::ui_timeout(UI_TIMEOUT)),
         }
     }
 
@@ -577,8 +659,8 @@ pub(crate) mod hooks {
             Gate::arm(&self.admission)
         }
 
-        /// Следующий ответ команды, чтения, `events_since` или `launch` остановится после
-        /// квитанции ядра и до записи, пока его не отпустят.
+        /// Следующий ответ команды, чтения, `events_since`, `launch` или `ui` остановится после
+        /// квитанции ядра или порта и до записи, пока его не отпустят.
         pub fn hold_next_reply(&self) -> Hold {
             Gate::arm(&self.reply)
         }

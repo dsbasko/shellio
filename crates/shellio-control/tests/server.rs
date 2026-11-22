@@ -15,7 +15,7 @@ use shellio_control::test_support::ManualClock;
 use shellio_control::{
     Activation, ControlError, ControlErrorCode, Launch, LaunchHandler, LaunchReceipt, LineError,
     LineReader, OkValue, OwnerState, REQUEST_LINE_LIMIT, RESPONSE_LINE_LIMIT, RefuseReason,
-    RefusedArg, RequestId, Response, Server, ServerConfig,
+    RefusedArg, RequestId, Response, Server, ServerConfig, WithoutUi,
 };
 use shellio_core::test_support::{
     FakeRootResolver, Faults, FaultyPersist, ManualClock as CoreClock, MemoryPersist, SequentialIds,
@@ -122,6 +122,7 @@ impl Fixture {
             listener,
             core,
             launcher.clone(),
+            WithoutUi,
             clock.clone(),
             config,
         )?;

@@ -15,14 +15,18 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use shellio_control::{
-    Activation, ControlError, ControlErrorCode, Hello, HelloReply, Launch, LaunchReceipt, OkValue,
-    OwnerState, PROTOCOL, REQUEST_LINE_LIMIT, RefuseReason, RefusedArg, Rejected, Request,
-    RequestBody, RequestId, Response,
+    Accepted, Activation, Axis, AxisSource, ChromeView, ColorSpaceView, ComponentState,
+    ComponentView, Contrast, ControlError, ControlErrorCode, Hello, HelloReply, InspectView,
+    InstanceKind, InstanceView, LateCallbackView, Launch, LaunchReceipt, Lightness, MaterialView,
+    Motion, OkValue, OwnerState, PROTOCOL, REQUEST_LINE_LIMIT, Rect, RefuseReason, RefusedArg,
+    Rejected, Request, RequestBody, RequestId, Response, RunLoopView, ScreenView, Size,
+    StartupView, StatsView, UI_TIMEOUT, UiReply, UiRequest, WindowMode, WindowView,
 };
 use shellio_core::test_support::SequentialIds;
 use shellio_core::{
-    Change, Command, CommandValue, CoreError, Entity, Event, EventsSince, IdGen, Query, Reply,
-    Revision, Route, Snapshot, State, Title, TreeScope, WindowState, Workspace, WorkspaceId,
+    AppearanceChoice, Change, Command, CommandValue, CoreError, Entity, Event, EventsSince, IdGen,
+    Query, Reply, Revision, Route, Snapshot, State, Title, TreeScope, UiCommand, WindowState,
+    Workspace, WorkspaceId,
 };
 
 fn wire_dir() -> PathBuf {
@@ -147,6 +151,14 @@ fn request_golden(request: &Request) -> &'static str {
         RequestBody::EventsSince { .. } => "request.events_since",
         RequestBody::Subscribe => "request.subscribe",
         RequestBody::Launch(_) => "request.launch",
+        RequestBody::Ui(UiRequest::Window) => "request.ui.window",
+        RequestBody::Ui(UiRequest::Inspect) => "request.ui.inspect",
+        RequestBody::Ui(UiRequest::Stats) => "request.ui.stats",
+        RequestBody::Ui(UiRequest::Command(UiCommand::WindowClose)) => "request.ui.window_close",
+        RequestBody::Ui(UiRequest::Command(UiCommand::AppQuit)) => "request.ui.app_quit",
+        RequestBody::Ui(UiRequest::Command(UiCommand::AppearanceSet(_))) => {
+            "request.ui.appearance_set"
+        }
     }
 }
 
@@ -194,6 +206,21 @@ fn requests() -> Vec<Request> {
                 cwd: "/abs".into(),
             }),
         ),
+        // P1.3: запросы `ui`.
+        request(7, RequestBody::Ui(UiRequest::Window)),
+        request(8, RequestBody::Ui(UiRequest::Inspect)),
+        request(9, RequestBody::Ui(UiRequest::Stats)),
+        request(
+            10,
+            RequestBody::Ui(UiRequest::Command(UiCommand::WindowClose)),
+        ),
+        request(11, RequestBody::Ui(UiRequest::Command(UiCommand::AppQuit))),
+        request(
+            12,
+            RequestBody::Ui(UiRequest::Command(UiCommand::AppearanceSet(
+                AppearanceChoice::Light,
+            ))),
+        ),
     ]
 }
 
@@ -236,6 +263,15 @@ fn response_golden(response: &Response) -> &'static str {
             value: OkValue::Launch(_),
             ..
         } => "response.ok.launch",
+        Response::Ok {
+            value: OkValue::Ui(reply),
+            ..
+        } => match reply {
+            UiReply::Window(_) => "response.ok.ui.window",
+            UiReply::Inspect(_) => "response.ok.ui.inspect",
+            UiReply::Stats(_) => "response.ok.ui.stats",
+            UiReply::Accepted(_) => "response.ok.ui.accepted",
+        },
         Response::CoreError { .. } => "response.core_error",
         Response::Error { id: Some(_), .. } => "response.error",
         Response::Error { id: None, .. } => "response.error.unnumbered",
@@ -303,6 +339,17 @@ fn responses() -> Result<Vec<Response>, String> {
                 refused: vec![refused("--gallery", RefuseReason::GalleryNotAtStart)],
             }),
         ),
+        ok(7, OkValue::Ui(UiReply::Window(Box::new(window_view())))),
+        ok(8, OkValue::Ui(UiReply::Inspect(Box::new(inspect_view())))),
+        ok(9, OkValue::Ui(UiReply::Stats(Box::new(stats_view())))),
+        ok(
+            10,
+            OkValue::Ui(UiReply::Accepted(Accepted {
+                command: "window.close".into(),
+                pid: 123,
+                generation: 5,
+            })),
+        ),
         Response::CoreError {
             id: RequestId(2),
             error: CoreError::not_found(Entity::Workspace, workspace),
@@ -336,6 +383,160 @@ fn responses() -> Result<Vec<Response>, String> {
     ])
 }
 
+fn rect(x: f64, y: f64, width: f64, height: f64) -> Rect {
+    Rect {
+        x,
+        y,
+        width,
+        height,
+    }
+}
+
+fn window_view() -> WindowView {
+    WindowView {
+        pid: 123,
+        mode: WindowMode::Gallery,
+        window_number: 4242,
+        frame: rect(370.0, 240.0, 1180.0, 720.0),
+        backing_scale_factor: 2.0,
+        visible: true,
+        key: true,
+        color_space: ColorSpaceView {
+            name: Some("sRGB IEC61966-2.1".into()),
+            srgb: true,
+        },
+        title: "Работа".into(),
+        appearance_choice: AppearanceChoice::Light,
+        lightness: Axis {
+            value: Lightness::Light,
+            source: AxisSource::UiAppearance,
+        },
+        contrast: Axis {
+            value: Contrast::Normal,
+            source: AxisSource::Gallery,
+        },
+        motion: Axis {
+            value: Motion::Normal,
+            source: AxisSource::System,
+        },
+        screen: Some(0),
+        maximum_frames_per_second: Some(120),
+        screens: vec![
+            ScreenView {
+                index: 0,
+                name: "Built-in Retina Display".into(),
+                frame: rect(0.0, 0.0, 1512.0, 982.0),
+                backing_scale_factor: 2.0,
+                maximum_frames_per_second: 120,
+            },
+            ScreenView {
+                index: 1,
+                name: "DELL U2720Q".into(),
+                frame: rect(1512.0, 0.0, 2560.0, 1440.0),
+                backing_scale_factor: 1.0,
+                maximum_frames_per_second: 60,
+            },
+        ],
+        mirror_revision: Some(13),
+        generation: 7,
+    }
+}
+
+fn inspect_view() -> InspectView {
+    InspectView {
+        window_number: 4242,
+        content: Size {
+            width: 1180.0,
+            height: 720.0,
+        },
+        generation: 7,
+        components: vec![
+            ComponentView {
+                id: "chrome".into(),
+                class: "ChromeBar".into(),
+                object: 105_553_116_266_496,
+                parent: None,
+                frame: rect(0.0, 680.0, 1180.0, 40.0),
+                visible: true,
+                first_responder: false,
+                enabled: None,
+                role: Some("AXGroup".into()),
+                label: None,
+                help: None,
+                selected: None,
+                expanded: None,
+                animation_keys: 0,
+                state: Some(ComponentState::Chrome(ChromeView {
+                    workspace: Some("Работа".into()),
+                    workspace_text: "Работа".into(),
+                    appearance_choice: AppearanceChoice::System,
+                    workspace_menu: false,
+                    zones: false,
+                })),
+            },
+            ComponentView {
+                id: "chrome.workspace".into(),
+                class: "WorkspaceButton".into(),
+                object: 105_553_116_267_008,
+                parent: Some("chrome".into()),
+                frame: rect(84.0, 689.0, 96.0, 22.0),
+                visible: true,
+                first_responder: false,
+                enabled: Some(true),
+                role: Some("AXButton".into()),
+                label: Some("Воркспейс: Работа".into()),
+                help: None,
+                selected: None,
+                expanded: None,
+                animation_keys: 0,
+                state: None,
+            },
+        ],
+        materials: vec![MaterialView {
+            class: "NSTitlebarBackgroundView".into(),
+            visible: false,
+            own: false,
+        }],
+    }
+}
+
+fn stats_view() -> StatsView {
+    StatsView {
+        pid: 123,
+        generation: 7,
+        instances: vec![InstanceView {
+            kind: InstanceKind::Class,
+            name: "ShellioChromeBar".into(),
+            created: 1,
+            released: 0,
+            live: 1,
+        }],
+        late_callbacks: vec![LateCallbackView {
+            site: "MainWindow.root".into(),
+            count: 0,
+        }],
+        run_loop: Some(RunLoopView {
+            iterations: 90,
+            wakeups: 90,
+            unpaired: 2,
+            display_passes: 170,
+            over_budget: 1,
+            max_ms: 37.5,
+            p95_ms: Some(1.25),
+            window: 90,
+            draws: 12,
+        }),
+        startup: Some(StartupView {
+            first_draw_ms: 182.5,
+            key_ms: 190.0,
+            key_draw_ms: 190.0,
+        }),
+        animations: Vec::new(),
+        row_views: Vec::new(),
+        gallery_trees: Vec::new(),
+    }
+}
+
 fn response_samples() -> Result<Samples, String> {
     Ok(responses()?
         .into_iter()
@@ -360,6 +561,9 @@ fn error_sample(code: ControlErrorCode) -> ControlError {
         ControlErrorCode::OutcomeUnknown => {
             ControlError::outcome_unknown("соединение оборвалось после отправки запроса")
         }
+        ControlErrorCode::NoUi => ControlError::no_ui(),
+        ControlErrorCode::UiTimeout => ControlError::ui_timeout(UI_TIMEOUT),
+        ControlErrorCode::GalleryOnly => ControlError::gallery_only(),
     }
 }
 
@@ -399,10 +603,16 @@ fn errors_match_goldens() {
 #[test]
 fn request_golden_names_follow_frame_keys() {
     for request in requests() {
-        assert_eq!(
-            request_golden(&request),
-            format!("request.{}", request.body.kind())
-        );
+        let name = request_golden(&request);
+        let kind = format!("request.{}", request.body.kind());
+        match &request.body {
+            RequestBody::Ui(ui) => {
+                let suffix = ui.name().replace('.', "_");
+                let suffix = suffix.strip_prefix("ui_").unwrap_or(&suffix);
+                assert_eq!(name, format!("{kind}.{suffix}"));
+            }
+            _ => assert_eq!(name, kind),
+        }
     }
 }
 
@@ -581,6 +791,11 @@ fn scope_on_hello_query_and_launch_is_malformed() {
             Some(6),
             "поле scope у запроса launch не допускается",
         );
+        assert_malformed(
+            &format!(r#"{{"id":7,"ui":{{"ui.window":{{}}}},"scope":{scope}}}"#),
+            Some(7),
+            "поле scope у запроса ui не допускается",
+        );
     }
 }
 
@@ -619,6 +834,35 @@ fn frame_needs_exactly_one_kind() {
         Some(1),
         "2 вида запроса",
     );
+    assert_malformed(
+        &format!(r#"{{"id":1,"hello":{HELLO},"ui":{{"ui.stats":{{}}}}}}"#),
+        Some(1),
+        "2 вида запроса",
+    );
+}
+
+/// Тело `ui` — ровно один запрос с именем из ADR-0007 и строгими аргументами.
+#[test]
+fn ui_body_is_strict() {
+    for body in [
+        r#"{}"#,
+        r#"{"ui.window":{},"ui.stats":{}}"#,
+        r#"{"ui.window":{"extra":1}}"#,
+        r#"{"ui.window":null}"#,
+        r#""ui.window""#,
+        r#"{"gallery.reset":{}}"#,
+        r#"{"ui.appearance.set":{}}"#,
+        r#"{"ui.appearance.set":{"appearance":"sepia"}}"#,
+    ] {
+        let line = format!(r#"{{"id":4,"ui":{body}}}"#);
+        let rejected = rejected(line.as_bytes());
+        assert_eq!(rejected.id, Some(RequestId(4)), "{body}");
+        assert_eq!(
+            rejected.error.code(),
+            ControlErrorCode::MalformedRequest,
+            "{body}"
+        );
+    }
 }
 
 #[test]
@@ -818,6 +1062,10 @@ fn ok_value_is_strict() {
         r#"{"launch":{"activation":"requested","refused":[],"extra":1}}"#.to_owned(),
         r#"{"revision":1,"value":null,"extra":1}"#.to_owned(),
         r#"{"events":[],"extra":1}"#.to_owned(),
+        r#"{"ui":{"accepted":{"command":"app.quit","pid":1,"generation":0,"extra":1}}}"#.to_owned(),
+        r#"{"ui":{"accepted":{"command":"app.quit","pid":1}}}"#.to_owned(),
+        r#"{"ui":{"window":{}}}"#.to_owned(),
+        r#"{"ui":{"unknown":{}}}"#.to_owned(),
     ] {
         assert_response_rejected(
             &format!(r#"{{"id":1,"ok":{ok}}}"#),

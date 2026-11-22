@@ -10,14 +10,17 @@ use block2::RcBlock;
 use dispatch2::DispatchQueue;
 use objc2::rc::Retained;
 use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
-use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
+use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationOptions, NSApplicationActivationPolicy,
     NSApplicationDelegate, NSApplicationTerminateReply, NSBackingStoreType, NSResponder,
     NSRunningApplication, NSScreen, NSWindow, NSWindowStyleMask, NSWorkspace,
     NSWorkspaceOpenConfiguration,
 };
-use objc2_foundation::{NSError, NSNotification, NSPoint, NSRect, NSSize};
+use objc2_foundation::{
+    NSArray, NSError, NSNotification, NSObjectNSDelayedPerforming, NSPoint, NSRect,
+    NSRunLoopCommonModes, NSSize,
+};
 
 use crate::counters::{Live, counter};
 
@@ -76,9 +79,27 @@ impl App {
     }
 
     /// Просит AppKit завершить приложение (`terminate:`): путь `applicationShouldTerminate`, ответ
-    /// `TerminateLater` и порядок завершения владельца. Возвращается до порядка завершения.
+    /// `TerminateLater` и порядок завершения владельца. Возвращается сразу, до `terminate:`.
+    ///
+    /// `terminate:` встаёт таймером цикла главного потока, а не выполняется на месте. Под
+    /// `TerminateLater` AppKit крутит вложенный цикл до квитанции, а вызванный из работы
+    /// [`MainThread`] он стоял бы внутри блока главной очереди: она последовательная и вложенным
+    /// циклом не обслуживается, поэтому квитанция [`App::finish_terminate`] через неё не пришла бы.
     pub fn terminate(&self) {
-        self.ns_app().terminate(None);
+        let app = self.ns_app();
+        let object: &NSObject = &app;
+        // SAFETY: `NSRunLoopCommonModes` — неизменяемая строка Foundation, живущая весь процесс.
+        let common = unsafe { NSRunLoopCommonModes };
+        let modes = NSArray::from_slice(&[common]);
+        // SAFETY: `terminate:` реализован `NSApplication` и принимает отправителя или nil.
+        unsafe {
+            object.performSelector_withObject_afterDelay_inModes(
+                sel!(terminate:),
+                None,
+                0.0,
+                &modes,
+            );
+        }
     }
 
     /// Политика владельца `.regular`: иконка в Dock и право на передний план. `false` — AppKit отказал.

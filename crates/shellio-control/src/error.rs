@@ -32,14 +32,20 @@ pub enum ControlErrorCode {
     OwnerStarting,
     /// Только клиент: подключение или ответ не уложились в срок при занятой блокировке.
     Unavailable,
-    /// Только клиент: после полной отправки мутации или `launch` истёк срок, оборвалось
-    /// соединение или пришёл негодный ответ.
+    /// После полной отправки мутации или `launch` истёк срок, оборвалось соединение или пришёл
+    /// негодный ответ (клиент); изменяющий запрос `ui` начат, но не закончен к сроку (сервер).
     OutcomeUnknown,
+    /// UI нет: тестовый владелец без окна или главный поток больше не выполняет работу.
+    NoUi,
+    /// Запрос `ui` не начался на главном потоке до срока и уже не выполнится.
+    UiTimeout,
+    /// Запрос `gallery.*` вне режима галереи.
+    GalleryOnly,
 }
 
 impl ControlErrorCode {
     /// Все коды.
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 14] = [
         Self::HelloRequired,
         Self::ProtocolMismatch,
         Self::MalformedRequest,
@@ -51,6 +57,9 @@ impl ControlErrorCode {
         Self::OwnerStarting,
         Self::Unavailable,
         Self::OutcomeUnknown,
+        Self::NoUi,
+        Self::UiTimeout,
+        Self::GalleryOnly,
     ];
 
     /// Имя кода в JSON.
@@ -67,20 +76,29 @@ impl ControlErrorCode {
             Self::OwnerStarting => "owner_starting",
             Self::Unavailable => "unavailable",
             Self::OutcomeUnknown => "outcome_unknown",
+            Self::NoUi => "no_ui",
+            Self::UiTimeout => "ui_timeout",
+            Self::GalleryOnly => "gallery_only",
         }
     }
 
     /// Имеет ли смысл повторить тот же запрос позже.
     pub const fn retryable(self) -> bool {
         match self {
-            Self::OwnerLeaving | Self::NotRunning | Self::OwnerStarting | Self::Unavailable => true,
+            Self::OwnerLeaving
+            | Self::NotRunning
+            | Self::OwnerStarting
+            | Self::Unavailable
+            | Self::UiTimeout => true,
             Self::HelloRequired
             | Self::ProtocolMismatch
             | Self::MalformedRequest
             | Self::RequestTooLarge
             | Self::ScopeRequired
             | Self::ScopeUnsupported
-            | Self::OutcomeUnknown => false,
+            | Self::OutcomeUnknown
+            | Self::NoUi
+            | Self::GalleryOnly => false,
         }
     }
 }
@@ -236,6 +254,32 @@ impl ControlError {
         )
     }
 
+    /// UI нет: тестовый владелец без окна или главный поток больше не выполняет работу.
+    pub fn no_ui() -> Self {
+        Self::plain(ControlErrorCode::NoUi, "у владельца нет интерфейса")
+    }
+
+    /// Запрос `ui` не начался на главном потоке до срока `timeout` и уже не выполнится.
+    pub fn ui_timeout(timeout: std::time::Duration) -> Self {
+        Self::with_detail(
+            ControlErrorCode::UiTimeout,
+            format!(
+                "главный поток не начал запрос за {} мс, повторите позже",
+                timeout.as_millis()
+            ),
+            "timeout_ms",
+            Value::from(u64::try_from(timeout.as_millis()).unwrap_or(u64::MAX)),
+        )
+    }
+
+    /// Запрос `gallery.*` вне режима галереи.
+    pub fn gallery_only() -> Self {
+        Self::plain(
+            ControlErrorCode::GalleryOnly,
+            "запрос доступен только в режиме галереи",
+        )
+    }
+
     /// Стабильный код.
     pub const fn code(&self) -> ControlErrorCode {
         self.code
@@ -283,6 +327,9 @@ mod tests {
             ("owner_starting", true),
             ("unavailable", true),
             ("outcome_unknown", false),
+            ("no_ui", false),
+            ("ui_timeout", true),
+            ("gallery_only", false),
         ];
         assert_eq!(ControlErrorCode::ALL.len(), expected.len());
         for (code, (name, retryable)) in ControlErrorCode::ALL.into_iter().zip(expected) {
@@ -350,6 +397,12 @@ mod tests {
                 ControlError::outcome_unknown("обрыв"),
                 ControlErrorCode::OutcomeUnknown,
             ),
+            (ControlError::no_ui(), ControlErrorCode::NoUi),
+            (
+                ControlError::ui_timeout(std::time::Duration::from_secs(2)),
+                ControlErrorCode::UiTimeout,
+            ),
+            (ControlError::gallery_only(), ControlErrorCode::GalleryOnly),
         ];
         assert_eq!(cases.len(), ControlErrorCode::ALL.len());
         for (error, code) in cases {

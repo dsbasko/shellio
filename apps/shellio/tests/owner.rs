@@ -376,6 +376,80 @@ fn second_launch_with_gallery_gets_refusal_in_receipt() {
     assert_clean_exit(status, &rest, &stderr, "SIGTERM");
 }
 
+/// `shellioctl` из того же каталога сборки, что фикстура. `CARGO_BIN_EXE_*` видит только бинари
+/// своего пакета, а `cargo test` в корне workspace (`make check`) собирает бинари всех пакетов до
+/// запуска тестов.
+fn shellioctl() -> PathBuf {
+    let path = std::path::Path::new(FIXTURE).with_file_name("shellioctl");
+    assert!(
+        path.is_file(),
+        "{} не собран: тест идёт из `cargo test` в корне workspace",
+        path.display()
+    );
+    path
+}
+
+impl Fixture {
+    /// `shellioctl` с пустым окружением и профилем фикстуры.
+    fn ctl(&self, args: &[&str]) -> Output {
+        Command::new(shellioctl())
+            .env_clear()
+            .env("SHELLIO_STATE_DIR", self.state())
+            .args(args)
+            .stdin(Stdio::null())
+            .output()
+            .unwrap()
+    }
+}
+
+/// Запросы `ui` к владельцу без UI: `shellioctl` получает `no_ui` с кодом 1 и в JSON, и в тексте;
+/// владелец после них жив. Без владельца — `not_running` (69), ошибка использования — 2.
+#[test]
+fn shellioctl_ui_calls_to_fixture_get_no_ui() {
+    let fixture = Fixture::new();
+    let gone = fixture.ctl(&["ui", "window", "--json"]);
+    assert_eq!(gone.status.code(), Some(69), "{gone:?}");
+
+    let mut owner = fixture.owner();
+    owner.handled();
+    for call in [
+        &["ui", "window"][..],
+        &["ui", "inspect"],
+        &["ui", "stats"],
+        &["ui", "appearance", "dark"],
+        &["window", "close"],
+        &["app", "quit"],
+    ] {
+        let mut args = call.to_vec();
+        args.push("--json");
+        let output = fixture.ctl(&args);
+        assert_eq!(output.status.code(), Some(1), "{call:?}: {output:?}");
+        let frame = Response::parse(text(&output.stdout).trim_end().as_bytes()).unwrap();
+        match frame {
+            Response::Error { error, .. } => {
+                assert_eq!(error.code(), ControlErrorCode::NoUi, "{call:?}");
+                assert!(!error.retryable());
+            }
+            other => panic!("{call:?}: ожидался no_ui, получено {other:?}"),
+        }
+        assert!(output.stderr.is_empty(), "{call:?}: {output:?}");
+
+        let plain = fixture.ctl(call);
+        assert_eq!(plain.status.code(), Some(1), "{call:?}");
+        assert!(plain.stdout.is_empty(), "{call:?}: {plain:?}");
+        assert!(
+            text(&plain.stderr).starts_with("shellioctl: no_ui: "),
+            "{call:?}: {plain:?}"
+        );
+    }
+    let usage = fixture.ctl(&["ui", "appearance", "sepia"]);
+    assert_eq!(usage.status.code(), Some(2));
+
+    assert_eq!(fixture.hello_pid(), owner.pid(), "владелец жив");
+    let (status, rest, stderr) = owner.stop(Signal::TERM);
+    assert_clean_exit(status, &rest, &stderr, "SIGTERM");
+}
+
 /// Владелец с `--gallery` называет режим в строке готовности, а его собственный `launch` идёт
 /// без флага и без отказов.
 #[test]

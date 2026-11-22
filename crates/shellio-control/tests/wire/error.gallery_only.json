@@ -1,0 +1,6 @@
+{
+  "code": "gallery_only",
+  "message": "запрос доступен только в режиме галереи",
+  "retryable": false,
+  "details": {}
+}
