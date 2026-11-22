@@ -38,6 +38,10 @@ use tempfile::TempDir;
 use tokio::io::AsyncWriteExt;
 
 const FIXTURE: &str = env!("CARGO_BIN_EXE_shellio-owner-fixture");
+/// Продуктовый бинарь: проверяются только отказы до профиля, блокировки и AppKit.
+const SHELLIO: &str = env!("CARGO_BIN_EXE_shellio");
+/// Срок процесса, который должен выйти сам: ограничивает зависание, а не синхронизирует.
+const EXIT_GUARD: Duration = Duration::from_secs(30);
 const READY: &str = "shellio: владелец готов, pid ";
 const HANDLED: &str = "shellio: запуск обработан ";
 const ACTIVATION: &str = "shellio-owner-fixture: активация без UI";
@@ -467,41 +471,67 @@ fn gallery_owner_names_its_mode_and_handles_own_launch_without_flag() {
     assert_clean_exit(status, &rest, &stderr, "SIGTERM");
 }
 
-/// Галерея на профиле по умолчанию — ошибка использования до каталога состояния и блокировки.
+/// Вывод процесса, который должен выйти сам. Не вышел за [`EXIT_GUARD`] — процесс убивается,
+/// тест падает, а не зависает.
+fn output_within_guard(command: &mut Command) -> Output {
+    let child = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let pid = Pid::from_child(&child);
+    let (done, outcome) = mpsc::channel();
+    thread::spawn(move || {
+        let _ = done.send(child.wait_with_output());
+    });
+    match outcome.recv_timeout(EXIT_GUARD) {
+        Ok(output) => output.unwrap(),
+        Err(_) => {
+            let _ = kill_process(pid, Signal::KILL);
+            panic!("процесс не вышел за {EXIT_GUARD:?}");
+        }
+    }
+}
+
+/// Галерея на профиле по умолчанию — ошибка использования до каталога состояния и блокировки, у
+/// продуктового бинаря и у фикстуры.
 #[test]
 fn gallery_without_explicit_profile_is_a_usage_error() {
-    let fixture = Fixture::new();
-    let home = fixture.root.join("home");
-    fs::create_dir(&home).unwrap();
-    let output = Command::new(FIXTURE)
-        .env_clear()
-        .env("HOME", &home)
-        .arg("--gallery")
-        .current_dir(fixture.work())
-        .output()
-        .unwrap();
-    let stderr = text(&output.stderr);
-    assert_eq!(output.status.code(), Some(2), "stderr: {stderr}");
-    assert!(output.stdout.is_empty());
-    assert!(
-        stderr.contains("галерея запускается только на отдельном профиле"),
-        "{stderr}"
-    );
-    assert_eq!(
-        fs::read_dir(&home).unwrap().count(),
-        0,
-        "каталог состояния профиля по умолчанию не создан"
-    );
+    for exe in [SHELLIO, FIXTURE] {
+        let fixture = Fixture::new();
+        let home = fixture.root.join("home");
+        fs::create_dir(&home).unwrap();
+        let output = output_within_guard(
+            Command::new(exe)
+                .env_clear()
+                .env("HOME", &home)
+                .arg("--gallery")
+                .current_dir(fixture.work()),
+        );
+        let stderr = text(&output.stderr);
+        assert_eq!(output.status.code(), Some(2), "{exe}: {stderr}");
+        assert!(output.stdout.is_empty(), "{exe}");
+        assert!(
+            stderr.contains("галерея запускается только на отдельном профиле"),
+            "{exe}: {stderr}"
+        );
+        assert_eq!(
+            fs::read_dir(&home).unwrap().count(),
+            0,
+            "{exe}: каталог состояния профиля по умолчанию не создан"
+        );
 
-    let output = Command::new(FIXTURE)
-        .env_clear()
-        .env("HOME", &home)
-        .args(["--gallery", "--self-check"])
-        .current_dir(fixture.work())
-        .output()
-        .unwrap();
-    assert_eq!(output.status.code(), Some(2));
-    assert!(text(&output.stderr).contains("--self-check"));
+        let output = output_within_guard(
+            Command::new(exe)
+                .env_clear()
+                .env("HOME", &home)
+                .args(["--gallery", "--self-check"])
+                .current_dir(fixture.work()),
+        );
+        assert_eq!(output.status.code(), Some(2), "{exe}");
+        assert!(text(&output.stderr).contains("--self-check"), "{exe}");
+    }
 }
 
 #[test]

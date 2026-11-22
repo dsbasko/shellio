@@ -102,11 +102,15 @@ struct ListModel {
     row_views: Cell<u64>,
     cell_views: Cell<u64>,
     on_intent: Box<dyn Fn(ListIntent)>,
+    /// Замер задержки клавиш включён: без него список не ведёт журнал нажатий и не заводит
+    /// `CADisplayLink`.
+    latency_probe: Cell<bool>,
     /// Нажатия Up и Down серии задержки: серия начинается, когда таблица получает фокус.
     presses: RefCell<PressLog>,
     /// Такты `CADisplayLink` окна за серию, секунды с загрузки.
     ticks: RefCell<VecDeque<f64>>,
-    /// Такты идут только пока таблица держит фокус: в простое цикл они не будят.
+    /// Такты идут только при включённом замере и пока таблица держит фокус: в простое цикл они
+    /// не будят.
     link: Rc<RefCell<Option<Retained<CADisplayLink>>>>,
 }
 
@@ -155,7 +159,7 @@ impl ListModel {
             _ => None,
         };
         (self.on_intent)(intent);
-        if let Some(target) = target {
+        if let Some(target) = target.filter(|_| self.latency_probe.get()) {
             self.presses.borrow_mut().press(KeyPress {
                 key,
                 event: stamp.event,
@@ -201,6 +205,7 @@ impl VirtualList {
             row_views: Cell::new(0),
             cell_views: Cell::new(0),
             on_intent: Box::new(on_intent),
+            latency_probe: Cell::new(false),
             presses: RefCell::new(PressLog::default()),
             ticks: RefCell::new(VecDeque::new()),
             link: Rc::new(RefCell::new(None)),
@@ -295,6 +300,12 @@ impl VirtualList {
             }
         }
         Ok(())
+    }
+
+    /// Включает замер задержки клавиш: со следующего получения фокуса список ведёт журнал нажатий
+    /// Up и Down и такты `CADisplayLink`, пока фокус у него. Без включения замер не идёт.
+    pub fn enable_latency_probe(&self) {
+        self.view.rust().latency_probe.set(true);
     }
 
     /// Окно опубликовало поколение: нажатия, чей выбор уже применён, получают его.
@@ -448,10 +459,14 @@ impl VirtualList {
         let bounds = clip.bounds();
         let state = self.state();
         let content = state.rows.len() as f64 * self.table.rowHeight();
+        // Выбор читается у таблицы, а не у модели: модель и контрол могут разойтись.
+        let selected = usize::try_from(self.table.selectedRow())
+            .ok()
+            .and_then(|row| model.row_id(row));
         VirtualListFacts {
             label: state.label.clone(),
             count: state.rows.len(),
-            selected: state.selected.clone(),
+            selected,
             offset: bounds.origin.y,
             max_offset: (content - bounds.size.height).max(0.0),
             keyboard_focus: self.table.is_key_focus(),
@@ -570,8 +585,9 @@ define_class!(
             self.ivars().owner.call(|model| model.key(key, &stamp));
         }
 
-        // SAFETY: селектор и результат — как у `becomeFirstResponder` NSResponder. Фокус начинает
-        // серию задержки: журнал нажатий и тактов сбрасывается, такты идут до потери фокуса.
+        // SAFETY: селектор и результат — как у `becomeFirstResponder` NSResponder. При включённом
+        // замере фокус начинает серию задержки: журнал нажатий и тактов сбрасывается, такты идут
+        // до потери фокуса.
         #[unsafe(method(becomeFirstResponder))]
         fn become_first_responder(&self) -> bool {
             // SAFETY: `becomeFirstResponder` у NSTableView без аргументов.
@@ -638,6 +654,9 @@ impl ListTable {
     fn start_ticks(&self) {
         let owner = self.ivars().owner.clone();
         self.ivars().owner.call(|model| {
+            if !model.latency_probe.get() {
+                return;
+            }
             model.stop_ticks();
             model.presses.borrow_mut().clear();
             model.ticks.borrow_mut().clear();

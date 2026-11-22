@@ -1468,6 +1468,43 @@ fn frame_needs_exactly_one_kind() {
 }
 
 /// Тело `ui` — ровно один запрос с именем из ADR-0007 и строгими аргументами.
+/// Полная матрица «запрос × вид ответа»: чтение принимает только свой вид, изменение — только
+/// квитанцию.
+#[test]
+fn ui_replies_answer_only_their_request() {
+    let replies = [
+        ("window", UiReply::Window(Box::new(window_view()))),
+        ("inspect", UiReply::Inspect(Box::new(inspect_view()))),
+        ("stats", UiReply::Stats(Box::new(stats_view()))),
+        (
+            "accepted",
+            UiReply::Accepted(Accepted {
+                command: "window.close".into(),
+                pid: 1,
+                generation: 2,
+            }),
+        ),
+    ];
+    let requests = [
+        (UiRequest::Window, "window"),
+        (UiRequest::Inspect, "inspect"),
+        (UiRequest::Stats, "stats"),
+        (UiRequest::Command(UiCommand::WindowClose), "accepted"),
+        (UiRequest::Command(UiCommand::AppQuit), "accepted"),
+        (UiRequest::Gallery(GalleryCommand::Reset), "accepted"),
+    ];
+    for (request, answer) in requests {
+        for (kind, reply) in &replies {
+            assert_eq!(
+                request.answered_by(reply),
+                *kind == answer,
+                "{} ← {kind}",
+                request.name()
+            );
+        }
+    }
+}
+
 #[test]
 fn ui_body_is_strict() {
     for body in [
@@ -1480,6 +1517,10 @@ fn ui_body_is_strict() {
         r#"{"gallery.unknown":{}}"#,
         r#"{"ui.appearance.set":{}}"#,
         r#"{"ui.appearance.set":{"appearance":"sepia"}}"#,
+        r#"{"gallery.tabs.select":{"strip":"top","tab":0}}"#,
+        r#"{"gallery.tabs.select":{"strip":"side","tab":-1}}"#,
+        r#"{"gallery.tabs.select":{"strip":"side"}}"#,
+        r#"{"gallery.tabs.select":{"strip":"side","tab":0,"extra":1}}"#,
     ] {
         let line = format!(r#"{{"id":4,"ui":{body}}}"#);
         let rejected = rejected(line.as_bytes());

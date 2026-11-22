@@ -196,6 +196,8 @@ impl GalleryUi {
                 return;
             }
         };
+        // Список галереи — прибор пунктов задержки `make e2e`.
+        list.enable_latency_probe();
         plain.place(&list, frame(layout.list));
         let on_intent = Rc::clone(&self.on_intent);
         let tree_list = match TreeList::new(app, &theme, self.tree_state(), move |intent| {

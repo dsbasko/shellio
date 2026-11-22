@@ -262,7 +262,7 @@ pub fn diff(before: Option<&ListState>, after: &ListState) -> Vec<ListOp> {
 pub enum ListIntent {
     /// Выбрать строку: щелчок, Up и Down.
     Select { id: String },
-    /// Открыть строку: `Enter`, двойной щелчок.
+    /// Открыть строку: `Enter`.
     Activate { id: String },
 }
 

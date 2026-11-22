@@ -1178,6 +1178,14 @@ mod tests {
                 true,
             ),
             (
+                UiRequest::Gallery(GalleryCommand::TabsSelect {
+                    strip: GalleryStrip::Half,
+                    tab: 2,
+                }),
+                "gallery.tabs.select",
+                true,
+            ),
+            (
                 UiRequest::Gallery(GalleryCommand::ListReplace { seed: 3 }),
                 "gallery.list.replace",
                 true,
@@ -1195,6 +1203,30 @@ mod tests {
                 true,
             ),
         ];
+        // Номер варианта без `_`: новый вариант не соберётся, пока его нет здесь, а проверка ниже
+        // требует его строки в таблице.
+        let variant = |command: GalleryCommand| match command {
+            GalleryCommand::Cell { .. } => 0,
+            GalleryCommand::Motion(_) => 1,
+            GalleryCommand::Focus(_) => 2,
+            GalleryCommand::MenuOpen => 3,
+            GalleryCommand::Rebuild => 4,
+            GalleryCommand::WindowRecreate => 5,
+            GalleryCommand::Place { .. } => 6,
+            GalleryCommand::Reset => 7,
+            GalleryCommand::TabsSelect { .. } => 8,
+            GalleryCommand::ListReplace { .. } => 9,
+            GalleryCommand::ListScroll { .. } => 10,
+            GalleryCommand::TreeMutate { .. } => 11,
+        };
+        let covered: std::collections::BTreeSet<usize> = cases
+            .iter()
+            .filter_map(|(request, _, _)| match request {
+                UiRequest::Gallery(command) => Some(variant(*command)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(covered, (0..12).collect());
         for (request, name, mutation) in cases {
             assert_eq!(request.name(), name);
             assert_eq!(request.is_mutation(), mutation, "{name}");
@@ -1228,6 +1260,11 @@ mod tests {
             json!({"gallery.place": {"screen": -1}}),
             json!({"gallery.place": {}}),
             json!({"gallery.reset": {"seed": 1}}),
+            json!({"gallery.tabs.select": {"strip": "top", "tab": 0}}),
+            json!({"gallery.tabs.select": {"strip": "side", "tab": -1}}),
+            json!({"gallery.tabs.select": {"strip": "side"}}),
+            json!({"gallery.tabs.select": {"tab": 0}}),
+            json!({"gallery.tabs.select": {"strip": "side", "tab": 0, "extra": 1}}),
         ] {
             assert!(
                 serde_json::from_value::<UiRequest>(bad.clone()).is_err(),
@@ -1313,17 +1350,5 @@ mod tests {
         assert!(gate.cancel());
         assert!(gate.cancel());
         assert!(!gate.begin(), "отменённая работа не начинается");
-    }
-
-    #[test]
-    fn replies_answer_only_their_request() {
-        let accepted = UiReply::Accepted(Accepted {
-            command: "window.close".into(),
-            pid: 1,
-            generation: 2,
-        });
-        assert!(UiRequest::Command(UiCommand::WindowClose).answered_by(&accepted));
-        assert!(UiRequest::Gallery(GalleryCommand::Reset).answered_by(&accepted));
-        assert!(!UiRequest::Window.answered_by(&accepted));
     }
 }

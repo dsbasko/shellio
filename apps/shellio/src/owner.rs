@@ -763,24 +763,18 @@ mod tests {
     impl MirrorSink for LossyMirror {
         fn deliver(&self, delivery: Delivery) -> impl Future<Output = Option<MirrorStep>> + Send {
             let mut mirror = self.mirror.lock().unwrap();
-            let step = match (&mut *mirror, delivery) {
-                (_, Delivery::Event(event))
+            let step = match delivery {
+                Delivery::Event(event)
                     if event.revision == self.lose && !*self.lost.lock().unwrap() =>
                 {
                     *self.lost.lock().unwrap() = true;
                     MirrorStep::Ignored
                 }
-                (None, Delivery::Snapshot(snapshot)) => {
-                    *self.snapshots.lock().unwrap() += 1;
-                    *mirror = Some(Mirror::from_snapshot(snapshot));
-                    MirrorStep::Applied
-                }
-                (None, Delivery::Event(_) | Delivery::Reset) => MirrorStep::NeedSnapshot,
-                (Some(mirror), delivery) => {
+                delivery => {
                     if matches!(delivery, Delivery::Snapshot(_)) {
                         *self.snapshots.lock().unwrap() += 1;
                     }
-                    mirror.apply(delivery)
+                    Mirror::deliver_to(&mut mirror, delivery)
                 }
             };
             self.revision

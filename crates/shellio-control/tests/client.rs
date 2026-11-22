@@ -13,16 +13,18 @@ use std::time::Duration;
 
 use shellio_control::test_support::ManualClock;
 use shellio_control::{
-    Activation, Address, Client, ClientError, ControlError, ControlErrorCode, Exit, HelloReply,
-    LOCK_FILE, Launch, LaunchHandler, LaunchReceipt, LineReader, OkValue, OwnerState, Ownership,
-    REQUEST_LINE_LIMIT, RequestBody, RequestId, Response, SHUTDOWN_GRACE, SOCKET_FILE, Server,
-    ServerConfig, Session, WithoutUi, encode_line,
+    Accepted, Activation, Address, Client, ClientError, ControlError, ControlErrorCode, Exit,
+    GalleryCommand, HelloReply, LOCK_FILE, Launch, LaunchHandler, LaunchReceipt, LineReader,
+    OkValue, OwnerState, Ownership, REQUEST_LINE_LIMIT, RequestBody, RequestId, Response,
+    SHUTDOWN_GRACE, SOCKET_FILE, Server, ServerConfig, Session, UiReply, UiRequest, WithoutUi,
+    encode_line,
 };
 use shellio_core::test_support::{
     FakeRootResolver, ManualClock as CoreClock, MemoryPersist, SequentialIds,
 };
 use shellio_core::{
-    Command, Core, Query, Reply, ReplyValue, Revision, Snapshot, State, TreeScope, UnixMillis,
+    Command, Core, Query, Reply, ReplyValue, Revision, Snapshot, State, TreeScope, UiCommand,
+    UnixMillis,
 };
 use shellio_store::Profile;
 use tempfile::TempDir;
@@ -170,6 +172,23 @@ fn create(title: &str) -> RequestBody {
         },
         scope: TreeScope::All,
     }
+}
+
+/// Изменяющие запросы `ui`: действие окна и служебная команда галереи.
+fn ui_mutations() -> [RequestBody; 2] {
+    [
+        RequestBody::Ui(UiRequest::Command(UiCommand::AppQuit)),
+        RequestBody::Ui(UiRequest::Gallery(GalleryCommand::Reset)),
+    ]
+}
+
+/// Чтения `ui`.
+fn ui_reads() -> [RequestBody; 3] {
+    [
+        RequestBody::Ui(UiRequest::Window),
+        RequestBody::Ui(UiRequest::Inspect),
+        RequestBody::Ui(UiRequest::Stats),
+    ]
 }
 
 fn launch() -> RequestBody {
@@ -530,7 +549,10 @@ async fn deadline_after_core_receipt_is_retryable_for_read() -> TestResult {
 #[tokio::test]
 async fn hangup_after_sent_request_depends_on_mutation() -> TestResult {
     let hangup = async |_peer: Peer| Ok(());
-    for body in [create("Альфа"), launch()] {
+    for body in [create("Альфа"), launch()]
+        .into_iter()
+        .chain(ui_mutations())
+    {
         let outcome = fake_after_request(body, hangup).await?;
         assert_eq!(refusal(&outcome), Some(ControlErrorCode::OutcomeUnknown));
         assert_eq!(exit(&outcome), Exit::OutcomeUnknown);
@@ -540,7 +562,10 @@ async fn hangup_after_sent_request_depends_on_mutation() -> TestResult {
         RequestBody::EventsSince {
             cursor: Revision(0),
         },
-    ] {
+    ]
+    .into_iter()
+    .chain(ui_reads())
+    {
         let outcome = fake_after_request(body, hangup).await?;
         assert_eq!(refusal(&outcome), Some(ControlErrorCode::Unavailable));
         assert_eq!(exit(&outcome), Exit::Retry);
@@ -578,6 +603,56 @@ async fn bad_response_after_sent_request_depends_on_mutation() -> TestResult {
         matches!(outcome, Err(ClientError::Failed(_))),
         "{outcome:?}"
     );
+
+    for body in ui_mutations() {
+        let outcome = fake_after_request(body.clone(), garbage).await?;
+        assert_eq!(refusal(&outcome), Some(ControlErrorCode::OutcomeUnknown));
+        let outcome = fake_after_request(body, foreign).await?;
+        assert_eq!(refusal(&outcome), Some(ControlErrorCode::OutcomeUnknown));
+    }
+    for body in ui_reads() {
+        let outcome = fake_after_request(body.clone(), garbage).await?;
+        assert!(
+            matches!(outcome, Err(ClientError::Failed(_))),
+            "{outcome:?}"
+        );
+        let outcome = fake_after_request(body, foreign).await?;
+        assert!(
+            matches!(outcome, Err(ClientError::Failed(_))),
+            "{outcome:?}"
+        );
+    }
+    Ok(())
+}
+
+/// Квитанция `ui` чужого запроса: изменение без исхода, чтение — сбой без кода.
+#[tokio::test]
+async fn ui_reply_of_another_kind_is_not_an_answer() -> TestResult {
+    let accepted = async |mut peer: Peer| {
+        peer.write_frame(&Response::Ok {
+            id: RequestId(2),
+            value: OkValue::Ui(UiReply::Accepted(Accepted {
+                command: "app.quit".to_owned(),
+                pid: PID,
+                generation: 1,
+            })),
+        })
+        .await
+    };
+    for body in ui_reads() {
+        let outcome = fake_after_request(body, accepted).await?;
+        assert!(
+            matches!(outcome, Err(ClientError::Failed(_))),
+            "{outcome:?}"
+        );
+        assert_eq!(exit(&outcome), Exit::Failure);
+    }
+    let outcome = fake_after_request(
+        RequestBody::Ui(UiRequest::Command(UiCommand::AppQuit)),
+        accepted,
+    )
+    .await?;
+    assert!(outcome.is_ok(), "{outcome:?}");
     Ok(())
 }
 

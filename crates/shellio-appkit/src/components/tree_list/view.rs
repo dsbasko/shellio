@@ -15,6 +15,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::ops::Range;
 use std::ptr::NonNull;
+use std::rc::Rc;
 
 use block2::RcBlock;
 use objc2::rc::Retained;
@@ -256,10 +257,19 @@ impl TreeList {
         let ops = model::diff(model.shown.borrow().as_ref(), &state);
         let outline: &NSOutlineView = &self.outline;
         let mtm = self.outline.mtm();
+        // Те же корни — те же объекты узлов: смена раскрытия или выбора их не перестраивает.
+        let regraft = !model
+            .shown
+            .borrow()
+            .as_ref()
+            .is_some_and(|shown| Rc::ptr_eq(&shown.roots, &state.roots));
         let mut previous = None;
         let mut disclosures = false;
         for op in ops {
-            if previous.is_none() && !matches!(op, TreeOp::Label(_) | TreeOp::Collapse(_)) {
+            if regraft
+                && previous.is_none()
+                && !matches!(op, TreeOp::Label(_) | TreeOp::Collapse(_))
+            {
                 previous = Some(model.graft(mtm, &state.roots));
             }
             match op {
@@ -336,7 +346,7 @@ impl TreeList {
                 }
             }
         }
-        if previous.is_none() {
+        if regraft && previous.is_none() {
             previous = Some(model.graft(mtm, &state.roots));
         }
         model.shown.replace(Some(state));

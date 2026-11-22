@@ -194,10 +194,6 @@ impl MainWindow {
         self.parts.window.isVisible()
     }
 
-    pub fn is_key(&self) -> bool {
-        self.parts.window.isKeyWindow()
-    }
-
     /// `windowNumber`: номер окна у оконного сервера, постоянный до выхода процесса.
     pub fn number(&self) -> i64 {
         i64::try_from(self.parts.window.windowNumber()).unwrap_or(-1)
@@ -222,10 +218,6 @@ impl MainWindow {
     /// Действующие ячейка и движение с источниками осей.
     pub fn selection(&self) -> ThemeSelection {
         self.parts.selection.get()
-    }
-
-    pub fn overrides(&self) -> Overrides {
-        self.parts.observer.overrides()
     }
 
     /// Новые переопределения ячейки. Окно получает светлоту переопределения, чтобы системные

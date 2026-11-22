@@ -787,14 +787,7 @@ pub fn reopen(app: &App) {
 pub fn deliver(_app: &App, delivery: Delivery) -> MirrorStep {
     let (step, projection) = MIRROR.with(|slot| {
         let mut mirror = slot.borrow_mut();
-        let step = match (&mut *mirror, delivery) {
-            (Some(mirror), delivery) => mirror.apply(delivery),
-            (None, Delivery::Snapshot(snapshot)) => {
-                *mirror = Some(Mirror::from_snapshot(snapshot));
-                MirrorStep::Applied
-            }
-            (None, Delivery::Event(_) | Delivery::Reset) => MirrorStep::NeedSnapshot,
-        };
+        let step = Mirror::deliver_to(&mut mirror, delivery);
         let projection = match step {
             MirrorStep::Applied => mirror.as_ref().map(Projection::of),
             MirrorStep::Ignored | MirrorStep::NeedSnapshot => None,

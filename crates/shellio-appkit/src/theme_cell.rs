@@ -6,7 +6,7 @@
 //! центра `NSWorkspace` и по [`CellObserver::refresh`], который вызывает вид-источник при смене
 //! своего оформления. Новая ячейка уходит получателю только при её смене.
 
-use std::cell::{Cell as StdCell, RefCell};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use objc2::MainThreadMarker;
@@ -118,7 +118,6 @@ struct ObserverInner {
     tracker: RefCell<Tracker>,
     source: RefCell<Option<rc::Weak<NSView>>>,
     on_change: Box<dyn Fn(ThemeSelection)>,
-    notifications: StdCell<u64>,
 }
 
 impl CellObserver {
@@ -135,7 +134,6 @@ impl CellObserver {
             tracker: RefCell::new(Tracker::new(read_inputs(mtm, None), overrides)),
             source: RefCell::new(None),
             on_change: Box::new(on_change),
-            notifications: StdCell::new(0),
         });
         let workspace = NSWorkspace::sharedWorkspace();
         // SAFETY: имя уведомления — неизменяемая константа AppKit.
@@ -145,10 +143,7 @@ impl CellObserver {
             &workspace.notificationCenter(),
             name,
             Callback::new(&inner, "CellObserver.displayOptionsChanged"),
-            |inner: &ObserverInner| {
-                inner.notifications.set(inner.notifications.get() + 1);
-                inner.refresh();
-            },
+            |inner: &ObserverInner| inner.refresh(),
         );
         CellObserver {
             _subscription: subscription,
@@ -166,11 +161,6 @@ impl CellObserver {
 
     pub fn overrides(&self) -> Overrides {
         self.inner.tracker.borrow().overrides()
-    }
-
-    /// Уведомлений о параметрах отображения доступности получено.
-    pub fn notifications(&self) -> u64 {
-        self.inner.notifications.get()
     }
 
     pub fn set_overrides(&self, overrides: Overrides) {

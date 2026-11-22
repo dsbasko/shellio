@@ -53,15 +53,7 @@ struct RaceUi {
 impl MirrorSink for RaceUi {
     fn deliver(&self, delivery: Delivery) -> impl Future<Output = Option<MirrorStep>> + Send {
         let mut mirror = self.mirror.lock().unwrap();
-        let step = match (&mut *mirror, delivery) {
-            (Some(mirror), delivery) => mirror.apply(delivery),
-            (None, Delivery::Snapshot(snapshot)) => {
-                *mirror = Some(Mirror::from_snapshot(snapshot));
-                MirrorStep::Applied
-            }
-            (None, Delivery::Event(_) | Delivery::Reset) => MirrorStep::NeedSnapshot,
-        };
-        ready(Some(step))
+        ready(Some(Mirror::deliver_to(&mut mirror, delivery)))
     }
 }
 

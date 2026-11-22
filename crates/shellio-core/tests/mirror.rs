@@ -454,6 +454,49 @@ async fn projections_follow_window_place() {
     );
 }
 
+/// Слот без зеркала: событие и `Reset` требуют снимка и слот не трогают, снимок заводит зеркало,
+/// дальше доставка идёт в [`Mirror::apply`].
+#[test]
+fn empty_slot_waits_for_snapshot_then_applies() {
+    let event = |revision: u64| {
+        Delivery::Event(Event {
+            revision: Revision(revision),
+            changes: Vec::new(),
+        })
+    };
+    let mut slot = None;
+    assert_eq!(
+        Mirror::deliver_to(&mut slot, event(3)),
+        MirrorStep::NeedSnapshot
+    );
+    assert_eq!(
+        Mirror::deliver_to(&mut slot, Delivery::Reset),
+        MirrorStep::NeedSnapshot
+    );
+    assert!(slot.is_none());
+
+    let snapshot = Snapshot {
+        revision: Revision(2),
+        state: Arc::new(State::default()),
+    };
+    assert_eq!(
+        Mirror::deliver_to(&mut slot, Delivery::Snapshot(snapshot.clone())),
+        MirrorStep::Applied
+    );
+    assert_eq!(slot.as_ref().map(Mirror::revision), Some(Revision(2)));
+    assert_eq!(Mirror::deliver_to(&mut slot, event(2)), MirrorStep::Ignored);
+    assert_eq!(
+        Mirror::deliver_to(&mut slot, event(4)),
+        MirrorStep::NeedSnapshot
+    );
+    assert_eq!(Mirror::deliver_to(&mut slot, event(3)), MirrorStep::Applied);
+    assert_eq!(slot.as_ref().map(Mirror::revision), Some(Revision(3)));
+    assert_eq!(
+        Mirror::deliver_to(&mut slot, Delivery::Snapshot(snapshot)),
+        MirrorStep::Ignored
+    );
+}
+
 #[test]
 fn projections_without_workspace_or_place() {
     let empty = State::default();

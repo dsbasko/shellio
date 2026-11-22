@@ -634,12 +634,25 @@ mod tests {
 
     /// Дерево вида так, как его ведёт `NSOutlineView` с узлами-объектами: свёртка забывает
     /// раскрытие поддерева, перезагрузка (пессимистично) забывает раскрытие перезагруженных
-    /// поддеревьев, а раскрыть можно только видимый узел с детьми.
+    /// поддеревьев, а раскрыть можно только видимый узел с детьми. Строка показывает текст,
+    /// который узел имел при последней загрузке строки: наполнение, перезагрузка поддерева или
+    /// `Text`.
     struct Outline {
         roots: Rc<[TreeNode]>,
         expanded: BTreeSet<String>,
         selected: Option<String>,
         reloaded_all: bool,
+        shown_text: HashMap<String, String>,
+    }
+
+    /// Тексты узлов `roots` по id.
+    fn texts(roots: &[TreeNode]) -> HashMap<String, String> {
+        let mut map = HashMap::new();
+        preorder(roots, &mut |node, _| {
+            map.insert(node.id.clone(), node.text.clone());
+            true
+        });
+        map
     }
 
     impl Outline {
@@ -649,6 +662,7 @@ mod tests {
                 expanded: state.map(|s| s.expanded.clone()).unwrap_or_default(),
                 selected: state.and_then(|s| s.selected.clone()),
                 reloaded_all: false,
+                shown_text: state.map(|s| texts(&s.roots)).unwrap_or_default(),
             }
         }
 
@@ -673,6 +687,7 @@ mod tests {
                     TreeOp::Fill => {
                         self.expanded.clear();
                         self.reloaded_all = true;
+                        self.shown_text = texts(&self.roots);
                     }
                     TreeOp::Collapse(ids) => {
                         assert!(!swapped, "свёртка идёт по прежним узлам");
@@ -691,9 +706,14 @@ mod tests {
                         let index = Index::build(&self.roots).expect("новое дерево");
                         for key in keys {
                             match key {
-                                None => self.expanded.clear(),
+                                None => {
+                                    self.expanded.clear();
+                                    self.shown_text = texts(&self.roots);
+                                }
                                 Some(key) => {
-                                    assert!(index.get(key).is_some(), "перезагрузка {key}");
+                                    let entry = index.get(key).expect("перезагрузка известного");
+                                    self.shown_text
+                                        .extend(texts(std::slice::from_ref(entry.node)));
                                     self.expanded.retain(|open| {
                                         open != key && !index.is_descendant(open, key)
                                     });
@@ -703,7 +723,10 @@ mod tests {
                     }
                     TreeOp::Text(ids) => {
                         let index = Index::build(&self.roots).expect("новое дерево");
-                        assert!(ids.iter().all(|id| index.get(id).is_some()));
+                        for id in ids {
+                            let entry = index.get(id).expect("текст известного узла");
+                            self.shown_text.insert(id.clone(), entry.node.text.clone());
+                        }
                     }
                     TreeOp::Expand(ids) => {
                         let index = Index::build(&self.roots).expect("новое дерево");
@@ -743,6 +766,14 @@ mod tests {
         outline.apply(&ops, after);
         assert_eq!(outline.expanded, after.expanded, "раскрытие по id: {ops:?}");
         assert_eq!(outline.rows(), after.rows(), "видимые строки");
+        for row in after.rows() {
+            assert_eq!(
+                outline.shown_text.get(&row.id),
+                Some(&row.text),
+                "показанный текст {}: {ops:?}",
+                row.id
+            );
+        }
         assert_eq!(outline.selected, after.selected, "выбор по id");
         ops
     }
@@ -1161,6 +1192,21 @@ mod tests {
         nodes
     }
 
+    /// Те же узлы с частью текстов, изменённых случайно.
+    fn retext(random: &mut Random, nodes: &[TreeNode]) -> Vec<TreeNode> {
+        nodes
+            .iter()
+            .map(|node| {
+                let text = if random.below(3) == 0 {
+                    format!("{}~", node.text)
+                } else {
+                    node.text.clone()
+                };
+                TreeNode::branch(&node.id, &text, retext(random, &node.children))
+            })
+            .collect()
+    }
+
     fn random_state(random: &mut Random) -> TreeListState {
         let mut pool: Vec<usize> = (0..40).collect();
         for index in (1..pool.len()).rev() {
@@ -1193,6 +1239,7 @@ mod tests {
     #[test]
     fn random_trees_apply_exactly() {
         let mut random = Random(0x7EE5);
+        let mut texts_changed = 0;
         for _ in 0..500 {
             let before = random_state(&mut random);
             let after = random_state(&mut random);
@@ -1214,6 +1261,22 @@ mod tests {
                 !ops.iter()
                     .any(|op| matches!(op, TreeOp::Reload(_) | TreeOp::Text(_)))
             );
+            // Новые корни той же формы с другими текстами — только `Text`, без перезагрузки.
+            let mut retexted = before.clone();
+            retexted.roots = Rc::from(retext(&mut random, &before.roots));
+            let ops = assert_applies(Some(&before), &retexted);
+            assert!(!ops.iter().any(|op| matches!(op, TreeOp::Reload(_))));
+            texts_changed += ops
+                .iter()
+                .map(|op| match op {
+                    TreeOp::Text(ids) => ids.len(),
+                    _ => 0,
+                })
+                .sum::<usize>();
         }
+        assert!(
+            texts_changed > 500,
+            "случаи `Text` наблюдаются: {texts_changed}"
+        );
     }
 }

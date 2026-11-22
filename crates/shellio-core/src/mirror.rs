@@ -72,6 +72,19 @@ impl Mirror {
         }
     }
 
+    /// Доставка в слот зеркала, которого может ещё не быть: без зеркала снимок его заводит, а
+    /// событие и `Reset` требуют снимка. Иначе — [`Mirror::apply`].
+    pub fn deliver_to(slot: &mut Option<Mirror>, delivery: Delivery) -> MirrorStep {
+        match (slot.as_mut(), delivery) {
+            (Some(mirror), delivery) => mirror.apply(delivery),
+            (None, Delivery::Snapshot(snapshot)) => {
+                *slot = Some(Self::from_snapshot(snapshot));
+                MirrorStep::Applied
+            }
+            (None, Delivery::Event(_) | Delivery::Reset) => MirrorStep::NeedSnapshot,
+        }
+    }
+
     fn apply_event(&mut self, event: &Event) -> MirrorStep {
         if event.revision <= self.revision {
             return MirrorStep::Ignored;
