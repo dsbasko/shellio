@@ -1,0 +1,32 @@
+{
+  "cell": { "appearance": "light", "contrast": "increased" },
+  "regions": [
+    {
+      "id": "chrome.background",
+      "component": "chrome",
+      "rect": { "x": 860, "y": 8, "width": 140, "height": 24 },
+      "slot": "chrome"
+    },
+    {
+      "id": "surface.focus.background",
+      "component": "gallery.surface.focus",
+      "rect": { "x": 24, "y": 560, "width": 120, "height": 48 },
+      "slot": "panel",
+      "layer": "tone_navigation"
+    },
+    {
+      "id": "surface.plain.background",
+      "component": "gallery.surface.plain",
+      "rect": { "x": 24, "y": 560, "width": 120, "height": 48 },
+      "slot": "panel",
+      "layer": "veil"
+    },
+    {
+      "id": "field.background",
+      "component": "gallery.field",
+      "rect": { "x": 180, "y": 8, "width": 88, "height": 16 },
+      "slot": "surface",
+      "layer": "tone_navigation"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+[package]
+name = "shellio-e2e"
+description = "Оракул снимков make e2e: независимые ожидания участков из tokens.css и ADR-0027, разбор PNG и сравнение"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+png = "0.18.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[lints]
+workspace = true
