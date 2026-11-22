@@ -15,13 +15,14 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use shellio_control::{
-    Accepted, Activation, Axis, AxisSource, ChromeView, ColorSpaceView, ComponentState,
-    ComponentView, Contrast, ControlError, ControlErrorCode, GalleryCommand, GalleryFocus,
-    GalleryView, Hello, HelloReply, InspectView, InstanceKind, InstanceView, IntentKind,
-    IntentRecord, LateCallbackView, Launch, LaunchReceipt, Lightness, MaterialView, MenuItemView,
-    MenuView, Motion, OkValue, OwnerState, PROTOCOL, REQUEST_LINE_LIMIT, Rect, RefuseReason,
-    RefusedArg, Rejected, Request, RequestBody, RequestId, Response, RunLoopView, ScreenView, Size,
-    StartupView, StatsView, TextFieldView, UI_TIMEOUT, UiReply, UiRequest, WindowMode, WindowView,
+    Accepted, Activation, Axis, AxisSource, ChromeView, ClassAliveView, ColorSpaceView,
+    ComponentState, ComponentView, Contrast, ControlError, ControlErrorCode, GalleryCommand,
+    GalleryFocus, GalleryTreeView, GalleryView, Hello, HelloReply, InspectView, InstanceKind,
+    InstanceView, IntentKind, IntentRecord, LateCallbackView, Launch, LaunchReceipt, Lightness,
+    MaterialView, MenuItemView, MenuView, Motion, OkValue, OwnerState, PROTOCOL,
+    REQUEST_LINE_LIMIT, Rect, RefuseReason, RefusedArg, Rejected, Request, RequestBody, RequestId,
+    Response, RunLoopView, ScreenView, Size, StartupView, StatsView, TextFieldView, UI_TIMEOUT,
+    UiReply, UiRequest, WindowMode, WindowView,
 };
 use shellio_core::test_support::SequentialIds;
 use shellio_core::{
@@ -331,6 +332,9 @@ fn response_golden(response: &Response) -> &'static str {
                 "response.ok.ui.inspect.components"
             }
             UiReply::Inspect(_) => "response.ok.ui.inspect",
+            UiReply::Stats(stats) if !stats.gallery_trees.is_empty() => {
+                "response.ok.ui.stats.gallery"
+            }
             UiReply::Stats(_) => "response.ok.ui.stats",
             UiReply::Accepted(_) => "response.ok.ui.accepted",
         },
@@ -415,6 +419,37 @@ fn responses() -> Result<Vec<Response>, String> {
             OkValue::Ui(UiReply::Inspect(Box::new(inspect_gallery_view()))),
         ),
         ok(9, OkValue::Ui(UiReply::Stats(Box::new(stats_view())))),
+        // P1.3, задача 10: прежние деревья галереи с живыми по классам; эталон
+        // `response.ok.ui.stats` не меняется.
+        ok(
+            9,
+            OkValue::Ui(UiReply::Stats(Box::new(StatsView {
+                gallery_trees: vec![
+                    GalleryTreeView {
+                        tree: 1,
+                        views: 48,
+                        alive: 0,
+                        alive_classes: Vec::new(),
+                    },
+                    GalleryTreeView {
+                        tree: 2,
+                        views: 61,
+                        alive: 2,
+                        alive_classes: vec![
+                            ClassAliveView {
+                                class: "NSButton".into(),
+                                alive: 1,
+                            },
+                            ClassAliveView {
+                                class: "NSTextView".into(),
+                                alive: 1,
+                            },
+                        ],
+                    },
+                ],
+                ..stats_view()
+            }))),
+        ),
         ok(
             10,
             OkValue::Ui(UiReply::Accepted(Accepted {

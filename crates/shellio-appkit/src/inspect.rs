@@ -5,7 +5,7 @@
 use objc2::rc::Retained;
 use objc2::runtime::AnyClass;
 use objc2::{MainThreadMarker, Message};
-use objc2_app_kit::{NSAccessibility, NSScreen, NSView, NSWindow};
+use objc2_app_kit::{NSAccessibility, NSControl, NSScreen, NSView, NSWindow};
 use objc2_quartz_core::CALayer;
 
 use crate::chrome_bar::{ChromeState, Frame};
@@ -146,7 +146,7 @@ pub(crate) fn facts(view: &NSView, enabled: Option<bool>) -> ViewFacts {
         visible,
         first_responder,
         enabled,
-        role: text(view.accessibilityRole()),
+        role: role(view),
         label,
         help: text(view.accessibilityHelp()),
         selected: None,
@@ -154,6 +154,21 @@ pub(crate) fn facts(view: &NSView, enabled: Option<bool>) -> ViewFacts {
         animation_keys: view.layer().map_or(0, |layer| animation_keys(&layer)),
     }
 }
+
+/// AX-роль вида, как её видит клиент доступности. Контрол отдаёт клиентам роль своей ячейки, а
+/// собственная роль вида у него `AXUnknown` (находка 2 P0.2 для поля, у кнопки так же).
+fn role(view: &NSView) -> Option<String> {
+    let own = text(view.accessibilityRole());
+    if own.as_deref().is_some_and(|role| role != UNKNOWN_ROLE) {
+        return own;
+    }
+    view.downcast_ref::<NSControl>()
+        .and_then(NSControl::cell)
+        .and_then(|cell| text(cell.accessibilityRole()))
+        .or(own)
+}
+
+const UNKNOWN_ROLE: &str = "AXUnknown";
 
 /// Узел дерева по виду.
 pub(crate) fn node(

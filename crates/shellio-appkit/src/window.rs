@@ -310,6 +310,9 @@ pub struct Startup {
 impl Drop for MainWindow {
     fn drop(&mut self) {
         let window = &self.parts.window;
+        // Ввод в поле заканчивается до закрытия: иначе виды field editor с кареткой переживают
+        // окно (`window_close_released` P0.2).
+        window.makeFirstResponder(None);
         window.setDelegate(None);
         window.orderOut(None);
         window.setContentView(None);

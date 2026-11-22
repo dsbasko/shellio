@@ -1,6 +1,8 @@
 //! Размещение компонентов в окне и в [`Surface`] без типов objc2 снаружи, и слабое наблюдение за
 //! видами освобождённого дерева компонентов (`ui.stats.gallery_trees`).
 
+use std::collections::{BTreeMap, HashSet};
+
 use objc2::rc;
 use objc2_app_kit::{NSView, NSWindowOrderingMode};
 use objc2_foundation::{NSObject, NSPoint, NSRect, NSSize};
@@ -79,6 +81,8 @@ pub(crate) fn place(parent: &NSView, view: &NSView, frame: Frame, below: Option<
 #[derive(Default)]
 pub struct ViewWatch {
     objects: Vec<rc::Weak<NSObject>>,
+    /// Адреса объектов на момент наблюдения: повтор не добавляется.
+    addresses: HashSet<usize>,
 }
 
 impl ViewWatch {
@@ -91,21 +95,34 @@ impl ViewWatch {
         self.watch_view(piece.ns_view());
     }
 
-    /// Окно, его содержимое и все виды содержимого на этот момент.
+    /// Окно, его рамка со всеми видами (содержимое, системный заголовок и кнопки окна) и field
+    /// editor окна на этот момент.
     pub fn watch_window(&mut self, window: &MainWindow) {
         let ns_window = window.ns_window();
-        let object: &NSObject = ns_window.as_ref();
-        self.objects.push(rc::Weak::new(object));
+        self.watch_object(ns_window.as_ref());
         if let Some(content) = ns_window.contentView() {
-            self.watch_view(&content);
+            // SAFETY: `superview` у вида содержимого, которое держит окно.
+            let frame = unsafe { content.superview() }.unwrap_or(content);
+            self.watch_view(&frame);
+        }
+        // SAFETY: без создания field editor только читается; объект для поиска не нужен.
+        if let Some(editor) = unsafe { ns_window.fieldEditor_forObject(false, None) } {
+            self.watch_view(&editor);
         }
     }
 
     fn watch_view(&mut self, view: &NSView) {
-        let object: &NSObject = view.as_ref();
-        self.objects.push(rc::Weak::new(object));
+        self.watch_object(view.as_ref());
         for child in view.subviews().iter() {
             self.watch_view(&child);
+        }
+    }
+
+    /// Объект под наблюдением один раз: field editor во время ввода лежит и в иерархии окна.
+    fn watch_object(&mut self, object: &NSObject) {
+        let address = std::ptr::from_ref(object).addr();
+        if self.addresses.insert(address) {
+            self.objects.push(rc::Weak::new(object));
         }
     }
 
@@ -126,5 +143,15 @@ impl ViewWatch {
             .filter(|object| object.load().is_some())
             .count();
         u64::try_from(alive).unwrap_or(u64::MAX)
+    }
+
+    /// Живые по именам классов в порядке имён.
+    pub fn alive_classes(&self) -> Vec<(String, u64)> {
+        let mut counts = BTreeMap::<String, u64>::new();
+        for object in self.objects.iter().filter_map(rc::Weak::load) {
+            let name = object.class().name().to_string_lossy().into_owned();
+            *counts.entry(name).or_default() += 1;
+        }
+        counts.into_iter().collect()
     }
 }

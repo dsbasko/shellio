@@ -26,7 +26,8 @@ pub enum UiRequest {
     Window,
     /// `ui.inspect`: видимое дерево компонентов окна.
     Inspect,
-    /// `ui.stats`: счётчики, монитор цикла и старт процесса.
+    /// `ui.stats`: счётчики, монитор цикла и старт процесса. После чтения владелец сливает пул
+    /// автоосвобождения цикла событий: следующее чтение видит освобождения, отложенные до ввода.
     Stats,
     /// Действие интерфейса: тот же обработчик, что у главного меню.
     Command(UiCommand),
@@ -686,6 +687,17 @@ pub struct GalleryTreeView {
     /// Видов под слабыми ссылками.
     pub views: u64,
     /// Из них ещё живы.
+    pub alive: u64,
+    /// Живые по классам; пусто — живых нет.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub alive_classes: Vec<ClassAliveView>,
+}
+
+/// Живые объекты одного класса среди слабых ссылок прежнего дерева.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClassAliveView {
+    pub class: String,
     pub alive: u64,
 }
 

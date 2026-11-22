@@ -439,6 +439,9 @@ impl ChromeBar {
         parts.appearance.setAccessibilityLabel(Some(&text));
         parts.appearance.setToolTip(Some(&text));
         self.relayout();
+        // Отметка отрисовки заголовка называет поколение, которое показывает новое состояние:
+        // по ней `ui.stats.startup` находит первую отрисовку с первым снимком зеркала.
+        self.view.view().setNeedsDisplay(true);
     }
 
     fn apply_theme(&self) {

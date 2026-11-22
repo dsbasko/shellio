@@ -13,9 +13,9 @@ use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationOptions, NSApplicationActivationPolicy,
-    NSApplicationDelegate, NSApplicationTerminateReply, NSBackingStoreType, NSResponder,
-    NSRunningApplication, NSScreen, NSWindow, NSWindowStyleMask, NSWorkspace,
-    NSWorkspaceOpenConfiguration,
+    NSApplicationDelegate, NSApplicationTerminateReply, NSBackingStoreType, NSEvent,
+    NSEventModifierFlags, NSEventType, NSResponder, NSRunningApplication, NSScreen, NSWindow,
+    NSWindowStyleMask, NSWorkspace, NSWorkspaceOpenConfiguration,
 };
 use objc2_foundation::{
     NSArray, NSError, NSNotification, NSObjectNSDelayedPerforming, NSPoint, NSRect,
@@ -102,6 +102,15 @@ impl App {
         }
     }
 
+    /// Ставит в конец очереди событий пустое событие приложения: `-[NSApplication run]` забирает
+    /// его, заканчивает свой оборот и сливает свой пул автоосвобождения. Этот пул сливается только
+    /// после очередного события, а снятие окна и field editor AppKit доделывает асинхронно, уже
+    /// после работы, и автоосвобождает их виды туда же: без ввода они живут до следующего события
+    /// (`window-cycle` (в) P1.3).
+    pub fn drain_event_pool(&self) {
+        post_empty_event(&self.ns_app());
+    }
+
     /// Политика владельца `.regular`: иконка в Dock и право на передний план. `false` — AppKit отказал.
     pub fn become_regular(&self) -> bool {
         set_policy(&self.ns_app(), policy(Role::Owner))
@@ -121,6 +130,14 @@ impl App {
         // Кооперативный `activate()` агентское приложение не активирует ни из `open -n`, ни из
         // терминала. Устаревший вызов — по P0.2 (20 из 20 при старте из терминала) и варианту 2
         // плана `single-instance-activation`.
+        self.activate_ignoring_others();
+    }
+
+    /// Владелец с показанным окном просит передний план некооперативно: под `LSUIElement` первый
+    /// запуск от Finder кооперативным `activate()` вперёд не выходит (ADR-0006, «Уточнено в P1.2:
+    /// доводка активации»). Правило «Первый передний план» плана `appkit-foundation`, вариант 2:
+    /// P0.2 — 20 из 20 при старте с окном.
+    pub fn activate_ignoring_others(&self) {
         #[allow(deprecated)]
         self.ns_app().activateIgnoringOtherApps(true);
     }
@@ -299,6 +316,24 @@ const fn policy(role: Role) -> NSApplicationActivationPolicy {
     match role {
         Role::Launch => NSApplicationActivationPolicy::Accessory,
         Role::Owner => NSApplicationActivationPolicy::Regular,
+    }
+}
+
+/// Пустое событие приложения в конец очереди событий: `sendEvent:` его никуда не доставляет.
+fn post_empty_event(app: &NSApplication) {
+    let event = NSEvent::otherEventWithType_location_modifierFlags_timestamp_windowNumber_context_subtype_data1_data2(
+        NSEventType::ApplicationDefined,
+        NSPoint::ZERO,
+        NSEventModifierFlags::empty(),
+        0.0,
+        0,
+        None,
+        0,
+        0,
+        0,
+    );
+    if let Some(event) = event {
+        app.postEvent_atStart(&event, false);
     }
 }
 

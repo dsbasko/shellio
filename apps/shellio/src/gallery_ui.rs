@@ -12,7 +12,7 @@ use shellio_appkit::{
     MenuIntent, MenuItem, MenuKey, Piece, Surface, SurfaceFill, SurfaceRadius, SurfaceSpec,
     TextField, TextFieldIntent, TextFieldState, ViewWatch, text_field_height,
 };
-use shellio_control::{GalleryFocus, GalleryTreeView};
+use shellio_control::{ClassAliveView, GalleryFocus, GalleryTreeView};
 use shellio_theme::{AppTheme, KeyMode};
 
 /// Сколько прежних деревьев держит `ui.stats.gallery_trees`.
@@ -153,23 +153,26 @@ impl GalleryUi {
 
     /// Освобождает дерево и строит новое в том же окне.
     pub fn rebuild(&mut self, app: &App, window: &MainWindow, generation: u64) {
-        self.retire(None);
+        self.retire(window, false);
         self.build(app, window, generation);
     }
 
     /// Освобождает дерево перед заменой окна: наблюдение получает и окно.
     pub fn retire_with_window(&mut self, window: &MainWindow) {
-        self.retire(Some(window));
+        self.retire(window, true);
     }
 
-    fn retire(&mut self, window: Option<&MainWindow>) {
+    fn retire(&mut self, window: &MainWindow, with_window: bool) {
         let Some(tree) = self.tree.take() else {
             return;
         };
+        // Ввод в поле заканчивается до того, как поле уходит из окна: вид поля, снятый посреди ввода,
+        // оставляет клип-вид field editor живым после окна (`window-cycle` (в), P1.3).
+        window.clear_focus();
         let Tree {
             number, mut watch, ..
         } = tree;
-        if let Some(window) = window {
+        if with_window {
             watch.watch_window(window);
         }
         if self.retired.len() == RETIRED_TREES {
@@ -254,6 +257,12 @@ impl GalleryUi {
                 tree: retired.number,
                 views: retired.watch.len(),
                 alive: retired.watch.alive(),
+                alive_classes: retired
+                    .watch
+                    .alive_classes()
+                    .into_iter()
+                    .map(|(class, alive)| ClassAliveView { class, alive })
+                    .collect(),
             })
             .collect()
     }

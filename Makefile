@@ -20,6 +20,7 @@ CHECK_BUNDLE := scripts/check-bundle.sh
 TEST_BUNDLE := scripts/test-bundle.sh
 RUN := scripts/run.sh
 E2E_SINGLE_INSTANCE := scripts/e2e/single-instance.sh
+E2E_APPKIT := scripts/e2e/appkit.sh
 PROBE_APPKIT := spikes/probe-appkit-shell/run.sh
 PROBE_GHOSTTY := spikes/probe-ghostty-surface/run.sh
 PROBE_SESSION := spikes/probe-session-survival/run.sh
@@ -101,15 +102,27 @@ locked-run:
 	$(CHECK_BUNDLE)
 	$(RUN) -- $(ARGS)
 
-# Продуктовый рубеж P1.2 вне check и CI: сценарий второго запуска. Бандл собирается и проверяется скриптами
-# внутри той же блокировки, shellioctl сценарий собирает сам. Нужны идентичность Shellio Dev, открытый сеанс GUI,
-# разблокированный экран и запущенный Finder; цель запускается из процесса-потомка приложения терминала, а не из
-# tmux, screen или ssh. Итог — result.json в target/e2e/single-instance/<время>-<pid>/, код сценария 3 —
-# обязательный пункт не pass, 1 — ошибка исполнения.
+# Продуктовый рубеж вне check и CI: сценарий второго запуска P1.2, затем сценарий окна и компонентов P1.3. Бандл
+# собирается и проверяется скриптами внутри той же блокировки, shellioctl и оракул сценарии собирают сами. Нужны
+# идентичность Shellio Dev, открытый сеанс GUI, разблокированный экран и запущенный Finder; цель запускается из
+# процесса-потомка приложения терминала, а не из tmux, screen или ssh. appkit.sh нужны ещё Screen Recording и
+# Accessibility у терминала-предка, латинский источник ввода и выключенные оконные менеджеры. Итоги — result.json в
+# target/e2e/single-instance/<время>-<pid>/ и target/e2e/appkit/<время>-<pid>/; пункт single-instance второго
+# сценария судится по result.json первого. Код цели — наибольший из кодов сценариев по порядку 1 > 3 > 0: 3 —
+# обязательный пункт не pass, 1 — ошибка исполнения. После кода 1 первого сценария второй не запускается.
 locked-e2e:
 	CARGO=$(CARGO) $(BUNDLE)
 	$(CHECK_BUNDLE)
-	CARGO=$(CARGO) $(E2E_SINGLE_INSTANCE)
+	@log="$$(mktemp "$${TMPDIR:-/tmp}/shellio-e2e-log.XXXXXX")"; \
+	CARGO=$(CARGO) $(E2E_SINGLE_INSTANCE) | tee "$$log"; first=$${PIPESTATUS[0]}; \
+	result="$$(sed -n 's/^итог: код [0-9]*, result.json — //p' "$$log" | tail -n 1)"; \
+	rm -f "$$log"; \
+	case $$first in 0 | 3) ;; *) echo "make e2e: single-instance.sh — код $$first, appkit.sh не запускается" >&2; exit 1 ;; esac; \
+	second=0; CARGO=$(CARGO) $(E2E_APPKIT) --single-instance "$$result" || second=$$?; \
+	code=0; \
+	for c in $$first $$second; do case $$c in 0) ;; 3) [ $$code -eq 1 ] || code=3 ;; *) code=1 ;; esac; done; \
+	echo "make e2e: single-instance.sh — код $$first, appkit.sh — код $$second, итог $$code"; \
+	exit $$code
 
 # Отказы check-bundle.sh на копиях бандла; нужна настоящая идентичность, поэтому не в test-scripts.
 locked-test-bundle:

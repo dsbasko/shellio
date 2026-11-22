@@ -641,7 +641,13 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
             with_window(|owner| UiReply::Window(Box::new(owner.window_view(app, revision))))
         }
         UiRequest::Inspect => with_window(|owner| UiReply::Inspect(Box::new(owner.inspect_view()))),
-        UiRequest::Stats => with_window(|owner| UiReply::Stats(Box::new(owner.stats_view()))),
+        UiRequest::Stats => {
+            let reply = with_window(|owner| UiReply::Stats(Box::new(owner.stats_view())));
+            // Отложенные освобождения AppKit ждут в пуле `run` очередного события: следующее чтение
+            // считает живые объекты уже после слива, и утечку не путает с ожиданием ввода.
+            app.drain_event_pool();
+            reply
+        }
         UiRequest::Command(command) => {
             let owner = with_window(|_| ());
             owner.and_then(|()| {

@@ -133,11 +133,13 @@ impl Ui for AppUi {
     }
 
     async fn activate(&self) -> Activation {
-        // Правило «Первый передний план», вариант 1: окно `makeKeyAndOrderFront`, затем
-        // кооперативный `activate()`. Пересланный `launch` второго запуска показывает окно так же.
+        // Правило «Первый передний план», вариант 2: окно `makeKeyAndOrderFront`, кооперативный
+        // `activate()`, затем некооперативный запрос. Пересланный `launch` второго запуска показывает
+        // окно так же.
         let shown = self.on_main(|app| {
             window_ui::show(app);
             app.activate();
+            app.activate_ignoring_others();
         });
         match shown.await {
             Some(()) => Activation::Requested,
