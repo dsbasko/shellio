@@ -110,11 +110,12 @@ locked-run:
 # target/e2e/single-instance/<время>-<pid>/ и target/e2e/appkit/<время>-<pid>/; пункт single-instance второго
 # сценария судится по result.json первого. Код цели — наибольший из кодов сценариев по порядку 1 > 3 > 0: 3 —
 # обязательный пункт не pass, 1 — ошибка исполнения. После кода 1 первого сценария второй не запускается.
+# tee игнорирует INT и TERM: иначе Ctrl-C закрывает канал, и уборка single-instance.sh гибнет от SIGPIPE.
 locked-e2e:
 	CARGO=$(CARGO) $(BUNDLE)
 	$(CHECK_BUNDLE)
 	@log="$$(mktemp "$${TMPDIR:-/tmp}/shellio-e2e-log.XXXXXX")"; \
-	CARGO=$(CARGO) $(E2E_SINGLE_INSTANCE) | tee "$$log"; first=$${PIPESTATUS[0]}; \
+	CARGO=$(CARGO) $(E2E_SINGLE_INSTANCE) | (trap '' INT TERM; exec tee "$$log"); first=$${PIPESTATUS[0]}; \
 	result="$$(sed -n 's/^итог: код [0-9]*, result.json — //p' "$$log" | tail -n 1)"; \
 	rm -f "$$log"; \
 	case $$first in 0 | 3) ;; *) echo "make e2e: single-instance.sh — код $$first, appkit.sh не запускается" >&2; exit 1 ;; esac; \
