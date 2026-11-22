@@ -898,7 +898,10 @@ dependencies = [
  "dispatch2",
  "objc2",
  "objc2-app-kit",
+ "objc2-core-foundation",
  "objc2-foundation",
+ "objc2-quartz-core",
+ "shellio-theme",
 ]
 
 [[package]]

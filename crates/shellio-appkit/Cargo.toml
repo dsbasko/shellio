@@ -1,6 +1,6 @@
 [package]
 name = "shellio-appkit"
-description = "Безопасный слой shellio над AppKit: NSApplication без окна, главный поток и активация"
+description = "Безопасный слой shellio над AppKit: приложение, главный поток, владение видами, тема и монитор цикла"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,11 +14,21 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "std",
     "block2",
     "libc",
+    "objc2-core-foundation",
+    "objc2-core-graphics",
+    "objc2-quartz-core",
+    "NSAccessibility",
+    "NSAppearance",
     "NSApplication",
+    "NSColor",
+    "NSControl",
     "NSGraphics",
+    "NSMenu",
+    "NSMenuItem",
     "NSResponder",
     "NSRunningApplication",
     "NSScreen",
+    "NSView",
     "NSWindow",
     "NSWorkspace",
 ] }
@@ -29,8 +39,26 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "NSError",
     "NSGeometry",
     "NSNotification",
+    "NSOperation",
+    "NSString",
+    "NSThread",
     "NSURL",
 ] }
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "block2",
+    "CFRunLoop",
+    "CFString",
+] }
+objc2-quartz-core = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "objc2-core-foundation",
+    "objc2-core-graphics",
+    "CABase",
+    "CALayer",
+    "CATransaction",
+] }
+shellio-theme = { path = "../shellio-theme" }
 
 [lints]
 workspace = true

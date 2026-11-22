@@ -19,6 +19,11 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{NSError, NSNotification, NSPoint, NSRect, NSSize};
 
+use crate::counters::{Live, counter};
+
+counter!(APP_DELEGATE, Class, "ShellioAppDelegate");
+counter!(SERVICE_WINDOW_CLASS, Class, "ShellioServiceWindow");
+
 /// События приложения. Методы вызываются на главном потоке из делегата `NSApplication` и не должны
 /// ждать: пока метод не вернулся, цикл главного потока стоит.
 pub trait Delegate: 'static {
@@ -193,6 +198,11 @@ impl App {
 
     fn ns_app(&self) -> Retained<NSApplication> {
         NSApplication::sharedApplication(self.mtm)
+    }
+
+    /// Доказательство главного потока для кода crate.
+    pub(crate) fn mtm(&self) -> MainThreadMarker {
+        self.mtm
     }
 }
 
@@ -377,7 +387,12 @@ impl Termination {
 }
 
 struct Ivars {
+    _live: Live,
     delegate: Box<dyn Delegate>,
+}
+
+struct ServiceIvars {
+    _live: Live,
 }
 
 define_class!(
@@ -433,6 +448,7 @@ define_class!(
     #[unsafe(super(NSWindow, NSResponder, NSObject))]
     #[thread_kind = MainThreadOnly]
     #[name = "ShellioServiceWindow"]
+    #[ivars = ServiceIvars]
     struct ServiceWindow;
 
     impl ServiceWindow {
@@ -459,7 +475,9 @@ define_class!(
 
 impl ServiceWindow {
     fn new(mtm: MainThreadMarker, frame: NSRect) -> Retained<Self> {
-        let this = Self::alloc(mtm).set_ivars(());
+        let this = Self::alloc(mtm).set_ivars(ServiceIvars {
+            _live: SERVICE_WINDOW_CLASS.live(),
+        });
         // SAFETY: назначенный инициализатор NSWindow с окном без рамки.
         let window: Retained<Self> = unsafe {
             msg_send![
@@ -478,7 +496,10 @@ impl ServiceWindow {
 
 impl AppDelegate {
     fn new(mtm: MainThreadMarker, delegate: Box<dyn Delegate>) -> Retained<Self> {
-        let this = Self::alloc(mtm).set_ivars(Ivars { delegate });
+        let this = Self::alloc(mtm).set_ivars(Ivars {
+            _live: APP_DELEGATE.live(),
+            delegate,
+        });
         // SAFETY: `init` у NSObject без аргументов, ivars уже заданы.
         unsafe { msg_send![super(this), init] }
     }
