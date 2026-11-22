@@ -951,6 +951,10 @@ name = "shellio-sys-ghostty"
 version = "0.1.0"
 
 [[package]]
+name = "shellio-theme"
+version = "0.1.0"
+
+[[package]]
 name = "shellioctl"
 version = "0.1.0"
 dependencies = [

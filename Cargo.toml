@@ -8,6 +8,7 @@ members = [
     "crates/shellio-core",
     "crates/shellio-ghostty",
     "crates/shellio-sys-ghostty",
+    "crates/shellio-theme",
     "crates/shellio-store",
     "spikes/probe-appkit-shell",
     "spikes/probe-diff-view",

@@ -275,11 +275,18 @@
 - Create: `crates/shellio-theme/{Cargo.toml,src/lib.rs,src/color.rs,src/cell.rs,src/tokens.rs,src/contrast.rs,tests/prototype.rs}`
 - Modify: `Cargo.toml` (член workspace), `Cargo.lock`
 
-- [ ] `AppTheme::for_cell(Cell)` со слотами и метриками раздела «Тема», `Srgb8`, `Motion`, `#![forbid(unsafe_code)]`, `[lints] workspace = true`
-- [ ] разбор системных входов в ячейку — чистая функция `Cell::resolve(system_dark, system_increase_contrast, override)` с приоритетом переопределений
-- [ ] тест `tests/prototype.rs`: разбор `prototype/css/tokens.css` с каскадом и `var()`, сверка каждого слота каждой ячейки, значения ADR-0027 — по таблице
-- [ ] тесты контраста пар раздела «Тема»; тесты `Cell::resolve` для всех сочетаний
-- [ ] `make check` проходит
+- [x] `AppTheme::for_cell(Cell)` со слотами и метриками раздела «Тема», `Srgb8`, `Motion`, `#![forbid(unsafe_code)]`, `[lints] workspace = true`
+  - ⚠️ Решение исполнителя: в теме слоты, которые называют задачи 4–13, — `chrome*`, `surface`, `head*`, `panel`, `panel_head`, `line*`, `text*`, `selection`, `hover`, `kbd`, `accent_nav*`, `accent_input*`, `status_*`, слой фокуса (вуаль, доля тона, толщина линии), метрики, кегли, высоты строк и движение. Цвета diff и синтаксиса, `term`, строка состояния nvim, тень и затемнение наложений добавляют шаги, которые их рисуют, с той же сверкой.
+  - Источник каждого слота называет `AppTheme::slots()`: переменная `tokens.css` или столбец таблицы ADR-0027 (`panel`, `panel_head`, вуаль, тон). Список строится разбором структур без `..`, поэтому новое поле без источника не собирается. Цвет режима (`--focus` с `[data-mode="input"]`) — `AppTheme::mode_color(KeyMode)`.
+  - Зависимостей нет, `Cargo.lock` получил одну запись `shellio-theme`, новых лицензий нет.
+- [x] разбор системных входов в ячейку — чистая функция `Cell::resolve(system_dark, system_increase_contrast, override)` с приоритетом переопределений
+  - Переопределение по осям (`Overrides`): выбор `ui.appearance.set` задаёт только светлоту, галерея — светлоту, контраст и движение по отдельности (пункт `snapshot-light`: `gallery.cell { contrast: normal }` при светлоте из `ui.appearance`). Ответ — ячейка и источник каждой оси (`system`, `ui.appearance`, `gallery`) для `ui.window`; движение — `Motion::resolve(system_reduce_motion, overrides)`.
+- [x] тест `tests/prototype.rs`: разбор `prototype/css/tokens.css` с каскадом и `var()`, сверка каждого слота каждой ячейки, значения ADR-0027 — по таблице
+  - Блоки `:root[…]` применяются по числу условий, затем по порядку в файле, `var()` разрешается после слияния ячейки. Таблица ADR-0027 разбирается из самого ADR со сверкой столбцов. Неизвестная ось прототипа или селектор — провал. Проверка порчей: изменённый цвет, переменная без пары и доля вуали дают провал с именем слота и ячейки.
+- [x] тесты контраста пар раздела «Тема»; тесты `Cell::resolve` для всех сочетаний
+  - ⚠️ Решение исполнителя: «вторичный текст» чисел ADR-0027 — слот `text_3` (тот же цвет, что `--cm`), вуаль лежит над текстом и над фоном, смешение без округления до байта. Только так воспроизводятся 3,65:1 (3,653) и 3,96:1 (3,958), а также 2,68:1 на выделенной строке; `text_2` даёт 4,78:1, округление до байта — 3,632:1. Тест закрепляет и это.
+  - Increase Contrast: `text`, `text_2`, `text_3` на `panel`, `panel_head` и `selection` без слоя, под вуалью и под тоном обоих режимов не ниже 4,5:1 (минимум 5,36:1 — `text_3` на `selection` под вуалью тёмной ячейки). `Cell::resolve` — все 108 сочетаний против отдельно записанного ожидания.
+- [x] `make check` проходит
 
 ### Task 3: Зеркало состояния в `shellio-core`
 
