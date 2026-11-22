@@ -4,6 +4,10 @@
 //! Кадр запроса — объект с одним ключом, именем запроса: `{"ui.window": {}}`,
 //! `{"ui.appearance.set": {"appearance": "light"}}`. Ответ лежит под ключом `ui` значения `ok`
 //! и тоже несёт один ключ: `window`, `inspect`, `stats` или `accepted`.
+//!
+//! Служебные команды галереи [`GalleryCommand`] (`gallery.*`) выполняются только в режиме галереи,
+//! иначе отказ `gallery_only`. Ответ — та же квитанция `accepted` с поколением состояния, которое
+//! сценарий ждёт по `ui.window` и маркеру поколения в окне.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -26,6 +30,70 @@ pub enum UiRequest {
     Stats,
     /// Действие интерфейса: тот же обработчик, что у главного меню.
     Command(UiCommand),
+    /// Служебная команда галереи.
+    Gallery(GalleryCommand),
+}
+
+/// Служебная команда галереи (`gallery.*`): вход тестов без keymap, только в режиме галереи.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum GalleryCommand {
+    /// `gallery.cell`: переопределение светлоты и контраста в окне галереи. `None` — ось без
+    /// переопределения галереи: её значение даёт выбор `ui.appearance.set` или система.
+    Cell {
+        appearance: Option<Lightness>,
+        contrast: Option<Contrast>,
+    },
+    /// `gallery.motion`: переопределение движения в окне галереи.
+    Motion(Motion),
+    /// `gallery.focus`: first responder окна галереи.
+    Focus(GalleryFocus),
+    /// `gallery.menu.open`: открыть меню кнопки «…» тем же путём, что нажатие.
+    MenuOpen,
+    /// `gallery.rebuild`: освободить дерево компонентов галереи и построить его заново.
+    Rebuild,
+    /// `gallery.window.recreate`: закрыть и отпустить окно галереи, создать новое.
+    WindowRecreate,
+    /// `gallery.place`: перенести окно галереи на экран с номером из `ui.window.screens`.
+    Place { screen: u32 },
+    /// `gallery.reset`: вернуть состояние галереи к фикстуре; поколение не сбрасывается.
+    Reset,
+}
+
+impl GalleryCommand {
+    /// Имя команды в кадре и в ADR-0007.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Cell { .. } => "gallery.cell",
+            Self::Motion(_) => "gallery.motion",
+            Self::Focus(_) => "gallery.focus",
+            Self::MenuOpen => "gallery.menu.open",
+            Self::Rebuild => "gallery.rebuild",
+            Self::WindowRecreate => "gallery.window.recreate",
+            Self::Place { .. } => "gallery.place",
+            Self::Reset => "gallery.reset",
+        }
+    }
+}
+
+/// Компонент, которому `gallery.focus` отдаёт first responder.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GalleryFocus {
+    /// Само окно: ни один компонент не в фокусе.
+    Window,
+    /// Поле ввода: first responder — его field editor.
+    Field,
+}
+
+impl GalleryFocus {
+    pub const ALL: [Self; 2] = [Self::Window, Self::Field];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Window => "window",
+            Self::Field => "field",
+        }
+    }
 }
 
 impl UiRequest {
@@ -36,6 +104,7 @@ impl UiRequest {
             Self::Inspect => "ui.inspect",
             Self::Stats => "ui.stats",
             Self::Command(command) => command.name(),
+            Self::Gallery(command) => command.name(),
         }
     }
 
@@ -43,7 +112,7 @@ impl UiRequest {
     pub const fn is_mutation(self) -> bool {
         match self {
             Self::Window | Self::Inspect | Self::Stats => false,
-            Self::Command(_) => true,
+            Self::Command(_) | Self::Gallery(_) => true,
         }
     }
 
@@ -54,7 +123,7 @@ impl UiRequest {
             (Self::Window, UiReply::Window(_))
                 | (Self::Inspect, UiReply::Inspect(_))
                 | (Self::Stats, UiReply::Stats(_))
-                | (Self::Command(_), UiReply::Accepted(_))
+                | (Self::Command(_) | Self::Gallery(_), UiReply::Accepted(_))
         )
     }
 }
@@ -71,6 +140,33 @@ struct AppearanceArgs {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CellArgs {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    appearance: Option<Lightness>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    contrast: Option<Contrast>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MotionArgs {
+    motion: Motion,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FocusArgs {
+    component: GalleryFocus,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PlaceArgs {
+    screen: u32,
+}
+
+#[derive(Serialize, Deserialize)]
 enum WireUiRequest {
     #[serde(rename = "ui.window")]
     Window(NoArgs),
@@ -84,6 +180,22 @@ enum WireUiRequest {
     AppQuit(NoArgs),
     #[serde(rename = "ui.appearance.set")]
     AppearanceSet(AppearanceArgs),
+    #[serde(rename = "gallery.cell")]
+    GalleryCell(CellArgs),
+    #[serde(rename = "gallery.motion")]
+    GalleryMotion(MotionArgs),
+    #[serde(rename = "gallery.focus")]
+    GalleryFocus(FocusArgs),
+    #[serde(rename = "gallery.menu.open")]
+    GalleryMenuOpen(NoArgs),
+    #[serde(rename = "gallery.rebuild")]
+    GalleryRebuild(NoArgs),
+    #[serde(rename = "gallery.window.recreate")]
+    GalleryWindowRecreate(NoArgs),
+    #[serde(rename = "gallery.place")]
+    GalleryPlace(PlaceArgs),
+    #[serde(rename = "gallery.reset")]
+    GalleryReset(NoArgs),
 }
 
 impl From<WireUiRequest> for UiRequest {
@@ -97,6 +209,28 @@ impl From<WireUiRequest> for UiRequest {
             WireUiRequest::AppearanceSet(AppearanceArgs { appearance }) => {
                 Self::Command(UiCommand::AppearanceSet(appearance))
             }
+            WireUiRequest::GalleryCell(CellArgs {
+                appearance,
+                contrast,
+            }) => Self::Gallery(GalleryCommand::Cell {
+                appearance,
+                contrast,
+            }),
+            WireUiRequest::GalleryMotion(MotionArgs { motion }) => {
+                Self::Gallery(GalleryCommand::Motion(motion))
+            }
+            WireUiRequest::GalleryFocus(FocusArgs { component }) => {
+                Self::Gallery(GalleryCommand::Focus(component))
+            }
+            WireUiRequest::GalleryMenuOpen(NoArgs {}) => Self::Gallery(GalleryCommand::MenuOpen),
+            WireUiRequest::GalleryRebuild(NoArgs {}) => Self::Gallery(GalleryCommand::Rebuild),
+            WireUiRequest::GalleryWindowRecreate(NoArgs {}) => {
+                Self::Gallery(GalleryCommand::WindowRecreate)
+            }
+            WireUiRequest::GalleryPlace(PlaceArgs { screen }) => {
+                Self::Gallery(GalleryCommand::Place { screen })
+            }
+            WireUiRequest::GalleryReset(NoArgs {}) => Self::Gallery(GalleryCommand::Reset),
         }
     }
 }
@@ -112,6 +246,22 @@ impl From<UiRequest> for WireUiRequest {
             UiRequest::Command(UiCommand::AppearanceSet(appearance)) => {
                 Self::AppearanceSet(AppearanceArgs { appearance })
             }
+            UiRequest::Gallery(command) => match command {
+                GalleryCommand::Cell {
+                    appearance,
+                    contrast,
+                } => Self::GalleryCell(CellArgs {
+                    appearance,
+                    contrast,
+                }),
+                GalleryCommand::Motion(motion) => Self::GalleryMotion(MotionArgs { motion }),
+                GalleryCommand::Focus(component) => Self::GalleryFocus(FocusArgs { component }),
+                GalleryCommand::MenuOpen => Self::GalleryMenuOpen(NoArgs {}),
+                GalleryCommand::Rebuild => Self::GalleryRebuild(NoArgs {}),
+                GalleryCommand::WindowRecreate => Self::GalleryWindowRecreate(NoArgs {}),
+                GalleryCommand::Place { screen } => Self::GalleryPlace(PlaceArgs { screen }),
+                GalleryCommand::Reset => Self::GalleryReset(NoArgs {}),
+            },
         }
     }
 }
@@ -274,6 +424,53 @@ pub struct InspectView {
     pub components: Vec<ComponentView>,
     /// Найденные в окне виды и слои материала с прозрачностью.
     pub materials: Vec<MaterialView>,
+    /// Состояние галереи; `None` — окно не в режиме галереи, и ключа в кадре нет.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gallery: Option<GalleryView>,
+}
+
+/// Состояние галереи в `ui.inspect`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GalleryView {
+    /// Номер построения дерева компонентов: растёт с `gallery.rebuild` и
+    /// `gallery.window.recreate`.
+    pub tree: u64,
+    /// Номер окна галереи: растёт с `gallery.window.recreate`.
+    pub window: u64,
+    /// Переопределения галереи по осям; `None` — ось без переопределения.
+    pub appearance: Option<Lightness>,
+    pub contrast: Option<Contrast>,
+    pub motion: Option<Motion>,
+    /// Последний запрос `gallery.focus`.
+    pub focus: GalleryFocus,
+    /// Последний запрос `gallery.place`; `None` — окно не переносилось.
+    pub screen: Option<u32>,
+    /// Журнал намерений компонентов галереи, старые записи первыми.
+    pub intents: Vec<IntentRecord>,
+}
+
+/// Намерение компонента, записанное галереей.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IntentRecord {
+    /// Поколение после записи.
+    pub generation: u64,
+    /// Идентификатор компонента в `ui.inspect`.
+    pub component: String,
+    pub intent: IntentKind,
+    /// Значение поля у `changed` и `submitted`, id пункта у `chosen`.
+    pub value: Option<String>,
+}
+
+/// Вид намерения.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IntentKind {
+    Changed,
+    Submitted,
+    Cancelled,
+    Chosen,
 }
 
 /// Компонент или его часть.
@@ -565,6 +762,49 @@ mod tests {
                 "ui.appearance.set",
                 true,
             ),
+            (
+                UiRequest::Gallery(GalleryCommand::Cell {
+                    appearance: Some(Lightness::Light),
+                    contrast: None,
+                }),
+                "gallery.cell",
+                true,
+            ),
+            (
+                UiRequest::Gallery(GalleryCommand::Motion(Motion::Reduced)),
+                "gallery.motion",
+                true,
+            ),
+            (
+                UiRequest::Gallery(GalleryCommand::Focus(GalleryFocus::Field)),
+                "gallery.focus",
+                true,
+            ),
+            (
+                UiRequest::Gallery(GalleryCommand::MenuOpen),
+                "gallery.menu.open",
+                true,
+            ),
+            (
+                UiRequest::Gallery(GalleryCommand::Rebuild),
+                "gallery.rebuild",
+                true,
+            ),
+            (
+                UiRequest::Gallery(GalleryCommand::WindowRecreate),
+                "gallery.window.recreate",
+                true,
+            ),
+            (
+                UiRequest::Gallery(GalleryCommand::Place { screen: 1 }),
+                "gallery.place",
+                true,
+            ),
+            (
+                UiRequest::Gallery(GalleryCommand::Reset),
+                "gallery.reset",
+                true,
+            ),
         ];
         for (request, name, mutation) in cases {
             assert_eq!(request.name(), name);
@@ -586,10 +826,60 @@ mod tests {
             json!({"ui.appearance.set": {}}),
             json!({"ui.appearance.set": {"appearance": "Light"}}),
             json!("ui.window"),
+            json!({"gallery.cell": {"appearance": "sepia"}}),
+            json!({"gallery.cell": {"extra": 1}}),
+            json!({"gallery.motion": {}}),
+            json!({"gallery.focus": {"component": "list"}}),
+            json!({"gallery.place": {"screen": -1}}),
+            json!({"gallery.place": {}}),
+            json!({"gallery.reset": {"seed": 1}}),
         ] {
             assert!(
                 serde_json::from_value::<UiRequest>(bad.clone()).is_err(),
                 "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn cell_axes_are_optional_and_omitted_when_absent() {
+        let both = UiRequest::Gallery(GalleryCommand::Cell {
+            appearance: Some(Lightness::Dark),
+            contrast: Some(Contrast::Increased),
+        });
+        assert_eq!(
+            serde_json::to_value(both).unwrap(),
+            json!({"gallery.cell": {"appearance": "dark", "contrast": "increased"}})
+        );
+        let contrast_only: UiRequest =
+            serde_json::from_value(json!({"gallery.cell": {"contrast": "normal"}})).unwrap();
+        assert_eq!(
+            contrast_only,
+            UiRequest::Gallery(GalleryCommand::Cell {
+                appearance: None,
+                contrast: Some(Contrast::Normal),
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(contrast_only).unwrap(),
+            json!({"gallery.cell": {"contrast": "normal"}})
+        );
+        let neither: UiRequest = serde_json::from_value(json!({"gallery.cell": {}})).unwrap();
+        assert_eq!(
+            neither,
+            UiRequest::Gallery(GalleryCommand::Cell {
+                appearance: None,
+                contrast: None,
+            })
+        );
+    }
+
+    #[test]
+    fn gallery_focus_names_are_stable() {
+        for focus in GalleryFocus::ALL {
+            assert_eq!(
+                serde_json::to_value(focus).unwrap(),
+                Value::from(focus.as_str())
             );
         }
     }
@@ -626,6 +916,7 @@ mod tests {
             generation: 2,
         });
         assert!(UiRequest::Command(UiCommand::WindowClose).answered_by(&accepted));
+        assert!(UiRequest::Gallery(GalleryCommand::Reset).answered_by(&accepted));
         assert!(!UiRequest::Window.answered_by(&accepted));
     }
 }

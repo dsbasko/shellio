@@ -1,5 +1,10 @@
 //! Окно владельца на главном потоке: окно с заголовком, главное меню, зеркало состояния, монитор
-//! цикла, единый обработчик [`UiCommand`] и ответы на запросы `ui` управляющего API.
+//! цикла, единый обработчик [`UiCommand`], галерея в режиме `--gallery` и ответы на запросы `ui`
+//! управляющего API.
+//!
+//! Поколение отрисовки и всё, что живёт до выхода процесса (меню, монитор, выбор оформления),
+//! лежит рядом с окном, а не в нём: `gallery.window.recreate` заменяет окно и дерево галереи, а
+//! поколение продолжает расти.
 //!
 //! Состояние живёт только на главном потоке. Функции модуля вызываются из замыканий
 //! [`MainThread::exec`]. Обратные вызовы AppKit (меню, кнопки заголовка, смена ячейки) не трогают
@@ -9,6 +14,7 @@
 use std::cell::RefCell;
 use std::mem::ManuallyDrop;
 
+use shellio::gallery::{self, Effect, Generation, Intent};
 use shellio::launch::WindowMode;
 use shellio::owner;
 use shellio_appkit::{
@@ -18,13 +24,15 @@ use shellio_appkit::{
 };
 use shellio_control::{
     Accepted, Axis, AxisSource, ChromeView, ColorSpaceView, ComponentState, ComponentView,
-    InspectView, InstanceKind, InstanceView, LateCallbackView, MaterialView, MenuItemView,
-    MenuView, Rect, RunLoopView, ScreenView, Size, StartupView, StatsView, TextFieldView,
-    UiRefusal, UiReply, UiRequest, WindowView,
+    GalleryCommand, GalleryView, InspectView, InstanceKind, InstanceView, LateCallbackView,
+    MaterialView, MenuItemView, MenuView, Rect, RunLoopView, ScreenView, Size, StartupView,
+    StatsView, TextFieldView, UiRefusal, UiReply, UiRequest, WindowView,
 };
 use shellio_core::{AppearanceChoice, Delivery, Mirror, MirrorStep, UiCommand};
 use shellio_theme::AppearanceChoice as ThemeChoice;
-use shellio_theme::{Appearance, Contrast, Motion, Source};
+use shellio_theme::{Appearance, Contrast, Motion, Overrides, Source};
+
+use crate::gallery_ui::GalleryUi;
 
 thread_local! {
     /// Окно владельца; создаётся один раз после выбора роли и живёт до выхода процесса.
@@ -38,47 +46,194 @@ thread_local! {
 
 struct OwnerWindow {
     mode: WindowMode,
-    window: MainWindow,
     menu: MainMenu,
     monitor: Option<LoopMonitor>,
     choice: AppearanceChoice,
     /// Поколение отрисовки: растёт с каждой видимой сменой состояния окна.
-    generation: u64,
+    generation: Generation,
     /// Поколение первой проекции снимка зеркала: старт процесса считается до отрисовки с ним.
     first_snapshot: Option<u64>,
     /// Старт процесса, однажды наблюдённый.
     startup: Option<Startup>,
+    /// Последние проекции зеркала: новое окно получает их сразу.
+    projection: Option<Projection>,
+    /// Выбор ячейки, который уже получили компоненты галереи.
+    applied: ThemeSelection,
+    /// Пересоздаваемая часть: окно и дерево галереи.
+    window: MainWindow,
+    gallery: Option<GalleryUi>,
 }
 
 impl OwnerWindow {
     fn bump(&mut self) {
-        self.generation += 1;
+        self.generation.bump();
+        self.publish();
+    }
+
+    /// Текущее поколение получают монитор цикла и маркер галереи.
+    fn publish(&self) {
+        let generation = self.generation.get();
         if let Some(monitor) = &self.monitor {
-            monitor.set_generation(self.generation);
+            monitor.set_generation(generation);
         }
+        if let Some(gallery) = &self.gallery {
+            gallery.set_generation(generation);
+        }
+    }
+
+    /// Компоненты галереи получают действующую ячейку. `false` — она уже применена: отложенный
+    /// отклик окна на смену, которую команда применила сама, поколения не прибавляет.
+    fn sync_theme(&mut self) -> bool {
+        let selection = self.window.selection();
+        if selection == self.applied {
+            return false;
+        }
+        self.applied = selection;
+        if let Some(gallery) = &self.gallery {
+            gallery.set_theme(&selection.theme());
+        }
+        true
+    }
+
+    /// Переопределения окна: выбор оформления и оси галереи.
+    fn overrides(&self) -> Overrides {
+        let mut overrides = Overrides {
+            choice: theme_choice(self.choice),
+            ..Overrides::default()
+        };
+        if let Some(gallery) = &self.gallery {
+            let state = gallery.model().state();
+            overrides.gallery_appearance = state.appearance;
+            overrides.gallery_contrast = state.contrast;
+            overrides.gallery_motion = state.motion;
+        }
+        overrides
     }
 
     fn set_choice(&mut self, choice: AppearanceChoice) {
         self.choice = choice;
         let theme = theme_choice(choice);
-        let overrides = self.window.overrides();
-        self.window.set_overrides(shellio_theme::Overrides {
-            choice: theme,
-            ..overrides
-        });
+        self.window.set_overrides(self.overrides());
         self.window.chrome().set_choice(theme);
         self.menu.set_appearance(theme);
+        self.sync_theme();
         self.bump();
     }
 
     /// Проекции зеркала: имя воркспейса в заголовке и системный заголовок окна.
-    fn project(&mut self, projection: &Projection) {
+    fn project(&mut self, projection: Projection) {
+        self.show_projection(&projection);
+        self.projection = Some(projection);
+        self.bump();
+        self.first_snapshot.get_or_insert(self.generation.get());
+    }
+
+    fn show_projection(&self, projection: &Projection) {
         self.window.set_title(projection.title.as_deref());
         self.window
             .chrome()
             .set_workspace(projection.workspace.as_deref());
-        self.bump();
-        self.first_snapshot.get_or_insert(self.generation);
+    }
+
+    /// Служебная команда галереи. Эффект исполняется в этом же обороте главного потока, поэтому
+    /// маркер поколения из ответа появляется в том же проходе отображения, что и состояние.
+    fn gallery_command(
+        &mut self,
+        app: &App,
+        command: GalleryCommand,
+    ) -> Result<UiReply, UiRefusal> {
+        gallery::admit(self.mode)?;
+        let Some(gallery) = self.gallery.as_mut() else {
+            return Err(UiRefusal::NoUi);
+        };
+        let effect = gallery.model_mut().apply(command, &mut self.generation);
+        let generation = self.generation.get();
+        match effect {
+            Effect::Theme => self.window.set_overrides(self.overrides()),
+            Effect::Focus(focus) => gallery.focus(&self.window, focus),
+            Effect::OpenMenu => gallery.open_menu(),
+            Effect::Rebuild => gallery.rebuild(app, &self.window, generation),
+            Effect::RecreateWindow => self.recreate_window(app),
+            Effect::Place(screen) => {
+                let moved = usize::try_from(screen)
+                    .is_ok_and(|screen| self.window.move_to_screen(app, screen));
+                if !moved {
+                    owner::say_err(format_args!(
+                        "shellio: экрана {screen} нет, окно галереи осталось на месте"
+                    ));
+                }
+            }
+            Effect::Reset => {
+                self.window.set_overrides(self.overrides());
+                if let Some(gallery) = &self.gallery {
+                    gallery.reset_view(&self.window);
+                }
+            }
+        }
+        self.sync_theme();
+        self.publish();
+        Ok(UiReply::Accepted(Accepted {
+            command: command.name().to_owned(),
+            pid: std::process::id(),
+            generation: self.generation.get(),
+        }))
+    }
+
+    /// Закрывает и отпускает окно вместе с деревом галереи и строит новые. Видимость, ячейка,
+    /// движение и проекции зеркала переходят в новое окно.
+    fn recreate_window(&mut self, app: &App) {
+        let visible = self.window.is_visible();
+        if let Some(gallery) = self.gallery.as_mut() {
+            gallery.retire_with_window(&self.window);
+        }
+        let old = std::mem::replace(&mut self.window, new_window(app));
+        drop(old);
+        self.window.set_overrides(self.overrides());
+        self.window.chrome().set_choice(theme_choice(self.choice));
+        if let Some(projection) = &self.projection {
+            self.show_projection(projection);
+        }
+        let generation = self.generation.get();
+        if let Some(gallery) = self.gallery.as_mut() {
+            gallery.build(app, &self.window, generation);
+        }
+        // Новое дерево строится уже в ячейке нового окна.
+        self.applied = self.window.selection();
+        if visible {
+            self.window.show();
+        }
+    }
+
+    fn gallery_intent(&mut self, intent: &Intent) {
+        if let Some(gallery) = self.gallery.as_mut() {
+            gallery.model_mut().intent(intent, &mut self.generation);
+            self.publish();
+        }
+    }
+
+    fn gallery_view(&self) -> Option<GalleryView> {
+        let gallery = self.gallery.as_ref()?;
+        let model = gallery.model();
+        let state = model.state();
+        Some(GalleryView {
+            tree: gallery.tree_number().unwrap_or(model.tree()),
+            window: model.window(),
+            appearance: state.appearance.map(|value| match value {
+                Appearance::Light => shellio_control::Lightness::Light,
+                Appearance::Dark => shellio_control::Lightness::Dark,
+            }),
+            contrast: state.contrast.map(|value| match value {
+                Contrast::Normal => shellio_control::Contrast::Normal,
+                Contrast::Increased => shellio_control::Contrast::Increased,
+            }),
+            motion: state.motion.map(|value| match value {
+                Motion::Normal => shellio_control::Motion::Normal,
+                Motion::Reduced => shellio_control::Motion::Reduced,
+            }),
+            focus: state.focus,
+            screen: state.screen,
+            intents: state.intents.iter().cloned().collect(),
+        })
     }
 
     fn window_view(&self, app: &App, mirror_revision: Option<u64>) -> WindowView {
@@ -138,18 +293,24 @@ impl OwnerWindow {
                 })
                 .collect(),
             mirror_revision,
-            generation: self.generation,
+            generation: self.generation.get(),
         }
     }
 
     fn inspect_view(&self) -> InspectView {
         let inspection = self.window.inspect();
         let (width, height) = inspection.content;
+        let gallery_nodes = self.gallery.as_ref().map(GalleryUi::inspect);
         InspectView {
             window_number: self.window.number(),
             content: Size { width, height },
-            generation: self.generation,
-            components: inspection.nodes.into_iter().map(component).collect(),
+            generation: self.generation.get(),
+            components: inspection
+                .nodes
+                .into_iter()
+                .chain(gallery_nodes.into_iter().flatten())
+                .map(component)
+                .collect(),
             materials: inspection
                 .materials
                 .into_iter()
@@ -159,6 +320,7 @@ impl OwnerWindow {
                     own: material.own,
                 })
                 .collect(),
+            gallery: self.gallery_view(),
         }
     }
 
@@ -170,7 +332,7 @@ impl OwnerWindow {
         }
         StatsView {
             pid: std::process::id(),
-            generation: self.generation,
+            generation: self.generation.get(),
             instances: instance_counts()
                 .into_iter()
                 .map(|count| InstanceView {
@@ -213,7 +375,11 @@ impl OwnerWindow {
             }),
             animations: Vec::new(),
             row_views: Vec::new(),
-            gallery_trees: Vec::new(),
+            gallery_trees: self
+                .gallery
+                .as_ref()
+                .map(GalleryUi::retired_trees)
+                .unwrap_or_default(),
         }
     }
 
@@ -221,7 +387,7 @@ impl OwnerWindow {
         UiReply::Accepted(Accepted {
             command: command.name().to_owned(),
             pid: std::process::id(),
-            generation: self.generation,
+            generation: self.generation.get(),
         })
     }
 }
@@ -335,6 +501,7 @@ fn component(node: InspectNode) -> ComponentView {
 }
 
 /// Проекции зеркала для окна.
+#[derive(Clone)]
 struct Projection {
     workspace: Option<String>,
     title: Option<String>,
@@ -372,11 +539,7 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
     if let Some(number) = with_window(|owner| owner.window.number()) {
         return number;
     }
-    let window = MainWindow::new(
-        app,
-        |_: ThemeSelection| defer(|_| on_theme()),
-        |intent| defer(move |app| on_intent(app, intent)),
-    );
+    let window = new_window(app);
     let menu = MainMenu::install(app, |action| {
         defer(move |app| handle(app, command_of(action)));
     });
@@ -388,23 +551,44 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
         }
     };
     let number = window.number();
+    let gallery = match mode {
+        WindowMode::Gallery => Some(GalleryUi::new(app, &window, 0, |intent| {
+            defer(move |_| {
+                with_window(|owner| owner.gallery_intent(&intent));
+            });
+        })),
+        WindowMode::Normal => None,
+    };
     let projection = MIRROR.with(|mirror| mirror.borrow().as_ref().map(Projection::of));
+    let applied = window.selection();
     WINDOW.with(|slot| {
         *slot.borrow_mut() = Some(ManuallyDrop::new(OwnerWindow {
             mode,
-            window,
             menu,
             monitor,
             choice: AppearanceChoice::System,
-            generation: 0,
+            generation: Generation::default(),
             first_snapshot: None,
             startup: None,
+            projection: None,
+            applied,
+            window,
+            gallery,
         }));
     });
     if let Some(projection) = projection {
-        with_window(|owner| owner.project(&projection));
+        with_window(|owner| owner.project(projection));
     }
     number
+}
+
+/// Новое окно владельца: смена ячейки и намерения заголовка уходят в очередь главного потока.
+fn new_window(app: &App) -> MainWindow {
+    MainWindow::new(
+        app,
+        |_: ThemeSelection| defer(|_| on_theme()),
+        |intent| defer(move |app| on_intent(app, intent)),
+    )
 }
 
 /// Показывает окно владельца (`makeKeyAndOrderFront`). `false` — окна нет: процесс не владелец.
@@ -439,7 +623,7 @@ pub fn deliver(_app: &App, delivery: Delivery) -> MirrorStep {
         (step, projection)
     });
     if let Some(projection) = projection {
-        with_window(|owner| owner.project(&projection));
+        with_window(|owner| owner.project(projection));
     }
     step
 }
@@ -447,6 +631,10 @@ pub fn deliver(_app: &App, delivery: Delivery) -> MirrorStep {
 /// Запрос `ui` управляющего API. Без окна — `no_ui`. Действие выполняет [`handle`]; `app.quit`
 /// отвечает квитанцией до `terminate:`, который [`App::terminate`] ставит таймером цикла.
 pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
+    if let UiRequest::Gallery(command) = request {
+        return with_window(|owner| owner.gallery_command(app, command))
+            .unwrap_or(Err(UiRefusal::NoUi));
+    }
     let reply = match request {
         UiRequest::Window => {
             let revision = MIRROR.with(|mirror| mirror.borrow().as_ref().map(|m| m.revision().0));
@@ -461,6 +649,7 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
                 with_window(|owner| owner.accepted(command))
             })
         }
+        UiRequest::Gallery(_) => None,
     };
     reply.ok_or(UiRefusal::NoUi)
 }
@@ -480,7 +669,11 @@ pub fn handle(app: &App, command: UiCommand) {
 }
 
 fn on_theme() {
-    with_window(OwnerWindow::bump);
+    with_window(|owner| {
+        if owner.sync_theme() {
+            owner.bump();
+        }
+    });
 }
 
 fn on_intent(app: &App, intent: ChromeIntent) {

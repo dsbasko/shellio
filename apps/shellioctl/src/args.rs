@@ -10,7 +10,9 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
 
-use shellio_control::{CLI_TIMEOUT, UiRequest};
+use shellio_control::{
+    CLI_TIMEOUT, Contrast, GalleryCommand, GalleryFocus, Lightness, Motion, UiRequest,
+};
 use shellio_core::{
     AppearanceChoice, Command, ProjectId, Revision, TreeScope, UiCommand, WorkbenchId, WorkspaceId,
 };
@@ -38,9 +40,19 @@ pub const USAGE: &str = "\
   ui appearance <light|dark|system>
   window close
   app quit
+  gallery cell <light|dark|auto> <normal|increased|auto>
+  gallery motion <normal|reduced>
+  gallery focus <field|window>
+  gallery menu open
+  gallery rebuild
+  gallery window recreate
+  gallery place <экран>
+  gallery reset
 
 У команд с целью-воркспейсом --target по умолчанию равен --workspace, с --all он обязателен.
 --json печатает кадры ответа построчно, --timeout задаёт срок вызова (по умолчанию 5000 мс).
+Вызовы gallery — служебные входы тестов, только у владельца в режиме --gallery; auto у gallery cell
+оставляет ось без переопределения галереи.
 Адрес: --socket, иначе SHELLIO_SOCKET, иначе сокет профиля (SHELLIO_STATE_DIR или HOME).
 Коды выхода: 0 — успех, 1 — отказ, 2 — ошибка использования, 69 — shellio не запущен,
 74 — исход неизвестен, 75 — повторить позже.
@@ -483,8 +495,106 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 choice,
             ))))
         }
+        "gallery cell" => {
+            given.only(call, &[])?;
+            let [appearance, contrast] = operands(call, rest)?;
+            let appearance = axis(
+                call,
+                &appearance,
+                &[("light", Lightness::Light), ("dark", Lightness::Dark)],
+            )?;
+            let contrast = axis(
+                call,
+                &contrast,
+                &[
+                    ("normal", Contrast::Normal),
+                    ("increased", Contrast::Increased),
+                ],
+            )?;
+            Ok(gallery(GalleryCommand::Cell {
+                appearance,
+                contrast,
+            }))
+        }
+        "gallery motion" => {
+            given.only(call, &[])?;
+            let [value] = operands(call, rest)?;
+            let motion = match value.as_str() {
+                "normal" => Motion::Normal,
+                "reduced" => Motion::Reduced,
+                _ => {
+                    return Err(usage(format!(
+                        "{call}: ожидается normal или reduced, получено «{value}»"
+                    )));
+                }
+            };
+            Ok(gallery(GalleryCommand::Motion(motion)))
+        }
+        "gallery focus" => {
+            given.only(call, &[])?;
+            let [value] = operands(call, rest)?;
+            let focus = GalleryFocus::ALL
+                .into_iter()
+                .find(|focus| focus.as_str() == value)
+                .ok_or_else(|| {
+                    usage(format!(
+                        "{call}: ожидается field или window, получено «{value}»"
+                    ))
+                })?;
+            Ok(gallery(GalleryCommand::Focus(focus)))
+        }
+        "gallery menu" | "gallery window" => {
+            given.only(call, &[])?;
+            let [verb] = operands(call, rest)?;
+            match (call, verb.as_str()) {
+                ("gallery menu", "open") => Ok(gallery(GalleryCommand::MenuOpen)),
+                ("gallery window", "recreate") => Ok(gallery(GalleryCommand::WindowRecreate)),
+                _ => Err(usage(format!("неизвестный вызов «{call} {verb}»"))),
+            }
+        }
+        "gallery rebuild" | "gallery reset" => {
+            given.only(call, &[])?;
+            operands::<0>(call, rest)?;
+            Ok(gallery(if call == "gallery rebuild" {
+                GalleryCommand::Rebuild
+            } else {
+                GalleryCommand::Reset
+            }))
+        }
+        "gallery place" => {
+            given.only(call, &[])?;
+            let [value] = operands(call, rest)?;
+            let screen = value.parse().map_err(|_| {
+                usage(format!(
+                    "{call}: ожидается номер экрана из ui window, получено «{value}»"
+                ))
+            })?;
+            Ok(gallery(GalleryCommand::Place { screen }))
+        }
         other => Err(usage(format!("неизвестный вызов «{other}»"))),
     }
+}
+
+fn gallery(command: GalleryCommand) -> Action {
+    Action::Ui(UiRequest::Gallery(command))
+}
+
+/// Значение оси `gallery cell`: `auto` — без переопределения галереи.
+fn axis<T: Copy>(call: &str, value: &str, names: &[(&str, T)]) -> Result<Option<T>, Usage> {
+    if value == "auto" {
+        return Ok(None);
+    }
+    names
+        .iter()
+        .find(|(name, _)| *name == value)
+        .map(|(_, axis)| Some(*axis))
+        .ok_or_else(|| {
+            let expected: Vec<&str> = names.iter().map(|(name, _)| *name).collect();
+            usage(format!(
+                "{call}: ожидается {} или auto, получено «{value}»",
+                expected.join(", ")
+            ))
+        })
 }
 
 #[cfg(test)]
@@ -673,14 +783,13 @@ mod tests {
             let message = refused(args);
             assert!(message.contains("не применим"), "{args:?}: {message}");
         }
-        let cases: [(&[&str], &str); 7] = [
+        let cases: [(&[&str], &str); 6] = [
             (&["ui"], "не указано действие"),
             (&["ui", "window", "extra"], "операндов"),
             (&["ui", "appearance"], "операндов"),
             (&["ui", "appearance", "sepia"], "light, dark или system"),
             (&["ui", "appearance", "Dark"], "light, dark или system"),
             (&["app", "restart"], "неизвестный вызов"),
-            (&["gallery", "reset"], "неизвестный вызов"),
         ];
         for (args, expected) in cases {
             let message = refused(args);
@@ -689,6 +798,90 @@ mod tests {
         let flagged = run(&["--json", "ui", "window", "--timeout", "50"]);
         assert!(flagged.json);
         assert_eq!(flagged.action, Action::Ui(UiRequest::Window));
+    }
+
+    #[test]
+    fn gallery_calls_map_to_gallery_commands() {
+        let gallery = |command| Action::Ui(UiRequest::Gallery(command));
+        assert_eq!(
+            action_of(&["gallery", "cell", "light", "auto"]),
+            gallery(GalleryCommand::Cell {
+                appearance: Some(Lightness::Light),
+                contrast: None,
+            })
+        );
+        assert_eq!(
+            action_of(&["gallery", "cell", "auto", "increased"]),
+            gallery(GalleryCommand::Cell {
+                appearance: None,
+                contrast: Some(Contrast::Increased),
+            })
+        );
+        assert_eq!(
+            action_of(&["gallery", "cell", "dark", "normal"]),
+            gallery(GalleryCommand::Cell {
+                appearance: Some(Lightness::Dark),
+                contrast: Some(Contrast::Normal),
+            })
+        );
+        assert_eq!(
+            action_of(&["gallery", "motion", "reduced"]),
+            gallery(GalleryCommand::Motion(Motion::Reduced))
+        );
+        for focus in GalleryFocus::ALL {
+            assert_eq!(
+                action_of(&["gallery", "focus", focus.as_str()]),
+                gallery(GalleryCommand::Focus(focus))
+            );
+        }
+        assert_eq!(
+            action_of(&["gallery", "menu", "open"]),
+            gallery(GalleryCommand::MenuOpen)
+        );
+        assert_eq!(
+            action_of(&["gallery", "rebuild"]),
+            gallery(GalleryCommand::Rebuild)
+        );
+        assert_eq!(
+            action_of(&["gallery", "window", "recreate"]),
+            gallery(GalleryCommand::WindowRecreate)
+        );
+        assert_eq!(
+            action_of(&["gallery", "place", "1"]),
+            gallery(GalleryCommand::Place { screen: 1 })
+        );
+        assert_eq!(
+            action_of(&["gallery", "reset"]),
+            gallery(GalleryCommand::Reset)
+        );
+    }
+
+    #[test]
+    fn gallery_calls_check_operands() {
+        let cases: [(&[&str], &str); 10] = [
+            (&["gallery"], "не указано действие"),
+            (&["gallery", "cell", "light"], "операндов"),
+            (
+                &["gallery", "cell", "sepia", "auto"],
+                "light, dark или auto",
+            ),
+            (
+                &["gallery", "cell", "auto", "high"],
+                "normal, increased или auto",
+            ),
+            (&["gallery", "motion", "slow"], "normal или reduced"),
+            (&["gallery", "focus", "list"], "field или window"),
+            (&["gallery", "menu", "close"], "неизвестный вызов"),
+            (&["gallery", "window", "close"], "неизвестный вызов"),
+            (&["gallery", "place", "первый"], "номер экрана"),
+            (&["gallery", "reset", "now"], "операндов"),
+        ];
+        for (args, expected) in cases {
+            let message = refused(args);
+            assert!(message.contains(expected), "{args:?}: {message}");
+        }
+        let message = refused(&["gallery", "reset", "--all"]);
+        assert!(message.contains("не применим"), "{message}");
     }
 
     #[test]

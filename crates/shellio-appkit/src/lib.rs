@@ -20,6 +20,8 @@
 //! [`MainMenu`] вызывает один обработчик действий, повторное открытие приложения приходит
 //! делегату ([`Delegate::reopen`]). Компоненты ADR-0002 [`TextField`] и [`Menu`] (с кнопкой
 //! [`MenuButton`]) разделены на чистую часть и вид; главное меню построено на [`Menu`].
+//! Компоненты размещаются в окне и в подложке через [`Piece`], галерея получает маркер поколения
+//! [`GenerationMarker`] и слабое наблюдение за видами освобождённого дерева [`ViewWatch`].
 
 #![deny(clippy::undocumented_unsafe_blocks)]
 
@@ -30,8 +32,10 @@ mod counters;
 mod inspect;
 mod layer;
 mod main_menu;
+mod marker;
 mod notify;
 mod own;
+mod piece;
 mod runloop;
 mod surface;
 mod theme_cell;
@@ -55,7 +59,9 @@ pub use inspect::{
     InspectNode, Inspection, MaterialFact, NodeState, ScreenFacts, ViewFacts, WindowFacts,
 };
 pub use main_menu::{MainMenu, MenuAction};
+pub use marker::{GenerationMarker, MARKER_CELL, MARKER_CELLS, marker_bit};
 pub use own::ComponentId;
+pub use piece::{Piece, ViewWatch};
 pub use runloop::{
     DrawMark, ITERATION_BUDGET_MS, IterationStats, LoopMonitor, LoopStats, MonitorError,
 };

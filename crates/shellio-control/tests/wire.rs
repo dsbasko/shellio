@@ -16,12 +16,12 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use shellio_control::{
     Accepted, Activation, Axis, AxisSource, ChromeView, ColorSpaceView, ComponentState,
-    ComponentView, Contrast, ControlError, ControlErrorCode, Hello, HelloReply, InspectView,
-    InstanceKind, InstanceView, LateCallbackView, Launch, LaunchReceipt, Lightness, MaterialView,
-    MenuItemView, MenuView, Motion, OkValue, OwnerState, PROTOCOL, REQUEST_LINE_LIMIT, Rect,
-    RefuseReason, RefusedArg, Rejected, Request, RequestBody, RequestId, Response, RunLoopView,
-    ScreenView, Size, StartupView, StatsView, TextFieldView, UI_TIMEOUT, UiReply, UiRequest,
-    WindowMode, WindowView,
+    ComponentView, Contrast, ControlError, ControlErrorCode, GalleryCommand, GalleryFocus,
+    GalleryView, Hello, HelloReply, InspectView, InstanceKind, InstanceView, IntentKind,
+    IntentRecord, LateCallbackView, Launch, LaunchReceipt, Lightness, MaterialView, MenuItemView,
+    MenuView, Motion, OkValue, OwnerState, PROTOCOL, REQUEST_LINE_LIMIT, Rect, RefuseReason,
+    RefusedArg, Rejected, Request, RequestBody, RequestId, Response, RunLoopView, ScreenView, Size,
+    StartupView, StatsView, TextFieldView, UI_TIMEOUT, UiReply, UiRequest, WindowMode, WindowView,
 };
 use shellio_core::test_support::SequentialIds;
 use shellio_core::{
@@ -160,6 +160,16 @@ fn request_golden(request: &Request) -> &'static str {
         RequestBody::Ui(UiRequest::Command(UiCommand::AppearanceSet(_))) => {
             "request.ui.appearance_set"
         }
+        RequestBody::Ui(UiRequest::Gallery(command)) => match command {
+            GalleryCommand::Cell { .. } => "request.ui.gallery_cell",
+            GalleryCommand::Motion(_) => "request.ui.gallery_motion",
+            GalleryCommand::Focus(_) => "request.ui.gallery_focus",
+            GalleryCommand::MenuOpen => "request.ui.gallery_menu_open",
+            GalleryCommand::Rebuild => "request.ui.gallery_rebuild",
+            GalleryCommand::WindowRecreate => "request.ui.gallery_window_recreate",
+            GalleryCommand::Place { .. } => "request.ui.gallery_place",
+            GalleryCommand::Reset => "request.ui.gallery_reset",
+        },
     }
 }
 
@@ -222,6 +232,44 @@ fn requests() -> Vec<Request> {
                 AppearanceChoice::Light,
             ))),
         ),
+        // P1.3, задача 8: служебные команды галереи.
+        request(
+            13,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::Cell {
+                appearance: None,
+                contrast: Some(Contrast::Increased),
+            })),
+        ),
+        request(
+            14,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::Motion(Motion::Reduced))),
+        ),
+        request(
+            15,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::Focus(
+                GalleryFocus::Field,
+            ))),
+        ),
+        request(
+            16,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::MenuOpen)),
+        ),
+        request(
+            17,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::Rebuild)),
+        ),
+        request(
+            18,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::WindowRecreate)),
+        ),
+        request(
+            19,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::Place { screen: 1 })),
+        ),
+        request(
+            20,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::Reset)),
+        ),
     ]
 }
 
@@ -269,6 +317,9 @@ fn response_golden(response: &Response) -> &'static str {
             ..
         } => match reply {
             UiReply::Window(_) => "response.ok.ui.window",
+            UiReply::Inspect(inspect) if inspect.gallery.is_some() => {
+                "response.ok.ui.inspect.gallery"
+            }
             UiReply::Inspect(inspect)
                 if inspect.components.iter().any(|component| {
                     matches!(
@@ -357,6 +408,11 @@ fn responses() -> Result<Vec<Response>, String> {
         ok(
             8,
             OkValue::Ui(UiReply::Inspect(Box::new(inspect_components_view()))),
+        ),
+        // P1.3, задача 8: состояние галереи; прежние эталоны `ui.inspect` без ключа `gallery`.
+        ok(
+            8,
+            OkValue::Ui(UiReply::Inspect(Box::new(inspect_gallery_view()))),
         ),
         ok(9, OkValue::Ui(UiReply::Stats(Box::new(stats_view())))),
         ok(
@@ -514,6 +570,81 @@ fn inspect_view() -> InspectView {
             visible: false,
             own: false,
         }],
+        gallery: None,
+    }
+}
+
+fn inspect_gallery_view() -> InspectView {
+    let node = |id: &str, class: &str, object, parent: Option<&str>, frame| ComponentView {
+        id: id.into(),
+        class: class.into(),
+        object,
+        parent: parent.map(str::to_owned),
+        frame,
+        visible: true,
+        first_responder: false,
+        enabled: None,
+        role: None,
+        label: None,
+        help: None,
+        selected: None,
+        expanded: None,
+        animation_keys: 0,
+        state: None,
+    };
+    InspectView {
+        window_number: 4243,
+        content: Size {
+            width: 1180.0,
+            height: 720.0,
+        },
+        generation: 12,
+        components: vec![
+            node(
+                "gallery.marker",
+                "GenerationMarker",
+                105_553_116_269_056,
+                None,
+                rect(12.0, 644.0, 24.0, 24.0),
+            ),
+            node(
+                "gallery.surface.focus",
+                "Surface",
+                105_553_116_269_568,
+                None,
+                rect(48.0, 12.0, 554.0, 656.0),
+            ),
+        ],
+        materials: Vec::new(),
+        gallery: Some(GalleryView {
+            tree: 2,
+            window: 1,
+            appearance: None,
+            contrast: Some(Contrast::Increased),
+            motion: Some(Motion::Reduced),
+            focus: GalleryFocus::Field,
+            screen: None,
+            intents: vec![
+                IntentRecord {
+                    generation: 10,
+                    component: "gallery.field".into(),
+                    intent: IntentKind::Changed,
+                    value: Some("s".into()),
+                },
+                IntentRecord {
+                    generation: 11,
+                    component: "gallery.field".into(),
+                    intent: IntentKind::Cancelled,
+                    value: None,
+                },
+                IntentRecord {
+                    generation: 12,
+                    component: "gallery.menu".into(),
+                    intent: IntentKind::Chosen,
+                    value: Some("copy".into()),
+                },
+            ],
+        }),
     }
 }
 
@@ -606,6 +737,7 @@ fn inspect_components_view() -> InspectView {
             ),
         ],
         materials: Vec::new(),
+        gallery: None,
     }
 }
 
@@ -959,7 +1091,8 @@ fn ui_body_is_strict() {
         r#"{"ui.window":{"extra":1}}"#,
         r#"{"ui.window":null}"#,
         r#""ui.window""#,
-        r#"{"gallery.reset":{}}"#,
+        r#"{"gallery.reset":{"seed":1}}"#,
+        r#"{"gallery.unknown":{}}"#,
         r#"{"ui.appearance.set":{}}"#,
         r#"{"ui.appearance.set":{"appearance":"sepia"}}"#,
     ] {

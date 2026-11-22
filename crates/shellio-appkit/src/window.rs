@@ -16,18 +16,20 @@ use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_se
 use objc2_app_kit::NSRunningApplication;
 use objc2_app_kit::{
     NSAppearanceCustomization, NSAutoresizingMaskOptions, NSBackingStoreType, NSColorSpace,
-    NSResponder, NSTitlebarSeparatorStyle, NSView, NSViewLayerContentsRedrawPolicy, NSWindow,
-    NSWindowCollectionBehavior, NSWindowDelegate, NSWindowStyleMask, NSWindowTitleVisibility,
+    NSResponder, NSScreen, NSTitlebarSeparatorStyle, NSView, NSViewLayerContentsRedrawPolicy,
+    NSWindow, NSWindowCollectionBehavior, NSWindowDelegate, NSWindowStyleMask,
+    NSWindowTitleVisibility,
 };
 use objc2_foundation::{NSNotification, NSPoint, NSRect, NSSize, NSString};
 use shellio_theme::{AppTheme, Overrides};
 
 use crate::app::App;
-use crate::chrome_bar::{ChromeBar, ChromeIntent};
+use crate::chrome_bar::{ChromeBar, ChromeIntent, Frame};
 use crate::counters::{Live, counter};
 use crate::inspect::{self, Inspection, WindowFacts};
 use crate::layer::{self, without_actions};
 use crate::own::{Callback, ComponentId};
+use crate::piece::{self, Piece};
 use crate::runloop::{self, LoopMonitor};
 use crate::theme_cell::{self, CellObserver, ThemeSelection};
 
@@ -125,6 +127,9 @@ impl MainWindow {
         let window = &parts.window;
         window.setDelegate(Some(ProtocolObject::from_ref(&*parts.delegate)));
         window.setContentView(Some(&parts.root));
+        // Первый key окна не отдаёт фокус первому полю цикла клавиш: корень его не принимает, и
+        // first responder остаётся окно, пока фокус не поставят явно.
+        window.setInitialFirstResponder(Some(&parts.root));
         let chrome = parts.chrome.ns_view();
         let height = parts.theme().metrics.titlebar;
         chrome.setFrame(NSRect::new(
@@ -135,6 +140,44 @@ impl MainWindow {
         // Светлота с этой минуты — из оформления содержимого окна.
         parts.observer.attach(&parts.root);
         MainWindow { parts }
+    }
+
+    /// Ставит компонент в содержимое окна с кадром `frame` в точках содержимого, начало сверху
+    /// слева. Заголовок занимает верхние `metrics.titlebar` точек.
+    pub fn place<'a>(&self, piece: impl Into<Piece<'a>>, frame: Frame) {
+        piece::place(&self.parts.root, piece.into().ns_view(), frame, None);
+    }
+
+    /// Размер содержимого окна в точках.
+    pub fn content_size(&self) -> (f64, f64) {
+        let size = self.parts.root.bounds().size;
+        (size.width, size.height)
+    }
+
+    /// Снимает фокус с компонентов: first responder становится само окно.
+    pub fn clear_focus(&self) -> bool {
+        self.parts.window.makeFirstResponder(None)
+    }
+
+    /// Переносит окно в центр видимой части экрана с номером `index` в `NSScreen.screens`.
+    /// `false` — такого экрана нет, окно на месте.
+    pub fn move_to_screen(&self, app: &App, index: usize) -> bool {
+        let screens = NSScreen::screens(app.mtm());
+        if index >= screens.count() {
+            return false;
+        }
+        let visible = screens.objectAtIndex(index).visibleFrame();
+        let size = self.parts.window.frame().size;
+        let origin = NSPoint::new(
+            (visible.origin.x + (visible.size.width - size.width) / 2.0).round(),
+            (visible.origin.y + (visible.size.height - size.height) / 2.0).round(),
+        );
+        self.parts.window.setFrameOrigin(origin);
+        true
+    }
+
+    pub(crate) fn ns_window(&self) -> &NSWindow {
+        &self.parts.window
     }
 
     /// Показывает окно и делает его key (`makeKeyAndOrderFront`).
@@ -270,6 +313,8 @@ impl Drop for MainWindow {
         window.setDelegate(None);
         window.orderOut(None);
         window.setContentView(None);
+        // Окно уходит из списка окон приложения, и последняя ссылка Rust освобождает его.
+        window.close();
     }
 }
 

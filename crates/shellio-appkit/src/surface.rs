@@ -12,15 +12,17 @@ use objc2::rc::Retained;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSAutoresizingMaskOptions, NSResponder, NSView, NSViewLayerContentsRedrawPolicy,
-    NSWindowOrderingMode,
 };
 use objc2_foundation::{NSObject, NSPoint, NSRect};
 use shellio_theme::{AppTheme, KeyMode, Srgb8, Tint};
 
 use crate::app::App;
+use crate::chrome_bar::Frame;
 use crate::counters::{Live, counter};
+use crate::inspect::{self, InspectNode};
 use crate::layer::{self, without_actions};
 use crate::own::{Callback, ComponentId, View};
+use crate::piece::{self, Piece};
 use crate::runloop;
 
 counter!(SURFACE_OWNER, Owner, "Surface");
@@ -170,26 +172,28 @@ impl Surface {
     }
 
     /// Вид подложки для размещения в иерархии.
-    #[expect(
-        dead_code,
-        reason = "подложку размещают окно и галерея в задачах 5 и 8 плана P1.3"
-    )]
     pub(crate) fn ns_view(&self) -> &NSView {
         self.view.view()
     }
 
-    /// Добавляет содержимое под слой фокуса: он остаётся верхним.
-    #[expect(
-        dead_code,
-        reason = "содержимое добавляют галерея и TabStrip в задачах 8 и 11 плана P1.3"
-    )]
-    pub(crate) fn add_content(&self, content: &NSView) {
+    /// Ставит компонент в подложку под слой фокуса с кадром `frame` в точках подложки, начало
+    /// сверху слева: слой фокуса остаётся верхним.
+    pub fn place<'a>(&self, piece: impl Into<Piece<'a>>, frame: Frame) {
         let surface = self.view.view();
-        surface.addSubview_positioned_relativeTo(
-            content,
-            NSWindowOrderingMode::Below,
-            Some(&surface.ivars().overlay),
-        );
+        let overlay: &NSView = &surface.ivars().overlay;
+        piece::place(surface, piece.into().ns_view(), frame, Some(overlay));
+    }
+
+    /// Подложка для `ui.inspect`.
+    pub fn inspect(&self, id: &'static str, parent: Option<&'static str>) -> Vec<InspectNode> {
+        vec![inspect::node(
+            id,
+            "Surface",
+            parent,
+            self.view.view(),
+            None,
+            None,
+        )]
     }
 
     fn change(&self, update: impl FnOnce(&SurfaceModel)) {

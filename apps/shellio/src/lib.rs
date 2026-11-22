@@ -4,5 +4,6 @@
 
 #![forbid(unsafe_code)]
 
+pub mod gallery;
 pub mod launch;
 pub mod owner;

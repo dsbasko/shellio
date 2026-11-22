@@ -9,8 +9,8 @@ use std::io::{self, Write};
 
 use shellio_control::{
     Activation, AxisSource, ClientError, ComponentState, ComponentView, Contrast, ControlError,
-    Exit, HelloReply, InspectView, LaunchReceipt, Lightness, Motion, OkValue, OwnerState, Rect,
-    Response, StatsView, UiReply, WindowView, encode_line,
+    Exit, GalleryView, HelloReply, InspectView, IntentKind, LaunchReceipt, Lightness, Motion,
+    OkValue, OwnerState, Rect, Response, StatsView, UiReply, WindowView, encode_line,
 };
 use shellio_core::{
     Change, CommandValue, Event, EventsSince, Reply, ReplyValue, RootKind, Route, StatusView,
@@ -356,20 +356,11 @@ fn window_text(window: &WindowView) -> String {
         out,
         "оформление {}: светлота {} ({}), контраст {} ({}), движение {} ({})",
         window.appearance_choice.as_str(),
-        match window.lightness.value {
-            Lightness::Light => "светлая",
-            Lightness::Dark => "тёмная",
-        },
+        lightness_text(window.lightness.value),
         source_text(window.lightness.source),
-        match window.contrast.value {
-            Contrast::Normal => "обычный",
-            Contrast::Increased => "повышенный",
-        },
+        contrast_text(window.contrast.value),
         source_text(window.contrast.source),
-        match window.motion.value {
-            Motion::Normal => "обычное",
-            Motion::Reduced => "уменьшенное",
-        },
+        motion_text(window.motion.value),
         source_text(window.motion.source),
     );
     for screen in &window.screens {
@@ -461,6 +452,71 @@ fn inspect_text(inspect: &InspectView) -> String {
             material.class,
             yes_no(material.visible),
             yes_no(material.own)
+        );
+    }
+    if let Some(gallery) = &inspect.gallery {
+        out.push_str(&gallery_text(gallery));
+    }
+    out
+}
+
+const fn lightness_text(value: Lightness) -> &'static str {
+    match value {
+        Lightness::Light => "светлая",
+        Lightness::Dark => "тёмная",
+    }
+}
+
+const fn contrast_text(value: Contrast) -> &'static str {
+    match value {
+        Contrast::Normal => "обычный",
+        Contrast::Increased => "повышенный",
+    }
+}
+
+const fn motion_text(value: Motion) -> &'static str {
+    match value {
+        Motion::Normal => "обычное",
+        Motion::Reduced => "уменьшенное",
+    }
+}
+
+const fn intent_text(value: IntentKind) -> &'static str {
+    match value {
+        IntentKind::Changed => "changed",
+        IntentKind::Submitted => "submitted",
+        IntentKind::Cancelled => "cancelled",
+        IntentKind::Chosen => "chosen",
+    }
+}
+
+fn gallery_text(gallery: &GalleryView) -> String {
+    fn axis<T>(value: Option<T>, text: fn(T) -> &'static str) -> &'static str {
+        value.map_or("системная", text)
+    }
+    let mut out = format!(
+        "галерея: дерево {}, окно {}, светлота {}, контраст {}, движение {}, фокус {}, экран {}\n",
+        gallery.tree,
+        gallery.window,
+        axis(gallery.appearance, lightness_text),
+        axis(gallery.contrast, contrast_text),
+        axis(gallery.motion, motion_text),
+        gallery.focus.as_str(),
+        gallery
+            .screen
+            .map_or_else(|| "не задан".to_owned(), |screen| screen.to_string()),
+    );
+    for record in &gallery.intents {
+        let _ = writeln!(
+            out,
+            "намерение {} {}{}, поколение {}",
+            record.component,
+            intent_text(record.intent),
+            record
+                .value
+                .as_ref()
+                .map_or_else(String::new, |value| format!(" «{value}»")),
+            record.generation
         );
     }
     out
@@ -746,10 +802,39 @@ mod tests {
             generation: 3,
             components: Vec::new(),
             materials: Vec::new(),
+            gallery: None,
         };
-        let shown = ui_text(&UiReply::Inspect(Box::new(empty)));
+        let shown = ui_text(&UiReply::Inspect(Box::new(empty.clone())));
         assert!(shown.starts_with("окно 7, содержимое 1180×720"), "{shown}");
         assert!(shown.contains("материал: нет"), "{shown}");
+        assert!(!shown.contains("галерея"), "{shown}");
+        let gallery = InspectView {
+            gallery: Some(GalleryView {
+                tree: 2,
+                window: 1,
+                appearance: None,
+                contrast: Some(shellio_control::Contrast::Increased),
+                motion: None,
+                focus: shellio_control::GalleryFocus::Field,
+                screen: None,
+                intents: vec![shellio_control::IntentRecord {
+                    generation: 4,
+                    component: "gallery.menu".into(),
+                    intent: IntentKind::Chosen,
+                    value: Some("copy".into()),
+                }],
+            }),
+            ..empty
+        };
+        let shown = ui_text(&UiReply::Inspect(Box::new(gallery)));
+        assert!(
+            shown.contains("галерея: дерево 2, окно 1, светлота системная, контраст повышенный"),
+            "{shown}"
+        );
+        assert!(
+            shown.contains("намерение gallery.menu chosen «copy», поколение 4"),
+            "{shown}"
+        );
         let stats = StatsView {
             pid: 42,
             generation: 3,

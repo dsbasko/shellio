@@ -1,0 +1,91 @@
+{
+  "id": 8,
+  "ok": {
+    "ui": {
+      "inspect": {
+        "window_number": 4243,
+        "content": {
+          "width": 1180.0,
+          "height": 720.0
+        },
+        "generation": 12,
+        "components": [
+          {
+            "id": "gallery.marker",
+            "class": "GenerationMarker",
+            "object": 105553116269056,
+            "parent": null,
+            "frame": {
+              "x": 12.0,
+              "y": 644.0,
+              "width": 24.0,
+              "height": 24.0
+            },
+            "visible": true,
+            "first_responder": false,
+            "enabled": null,
+            "role": null,
+            "label": null,
+            "help": null,
+            "selected": null,
+            "expanded": null,
+            "animation_keys": 0,
+            "state": null
+          },
+          {
+            "id": "gallery.surface.focus",
+            "class": "Surface",
+            "object": 105553116269568,
+            "parent": null,
+            "frame": {
+              "x": 48.0,
+              "y": 12.0,
+              "width": 554.0,
+              "height": 656.0
+            },
+            "visible": true,
+            "first_responder": false,
+            "enabled": null,
+            "role": null,
+            "label": null,
+            "help": null,
+            "selected": null,
+            "expanded": null,
+            "animation_keys": 0,
+            "state": null
+          }
+        ],
+        "materials": [],
+        "gallery": {
+          "tree": 2,
+          "window": 1,
+          "appearance": null,
+          "contrast": "increased",
+          "motion": "reduced",
+          "focus": "field",
+          "screen": null,
+          "intents": [
+            {
+              "generation": 10,
+              "component": "gallery.field",
+              "intent": "changed",
+              "value": "s"
+            },
+            {
+              "generation": 11,
+              "component": "gallery.field",
+              "intent": "cancelled",
+              "value": null
+            },
+            {
+              "generation": 12,
+              "component": "gallery.menu",
+              "intent": "chosen",
+              "value": "copy"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

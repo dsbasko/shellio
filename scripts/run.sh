@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Запускает владельца из подписанного бандла через open -W -n с временным профилем и ждёт его выхода.
 #
-#   run.sh [<бандл>]
+#   run.sh [<бандл>] [-- <аргументы владельца>…]
 #
-# Бандл по умолчанию — target/bundle/shellio.app, собирает и проверяет его цель make run. Каталог состояния —
+# Бандл по умолчанию — target/bundle/shellio.app, собирает и проверяет его цель make run. Аргументы после
+# -- уходят владельцу через open --args: make run ARGS="--gallery" открывает галерею во временном профиле. Каталог состояния —
 # новый временный SHELLIO_STATE_DIR в /tmp: путь сокета должен быть короче 104 байт, а $TMPDIR сам занимает
 # около 50. Вывод владельца пишется в target/run/<время>-<pid>/ и показывается в терминале.
 #
@@ -25,11 +26,26 @@ die() {
   exit 1
 }
 
-[[ $# -le 1 ]] || {
-  echo "usage: $0 [<бандл>]" >&2
-  exit 2
-}
-app="${1:-$root/target/bundle/shellio.app}"
+bundle=""
+owner_args=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --)
+    shift
+    owner_args=("$@")
+    break
+    ;;
+  *)
+    [[ -z "$bundle" ]] || {
+      echo "usage: $0 [<бандл>] [-- <аргументы владельца>…]" >&2
+      exit 2
+    }
+    bundle="$1"
+    shift
+    ;;
+  esac
+done
+app="${bundle:-$root/target/bundle/shellio.app}"
 [[ -d "$app" ]] || die "нет бандла $app: соберите его через make bundle"
 app="$(cd "$app" && pwd -P)"
 exe="$app/Contents/MacOS/shellio"
@@ -97,7 +113,11 @@ tail -n +1 -f "$err" >&2 &
 tails+=("$!")
 
 keep_state=1
-open -W -n --env "SHELLIO_STATE_DIR=$state" --stdout "$out" --stderr "$err" "$app" >"$logs/open.log" 2>&1 &
+open_args=(-W -n --env "SHELLIO_STATE_DIR=$state" --stdout "$out" --stderr "$err" "$app")
+if [[ ${#owner_args[@]} -gt 0 ]]; then
+  open_args+=(--args "${owner_args[@]}")
+fi
+open "${open_args[@]}" >"$logs/open.log" 2>&1 &
 open_pid=$!
 
 status=0

@@ -1,0 +1,8 @@
+{
+  "id": 15,
+  "ui": {
+    "gallery.focus": {
+      "component": "field"
+    }
+  }
+}

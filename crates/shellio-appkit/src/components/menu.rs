@@ -935,10 +935,6 @@ impl MenuButton {
     }
 
     /// Кнопка для размещения в иерархии.
-    #[expect(
-        dead_code,
-        reason = "кнопку меню размещает галерея в задаче 8 плана P1.3"
-    )]
     pub(crate) fn ns_view(&self) -> &NSView {
         self.view.view()
     }
