@@ -402,6 +402,15 @@ define_class!(
             self.place();
         }
 
+        // SAFETY: селектор и аргумент — как у `resizeSubviewsWithOldSize:` NSView: новый размер
+        // подложки от владельца ставит поле на место без ожидания прохода раскладки.
+        #[unsafe(method(resizeSubviewsWithOldSize:))]
+        fn resize_subviews_with_old_size(&self, old_size: NSSize) {
+            // SAFETY: `resizeSubviewsWithOldSize:` у NSView с тем же размером.
+            let _: () = unsafe { msg_send![super(self), resizeSubviewsWithOldSize: old_size] };
+            self.place();
+        }
+
         // SAFETY: селектор и аргумент — как у `mouseDown:` NSResponder. Нажатие в отступ подложки
         // ставит фокус в поле.
         #[unsafe(method(mouseDown:))]
@@ -491,6 +500,10 @@ impl FieldControl {
         // SAFETY: назначенный инициализатор NSTextField (через NSControl), ivars уже заданы.
         let field: Retained<FieldControl> =
             unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] };
+        // Вид начинает с `TextFieldState::default()`: первое состояние владельца доходит до него
+        // разницей, а `NSTextField` из `initWithFrame:` редактируем и выделяем.
+        field.setEditable(false);
+        field.setSelectable(false);
         field.setBezeled(false);
         field.setBordered(false);
         field.setDrawsBackground(false);
@@ -648,6 +661,22 @@ mod tests {
         for other in ["insertTab:", "moveLeft:", "deleteBackward:", "complete:"] {
             assert_eq!(shown.command(other), None, "{other} выполняет AppKit");
         }
+    }
+
+    #[test]
+    fn view_starts_read_only_like_the_default_state() {
+        // `FieldControl::new` начинает нередактируемым: первое состояние доходит разницей от
+        // `default()`, и нередактируемое поле операции `Editable` не получает.
+        assert!(!TextFieldState::default().editable);
+        assert!(
+            TextFieldState::default()
+                .diff(&state("", "", false))
+                .is_empty()
+        );
+        assert_eq!(
+            TextFieldState::default().diff(&state("", "", true)),
+            [TextFieldOp::Editable(true)]
+        );
     }
 
     #[test]
