@@ -1005,12 +1005,17 @@ preconditions() {
   log "== предусловия: служебный владелец галереи, профиль $NEW_PROFILE"
   launch_owner "$NEW_PROFILE" "$dir" --gallery || fatal "предусловие: служебный владелец не поднят: $WHY"
   pid="$OWNER_PID"
-  # Accessibility и Automation: System Events читает имя процесса владельца по PID.
+  # Automation: System Events читает имя процесса владельца по PID.
   name="$(osascript -e "tell application \"System Events\" to get name of (first process whose unix id is $pid)" \
     2>"$dir/system-events.stderr" || true)"
   [[ -n "$name" ]] ||
-    fatal "предусловие: System Events не прочитал процесс pid $pid (нет Accessibility или Automation у терминала-предка): $(oneline "$dir/system-events.stderr")"
+    fatal "предусловие: System Events не прочитал процесс pid $pid (нет Automation у терминала-предка): $(oneline "$dir/system-events.stderr")"
   log "System Events: процесс pid $pid — $name"
+  # Accessibility: окна процесса System Events отдаёт только с ним, имя процесса — и без него.
+  osascript -e "tell application \"System Events\" to count windows of (first process whose unix id is $pid)" \
+    >"$dir/accessibility.stdout" 2>"$dir/accessibility.stderr" ||
+    fatal "предусловие: System Events не прочитал окна pid $pid (нет Accessibility у терминала-предка): $(oneline "$dir/accessibility.stderr")"
+  log "Accessibility: окон у pid $pid — $(oneline "$dir/accessibility.stdout")"
   ui_read "$NEW_PROFILE" "$dir/window" window ||
     fatal "предусловие: ui.window служебного владельца не прочитан: $(oneline "$dir/window.stdout")"
   number="$(jv "$dir/window.stdout" ok.ui.window.window_number)" || fatal "предусловие: в ui.window нет window_number"
