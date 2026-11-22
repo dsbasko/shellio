@@ -9,6 +9,8 @@ use objc2_app_kit::{NSAccessibility, NSScreen, NSView, NSWindow};
 use objc2_quartz_core::CALayer;
 
 use crate::chrome_bar::{ChromeState, Frame};
+use crate::components::menu::MenuState;
+use crate::components::text_field::TextFieldState;
 
 /// Факты одного вида.
 #[derive(Debug, Clone, PartialEq)]
@@ -33,6 +35,13 @@ pub struct ViewFacts {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NodeState {
     Chrome(ChromeState),
+    /// Поле ввода: состояние, которое показывает вид, и идёт ли ввод.
+    TextField {
+        state: TextFieldState,
+        editing: bool,
+    },
+    /// Меню кнопки: пункты, открыто ли, подсвеченный пункт.
+    Menu(MenuState),
 }
 
 /// Компонент или его часть в дереве `ui.inspect`.
@@ -109,7 +118,7 @@ pub(crate) fn object_id<T: Message>(object: &T) -> u64 {
     std::ptr::from_ref(object) as usize as u64
 }
 
-fn text(value: Option<Retained<objc2_foundation::NSString>>) -> Option<String> {
+pub(crate) fn text(value: Option<Retained<objc2_foundation::NSString>>) -> Option<String> {
     value
         .map(|value| value.to_string())
         .filter(|value| !value.is_empty())

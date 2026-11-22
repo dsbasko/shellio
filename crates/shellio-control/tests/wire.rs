@@ -18,9 +18,10 @@ use shellio_control::{
     Accepted, Activation, Axis, AxisSource, ChromeView, ColorSpaceView, ComponentState,
     ComponentView, Contrast, ControlError, ControlErrorCode, Hello, HelloReply, InspectView,
     InstanceKind, InstanceView, LateCallbackView, Launch, LaunchReceipt, Lightness, MaterialView,
-    Motion, OkValue, OwnerState, PROTOCOL, REQUEST_LINE_LIMIT, Rect, RefuseReason, RefusedArg,
-    Rejected, Request, RequestBody, RequestId, Response, RunLoopView, ScreenView, Size,
-    StartupView, StatsView, UI_TIMEOUT, UiReply, UiRequest, WindowMode, WindowView,
+    MenuItemView, MenuView, Motion, OkValue, OwnerState, PROTOCOL, REQUEST_LINE_LIMIT, Rect,
+    RefuseReason, RefusedArg, Rejected, Request, RequestBody, RequestId, Response, RunLoopView,
+    ScreenView, Size, StartupView, StatsView, TextFieldView, UI_TIMEOUT, UiReply, UiRequest,
+    WindowMode, WindowView,
 };
 use shellio_core::test_support::SequentialIds;
 use shellio_core::{
@@ -268,6 +269,16 @@ fn response_golden(response: &Response) -> &'static str {
             ..
         } => match reply {
             UiReply::Window(_) => "response.ok.ui.window",
+            UiReply::Inspect(inspect)
+                if inspect.components.iter().any(|component| {
+                    matches!(
+                        component.state,
+                        Some(ComponentState::TextField(_) | ComponentState::Menu(_))
+                    )
+                }) =>
+            {
+                "response.ok.ui.inspect.components"
+            }
             UiReply::Inspect(_) => "response.ok.ui.inspect",
             UiReply::Stats(_) => "response.ok.ui.stats",
             UiReply::Accepted(_) => "response.ok.ui.accepted",
@@ -341,6 +352,12 @@ fn responses() -> Result<Vec<Response>, String> {
         ),
         ok(7, OkValue::Ui(UiReply::Window(Box::new(window_view())))),
         ok(8, OkValue::Ui(UiReply::Inspect(Box::new(inspect_view())))),
+        // P1.3, задача 7: состояния `TextField` и меню кнопки; эталон `response.ok.ui.inspect`
+        // не меняется.
+        ok(
+            8,
+            OkValue::Ui(UiReply::Inspect(Box::new(inspect_components_view()))),
+        ),
         ok(9, OkValue::Ui(UiReply::Stats(Box::new(stats_view())))),
         ok(
             10,
@@ -497,6 +514,98 @@ fn inspect_view() -> InspectView {
             visible: false,
             own: false,
         }],
+    }
+}
+
+fn inspect_components_view() -> InspectView {
+    let part =
+        |id: &str, class: &str, object, frame, role: &str, label: &str, state| ComponentView {
+            id: id.into(),
+            class: class.into(),
+            object,
+            parent: Some("gallery".into()),
+            frame,
+            visible: true,
+            first_responder: false,
+            enabled: Some(true),
+            role: Some(role.into()),
+            label: Some(label.into()),
+            help: None,
+            selected: None,
+            expanded: None,
+            animation_keys: 0,
+            state: Some(state),
+        };
+    let item = |id: &str, title: &str| MenuItemView {
+        id: id.into(),
+        separator: false,
+        title: title.into(),
+        key: None,
+        enabled: true,
+        checked: false,
+        submenu: None,
+    };
+    let mut field = part(
+        "gallery.field",
+        "TextField",
+        105_553_116_268_032,
+        rect(24.0, 600.0, 320.0, 32.0),
+        "AXTextField",
+        "Поле галереи",
+        ComponentState::TextField(TextFieldView {
+            value: "shellio".into(),
+            placeholder: "Поиск".into(),
+            editable: true,
+            editing: true,
+        }),
+    );
+    field.first_responder = true;
+    InspectView {
+        window_number: 4242,
+        content: Size {
+            width: 1180.0,
+            height: 720.0,
+        },
+        generation: 9,
+        components: vec![
+            field,
+            part(
+                "gallery.menu",
+                "MenuButton",
+                105_553_116_268_544,
+                rect(352.0, 604.0, 28.0, 24.0),
+                "AXButton",
+                "Ещё",
+                ComponentState::Menu(MenuView {
+                    open: true,
+                    highlighted: Some("gallery.menu.rename".into()),
+                    items: vec![
+                        MenuItemView {
+                            enabled: false,
+                            ..item("gallery.menu.payload", "3 ждут · 1 ошибка")
+                        },
+                        MenuItemView {
+                            separator: true,
+                            title: String::new(),
+                            enabled: false,
+                            ..item("gallery.menu.sep", "")
+                        },
+                        MenuItemView {
+                            key: Some("cmd+r".into()),
+                            ..item("gallery.menu.rename", "Переименовать")
+                        },
+                        MenuItemView {
+                            submenu: Some(vec![MenuItemView {
+                                checked: true,
+                                ..item("gallery.menu.move.left", "Влево")
+                            }]),
+                            ..item("gallery.menu.move", "Перенести")
+                        },
+                    ],
+                }),
+            ),
+        ],
+        materials: Vec::new(),
     }
 }
 

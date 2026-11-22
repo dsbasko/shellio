@@ -417,12 +417,23 @@ fn component_text(component: &ComponentView) -> String {
     if component.animation_keys > 0 {
         facts.push(format!("анимаций {}", component.animation_keys));
     }
-    if let Some(ComponentState::Chrome(chrome)) = &component.state {
-        facts.push(format!(
+    match &component.state {
+        Some(ComponentState::Chrome(chrome)) => facts.push(format!(
             "воркспейс «{}», оформление {}",
             chrome.workspace_text,
             chrome.appearance_choice.as_str()
-        ));
+        )),
+        Some(ComponentState::TextField(field)) => facts.push(format!(
+            "значение «{}», ввод — {}",
+            field.value,
+            yes_no(field.editing)
+        )),
+        Some(ComponentState::Menu(menu)) => facts.push(format!(
+            "меню открыто — {}, пунктов {}",
+            yes_no(menu.open),
+            menu.items.len()
+        )),
+        None => {}
     }
     format!(
         "{} ({}): {}\n",

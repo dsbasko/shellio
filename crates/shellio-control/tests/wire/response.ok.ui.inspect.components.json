@@ -1,0 +1,122 @@
+{
+  "id": 8,
+  "ok": {
+    "ui": {
+      "inspect": {
+        "window_number": 4242,
+        "content": {
+          "width": 1180.0,
+          "height": 720.0
+        },
+        "generation": 9,
+        "components": [
+          {
+            "id": "gallery.field",
+            "class": "TextField",
+            "object": 105553116268032,
+            "parent": "gallery",
+            "frame": {
+              "x": 24.0,
+              "y": 600.0,
+              "width": 320.0,
+              "height": 32.0
+            },
+            "visible": true,
+            "first_responder": true,
+            "enabled": true,
+            "role": "AXTextField",
+            "label": "Поле галереи",
+            "help": null,
+            "selected": null,
+            "expanded": null,
+            "animation_keys": 0,
+            "state": {
+              "text_field": {
+                "value": "shellio",
+                "placeholder": "Поиск",
+                "editable": true,
+                "editing": true
+              }
+            }
+          },
+          {
+            "id": "gallery.menu",
+            "class": "MenuButton",
+            "object": 105553116268544,
+            "parent": "gallery",
+            "frame": {
+              "x": 352.0,
+              "y": 604.0,
+              "width": 28.0,
+              "height": 24.0
+            },
+            "visible": true,
+            "first_responder": false,
+            "enabled": true,
+            "role": "AXButton",
+            "label": "Ещё",
+            "help": null,
+            "selected": null,
+            "expanded": null,
+            "animation_keys": 0,
+            "state": {
+              "menu": {
+                "open": true,
+                "highlighted": "gallery.menu.rename",
+                "items": [
+                  {
+                    "id": "gallery.menu.payload",
+                    "separator": false,
+                    "title": "3 ждут · 1 ошибка",
+                    "key": null,
+                    "enabled": false,
+                    "checked": false,
+                    "submenu": null
+                  },
+                  {
+                    "id": "gallery.menu.sep",
+                    "separator": true,
+                    "title": "",
+                    "key": null,
+                    "enabled": false,
+                    "checked": false,
+                    "submenu": null
+                  },
+                  {
+                    "id": "gallery.menu.rename",
+                    "separator": false,
+                    "title": "Переименовать",
+                    "key": "cmd+r",
+                    "enabled": true,
+                    "checked": false,
+                    "submenu": null
+                  },
+                  {
+                    "id": "gallery.menu.move",
+                    "separator": false,
+                    "title": "Перенести",
+                    "key": null,
+                    "enabled": true,
+                    "checked": false,
+                    "submenu": [
+                      {
+                        "id": "gallery.menu.move.left",
+                        "separator": false,
+                        "title": "Влево",
+                        "key": null,
+                        "enabled": true,
+                        "checked": true,
+                        "submenu": null
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "materials": []
+      }
+    }
+  }
+}

@@ -126,6 +126,17 @@ impl<V: Message + AsRef<NSView>, T> View<V, T> {
     pub(crate) fn view(&self) -> &V {
         &self.view
     }
+
+    /// Слабая ссылка на Rust-часть для обратного вызова объекта, который вид не держит: делегата,
+    /// цели, наблюдателя.
+    pub(crate) fn callback(&self, site: &'static str) -> Callback<T> {
+        Callback::new(&self.rust, site)
+    }
+
+    /// Шаг отвязки: снять делегата или источник с вида и отпустить их до освобождения вида.
+    pub(crate) fn on_detach(&mut self, step: impl FnOnce() + 'static) {
+        self.detach.push(step);
+    }
 }
 
 impl<V: Message + AsRef<NSView>, T> Drop for View<V, T> {
@@ -135,25 +146,24 @@ impl<V: Message + AsRef<NSView>, T> Drop for View<V, T> {
     }
 }
 
-pub(crate) use action::Targets;
-
-/// Цели действий кнопок и пунктов меню. AppKit хранит цель слабо, поэтому её держит владелец
-/// (инвариант 2) и в `Drop` снимает с контрола до освобождения. Владелец с видом привязывает
-/// цели через [`View::bind_action`], владелец без вида (главное меню, `Menu`) — через [`Targets`].
+/// Цели действий контролов. AppKit хранит цель слабо, поэтому её держит владелец (инвариант 2) и
+/// в `Drop` снимает с контрола до освобождения. Владелец с видом привязывает цели через
+/// [`View::bind_action`]. Пункты `Menu` держат одну общую цель своего меню
+/// (`components::menu`).
 mod action {
     use objc2::rc::{self, Retained};
     use objc2::runtime::{AnyObject, NSObject, NSObjectProtocol};
     use objc2::{
         DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_class, msg_send, sel,
     };
-    use objc2_app_kit::{NSControl, NSMenuItem, NSView};
+    use objc2_app_kit::{NSControl, NSView};
 
     use super::{Callback, Detach, View};
     use crate::counters::{Live, counter};
 
     counter!(ACTION_TARGET, Class, "ShellioActionTarget");
 
-    /// Контрол с целью и действием: `NSControl` или `NSMenuItem`.
+    /// Контрол с целью и действием.
     pub(crate) trait Actionable: Message {
         /// Ставит цель и её действие `shellioPerform:`; `None` снимает оба.
         fn set_action_target(&self, target: Option<&ActionTarget>);
@@ -163,16 +173,6 @@ mod action {
         fn set_action_target(&self, target: Option<&ActionTarget>) {
             // SAFETY: цель — объект ActionTarget, который реализует `shellioPerform:`; её держит
             // владелец до снятия, селектор и цель меняются вместе.
-            unsafe {
-                self.setTarget(target.map(|target| target.as_ref()));
-                self.setAction(target.map(|_| sel!(shellioPerform:)));
-            }
-        }
-    }
-
-    impl Actionable for NSMenuItem {
-        fn set_action_target(&self, target: Option<&ActionTarget>) {
-            // SAFETY: как у NSControl: цель реализует `shellioPerform:` и живёт до снятия.
             unsafe {
                 self.setTarget(target.map(|target| target.as_ref()));
                 self.setAction(target.map(|_| sel!(shellioPerform:)));
@@ -254,31 +254,6 @@ mod action {
                     callback.call(&perform);
                 }),
             );
-        }
-    }
-
-    /// Цели владельца без вида. `Drop` снимает их с контролов до освобождения целей.
-    pub(crate) struct Targets {
-        mtm: MainThreadMarker,
-        detach: Detach,
-    }
-
-    impl Targets {
-        pub(crate) fn new(mtm: MainThreadMarker) -> Targets {
-            Targets {
-                mtm,
-                detach: Detach::default(),
-            }
-        }
-
-        /// Привязывает действие контрола к `perform`. Слабую ссылку на получателя `perform`
-        /// держит сам: цель не продлевает жизнь владельца.
-        pub(crate) fn bind<C: Actionable + 'static>(
-            &mut self,
-            control: &C,
-            perform: impl Fn() + 'static,
-        ) {
-            bind(&mut self.detach, self.mtm, control, Box::new(perform));
         }
     }
 }

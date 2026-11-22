@@ -13,13 +13,14 @@ use shellio::launch::WindowMode;
 use shellio::owner;
 use shellio_appkit::{
     App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, LoopMonitor, MainMenu,
-    MainThread, MainWindow, MenuAction, NodeState, Startup, ThemeSelection, instance_counts,
-    late_callbacks,
+    MainThread, MainWindow, MenuAction, MenuEntry, MenuState, NodeState, Startup, TextFieldState,
+    ThemeSelection, instance_counts, late_callbacks,
 };
 use shellio_control::{
     Accepted, Axis, AxisSource, ChromeView, ColorSpaceView, ComponentState, ComponentView,
-    InspectView, InstanceKind, InstanceView, LateCallbackView, MaterialView, Rect, RunLoopView,
-    ScreenView, Size, StartupView, StatsView, UiRefusal, UiReply, UiRequest, WindowView,
+    InspectView, InstanceKind, InstanceView, LateCallbackView, MaterialView, MenuItemView,
+    MenuView, Rect, RunLoopView, ScreenView, Size, StartupView, StatsView, TextFieldView,
+    UiRefusal, UiReply, UiRequest, WindowView,
 };
 use shellio_core::{AppearanceChoice, Delivery, Mirror, MirrorStep, UiCommand};
 use shellio_theme::AppearanceChoice as ThemeChoice;
@@ -259,6 +260,59 @@ fn chrome_view(state: ChromeState) -> ChromeView {
     }
 }
 
+fn text_field_view(state: TextFieldState, editing: bool) -> TextFieldView {
+    TextFieldView {
+        value: state.value,
+        placeholder: state.placeholder,
+        editable: state.editable,
+        editing,
+    }
+}
+
+fn menu_items(entries: Vec<MenuEntry>) -> Vec<MenuItemView> {
+    entries
+        .into_iter()
+        .map(|entry| match entry {
+            MenuEntry::Item(item) => MenuItemView {
+                id: item.id,
+                separator: false,
+                title: item.title,
+                key: item.key.as_ref().map(shellio_appkit::MenuKey::chord),
+                enabled: item.enabled,
+                checked: item.checked,
+                submenu: item.submenu.map(menu_items),
+            },
+            MenuEntry::Separator { id } => MenuItemView {
+                id,
+                separator: true,
+                title: String::new(),
+                key: None,
+                enabled: false,
+                checked: false,
+                submenu: None,
+            },
+        })
+        .collect()
+}
+
+fn menu_view(state: MenuState) -> MenuView {
+    MenuView {
+        open: state.open,
+        highlighted: state.highlighted,
+        items: menu_items(state.entries),
+    }
+}
+
+fn component_state(state: NodeState) -> ComponentState {
+    match state {
+        NodeState::Chrome(state) => ComponentState::Chrome(chrome_view(state)),
+        NodeState::TextField { state, editing } => {
+            ComponentState::TextField(text_field_view(state, editing))
+        }
+        NodeState::Menu(state) => ComponentState::Menu(menu_view(state)),
+    }
+}
+
 fn component(node: InspectNode) -> ComponentView {
     let facts = node.facts;
     ComponentView {
@@ -276,9 +330,7 @@ fn component(node: InspectNode) -> ComponentView {
         selected: facts.selected,
         expanded: facts.expanded,
         animation_keys: facts.animation_keys,
-        state: node.state.map(|state| match state {
-            NodeState::Chrome(state) => ComponentState::Chrome(chrome_view(state)),
-        }),
+        state: node.state.map(component_state),
     }
 }
 
@@ -469,7 +521,62 @@ fn core_choice(choice: ThemeChoice) -> AppearanceChoice {
 
 #[cfg(test)]
 mod tests {
+    use shellio_appkit::{MenuItem, MenuKey};
+
     use super::*;
+
+    #[test]
+    fn component_states_reach_the_wire() {
+        let field = component_state(NodeState::TextField {
+            state: TextFieldState {
+                value: "shellio".into(),
+                placeholder: "Поиск".into(),
+                editable: true,
+            },
+            editing: true,
+        });
+        assert_eq!(
+            field,
+            ComponentState::TextField(TextFieldView {
+                value: "shellio".into(),
+                placeholder: "Поиск".into(),
+                editable: true,
+                editing: true,
+            })
+        );
+        let menu = component_state(NodeState::Menu(MenuState {
+            open: true,
+            highlighted: Some("copy".into()),
+            entries: vec![
+                MenuEntry::Item(MenuItem {
+                    key: Some(MenuKey::command("c")),
+                    checked: true,
+                    submenu: Some(vec![MenuEntry::Item(MenuItem::new("inner", "Внутри"))]),
+                    ..MenuItem::new("copy", "Копировать")
+                }),
+                MenuEntry::Separator { id: "sep".into() },
+            ],
+        }));
+        let ComponentState::Menu(menu) = menu else {
+            panic!("не меню: {menu:?}");
+        };
+        assert!(menu.open);
+        assert_eq!(menu.highlighted.as_deref(), Some("copy"));
+        assert_eq!(menu.items.len(), 2);
+        let copy = &menu.items[0];
+        assert_eq!(
+            (
+                copy.id.as_str(),
+                copy.key.as_deref(),
+                copy.checked,
+                copy.separator
+            ),
+            ("copy", Some("cmd+c"), true, false)
+        );
+        assert_eq!(copy.submenu.as_ref().map(Vec::len), Some(1));
+        assert!(menu.items[1].separator);
+        assert_eq!(menu.items[1].id, "sep");
+    }
 
     #[test]
     fn menu_actions_map_to_ui_commands() {

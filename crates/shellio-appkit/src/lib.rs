@@ -18,12 +18,14 @@
 //! ячейки темы [`CellObserver`] и монитор цикла главного потока [`LoopMonitor`]. Окно владельца
 //! [`MainWindow`] с заголовком [`ChromeBar`] создаётся после выбора роли, главное меню
 //! [`MainMenu`] вызывает один обработчик действий, повторное открытие приложения приходит
-//! делегату ([`Delegate::reopen`]).
+//! делегату ([`Delegate::reopen`]). Компоненты ADR-0002 [`TextField`] и [`Menu`] (с кнопкой
+//! [`MenuButton`]) разделены на чистую часть и вид; главное меню построено на [`Menu`].
 
 #![deny(clippy::undocumented_unsafe_blocks)]
 
 mod app;
 mod chrome_bar;
+mod components;
 mod counters;
 mod inspect;
 mod layer;
@@ -38,6 +40,13 @@ mod window;
 pub use app::{App, Delegate, MainThread, Reopened, RunError, Transfer};
 pub use chrome_bar::{
     ChromeBar, ChromeIntent, ChromeLayout, ChromeState, Frame, NO_WORKSPACE, shorten,
+};
+pub use components::menu::{
+    ItemChange, Menu, MenuButton, MenuEntry, MenuError, MenuIntent, MenuItem, MenuKey, MenuOp,
+    MenuState, check_ids as check_menu_ids, diff as menu_diff,
+};
+pub use components::text_field::{
+    TextField, TextFieldIntent, TextFieldOp, TextFieldState, preferred_height as text_field_height,
 };
 pub use counters::{
     CountKind, InstanceCount, LateCallbacks, instance_counts, late_callbacks, late_callbacks_total,

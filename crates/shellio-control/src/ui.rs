@@ -312,6 +312,8 @@ pub struct ComponentView {
 #[serde(rename_all = "snake_case")]
 pub enum ComponentState {
     Chrome(ChromeView),
+    TextField(TextFieldView),
+    Menu(MenuView),
 }
 
 /// Состояние `ChromeBar`.
@@ -325,6 +327,44 @@ pub struct ChromeView {
     pub appearance_choice: AppearanceChoice,
     pub workspace_menu: bool,
     pub zones: bool,
+}
+
+/// Состояние `TextField`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TextFieldView {
+    /// Значение, которое показывает поле, включая ввод пользователя.
+    pub value: String,
+    pub placeholder: String,
+    pub editable: bool,
+    /// Идёт ввод: у поля есть field editor.
+    pub editing: bool,
+}
+
+/// Состояние меню кнопки.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MenuView {
+    /// Корневое меню открыто: идёт отслеживание.
+    pub open: bool,
+    /// Подсвеченный пункт корневого меню.
+    pub highlighted: Option<String>,
+    pub items: Vec<MenuItemView>,
+}
+
+/// Пункт меню или разделитель.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MenuItemView {
+    pub id: String,
+    pub separator: bool,
+    pub title: String,
+    /// Сочетание, например `cmd+q`; `None` — без клавиши.
+    pub key: Option<String>,
+    pub enabled: bool,
+    pub checked: bool,
+    /// Пункты подменю; `None` — пункт без подменю.
+    pub submenu: Option<Vec<MenuItemView>>,
 }
 
 /// Вид или слой материала.
