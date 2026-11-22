@@ -1,6 +1,8 @@
 //! `shellioctl` — CLI управления shellio: тонкая оболочка над клиентом `shellio-control`
 //! (ADR-0007). Разбор аргументов, вызов, вывод JSON или текста, код выхода.
 
+#![forbid(unsafe_code)]
+
 mod args;
 mod output;
 
