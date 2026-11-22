@@ -66,6 +66,8 @@ pub enum GalleryCommand {
     /// `gallery.list.scroll`: прокрутить список так, чтобы строка `row` стояла у верхнего края, в
     /// пределах прокрутки.
     ListScroll { row: u32 },
+    /// `gallery.tree.mutate`: изменить дерево галереи; раскрытие и выбор следуют за узлами.
+    TreeMutate { op: TreeMutation },
 }
 
 impl GalleryCommand {
@@ -83,6 +85,31 @@ impl GalleryCommand {
             Self::TabsSelect { .. } => "gallery.tabs.select",
             Self::ListReplace { .. } => "gallery.list.replace",
             Self::ListScroll { .. } => "gallery.list.scroll",
+            Self::TreeMutate { .. } => "gallery.tree.mutate",
+        }
+    }
+}
+
+/// Изменение дерева галереи.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TreeMutation {
+    /// Новый корень сверху и новая ветка первой в первом корне фикстуры.
+    Insert,
+    /// Обмен местами первых двух корней фикстуры.
+    Reorder,
+    /// Свернуть родителя выбранного узла: выбор переходит на него.
+    CollapseParentOfSelected,
+}
+
+impl TreeMutation {
+    pub const ALL: [Self; 3] = [Self::Insert, Self::Reorder, Self::CollapseParentOfSelected];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Insert => "insert",
+            Self::Reorder => "reorder",
+            Self::CollapseParentOfSelected => "collapse_parent_of_selected",
         }
     }
 }
@@ -126,10 +153,18 @@ pub enum GalleryFocus {
     Tabs,
     /// Список: Up и Down меняют выбор.
     List,
+    /// Дерево: Up, Down, Left и Right меняют выбор и раскрытие.
+    Tree,
 }
 
 impl GalleryFocus {
-    pub const ALL: [Self; 4] = [Self::Window, Self::Field, Self::Tabs, Self::List];
+    pub const ALL: [Self; 5] = [
+        Self::Window,
+        Self::Field,
+        Self::Tabs,
+        Self::List,
+        Self::Tree,
+    ];
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -137,6 +172,7 @@ impl GalleryFocus {
             Self::Field => "field",
             Self::Tabs => "tabs",
             Self::List => "list",
+            Self::Tree => "tree",
         }
     }
 }
@@ -231,6 +267,12 @@ struct ListScrollArgs {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TreeMutateArgs {
+    op: TreeMutation,
+}
+
+#[derive(Serialize, Deserialize)]
 enum WireUiRequest {
     #[serde(rename = "ui.window")]
     Window(NoArgs),
@@ -266,6 +308,8 @@ enum WireUiRequest {
     GalleryListReplace(ListReplaceArgs),
     #[serde(rename = "gallery.list.scroll")]
     GalleryListScroll(ListScrollArgs),
+    #[serde(rename = "gallery.tree.mutate")]
+    GalleryTreeMutate(TreeMutateArgs),
 }
 
 impl From<WireUiRequest> for UiRequest {
@@ -310,6 +354,9 @@ impl From<WireUiRequest> for UiRequest {
             WireUiRequest::GalleryListScroll(ListScrollArgs { row }) => {
                 Self::Gallery(GalleryCommand::ListScroll { row })
             }
+            WireUiRequest::GalleryTreeMutate(TreeMutateArgs { op }) => {
+                Self::Gallery(GalleryCommand::TreeMutate { op })
+            }
         }
     }
 }
@@ -349,6 +396,7 @@ impl From<UiRequest> for WireUiRequest {
                 GalleryCommand::ListScroll { row } => {
                     Self::GalleryListScroll(ListScrollArgs { row })
                 }
+                GalleryCommand::TreeMutate { op } => Self::GalleryTreeMutate(TreeMutateArgs { op }),
             },
         }
     }
@@ -570,8 +618,10 @@ pub enum IntentKind {
     Zoom,
     /// «Вернуть раскладку».
     Restore,
-    /// Открыть строку списка; значение — id строки.
+    /// Открыть строку списка или узел дерева; значение — id.
     Activate,
+    /// Раскрыть или свернуть узел дерева; значение — id узла.
+    Toggle,
 }
 
 /// Компонент или его часть.
@@ -614,6 +664,7 @@ pub enum ComponentState {
     Menu(MenuView),
     TabStrip(Box<TabStripView>),
     VirtualList(Box<VirtualListView>),
+    TreeList(Box<TreeListView>),
 }
 
 /// Сторона зоны полосы вкладок.
@@ -745,6 +796,44 @@ pub struct ListRowView {
     pub index: u64,
     pub id: String,
     pub text: String,
+}
+
+/// Состояние `TreeList`. Выбор и раскрытие прочитаны у `NSOutlineView`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TreeListView {
+    /// AX-имя дерева.
+    pub label: String,
+    /// Строк у `NSOutlineView`.
+    pub count: u64,
+    /// Узлов во всём дереве.
+    pub nodes: u64,
+    pub selected: Option<String>,
+    /// Раскрытые узлы в прямом порядке, включая прокрученные за край.
+    pub expanded: Vec<String>,
+    /// Смещение прокрутки в точках и его предел.
+    pub offset: f64,
+    pub max_offset: f64,
+    /// Дерево — first responder окна.
+    pub keyboard_focus: bool,
+    /// Созданные виды строк и ячеек за жизнь дерева.
+    pub row_views_created: u64,
+    pub cell_views_created: u64,
+    /// Видимые строки по порядку.
+    pub visible: Vec<TreeRowView>,
+}
+
+/// Видимая строка дерева.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TreeRowView {
+    pub index: u64,
+    pub id: String,
+    pub text: String,
+    /// AX-уровень: у корня 0.
+    pub level: u64,
+    pub expandable: bool,
+    pub expanded: bool,
 }
 
 /// Состояние `ChromeBar`.
@@ -1098,6 +1187,13 @@ mod tests {
                 "gallery.list.scroll",
                 true,
             ),
+            (
+                UiRequest::Gallery(GalleryCommand::TreeMutate {
+                    op: TreeMutation::CollapseParentOfSelected,
+                }),
+                "gallery.tree.mutate",
+                true,
+            ),
         ];
         for (request, name, mutation) in cases {
             assert_eq!(request.name(), name);
@@ -1126,6 +1222,9 @@ mod tests {
             json!({"gallery.list.replace": {}}),
             json!({"gallery.list.replace": {"seed": -1}}),
             json!({"gallery.list.scroll": {"row": "end"}}),
+            json!({"gallery.tree.mutate": {}}),
+            json!({"gallery.tree.mutate": {"op": "shuffle"}}),
+            json!({"gallery.tree.mutate": {"op": "insert", "at": 0}}),
             json!({"gallery.place": {"screen": -1}}),
             json!({"gallery.place": {}}),
             json!({"gallery.reset": {"seed": 1}}),
@@ -1176,6 +1275,18 @@ mod tests {
             assert_eq!(
                 serde_json::to_value(focus).unwrap(),
                 Value::from(focus.as_str())
+            );
+        }
+    }
+
+    #[test]
+    fn tree_mutations_have_stable_names() {
+        for op in TreeMutation::ALL {
+            assert_eq!(serde_json::to_value(op).unwrap(), Value::from(op.as_str()));
+            let request = UiRequest::Gallery(GalleryCommand::TreeMutate { op });
+            assert_eq!(
+                serde_json::to_value(request).unwrap(),
+                json!({"gallery.tree.mutate": {"op": op.as_str()}})
             );
         }
     }

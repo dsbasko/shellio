@@ -22,15 +22,15 @@ use shellio_appkit::{
     App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, LoopMonitor, MainMenu,
     MainThread, MainWindow, MenuAction, MenuEntry, MenuState, NodeState, Regime, SplitAxis,
     Startup, TabStatus, TabStripFacts, TextFieldState, ThemeSelection, Transition, TransitionPath,
-    VirtualListFacts, ZoneSide, instance_counts, late_callbacks,
+    TreeListFacts, VirtualListFacts, ZoneSide, instance_counts, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, ChromeView, ColorSpaceView,
     ComponentState, ComponentView, GalleryCommand, GalleryView, InspectView, InstanceKind,
     InstanceView, LateCallbackView, ListRowView, MaterialView, MenuItemView, MenuView, Rect,
     RunLoopView, ScreenView, Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView,
-    TabRegime, TabStatusView, TabStripView, TabZone, TextFieldView, UiRefusal, UiReply, UiRequest,
-    VirtualListView, WindowView,
+    TabRegime, TabStatusView, TabStripView, TabZone, TextFieldView, TreeListView, TreeRowView,
+    UiRefusal, UiReply, UiRequest, VirtualListView, WindowView,
 };
 use shellio_core::{AppearanceChoice, Delivery, Mirror, MirrorStep, UiCommand};
 use shellio_theme::AppearanceChoice as ThemeChoice;
@@ -204,6 +204,7 @@ impl OwnerWindow {
             }
             Effect::List => gallery.show_list(),
             Effect::ListScroll(row) => gallery.scroll_list(row),
+            Effect::Tree => gallery.show_tree(),
         }
         self.sync_theme();
         self.publish();
@@ -247,6 +248,7 @@ impl OwnerWindow {
                     self.pending.extend(transition);
                 }
                 Some(Changed::List) => gallery.show_list(),
+                Some(Changed::Tree) => gallery.show_tree(),
                 None => {}
             }
             self.publish();
@@ -530,6 +532,35 @@ fn component_state(state: NodeState) -> ComponentState {
         NodeState::VirtualList(facts) => {
             ComponentState::VirtualList(Box::new(virtual_list_view(*facts)))
         }
+        NodeState::TreeList(facts) => ComponentState::TreeList(Box::new(tree_list_view(*facts))),
+    }
+}
+
+fn tree_list_view(facts: TreeListFacts) -> TreeListView {
+    let wide = |value: usize| u64::try_from(value).unwrap_or(u64::MAX);
+    TreeListView {
+        label: facts.label,
+        count: wide(facts.count),
+        nodes: wide(facts.nodes),
+        selected: facts.selected,
+        expanded: facts.expanded,
+        offset: facts.offset,
+        max_offset: facts.max_offset,
+        keyboard_focus: facts.keyboard_focus,
+        row_views_created: facts.row_views_created,
+        cell_views_created: facts.cell_views_created,
+        visible: facts
+            .visible
+            .into_iter()
+            .map(|row| TreeRowView {
+                index: wide(row.index),
+                id: row.id,
+                text: row.text,
+                level: wide(row.level),
+                expandable: row.expandable,
+                expanded: row.expanded,
+            })
+            .collect(),
     }
 }
 

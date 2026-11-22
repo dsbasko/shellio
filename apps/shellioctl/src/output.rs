@@ -445,6 +445,19 @@ fn component_text(component: &ComponentView) -> String {
             list.offset,
             list.row_views_created
         )),
+        Some(ComponentState::TreeList(tree)) => facts.push(format!(
+            "строк {}, узлов {}, выбран {}, раскрыты {}, смещение {}, создано видов строк {}",
+            tree.count,
+            tree.nodes,
+            tree.selected.as_deref().unwrap_or("нет"),
+            if tree.expanded.is_empty() {
+                "нет".to_owned()
+            } else {
+                tree.expanded.join(" ")
+            },
+            tree.offset,
+            tree.row_views_created
+        )),
         None => {}
     }
     format!(
@@ -514,6 +527,7 @@ const fn intent_text(value: IntentKind) -> &'static str {
         IntentKind::Zoom => "zoom",
         IntentKind::Restore => "restore",
         IntentKind::Activate => "activate",
+        IntentKind::Toggle => "toggle",
     }
 }
 

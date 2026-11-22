@@ -24,7 +24,8 @@ use shellio_control::{
     REQUEST_LINE_LIMIT, Rect, RefuseReason, RefusedArg, Rejected, Request, RequestBody, RequestId,
     Response, RowViewsView, RunLoopView, ScreenView, Size, StartupView, StatsView, StripButtonView,
     TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone, TextFieldView,
-    UI_TIMEOUT, UiReply, UiRequest, VirtualListView, WindowMode, WindowView,
+    TreeListView, TreeMutation, TreeRowView, UI_TIMEOUT, UiReply, UiRequest, VirtualListView,
+    WindowMode, WindowView,
 };
 use shellio_core::test_support::SequentialIds;
 use shellio_core::{
@@ -175,6 +176,7 @@ fn request_golden(request: &Request) -> &'static str {
             GalleryCommand::TabsSelect { .. } => "request.ui.gallery_tabs_select",
             GalleryCommand::ListReplace { .. } => "request.ui.gallery_list_replace",
             GalleryCommand::ListScroll { .. } => "request.ui.gallery_list_scroll",
+            GalleryCommand::TreeMutate { .. } => "request.ui.gallery_tree_mutate",
         },
     }
 }
@@ -295,6 +297,13 @@ fn requests() -> Vec<Request> {
                 row: 9_999,
             })),
         ),
+        // P1.3, задача 13: изменение дерева галереи.
+        request(
+            24,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::TreeMutate {
+                op: TreeMutation::Insert,
+            })),
+        ),
     ]
 }
 
@@ -358,6 +367,13 @@ fn response_golden(response: &Response) -> &'static str {
                 }) =>
             {
                 "response.ok.ui.inspect.virtual_list"
+            }
+            UiReply::Inspect(inspect)
+                if inspect.components.iter().any(|component| {
+                    matches!(component.state, Some(ComponentState::TreeList(_)))
+                }) =>
+            {
+                "response.ok.ui.inspect.tree_list"
             }
             UiReply::Inspect(inspect)
                 if inspect.components.iter().any(|component| {
@@ -530,6 +546,11 @@ fn responses() -> Result<Vec<Response>, String> {
                 }),
                 ..stats_view()
             }))),
+        ),
+        // P1.3, задача 13: состояние `TreeList` с выбором и раскрытием у `NSOutlineView`.
+        ok(
+            8,
+            OkValue::Ui(UiReply::Inspect(Box::new(inspect_tree_list_view()))),
         ),
         ok(9, OkValue::Ui(UiReply::Stats(Box::new(stats_view())))),
         // P1.3, задача 10: прежние деревья галереи с живыми по классам; эталон
@@ -929,6 +950,79 @@ fn inspect_virtual_list_view() -> InspectView {
                 help: None,
                 selected: Some(true),
                 expanded: None,
+                animation_keys: 0,
+                state: None,
+            },
+        ],
+        materials: Vec::new(),
+        gallery: None,
+    }
+}
+
+fn inspect_tree_list_view() -> InspectView {
+    let row = |index: u64, id: &str, text: &str, level: u64, expandable, expanded| TreeRowView {
+        index,
+        id: id.into(),
+        text: text.into(),
+        level,
+        expandable,
+        expanded,
+    };
+    InspectView {
+        window_number: 4242,
+        content: Size {
+            width: 1180.0,
+            height: 720.0,
+        },
+        generation: 57,
+        components: vec![
+            ComponentView {
+                id: "gallery.tree".into(),
+                class: "TreeList".into(),
+                object: 105_553_116_270_336,
+                parent: Some("gallery.surface.plain".into()),
+                frame: rect(898.0, 240.0, 258.0, 416.0),
+                visible: true,
+                first_responder: false,
+                enabled: None,
+                role: Some("AXOutline".into()),
+                label: Some("Дерево галереи".into()),
+                help: None,
+                selected: None,
+                expanded: None,
+                animation_keys: 0,
+                state: Some(ComponentState::TreeList(Box::new(TreeListView {
+                    label: "Дерево галереи".into(),
+                    count: 119,
+                    nodes: 10_000,
+                    selected: Some("n000.0.0".into()),
+                    expanded: vec!["n000".into(), "n000.0".into()],
+                    offset: 0.0,
+                    max_offset: 2_678.0,
+                    keyboard_focus: false,
+                    row_views_created: 17,
+                    cell_views_created: 17,
+                    visible: vec![
+                        row(0, "n000", "Корень 000", 0, true, true),
+                        row(1, "n000.0", "Ветка 000.0", 1, true, true),
+                        row(2, "n000.0.0", "Лист 000.0.0", 2, false, false),
+                    ],
+                }))),
+            },
+            ComponentView {
+                id: "gallery.tree.row.n000".into(),
+                class: "TreeRow".into(),
+                object: 105_553_116_270_848,
+                parent: Some("gallery.tree".into()),
+                frame: rect(898.0, 630.0, 258.0, 26.0),
+                visible: true,
+                first_responder: false,
+                enabled: None,
+                role: Some("AXRow".into()),
+                label: Some("Корень 000".into()),
+                help: None,
+                selected: Some(false),
+                expanded: Some(true),
                 animation_keys: 0,
                 state: None,
             },

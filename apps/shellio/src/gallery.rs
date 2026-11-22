@@ -9,10 +9,10 @@
 //! `gallery.rebuild` и `gallery.window.recreate` его не сбрасывают, поэтому оно монотонно в
 //! пределах процесса, и маркер поколения в снимке однозначно называет состояние.
 
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 
 use shellio_control::{
-    GalleryCommand, GalleryFocus, GalleryStrip, IntentKind, IntentRecord, UiRefusal,
+    GalleryCommand, GalleryFocus, GalleryStrip, IntentKind, IntentRecord, TreeMutation, UiRefusal,
 };
 use shellio_theme::{Appearance, Contrast, Motion};
 
@@ -55,6 +55,7 @@ pub mod ids {
     pub const TABS_HALF: &str = "gallery.tabs.half";
     pub const TABS_WIDE: &str = "gallery.tabs.wide";
     pub const LIST: &str = "gallery.list";
+    pub const TREE: &str = "gallery.tree";
 
     /// Идентификатор полосы вкладок.
     pub const fn strip(strip: shellio_control::GalleryStrip) -> &'static str {
@@ -330,6 +331,126 @@ pub enum ListAction {
     Activate(String),
 }
 
+/// Корней, веток у корня и листьев у ветки в дереве галереи: 100 × 9 × 10, глубина 3.
+pub const TREE_ROOTS: usize = 100;
+pub const TREE_BRANCHES: usize = 9;
+pub const TREE_LEAVES: usize = 10;
+/// AX-имя дерева.
+pub const TREE_LABEL: &str = "Дерево галереи";
+/// Раскрытые узлы фикстуры: первый корень и его первая ветка.
+pub const TREE_EXPANDED: [&str; 2] = ["n000", "n000.0"];
+/// Выбранный узел фикстуры: первый лист первой ветки, строка 2.
+pub const TREE_SELECTED: &str = "n000.0.0";
+
+/// Узел фикстуры дерева.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TreeFixture {
+    pub id: String,
+    pub text: String,
+    pub children: Vec<TreeFixture>,
+}
+
+/// Корни дерева галереи после `inserts` вставок и с обменом первых двух корней фикстуры при
+/// `swapped`. Вставка `k` даёт корень `x<k>` сверху и ветку `n000.x<k>` первой в `n000`: новые
+/// выше прежних. Id иерархичны: родитель узла — id до последней точки.
+pub fn tree_roots(inserts: u32, swapped: bool) -> Vec<TreeFixture> {
+    let leaf = |id: String, text: String| TreeFixture {
+        id,
+        text,
+        children: Vec::new(),
+    };
+    let mut roots: Vec<TreeFixture> = (0..TREE_ROOTS)
+        .map(|root| {
+            let mut children: Vec<TreeFixture> = (0..TREE_BRANCHES)
+                .map(|branch| TreeFixture {
+                    id: format!("n{root:03}.{branch}"),
+                    text: format!("Ветка {root:03}.{branch}"),
+                    children: (0..TREE_LEAVES)
+                        .map(|item| {
+                            leaf(
+                                format!("n{root:03}.{branch}.{item}"),
+                                format!("Лист {root:03}.{branch}.{item}"),
+                            )
+                        })
+                        .collect(),
+                })
+                .collect();
+            if root == 0 {
+                let inserted = (1..=inserts)
+                    .rev()
+                    .map(|k| leaf(format!("n000.x{k}"), format!("Новая ветка {k}")));
+                children.splice(0..0, inserted);
+            }
+            TreeFixture {
+                id: format!("n{root:03}"),
+                text: format!("Корень {root:03}"),
+                children,
+            }
+        })
+        .collect();
+    if swapped {
+        roots.swap(0, 1);
+    }
+    let inserted = (1..=inserts)
+        .rev()
+        .map(|k| leaf(format!("x{k}"), format!("Новый корень {k}")));
+    roots.splice(0..0, inserted);
+    roots
+}
+
+/// Родитель узла по иерархичному id.
+pub fn tree_parent(id: &str) -> Option<&str> {
+    id.rsplit_once('.').map(|(parent, _)| parent)
+}
+
+/// Номер из десятичных цифр `digits` не больше `bound`, без знака и лишних символов.
+fn number(digits: &str, width: Option<usize>, bound: usize) -> Option<usize> {
+    let valid = !digits.is_empty()
+        && digits.bytes().all(|byte| byte.is_ascii_digit())
+        && width.is_none_or(|width| digits.len() == width);
+    digits.parse().ok().filter(|value| valid && *value < bound)
+}
+
+/// Есть ли узел `id` в дереве после `inserts` вставок, и есть ли у него дети.
+pub fn tree_node(inserts: u32, id: &str) -> Option<bool> {
+    let inserted = usize::try_from(inserts)
+        .unwrap_or(usize::MAX)
+        .saturating_add(1);
+    let parts: Vec<&str> = id.split('.').collect();
+    let root = |part: &str| {
+        part.strip_prefix('n')
+            .and_then(|d| number(d, Some(3), TREE_ROOTS))
+    };
+    let new = |part: &str| {
+        part.strip_prefix('x')
+            .filter(|d| !d.starts_with('0'))
+            .and_then(|d| number(d, None, inserted))
+            .filter(|k| *k >= 1)
+    };
+    match parts.as_slice() {
+        [single] if new(single).is_some() => Some(false),
+        [single] => root(single).map(|_| true),
+        [first, second] if new(second).is_some() => (root(first) == Some(0)).then_some(false),
+        [first, second] => root(first)
+            .and(number(second, Some(1), TREE_BRANCHES))
+            .map(|_| true),
+        [first, second, third] => root(first)
+            .and(number(second, Some(1), TREE_BRANCHES))
+            .and(number(third, Some(1), TREE_LEAVES))
+            .map(|_| false),
+        _ => None,
+    }
+}
+
+/// Действие дерева галереи.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TreeAction {
+    Select(String),
+    /// Раскрыть (`true`) или свернуть узел.
+    Toggle(String, bool),
+    Activate(String),
+}
+
 /// Действие полосы вкладок галереи.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TabAction {
@@ -355,6 +476,7 @@ pub enum Intent {
     MenuChosen(String),
     Tab(GalleryStrip, TabAction),
     List(ListAction),
+    Tree(TreeAction),
 }
 
 impl Intent {
@@ -382,6 +504,15 @@ impl Intent {
             }
             Intent::List(ListAction::Activate(id)) => {
                 (ids::LIST, IntentKind::Activate, Some(id.clone()))
+            }
+            Intent::Tree(TreeAction::Select(id)) => {
+                (ids::TREE, IntentKind::Select, Some(id.clone()))
+            }
+            Intent::Tree(TreeAction::Toggle(id, _)) => {
+                (ids::TREE, IntentKind::Toggle, Some(id.clone()))
+            }
+            Intent::Tree(TreeAction::Activate(id)) => {
+                (ids::TREE, IntentKind::Activate, Some(id.clone()))
             }
         };
         IntentRecord {
@@ -412,6 +543,13 @@ pub struct GalleryState {
     pub list_seed: u64,
     /// Номер выбранной строки списка: замена набора того же размера оставляет его на месте.
     pub list_selected: Option<usize>,
+    /// Вставок в дерево и обмен первых двух корней фикстуры ([`tree_roots`]).
+    pub tree_inserts: u32,
+    pub tree_swapped: bool,
+    /// Раскрытые узлы дерева: предки каждого тоже раскрыты.
+    pub tree_expanded: BTreeSet<String>,
+    /// Выбранный узел дерева: все его предки раскрыты.
+    pub tree_selected: Option<String>,
     pub intents: VecDeque<IntentRecord>,
 }
 
@@ -432,7 +570,52 @@ impl GalleryState {
             tabs: GalleryStrip::ALL.map(|strip| strip_fixture(strip).selected),
             list_seed: LIST_SEED,
             list_selected: Some(LIST_SELECTED),
+            tree_inserts: 0,
+            tree_swapped: false,
+            tree_expanded: TREE_EXPANDED.iter().map(|id| (*id).to_owned()).collect(),
+            tree_selected: Some(TREE_SELECTED.to_owned()),
             intents: VecDeque::new(),
+        }
+    }
+
+    /// Все предки узла `id` раскрыты.
+    fn tree_visible(&self, id: &str) -> bool {
+        let mut cursor = tree_parent(id);
+        while let Some(parent) = cursor {
+            if !self.tree_expanded.contains(parent) {
+                return false;
+            }
+            cursor = tree_parent(parent);
+        }
+        true
+    }
+
+    /// Раскрыть узел с детьми вместе с предками.
+    fn tree_expand(&mut self, id: &str) {
+        if tree_node(self.tree_inserts, id) != Some(true) {
+            return;
+        }
+        let mut cursor = Some(id);
+        while let Some(open) = cursor {
+            self.tree_expanded.insert(open.to_owned());
+            cursor = tree_parent(open);
+        }
+    }
+
+    /// Свернуть узел: он и потомки выходят из раскрытых, выбор под ним переходит на него.
+    fn tree_collapse(&mut self, id: &str) {
+        if tree_node(self.tree_inserts, id).is_none() {
+            return;
+        }
+        let below = format!("{id}.");
+        self.tree_expanded
+            .retain(|open| open != id && !open.starts_with(&below));
+        if self
+            .tree_selected
+            .as_deref()
+            .is_some_and(|selected| selected.starts_with(&below))
+        {
+            self.tree_selected = Some(id.to_owned());
         }
     }
 }
@@ -460,6 +643,8 @@ pub enum Effect {
     List,
     /// Прокрутить список к строке.
     ListScroll(u32),
+    /// Узлы, раскрытие или выбор дерева изменились.
+    Tree,
 }
 
 /// Часть вида, которую намерение изменило.
@@ -467,6 +652,7 @@ pub enum Effect {
 pub enum Changed {
     Tabs(GalleryStrip),
     List,
+    Tree,
 }
 
 const fn strip_index(strip: GalleryStrip) -> usize {
@@ -568,6 +754,26 @@ impl Gallery {
                 Effect::List
             }
             GalleryCommand::ListScroll { row } => Effect::ListScroll(row),
+            GalleryCommand::TreeMutate { op } => {
+                match op {
+                    TreeMutation::Insert => {
+                        self.state.tree_inserts = self.state.tree_inserts.saturating_add(1);
+                    }
+                    TreeMutation::Reorder => self.state.tree_swapped = !self.state.tree_swapped,
+                    TreeMutation::CollapseParentOfSelected => {
+                        let parent = self
+                            .state
+                            .tree_selected
+                            .as_deref()
+                            .and_then(tree_parent)
+                            .map(str::to_owned);
+                        if let Some(parent) = parent {
+                            self.state.tree_collapse(&parent);
+                        }
+                    }
+                }
+                Effect::Tree
+            }
         };
         generation.bump();
         effect
@@ -596,6 +802,21 @@ impl Gallery {
                     self.state.list_selected = Some(index);
                     changed = Some(Changed::List);
                 }
+            }
+            Intent::Tree(TreeAction::Select(id) | TreeAction::Toggle(id, _))
+                if tree_node(self.state.tree_inserts, id).is_none()
+                    || !self.state.tree_visible(id) => {}
+            Intent::Tree(TreeAction::Select(id)) => {
+                self.state.tree_selected = Some(id.clone());
+                changed = Some(Changed::Tree);
+            }
+            Intent::Tree(TreeAction::Toggle(id, true)) => {
+                self.state.tree_expand(id);
+                changed = Some(Changed::Tree);
+            }
+            Intent::Tree(TreeAction::Toggle(id, false)) => {
+                self.state.tree_collapse(id);
+                changed = Some(Changed::Tree);
             }
             _ => {}
         }
@@ -681,7 +902,7 @@ pub const MARKER_SIZE: f64 = MARKER_CELL * MARKER_CELLS as f64;
 pub const FIELD_WIDTH: f64 = 280.0;
 pub const MENU_BUTTON: f64 = 24.0;
 /// Ширина списка и число его видимых строк: список занимает левую часть подложки без фокуса над
-/// её участком фона, правая часть остаётся дереву.
+/// её участком фона, правая часть остаётся дереву той же высоты.
 pub const LIST_WIDTH: f64 = 260.0;
 pub const LIST_VISIBLE: f64 = 16.0;
 
@@ -697,8 +918,9 @@ pub struct Layout {
     pub menu: Rect,
     /// Полосы вкладок в порядке [`GalleryStrip::ALL`].
     pub strips: [Rect; 4],
-    /// Список в координатах подложки без фокуса.
+    /// Список и дерево в координатах подложки без фокуса.
     pub list: Rect,
+    pub tree: Rect,
 }
 
 impl Layout {
@@ -741,6 +963,13 @@ pub fn layout(
     let wide = Rect::new(focus.x, focus.bottom() + PAD, STRIP_WIDE, tabbar);
     let half = Rect::new(focus.x, wide.bottom() + PAD, STRIP_HALF, tabbar);
     let list = Rect::new(PAD, PAD, LIST_WIDTH, LIST_VISIBLE * row);
+    let tree_x = list.right() + PAD;
+    let tree = Rect::new(
+        tree_x,
+        PAD,
+        (surface_width - tree_x - PAD).max(0.0),
+        list.height,
+    );
     Layout {
         marker,
         focus,
@@ -749,6 +978,7 @@ pub fn layout(
         menu,
         strips: [side, center, half, wide],
         list,
+        tree,
     }
 }
 
@@ -781,6 +1011,10 @@ mod tests {
             GalleryCommand::Focus(GalleryFocus::List),
             GalleryCommand::ListReplace { seed: 4 },
             GalleryCommand::ListScroll { row: 9_999 },
+            GalleryCommand::Focus(GalleryFocus::Tree),
+            GalleryCommand::TreeMutate {
+                op: TreeMutation::Insert,
+            },
         ]
     }
 
@@ -835,6 +1069,8 @@ mod tests {
                 Effect::Focus(GalleryFocus::List),
                 Effect::List,
                 Effect::ListScroll(9_999),
+                Effect::Focus(GalleryFocus::Tree),
+                Effect::Tree,
             ]
         );
 
@@ -1241,5 +1477,199 @@ mod tests {
             layout.plain.width - layout.list.right() >= 240.0,
             "правая часть подложки свободна"
         );
+    }
+
+    #[test]
+    fn tree_fixture_is_hundred_by_nine_by_ten() {
+        let roots = tree_roots(0, false);
+        assert_eq!(roots.len(), TREE_ROOTS);
+        assert!(
+            roots
+                .iter()
+                .all(|root| root.children.len() == TREE_BRANCHES)
+        );
+        assert!(roots.iter().all(|root| {
+            root.children
+                .iter()
+                .all(|branch| branch.children.len() == TREE_LEAVES)
+        }));
+        assert_eq!(roots[0].id, "n000");
+        assert_eq!(roots[0].children[0].id, "n000.0");
+        assert_eq!(roots[0].children[0].children[0].id, TREE_SELECTED);
+        assert_eq!(roots[99].children[8].children[9].text, "Лист 099.8.9");
+        let mut ids = std::collections::HashSet::new();
+        let mut stack: Vec<&TreeFixture> = roots.iter().collect();
+        while let Some(node) = stack.pop() {
+            assert!(ids.insert(node.id.clone()), "{} повторяется", node.id);
+            assert_eq!(
+                tree_node(0, &node.id),
+                Some(!node.children.is_empty()),
+                "{}",
+                node.id
+            );
+            for child in &node.children {
+                assert_eq!(tree_parent(&child.id), Some(node.id.as_str()));
+            }
+            stack.extend(node.children.iter());
+        }
+        assert_eq!(ids.len(), 10_000);
+        for foreign in [
+            "n100",
+            "n00",
+            "n000.9",
+            "n000.0.10",
+            "x1",
+            "n000.x1",
+            "n0000",
+            "n000.00",
+            "",
+        ] {
+            assert_eq!(tree_node(0, foreign), None, "{foreign}");
+        }
+    }
+
+    #[test]
+    fn tree_mutations_shift_rows_and_keep_expansion_and_selection() {
+        let roots = tree_roots(2, true);
+        let order: Vec<&str> = roots.iter().take(4).map(|root| root.id.as_str()).collect();
+        assert_eq!(order, ["x2", "x1", "n001", "n000"]);
+        let first: Vec<&str> = roots[3]
+            .children
+            .iter()
+            .take(3)
+            .map(|b| b.id.as_str())
+            .collect();
+        assert_eq!(first, ["n000.x2", "n000.x1", "n000.0"]);
+        assert_eq!(tree_node(2, "x2"), Some(false));
+        assert_eq!(tree_node(2, "n000.x2"), Some(false));
+        assert_eq!(tree_node(2, "x3"), None);
+        assert_eq!(tree_node(2, "n001.x1"), None, "вставка только в n000");
+
+        let mut gallery = Gallery::new();
+        let mut generation = Generation::default();
+        let insert = GalleryCommand::TreeMutate {
+            op: TreeMutation::Insert,
+        };
+        assert_eq!(gallery.apply(insert, &mut generation), Effect::Tree);
+        gallery.apply(
+            GalleryCommand::TreeMutate {
+                op: TreeMutation::Reorder,
+            },
+            &mut generation,
+        );
+        let state = gallery.state();
+        assert_eq!((state.tree_inserts, state.tree_swapped), (1, true));
+        assert_eq!(state.tree_selected.as_deref(), Some(TREE_SELECTED));
+        assert_eq!(
+            state.tree_expanded,
+            TREE_EXPANDED.iter().map(|id| (*id).to_owned()).collect()
+        );
+
+        gallery.apply(
+            GalleryCommand::TreeMutate {
+                op: TreeMutation::CollapseParentOfSelected,
+            },
+            &mut generation,
+        );
+        assert_eq!(gallery.state().tree_selected.as_deref(), Some("n000.0"));
+        assert_eq!(
+            gallery.state().tree_expanded,
+            BTreeSet::from(["n000".to_owned()])
+        );
+        gallery.apply(
+            GalleryCommand::TreeMutate {
+                op: TreeMutation::CollapseParentOfSelected,
+            },
+            &mut generation,
+        );
+        assert_eq!(gallery.state().tree_selected.as_deref(), Some("n000"));
+        assert!(gallery.state().tree_expanded.is_empty());
+        gallery.apply(
+            GalleryCommand::TreeMutate {
+                op: TreeMutation::CollapseParentOfSelected,
+            },
+            &mut generation,
+        );
+        assert_eq!(
+            gallery.state().tree_selected.as_deref(),
+            Some("n000"),
+            "у корня родителя нет"
+        );
+        gallery.apply(GalleryCommand::Reset, &mut generation);
+        assert_eq!(gallery.state(), &GalleryState::fixture());
+    }
+
+    #[test]
+    fn tree_intents_follow_the_visible_tree() {
+        let mut gallery = Gallery::new();
+        let mut generation = Generation::default();
+        let tree = |action| Intent::Tree(action);
+        assert_eq!(
+            gallery.intent(
+                &tree(TreeAction::Select("n000.0.5".into())),
+                &mut generation
+            ),
+            Some(Changed::Tree)
+        );
+        assert_eq!(
+            gallery.intent(&tree(TreeAction::Select("n001.0".into())), &mut generation),
+            None,
+            "скрытый узел не выбирается"
+        );
+        assert_eq!(
+            gallery.intent(&tree(TreeAction::Select("нет".into())), &mut generation),
+            None
+        );
+        assert_eq!(
+            gallery.intent(
+                &tree(TreeAction::Toggle("n001".into(), true)),
+                &mut generation
+            ),
+            Some(Changed::Tree)
+        );
+        assert!(gallery.state().tree_expanded.contains("n001"));
+        gallery.intent(
+            &tree(TreeAction::Toggle("n000.0".into(), false)),
+            &mut generation,
+        );
+        assert_eq!(gallery.state().tree_selected.as_deref(), Some("n000.0"));
+        gallery.intent(
+            &tree(TreeAction::Toggle("n000.0.3".into(), true)),
+            &mut generation,
+        );
+        assert!(
+            !gallery.state().tree_expanded.contains("n000.0.3"),
+            "лист не раскрывается"
+        );
+        gallery.intent(&tree(TreeAction::Activate("n000".into())), &mut generation);
+        let records: Vec<(&str, IntentKind, Option<&str>)> = gallery
+            .state()
+            .intents
+            .iter()
+            .map(|r| (r.component.as_str(), r.intent, r.value.as_deref()))
+            .collect();
+        assert_eq!(
+            records[0],
+            (ids::TREE, IntentKind::Select, Some("n000.0.5"))
+        );
+        assert_eq!(records[3], (ids::TREE, IntentKind::Toggle, Some("n001")));
+        assert_eq!(
+            records.last(),
+            Some(&(ids::TREE, IntentKind::Activate, Some("n000")))
+        );
+    }
+
+    /// Дерево справа от списка в подложке без фокуса: целиком внутри, дальше 4 точек от участка
+    /// фона (24, 460) 120×48 и не накрывает список.
+    #[test]
+    fn tree_stays_inside_the_plain_surface_right_of_the_list() {
+        let layout = layout(1180.0, 720.0, 40.0, 32.0, 34.0, 26.0);
+        let inner = Rect::new(0.0, 0.0, layout.plain.width, layout.plain.height);
+        assert!(inner.contains(&layout.tree), "{:?}", layout.tree);
+        assert!(!layout.tree.intersects(&Rect::new(20.0, 456.0, 128.0, 56.0)));
+        assert!(!layout.tree.intersects(&layout.list));
+        assert!(layout.tree.x >= 284.0);
+        assert!(layout.tree.width >= 240.0, "{:?}", layout.tree);
+        assert_eq!(layout.tree.height, layout.list.height);
     }
 }

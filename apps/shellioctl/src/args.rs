@@ -11,7 +11,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use shellio_control::{
-    CLI_TIMEOUT, Contrast, GalleryCommand, GalleryFocus, GalleryStrip, Lightness, Motion, UiRequest,
+    CLI_TIMEOUT, Contrast, GalleryCommand, GalleryFocus, GalleryStrip, Lightness, Motion,
+    TreeMutation, UiRequest,
 };
 use shellio_core::{
     AppearanceChoice, Command, ProjectId, Revision, TreeScope, UiCommand, WorkbenchId, WorkspaceId,
@@ -42,7 +43,7 @@ pub const USAGE: &str = "\
   app quit
   gallery cell <light|dark|auto> <normal|increased|auto>
   gallery motion <normal|reduced>
-  gallery focus <field|window|tabs|list>
+  gallery focus <field|window|tabs|list|tree>
   gallery menu open
   gallery rebuild
   gallery window recreate
@@ -51,6 +52,7 @@ pub const USAGE: &str = "\
   gallery tabs select <side|center|half|wide> <номер вкладки>
   gallery list replace <зерно>
   gallery list scroll <номер строки>
+  gallery tree mutate <insert|reorder|collapse_parent_of_selected>
 
 У команд с целью-воркспейсом --target по умолчанию равен --workspace, с --all он обязателен.
 --json печатает кадры ответа построчно, --timeout задаёт срок вызова (по умолчанию 5000 мс).
@@ -541,7 +543,7 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 .find(|focus| focus.as_str() == value)
                 .ok_or_else(|| {
                     usage(format!(
-                        "{call}: ожидается field, window, tabs или list, получено «{value}»"
+                        "{call}: ожидается field, window, tabs, list или tree, получено «{value}»"
                     ))
                 })?;
             Ok(gallery(GalleryCommand::Focus(focus)))
@@ -607,6 +609,22 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 }
                 _ => Err(usage(format!("неизвестный вызов «{call} {verb}»"))),
             }
+        }
+        "gallery tree" => {
+            given.only(call, &[])?;
+            let [verb, value] = operands(call, rest)?;
+            if verb != "mutate" {
+                return Err(usage(format!("неизвестный вызов «{call} {verb}»")));
+            }
+            let op = TreeMutation::ALL
+                .into_iter()
+                .find(|op| op.as_str() == value)
+                .ok_or_else(|| {
+                    usage(format!(
+                        "{call} mutate: ожидается insert, reorder или collapse_parent_of_selected, получено «{value}»"
+                    ))
+                })?;
+            Ok(gallery(GalleryCommand::TreeMutate { op }))
         }
         "gallery place" => {
             given.only(call, &[])?;
@@ -915,11 +933,17 @@ mod tests {
             action_of(&["gallery", "list", "scroll", "9999"]),
             gallery(GalleryCommand::ListScroll { row: 9_999 })
         );
+        for op in TreeMutation::ALL {
+            assert_eq!(
+                action_of(&["gallery", "tree", "mutate", op.as_str()]),
+                gallery(GalleryCommand::TreeMutate { op })
+            );
+        }
     }
 
     #[test]
     fn gallery_calls_check_operands() {
-        let cases: [(&[&str], &str); 16] = [
+        let cases: [(&[&str], &str); 18] = [
             (&["gallery"], "не указано действие"),
             (&["gallery", "cell", "light"], "операндов"),
             (
@@ -933,7 +957,12 @@ mod tests {
             (&["gallery", "motion", "slow"], "normal или reduced"),
             (
                 &["gallery", "focus", "grid"],
-                "field, window, tabs или list",
+                "field, window, tabs, list или tree",
+            ),
+            (&["gallery", "tree", "grow", "insert"], "неизвестный вызов"),
+            (
+                &["gallery", "tree", "mutate", "shuffle"],
+                "insert, reorder или collapse_parent_of_selected",
             ),
             (&["gallery", "list", "sort", "1"], "неизвестный вызов"),
             (&["gallery", "list", "replace", "1e3"], "зерно"),

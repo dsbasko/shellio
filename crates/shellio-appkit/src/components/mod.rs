@@ -5,4 +5,5 @@
 pub(crate) mod menu;
 pub(crate) mod tab_strip;
 pub(crate) mod text_field;
+pub(crate) mod tree_list;
 pub(crate) mod virtual_list;

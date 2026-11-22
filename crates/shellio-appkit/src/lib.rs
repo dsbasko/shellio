@@ -19,7 +19,7 @@
 //! [`MainWindow`] с заголовком [`ChromeBar`] создаётся после выбора роли, главное меню
 //! [`MainMenu`] вызывает один обработчик действий, повторное открытие приложения приходит
 //! делегату ([`Delegate::reopen`]). Компоненты ADR-0002 [`TextField`], [`Menu`] (с кнопкой
-//! [`MenuButton`]) и [`TabStrip`] разделены на чистую часть и вид; главное меню построено на
+//! [`MenuButton`]), [`TabStrip`], [`VirtualList`] и [`TreeList`] разделены на чистую часть и вид; главное меню построено на
 //! [`Menu`]. Смена состояния компонента отдаёт [`Transition`] для журнала анимаций.
 //! Компоненты размещаются в окне и в подложке через [`Piece`], галерея получает маркер поколения
 //! [`GenerationMarker`] и слабое наблюдение за видами освобождённого дерева [`ViewWatch`].
@@ -63,6 +63,13 @@ pub use components::tab_strip::{ButtonFacts, TabFacts, TabStrip, TabStripFacts};
 pub use components::text_field::{
     TextField, TextFieldIntent, TextFieldOp, TextFieldState, preferred_height as text_field_height,
 };
+pub use components::tree_list::model::{
+    TreeListError, TreeListIntent, TreeListKey, TreeListState, TreeNode, TreeOp, TreeRow,
+    check as check_tree_list, collapse as tree_list_collapse, diff as tree_list_diff,
+    expand as tree_list_expand, key_intent as tree_list_key_intent,
+    set_expanded as tree_list_set_expanded,
+};
+pub use components::tree_list::{TreeList, TreeListFacts, TreeRowFacts};
 pub use components::virtual_list::model::{
     KeyPress, ListError, ListIntent, ListKey, ListOp, ListState, PressLog, Row, RowDiff,
     check as check_list, diff as list_diff, diff_rows, key_intent as list_key_intent,

@@ -81,15 +81,18 @@ IDLE_CPU_PERCENT=1
 IDLE_WAKEUPS=20
 IDLE_SETTLE_S=30
 CYCLES=10
-# Строк таблицы в обходе ax: больше видимых строк списка галереи (16).
+# Строк дерева в обходе ax: больше видимых строк дерева галереи (16).
 LIST_AX_ROWS=20
+# Строки списка в обходе ax — те, что сверяет фикстура: System Events разрешает каждую ссылку на строку таблицы
+# от корня и заново берёт все 10 000 AXRows, около 3 с на чтение, поэтому лишние строки не читаются.
+LIST_AX_AT="0, 1, 15"
 
 ITEMS=(first-front window mirror close-reopen quit gui-quit-pid snapshot-light snapshot-dark contrast-cells
   system-appearance material text-field menu-tracking ax voiceover window-cycle idle startup-warm startup-cold
   tabstrip-regimes tab-underline reduce-motion list-reuse list-keys list-click-label appearance-live key-latency-120
-  key-latency-60 single-instance)
+  key-latency-60 tree single-instance)
 # key-latency-60 становится обязательным, если у машины есть экран 60 Гц (правило «Замеры»).
-REQUIRED=(1 1 1 1 1 0 1 1 1 0 1 1 1 1 0 1 1 1 0 1 1 1 1 1 0 1 1 0 1)
+REQUIRED=(1 1 1 1 1 0 1 1 1 0 1 1 1 1 0 1 1 1 0 1 1 1 1 1 0 1 1 0 1 1)
 STATUS=()
 REASON=()
 for i in "${!ITEMS[@]}"; do
@@ -1908,7 +1911,8 @@ item_menu_tracking() {
 }
 
 # Элементы окна процесса pid по System Events: JSON с заголовком окна и списком элементов (роль, подроль,
-# заголовок, описание, AXSelected, AXExpanded, AXHelp, описание ближайшей AXTabGroup), обход до глубины 6.
+# заголовок, описание, AXSelected, AXExpanded, AXHelp, описание ближайшей AXTabGroup), обход до глубины 6. У строк
+# дерева раскрытие — AXDisclosing, уровень — AXDisclosureLevel.
 ax_dump() {
   osascript -l JavaScript -e "
     const se = Application('System Events');
@@ -1924,15 +1928,34 @@ ax_dump() {
         help: attr(e, 'AXHelp'), group: group });
       if (depth >= 6) return;
       if (role === 'AXTable') {
-        // Строки таблицы — элементы AXRow без имени, текст строки — значение текста её ячейки. Обходятся
-        // первые LIST_AX_ROWS строк: сценарий читает список после сброса, прокрутка в начале.
+        // Строки таблицы — элементы AXRow без имени, текст строки — значение текста её ячейки. Читаются только
+        // строки LIST_AX_AT по индексу, без получения списка элементов: сценарий читает список после сброса,
+        // прокрутка в начале.
+        for (const i of [$LIST_AX_AT]) {
+          const r = e.rows[i];
+          let text = null;
+          try { text = r.uiElements[0].uiElements[0].value(); } catch (x) {}
+          out.push({ role: prop(() => r.role()), subrole: null, title: null, description: text,
+            selected: attr(r, 'AXSelected'), expanded: null, help: null, group: description });
+        }
+        return;
+      }
+      if (role === 'AXOutline') {
+        // Строки дерева — элементы AXRow (AXOutlineRow); текст — первое строковое значение среди элементов ячейки,
+        // перед подписью стоит вид треугольника. Обходятся первые LIST_AX_ROWS строк.
         let rows = [];
-        try { rows = e.rows(); } catch (x) {}
+        try { const n = Math.min(e.rows.length, $LIST_AX_ROWS); for (let i = 0; i < n; i++) rows.push(e.rows[i]); } catch (x) {}
         for (const r of rows.slice(0, $LIST_AX_ROWS)) {
           let text = null;
-          try { text = r.uiElements()[0].uiElements()[0].value(); } catch (x) {}
-          out.push({ role: prop(() => r.role()), subrole: null, title: null, description: text,
-            selected: attr(r, 'AXSelected'), expanded: attr(r, 'AXExpanded'), help: null, group: description });
+          try {
+            for (const c of r.uiElements()[0].uiElements()) {
+              const v = prop(() => c.value());
+              if (typeof v === 'string') { text = v; break; }
+            }
+          } catch (x) {}
+          out.push({ role: prop(() => r.role()), subrole: prop(() => r.subrole()), title: null, description: text,
+            selected: attr(r, 'AXSelected'), expanded: attr(r, 'AXDisclosing'), level: attr(r, 'AXDisclosureLevel'),
+            help: null, group: description });
         }
         return;
       }
@@ -1979,13 +2002,21 @@ ax_compare() {
       "gallery.list.row.s0.r00000" => ["AXRow", "Строка 00000 · 0", "Список галереи"],
       "gallery.list.row.s0.r00001" => ["AXRow", "Строка 00001 · 0", "Список галереи"],
       "gallery.list.row.s0.r00015" => ["AXRow", "Строка 00015 · 0", "Список галереи"],
+      "gallery.tree" => ["AXOutline", "Дерево галереи"],
+      "gallery.tree.row.n000" => ["AXRow", "Корень 000", "Дерево галереи", 0],
+      "gallery.tree.row.n000.0" => ["AXRow", "Ветка 000.0", "Дерево галереи", 1],
+      "gallery.tree.row.n000.0.0" => ["AXRow", "Лист 000.0.0", "Дерево галереи", 2],
+      "gallery.tree.row.n000.1" => ["AXRow", "Ветка 000.1", "Дерево галереи", 1],
     );
+    my ($tree) = grep { $_->{id} eq "gallery.tree" } @{$i->{components}};
+    my %level = $tree && $tree->{state}{tree_list}
+      ? map { ("gallery.tree.row.$_->{id}" => $_->{level}) } @{$tree->{state}{tree_list}{visible}} : ();
     my %seen;
     my $norm = sub { my $v = shift; return "нет" unless defined $v; JSON::PP::is_bool($v) ? ($v ? "true" : "false") : "$v" };
     for my $c (@{$i->{components}}) {
       my $want = $fixture{$c->{id}} or next;
       $seen{$c->{id}} = 1;
-      my ($role, $label, $group) = @$want;
+      my ($role, $label, $group, $depth) = @$want;
       my $got_role = $c->{role} // "нет";
       my $got_label = $c->{label} // "нет";
       print "$c->{id}: ui.inspect роль $got_role, имя «${got_label}», фикстура — $role «${label}»\n"
@@ -2003,6 +2034,11 @@ ax_compare() {
         my $theirs = $norm->($el->{$f});
         $theirs = "нет" if $mine eq "нет" && $theirs eq "false";
         print "$c->{id}: $f в ui.inspect $mine, у System Events $theirs\n" if $mine ne $theirs;
+      }
+      if (defined $depth) {
+        my ($mine, $theirs) = ($level{$c->{id}} // "нет", $el->{level} // "нет");
+        print "$c->{id}: уровень в ui.inspect $mine, у System Events $theirs, фикстура $depth\n"
+          if "$mine" ne "$depth" || "$theirs" ne "$depth";
       }
     }
     print "$_: нет в ui.inspect\n" for grep { !$seen{$_} } sort keys %fixture;
@@ -2059,7 +2095,7 @@ item_ax() {
   else
     failures+=("$WHY")
   fi
-  conclude "$item" "System Events от окна pid $pid дошёл до частей ChromeBar, поля, кнопки меню, полос вкладок (группы, вкладки с выбором, кнопки с accessibilityHelp) и списка (таблица, строки с текстом и выбором): роль, имя, выбор и раскрытие совпали с фикстурой и ui.inspect, заголовок окна «${ax_title}»; Tab — кнопка оформления, Space — тёмное"
+  conclude "$item" "System Events от окна pid $pid дошёл до частей ChromeBar, поля, кнопки меню, полос вкладок (группы, вкладки с выбором, кнопки с accessibilityHelp), списка (таблица, строки с текстом и выбором) и дерева (AXOutline, строки с текстом, выбором, AXDisclosing и AXDisclosureLevel): роль, имя, выбор, раскрытие и уровень совпали с фикстурой и ui.inspect, заголовок окна «${ax_title}»; Tab — кнопка оформления, Space — тёмное"
 }
 
 # --- полосы вкладок (задача 11) ---
@@ -2724,6 +2760,150 @@ item_key_latency() {
   conclude "$item" "$summary"
 }
 
+# --- дерево (задача 13) ---
+
+tree_want_selected=""
+tree_want_expanded=""
+
+# Значение поля состояния дерева в ответе ui.inspect.
+tree_field() {
+  comp "$1" gallery.tree "state.tree_list.$2"
+}
+
+# Раскрытые узлы дерева у NSOutlineView через пробел.
+tree_expanded() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $i = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{inspect};
+    my ($c) = grep { $_->{id} eq "gallery.tree" } @{$i->{components}} or exit 1;
+    print join(" ", @{$c->{state}{tree_list}{expanded}}), "\n"' <"$1"
+}
+
+# Номер видимой строки узла: tree_row <файл> <id узла>.
+tree_row() {
+  jv "$1" "ok.ui.inspect.components[id=gallery.tree].state.tree_list.visible[id=$2].index"
+}
+
+# Выбор и раскрытие у NSOutlineView — tree_want_selected и tree_want_expanded, строка выбранного узла видима и
+# выбрана.
+tree_state_is() {
+  [[ "$(tree_field "$1" selected)" == "$tree_want_selected" && "$(tree_expanded "$1")" == "$tree_want_expanded" &&
+    "$(comp "$1" "gallery.tree.row.$tree_want_selected" selected)" == true ]]
+}
+
+tree_focused() {
+  [[ "$(comp "$1" gallery.tree first_responder)" == true && "$(tree_field "$1" keyboard_focus)" == true ]]
+}
+
+# Состояние дерева одной строкой для причины.
+tree_line() {
+  printf 'выбран %s, раскрыты «%s», строк %s' "$(tree_field "$1" selected || echo ?)" \
+    "$(tree_expanded "$1" || echo ?)" "$(tree_field "$1" count || echo ?)"
+}
+
+tree_want_line() {
+  printf 'ожидались выбран %s, раскрыты «%s»' "$tree_want_selected" "$tree_want_expanded"
+}
+
+# Листья третьего уровня видимы строками: n000.0.0…n000.0.9 на строках 2–11, уровень 2, без детей, узлы строк видимы
+# с текстом листа.
+tree_leaves_ok() {
+  /usr/bin/perl -COEA -Mutf8 -MJSON::PP -e 'local $/;
+    my $i = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{inspect};
+    my ($c) = grep { $_->{id} eq "gallery.tree" } @{$i->{components}} or exit 1;
+    my %v = map { ($_->{id} => $_) } @{$c->{state}{tree_list}{visible}};
+    for my $n (0 .. 9) {
+      my $id = "n000.0.$n";
+      my $text = "Лист 000.0.$n";
+      my $r = $v{$id} or exit 1;
+      exit 1 unless $r->{level} == 2 && !$r->{expandable} && $r->{text} eq $text && $r->{index} == $n + 2;
+      my ($node) = grep { $_->{id} eq "gallery.tree.row.$id" } @{$i->{components}} or exit 1;
+      exit 1 unless ($node->{label} // "") eq $text && $node->{visible};
+    }' <"$1"
+}
+
+# Изменение дерева и ожидание выбора и раскрытия: tree_mutate <dir> <op>; иначе failures.
+tree_mutate() {
+  local dir="$1" op="$2"
+  if ! ui_cmd "$profile_g" "$dir/$op" gallery tree mutate "$op"; then
+    failures+=("$op: $WHY")
+    return 1
+  fi
+  poll_inspect "$profile_g" "$dir/$op-state" "$STATE_MS" tree_state_is || {
+    failures+=("после $op: $(tree_line "$dir/$op-state.stdout"), $(tree_want_line)")
+    return 1
+  }
+}
+
+# Клавиша при фокусе в дереве и ожидание выбора и раскрытия: tree_key <dir> <код> <имя>; иначе failures.
+tree_key() {
+  local dir="$1" code="$2" name="$3"
+  if ! input_ready "$owner_pid_g"; then
+    failures+=("$name: $WHY")
+    return 1
+  fi
+  se_key "$dir" "$code" || {
+    failures+=("$name не отправлен: $(oneline "$dir/keys.log")")
+    return 1
+  }
+  poll_inspect "$profile_g" "$dir/key-$name" "$STATE_MS" tree_state_is || {
+    failures+=("после $name: $(tree_line "$dir/key-$name.stdout"), $(tree_want_line)")
+    return 1
+  }
+}
+
+item_tree() {
+  local item=tree dir="$run/tree" pid="$owner_pid_g" rows
+  failures=()
+  log "== $item"
+  if ! ui_cmd "$profile_g" "$dir/reset" gallery reset; then
+    record "$item" fail "$WHY"
+    return 0
+  fi
+  tree_want_selected=n000.0.0 tree_want_expanded="n000 n000.0"
+  if ! poll_inspect "$profile_g" "$dir/fixture" "$STATE_MS" tree_state_is; then
+    record "$item" fail "фикстура: $(tree_line "$dir/fixture.stdout"), $(tree_want_line)"
+    return 0
+  fi
+  tree_leaves_ok "$dir/fixture.stdout" ||
+    failures+=("листья n000.0.0…n000.0.9 не видимы строками уровня 2 на строках 2–11")
+  # insert: новый корень сверху и новая ветка первой в n000 — строка выбранного листа ниже на 2.
+  if tree_mutate "$dir" insert; then
+    rows="x1 $(tree_row "$dir/insert-state.stdout" x1 || echo ?), n000.0.0 $(tree_row "$dir/insert-state.stdout" n000.0.0 || echo ?)"
+    [[ "$rows" == "x1 0, n000.0.0 4" ]] || failures+=("после insert строки: $rows, ожидались x1 0, n000.0.0 4")
+  fi
+  # reorder: n000 и n001 меняются местами — выбранный лист ещё на строку ниже.
+  if tree_mutate "$dir" reorder; then
+    rows="n001 $(tree_row "$dir/reorder-state.stdout" n001 || echo ?), n000 $(tree_row "$dir/reorder-state.stdout" n000 || echo ?), n000.0.0 $(tree_row "$dir/reorder-state.stdout" n000.0.0 || echo ?)"
+    [[ "$rows" == "n001 1, n000 2, n000.0.0 5" ]] ||
+      failures+=("после reorder строки: $rows, ожидались n001 1, n000 2, n000.0.0 5")
+  fi
+  tree_want_selected=n000.0 tree_want_expanded=n000
+  tree_mutate "$dir" collapse_parent_of_selected || true
+  # Клавиши: Left с листа выбирает родителя, Left на раскрытой ветке сворачивает её, Right раскрывает.
+  if ! ui_cmd "$profile_g" "$dir/reset-keys" gallery reset || ! front_owner "$pid" "$dir" ||
+    ! ui_cmd "$profile_g" "$dir/focus" gallery focus tree; then
+    failures+=("подготовка клавиш: $WHY")
+  elif ! poll_inspect "$profile_g" "$dir/focused" "$STATE_MS" tree_focused; then
+    failures+=("после gallery.focus tree дерево не first responder: $(responders "$dir/focused.stdout")")
+  else
+    tree_want_selected=n000.0 tree_want_expanded="n000 n000.0"
+    if tree_key "$dir" 123 left-leaf; then
+      tree_want_expanded=n000
+      if tree_key "$dir" 123 left-branch; then
+        tree_want_expanded="n000 n000.0"
+        if tree_key "$dir" 124 right-branch; then
+          tree_want_selected=n000.0.0
+          if tree_key "$dir" 125 down; then
+            tree_want_selected=n000.0
+            tree_key "$dir" 126 up || true
+          fi
+        fi
+      fi
+    fi
+  fi
+  ui_cmd "$profile_g" "$dir/unfocus" gallery focus window || failures+=("снятие фокуса: $WHY")
+  conclude "$item" "фикстура: раскрыты n000 n000.0, выбран n000.0.0, листья третьего уровня n000.0.0…n000.0.9 видимы строками уровня 2; insert и reorder сдвинули строку выбранного листа на 4 и 5 при прежних раскрытии и выборе у NSOutlineView; collapse_parent_of_selected — выбор на n000.0, раскрыт n000; Left, Left, Right, Down, Up через System Events — выбор n000.0, свёрнут, раскрыт, n000.0.0, n000.0"
+}
+
 item_single_instance() {
   local item=single-instance bad
   log "== $item"
@@ -2776,6 +2956,7 @@ item_list_reuse
 item_list_keys
 item_list_click_label
 item_appearance_live
+item_tree
 item_key_latency key-latency-120 120
 item_key_latency key-latency-60 60
 record system-appearance not_run "переключение системного оформления и Increase Contrast меняет глобальные настройки пользователя; путь уведомления покрыт модульным тестом"

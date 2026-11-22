@@ -12,6 +12,7 @@ use crate::chrome_bar::{ChromeState, Frame};
 use crate::components::menu::MenuState;
 use crate::components::tab_strip::TabStripFacts;
 use crate::components::text_field::TextFieldState;
+use crate::components::tree_list::TreeListFacts;
 use crate::components::virtual_list::VirtualListFacts;
 
 /// Факты одного вида.
@@ -48,6 +49,8 @@ pub enum NodeState {
     TabStrip(Box<TabStripFacts>),
     /// Список: состояние, прокрутка, видимые строки и созданные виды строк.
     VirtualList(Box<VirtualListFacts>),
+    /// Дерево: выбор и раскрытие у `NSOutlineView`, прокрутка, видимые строки и виды строк.
+    TreeList(Box<TreeListFacts>),
 }
 
 /// Компонент или его часть в дереве `ui.inspect`.

@@ -1,0 +1,104 @@
+{
+  "id": 8,
+  "ok": {
+    "ui": {
+      "inspect": {
+        "window_number": 4242,
+        "content": {
+          "width": 1180.0,
+          "height": 720.0
+        },
+        "generation": 57,
+        "components": [
+          {
+            "id": "gallery.tree",
+            "class": "TreeList",
+            "object": 105553116270336,
+            "parent": "gallery.surface.plain",
+            "frame": {
+              "x": 898.0,
+              "y": 240.0,
+              "width": 258.0,
+              "height": 416.0
+            },
+            "visible": true,
+            "first_responder": false,
+            "enabled": null,
+            "role": "AXOutline",
+            "label": "Дерево галереи",
+            "help": null,
+            "selected": null,
+            "expanded": null,
+            "animation_keys": 0,
+            "state": {
+              "tree_list": {
+                "label": "Дерево галереи",
+                "count": 119,
+                "nodes": 10000,
+                "selected": "n000.0.0",
+                "expanded": [
+                  "n000",
+                  "n000.0"
+                ],
+                "offset": 0.0,
+                "max_offset": 2678.0,
+                "keyboard_focus": false,
+                "row_views_created": 17,
+                "cell_views_created": 17,
+                "visible": [
+                  {
+                    "index": 0,
+                    "id": "n000",
+                    "text": "Корень 000",
+                    "level": 0,
+                    "expandable": true,
+                    "expanded": true
+                  },
+                  {
+                    "index": 1,
+                    "id": "n000.0",
+                    "text": "Ветка 000.0",
+                    "level": 1,
+                    "expandable": true,
+                    "expanded": true
+                  },
+                  {
+                    "index": 2,
+                    "id": "n000.0.0",
+                    "text": "Лист 000.0.0",
+                    "level": 2,
+                    "expandable": false,
+                    "expanded": false
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "gallery.tree.row.n000",
+            "class": "TreeRow",
+            "object": 105553116270848,
+            "parent": "gallery.tree",
+            "frame": {
+              "x": 898.0,
+              "y": 630.0,
+              "width": 258.0,
+              "height": 26.0
+            },
+            "visible": true,
+            "first_responder": false,
+            "enabled": null,
+            "role": "AXRow",
+            "label": "Корень 000",
+            "help": null,
+            "selected": false,
+            "expanded": true,
+            "animation_keys": 0,
+            "state": null
+          }
+        ],
+        "materials": []
+      }
+    }
+  }
+}
