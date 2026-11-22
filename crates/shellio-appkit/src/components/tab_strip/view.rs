@@ -276,9 +276,15 @@ impl TabStrip {
         self.transition(TransitionPath::Instant, &before)
     }
 
-    /// Движение: при `Reduced` прокрутка к вкладке идёт без анимации.
+    /// Движение: при `Reduced` прокрутка к вкладке идёт без анимации, а идущая прокрутка
+    /// снимается, и ряд сразу стоит на своём смещении.
     pub fn set_motion(&self, motion: Motion) {
         self.view.rust().motion.set(motion);
+        if motion == Motion::Reduced
+            && let Some(row_layer) = self.view.view().ivars().row.layer()
+        {
+            row_layer.removeAnimationForKey(&NSString::from_str(SCROLL_ANIMATION));
+        }
     }
 
     /// Отдаёт полосе клавиатурный фокус: стрелки меняют выбор.

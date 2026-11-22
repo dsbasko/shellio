@@ -286,6 +286,10 @@ impl TextField {
             TextFieldOp::Editable(editable) => {
                 if !editable && field.currentEditor().is_some() {
                     field.abortEditing();
+                    // Прерванный ввод отбрасывает текст field editor, а в нём уже значение
+                    // состояния: новое от владельца или введённое пользователем.
+                    let value = NSString::from_str(&self.view.rust().shown.borrow().value);
+                    field.setStringValue(&value);
                 }
                 field.setEditable(*editable);
                 field.setSelectable(*editable);
