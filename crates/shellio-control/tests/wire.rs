@@ -19,11 +19,12 @@ use shellio_control::{
     ClassAliveView, ColorSpaceView, ComponentState, ComponentView, Contrast, ControlError,
     ControlErrorCode, GalleryCommand, GalleryFocus, GalleryStrip, GalleryTreeView, GalleryView,
     Hello, HelloReply, InspectView, InstanceKind, InstanceView, IntentKind, IntentRecord,
-    LateCallbackView, Launch, LaunchReceipt, Lightness, MaterialView, MenuItemView, MenuView,
-    Motion, OkValue, OwnerState, PROTOCOL, REQUEST_LINE_LIMIT, Rect, RefuseReason, RefusedArg,
-    Rejected, Request, RequestBody, RequestId, Response, RunLoopView, ScreenView, Size,
-    StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView,
-    TabStripView, TabZone, TextFieldView, UI_TIMEOUT, UiReply, UiRequest, WindowMode, WindowView,
+    KeyLatencyView, KeyPressView, LateCallbackView, Launch, LaunchReceipt, Lightness, ListRowView,
+    MaterialView, MenuItemView, MenuView, Motion, OkValue, OwnerState, PROTOCOL,
+    REQUEST_LINE_LIMIT, Rect, RefuseReason, RefusedArg, Rejected, Request, RequestBody, RequestId,
+    Response, RowViewsView, RunLoopView, ScreenView, Size, StartupView, StatsView, StripButtonView,
+    TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone, TextFieldView,
+    UI_TIMEOUT, UiReply, UiRequest, VirtualListView, WindowMode, WindowView,
 };
 use shellio_core::test_support::SequentialIds;
 use shellio_core::{
@@ -172,6 +173,8 @@ fn request_golden(request: &Request) -> &'static str {
             GalleryCommand::Place { .. } => "request.ui.gallery_place",
             GalleryCommand::Reset => "request.ui.gallery_reset",
             GalleryCommand::TabsSelect { .. } => "request.ui.gallery_tabs_select",
+            GalleryCommand::ListReplace { .. } => "request.ui.gallery_list_replace",
+            GalleryCommand::ListScroll { .. } => "request.ui.gallery_list_scroll",
         },
     }
 }
@@ -281,6 +284,17 @@ fn requests() -> Vec<Request> {
                 tab: 7,
             })),
         ),
+        // P1.3, задача 12: замена и прокрутка списка галереи.
+        request(
+            22,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::ListReplace { seed: 3 })),
+        ),
+        request(
+            23,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::ListScroll {
+                row: 9_999,
+            })),
+        ),
     ]
 }
 
@@ -340,6 +354,13 @@ fn response_golden(response: &Response) -> &'static str {
             }
             UiReply::Inspect(inspect)
                 if inspect.components.iter().any(|component| {
+                    matches!(component.state, Some(ComponentState::VirtualList(_)))
+                }) =>
+            {
+                "response.ok.ui.inspect.virtual_list"
+            }
+            UiReply::Inspect(inspect)
+                if inspect.components.iter().any(|component| {
                     matches!(
                         component.state,
                         Some(ComponentState::TextField(_) | ComponentState::Menu(_))
@@ -355,6 +376,7 @@ fn response_golden(response: &Response) -> &'static str {
             UiReply::Stats(stats) if !stats.animations.is_empty() => {
                 "response.ok.ui.stats.animations"
             }
+            UiReply::Stats(stats) if stats.key_latency.is_some() => "response.ok.ui.stats.list",
             UiReply::Stats(_) => "response.ok.ui.stats",
             UiReply::Accepted(_) => "response.ok.ui.accepted",
         },
@@ -460,6 +482,52 @@ fn responses() -> Result<Vec<Response>, String> {
                         added: 0,
                     },
                 ],
+                ..stats_view()
+            }))),
+        ),
+        // P1.3, задача 12: состояние `VirtualList`, виды строк и ряд задержек клавиш; прежние
+        // эталоны без ключа `key_latency`.
+        ok(
+            8,
+            OkValue::Ui(UiReply::Inspect(Box::new(inspect_virtual_list_view()))),
+        ),
+        ok(
+            9,
+            OkValue::Ui(UiReply::Stats(Box::new(StatsView {
+                row_views: vec![RowViewsView {
+                    component: "gallery.list".into(),
+                    created: 17,
+                }],
+                key_latency: Some(KeyLatencyView {
+                    component: "gallery.list".into(),
+                    presses: vec![
+                        KeyPressView {
+                            key: "down".into(),
+                            event: 1520.25,
+                            wake: Some(1520.256),
+                            entry: 1520.257,
+                            handled: 1520.2571,
+                            applied: Some(1520.259),
+                            target: "s0.r00001".into(),
+                            generation: Some(41),
+                            drawn: Some(1520.265),
+                            drawn_generation: Some(41),
+                        },
+                        KeyPressView {
+                            key: "up".into(),
+                            event: 1521.5,
+                            wake: None,
+                            entry: 1521.507,
+                            handled: 1521.5071,
+                            applied: None,
+                            target: "s0.r00000".into(),
+                            generation: None,
+                            drawn: None,
+                            drawn_generation: None,
+                        },
+                    ],
+                    ticks: vec![1520.25, 1520.258333, 1520.266666],
+                }),
                 ..stats_view()
             }))),
         ),
@@ -803,6 +871,73 @@ fn inspect_tab_strip_view() -> InspectView {
     }
 }
 
+fn inspect_virtual_list_view() -> InspectView {
+    let row = |index: u64, id: &str, text: &str| ListRowView {
+        index,
+        id: id.into(),
+        text: text.into(),
+    };
+    InspectView {
+        window_number: 4242,
+        content: Size {
+            width: 1180.0,
+            height: 720.0,
+        },
+        generation: 41,
+        components: vec![
+            ComponentView {
+                id: "gallery.list".into(),
+                class: "VirtualList".into(),
+                object: 105_553_116_269_312,
+                parent: Some("gallery.surface.plain".into()),
+                frame: rect(626.0, 240.0, 260.0, 416.0),
+                visible: true,
+                first_responder: true,
+                enabled: None,
+                role: Some("AXTable".into()),
+                label: Some("Список галереи".into()),
+                help: None,
+                selected: None,
+                expanded: None,
+                animation_keys: 0,
+                state: Some(ComponentState::VirtualList(Box::new(VirtualListView {
+                    label: "Список галереи".into(),
+                    count: 10_000,
+                    selected: Some("s0.r00001".into()),
+                    offset: 26.0,
+                    max_offset: 259_584.0,
+                    keyboard_focus: true,
+                    row_views_created: 17,
+                    cell_views_created: 17,
+                    visible: vec![
+                        row(1, "s0.r00001", "Строка 00001 · 0"),
+                        row(2, "s0.r00002", "Строка 00002 · 0"),
+                    ],
+                }))),
+            },
+            ComponentView {
+                id: "gallery.list.row.s0.r00001".into(),
+                class: "ListRow".into(),
+                object: 105_553_116_269_824,
+                parent: Some("gallery.list".into()),
+                frame: rect(626.0, 630.0, 260.0, 26.0),
+                visible: true,
+                first_responder: false,
+                enabled: None,
+                role: Some("AXRow".into()),
+                label: Some("Строка 00001 · 0".into()),
+                help: None,
+                selected: Some(true),
+                expanded: None,
+                animation_keys: 0,
+                state: None,
+            },
+        ],
+        materials: Vec::new(),
+        gallery: None,
+    }
+}
+
 fn inspect_components_view() -> InspectView {
     let part =
         |id: &str, class: &str, object, frame, role: &str, label: &str, state| ComponentView {
@@ -930,6 +1065,7 @@ fn stats_view() -> StatsView {
         animations: Vec::new(),
         row_views: Vec::new(),
         gallery_trees: Vec::new(),
+        key_latency: None,
     }
 }
 

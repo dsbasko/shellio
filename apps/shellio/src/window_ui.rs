@@ -15,21 +15,22 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::mem::ManuallyDrop;
 
-use shellio::gallery::{self, Effect, Generation, Intent};
+use shellio::gallery::{self, Changed, Effect, Generation, Intent};
 use shellio::launch::WindowMode;
 use shellio::owner;
 use shellio_appkit::{
     App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, LoopMonitor, MainMenu,
     MainThread, MainWindow, MenuAction, MenuEntry, MenuState, NodeState, Regime, SplitAxis,
     Startup, TabStatus, TabStripFacts, TextFieldState, ThemeSelection, Transition, TransitionPath,
-    ZoneSide, instance_counts, late_callbacks,
+    VirtualListFacts, ZoneSide, instance_counts, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, ChromeView, ColorSpaceView,
     ComponentState, ComponentView, GalleryCommand, GalleryView, InspectView, InstanceKind,
-    InstanceView, LateCallbackView, MaterialView, MenuItemView, MenuView, Rect, RunLoopView,
-    ScreenView, Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime,
-    TabStatusView, TabStripView, TabZone, TextFieldView, UiRefusal, UiReply, UiRequest, WindowView,
+    InstanceView, LateCallbackView, ListRowView, MaterialView, MenuItemView, MenuView, Rect,
+    RunLoopView, ScreenView, Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView,
+    TabRegime, TabStatusView, TabStripView, TabZone, TextFieldView, UiRefusal, UiReply, UiRequest,
+    VirtualListView, WindowView,
 };
 use shellio_core::{AppearanceChoice, Delivery, Mirror, MirrorStep, UiCommand};
 use shellio_theme::AppearanceChoice as ThemeChoice;
@@ -201,6 +202,8 @@ impl OwnerWindow {
                 let transition = gallery.show_tabs(strip);
                 self.pending.extend(transition);
             }
+            Effect::List => gallery.show_list(),
+            Effect::ListScroll(row) => gallery.scroll_list(row),
         }
         self.sync_theme();
         self.publish();
@@ -238,10 +241,13 @@ impl OwnerWindow {
 
     fn gallery_intent(&mut self, intent: &Intent) {
         if let Some(gallery) = self.gallery.as_mut() {
-            let changed = gallery.model_mut().intent(intent, &mut self.generation);
-            if let Some(strip) = changed {
-                let transition = gallery.show_tabs(strip);
-                self.pending.extend(transition);
+            match gallery.model_mut().intent(intent, &mut self.generation) {
+                Some(Changed::Tabs(strip)) => {
+                    let transition = gallery.show_tabs(strip);
+                    self.pending.extend(transition);
+                }
+                Some(Changed::List) => gallery.show_list(),
+                None => {}
             }
             self.publish();
         }
@@ -410,12 +416,20 @@ impl OwnerWindow {
                 key_draw_ms: startup.key_draw_ms,
             }),
             animations: self.animations.iter().cloned().collect(),
-            row_views: Vec::new(),
+            row_views: self
+                .gallery
+                .as_ref()
+                .map(GalleryUi::row_views)
+                .unwrap_or_default(),
             gallery_trees: self
                 .gallery
                 .as_ref()
                 .map(GalleryUi::retired_trees)
                 .unwrap_or_default(),
+            key_latency: self
+                .gallery
+                .as_ref()
+                .and_then(|gallery| gallery.key_latency(self.monitor.as_ref())),
         }
     }
 
@@ -513,6 +527,32 @@ fn component_state(state: NodeState) -> ComponentState {
         }
         NodeState::Menu(state) => ComponentState::Menu(menu_view(state)),
         NodeState::TabStrip(facts) => ComponentState::TabStrip(Box::new(tab_strip_view(*facts))),
+        NodeState::VirtualList(facts) => {
+            ComponentState::VirtualList(Box::new(virtual_list_view(*facts)))
+        }
+    }
+}
+
+fn virtual_list_view(facts: VirtualListFacts) -> VirtualListView {
+    let wide = |value: usize| u64::try_from(value).unwrap_or(u64::MAX);
+    VirtualListView {
+        label: facts.label,
+        count: wide(facts.count),
+        selected: facts.selected,
+        offset: facts.offset,
+        max_offset: facts.max_offset,
+        keyboard_focus: facts.keyboard_focus,
+        row_views_created: facts.row_views_created,
+        cell_views_created: facts.cell_views_created,
+        visible: facts
+            .visible
+            .into_iter()
+            .map(|row| ListRowView {
+                index: wide(row.index),
+                id: row.id,
+                text: row.text,
+            })
+            .collect(),
     }
 }
 

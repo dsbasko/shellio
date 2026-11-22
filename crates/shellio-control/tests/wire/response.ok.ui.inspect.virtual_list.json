@@ -1,0 +1,85 @@
+{
+  "id": 8,
+  "ok": {
+    "ui": {
+      "inspect": {
+        "window_number": 4242,
+        "content": {
+          "width": 1180.0,
+          "height": 720.0
+        },
+        "generation": 41,
+        "components": [
+          {
+            "id": "gallery.list",
+            "class": "VirtualList",
+            "object": 105553116269312,
+            "parent": "gallery.surface.plain",
+            "frame": {
+              "x": 626.0,
+              "y": 240.0,
+              "width": 260.0,
+              "height": 416.0
+            },
+            "visible": true,
+            "first_responder": true,
+            "enabled": null,
+            "role": "AXTable",
+            "label": "Список галереи",
+            "help": null,
+            "selected": null,
+            "expanded": null,
+            "animation_keys": 0,
+            "state": {
+              "virtual_list": {
+                "label": "Список галереи",
+                "count": 10000,
+                "selected": "s0.r00001",
+                "offset": 26.0,
+                "max_offset": 259584.0,
+                "keyboard_focus": true,
+                "row_views_created": 17,
+                "cell_views_created": 17,
+                "visible": [
+                  {
+                    "index": 1,
+                    "id": "s0.r00001",
+                    "text": "Строка 00001 · 0"
+                  },
+                  {
+                    "index": 2,
+                    "id": "s0.r00002",
+                    "text": "Строка 00002 · 0"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "gallery.list.row.s0.r00001",
+            "class": "ListRow",
+            "object": 105553116269824,
+            "parent": "gallery.list",
+            "frame": {
+              "x": 626.0,
+              "y": 630.0,
+              "width": 260.0,
+              "height": 26.0
+            },
+            "visible": true,
+            "first_responder": false,
+            "enabled": null,
+            "role": "AXRow",
+            "label": "Строка 00001 · 0",
+            "help": null,
+            "selected": true,
+            "expanded": null,
+            "animation_keys": 0,
+            "state": null
+          }
+        ],
+        "materials": []
+      }
+    }
+  }
+}

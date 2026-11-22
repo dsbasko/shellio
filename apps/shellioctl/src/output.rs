@@ -436,6 +436,15 @@ fn component_text(component: &ComponentView) -> String {
             yes_no(strip.payload_visible),
             strip.offset
         )),
+        Some(ComponentState::VirtualList(list)) => facts.push(format!(
+            "строк {}, выбрана {}, видимы {}…{}, смещение {}, создано видов строк {}",
+            list.count,
+            list.selected.as_deref().unwrap_or("нет"),
+            list.visible.first().map_or("нет", |row| row.id.as_str()),
+            list.visible.last().map_or("нет", |row| row.id.as_str()),
+            list.offset,
+            list.row_views_created
+        )),
         None => {}
     }
     format!(
@@ -504,6 +513,7 @@ const fn intent_text(value: IntentKind) -> &'static str {
         IntentKind::Split => "split",
         IntentKind::Zoom => "zoom",
         IntentKind::Restore => "restore",
+        IntentKind::Activate => "activate",
     }
 }
 
@@ -862,6 +872,7 @@ mod tests {
             animations: Vec::new(),
             row_views: Vec::new(),
             gallery_trees: Vec::new(),
+            key_latency: None,
         };
         let shown = ui_text(&UiReply::Stats(Box::new(stats)));
         assert!(shown.contains("монитор не поставлен"), "{shown}");

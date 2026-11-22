@@ -40,7 +40,7 @@ const fn top(x: f64, y: f64, w: f64, h: f64) -> Top {
 
 /// Узлы галереи как в дымовом прогоне задачи 8: id, родитель, кадр протокола (начало внизу
 /// слева) и тот же кадр сверху слева.
-const NODES: [(&str, Option<&str>, [f64; 4], Top); 15] = [
+const NODES: [(&str, Option<&str>, [f64; 4], Top); 18] = [
     (
         "chrome",
         None,
@@ -133,6 +133,25 @@ const NODES: [(&str, Option<&str>, [f64; 4], Top); 15] = [
         [48.0, 12.0, 560.0, 34.0],
         top(48.0, 674.0, 560.0, 34.0),
     ),
+    // Список задачи 12 в подложке без фокуса: строки по 26 точек сверху, выбрана первая.
+    (
+        "gallery.list",
+        Some("gallery.surface.plain"),
+        [626.0, 240.0, 260.0, 416.0],
+        top(626.0, 64.0, 260.0, 416.0),
+    ),
+    (
+        "gallery.list.row.s0.r00000",
+        Some("gallery.list"),
+        [626.0, 630.0, 260.0, 26.0],
+        top(626.0, 64.0, 260.0, 26.0),
+    ),
+    (
+        "gallery.list.row.s0.r00003",
+        Some("gallery.list"),
+        [626.0, 552.0, 260.0, 26.0],
+        top(626.0, 142.0, 260.0, 26.0),
+    ),
 ];
 
 fn node(id: &str) -> Top {
@@ -150,7 +169,7 @@ const LIGHT_IC: Cell = Cell::new(Appearance::Light, Contrast::Increased);
 /// Цвета частей галереи, посчитанные вручную: заливка `chrome`; `panel` под тоном навигации;
 /// `panel` под вуалью; `surface` поля под тоном навигации подложки; `panel` и `panel-head` без
 /// слоя — столбцы таблицы ADR-0027; `--nav-line` ячейки — линия под вкладкой (под тоном того же
-/// цвета она не меняется).
+/// цвета она не меняется); `sel` под вуалью — выбранная строка списка.
 #[derive(Clone, Copy)]
 struct Colors {
     chrome: Rgb,
@@ -160,6 +179,7 @@ struct Colors {
     panel: Rgb,
     panel_head: Rgb,
     line: Rgb,
+    selected: Rgb,
 }
 
 fn colors(cell: Cell) -> Colors {
@@ -173,6 +193,7 @@ fn colors(cell: Cell) -> Colors {
             panel: rgb(10, 9, 8),
             panel_head: rgb(17, 16, 14),
             line: rgb(127, 155, 192),
+            selected: rgb(53, 50, 46),
         },
         (Appearance::Light, Contrast::Normal) => Colors {
             chrome: rgb(239, 237, 232),
@@ -182,6 +203,7 @@ fn colors(cell: Cell) -> Colors {
             panel: rgb(255, 255, 255),
             panel_head: rgb(248, 247, 243),
             line: rgb(72, 103, 140),
+            selected: rgb(220, 216, 207),
         },
         (Appearance::Dark, Contrast::Increased) => Colors {
             chrome: rgb(30, 29, 27),
@@ -191,6 +213,7 @@ fn colors(cell: Cell) -> Colors {
             panel: rgb(10, 9, 8),
             panel_head: rgb(17, 16, 14),
             line: rgb(127, 155, 192),
+            selected: rgb(61, 59, 56),
         },
         (Appearance::Light, Contrast::Increased) => Colors {
             chrome: rgb(239, 237, 232),
@@ -200,6 +223,7 @@ fn colors(cell: Cell) -> Colors {
             panel: rgb(255, 255, 255),
             panel_head: rgb(248, 247, 243),
             line: rgb(72, 103, 140),
+            selected: rgb(208, 204, 196),
         },
     }
 }
@@ -286,6 +310,8 @@ impl Canvas {
         canvas.fill(node("gallery.tabs.wide"), colors.panel_head);
         canvas.fill(node("gallery.tabs.wide.tab.build"), colors.panel);
         canvas.fill(node("gallery.tabs.half"), colors.panel_head);
+        canvas.fill(node("gallery.list"), colors.plain);
+        canvas.fill(node("gallery.list.row.s0.r00000"), colors.selected);
         canvas.marker(generation);
         canvas
     }
@@ -513,7 +539,7 @@ fn matching_snapshot_passes_in_every_cell() -> Result<()> {
         let png = encode(&Canvas::gallery(2.0, colors(cell), 9), Tag::Srgb)?;
         let report = Case::new(cell, 9)?.run(&png)?;
         assert_eq!(report.verdict, Verdict::Pass, "{cell}: {:?}", report.reason);
-        assert_eq!(report.regions.len(), 8, "{cell}");
+        assert_eq!(report.regions.len(), 10, "{cell}");
         for region in &report.regions {
             assert_eq!(region.max_delta, 0, "{cell}: {}", region.id);
             assert_eq!(region.transparent, 0);
@@ -570,13 +596,16 @@ fn flipped_snapshot_fails() -> Result<()> {
         .collect();
     // Участки подложек лежат в середине высоты и под отражением остаются в своих подложках;
     // участок поля попадает на заголовок полосы `wide`, который в светлой ячейке ближе допуска.
+    // Участок строки `s0.r00003` попадает в ту же подложку без фокуса, выбранной — на полосу
+    // `wide`.
     assert_eq!(
         failed,
         [
             "chrome.background",
             "tabs.wide.head",
             "tabs.half.head",
-            "tabs.wide.selected"
+            "tabs.wide.selected",
+            "list.selected"
         ]
     );
     Ok(())
@@ -594,8 +623,9 @@ fn four_units_off_fails_and_three_passes() -> Result<()> {
             "сдвиг {shift}: {:?}",
             report.reason
         );
+        // Строки списка лежат на фоне подложки без фокуса и сдвигаются вместе с ним.
         for region in &report.regions {
-            let off = region.id == "surface.plain.background";
+            let off = matches!(region.id.as_str(), "surface.plain.background" | "list.row");
             assert_eq!(
                 region.max_delta,
                 if off { shift } else { 0 },
@@ -868,6 +898,8 @@ fn committed_expectations_cover_the_milestone_regions() -> Result<()> {
         "tabs.half.head",
         "tabs.wide.selected",
         "tabs.side.selected",
+        "list.row",
+        "list.selected",
     ];
     for cell in [LIGHT, DARK, LIGHT_IC, DARK_IC] {
         let expectations = load_expectations(cell)?;

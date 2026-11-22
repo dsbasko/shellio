@@ -224,6 +224,8 @@ struct LoopState {
     log: LoopLog,
     draws: DrawLog,
     installed: bool,
+    /// Последнее пробуждение цикла (`AfterWaiting`), секунды с загрузки.
+    last_wake: Option<f64>,
 }
 
 thread_local! {
@@ -244,6 +246,12 @@ fn with_state<R>(f: impl FnOnce(&mut LoopState) -> R) -> Option<R> {
 pub(crate) fn mark_draw(component: ComponentId) {
     let at = uptime();
     with_state(|state| state.draws.record(component, at));
+}
+
+/// Последнее пробуждение цикла главного потока до текущего момента; `None` — монитор не
+/// поставлен или пробуждений не было.
+pub(crate) fn last_wake() -> Option<f64> {
+    with_state(|state| state.last_wake).flatten()
 }
 
 /// Наблюдатели цикла главного потока. Один на процесс; снимаются в `Drop`.
@@ -313,6 +321,7 @@ fn install_observers() -> Result<Vec<CFRetained<CFRunLoopObserver>>, MonitorErro
                     state.log.entry(at);
                 } else {
                     state.log.wake(at);
+                    state.last_wake = Some(at);
                 }
             });
         },

@@ -54,6 +54,7 @@ pub mod ids {
     pub const TABS_CENTER: &str = "gallery.tabs.center";
     pub const TABS_HALF: &str = "gallery.tabs.half";
     pub const TABS_WIDE: &str = "gallery.tabs.wide";
+    pub const LIST: &str = "gallery.list";
 
     /// Идентификатор полосы вкладок.
     pub const fn strip(strip: shellio_control::GalleryStrip) -> &'static str {
@@ -294,6 +295,41 @@ pub fn strip_fixture(strip: GalleryStrip) -> StripFixture {
     }
 }
 
+/// Число строк списка галереи.
+pub const LIST_ROWS: usize = 10_000;
+/// Зерно набора строк фикстуры.
+pub const LIST_SEED: u64 = 0;
+/// Выбранная строка фикстуры.
+pub const LIST_SELECTED: usize = 0;
+/// AX-имя списка.
+pub const LIST_LABEL: &str = "Список галереи";
+
+/// Id строки `index` набора `seed`. Набор другого зерна не делит с ним ни одного id.
+pub fn list_row_id(seed: u64, index: usize) -> String {
+    format!("s{seed}.r{index:05}")
+}
+
+/// Текст строки `index` набора `seed`: короткий, правая часть строки остаётся пустой для участка
+/// фона в ожиданиях оракула.
+pub fn list_row_text(seed: u64, index: usize) -> String {
+    format!("Строка {index:05} · {seed}")
+}
+
+/// Номер строки по id набора `seed`; `None` — id не из этого набора.
+pub fn list_row_index(seed: u64, id: &str) -> Option<usize> {
+    let digits = id.strip_prefix(&format!("s{seed}.r"))?;
+    let valid = digits.len() == 5 && digits.bytes().all(|byte| byte.is_ascii_digit());
+    let index: usize = digits.parse().ok().filter(|_| valid)?;
+    (index < LIST_ROWS).then_some(index)
+}
+
+/// Действие списка галереи.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ListAction {
+    Select(String),
+    Activate(String),
+}
+
 /// Действие полосы вкладок галереи.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TabAction {
@@ -318,6 +354,7 @@ pub enum Intent {
     FieldCancelled,
     MenuChosen(String),
     Tab(GalleryStrip, TabAction),
+    List(ListAction),
 }
 
 impl Intent {
@@ -339,6 +376,12 @@ impl Intent {
                     TabAction::Menu(id) => (IntentKind::Chosen, Some(id.clone())),
                 };
                 (ids::strip(*strip), intent, value)
+            }
+            Intent::List(ListAction::Select(id)) => {
+                (ids::LIST, IntentKind::Select, Some(id.clone()))
+            }
+            Intent::List(ListAction::Activate(id)) => {
+                (ids::LIST, IntentKind::Activate, Some(id.clone()))
             }
         };
         IntentRecord {
@@ -365,6 +408,10 @@ pub struct GalleryState {
     pub field_value: String,
     /// Выбранная вкладка каждой полосы в порядке [`GalleryStrip::ALL`].
     pub tabs: [usize; 4],
+    /// Зерно набора строк списка.
+    pub list_seed: u64,
+    /// Номер выбранной строки списка: замена набора того же размера оставляет его на месте.
+    pub list_selected: Option<usize>,
     pub intents: VecDeque<IntentRecord>,
 }
 
@@ -383,6 +430,8 @@ impl GalleryState {
             screen: None,
             field_value: field_fixture().value,
             tabs: GalleryStrip::ALL.map(|strip| strip_fixture(strip).selected),
+            list_seed: LIST_SEED,
+            list_selected: Some(LIST_SELECTED),
             intents: VecDeque::new(),
         }
     }
@@ -407,6 +456,17 @@ pub enum Effect {
     Reset,
     /// Выбор вкладки полосы изменился.
     Tabs(GalleryStrip),
+    /// Набор строк или выбор списка изменился.
+    List,
+    /// Прокрутить список к строке.
+    ListScroll(u32),
+}
+
+/// Часть вида, которую намерение изменило.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Changed {
+    Tabs(GalleryStrip),
+    List,
 }
 
 const fn strip_index(strip: GalleryStrip) -> usize {
@@ -503,6 +563,11 @@ impl Gallery {
                 }
                 Effect::Tabs(strip)
             }
+            GalleryCommand::ListReplace { seed } => {
+                self.state.list_seed = seed;
+                Effect::List
+            }
+            GalleryCommand::ListScroll { row } => Effect::ListScroll(row),
         };
         generation.bump();
         effect
@@ -510,8 +575,8 @@ impl Gallery {
 
     /// Записать намерение компонента. Поле владелец не перерисовывает: вид уже показывает
     /// значение, а эхо отставшего значения стёрло бы ввод, пришедший после намерения. Выбор
-    /// вкладки меняет состояние полосы: возвращается полоса, которую вид приводит к нему.
-    pub fn intent(&mut self, intent: &Intent, generation: &mut Generation) -> Option<GalleryStrip> {
+    /// вкладки или строки меняет состояние: возвращается часть, которую вид приводит к нему.
+    pub fn intent(&mut self, intent: &Intent, generation: &mut Generation) -> Option<Changed> {
         let generation = generation.bump();
         let mut changed = None;
         match intent {
@@ -523,7 +588,13 @@ impl Gallery {
                     .position(|tab| tab.id == id);
                 if let Some(index) = found {
                     self.state.tabs[strip_index(*strip)] = index;
-                    changed = Some(*strip);
+                    changed = Some(Changed::Tabs(*strip));
+                }
+            }
+            Intent::List(ListAction::Select(id)) => {
+                if let Some(index) = list_row_index(self.state.list_seed, id) {
+                    self.state.list_selected = Some(index);
+                    changed = Some(Changed::List);
                 }
             }
             _ => {}
@@ -609,6 +680,10 @@ pub const MARKER_SIZE: f64 = MARKER_CELL * MARKER_CELLS as f64;
 /// Ширина поля ввода и сторона кнопки «…».
 pub const FIELD_WIDTH: f64 = 280.0;
 pub const MENU_BUTTON: f64 = 24.0;
+/// Ширина списка и число его видимых строк: список занимает левую часть подложки без фокуса над
+/// её участком фона, правая часть остаётся дереву.
+pub const LIST_WIDTH: f64 = 260.0;
+pub const LIST_VISIBLE: f64 = 16.0;
 
 /// Раскладка галереи в содержимом окна. Маркер, подложки и полосы `half` и `wide` — в
 /// координатах содержимого, поле, кнопка «…» и полосы `side` и `center` — в координатах подложки
@@ -622,6 +697,8 @@ pub struct Layout {
     pub menu: Rect,
     /// Полосы вкладок в порядке [`GalleryStrip::ALL`].
     pub strips: [Rect; 4],
+    /// Список в координатах подложки без фокуса.
+    pub list: Rect,
 }
 
 impl Layout {
@@ -631,12 +708,19 @@ impl Layout {
 }
 
 /// Раскладка для содержимого `width`×`height` под заголовком высотой `titlebar`, поля высотой
-/// `field_height` и полосы вкладок высотой `tabbar`. Маркер стоит в левом верхнем углу под
+/// `field_height`, полосы вкладок высотой `tabbar` и строки списка высотой `row`. Маркер стоит в левом верхнем углу под
 /// заголовком: вдали от скруглённых углов окна и от кнопок заголовка. Полосы `side` и `center`
 /// лежат в подложке с фокусом под полем. `wide` и `half` шире подложки, поэтому лежат на уровне
 /// окна под подложками, не накрывая их: участок внутри полосы поверх подложки оракул отверг бы
 /// как участок у чужого узла. Края — на целых точках.
-pub fn layout(width: f64, height: f64, titlebar: f64, field_height: f64, tabbar: f64) -> Layout {
+pub fn layout(
+    width: f64,
+    height: f64,
+    titlebar: f64,
+    field_height: f64,
+    tabbar: f64,
+    row: f64,
+) -> Layout {
     let top = titlebar + PAD;
     let marker = Rect::new(PAD, top, MARKER_SIZE, MARKER_SIZE);
     let left = marker.right() + PAD;
@@ -656,6 +740,7 @@ pub fn layout(width: f64, height: f64, titlebar: f64, field_height: f64, tabbar:
     let center = Rect::new(PAD, side.bottom() + PAD, STRIP_NARROW, tabbar);
     let wide = Rect::new(focus.x, focus.bottom() + PAD, STRIP_WIDE, tabbar);
     let half = Rect::new(focus.x, wide.bottom() + PAD, STRIP_HALF, tabbar);
+    let list = Rect::new(PAD, PAD, LIST_WIDTH, LIST_VISIBLE * row);
     Layout {
         marker,
         focus,
@@ -663,6 +748,7 @@ pub fn layout(width: f64, height: f64, titlebar: f64, field_height: f64, tabbar:
         field,
         menu,
         strips: [side, center, half, wide],
+        list,
     }
 }
 
@@ -692,6 +778,9 @@ mod tests {
                 strip: GalleryStrip::Side,
                 tab: 3,
             },
+            GalleryCommand::Focus(GalleryFocus::List),
+            GalleryCommand::ListReplace { seed: 4 },
+            GalleryCommand::ListScroll { row: 9_999 },
         ]
     }
 
@@ -743,6 +832,9 @@ mod tests {
                 Effect::Place(1),
                 Effect::Reset,
                 Effect::Tabs(GalleryStrip::Side),
+                Effect::Focus(GalleryFocus::List),
+                Effect::List,
+                Effect::ListScroll(9_999),
             ]
         );
 
@@ -871,7 +963,7 @@ mod tests {
     #[test]
     fn layout_keeps_parts_apart_inside_the_content() {
         let (width, height, titlebar, field) = (1180.0, 720.0, 40.0, 32.0);
-        let layout = layout(width, height, titlebar, field, 34.0);
+        let layout = layout(width, height, titlebar, field, 34.0, 26.0);
         let content = Rect::new(0.0, titlebar, width, height - titlebar);
         for part in [layout.marker, layout.focus, layout.plain] {
             assert!(content.contains(&part), "{part:?}");
@@ -898,7 +990,7 @@ mod tests {
     /// уровня окна не накрывают подложек.
     #[test]
     fn strips_stay_clear_of_the_fixed_oracle_regions() {
-        let layout = layout(1180.0, 720.0, 40.0, 32.0, 34.0);
+        let layout = layout(1180.0, 720.0, 40.0, 32.0, 34.0, 26.0);
         let inflate = |rect: Rect, by: f64| {
             Rect::new(
                 rect.x - by,
@@ -1027,7 +1119,7 @@ mod tests {
             &Intent::Tab(GalleryStrip::Center, TabAction::Select("agent".into())),
             &mut generation,
         );
-        assert_eq!(changed, Some(GalleryStrip::Center));
+        assert_eq!(changed, Some(Changed::Tabs(GalleryStrip::Center)));
         assert_eq!(gallery.state().selected(GalleryStrip::Center), 2);
         let closed = gallery.intent(
             &Intent::Tab(GalleryStrip::Center, TabAction::Close("agent".into())),
@@ -1056,6 +1148,98 @@ mod tests {
         assert_eq!(
             gallery.state().selected(GalleryStrip::Side),
             strip_fixture(GalleryStrip::Side).selected
+        );
+    }
+
+    #[test]
+    fn list_rows_are_named_by_seed_and_index() {
+        assert_eq!(list_row_id(3, 42), "s3.r00042");
+        assert_eq!(list_row_text(3, 42), "Строка 00042 · 3");
+        assert_eq!(list_row_index(3, "s3.r00042"), Some(42));
+        assert_eq!(list_row_index(3, "s3.r09999"), Some(9_999));
+        for foreign in [
+            "s4.r00042",
+            "s3.r10000",
+            "s3.r42",
+            "s3.r0004x",
+            "s3.r+0042",
+            "",
+        ] {
+            assert_eq!(list_row_index(3, foreign), None, "{foreign}");
+        }
+        let ids: std::collections::HashSet<String> =
+            (0..LIST_ROWS).map(|index| list_row_id(0, index)).collect();
+        assert_eq!(ids.len(), LIST_ROWS);
+    }
+
+    #[test]
+    fn list_commands_and_intents_follow_the_fixture() {
+        let mut gallery = Gallery::new();
+        let mut generation = Generation::default();
+        assert_eq!(gallery.state().list_seed, LIST_SEED);
+        assert_eq!(gallery.state().list_selected, Some(LIST_SELECTED));
+        assert_eq!(
+            gallery.apply(GalleryCommand::ListReplace { seed: 5 }, &mut generation),
+            Effect::List
+        );
+        assert_eq!(gallery.state().list_seed, 5);
+        assert_eq!(
+            gallery.state().list_selected,
+            Some(LIST_SELECTED),
+            "номер выбора переживает замену"
+        );
+        assert_eq!(
+            gallery.apply(GalleryCommand::ListScroll { row: 9_999 }, &mut generation),
+            Effect::ListScroll(9_999)
+        );
+        let changed = gallery.intent(
+            &Intent::List(ListAction::Select(list_row_id(5, 20))),
+            &mut generation,
+        );
+        assert_eq!(changed, Some(Changed::List));
+        assert_eq!(gallery.state().list_selected, Some(20));
+        let stale = gallery.intent(
+            &Intent::List(ListAction::Select(list_row_id(0, 21))),
+            &mut generation,
+        );
+        assert_eq!(stale, None, "id прежнего набора выбора не меняет");
+        let opened = gallery.intent(
+            &Intent::List(ListAction::Activate(list_row_id(5, 20))),
+            &mut generation,
+        );
+        assert_eq!(opened, None, "открытие только записывается");
+        let records: Vec<(IntentKind, Option<&str>)> = gallery
+            .state()
+            .intents
+            .iter()
+            .map(|r| (r.intent, r.value.as_deref()))
+            .collect();
+        assert_eq!(
+            records,
+            [
+                (IntentKind::Select, Some("s5.r00020")),
+                (IntentKind::Select, Some("s0.r00021")),
+                (IntentKind::Activate, Some("s5.r00020")),
+            ]
+        );
+        gallery.apply(GalleryCommand::Reset, &mut generation);
+        assert_eq!(gallery.state().list_seed, LIST_SEED);
+        assert_eq!(gallery.state().list_selected, Some(LIST_SELECTED));
+    }
+
+    /// Список в подложке без фокуса держится дальше 4 точек от её участка фона (24, 460) 120×48 и
+    /// целиком внутри подложки.
+    #[test]
+    fn list_stays_inside_the_plain_surface_and_clear_of_its_region() {
+        let layout = layout(1180.0, 720.0, 40.0, 32.0, 34.0, 26.0);
+        let inner = Rect::new(0.0, 0.0, layout.plain.width, layout.plain.height);
+        assert!(inner.contains(&layout.list), "{:?}", layout.list);
+        let region = Rect::new(20.0, 456.0, 128.0, 56.0);
+        assert!(!layout.list.intersects(&region), "{:?}", layout.list);
+        assert_eq!(layout.list.height, 16.0 * 26.0);
+        assert!(
+            layout.plain.width - layout.list.right() >= 240.0,
+            "правая часть подложки свободна"
         );
     }
 }

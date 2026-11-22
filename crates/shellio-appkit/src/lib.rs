@@ -63,6 +63,12 @@ pub use components::tab_strip::{ButtonFacts, TabFacts, TabStrip, TabStripFacts};
 pub use components::text_field::{
     TextField, TextFieldIntent, TextFieldOp, TextFieldState, preferred_height as text_field_height,
 };
+pub use components::virtual_list::model::{
+    KeyPress, ListError, ListIntent, ListKey, ListOp, ListState, PressLog, Row, RowDiff,
+    check as check_list, diff as list_diff, diff_rows, key_intent as list_key_intent,
+    reveal as list_reveal, scroll_to as list_scroll_to, visible_rows,
+};
+pub use components::virtual_list::{ListRowFacts, VirtualList, VirtualListFacts};
 pub use counters::{
     CountKind, InstanceCount, LateCallbacks, instance_counts, late_callbacks, late_callbacks_total,
 };

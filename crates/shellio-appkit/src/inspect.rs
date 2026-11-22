@@ -12,6 +12,7 @@ use crate::chrome_bar::{ChromeState, Frame};
 use crate::components::menu::MenuState;
 use crate::components::tab_strip::TabStripFacts;
 use crate::components::text_field::TextFieldState;
+use crate::components::virtual_list::VirtualListFacts;
 
 /// Факты одного вида.
 #[derive(Debug, Clone, PartialEq)]
@@ -45,6 +46,8 @@ pub enum NodeState {
     Menu(MenuState),
     /// Полоса вкладок: состояние, режим по ширине, прокрутка и факты частей.
     TabStrip(Box<TabStripFacts>),
+    /// Список: состояние, прокрутка, видимые строки и созданные виды строк.
+    VirtualList(Box<VirtualListFacts>),
 }
 
 /// Компонент или его часть в дереве `ui.inspect`.

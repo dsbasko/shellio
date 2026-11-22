@@ -52,6 +52,20 @@
       "rect": { "x": 4, "y": 5, "width": 4, "height": 16 },
       "slot": "panel",
       "layer": "tone_navigation"
+    },
+    {
+      "id": "list.row",
+      "component": "gallery.list.row.s0.r00003",
+      "rect": { "x": 160, "y": 4, "width": 88, "height": 18 },
+      "slot": "panel",
+      "layer": "veil"
+    },
+    {
+      "id": "list.selected",
+      "component": "gallery.list.row.s0.r00000",
+      "rect": { "x": 160, "y": 4, "width": 88, "height": 18 },
+      "slot": "sel",
+      "layer": "veil"
     }
   ]
 }

@@ -42,13 +42,15 @@ pub const USAGE: &str = "\
   app quit
   gallery cell <light|dark|auto> <normal|increased|auto>
   gallery motion <normal|reduced>
-  gallery focus <field|window|tabs>
+  gallery focus <field|window|tabs|list>
   gallery menu open
   gallery rebuild
   gallery window recreate
   gallery place <экран>
   gallery reset
   gallery tabs select <side|center|half|wide> <номер вкладки>
+  gallery list replace <зерно>
+  gallery list scroll <номер строки>
 
 У команд с целью-воркспейсом --target по умолчанию равен --workspace, с --all он обязателен.
 --json печатает кадры ответа построчно, --timeout задаёт срок вызова (по умолчанию 5000 мс).
@@ -539,7 +541,7 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 .find(|focus| focus.as_str() == value)
                 .ok_or_else(|| {
                     usage(format!(
-                        "{call}: ожидается field, window или tabs, получено «{value}»"
+                        "{call}: ожидается field, window, tabs или list, получено «{value}»"
                     ))
                 })?;
             Ok(gallery(GalleryCommand::Focus(focus)))
@@ -582,6 +584,29 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 ))
             })?;
             Ok(gallery(GalleryCommand::TabsSelect { strip, tab }))
+        }
+        "gallery list" => {
+            given.only(call, &[])?;
+            let [verb, value] = operands(call, rest)?;
+            match verb.as_str() {
+                "replace" => {
+                    let seed = value.parse().map_err(|_| {
+                        usage(format!(
+                            "{call} replace: ожидается зерно — целое без знака, получено «{value}»"
+                        ))
+                    })?;
+                    Ok(gallery(GalleryCommand::ListReplace { seed }))
+                }
+                "scroll" => {
+                    let row = value.parse().map_err(|_| {
+                        usage(format!(
+                            "{call} scroll: ожидается номер строки с нуля, получено «{value}»"
+                        ))
+                    })?;
+                    Ok(gallery(GalleryCommand::ListScroll { row }))
+                }
+                _ => Err(usage(format!("неизвестный вызов «{call} {verb}»"))),
+            }
         }
         "gallery place" => {
             given.only(call, &[])?;
@@ -882,11 +907,19 @@ mod tests {
                 gallery(GalleryCommand::TabsSelect { strip, tab: 7 })
             );
         }
+        assert_eq!(
+            action_of(&["gallery", "list", "replace", "3"]),
+            gallery(GalleryCommand::ListReplace { seed: 3 })
+        );
+        assert_eq!(
+            action_of(&["gallery", "list", "scroll", "9999"]),
+            gallery(GalleryCommand::ListScroll { row: 9_999 })
+        );
     }
 
     #[test]
     fn gallery_calls_check_operands() {
-        let cases: [(&[&str], &str); 13] = [
+        let cases: [(&[&str], &str); 16] = [
             (&["gallery"], "не указано действие"),
             (&["gallery", "cell", "light"], "операндов"),
             (
@@ -898,7 +931,13 @@ mod tests {
                 "normal, increased или auto",
             ),
             (&["gallery", "motion", "slow"], "normal или reduced"),
-            (&["gallery", "focus", "list"], "field, window или tabs"),
+            (
+                &["gallery", "focus", "grid"],
+                "field, window, tabs или list",
+            ),
+            (&["gallery", "list", "sort", "1"], "неизвестный вызов"),
+            (&["gallery", "list", "replace", "1e3"], "зерно"),
+            (&["gallery", "list", "scroll", "конец"], "номер строки"),
             (
                 &["gallery", "tabs", "close", "side", "1"],
                 "неизвестный вызов",

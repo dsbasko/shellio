@@ -61,6 +61,11 @@ pub enum GalleryCommand {
     /// `gallery.tabs.select`: выбрать вкладку с номером `tab` в полосе `strip` тем же путём, что
     /// намерение выбора полосы.
     TabsSelect { strip: GalleryStrip, tab: u32 },
+    /// `gallery.list.replace`: заменить строки списка фикстурой зерна `seed` того же размера.
+    ListReplace { seed: u64 },
+    /// `gallery.list.scroll`: прокрутить список так, чтобы строка `row` стояла у верхнего края, в
+    /// пределах прокрутки.
+    ListScroll { row: u32 },
 }
 
 impl GalleryCommand {
@@ -76,6 +81,8 @@ impl GalleryCommand {
             Self::Place { .. } => "gallery.place",
             Self::Reset => "gallery.reset",
             Self::TabsSelect { .. } => "gallery.tabs.select",
+            Self::ListReplace { .. } => "gallery.list.replace",
+            Self::ListScroll { .. } => "gallery.list.scroll",
         }
     }
 }
@@ -117,16 +124,19 @@ pub enum GalleryFocus {
     Field,
     /// Боковая полоса вкладок: стрелки меняют выбор.
     Tabs,
+    /// Список: Up и Down меняют выбор.
+    List,
 }
 
 impl GalleryFocus {
-    pub const ALL: [Self; 3] = [Self::Window, Self::Field, Self::Tabs];
+    pub const ALL: [Self; 4] = [Self::Window, Self::Field, Self::Tabs, Self::List];
 
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Window => "window",
             Self::Field => "field",
             Self::Tabs => "tabs",
+            Self::List => "list",
         }
     }
 }
@@ -209,6 +219,18 @@ struct TabsSelectArgs {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ListReplaceArgs {
+    seed: u64,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ListScrollArgs {
+    row: u32,
+}
+
+#[derive(Serialize, Deserialize)]
 enum WireUiRequest {
     #[serde(rename = "ui.window")]
     Window(NoArgs),
@@ -240,6 +262,10 @@ enum WireUiRequest {
     GalleryReset(NoArgs),
     #[serde(rename = "gallery.tabs.select")]
     GalleryTabsSelect(TabsSelectArgs),
+    #[serde(rename = "gallery.list.replace")]
+    GalleryListReplace(ListReplaceArgs),
+    #[serde(rename = "gallery.list.scroll")]
+    GalleryListScroll(ListScrollArgs),
 }
 
 impl From<WireUiRequest> for UiRequest {
@@ -278,6 +304,12 @@ impl From<WireUiRequest> for UiRequest {
             WireUiRequest::GalleryTabsSelect(TabsSelectArgs { strip, tab }) => {
                 Self::Gallery(GalleryCommand::TabsSelect { strip, tab })
             }
+            WireUiRequest::GalleryListReplace(ListReplaceArgs { seed }) => {
+                Self::Gallery(GalleryCommand::ListReplace { seed })
+            }
+            WireUiRequest::GalleryListScroll(ListScrollArgs { row }) => {
+                Self::Gallery(GalleryCommand::ListScroll { row })
+            }
         }
     }
 }
@@ -310,6 +342,12 @@ impl From<UiRequest> for WireUiRequest {
                 GalleryCommand::Reset => Self::GalleryReset(NoArgs {}),
                 GalleryCommand::TabsSelect { strip, tab } => {
                     Self::GalleryTabsSelect(TabsSelectArgs { strip, tab })
+                }
+                GalleryCommand::ListReplace { seed } => {
+                    Self::GalleryListReplace(ListReplaceArgs { seed })
+                }
+                GalleryCommand::ListScroll { row } => {
+                    Self::GalleryListScroll(ListScrollArgs { row })
                 }
             },
         }
@@ -532,6 +570,8 @@ pub enum IntentKind {
     Zoom,
     /// «Вернуть раскладку».
     Restore,
+    /// Открыть строку списка; значение — id строки.
+    Activate,
 }
 
 /// Компонент или его часть.
@@ -573,6 +613,7 @@ pub enum ComponentState {
     TextField(TextFieldView),
     Menu(MenuView),
     TabStrip(Box<TabStripView>),
+    VirtualList(Box<VirtualListView>),
 }
 
 /// Сторона зоны полосы вкладок.
@@ -677,6 +718,35 @@ pub struct StripButtonView {
     pub help: String,
 }
 
+/// Состояние `VirtualList`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VirtualListView {
+    /// AX-имя таблицы.
+    pub label: String,
+    pub count: u64,
+    pub selected: Option<String>,
+    /// Смещение прокрутки в точках и его предел.
+    pub offset: f64,
+    pub max_offset: f64,
+    /// Таблица — first responder окна.
+    pub keyboard_focus: bool,
+    /// Созданные виды строк и ячеек за жизнь списка.
+    pub row_views_created: u64,
+    pub cell_views_created: u64,
+    /// Видимые строки по порядку.
+    pub visible: Vec<ListRowView>,
+}
+
+/// Видимая строка списка.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ListRowView {
+    pub index: u64,
+    pub id: String,
+    pub text: String,
+}
+
 /// Состояние `ChromeBar`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -757,6 +827,44 @@ pub struct StatsView {
     pub row_views: Vec<RowViewsView>,
     /// Слабые ссылки на виды прежних деревьев галереи.
     pub gallery_trees: Vec<GalleryTreeView>,
+    /// Ряд задержек клавиш списка галереи; `None` — серии не было, и ключа в кадре нет.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_latency: Option<KeyLatencyView>,
+}
+
+/// Ряд задержек клавиш (план P1.3, «Замеры»): нажатия серии и такты `CADisplayLink` окна. Время
+/// — секунды с загрузки, часы одного процесса. Серия начинается, когда список получает фокус.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyLatencyView {
+    pub component: String,
+    pub presses: Vec<KeyPressView>,
+    pub ticks: Vec<f64>,
+}
+
+/// Нажатие Up или Down серии.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyPressView {
+    /// `up` или `down`.
+    pub key: String,
+    /// `NSEvent.timestamp`.
+    pub event: f64,
+    /// Последнее пробуждение цикла до входа в обработчик.
+    pub wake: Option<f64>,
+    /// Вход в `keyDown:` списка.
+    pub entry: f64,
+    /// Возврат обработчика `keyDown:`: намерение поставлено в очередь главного потока.
+    pub handled: f64,
+    /// Состояние с выбором нажатия применено к списку: конец своего кода.
+    pub applied: Option<f64>,
+    /// Строка, которую выбирает нажатие.
+    pub target: String,
+    /// Поколение, в котором выбор уже сдвинут этим нажатием.
+    pub generation: Option<u64>,
+    /// Первая отрисовка списка с поколением не меньше [`Self::generation`] и её поколение.
+    pub drawn: Option<f64>,
+    pub drawn_generation: Option<u64>,
 }
 
 /// Вид счётчика экземпляров.
@@ -980,6 +1088,16 @@ mod tests {
                 "gallery.reset",
                 true,
             ),
+            (
+                UiRequest::Gallery(GalleryCommand::ListReplace { seed: 3 }),
+                "gallery.list.replace",
+                true,
+            ),
+            (
+                UiRequest::Gallery(GalleryCommand::ListScroll { row: 9_999 }),
+                "gallery.list.scroll",
+                true,
+            ),
         ];
         for (request, name, mutation) in cases {
             assert_eq!(request.name(), name);
@@ -1004,7 +1122,10 @@ mod tests {
             json!({"gallery.cell": {"appearance": "sepia"}}),
             json!({"gallery.cell": {"extra": 1}}),
             json!({"gallery.motion": {}}),
-            json!({"gallery.focus": {"component": "list"}}),
+            json!({"gallery.focus": {"component": "grid"}}),
+            json!({"gallery.list.replace": {}}),
+            json!({"gallery.list.replace": {"seed": -1}}),
+            json!({"gallery.list.scroll": {"row": "end"}}),
             json!({"gallery.place": {"screen": -1}}),
             json!({"gallery.place": {}}),
             json!({"gallery.reset": {"seed": 1}}),

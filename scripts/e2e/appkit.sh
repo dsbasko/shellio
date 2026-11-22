@@ -81,11 +81,15 @@ IDLE_CPU_PERCENT=1
 IDLE_WAKEUPS=20
 IDLE_SETTLE_S=30
 CYCLES=10
+# Строк таблицы в обходе ax: больше видимых строк списка галереи (16).
+LIST_AX_ROWS=20
 
 ITEMS=(first-front window mirror close-reopen quit gui-quit-pid snapshot-light snapshot-dark contrast-cells
   system-appearance material text-field menu-tracking ax voiceover window-cycle idle startup-warm startup-cold
-  tabstrip-regimes tab-underline reduce-motion single-instance)
-REQUIRED=(1 1 1 1 1 0 1 1 1 0 1 1 1 1 0 1 1 1 0 1 1 1 1)
+  tabstrip-regimes tab-underline reduce-motion list-reuse list-keys list-click-label appearance-live key-latency-120
+  key-latency-60 single-instance)
+# key-latency-60 становится обязательным, если у машины есть экран 60 Гц (правило «Замеры»).
+REQUIRED=(1 1 1 1 1 0 1 1 1 0 1 1 1 1 0 1 1 1 0 1 1 1 1 1 0 1 1 0 1)
 STATUS=()
 REASON=()
 for i in "${!ITEMS[@]}"; do
@@ -272,6 +276,18 @@ record() {
     fi
   done
   fatal "неизвестный пункт $item"
+}
+
+# Обязательность пункта по ходу прогона: set_required <пункт> 0|1.
+set_required() {
+  local i
+  for i in "${!ITEMS[@]}"; do
+    if [[ "${ITEMS[i]}" == "$1" ]]; then
+      REQUIRED[i]="$2"
+      return 0
+    fi
+  done
+  fatal "неизвестный пункт $1"
 }
 
 # Итог пункта по списку failures: пусто — pass с текстом $2.
@@ -1907,6 +1923,19 @@ ax_dump() {
         description: description, selected: attr(e, 'AXSelected'), expanded: attr(e, 'AXExpanded'),
         help: attr(e, 'AXHelp'), group: group });
       if (depth >= 6) return;
+      if (role === 'AXTable') {
+        // Строки таблицы — элементы AXRow без имени, текст строки — значение текста её ячейки. Обходятся
+        // первые LIST_AX_ROWS строк: сценарий читает список после сброса, прокрутка в начале.
+        let rows = [];
+        try { rows = e.rows(); } catch (x) {}
+        for (const r of rows.slice(0, $LIST_AX_ROWS)) {
+          let text = null;
+          try { text = r.uiElements()[0].uiElements()[0].value(); } catch (x) {}
+          out.push({ role: prop(() => r.role()), subrole: null, title: null, description: text,
+            selected: attr(r, 'AXSelected'), expanded: attr(r, 'AXExpanded'), help: null, group: description });
+        }
+        return;
+      }
       let kids = [];
       try { kids = e.uiElements(); } catch (x) {}
       for (const k of kids) walk(k, depth + 1, role === 'AXTabGroup' ? description : group);
@@ -1946,6 +1975,10 @@ ax_compare() {
       "gallery.tabs.wide" => ["AXTabGroup", "Вкладки широкого центра"],
       "gallery.tabs.wide.tab.term" => ["AXRadioButton", "zsh", "Вкладки широкого центра"],
       "gallery.tabs.wide.tab.build" => ["AXRadioButton", "Сборка", "Вкладки широкого центра"],
+      "gallery.list" => ["AXTable", "Список галереи"],
+      "gallery.list.row.s0.r00000" => ["AXRow", "Строка 00000 · 0", "Список галереи"],
+      "gallery.list.row.s0.r00001" => ["AXRow", "Строка 00001 · 0", "Список галереи"],
+      "gallery.list.row.s0.r00015" => ["AXRow", "Строка 00015 · 0", "Список галереи"],
     );
     my %seen;
     my $norm = sub { my $v = shift; return "нет" unless defined $v; JSON::PP::is_bool($v) ? ($v ? "true" : "false") : "$v" };
@@ -2026,7 +2059,7 @@ item_ax() {
   else
     failures+=("$WHY")
   fi
-  conclude "$item" "System Events от окна pid $pid дошёл до частей ChromeBar, поля, кнопки меню и полос вкладок (группы, вкладки с выбором, кнопки с accessibilityHelp): роль, имя, выбор и раскрытие совпали с фикстурой и ui.inspect, заголовок окна «${ax_title}»; Tab — кнопка оформления, Space — тёмное"
+  conclude "$item" "System Events от окна pid $pid дошёл до частей ChromeBar, поля, кнопки меню, полос вкладок (группы, вкладки с выбором, кнопки с accessibilityHelp) и списка (таблица, строки с текстом и выбором): роль, имя, выбор и раскрытие совпали с фикстурой и ui.inspect, заголовок окна «${ax_title}»; Tab — кнопка оформления, Space — тёмное"
 }
 
 # --- полосы вкладок (задача 11) ---
@@ -2111,7 +2144,8 @@ strip_geometry() {
 }
 
 # AXPress кнопки «Действия панели» в группе вкладок с описанием group окна pid через System Events в фоне;
-# задание — в bg_job.
+# задание — в bg_job. В таблицы и деревья поиск не заходит: System Events отдаёт детьми таблицы все
+# её строки, и обход 10 000 строк списка галереи не укладывается в срок.
 press_strip_menu() {
   local pid="$1" group="$2" out="$3"
   osascript -l JavaScript -e "
@@ -2123,6 +2157,8 @@ press_strip_menu() {
       try { kids = e.uiElements(); } catch (x) {}
       for (const k of kids) {
         if (test(k)) return k;
+        const role = prop(() => k.role());
+        if (role === 'AXTable' || role === 'AXOutline') continue;
         if (depth < 6) { const hit = find(k, depth + 1, test); if (hit) return hit; }
       }
       return null;
@@ -2306,6 +2342,388 @@ item_reduce_motion() {
   conclude "$item" "motion reduced, выбор последней вкладки боковой полосы: $reduced, конечное смещение достигнуто, вкладка видима; контроль motion normal: $control"
 }
 
+# --- список (задача 12) ---
+
+list_seed=0
+list_want=""
+
+# Значение поля состояния списка в ответе ui.inspect.
+list_field() {
+  comp "$1" gallery.list "state.virtual_list.$2"
+}
+
+# Видимые строки списка и узлы строк ui.inspect — фикстура зерна list_seed: id и текст, который показывает ячейка.
+list_fixture_ok() {
+  /usr/bin/perl -COEA -Mutf8 -MJSON::PP -e 'local $/; my ($seed) = @ARGV;
+    my $i = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{inspect};
+    my ($c) = grep { $_->{id} eq "gallery.list" } @{$i->{components}} or exit 1;
+    my @v = @{$c->{state}{virtual_list}{visible}} or exit 1;
+    for my $r (@v) {
+      my $id = sprintf("s%d.r%05d", $seed, $r->{index});
+      my $text = sprintf("Строка %05d · %d", $r->{index}, $seed);
+      exit 1 unless $r->{id} eq $id && $r->{text} eq $text;
+      my ($node) = grep { $_->{id} eq "gallery.list.row.$id" } @{$i->{components}} or exit 1;
+      exit 1 unless ($node->{label} // "") eq $text;
+    }' "$list_seed" <"$1"
+}
+
+# Крайняя видимая строка списка: list_edge <файл> first|last.
+list_edge() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $edge = $ARGV[0];
+    my $i = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{inspect};
+    my ($c) = grep { $_->{id} eq "gallery.list" } @{$i->{components}} or exit 1;
+    my @v = @{$c->{state}{virtual_list}{visible}} or exit 1;
+    print $edge eq "first" ? $v[0]{id} : $v[-1]{id}, "\n"' "$2" <"$1"
+}
+
+list_first_is() {
+  [[ "$(list_edge "$1" first)" == "$list_want" ]]
+}
+
+list_last_is() {
+  [[ "$(list_edge "$1" last)" == "$list_want" ]]
+}
+
+list_focused() {
+  [[ "$(comp "$1" gallery.list first_responder)" == true && "$(list_field "$1" keyboard_focus)" == true ]]
+}
+
+# Выбрана строка list_want, она среди видимых, таблица — first responder.
+list_selected_visible() {
+  list_focused "$1" && [[ "$(list_field "$1" selected)" == "$list_want" &&
+    "$(jv "$1" "ok.ui.inspect.components[id=gallery.list].state.virtual_list.visible[id=$list_want].id")" == "$list_want" ]]
+}
+
+# Объекты видов видимых строк в ответе ui.inspect по строке: «id объект».
+list_objects() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $i = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{inspect};
+    print "$_->{id} $_->{object}\n" for grep { $_->{id} =~ /^gallery\.list\.row\./ } @{$i->{components}}' <"$1"
+}
+
+row_views_created() {
+  jv "$1" "ok.ui.stats.row_views[component=gallery.list].created"
+}
+
+item_list_reuse() {
+  local item=list-reuse dir="$run/list-reuse" seed created visible
+  failures=()
+  log "== $item"
+  if ! ui_cmd "$profile_g" "$dir/reset" gallery reset; then
+    record "$item" fail "$WHY"
+    return 0
+  fi
+  for seed in 1 2 3 4 5; do
+    list_seed="$seed"
+    if ! ui_cmd "$profile_g" "$dir/replace-$seed" gallery list replace "$seed"; then
+      failures+=("зерно $seed: $WHY")
+      continue
+    fi
+    poll_inspect "$profile_g" "$dir/inspect-$seed" "$STATE_MS" list_fixture_ok ||
+      failures+=("зерно $seed: видимые строки ui.inspect не совпали с фикстурой (id и текст ячейки), ответ — $(basename "$dir")/inspect-$seed.stdout")
+  done
+  list_want=s5.r09999
+  if ui_cmd "$profile_g" "$dir/scroll-end" gallery list scroll 9999; then
+    poll_inspect "$profile_g" "$dir/end" "$STATE_MS" list_last_is ||
+      failures+=("прокрутка в конец: последняя видимая $(list_edge "$dir/end.stdout" last || echo ?), ожидалась $list_want")
+  else
+    failures+=("$WHY")
+  fi
+  list_want=s5.r00000
+  if ui_cmd "$profile_g" "$dir/scroll-start" gallery list scroll 0; then
+    poll_inspect "$profile_g" "$dir/start" "$STATE_MS" list_first_is ||
+      failures+=("прокрутка в начало: первая видимая $(list_edge "$dir/start.stdout" first || echo ?), ожидалась $list_want")
+  else
+    failures+=("$WHY")
+  fi
+  if ui_read "$profile_g" "$dir/stats" stats && created="$(row_views_created "$dir/stats.stdout")"; then
+    visible="$(jv "$dir/start.stdout" "ok.ui.inspect.components[id=gallery.list].state.virtual_list.visible[#]" || echo 0)"
+    ((visible > 0 && created <= 2 * visible + 10)) ||
+      failures+=("создано видов строк $created при $visible видимых, порог $((2 * visible + 10))")
+  else
+    failures+=("ui.stats.row_views списка не прочитан")
+    created="?"
+    visible="?"
+  fi
+  ui_cmd "$profile_g" "$dir/reset-end" gallery reset || failures+=("сброс: $WHY")
+  conclude "$item" "5 замен набора (зёрна 1–5): видимые строки — id и текст фикстуры зерна в ячейках; крайние видимые после прокрутки — s5.r09999 и s5.r00000; создано видов строк $created за жизнь списка при $visible видимых (порог $((2 * visible + 10)))"
+}
+
+item_list_keys() {
+  local item=list-keys dir="$run/list-keys" pid="$owner_pid_g" n
+  failures=()
+  log "== $item"
+  if ! ui_cmd "$profile_g" "$dir/reset" gallery reset || ! front_owner "$pid" "$dir" ||
+    ! ui_cmd "$profile_g" "$dir/focus" gallery focus list; then
+    record "$item" fail "$WHY"
+    return 0
+  fi
+  if ! poll_inspect "$profile_g" "$dir/focused" "$STATE_MS" list_focused; then
+    record "$item" fail "после gallery.focus list таблица не first responder: $(responders "$dir/focused.stdout")"
+    ui_cmd "$profile_g" "$dir/unfocus" gallery focus window || true
+    return 0
+  fi
+  for n in $(seq 1 20); do
+    if ! input_ready "$pid"; then
+      failures+=("нажатие $n: $WHY")
+      break
+    fi
+    se_key "$dir" 125 || {
+      failures+=("Down $n не отправлен: $(oneline "$dir/keys.log")")
+      break
+    }
+  done
+  list_want=s0.r00020
+  poll_inspect "$profile_g" "$dir/after" "$STATE_MS" list_selected_visible ||
+    failures+=("после 20 Down: выбор $(list_field "$dir/after.stdout" selected || echo ?), first responder таблица — $(list_field "$dir/after.stdout" keyboard_focus || echo ?), ожидалась видимая $list_want")
+  ui_cmd "$profile_g" "$dir/unfocus" gallery focus window || failures+=("снятие фокуса: $WHY")
+  conclude "$item" "фокус в списке, 20 нажатий Down через System Events: выбрана $list_want, она видима, first responder — таблица"
+}
+
+# Щелчок левой кнопкой в точке глобальных координат CG (начало сверху слева главного экрана). Функции CoreGraphics
+# берутся мостом JXA из ObjC.import: ObjC.bindFunction со структурой CGPoint щелчок не доставлял.
+click_at() {
+  osascript -l JavaScript -e "
+    ObjC.import('CoreGraphics');
+    const p = \$.CGPointMake($1, $2);
+    for (const type of [\$.kCGEventLeftMouseDown, \$.kCGEventLeftMouseUp])
+      \$.CGEventPost(\$.kCGHIDEventTap, \$.CGEventCreateMouseEvent(null, type, p, \$.kCGMouseButtonLeft));
+    'ok';"
+}
+
+item_list_click_label() {
+  local item=list-click-label dir="$run/list-click-label" pid="$owner_pid_g" row=s0.r00004 x y
+  failures=()
+  log "== $item"
+  if ! ui_cmd "$profile_g" "$dir/reset" gallery reset || ! ui_cmd "$profile_g" "$dir/unfocus" gallery focus window ||
+    ! front_owner "$pid" "$dir"; then
+    record "$item" fail "$WHY"
+    return 0
+  fi
+  if ! ui_read "$profile_g" "$dir/window" window || ! ui_read "$profile_g" "$dir/inspect" inspect; then
+    record "$item" fail "ui.window или ui.inspect не прочитан"
+    return 0
+  fi
+  # Кадры ui.inspect — в точках окна с началом снизу слева, кадр окна и экранов — в точках экрана с началом снизу
+  # слева главного экрана; CG ждёт начало сверху слева главного экрана. Точка — на подписи строки (текст с 10 точек).
+  x="$(awk -v wx="$(jv "$dir/window.stdout" ok.ui.window.frame.x)" -v rx="$(comp "$dir/inspect.stdout" "gallery.list.row.$row" frame.x)" \
+    'BEGIN { printf "%.1f", wx + rx + 24 }')"
+  y="$(awk -v h="$(jv "$dir/window.stdout" ok.ui.window.screens[0].frame.height)" -v wy="$(jv "$dir/window.stdout" ok.ui.window.frame.y)" \
+    -v ry="$(comp "$dir/inspect.stdout" "gallery.list.row.$row" frame.y)" -v rh="$(comp "$dir/inspect.stdout" "gallery.list.row.$row" frame.height)" \
+    'BEGIN { printf "%.1f", h - (wy + ry + rh / 2) }')"
+  printf 'точка CG %s %s, строка %s\n' "$x" "$y" "$row" >"$dir/click.txt"
+  if ! input_ready "$pid"; then
+    record "$item" fail "$WHY"
+    return 0
+  fi
+  if ! click_at "$x" "$y" >"$dir/click.log" 2>&1; then
+    record "$item" not_run "нет пути указателя без нового инструмента: $(oneline "$dir/click.log")"
+    return 0
+  fi
+  list_want="$row"
+  poll_inspect "$profile_g" "$dir/after" "$STATE_MS" list_selected_visible ||
+    failures+=("после щелчка по подписи $row ($x, $y): выбор $(list_field "$dir/after.stdout" selected || echo ?), first responder таблица — $(list_field "$dir/after.stdout" keyboard_focus || echo ?)")
+  ui_cmd "$profile_g" "$dir/unfocus-end" gallery focus window || failures+=("снятие фокуса: $WHY")
+  conclude "$item" "щелчок CGEvent по подписи строки $row: таблица first responder, выбрана эта строка"
+}
+
+# Записи журнала анимаций ui.stats за поколение anim_gen: «компонент путь добавлено» по строке.
+anim_all() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $gen = $ARGV[0];
+    my $s = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{stats};
+    print "$_->{component} $_->{path} $_->{added}\n" for grep { $_->{generation} == $gen } @{$s->{animations}}' "$anim_gen" <"$1"
+}
+
+item_appearance_live() {
+  local item=appearance-live dir="$run/appearance-live" before created0 created1 obj entries added list_entry
+  failures=()
+  log "== $item"
+  if ! ui_cmd "$profile_g" "$dir/reset" gallery reset || ! ui_cmd "$profile_g" "$dir/cell-light" gallery cell light normal ||
+    ! ui_read "$profile_g" "$dir/top" inspect; then
+    record "$item" fail "${WHY:-ui.inspect не прочитан}"
+    return 0
+  fi
+  list_want=s0.r00200
+  if ! ui_cmd "$profile_g" "$dir/scroll-away" gallery list scroll 200 ||
+    ! poll_inspect "$profile_g" "$dir/away" "$STATE_MS" list_first_is; then
+    record "$item" fail "${WHY:-прокрутка к s0.r00200 не наблюдалась}"
+    return 0
+  fi
+  # Все виды строк, которые список держал до смены ячейки: у начала и у строки 200.
+  { list_objects "$dir/top.stdout"; list_objects "$dir/away.stdout"; } >"$dir/before-objects.txt"
+  ui_read "$profile_g" "$dir/stats-before" stats && created0="$(row_views_created "$dir/stats-before.stdout")" || created0="?"
+  if ! ui_cmd "$profile_g" "$dir/cell-dark" gallery cell dark normal; then
+    record "$item" fail "$WHY"
+    return 0
+  fi
+  anim_gen="$GEN"
+  list_want=s0.r00000
+  if ! ui_cmd "$profile_g" "$dir/scroll-back" gallery list scroll 0 ||
+    ! poll_inspect "$profile_g" "$dir/back" "$STATE_MS" list_first_is; then
+    record "$item" fail "${WHY:-прокрутка обратно к s0.r00000 не наблюдалась}"
+    return 0
+  fi
+  obj="$(comp "$dir/back.stdout" gallery.list.row.s0.r00003 object || echo ?)"
+  grep -q " $obj\$" "$dir/before-objects.txt" ||
+    failures+=("вид строки s0.r00003 после прокрутки обратно — объект $obj, его не было среди видов до смены ячейки")
+  ui_read "$profile_g" "$dir/stats-after" stats && created1="$(row_views_created "$dir/stats-after.stdout")" || created1="?"
+  [[ "$created0" == "$created1" && "$created0" != "?" ]] ||
+    failures+=("создано видов строк до смены $created0, после прокрутки обратно $created1")
+  entries="$(anim_all "$dir/stats-after.stdout")"
+  printf '%s\n' "$entries" >"$dir/animations.txt"
+  list_entry="$(awk '$1 == "gallery.list" { print $2 " " $3 }' "$dir/animations.txt")"
+  added="$(awk '{ s += $3 } END { print s + 0 }' "$dir/animations.txt")"
+  [[ "$list_entry" == "instant 0" ]] ||
+    failures+=("журнал анимаций за поколение $anim_gen: запись списка «${list_entry:-нет}», ожидался путь instant без анимаций")
+  ((added == 0)) || failures+=("журнал анимаций за поколение $anim_gen: добавлено анимаций $added ($(tr '\n' ';' <"$dir/animations.txt"))")
+  snapshot "$profile_g" "$dir" dark "$expect_dir/dark.json" "$GEN"
+  case "$snap_code" in
+    0) ;;
+    3) failures+=("участки тёмной ячейки вне допуска — $snap_reason, отчёт — $(basename "$dir")/dark.report.json") ;;
+    *) failures+=("$snap_reason") ;;
+  esac
+  ui_cmd "$profile_g" "$dir/cell-auto" gallery cell auto auto || failures+=("сброс ячейки: $WHY")
+  conclude "$item" "смена светлой ячейки на тёмную при списке, прокрученном к s0.r00200, затем прокрутка обратно: вид строки s0.r00003 — объект $obj, выданный повторно (создано видов $created0 → $created1), участки строки и выбранной строки — цвета тёмной ячейки; журнал анимаций за поколение $anim_gen — список instant 0, всего добавлено 0"
+}
+
+# Последнее нажатие ряда задержек отрисовано: нажатий lat_n, у последнего есть отметка отрисовки.
+lat_drawn() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $n = $ARGV[0];
+    my $s = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{stats};
+    my $p = ($s->{key_latency} || {})->{presses} || [];
+    exit 1 unless @$p == $n && defined $p->[-1]{drawn}' "$lat_n" <"$1"
+}
+
+# Разбор ряда задержек: первые 10 нажатий — прогрев, следующие 100 учитываются. Вывод — строки «ключ значение»;
+# код 2 — сбой измерителя (причина в строке error).
+lat_analyze() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my ($hz) = @ARGV;
+    my $s = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{stats};
+    my $kl = $s->{key_latency} or do { print "error нет ряда key_latency в ui.stats\n"; exit 2 };
+    my @p = @{$kl->{presses}}; my @t = @{$kl->{ticks}};
+    if (@p < 110) { printf "error годных нажатий %d из 110\n", scalar @p; exit 2 }
+    for my $k (0 .. $#p) {
+      my $x = $p[$k]; my $want = sprintf("s0.r%05d", $k + 1);
+      if ($x->{target} ne $want) { print "error нажатие $k: цель $x->{target}, ожидалась $want\n"; exit 2 }
+      if (!defined $x->{generation} || !defined $x->{drawn}) { print "error нажатие $k: нет поколения или отметки отрисовки\n"; exit 2 }
+      if ($x->{drawn_generation} != $x->{generation}) { print "error нажатие $k: отметка отрисовки поколения $x->{drawn_generation}, ожидалось $x->{generation}\n"; exit 2 }
+      my @order = map { $x->{$_} } qw(event entry handled applied drawn);
+      for my $j (1 .. $#order) {
+        if (!defined $order[$j] || $order[$j] < $order[$j - 1]) { print "error нажатие $k: отметки не по порядку (событие, вход, возврат, применение, отрисовка)\n"; exit 2 }
+      }
+    }
+    my @c = @p[10 .. 109];
+    my $ms = sub { 1000 * ($_[1] - $_[0]) };
+    my $rank = sub { my @v = sort { $a <=> $b } @_; my $i = int(0.95 * @v + 0.999999) - 1; $v[$i < 0 ? 0 : $i] };
+    my $med = sub { my @v = sort { $a <=> $b } @_; @v % 2 ? $v[$#v / 2] : ($v[@v / 2 - 1] + $v[@v / 2]) / 2 };
+    my @total = map { $ms->($_->{event}, $_->{drawn}) } @c;
+    printf "p95 %.2f\nmedian %.2f\nmax %.2f\n", $rank->(@total), $med->(@total), (sort { $b <=> $a } @total)[0];
+    for my $seg ([qw(event entry delivery)], [qw(entry applied handler)], [qw(applied drawn draw)]) {
+      my @v = map { $ms->($_->{$seg->[0]}, $_->{$seg->[1]}) } @c;
+      printf "seg_%s %.2f %.2f\n", $seg->[2], $rank->(@v), $med->(@v);
+    }
+    my ($from, $to) = ($c[0]{event}, $c[-1]{drawn});
+    my @w = grep { $_ >= $from && $_ <= $to } @t;
+    if (@w < 2) { print "error тактов CADisplayLink за серию меньше двух\n"; exit 2 }
+    my $period = $med->(map { $ms->($w[$_ - 1], $w[$_]) } 1 .. $#w);
+    printf "period %.3f\nticks %d\n", $period, scalar @w;
+    my @phase;
+    for my $x (@c) {
+      next unless defined $x->{wake};
+      my ($prev) = grep { $_ <= $x->{wake} } reverse @t;
+      push @phase, $ms->($prev, $x->{wake}) if defined $prev;
+    }
+    my @sp = sort { $a <=> $b } @phase;
+    my $iqr = @sp ? $sp[int(0.75 * $#sp)] - $sp[int(0.25 * $#sp)] : -1;
+    my $kind = $iqr < 0 ? "не различено" : $iqr <= 0.25 * $period ? "собраны у такта" : $iqr >= 0.4 * $period ? "равномерные" : "не различено";
+    printf "phase_iqr %.2f\nphase_median %.2f\nphase %s\n", $iqr, (@sp ? $med->(@sp) : -1), $kind;
+  ' "$1" <"$2"
+}
+
+lat_n=0
+lat_file=""
+# Значение ключа разбора ряда задержек из lat_file.
+lat_val() {
+  awk -v k="$1" '$1 == k { $1 = ""; sub(/^ /, ""); print; exit }' "$lat_file"
+}
+
+# Ряд задержек клавиш на частоте hz (120 или 60): 10 прогревочных и 100 учитываемых нажатий Down, каждое после
+# отметки отрисовки предыдущего. Режим недоступен — not_run, сбой измерителя — ошибка исполнения и fail пункта,
+# годная серия — сравнение p95 с бюджетом.
+item_key_latency() {
+  local item="$1" hz="$2" dir="$run/$1" pid="$owner_pid_g" screen="" n code=0 lo hi summary
+  failures=()
+  log "== $item"
+  if ! ui_read "$profile_g" "$dir/window" window; then
+    record "$item" fail "ui.window не прочитан"
+    return 0
+  fi
+  if ((hz == 60)); then
+    screen="$(/usr/bin/perl -MJSON::PP -e 'local $/; my $w = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{window};
+      my @s = @{$w->{screens} || []}; for my $i (0 .. $#s) { if ($s[$i]{maximum_frames_per_second} == 60) { print "$i\n"; exit } } exit 1' \
+      <"$dir/window.stdout")" || {
+      record "$item" not_run "нет экрана 60 Гц: maximumFramesPerSecond экранов — $(jv "$dir/window.stdout" ok.ui.window.screens || echo ?)"
+      return 0
+    }
+    set_required "$item" 1
+    if ! ui_cmd "$profile_g" "$dir/place" gallery place "$screen" || ! ui_read "$profile_g" "$dir/placed" window ||
+      [[ "$(jv "$dir/placed.stdout" ok.ui.window.screen)" != "$screen" ]]; then
+      record "$item" fail "окно не перенесено на экран $screen с 60 Гц: ${WHY:-ui.window показывает экран $(jv "$dir/placed.stdout" ok.ui.window.screen || echo ?)}"
+      return 0
+    fi
+  fi
+  if ! ui_cmd "$profile_g" "$dir/reset" gallery reset || ! front_owner "$pid" "$dir" ||
+    ! ui_cmd "$profile_g" "$dir/focus" gallery focus list; then
+    record "$item" fail "$WHY"
+    return 0
+  fi
+  if ! poll_inspect "$profile_g" "$dir/focused" "$STATE_MS" list_focused; then
+    record "$item" fail "после gallery.focus list таблица не first responder: $(responders "$dir/focused.stdout")"
+    ui_cmd "$profile_g" "$dir/unfocus" gallery focus window || true
+    return 0
+  fi
+  for n in $(seq 1 110); do
+    if ! input_ready "$pid"; then
+      summary="сбой измерителя: передний план сменился во время серии перед нажатием $n: $WHY"
+      code=2
+      break
+    fi
+    if ! se_key "$dir" 125; then
+      summary="сбой измерителя: нажатие $n не отправлено: $(oneline "$dir/keys.log")"
+      code=2
+      break
+    fi
+    lat_n="$n"
+    if ! poll_stats "$profile_g" "$dir/press" "$STATE_MS" lat_drawn; then
+      summary="сбой измерителя: нажатие $n без отметки отрисовки за $STATE_MS мс (нет события в приложении или отрисовки)"
+      code=2
+      break
+    fi
+  done
+  if ((code == 0)); then
+    ui_read "$profile_g" "$dir/stats" stats || true
+    lat_analyze "$hz" "$dir/stats.stdout" >"$dir/latency.txt" 2>&1 || code=$?
+    ((code == 0)) || summary="сбой измерителя: $(sed -n 's/^error //p' "$dir/latency.txt" | head -1)"
+  fi
+  ui_cmd "$profile_g" "$dir/unfocus" gallery focus window || failures+=("снятие фокуса: $WHY")
+  if ((hz == 60)); then
+    ui_cmd "$profile_g" "$dir/place-back" gallery place "$(jv "$dir/window.stdout" ok.ui.window.screen || echo 0)" || true
+  fi
+  if ((code != 0)); then
+    add_error "$item: ${summary:-сбой измерителя}"
+    record "$item" fail "${summary:-сбой измерителя}"
+    return 0
+  fi
+  lat_file="$dir/latency.txt"
+  if ((hz == 120)); then lo=7.83 hi=8.83; else lo=15.67 hi=17.67; fi
+  summary="p95 «событие → отрисовка» $(lat_val p95) мс (медиана $(lat_val median), максимум $(lat_val max)); p95 и медиана участков: «событие → вход в keyDown» $(lat_val seg_delivery), «вход → применение выбора» $(lat_val seg_handler), «применение → отрисовка» $(lat_val seg_draw); частота — медиана такта CADisplayLink $(lat_val period) мс по $(lat_val ticks) тактам, maximumFramesPerSecond экрана окна $(jv "$dir/window.stdout" "ok.ui.window.screens[$(jv "$dir/window.stdout" ok.ui.window.screen || echo 0)].maximum_frames_per_second" || echo ?); фаза пробуждения после такта — медиана $(lat_val phase_median) мс, межквартильный размах $(lat_val phase_iqr) мс: $(lat_val phase)"
+  if ! fcmp "$(lat_val period)" ">=" "$lo" || ! fcmp "$(lat_val period)" "<=" "$hi"; then
+    record "$item" not_run "режим недоступен: фактическая частота не $hz Гц; $summary"
+    return 0
+  fi
+  fcmp "$(lat_val p95)" "<=" 16 || failures+=("p95 $(lat_val p95) мс больше бюджета 16 мс (правило «Исход провала 16 мс»); $summary")
+  conclude "$item" "$summary"
+}
+
 item_single_instance() {
   local item=single-instance bad
   log "== $item"
@@ -2354,6 +2772,12 @@ item_ax
 item_tabstrip_regimes
 item_tab_underline
 item_reduce_motion
+item_list_reuse
+item_list_keys
+item_list_click_label
+item_appearance_live
+item_key_latency key-latency-120 120
+item_key_latency key-latency-60 60
 record system-appearance not_run "переключение системного оформления и Increase Contrast меняет глобальные настройки пользователя; путь уведомления покрыт модульным тестом"
 record voiceover not_run "речь VoiceOver автоматика не слышит; чтение AX — пункт ax"
 record startup-cold not_run "нет подтверждённого протокола холодных кэшей: сброс требует sudo purge или перезагрузки"

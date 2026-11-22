@@ -1,0 +1,80 @@
+{
+  "id": 9,
+  "ok": {
+    "ui": {
+      "stats": {
+        "pid": 123,
+        "generation": 7,
+        "instances": [
+          {
+            "kind": "class",
+            "name": "ShellioChromeBar",
+            "created": 1,
+            "released": 0,
+            "live": 1
+          }
+        ],
+        "late_callbacks": [
+          {
+            "site": "MainWindow.root",
+            "count": 0
+          }
+        ],
+        "run_loop": {
+          "iterations": 90,
+          "wakeups": 90,
+          "unpaired": 2,
+          "display_passes": 170,
+          "over_budget": 1,
+          "max_ms": 37.5,
+          "p95_ms": 1.25,
+          "window": 90,
+          "draws": 12
+        },
+        "startup": {
+          "first_draw_ms": 182.5,
+          "key_ms": 190.0,
+          "key_draw_ms": 190.0
+        },
+        "animations": [],
+        "row_views": [
+          {
+            "component": "gallery.list",
+            "created": 17
+          }
+        ],
+        "gallery_trees": [],
+        "key_latency": {
+          "component": "gallery.list",
+          "presses": [
+            {
+              "key": "down",
+              "event": 1520.25,
+              "wake": 1520.256,
+              "entry": 1520.257,
+              "handled": 1520.2571,
+              "applied": 1520.259,
+              "target": "s0.r00001",
+              "generation": 41,
+              "drawn": 1520.265,
+              "drawn_generation": 41
+            },
+            {
+              "key": "up",
+              "event": 1521.5,
+              "wake": null,
+              "entry": 1521.507,
+              "handled": 1521.5071,
+              "applied": null,
+              "target": "s0.r00000",
+              "generation": null,
+              "drawn": null,
+              "drawn_generation": null
+            }
+          ],
+          "ticks": [1520.25, 1520.258333, 1520.266666]
+        }
+      }
+    }
+  }
+}

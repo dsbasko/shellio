@@ -3,20 +3,25 @@
 //! прежних деревьев. Намерения компонентов уходят получателю, который ставит их в очередь главного
 //! потока: вид не трогает состояние окна изнутри вызова AppKit.
 
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
 use shellio::gallery::{
-    self, Gallery, GalleryState, Intent, MenuFixtureItem, StripHost, StripStatus, StripZone,
-    TabAction, ids,
+    self, Gallery, GalleryState, Intent, ListAction, MenuFixtureItem, StripHost, StripStatus,
+    StripZone, TabAction, ids,
 };
 use shellio_appkit::{
-    App, FocusLayer, Frame, GenerationMarker, InspectNode, MainWindow, MenuButton, MenuEntry,
-    MenuIntent, MenuItem, MenuKey, Piece, Presentation, Surface, SurfaceFill, SurfaceRadius,
-    SurfaceSpec, Tab, TabIntent, TabStatus, TabStrip, TabStripState, TextField, TextFieldIntent,
-    TextFieldState, Transition, ViewWatch, ZoneSide, text_field_height,
+    App, FocusLayer, Frame, GenerationMarker, InspectNode, ListIntent, ListKey, ListState,
+    LoopMonitor, MainWindow, MenuButton, MenuEntry, MenuIntent, MenuItem, MenuKey, Piece,
+    Presentation, Row, Surface, SurfaceFill, SurfaceRadius, SurfaceSpec, Tab, TabIntent, TabStatus,
+    TabStrip, TabStripState, TextField, TextFieldIntent, TextFieldState, Transition, ViewWatch,
+    VirtualList, ZoneSide, text_field_height,
 };
-use shellio_control::{ClassAliveView, GalleryFocus, GalleryStrip, GalleryTreeView};
+use shellio_control::{
+    ClassAliveView, GalleryFocus, GalleryStrip, GalleryTreeView, KeyLatencyView, KeyPressView,
+    RowViewsView,
+};
 use shellio_theme::{AppTheme, KeyMode, Motion};
 
 /// Сколько прежних деревьев держит `ui.stats.gallery_trees`.
@@ -28,6 +33,7 @@ struct Tree {
     // Порядок полей — порядок освобождения: сначала содержимое подложки.
     /// Полосы вкладок в порядке [`GalleryStrip::ALL`].
     strips: Vec<(GalleryStrip, TabStrip)>,
+    list: VirtualList,
     field: TextField,
     menu: MenuButton,
     focus: Surface,
@@ -48,6 +54,8 @@ pub struct GalleryUi {
     tree: Option<Tree>,
     retired: VecDeque<Retired>,
     on_intent: Rc<dyn Fn(Intent)>,
+    /// Строки списка последнего зерна: смена выбора не пересобирает набор.
+    list_rows: RefCell<Option<(u64, Rc<[Row]>)>>,
 }
 
 impl GalleryUi {
@@ -64,6 +72,7 @@ impl GalleryUi {
             tree: None,
             retired: VecDeque::new(),
             on_intent: Rc::new(on_intent),
+            list_rows: RefCell::new(None),
         };
         gallery.build(app, window, generation);
         gallery
@@ -88,6 +97,7 @@ impl GalleryUi {
             theme.metrics.titlebar,
             text_field_height(&theme),
             theme.metrics.tabbar,
+            theme.metrics.row,
         );
         let fixture = gallery::field_fixture();
         let state = TextFieldState {
@@ -163,11 +173,29 @@ impl GalleryUi {
             }
             strips.push((strip, built));
         }
+        let on_intent = Rc::clone(&self.on_intent);
+        let list = match VirtualList::new(app, &theme, self.list_state(), move |intent| {
+            on_intent(Intent::List(match intent {
+                ListIntent::Select { id } => ListAction::Select(id),
+                ListIntent::Activate { id } => ListAction::Activate(id),
+            }));
+        }) {
+            Ok(list) => list,
+            Err(error) => {
+                // Фикстура закреплена тестом уникальности id: отказ — нарушенный инвариант.
+                shellio::owner::say_err(format_args!(
+                    "shellio: список галереи не построен: {error}"
+                ));
+                return;
+            }
+        };
+        plain.place(&list, frame(layout.list));
         let mut watch = ViewWatch::new();
         for piece in [
             Piece::from(&marker),
             Piece::from(&focus),
             Piece::from(&plain),
+            Piece::from(&list),
         ] {
             watch.watch(piece);
         }
@@ -177,6 +205,7 @@ impl GalleryUi {
         self.tree = Some(Tree {
             number: self.model.tree(),
             strips,
+            list,
             field,
             menu,
             focus,
@@ -227,13 +256,12 @@ impl GalleryUi {
         tree.plain.set_theme(theme);
         tree.field.set_theme(theme);
         tree.menu.set_theme(theme);
-        tree.strips
-            .iter()
-            .map(|(strip, view)| {
-                view.set_motion(motion);
-                (ids::strip(*strip), view.set_theme(theme))
-            })
-            .collect()
+        let mut transitions = vec![(ids::LIST, tree.list.set_theme(theme))];
+        transitions.extend(tree.strips.iter().map(|(strip, view)| {
+            view.set_motion(motion);
+            (ids::strip(*strip), view.set_theme(theme))
+        }));
+        transitions
     }
 
     /// Полоса `strip` приводится к состоянию модели. Возвращает смену для журнала анимаций.
@@ -255,11 +283,108 @@ impl GalleryUi {
         }
     }
 
+    /// Список приводится к состоянию модели: набор строк зерна и выбор.
+    pub fn show_list(&self) {
+        let Some(tree) = &self.tree else {
+            return;
+        };
+        if let Err(error) = tree.list.set_state(self.list_state()) {
+            shellio::owner::say_err(format_args!("shellio: список галереи не обновлён: {error}"));
+        }
+    }
+
+    /// Прокрутка списка: строка `row` у верхнего края.
+    pub fn scroll_list(&self, row: u32) {
+        if let (Some(tree), Ok(row)) = (&self.tree, usize::try_from(row)) {
+            tree.list.scroll_to_row(row);
+        }
+    }
+
+    /// Созданные виды строк списка для `ui.stats`.
+    pub fn row_views(&self) -> Vec<RowViewsView> {
+        self.tree
+            .iter()
+            .map(|tree| RowViewsView {
+                component: ids::LIST.to_owned(),
+                created: tree.list.row_views_created(),
+            })
+            .collect()
+    }
+
+    /// Состояние списка по модели. Строки зерна строятся один раз и делятся между состояниями.
+    fn list_state(&self) -> ListState {
+        let state = self.model.state();
+        let seed = state.list_seed;
+        let mut cache = self.list_rows.borrow_mut();
+        let rows = match cache.as_ref() {
+            Some((cached, rows)) if *cached == seed => Rc::clone(rows),
+            _ => {
+                let rows: Rc<[Row]> = (0..gallery::LIST_ROWS)
+                    .map(|index| {
+                        Row::new(
+                            &gallery::list_row_id(seed, index),
+                            &gallery::list_row_text(seed, index),
+                        )
+                    })
+                    .collect();
+                *cache = Some((seed, Rc::clone(&rows)));
+                rows
+            }
+        };
+        let selected = state
+            .list_selected
+            .filter(|index| *index < rows.len())
+            .map(|index| gallery::list_row_id(seed, index));
+        ListState::new(gallery::LIST_LABEL, rows, selected.as_deref())
+    }
+
     /// Маркер показывает поколение `generation` в том же проходе отображения, что и состояние.
     pub fn set_generation(&self, generation: u64) {
         if let Some(tree) = &self.tree {
             tree.marker.set_generation(generation);
+            tree.list.set_generation(generation);
         }
+    }
+
+    /// Ряд задержек клавиш списка: нажатия серии с первой отрисовкой списка в поколении их выбора
+    /// и такты `CADisplayLink`. `None` — серии не было.
+    pub fn key_latency(&self, monitor: Option<&LoopMonitor>) -> Option<KeyLatencyView> {
+        let tree = self.tree.as_ref()?;
+        let presses = tree.list.key_presses();
+        let ticks = tree.list.ticks();
+        if presses.is_empty() && ticks.is_empty() {
+            return None;
+        }
+        let presses = presses
+            .into_iter()
+            .map(|press| {
+                let drawn = press.generation.and_then(|generation| {
+                    monitor.and_then(|monitor| monitor.first_draw(tree.list.id(), generation))
+                });
+                KeyPressView {
+                    key: match press.key {
+                        ListKey::Up => "up",
+                        ListKey::Down => "down",
+                        ListKey::Enter => "enter",
+                    }
+                    .to_owned(),
+                    event: press.event,
+                    wake: press.wake,
+                    entry: press.entry,
+                    handled: press.handled,
+                    applied: press.applied,
+                    target: press.target,
+                    generation: press.generation,
+                    drawn: drawn.map(|mark| mark.at),
+                    drawn_generation: drawn.map(|mark| mark.generation),
+                }
+            })
+            .collect();
+        Some(KeyLatencyView {
+            component: ids::LIST.to_owned(),
+            presses,
+            ticks,
+        })
     }
 
     pub fn focus(&self, window: &MainWindow, focus: GalleryFocus) {
@@ -278,7 +403,12 @@ impl GalleryUi {
                     shellio::owner::say_err("shellio: полоса вкладок галереи не приняла фокус");
                 }
             }
-            (GalleryFocus::Field | GalleryFocus::Tabs, None) => {}
+            (GalleryFocus::List, Some(tree)) => {
+                if !tree.list.focus() {
+                    shellio::owner::say_err("shellio: список галереи не принял фокус");
+                }
+            }
+            (GalleryFocus::Field | GalleryFocus::Tabs | GalleryFocus::List, None) => {}
             (GalleryFocus::Window, _) => {
                 window.clear_focus();
             }
@@ -309,6 +439,12 @@ impl GalleryUi {
                 }
                 view.set_motion(motion);
             }
+            if let Err(error) = tree.list.set_state(self.list_state()) {
+                shellio::owner::say_err(format_args!(
+                    "shellio: список галереи не сброшен: {error}"
+                ));
+            }
+            tree.list.scroll_to_row(0);
             let fixture = gallery::field_fixture();
             tree.field.set_state(TextFieldState {
                 value: self.model.state().field_value.clone(),
@@ -330,6 +466,7 @@ impl GalleryUi {
         nodes.extend(tree.field.inspect(ids::FIELD, Some(ids::SURFACE_FOCUS)));
         nodes.extend(tree.menu.inspect(ids::MENU, Some(ids::SURFACE_FOCUS)));
         nodes.extend(tree.plain.inspect(ids::SURFACE_PLAIN, None));
+        nodes.extend(tree.list.inspect(ids::LIST, Some(ids::SURFACE_PLAIN)));
         for (strip, view) in &tree.strips {
             let parent = match gallery::strip_fixture(*strip).host {
                 StripHost::FocusSurface => Some(ids::SURFACE_FOCUS),

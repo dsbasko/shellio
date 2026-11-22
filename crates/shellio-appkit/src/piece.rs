@@ -11,6 +11,7 @@ use crate::chrome_bar::Frame;
 use crate::components::menu::MenuButton;
 use crate::components::tab_strip::TabStrip;
 use crate::components::text_field::TextField;
+use crate::components::virtual_list::VirtualList;
 use crate::marker::GenerationMarker;
 use crate::surface::Surface;
 use crate::window::MainWindow;
@@ -22,6 +23,7 @@ pub enum Piece<'a> {
     TextField(&'a TextField),
     MenuButton(&'a MenuButton),
     TabStrip(&'a TabStrip),
+    VirtualList(&'a VirtualList),
     Marker(&'a GenerationMarker),
 }
 
@@ -32,6 +34,7 @@ impl Piece<'_> {
             Piece::TextField(field) => field.ns_view(),
             Piece::MenuButton(button) => button.ns_view(),
             Piece::TabStrip(strip) => strip.ns_view(),
+            Piece::VirtualList(list) => list.ns_view(),
             Piece::Marker(marker) => marker.ns_view(),
         }
     }
@@ -58,6 +61,12 @@ impl<'a> From<&'a MenuButton> for Piece<'a> {
 impl<'a> From<&'a TabStrip> for Piece<'a> {
     fn from(strip: &'a TabStrip) -> Self {
         Piece::TabStrip(strip)
+    }
+}
+
+impl<'a> From<&'a VirtualList> for Piece<'a> {
+    fn from(list: &'a VirtualList) -> Self {
+        Piece::VirtualList(list)
     }
 }
 

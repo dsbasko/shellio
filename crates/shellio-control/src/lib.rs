@@ -29,10 +29,11 @@ pub use ui::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, ChromeView, ClassAliveView,
     ColorSpaceView, ComponentState, ComponentView, Contrast, GalleryCommand, GalleryFocus,
     GalleryStrip, GalleryTreeView, GalleryView, InspectView, InstanceKind, InstanceView,
-    IntentKind, IntentRecord, LateCallbackView, Lightness, MaterialView, MenuItemView, MenuView,
-    Motion, Rect, RowViewsView, RunLoopView, ScreenView, Size, StartupView, StatsView,
-    StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone,
-    TextFieldView, UI_TIMEOUT, UiGate, UiRefusal, UiReply, UiRequest, WindowMode, WindowView,
+    IntentKind, IntentRecord, KeyLatencyView, KeyPressView, LateCallbackView, Lightness,
+    ListRowView, MaterialView, MenuItemView, MenuView, Motion, Rect, RowViewsView, RunLoopView,
+    ScreenView, Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime,
+    TabStatusView, TabStripView, TabZone, TextFieldView, UI_TIMEOUT, UiGate, UiRefusal, UiReply,
+    UiRequest, VirtualListView, WindowMode, WindowView,
 };
 pub use wire::{
     Activation, Hello, HelloReply, Launch, LaunchReceipt, OkValue, OwnerState, PROTOCOL,
