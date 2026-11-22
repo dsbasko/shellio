@@ -13,6 +13,7 @@ mod handler;
 mod ids;
 #[cfg(feature = "test-support")]
 mod loopback;
+mod mirror;
 mod model;
 mod persist;
 mod query;
@@ -33,6 +34,7 @@ pub use ids::{
     AgentId, IdGen, IdParseError, PanelId, ProjectId, ProjectRootId, SessionId, SystemIds,
     WorkbenchId, WorkspaceId,
 };
+pub use mirror::{Delivery, Mirror, MirrorStep, window_title, workspace_name};
 pub use model::{
     Diagnostic, EntityRef, PositionScope, Project, ProjectRoot, Revision, Route, State, Violation,
     WindowState, Workbench, Workspace,
