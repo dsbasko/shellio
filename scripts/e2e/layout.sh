@@ -73,9 +73,16 @@ ITEMS=(layout-default layout-snapshot move-cli move-menu-zone move-menu-part mov
   only-bottom hide-zones tooltips-ax restore-cold restore-legacy voiceover-speech system-contrast)
 REQUIRED=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0)
 # Пункты следующих задач плана: до них прогон пишет not_run с задачей, обязательность — после их появления.
-LATER=(move-menu-zone:12 move-menu-part:12 move-drag:12 move-drag-body:12 center-empty:11
-  split-two-fit:11 split-button-unfocused:11 split-single-picker:11 split-refused:11 stub-expand:13 zoom-restore:11
-  only-bottom:11 tooltips-ax:11)
+LATER=(move-menu-zone:12 move-menu-part:12 move-drag:12 move-drag-body:12 stub-expand:13)
+# min_size панели до P1.5 (план P1.4, «Решения планирования»): query.layout его не отдаёт, условия пунктов места
+# судятся по этому числу.
+MIN_W=200
+MIN_H=120
+# Подсказка кнопок строки вкладок до P1.6 (ADR-0032).
+NO_KEY="Клавиша не назначена"
+# Клавиши System Events: Escape и Return.
+KEY_ESC=53
+KEY_RETURN=36
 STATUS=()
 REASON=()
 for i in "${!ITEMS[@]}"; do
@@ -763,7 +770,7 @@ frames_compare() {
       my ($role, $name, $want, $what) = @_;
       my @cand = grep { $_->{role} eq $role && $_->{description} eq $name && $_->{frame} } @ax;
       return if grep { $near->($_->{frame}, $want) } @cand;
-      print "$what: AX $role «$name» ", (@cand ? join(", ", map { $fmt->($_->{frame}) } @cand) : "нет"),
+      print "$what: AX $role «${name}» ", (@cand ? join(", ", map { $fmt->($_->{frame}) } @cand) : "нет"),
         ", query.layout ", $fmt->($want), "\n";
     };
     my $inspect_has = sub {
@@ -774,6 +781,13 @@ frames_compare() {
       print "$what: узел ui.inspect $id не видим\n" unless $n->{visible};
     };
     my %zone_name = (left => "левой зоны", right => "правой зоны", center => "центра", bottom => "нижней зоны");
+    if (my $z = $f->{zoomed}) {
+      $inspect_has->("layout.zoom", $rect->($z->{frame}), "развёрнутая панель, плитка");
+      $inspect_has->("layout.zoom.tabs", $rect->($z->{tab_strip}), "развёрнутая панель, строка вкладок");
+      $inspect_has->("layout.panel.$z->{active}", $rect->($z->{body}), "развёрнутая панель, тело");
+      $ax_has->("AXTabGroup", "Вкладки развёрнутой панели", $rect->($z->{tab_strip}), "развёрнутая панель, строка вкладок");
+      $ax_has->("AXGroup", $title{$z->{active}} // "?", $rect->($z->{body}), "развёрнутая панель, тело");
+    }
     my %count;
     $count{$_->{zone}}++ for @{$f->{parts}};
     for my $p (@{$f->{parts}}) {
@@ -1119,11 +1133,12 @@ item_move_cli() {
   conclude "$item" "panel move --zone right: панель $term в правой зоне с прежним PanelId и фокусом, ComponentId вида прежний ($component), созданных ShellioPanelView не прибавилось ($before), кадры совпали"
 }
 
-# Кадр части zone.index из query.layout: поле field кадра (x, y, width, height).
+# Кадр части zone.index из query.layout: поле field (x, y, width, height) прямоугольника rect части — frame (по
+# умолчанию), body или tab_strip.
 part_field() {
-  /usr/bin/perl -MJSON::PP -e 'my ($zone, $index, $field) = @ARGV; local $/;
+  /usr/bin/perl -MJSON::PP -e 'my ($zone, $index, $field, $rect) = @ARGV; local $/;
     my ($p) = grep { $_->{zone} eq $zone && $_->{index} == $index } @{JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{frames}{parts}};
-    print defined $p ? "$p->{frame}{$field}\n" : "?\n"' "$2" "$3" "$4" <"$1"
+    print defined $p ? $p->{$rect}{$field} . "\n" : "?\n"' "$2" "$3" "$4" "${5:-frame}" <"$1"
 }
 
 # Кадры query.layout каноническим JSON.
@@ -1174,7 +1189,7 @@ press_button() {
     const w = se.processes.whose({unixId: $pid})[0].windows[0];
     w.buttons.whose({description: '$label'})[0].actions.byName('AXPress').perform();
     'pressed'" >"$out.stdout" 2>"$out.stderr" || {
-    WHY="AXPress кнопки «$label» не выполнен: $(oneline "$out.stderr")"
+    WHY="AXPress кнопки «${label}» не выполнен: $(oneline "$out.stderr")"
     return 1
   }
 }
@@ -1187,9 +1202,163 @@ press_view_item() {
     const p = se.processes.whose({unixId: $pid})[0];
     p.menuBars[0].menuBarItems.byName('Вид').menus[0].menuItems.byName('$title').click();
     'clicked'" >"$out.stdout" 2>"$out.stderr" || {
-    WHY="пункт «$title» меню «Вид» не выбран: $(oneline "$out.stderr")"
+    WHY="пункт «${title}» меню «Вид» не выбран: $(oneline "$out.stderr")"
     return 1
   }
+}
+
+# Строка вкладок окна по описанию: обход дерева AX до глубины 12, внутрь групп вкладок не заходит. Режим press —
+# AXPress кнопки строки, описание которой начинается с prefix; режим list — JSON кнопок строки {description, help}.
+AX_STRIP_JS='function run(argv) {
+  const [mode, pid, strip, prefix] = argv;
+  const se = Application("System Events");
+  const w = se.processes.whose({unixId: Number(pid)})[0].windows[0];
+  const prop = (f) => { try { const v = f(); return v === undefined ? null : v; } catch (x) { return null; } };
+  let found = null;
+  function walk(e, depth) {
+    if (found) return;
+    const role = prop(() => e.role());
+    if (role === "AXTabGroup") {
+      if (prop(() => e.description()) === strip) found = e;
+      return;
+    }
+    if (depth >= 12) return;
+    let kids = [];
+    try { kids = e.uiElements(); } catch (x) {}
+    for (const k of kids) walk(k, depth + 1);
+  }
+  walk(w, 0);
+  if (!found) throw new Error("нет строки вкладок «" + strip + "»");
+  const buttons = found.buttons().map((b) => ({ element: b, description: prop(() => b.description()) || "",
+    help: prop(() => b.help()) }));
+  if (mode === "list") return JSON.stringify(buttons.map((b) => ({ description: b.description, help: b.help })));
+  const hit = buttons.find((b) => b.description.startsWith(prefix));
+  if (!hit) throw new Error("нет кнопки «" + prefix + "» в строке «" + strip + "»");
+  hit.element.actions.byName("AXPress").perform();
+  return "pressed " + hit.description;
+}'
+
+# Описание строки вкладок части index зоны zone из count частей, как его задаёт адаптер.
+strip_label() {
+  local zone="$1" index="$2" count="$3" name
+  case "$zone" in
+    left) name="левой зоны" ;;
+    right) name="правой зоны" ;;
+    center) name="центра" ;;
+    bottom) name="нижней зоны" ;;
+  esac
+  if ((count > 1)); then
+    printf 'Вкладки %s, часть %s\n' "$name" $((index + 1))
+  else
+    printf 'Вкладки %s\n' "$name"
+  fi
+}
+
+# AXPress кнопки prefix строки вкладок strip окна владельца pid; иначе WHY.
+strip_press() {
+  local pid="$1" strip="$2" prefix="$3" out="$4"
+  WHY=""
+  osascript -l JavaScript -e "$AX_STRIP_JS" press "$pid" "$strip" "$prefix" >"$out.stdout" 2>"$out.stderr" || {
+    WHY="AXPress кнопки «${prefix}» строки «${strip}» не выполнен: $(oneline "$out.stderr")"
+    return 1
+  }
+}
+
+# Кнопки строки вкладок strip окна владельца pid по AX в <out>.json; иначе WHY.
+strip_buttons() {
+  local pid="$1" strip="$2" out="$3"
+  WHY=""
+  osascript -l JavaScript -e "$AX_STRIP_JS" list "$pid" "$strip" >"$out.json" 2>"$out.stderr" || {
+    WHY="кнопки строки «${strip}» по AX не прочитаны: $(oneline "$out.stderr")"
+    return 1
+  }
+}
+
+# Клавиша key code через System Events; журнал — <out>.
+se_key() {
+  printf '%s key code %s\n' "$(now_ms)" "$1" >>"$2"
+  osascript -e "tell application \"System Events\" to key code $1" >>"$2" 2>&1
+}
+
+# Опрос ui.inspect до состояния выбора «Открыть в новой части»: layout.picker open — want; последнее чтение —
+# <prefix>.stdout, иначе WHY.
+wait_picker() {
+  local state="$1" prefix="$2" want="$3" deadline seen=""
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$state" "$prefix" inspect; then
+      seen="$(comp "$prefix.stdout" layout.picker state.menu.open || echo ?)"
+      [[ "$seen" == "$want" ]] && return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс layout.picker open — ${seen:-?}, а не $want"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Открытый выбор закрывается Escape: путь отказа пункта не оставляет меню следующему.
+close_picker() {
+  local state="$1" dir="$2"
+  ui_read "$state" "$dir/picker-left" inspect || return 0
+  [[ "$(comp "$dir/picker-left.stdout" layout.picker state.menu.open || echo false)" == true ]] || return 0
+  se_key "$KEY_ESC" "$dir/keys.log" || true
+  wait_picker "$state" "$dir/picker-closed" false || true
+}
+
+# Опрос ui.inspect до видимого сообщения строки статуса; текст — в STATUS_TEXT, последнее чтение — <prefix>.stdout,
+# иначе WHY.
+wait_status() {
+  local state="$1" prefix="$2" deadline
+  WHY=""
+  STATUS_TEXT=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$state" "$prefix" inspect &&
+      [[ "$(comp "$prefix.stdout" status.message visible || echo ?)" == true ]]; then
+      STATUS_TEXT="$(comp "$prefix.stdout" status.message label || echo null)"
+      [[ -n "$STATUS_TEXT" && "$STATUS_TEXT" != null ]] && return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс строка статуса не показала сообщение"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+STATUS_TEXT=""
+
+# Прямоугольник по пути path query.layout равен области зон с отступом GAP со всех сторон в пределах допуска.
+fills_area() {
+  /usr/bin/perl -MJSON::PP -e 'my ($path, $gap, $tol) = @ARGV; local $/;
+    my $f = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{frames};
+    my $r = $f; $r = ref $r eq "HASH" ? $r->{$_} : undef for split /\./, $path;
+    my $a = $f->{area};
+    exit 1 unless ref $r eq "HASH";
+    my @want = ($a->{x} + $gap, $a->{y} + $gap, $a->{width} - 2 * $gap, $a->{height} - 2 * $gap);
+    my @got = ($r->{x}, $r->{y}, $r->{width}, $r->{height});
+    for my $k (0 .. 3) { exit 1 if abs($got[$k] - $want[$k]) > $tol }' "$2" "$GAP" "$FRAME_TOLERANCE" <"$1"
+}
+
+# Вкладки части zone.index раскладки query.layout: id через пробел.
+tabs_of() {
+  /usr/bin/perl -MJSON::PP -e 'my ($zone, $index) = @ARGV; local $/;
+    my $p = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{layout}{zones}{$zone}{parts}[$index];
+    print $p ? join(" ", @{$p->{tabs}}) : "?", "\n"' "$2" "$3" <"$1"
+}
+
+# Активная вкладка части zone.index раскладки query.layout.
+active_of() {
+  /usr/bin/perl -MJSON::PP -e 'my ($zone, $index) = @ARGV; local $/;
+    my $p = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{layout}{zones}{$zone}{parts}[$index];
+    print $p ? $p->{tabs}[$p->{active}] // "?" : "?", "\n"' "$2" "$3" <"$1"
+}
+
+# Число частей зоны раскладки query.layout.
+parts_count() {
+  lv "$1" "layout.zones.$2.parts[#]" || echo ?
 }
 
 # Деление центра, перетаскивание разделителя между его частями CGEvent, скрытие и показ правой зоны.
@@ -1295,15 +1464,15 @@ toggle_pair() {
       return 0
     }
     wait_layout "$profile" "$dir/$name.$round.layout" "$wb" "layout.hidden.$field" "$want" || {
-      failures+=("$how «$label», $round: $WHY")
+      failures+=("$how «${label}», $round: $WHY")
       return 0
     }
   done
   [[ "$(lv "$dir/$name.show.layout.stdout" layout.sizes)" == "$before" ]] ||
-    failures+=("$how «$label»: размеры после показа $(lv "$dir/$name.show.layout.stdout" layout.sizes), до — $before")
+    failures+=("$how «${label}»: размеры после показа $(lv "$dir/$name.show.layout.stdout" layout.sizes), до — $before")
   frames_canon "$dir/$name.show.layout.stdout" >"$dir/$name.shown.frames.json"
   cmp -s "$dir/$name.base.frames.json" "$dir/$name.shown.frames.json" ||
-    failures+=("$how «$label»: кадры после показа другие ($name.base.frames.json, $name.shown.frames.json)")
+    failures+=("$how «${label}»: кадры после показа другие ($name.base.frames.json, $name.shown.frames.json)")
 }
 
 # Три кнопки зон ChromeBar и пункты меню «Вид» в двух конфигурациях: правая занята; правая пуста, плитка занята.
@@ -1347,21 +1516,439 @@ item_hide_zones() {
   conclude "$item" "кнопки «Навигация», «Нижняя зона», «Правая зона» и те же пункты меню «Вид» скрывают и показывают колонку навигатора, нижнюю и правую зоны; при пустой правой и занятой плитке третья кнопка и пункт «Левая зона» скрывают и показывают плитку; размеры и кадры после показа прежние"
 }
 
-# Перенос, изменение размера CLI и перетаскиванием, скрытие и фокус → app quit → новый запуск на том же профиле.
-item_restore_cold() {
-  local item=restore-cold dir="$run/restore-cold" other focus before after
+# Единственная вкладка центра уходит в нижнюю зону: центра нет, нижняя зона на всю высоту столбца, пустой рамки и
+# сообщения «Нет открытых панелей» нет. Затем панель возвращается в центр.
+item_center_empty() {
+  local item=center-empty dir="$run/center-empty" panel
   failures=()
   log "== $item"
+  layout_get "$profile" "$dir/start" "$wb" || fatal "$item: query.layout не прочитан"
+  [[ "$(parts_count "$dir/start.stdout" center)" == 1 && "$(lv "$dir/start.stdout" 'layout.zones.center.parts[0].tabs[#]')" == 1 ]] ||
+    fatal "условие пункта: в центре не одна часть с одной вкладкой: $(lv "$dir/start.stdout" layout.zones.center)"
+  panel="$(lv "$dir/start.stdout" 'layout.zones.center.parts[0].tabs[0]')"
+  core_cmd "$profile" "$dir/move" panel move "$panel" --zone bottom --workspace "$ws" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  settle_layout "$profile" "$dir/settle" "$wb" "$REV" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" empty "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(parts_count "$dir/empty.layout.stdout" center)" == 0 ]] ||
+    failures+=("в центре осталось частей: $(parts_count "$dir/empty.layout.stdout" center)")
+  [[ "$(place_of "$dir/empty.layout.stdout" "$panel")" == bottom.* ]] ||
+    failures+=("панель $panel в $(place_of "$dir/empty.layout.stdout" "$panel"), а не в нижней зоне")
+  [[ "$(lv "$dir/empty.layout.stdout" frames.zones.center)" == null ]] ||
+    failures+=("кадр центра есть: $(lv "$dir/empty.layout.stdout" frames.zones.center)")
+  [[ "$(lv "$dir/empty.layout.stdout" frames.no_panels)" == null ]] ||
+    failures+=("место «Нет открытых панелей» есть: $(lv "$dir/empty.layout.stdout" frames.no_panels)")
+  local column bottom
+  column="$(lv "$dir/empty.layout.stdout" frames.zones.column || echo null)"
+  bottom="$(lv "$dir/empty.layout.stdout" frames.zones.bottom || echo null)"
+  [[ "$column" != null && "$column" == "$bottom" ]] ||
+    failures+=("нижняя зона $bottom не равна столбцу $column")
+  /usr/bin/perl -Mutf8 -MJSON::PP -e 'local $/; my $a = JSON::PP->new->utf8->decode(<STDIN>);
+    exit(grep({ ($_->{role} // "") eq "AXTabGroup" && ($_->{description} // "") =~ /^Вкладки центра/ } @{$a->{elements}}) ? 1 : 0)' \
+    <"$dir/empty.ax.json" || failures+=("AX: строка вкладок центра осталась")
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $i = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{inspect};
+    my @left = grep { $_->{visible} && ($_->{id} =~ /^layout\.part\.center\./ || $_->{id} eq "layout.split.center") } @{$i->{components}};
+    print join(" ", map { $_->{id} } @left), "\n"; exit(@left ? 1 : 0)' <"$dir/empty.inspect.stdout" >"$dir/left.txt" ||
+    failures+=("ui.inspect: видимые узлы центра $(oneline "$dir/left.txt")")
+  [[ "$(comp "$dir/empty.inspect.stdout" layout.note visible || echo false)" != true ]] ||
+    failures+=("сообщение $(comp "$dir/empty.inspect.stdout" layout.note label) видимо")
+  [[ -z "$FRAMES" ]] || failures+=("кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  core_cmd "$profile" "$dir/back" panel move "$panel" --zone center --workspace "$ws" || fatal "$item: $WHY"
+  settle_layout "$profile" "$dir/settle-back" "$wb" "$REV" || fatal "$item: $WHY"
+  conclude "$item" "единственная вкладка центра $panel перенесена в нижнюю зону: частей и кадра центра нет, нижняя зона равна столбцу по query.layout, строки вкладок центра нет по AX, видимых узлов центра нет по ui.inspect, сообщения «Нет открытых панелей» нет, кадры совпали; затем панель возвращена в центр"
+}
+
+# Окно 1180×720, правая зона открыта, центр — одна часть: деление центра даёт две части не меньше min_size.
+item_split_two_fit() {
+  local item=split-two-fit dir="$run/split-two-fit" panel width w0 w1
+  failures=()
+  log "== $item"
+  read_all "$profile" "$dir" before "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(lv "$dir/before.layout.stdout" frames.zones.right || echo null)" != null && "$(parts_count "$dir/before.layout.stdout" center)" == 1 ]] ||
+    fatal "условие пункта: правая зона не показана или в центре не одна часть"
+  width="$(part_field "$dir/before.layout.stdout" center 0 width)"
+  panel="$(active_of "$dir/before.layout.stdout" center 0)"
+  core_cmd "$profile" "$dir/split" layout split "$panel" --open terminal --workspace "$ws" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  settle_layout "$profile" "$dir/settle" "$wb" "$REV" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" split "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(parts_count "$dir/split.layout.stdout" center)" == 2 ]] ||
+    failures+=("в центре частей $(parts_count "$dir/split.layout.stdout" center), а не 2")
+  w0="$(part_field "$dir/split.layout.stdout" center 0 width body)"
+  w1="$(part_field "$dir/split.layout.stdout" center 1 width body)"
+  awk -v a="$w0" -v b="$w1" -v m="$MIN_W" 'BEGIN { exit !(a >= m && b >= m) }' ||
+    failures+=("тела частей $w0 и $w1 точек, нужно не меньше $MIN_W")
+  [[ -z "$FRAMES" ]] || failures+=("кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  conclude "$item" "центр $width точек при открытой правой зоне в окне ${WINDOW_W}×${WINDOW_H}, layout split --open terminal: две части центра с телами $w0 и $w1 точек (не меньше $MIN_W), кадры совпали"
+}
+
+# Деление половины центра после split-two-fit: отказ split_no_room с размерами, раскладка не изменилась, строка
+# статуса называет нужный размер. Вторая вкладка в половине — панель нижней зоны: кнопка «Разделить» части с одной
+# вкладкой открыла бы выбор вместо деления.
+item_split_refused() {
+  local item=split-refused dir="$run/split-refused" anchor guest active width rev code=0 strip
+  failures=()
+  log "== $item"
+  layout_get "$profile" "$dir/start" "$wb" || fatal "$item: query.layout не прочитан"
+  [[ "$(parts_count "$dir/start.stdout" center)" == 2 && "$(parts_count "$dir/start.stdout" bottom)" == 1 ]] ||
+    fatal "условие пункта: в центре не две части или в нижней зоне не одна: $(lv "$dir/start.stdout" layout.zones)"
+  anchor="$(active_of "$dir/start.stdout" center 1)"
+  guest="$(active_of "$dir/start.stdout" bottom 0)"
+  core_cmd "$profile" "$dir/guest" panel move-part "$guest" --to "$anchor" --workspace "$ws" || fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/settle" "$wb" "$REV" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" before "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  width="$(part_field "$dir/before.layout.stdout" center 1 width body)"
+  awk -v w="$width" -v m="$MIN_W" 'BEGIN { exit !(w / 2 < m) }' ||
+    fatal "условие пункта: тело второй части центра $width точек, половина не меньше $MIN_W"
+  [[ "$(lv "$dir/before.layout.stdout" 'layout.zones.center.parts[1].tabs[#]')" == 2 ]] ||
+    fatal "условие пункта: во второй части центра не две вкладки"
+  active="$(active_of "$dir/before.layout.stdout" center 1)"
+  rev="$(jv "$dir/before.layout.stdout" ok.revision)"
+  layout_canon "$dir/before.layout.stdout" >"$dir/before.canon.json"
+  ctl "$profile" "$dir/cli" --json --timeout "$CTL_TIMEOUT_MS" layout split "$active" --workspace "$ws" || code=$?
+  [[ $code == 1 ]] || failures+=("layout split: код $code, ожидался 1: $(oneline "$dir/cli.stdout")")
+  [[ "$(jv "$dir/cli.stdout" core_error.details.reason || echo нет)" == split_no_room ]] ||
+    failures+=("layout split: причина $(jv "$dir/cli.stdout" core_error.details.reason || echo нет), а не split_no_room")
+  /usr/bin/perl -MJSON::PP -e 'my ($w, $h) = @ARGV; local $/;
+    my $parts = JSON::PP->new->utf8->decode(<STDIN>)->{core_error}{details}{parts};
+    exit 1 unless ref $parts eq "ARRAY" && @$parts == 2;
+    for (@$parts) { exit 1 unless $_->{need}{width} == $w && $_->{need}{height} == $h && $_->{have}{width} < $w }' \
+    "$MIN_W" "$MIN_H" <"$dir/cli.stdout" ||
+    failures+=("layout split: в причине не две затронутые части с need ${MIN_W}×${MIN_H} и have меньше: $(jv "$dir/cli.stdout" core_error.details.parts || echo нет)")
+  strip="$(strip_label center 1 2)"
+  front_owner_ok "$dir" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  strip_press "$owner_pid" "$strip" "Разделить" "$dir/press" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  if wait_status "$profile" "$dir/status"; then
+    printf '%s\n' "$STATUS_TEXT" >"$dir/status.txt"
+    [[ "$STATUS_TEXT" == *"нужно ${MIN_W}×${MIN_H}"* ]] ||
+      failures+=("строка статуса не называет нужный размер ${MIN_W}×${MIN_H}: «${STATUS_TEXT}»")
+  else
+    failures+=("кнопка «Разделить»: $WHY")
+  fi
+  layout_get "$profile" "$dir/after" "$wb" || fatal "$item: query.layout не прочитан"
+  layout_canon "$dir/after.stdout" >"$dir/after.canon.json"
+  cmp -s "$dir/before.canon.json" "$dir/after.canon.json" ||
+    failures+=("раскладка после отказов изменилась: before.canon.json и after.canon.json")
+  [[ "$(jv "$dir/after.stdout" ok.revision)" == "$rev" ]] ||
+    failures+=("ревизия после отказов $(jv "$dir/after.stdout" ok.revision), до — $rev")
+  conclude "$item" "тело второй части центра $width точек (половина меньше $MIN_W): layout split — код 1, split_no_room с need ${MIN_W}×${MIN_H} и have двух затронутых частей; кнопка «Разделить» строки «${strip}» — строка статуса «${STATUS_TEXT}»; раскладка и ревизия $rev не изменились"
+}
+
+# Две части центра, фокус в левой, «Разделить» в правой: одна ревизия, фокус на панели правой части, правая часть
+# разделена. Правая зона скрывается, чтобы третьей части хватило места.
+item_split_button_unfocused() {
+  local item=split-button-unfocused dir="$run/split-button-unfocused" left active width rev tabs0 tabs1 rest strip
+  failures=()
+  log "== $item"
+  layout_get "$profile" "$dir/start" "$wb" || fatal "$item: query.layout не прочитан"
+  left="$(active_of "$dir/start.stdout" center 0)"
+  core_cmd "$profile" "$dir/hide" layout hide right --workbench "$wb" --workspace "$ws" || fatal "условие пункта: $WHY"
+  core_cmd "$profile" "$dir/focus" panel focus "$left" --workspace "$ws" || fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/settle" "$wb" "$REV" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" before "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(parts_count "$dir/before.layout.stdout" center)" == 2 && "$(lv "$dir/before.layout.stdout" 'layout.zones.center.parts[1].tabs[#]')" -ge 2 ]] ||
+    fatal "условие пункта: в центре не две части или во второй меньше двух вкладок: $(lv "$dir/before.layout.stdout" layout.zones.center)"
+  [[ "$(focus_of "$dir/before.layout.stdout")" == "$left" ]] || fatal "условие пункта: фокус не на панели левой части $left"
+  width="$(part_field "$dir/before.layout.stdout" center 1 width body)"
+  awk -v w="$width" -v m="$MIN_W" -v g="$GAP" 'BEGIN { exit !(w >= 2 * m + g + 4) }' ||
+    fatal "условие пункта: тело правой части центра $width точек, двум частям по $MIN_W не хватит"
+  active="$(active_of "$dir/before.layout.stdout" center 1)"
+  rev="$(jv "$dir/before.layout.stdout" ok.revision)"
+  tabs0="$(tabs_of "$dir/before.layout.stdout" center 0)"
+  tabs1="$(tabs_of "$dir/before.layout.stdout" center 1)"
+  rest="$(printf '%s\n' $tabs1 | grep -vx "$active" | tr '\n' ' ' | sed 's/ $//')"
+  strip="$(strip_label center 1 2)"
+  front_owner_ok "$dir" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  strip_press "$owner_pid" "$strip" "Разделить" "$dir/press" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_layout "$profile" "$dir/wait" "$wb" 'layout.zones.center.parts[#]' 3 || {
+    close_picker "$profile" "$dir"
+    record "$item" fail "кнопка «Разделить» строки «${strip}»: $WHY"
+    return 0
+  }
+  settle_layout "$profile" "$dir/settle-after" "$wb" $((rev + 1)) || fatal "$item: $WHY"
+  read_all "$profile" "$dir" after "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(jv "$dir/after.layout.stdout" ok.revision)" == $((rev + 1)) ]] ||
+    failures+=("ревизия $rev → $(jv "$dir/after.layout.stdout" ok.revision), ожидалась одна")
+  [[ "$(focus_of "$dir/after.layout.stdout")" == "$active" ]] ||
+    failures+=("фокус на $(focus_of "$dir/after.layout.stdout"), а не на панели правой части $active")
+  [[ "$(tabs_of "$dir/after.layout.stdout" center 0)" == "$tabs0" ]] ||
+    failures+=("левая часть: вкладки $(tabs_of "$dir/after.layout.stdout" center 0), было $tabs0")
+  [[ "$(tabs_of "$dir/after.layout.stdout" center 1)" == "$rest" ]] ||
+    failures+=("правая часть: вкладки $(tabs_of "$dir/after.layout.stdout" center 1), ожидалось $rest")
+  [[ "$(tabs_of "$dir/after.layout.stdout" center 2)" == "$active" ]] ||
+    failures+=("новая часть: вкладки $(tabs_of "$dir/after.layout.stdout" center 2), ожидалось $active")
+  [[ -z "$FRAMES" ]] || failures+=("кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  conclude "$item" "фокус на $left в левой части, «Разделить» строки «${strip}»: ревизия $rev → $((rev + 1)), фокус на $active, левая часть — $tabs0, правая — $rest, новая часть правее — $active; кадры совпали"
+}
+
+# «Разделить» при одной вкладке открывает выбор «Открыть в новой части»: Escape — частей столько же, повтор и
+# Return — новая часть с панелью terminal. Панель новой части split-button-unfocused уходит в нижнюю зону одной
+# вкладкой, правая зона показывается снова.
+item_split_single_picker() {
+  local item=split-single-picker dir="$run/split-single-picker" panel width rev strip terms fresh
+  failures=()
+  log "== $item"
+  layout_get "$profile" "$dir/start" "$wb" || fatal "$item: query.layout не прочитан"
+  panel="$(active_of "$dir/start.stdout" center 2)"
+  [[ "$panel" != "?" ]] || fatal "условие пункта: в центре нет третьей части"
+  core_cmd "$profile" "$dir/bottom" panel move "$panel" --zone bottom --workspace "$ws" || fatal "условие пункта: $WHY"
+  core_cmd "$profile" "$dir/show" layout show right --workbench "$wb" --workspace "$ws" || fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/settle" "$wb" "$REV" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" before "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(parts_count "$dir/before.layout.stdout" bottom)" == 1 && "$(tabs_of "$dir/before.layout.stdout" bottom 0)" == "$panel" ]] ||
+    fatal "условие пункта: в нижней зоне не одна часть с одной вкладкой $panel"
+  width="$(part_field "$dir/before.layout.stdout" bottom 0 width body)"
+  awk -v w="$width" -v m="$MIN_W" -v g="$GAP" 'BEGIN { exit !(w >= 2 * m + g + 4) }' ||
+    fatal "условие пункта: тело части нижней зоны $width точек, двум частям по $MIN_W не хватит"
+  rev="$(jv "$dir/before.layout.stdout" ok.revision)"
+  terms="$(panels_of "$dir/before.layout.stdout" terminal)"
+  strip="$(strip_label bottom 0 1)"
+  front_owner_ok "$dir" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  strip_press "$owner_pid" "$strip" "Разделить" "$dir/press-1" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_picker "$profile" "$dir/open-1" true || {
+    record "$item" fail "первое нажатие «Разделить»: $WHY"
+    return 0
+  }
+  [[ "$(comp "$dir/open-1.stdout" layout.picker state.menu.highlighted || echo ?)" == terminal ]] ||
+    failures+=("в выборе подсвечен $(comp "$dir/open-1.stdout" layout.picker state.menu.highlighted || echo ?), а не terminal")
+  se_key "$KEY_ESC" "$dir/keys.log" || failures+=("Escape не отправлен: $(oneline "$dir/keys.log")")
+  wait_picker "$profile" "$dir/closed" false || {
+    close_picker "$profile" "$dir"
+    record "$item" fail "Escape: $WHY"
+    return 0
+  }
+  layout_get "$profile" "$dir/escaped" "$wb" || fatal "$item: query.layout не прочитан"
+  [[ "$(parts_count "$dir/escaped.stdout" bottom)" == 1 ]] ||
+    failures+=("после Escape частей нижней зоны $(parts_count "$dir/escaped.stdout" bottom), а не 1")
+  [[ "$(jv "$dir/escaped.stdout" ok.revision)" == "$rev" ]] ||
+    failures+=("после Escape ревизия $(jv "$dir/escaped.stdout" ok.revision), до — $rev")
+  strip_press "$owner_pid" "$strip" "Разделить" "$dir/press-2" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_picker "$profile" "$dir/open-2" true || {
+    record "$item" fail "второе нажатие «Разделить»: $WHY"
+    return 0
+  }
+  se_key "$KEY_RETURN" "$dir/keys.log" || failures+=("Return не отправлен: $(oneline "$dir/keys.log")")
+  wait_layout "$profile" "$dir/wait" "$wb" 'layout.zones.bottom.parts[#]' 2 || {
+    close_picker "$profile" "$dir"
+    record "$item" fail "Return: $WHY"
+    return 0
+  }
+  settle_layout "$profile" "$dir/settle-after" "$wb" "$(jv "$dir/wait.stdout" ok.revision)" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" after "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  fresh="$(tabs_of "$dir/after.layout.stdout" bottom 1)"
+  [[ "$(tabs_of "$dir/after.layout.stdout" bottom 0)" == "$panel" ]] ||
+    failures+=("исходная часть: вкладки $(tabs_of "$dir/after.layout.stdout" bottom 0), ожидалось $panel")
+  [[ "$fresh" != *" "* && " $terms " != *" $fresh "* && " $(panels_of "$dir/after.layout.stdout" terminal) " == *" $fresh "* ]] ||
+    failures+=("в новой части не одна новая панель terminal: «${fresh}»")
+  [[ "$(focus_of "$dir/after.layout.stdout")" == "$fresh" ]] ||
+    failures+=("фокус на $(focus_of "$dir/after.layout.stdout"), а не на новой панели $fresh")
+  [[ "$(comp "$dir/after.inspect.stdout" layout.picker state.menu.open || echo ?)" == false ]] ||
+    failures+=("выбор после Return не закрыт")
+  [[ -z "$FRAMES" ]] || failures+=("кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  conclude "$item" "«Разделить» строки «${strip}» при одной вкладке открыл выбор с подсвеченным terminal; Escape закрыл его без новой части и ревизии ($rev); повтор и Return дали новую часть нижней зоны с новой панелью terminal $fresh и фокусом на ней, кадры совпали"
+}
+
+# Нижняя зона из двух частей с фокусом: layout only показывает только её на всю область, повтор возвращает прежнее
+# скрытие и кадры.
+item_only_bottom() {
+  local item=only-bottom dir="$run/only-bottom" hidden
+  failures=()
+  log "== $item"
+  read_all "$profile" "$dir" before "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(parts_count "$dir/before.layout.stdout" bottom)" == 2 ]] ||
+    fatal "условие пункта: в нижней зоне частей $(parts_count "$dir/before.layout.stdout" bottom), а не 2"
+  [[ "$(place_of "$dir/before.layout.stdout" "$(focus_of "$dir/before.layout.stdout")")" == bottom.* ]] ||
+    fatal "условие пункта: фокус не в нижней зоне"
+  hidden="$(lv "$dir/before.layout.stdout" layout.hidden)"
+  frames_canon "$dir/before.layout.stdout" >"$dir/before.frames.json"
+  core_cmd "$profile" "$dir/only" layout only --workbench "$wb" --workspace "$ws" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  settle_layout "$profile" "$dir/settle" "$wb" "$REV" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" only "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(lv "$dir/only.layout.stdout" layout.only)" == bottom ]] ||
+    failures+=("layout.only — $(lv "$dir/only.layout.stdout" layout.only), а не bottom")
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $p = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{frames}{parts};
+    exit !(@$p == 2 && !grep { $_->{zone} ne "bottom" } @$p)' <"$dir/only.layout.stdout" ||
+    failures+=("показаны не только две части нижней зоны: $(lv "$dir/only.layout.stdout" 'frames.parts[#]') частей")
+  fills_area "$dir/only.layout.stdout" zones.bottom ||
+    failures+=("нижняя зона $(lv "$dir/only.layout.stdout" frames.zones.bottom) не занимает область зон $(lv "$dir/only.layout.stdout" frames.area)")
+  [[ "$(lv "$dir/only.layout.stdout" frames.navigator)" == null ]] || failures+=("колонка навигатора показана")
+  [[ "$(lv "$dir/only.layout.stdout" layout.hidden)" == "$hidden" ]] || failures+=("layout only изменил скрытие")
+  [[ -z "$FRAMES" ]] || failures+=("кадры при only: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  core_cmd "$profile" "$dir/again" layout only --workbench "$wb" --workspace "$ws" || {
+    record "$item" fail "повтор: $WHY"
+    return 0
+  }
+  settle_layout "$profile" "$dir/settle-again" "$wb" "$REV" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" again "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(lv "$dir/again.layout.stdout" layout.only)" == null ]] || failures+=("повтор не снял only")
+  [[ "$(lv "$dir/again.layout.stdout" layout.hidden)" == "$hidden" ]] ||
+    failures+=("скрытие после повтора $(lv "$dir/again.layout.stdout" layout.hidden), до — $hidden")
+  frames_canon "$dir/again.layout.stdout" >"$dir/again.frames.json"
+  cmp -s "$dir/before.frames.json" "$dir/again.frames.json" ||
+    failures+=("кадры после повтора другие: before.frames.json и again.frames.json")
+  [[ -z "$FRAMES" ]] || failures+=("кадры после повтора: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  conclude "$item" "фокус в нижней зоне из двух частей, layout only: видны только обе части нижней зоны, зона — область зон с отступом $GAP, колонка навигатора скрыта, флаги скрытия прежние; повтор снял режим, скрытие и кадры прежние; кадры совпали с ui.inspect и AX"
+}
+
+# «Развернуть панель», затем «Вернуть раскладку»: панель на всю область зон без «Разделить», после возврата кадры
+# прежние, видов панели не создано.
+item_zoom_restore() {
+  local item=zoom-restore dir="$run/zoom-restore" panel count strip before after
+  failures=()
+  log "== $item"
+  read_all "$profile" "$dir" before "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  ui_read "$profile" "$dir/before.stats" stats || fatal "$item: ui.stats не прочитан"
+  before="$(created_of "$dir/before.stats.stdout" ShellioPanelView)"
+  panel="$(active_of "$dir/before.layout.stdout" center 0)"
+  count="$(parts_count "$dir/before.layout.stdout" center)"
+  strip="$(strip_label center 0 "$count")"
+  frames_canon "$dir/before.layout.stdout" >"$dir/before.frames.json"
+  front_owner_ok "$dir" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  strip_press "$owner_pid" "$strip" "Развернуть панель" "$dir/zoom" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_layout "$profile" "$dir/wait-zoom" "$wb" layout.zoomed "$panel" || {
+    record "$item" fail "«Развернуть панель» строки «${strip}»: $WHY"
+    return 0
+  }
+  settle_layout "$profile" "$dir/settle-zoom" "$wb" "$(jv "$dir/wait-zoom.stdout" ok.revision)" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" zoomed "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  fills_area "$dir/zoomed.layout.stdout" zoomed.frame ||
+    failures+=("развёрнутая плитка $(lv "$dir/zoomed.layout.stdout" frames.zoomed.frame) не занимает область зон $(lv "$dir/zoomed.layout.stdout" frames.area)")
+  [[ "$(lv "$dir/zoomed.layout.stdout" 'frames.parts[#]')" == 0 ]] ||
+    failures+=("при развёрнутой панели показаны части: $(lv "$dir/zoomed.layout.stdout" 'frames.parts[#]')")
+  [[ "$(comp "$dir/zoomed.inspect.stdout" layout.zoom.tabs 'state.tab_strip.buttons[id=split]' 2>/dev/null || echo нет)" == нет ]] ||
+    failures+=("ui.inspect: у развёрнутой строки есть кнопка split")
+  strip_buttons "$owner_pid" "Вкладки развёрнутой панели" "$dir/zoomed.buttons" || failures+=("$WHY")
+  if [[ -s "$dir/zoomed.buttons.json" ]]; then
+    /usr/bin/perl -Mutf8 -MJSON::PP -e 'local $/; my $b = JSON::PP->new->utf8->decode(<STDIN>);
+      exit !(!grep({ $_->{description} =~ /^Разделить/ } @$b) && grep({ $_->{description} eq "Вернуть раскладку" } @$b))' \
+      <"$dir/zoomed.buttons.json" ||
+      failures+=("AX развёрнутой строки: есть «Разделить» или нет «Вернуть раскладку»: $(oneline "$dir/zoomed.buttons.json")")
+  fi
+  [[ -z "$FRAMES" ]] || failures+=("кадры развёрнутой панели: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  strip_press "$owner_pid" "Вкладки развёрнутой панели" "Вернуть раскладку" "$dir/restore" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_layout "$profile" "$dir/wait-restore" "$wb" layout.zoomed null || {
+    record "$item" fail "«Вернуть раскладку»: $WHY"
+    return 0
+  }
+  settle_layout "$profile" "$dir/settle-restore" "$wb" "$(jv "$dir/wait-restore.stdout" ok.revision)" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" restored "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  frames_canon "$dir/restored.layout.stdout" >"$dir/restored.frames.json"
+  cmp -s "$dir/before.frames.json" "$dir/restored.frames.json" ||
+    failures+=("кадры после «Вернуть раскладку» другие: before.frames.json и restored.frames.json")
+  ui_read "$profile" "$dir/after.stats" stats || fatal "$item: ui.stats не прочитан"
+  after="$(created_of "$dir/after.stats.stdout" ShellioPanelView)"
+  [[ "$before" == "$after" ]] || failures+=("создано видов панели ShellioPanelView: $before → $after")
+  [[ -z "$FRAMES" ]] || failures+=("кадры после возврата: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  conclude "$item" "«Развернуть панель» строки «${strip}»: панель $panel на всю область зон с отступом $GAP, частей не показано, «Разделить» нет ни в ui.inspect, ни по AX; «Вернуть раскладку» вернул кадры побайтно, созданных ShellioPanelView не прибавилось ($before), кадры совпали с ui.inspect и AX"
+}
+
+# Кнопки строк вкладок центра и правой зоны по AX и ui.inspect: название — действие, AXHelp — «Клавиша не
+# назначена», значок «Разделить» соответствует оси зоны.
+item_tooltips_ax() {
+  local item=tooltips-ax dir="$run/tooltips-ax" zone strip axis want symbols="" symbol
+  failures=()
+  log "== $item"
+  read_all "$profile" "$dir" now "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  for zone in center right; do
+    [[ "$(parts_count "$dir/now.layout.stdout" "$zone")" -ge 1 && "$(lv "$dir/now.layout.stdout" "frames.zones.$zone" || echo null)" != null ]] ||
+      fatal "условие пункта: зона $zone не показана"
+    strip="$(strip_label "$zone" 0 "$(parts_count "$dir/now.layout.stdout" "$zone")")"
+    case "$zone" in
+      center) axis=columns want="Разделить: части рядом" symbol=rectangle.split.2x1 ;;
+      right) axis=rows want="Разделить: одна над другой" symbol=rectangle.split.1x2 ;;
+    esac
+    strip_buttons "$owner_pid" "$strip" "$dir/$zone.buttons" || {
+      failures+=("$WHY")
+      continue
+    }
+    /usr/bin/perl -CA -Mutf8 -MJSON::PP -e 'my ($want, $help) = @ARGV; local $/; my $b = JSON::PP->new->utf8->decode(<STDIN>);
+      my @names = map { $_->{description} } @$b;
+      my @bad = grep { ($_->{help} // "") ne $help } @$b;
+      exit !(join("|", @names) eq "$want|Развернуть панель|Действия панели" && !@bad)' "$want" "$NO_KEY" \
+      <"$dir/$zone.buttons.json" ||
+      failures+=("AX «${strip}»: кнопки $(oneline "$dir/$zone.buttons.json"), ожидались «${want}», «Развернуть панель», «Действия панели» с AXHelp «${NO_KEY}»")
+    local id="layout.part.$zone.0.tabs"
+    [[ "$(comp "$dir/now.inspect.stdout" "$id" state.tab_strip.axis || echo ?)" == "$axis" ]] ||
+      failures+=("ui.inspect $id: ось $(comp "$dir/now.inspect.stdout" "$id" state.tab_strip.axis || echo ?), а не $axis")
+    [[ "$(comp "$dir/now.inspect.stdout" "$id" 'state.tab_strip.buttons[id=split].symbol' || echo ?)" == "$symbol" ]] ||
+      failures+=("ui.inspect $id: значок «Разделить» $(comp "$dir/now.inspect.stdout" "$id" 'state.tab_strip.buttons[id=split].symbol' || echo ?), а не $symbol")
+    /usr/bin/perl -CA -MJSON::PP -e 'my ($id, $help) = @ARGV; local $/;
+      my ($n) = grep { $_->{id} eq $id } @{JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{inspect}{components}};
+      exit 1 unless $n;
+      for (@{$n->{state}{tab_strip}{buttons}}) { exit 1 unless $_->{help} eq $help && $_->{hint} eq "$_->{label}  $help" }' \
+      "$id" "$NO_KEY" <"$dir/now.inspect.stdout" ||
+      failures+=("ui.inspect $id: подсказка кнопки не «<действие>  ${NO_KEY}» или help не «${NO_KEY}»")
+    symbols="${symbols:+$symbols, }$zone — $(comp "$dir/now.inspect.stdout" "$id" 'state.tab_strip.buttons[id=split].symbol' || echo ?)"
+  done
+  [[ "$(comp "$dir/now.inspect.stdout" layout.part.center.0.tabs 'state.tab_strip.buttons[id=split].symbol' || echo a)" != "$(comp "$dir/now.inspect.stdout" layout.part.right.0.tabs 'state.tab_strip.buttons[id=split].symbol' || echo a)" ]] ||
+    failures+=("значок «Разделить» в центре и сбоку одинаковый")
+  conclude "$item" "строки вкладок центра и правой зоны: по AX кнопки «Разделить: части рядом» и «Разделить: одна над другой», «Развернуть панель», «Действия панели» с AXHelp «${NO_KEY}»; ui.inspect — подсказки «<действие>  ${NO_KEY}», значки «Разделить» по оси: $symbols"
+}
+
+# Перенос, изменение размера CLI и перетаскиванием, деление, скрытие, фокус и zoom → app quit → новый запуск на том же
+# профиле; затем «Вернуть раскладку» и сверка всех частей по AX.
+item_restore_cold() {
+  local item=restore-cold dir="$run/restore-cold" other side focus before after shown
+  failures=()
+  log "== $item"
+  layout_get "$profile" "$dir/start" "$wb" || fatal "$item: query.layout не прочитан"
+  other="$(active_of "$dir/start.stdout" center 0)"
+  side="$(active_of "$dir/start.stdout" right 0)"
+  [[ "$other" != "?" && "$side" != "?" ]] || fatal "условие пункта: нет части центра или правой зоны"
   core_cmd "$profile" "$dir/resize" layout resize --zone right --workbench "$wb" "$RESIZE_RIGHT" --workspace "$ws" || {
     record "$item" fail "$WHY"
     return 0
   }
-  other="$(lv "$run/move-cli/moved.layout.stdout" 'layout.zones.center.parts[0].tabs[0]' || echo ?)"
+  core_cmd "$profile" "$dir/split" layout split "$side" --open terminal --workspace "$ws" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
   core_cmd "$profile" "$dir/focus" panel focus "$other" --workspace "$ws" || {
     record "$item" fail "$WHY"
     return 0
   }
   core_cmd "$profile" "$dir/hide" layout hide bottom --workbench "$wb" --workspace "$ws" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  core_cmd "$profile" "$dir/zoom" layout zoom "$other" --workspace "$ws" || {
     record "$item" fail "$WHY"
     return 0
   }
@@ -1372,6 +1959,10 @@ item_restore_cold() {
     failures+=("layout hide bottom: нижняя зона не скрыта")
   [[ "$(lv "$dir/before.layout.stdout" layout.sizes.right)" == "$RESIZE_RIGHT" ]] ||
     failures+=("layout resize: размер правой зоны $(lv "$dir/before.layout.stdout" layout.sizes.right || echo ?)")
+  [[ "$(parts_count "$dir/before.layout.stdout" right)" == 2 ]] ||
+    failures+=("layout split: в правой зоне частей $(parts_count "$dir/before.layout.stdout" right), а не 2")
+  [[ "$(lv "$dir/before.layout.stdout" layout.zoomed)" == "$other" ]] ||
+    failures+=("layout zoom: развёрнута $(lv "$dir/before.layout.stdout" layout.zoomed), а не $other")
   focus="$(focus_of "$dir/before.layout.stdout")"
   [[ "$focus" == "$other" ]] || failures+=("panel focus: фокус на ${focus:-нет}, а не на $other")
   layout_canon "$dir/before.layout.stdout" >"$dir/before.canon.json"
@@ -1385,13 +1976,33 @@ item_restore_cold() {
     failures+=("раскладка после перезапуска не равна прежней побайтно: before.canon.json и after.canon.json")
   [[ "$(lv "$dir/after.layout.stdout" layout.hidden.bottom)" == true ]] ||
     failures+=("после перезапуска нижняя зона не скрыта")
+  [[ "$(lv "$dir/after.layout.stdout" layout.zoomed)" == "$other" ]] ||
+    failures+=("после перезапуска развёрнута $(lv "$dir/after.layout.stdout" layout.zoomed), а не $other")
   [[ "$(focus_of "$dir/after.layout.stdout")" == "$focus" ]] ||
     failures+=("фокус после перезапуска на $(focus_of "$dir/after.layout.stdout"), а не на $focus")
   [[ -z "$FRAMES" ]] || failures+=("после перезапуска кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
-  before="$(/usr/bin/perl -MJSON::PP -e 'local $/; print JSON::PP->new->utf8->canonical->encode(JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{frames})' <"$dir/before.layout.stdout")"
-  after="$(/usr/bin/perl -MJSON::PP -e 'local $/; print JSON::PP->new->utf8->canonical->encode(JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{frames})' <"$dir/after.layout.stdout")"
+  before="$(frames_canon "$dir/before.layout.stdout")"
+  after="$(frames_canon "$dir/after.layout.stdout")"
   [[ "$before" == "$after" ]] || failures+=("кадры query.layout после перезапуска другие")
-  conclude "$item" "перенос в правую зону, деление и перетаскивание разделителя центра, layout resize --zone right $RESIZE_RIGHT, скрытие нижней зоны и panel focus → app quit → запуск на том же профиле: раскладка и панели query.layout побайтно равны прежним, фокус на $focus, кадры query.layout равны прежним и совпали с ui.inspect и AX"
+  # Вернуть раскладку: все части под развёрнутой панелью сверяются по ui.inspect и AX.
+  front_owner_ok "$dir" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  strip_press "$owner_pid" "Вкладки развёрнутой панели" "Вернуть раскладку" "$dir/restore" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_layout "$profile" "$dir/wait-restore" "$wb" layout.zoomed null || {
+    record "$item" fail "«Вернуть раскладку» после перезапуска: $WHY"
+    return 0
+  }
+  settle_layout "$profile" "$dir/settle-restore" "$wb" "$(jv "$dir/wait-restore.stdout" ok.revision)" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" restored "$wb" "$owner_pid" || fatal "условие пункта: после возврата раскладки: $WHY"
+  shown="$(lv "$dir/restored.layout.stdout" 'frames.parts[#]' || echo ?)"
+  [[ "$shown" == 4 ]] || failures+=("после возврата раскладки показано частей $shown, ожидалось 4 (две центра, две правой зоны)")
+  [[ -z "$FRAMES" ]] || failures+=("после возврата раскладки кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  conclude "$item" "перенос, деление центра и правой зоны, перетаскивание разделителя, layout resize --zone right $RESIZE_RIGHT, скрытие нижней зоны, panel focus и layout zoom → app quit → запуск на том же профиле: раскладка и панели query.layout побайтно равны прежним, развёрнута и с фокусом $focus, кадры равны прежним и совпали с ui.inspect и AX; «Вернуть раскладку» — $shown частей, кадры каждой совпали с ui.inspect и AX"
 }
 
 # Профиль схемы v1 с открытой рабочей областью: раскладка по умолчанию сразу, те же PanelId после перезапуска.
@@ -1448,6 +2059,14 @@ item_layout_snapshot
 item_move_cli
 item_resize_drag
 item_hide_zones
+item_center_empty
+item_split_two_fit
+item_split_refused
+item_split_button_unfocused
+item_split_single_picker
+item_only_bottom
+item_zoom_restore
+item_tooltips_ax
 item_restore_cold
 # System Events разрешает элементы окна по имени процесса: при двух владельцах бандла AX читает чужое окно, поэтому
 # restore-legacy идёт при единственном живом владельце.
