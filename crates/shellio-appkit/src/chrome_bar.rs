@@ -423,7 +423,6 @@ impl ChromeBar {
         let view = self.view.view();
         let parts = view.ivars();
         let state = self.state();
-        let pressed = zone_pressed(&state);
         let mut nodes = vec![
             inspect::node(
                 "chrome",
@@ -456,17 +455,17 @@ impl ChromeBar {
             "chrome.zone.bottom",
             "chrome.zone.right",
         ];
-        for ((id, button), pressed) in zone_ids.into_iter().zip(&parts.zone_buttons).zip(pressed) {
-            let mut node = inspect::node(
+        // Нажатая кнопка — значение AX-переключателя, а не выбор: факта `selected` у неё нет, как
+        // и атрибута `AXSelected`, который с ним сверяет пункт `ax` E2E.
+        for (id, button) in zone_ids.into_iter().zip(&parts.zone_buttons) {
+            nodes.push(inspect::node(
                 id,
                 "ZoneButton",
                 ZONES,
                 button,
                 Some(button.isEnabled()),
                 None,
-            );
-            node.facts.selected = Some(pressed);
-            nodes.push(node);
+            ));
         }
         nodes.push(inspect::node(
             "chrome.appearance",

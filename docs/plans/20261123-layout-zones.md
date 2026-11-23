@@ -524,12 +524,56 @@ pub struct MinSize { pub width: f64, pub height: f64 }
 
 ### Task 14: Verify acceptance criteria
 
-- [ ] каждое условие «Готово, когда» сверено с пунктами матрицы и тестами
-- [ ] `make check` зелёный
-- [ ] полный `make e2e`: все обязательные пункты трёх сценариев `pass`, необязательные — с исходом и причиной; сырой выход в `target/e2e/layout/`
-- [ ] приёмочный проход исполнителя: итог по каждому пункту матрицы с путём к сырому артефакту записан в план
-- [ ] `make test-scripts` и `make link-audit` без регрессии
-- [ ] ➕ формальный `make e2e` рубежа 1 задачи 8 при выполненных предусловиях (AeroSpace выключен, латинский источник ввода, окно на экране, где `snapshot-*` `appkit.sh` проходят, например встроенном Display P3): в задаче 8 рубеж проверен только наблюдательной копией `layout.sh`, тёмная тема `layout-snapshot` там не судилась (экран Redmi 27 NU); заодно передача задачи 7 о размере окна в `layout-default`
+- [x] каждое условие «Готово, когда» сверено с пунктами матрицы и тестами
+- [x] `make check` зелёный
+- [x] полный `make e2e`: все обязательные пункты трёх сценариев `pass`, необязательные — с исходом и причиной; сырой выход в `target/e2e/layout/` — не автоматизируем в этом окружении (запущен AeroSpace, источник ввода `RussianWin`, единственный экран — внешний Redmi 27 NU 60 Гц, встроенного экрана нет), `pass` трёх сценариев не записан. Формальный прогон на итоговом коде: `single-instance.sh` — код 0, все обязательные пункты `pass` (`target/e2e/single-instance/20261123-164922-76517/`); `appkit.sh` — код 1, «предусловие: запущен оконный менеджер AeroSpace» до первого пункта (`target/e2e/appkit/20261123-164936-79009/`); `layout.sh` не запускался; итог цели 1. Остальное — приёмочный проход наблюдательными копиями ниже, формальный прогон — передача владельцу в Post-Completion
+- [x] приёмочный проход исполнителя: итог по каждому пункту матрицы с путём к сырому артефакту записан в план
+- [x] `make test-scripts` и `make link-audit` без регрессии
+- [x] ➕ формальный `make e2e` рубежа 1 задачи 8 при выполненных предусловиях (AeroSpace выключен, латинский источник ввода, окно на экране, где `snapshot-*` `appkit.sh` проходят, например встроенном Display P3): в задаче 8 рубеж проверен только наблюдательной копией `layout.sh`, тёмная тема `layout-snapshot` там не судилась (экран Redmi 27 NU); заодно передача задачи 7 о размере окна в `layout-default` — не автоматизируем по той же причине: предусловия не выполнены, встроенного экрана нет. Наблюдение: пункты рубежа 1 `layout-default`, `move-cli`, `restore-cold`, `restore-legacy` — `pass`, `layout-snapshot` — светлая тема и линии под вкладкой в обеих темах в допуске, тёмная не судится; окно 1180×720 в каждом чтении (`window_ok`), передача задачи 7 закрыта наблюдением. Формальный прогон — в Post-Completion, «Владелец»
+- Сверка «Готово, когда» (имена тестов проверены поиском в коде):
+  - колонка навигатора и центр, правая, нижняя зоны и плитка по первому действию, кадры в пределах 1 точки — пункты `layout-default`, `move-cli` (правая), `center-empty` (нижняя), `hide-zones` (плитка «Левая зона»), сверка кадров `query.layout`, `ui.inspect` и AX в каждом пункте; тесты `default_layout_has_navigator_column_and_focused_terminal`, `default_layout_small_window`, `default_layout_places_navigator_column_and_terminal_in_center`, `startup_gives_default_layout_to_each_workbench_in_one_record`, `query_layout_reads_frames_by_viewport`, `move_cli_moves_the_terminal_to_the_right_with_focus`, `center_empty_gives_the_column_to_the_bottom_zone`, `zone_buttons_follow_occupancy_and_visibility`;
+  - перенос CLI, меню «…» и перетаскиванием с прежними `PanelId`, фокусом и видом — `move-cli`, `move-menu-zone`, `move-menu-part`, `move-drag`, `move-drag-body` (`ComponentId` и `ui.stats`); тесты `move_menu_part_merges_the_single_tab_into_the_right_part`, `move_to_part_edges_follow_the_anchor`, `focus_follows_moved_panel`, `single_tab_of_first_part_moves_into_second_part_by_anchor`, `moving_a_tab_out_of_a_vanishing_part_reparents_the_same_views`, `menu_items_become_one_command_for_the_active_tab`, `drop_plan_targets_parts_and_edges_and_cancels_elsewhere`, `press_becomes_a_drag_only_after_the_threshold`;
+  - деление по оси зоны, выбор «Открыть в новой части», `Esc`, отказ с размерами в строке статуса, кнопка в части без фокуса — `split-two-fit`, `split-single-picker`, `split-refused`, `split-button-unfocused`, `tooltips-ax` (значок оси); тесты `split_side_by_side_moves_the_active_tab_right_and_keeps_focus`, `split_stacked_zone_moves_the_tab_below`, `split_two_fit_then_split_refused_with_need_and_have`, `split_button_in_an_unfocused_part_focuses_and_splits_in_one_step`, `explicit_target_in_unfocused_part_is_one_revision`, `split_needs_panel_opens_the_picker_instead_of_a_message`, `refusals_read_as_status_line_text`, `strip_buttons_become_one_command_with_an_explicit_target`, `tab_strips_keep_buttons_and_show_the_payload_whole_or_hidden`;
+  - `zoom` и «Вернуть раскладку», скрытие с прежними размерами, заглушка — `zoom-restore`, `only-bottom`, `hide-zones`, `resize-drag` (кадры после скрытия и показа), `stub-expand`; тесты `zoom_restore_returns_the_same_frames`, `only_bottom_and_back_restores_the_frames`, `hiding_the_focused_zone_moves_focus_and_show_never_refuses`, `resize_of_a_hidden_zone_is_checked_as_shown_and_keeps_it_hidden`, `hidden_zone_collapses_its_slot_and_hides_its_views`, `divider_drags_become_one_resize_command`, `stub_replaces_the_view_exactly_below_min_size_and_keeps_it_alive`, `stub_expand_keeps_the_split_and_zooms_the_stubbed_panel`;
+  - восстановление после `app quit` — `restore-cold`, `restore-legacy`; тесты `layout_survives_restart_on_same_database`, `reopen_restores_state_revision_and_tree`, `fixture_v1_migrates_and_start_gives_default_layouts_once`, `broken_layouts_are_found_and_rebuilt_from_panels_on_start`, `reset_after_restart_carries_full_layout`;
+  - `make check` зелёный (exit 0 до и после правки ниже); `make e2e` формально не пройден — ⚠️ ниже.
+- Приёмочный проход: наблюдательная копия `layout.sh` на бандле итогового кода (`target/e2e/layout/20261123-165339-97795/`, код 3; копия — `target/e2e-observe/layout-observe.sh`, отличие от `scripts/e2e/layout.sh` — только пути и проверки AeroSpace и источника ввода, не коммитится). Формально `layout.sh` не запускался: `make e2e` остановился на предусловии `appkit.sh`. Сырой выход каждого пункта — подкаталог с его именем.
+
+  | Пункт | Обязателен | Наблюдение | Сырой выход |
+  | --- | --- | --- | --- |
+  | `layout-default` | да | `pass` | `layout-default/` |
+  | `layout-snapshot` | да | не `pass`: светлая тема (3 участка) и линии под активной вкладкой в обеих темах в допуске; тёмная тема на этом экране не судится — тело части с фокусом `#111415` при `#101011`, находка экрана задачи 8 | `layout-snapshot/` |
+  | `move-cli` | да | `pass` | `move-cli/` |
+  | `move-menu-zone` | да | `pass` | `move-menu-zone/` |
+  | `move-menu-part` | да | `pass` | `move-menu-part/` |
+  | `move-drag` | да | `pass` | `move-drag/` |
+  | `move-drag-body` | да | `pass` | `move-drag-body/` |
+  | `center-empty` | да | `pass` | `center-empty/` |
+  | `resize-drag` | да | `pass` (ширина 336 при ожидании 337 ± 1) | `resize-drag/` |
+  | `split-two-fit` | да | `pass` (тела 275 и 275) | `split-two-fit/` |
+  | `split-button-unfocused` | да | `pass` | `split-button-unfocused/` |
+  | `split-single-picker` | да | `pass` | `split-single-picker/` |
+  | `split-refused` | да | `pass` | `split-refused/` |
+  | `stub-expand` | да | `pass` (тела 180, 180, 182) | `stub-expand/` |
+  | `zoom-restore` | да | `pass` | `zoom-restore/` |
+  | `only-bottom` | да | `pass` | `only-bottom/` |
+  | `hide-zones` | да | `pass` | `hide-zones/` |
+  | `tooltips-ax` | да | `pass` | `tooltips-ax/` |
+  | `restore-cold` | да | `pass` | `restore-cold/` |
+  | `restore-legacy` | да | `pass` | `restore-legacy/` |
+  | `voiceover-speech` | нет | `not_run`: речь VoiceOver автоматика не наблюдает | `voiceover-speech/` |
+  | `system-contrast` | нет | `not_run`: процесс не переключает Increase Contrast системы | `system-contrast/` |
+
+- Регрессия P1.2 и P1.3. `single-instance.sh` — формально, код 0 (выше). `appkit.sh` — наблюдательной копией тем же способом (`target/e2e-observe/appkit-observe.sh`, не коммитится) с `--single-instance` формального прогона: до правки ниже `target/e2e/appkit/20261123-163638-43237/`, на итоговом коде `target/e2e/appkit/20261123-164941-80251/`, оба — код 3. На итоговом коде `pass` все обязательные пункты, кроме перечисленных в ⚠️ об окружении ниже.
+- ⚠️ Решение исполнителя (непредвиденный выбор, ближайший к контракту провода и самый дешёвый): первый прогон копии `appkit.sh` дал `ax` — `fail`: «chrome.zone.left: selected в ui.inspect false, у System Events нет» у трёх кнопок зон. Причина — решение задачи 10: узлы `chrome.zone.*` получили факт `selected`, а пункт `ax` сверяет его с атрибутом `AXSelected`, которого у переключателя нет (нажатие — значение `AXValue` подроли `AXToggle`). Факт `selected` по проводу означает выбор (`ComponentView.selected`: «`None` — выбора у компонента нет»), поэтому он убран из узлов кнопок зон (`crates/shellio-appkit/src/chrome_bar.rs`); нажатое состояние остаётся значением AX-переключателя и заливкой, `layout.sh` его по `ui.inspect` не читал. Фраза задачи 10 «В `ui.inspect` — факт `selected` узлов `chrome.zone.*`» больше не действует. На итоговом коде `ax` — `pass`.
+- ⚠️ Пункты копии `appkit.sh`, отнесённые к окружению, с основаниями:
+  - `snapshot-dark`, `contrast-cells` (ячейка `dark-ic`: `#121517` при `#111213`), `appearance-live` (тёмная ячейка) — тот же сдвиг тона тёмной темы на 4 на экране Redmi 27 NU, что у `layout-snapshot` (находка задачи 8); светлые ячейки в допуске;
+  - `tabstrip-regimes` — «меню «…» полосы half не открылось за 3000 мс после AXPress» в обоих прогонах. Проба `target/e2e-observe/probe14-half-menu.sh` (галерея, тот же JXA): меню открывается в 5 из 5 попыток, но через 4,8–4,9 с после запуска `osascript`; проба `probe14-ax-time.sh`: обход дерева AX до группы «Вкладки половины центра» — 3,97 с на 77 элементов, до кнопки — ещё 0,69 с, а пункт ждёт 3000 мс от момента до нажатия. Проба `probe14-ax-call.sh`: один вызов AX у Finder стоит столько же, сколько у владельца (16,2 и 16,4 мс на элемент в галерее, 15,5 и 15,6 мс в обычном окне), то есть медленный AX — свойство машины в этом окружении, а не приложения. Путь меню «…» галереи P1.4 не менял: отложенное открытие было в P1.3;
+  - `window-cycle` — в прогоне на итоговом коде «цикл 2: окно видимо, key false», в прогоне до правки на том же коде окна — `pass`; ключевое окно при запущенном AeroSpace, правка ключевого окна не касается;
+  - `key-latency-120` — `not_run`: экран окна 60 Гц;
+  - `key-latency-60` — `fail` по правилу «Исход провала 16 мс» в обоих прогонах: блоки B — p95 20,36 и 20,95 мс, затем 21,75 и 19,41 мс. Это первый замер на экране 60 Гц: в P1.3 экрана 60 Гц не было, пункт получал `not_run`, поэтому базы для сравнения нет, а путь списка галереи P1.4 не менял. Замер сделан при невыполненных предусловиях (AeroSpace), вердикт пункта — формальный прогон, передача владельцу.
+- ⚠️ Для задачи 15: последнее условие «Готово, когда» формально не выполнено — `make e2e` в этом окружении все обязательные пункты трёх сценариев не даёт (предусловия и экран), пункты выше — наблюдение, а не формальный `pass`. Отметку строки P1.4 в дорожной карте и статус ADR-0009 задача 15 решает с учётом этого.
+- `make link-audit` — код 0, архив линкуется целиком, зависимостей 14, все в `/System` и `/usr/lib`. `make test-scripts` с OpenSSL 3.5 (`OPENSSL=/opt/homebrew/opt/openssl@3/bin/openssl`) — код 0: `test-publish` 72 проверки, `test-identity` 23 проверки.
 
 ### Task 15: [Final] Документы
 
@@ -553,3 +597,4 @@ pub struct MinSize { pub width: f64, pub height: f64 }
 - **P1.7** — открытие рабочей области из навигатора, настоящий навигатор в колонке.
 - **P2.2** — перенос поверхности libghostty между частями и зонами перестановкой родителя, вуаль над поверхностью, закрытие вида без остановки сессии.
 - **Владелец** — только если `restore-cold` или `move-drag` получат `fail` по причине AppKit, которую правило выбора не закрывает: вопрос с сырым выходом прогона.
+- **Владелец — формальный `make e2e`** (задача 14): исполнитель не смог выполнить предусловия — запущен AeroSpace, источник ввода `RussianWin`, единственный экран — внешний Redmi 27 NU 60 Гц. Нужен прогон с выключенным AeroSpace, латинским источником ввода и окном на встроенном экране Display P3 120 Гц. Он судит то, что задача 14 только наблюдала: `layout-snapshot` в тёмной теме, `snapshot-dark`, `contrast-cells`, `appearance-live`, `tabstrip-regimes` (обход AX в этом окружении — около 16 мс на элемент), `window-cycle`, `key-latency-120` и `key-latency-60` (на экране 60 Гц впервые `fail`, p95 блоков B 19,4–21,8 мс). Наблюдательные прогоны и пробы — `target/e2e/layout/20261123-165339-97795/`, `target/e2e/appkit/20261123-164941-80251/`, `target/e2e-observe/probe14-*`.
