@@ -280,6 +280,67 @@ CLI `shellioctl` (названия уточняются в P1.2):
 
 - Новый служебный вариант `gallery.list.ticks { enabled }` — такты `CADisplayLink` в серии задержки клавиш списка галереи, со следующего получения фокуса списком. По умолчанию и после `gallery.reset` такты выключены. Ответ — квитанция `accepted` с поколением, как у остальных `gallery.*`. Эталон `request.ui.gallery_list_ticks`, прежние эталоны не менялись. CLI — `shellioctl gallery list ticks <on|off>`, результат читается рядом тактов `ui.stats.key_latency.ticks` следующей серии ([ADR-0021](0021-testing.md), «Уточнено в P1.3: закрытие шага»).
 
+## Уточнено в P1.4 (планирование)
+
+Решение плана P1.4 `layout-zones` [дорожной карты](../roadmap.md), принятое при планировании 2026-11-23. Слой команд и транспорт не меняются, статус остаётся `Proposed` до P2.3. Модель раскладки и её правила записаны в [ADR-0009](0009-layout-and-zones.md), хранение — в [ADR-0018](0018-storage-and-config.md), разделы «Уточнено в P1.4 (планирование)».
+
+**Команды раскладки и панелей** — варианты `Command` ядра. Они меняют состояние и идут через актор. Кнопки, меню «…», главное меню и CLI, а с P1.6 клавиши и палитра вызывают одну и ту же команду.
+
+| Команда | CLI `shellioctl` | Имена в keymap |
+| --- | --- | --- |
+| `layout.split {panel, open?}` | `layout split <panel> [--open <plugin>]` | `layout.split` |
+| `panel.focus {panel}` или `{workbench?, direction}` | `panel focus <panel>` или `panel focus --dir h\|j\|k\|l` | `panel.focus.left`, `panel.focus.down`, `panel.focus.up`, `panel.focus.right` |
+| `panel.select {panel}` | `panel select <panel>` | `panel.select` |
+| `panel.move {panel, zone}` | `panel move <panel> --zone left\|right\|center\|bottom` | `panel.move.left`, `panel.move.down`, `panel.move.up`, `panel.move.right` |
+| `panel.move_part {panel, anchor, edge?}` | `panel move-part <panel> --to <anchor-panel> [--edge before\|after]` | `panel.move_part.next`, `panel.move_part.prev` |
+| `panel.close {panel}` | `panel close <panel>` | `panel.close` |
+| `layout.resize {workbench?, zone, part_of?, size}` | `layout resize --zone <z> [--part-of <panel>] <size>` | `layout.grow`, `layout.shrink`, `layout.wider`, `layout.narrower` |
+| `layout.equal {workbench?, zone}` | `layout equal --zone <z>` | `layout.equal` |
+| `layout.zoom {panel}` или `{workbench?, off}` | `layout zoom <panel>` или `layout zoom --off` | `layout.zoom` |
+| `layout.only {workbench?}` | `layout only` | `layout.only` |
+| `layout.visibility {workbench?, target, visible}` | `layout show\|hide navigator\|plate\|right\|bottom` | `layout.toggle.navigator`, `layout.toggle.plate`, `layout.toggle.right`, `layout.toggle.bottom` |
+
+- Имя команды на проводе пишется в `snake_case` после точки, как `window.focus_workspace`. `panel.move-part` из [ADR-0031](0031-zone-splits.md) — то же действие: дефис остаётся написанием CLI (`panel move-part`), а команда называется `panel.move_part`.
+- `direction` принимает `left`, `down`, `up` и `right` (в CLI `h`, `j`, `k`, `l`), `zone` — `left`, `right`, `center` и `bottom`. Имена `panel.move.*` (`Ctrl-w H/J/K/L`) переносят панель в левую, нижнюю, центральную и правую зону. Имена `panel.move_part.next` и `panel.move_part.prev` берут якорем активную вкладку соседней части вдоль оси зоны.
+- У `layout.resize` без `part_of` значение `size` — размер зоны в точках, с `part_of` — доля части этой панели в тысячных. Имена `layout.grow`, `layout.shrink`, `layout.wider` и `layout.narrower` (`Ctrl-w + - > <`) означают относительные шаги, шаг и пересчёт в `size` задаёт P1.6.
+- `layout.only` и имена `layout.toggle.*` переключают состояние, а CLI задаёт видимость явно (`show`, `hide`). Центр не скрывается и в цели `layout.visibility` не входит.
+- `off` у `layout.zoom` — `true`: снять разворот рабочей области.
+- Значение ответа — `null`, у `layout.split` с `open` — новая панель `{"panel":…}`. Новое значение отличается набором полей от значений P1.1, поэтому разбор `Reply` остаётся однозначным. Команда, которая раскладку не меняет (фокус уже на этой панели, вкладка уже активна), отвечает без новой ревизии и без события, как в P1.1.
+
+**Рабочая область команды.** Команда с панелью берёт рабочую область этой панели. Команда без панели берёт `workbench`, а без него — открытую рабочую область окна (`Route::Workbench`). Если открытой нет, команда отказывает `no_open_workbench`. Во всех вызовах CLI `--workbench <id>` задаёт рабочую область явно. Область запроса задаётся так же, как у остальных команд P1.2: `--workspace <id>` или `--all`.
+
+**Область доступа** ([ADR-0025](0025-workspaces-and-project-catalog.md)). Цель команды — `Target::Workbench` её рабочей области. Панель или рабочая область вне области доступа отвечает `not_found` так же, как несуществующая. Открытая рабочая область вне области доступа при запросе без `workbench` тоже даёт `not_found`, но её идентификатор не раскрывается: детали `entity: "workbench"` и `id: null`.
+
+**Чтение `query.layout {scope, workbench?}`.** Область задаётся внутри чтения, как у `query.tree`, рабочая область выбирается по тому же правилу, что у команд. Ответ — раскладка, панели рабочей области и `Frames` по текущему размеру окна, без размера — `frames: null`: `{"workbench":"…","layout":{…},"panels":[…],"frames":{…}}`. CLI — `shellioctl layout get [--workbench <id>]`, вывод — JSON.
+
+**Внутренний вход размера окна.** `CoreHandle::set_viewport` вызывает главный поток. Как и внутренних команд запуска P1.1, этого входа нет ни в протоколе, ни в `Command`. Вход не меняет ревизию и не порождает событий: кадры адаптер считает той же чистой функцией из зеркала и своего размера. Без размера (процесс без UI, `shellio-owner-fixture`) команды, которым нужно место (`layout.split` и `layout.resize`), отказывают `no_ui`, остальные выполняются. Тестовая поддержка задаёт размер явно.
+
+**Отказы.**
+
+- Новый код `CoreError` — `no_ui`, без повтора: команде нужно место, а размера окна у ядра нет. Имя и смысл совпадают с кодом транспорта `no_ui` из P1.3, но приходит он в кадре `core_error`. Код выхода `shellioctl` — 1.
+- В деталях `not_found` появляется новый вид записи — `panel`.
+- Новые причины `invalid_argument`. По образцу `position_exhausted` это отказы по состоянию с собственными деталями:
+
+| Причина | `field` | Детали | Когда |
+| --- | --- | --- | --- |
+| `split_needs_panel` | `open` | `panel` | деление одиночной вкладки без `open` |
+| `split_no_room` | `panel` | `parts: [{panel, need, have}]`, где `need` и `have` — `{width, height}` в точках | затронутая часть станет меньше `min_size` активной панели |
+| `navigator_not_splittable` | `panel` | — | деление панели в колонке навигатора |
+| `no_open_workbench` | `workbench` | — | нет ни `workbench`, ни открытой рабочей области |
+| `zone_empty` | `zone` или `target` | — | `layout.resize` и `layout.equal` для зоны без частей, `layout.visibility` для зоны без частей или пустой колонки навигатора |
+| `resize_out_of_range` | `size` | `min`, `max` в единицах запроса | размер вне границ правила «Размеры» ADR-0009 |
+| `plugin_invalid` | `open` | — | plugin id пустой, длиннее 64 символов или содержит символы вне `[a-z0-9-]` |
+
+Выбор кодов (`no_ui` как код ядра, отказы раскладки как причины `invalid_argument`, `zone_empty` для видимости, `plugin_invalid`) сделан исполнителем при записи этого раздела по правилу плана: ближайший к существующему контракту и самый дешёвый вариант.
+
+**События.** Новые варианты `Change`: `panel_add`, `panel_remove` и `layout_set`. Последний несёт раскладку рабочей области целиком. В снимок входят поля `panels` и `layouts`.
+
+**Протокол v2** (решение владельца 2026-11-23). Раскладка входит в `State`, поэтому меняется форма снимка и `reset`, а события получают новые варианты. `hello` P1.2 сверяет только число версии. `shellioctl` прежней сборки прошёл бы `hello` у нового владельца и потом отверг бы снимок или событие. Поэтому `PROTOCOL` становится 2: клиент и владелец разных версий расходятся на `hello` кодом `protocol_mismatch` до первой команды. Смешанные версии не поддерживаются. Это отменяет обещание раздела «Уточнено в P1.3 (планирование)», что v1 расширяется только новыми вариантами и прежние эталоны не меняются. По решению владельца эталоны `hello` и снимка обновляются, новые кадры получают новые эталоны. Внутри v2 формат дальше меняется только новыми вариантами.
+
+**Законченное действие.** У каждого действия таблицы есть команда, обработчик, CLI, чтение результата (`query.layout`), имя в keymap и тесты.
+
+**Передачи:** привязки `Ctrl-w` в `keymap.toml` и шаги относительного размера — P1.6; `open-or-focus` через `panel.*` — P1.5.
+
 ## Условие пересмотра
 
 Потребность в управлении с другой машины.
