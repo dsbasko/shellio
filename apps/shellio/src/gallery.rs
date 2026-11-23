@@ -543,6 +543,8 @@ pub struct GalleryState {
     pub list_seed: u64,
     /// Номер выбранной строки списка: замена набора того же размера оставляет его на месте.
     pub list_selected: Option<usize>,
+    /// Такты `CADisplayLink` в серии задержки списка (`gallery.list.ticks`).
+    pub list_ticks: bool,
     /// Вставок в дерево и обмен первых двух корней фикстуры ([`tree_roots`]).
     pub tree_inserts: u32,
     pub tree_swapped: bool,
@@ -570,6 +572,7 @@ impl GalleryState {
             tabs: GalleryStrip::ALL.map(|strip| strip_fixture(strip).selected),
             list_seed: LIST_SEED,
             list_selected: Some(LIST_SELECTED),
+            list_ticks: false,
             tree_inserts: 0,
             tree_swapped: false,
             tree_expanded: TREE_EXPANDED.iter().map(|id| (*id).to_owned()).collect(),
@@ -643,6 +646,8 @@ pub enum Effect {
     List,
     /// Прокрутить список к строке.
     ListScroll(u32),
+    /// Такты серии задержки списка включены или выключены.
+    ListTicks,
     /// Узлы, раскрытие или выбор дерева изменились.
     Tree,
 }
@@ -754,6 +759,10 @@ impl Gallery {
                 Effect::List
             }
             GalleryCommand::ListScroll { row } => Effect::ListScroll(row),
+            GalleryCommand::ListTicks { enabled } => {
+                self.state.list_ticks = enabled;
+                Effect::ListTicks
+            }
             GalleryCommand::TreeMutate { op } => {
                 match op {
                     TreeMutation::Insert => {
@@ -1011,6 +1020,7 @@ mod tests {
             GalleryCommand::Focus(GalleryFocus::List),
             GalleryCommand::ListReplace { seed: 4 },
             GalleryCommand::ListScroll { row: 9_999 },
+            GalleryCommand::ListTicks { enabled: true },
             GalleryCommand::Focus(GalleryFocus::Tree),
             GalleryCommand::TreeMutate {
                 op: TreeMutation::Insert,
@@ -1069,6 +1079,7 @@ mod tests {
                 Effect::Focus(GalleryFocus::List),
                 Effect::List,
                 Effect::ListScroll(9_999),
+                Effect::ListTicks,
                 Effect::Focus(GalleryFocus::Tree),
                 Effect::Tree,
             ]
@@ -1428,6 +1439,12 @@ mod tests {
             gallery.apply(GalleryCommand::ListScroll { row: 9_999 }, &mut generation),
             Effect::ListScroll(9_999)
         );
+        assert!(!gallery.state().list_ticks, "серия по умолчанию без тактов");
+        assert_eq!(
+            gallery.apply(GalleryCommand::ListTicks { enabled: true }, &mut generation),
+            Effect::ListTicks
+        );
+        assert!(gallery.state().list_ticks);
         let changed = gallery.intent(
             &Intent::List(ListAction::Select(list_row_id(5, 20))),
             &mut generation,

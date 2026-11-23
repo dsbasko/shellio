@@ -66,6 +66,9 @@ pub enum GalleryCommand {
     /// `gallery.list.scroll`: прокрутить список так, чтобы строка `row` стояла у верхнего края, в
     /// пределах прокрутки.
     ListScroll { row: u32 },
+    /// `gallery.list.ticks`: такты `CADisplayLink` во время серии задержки клавиш списка, со
+    /// следующего получения фокуса. По умолчанию серия идёт без них.
+    ListTicks { enabled: bool },
     /// `gallery.tree.mutate`: изменить дерево галереи; раскрытие и выбор следуют за узлами.
     TreeMutate { op: TreeMutation },
 }
@@ -85,6 +88,7 @@ impl GalleryCommand {
             Self::TabsSelect { .. } => "gallery.tabs.select",
             Self::ListReplace { .. } => "gallery.list.replace",
             Self::ListScroll { .. } => "gallery.list.scroll",
+            Self::ListTicks { .. } => "gallery.list.ticks",
             Self::TreeMutate { .. } => "gallery.tree.mutate",
         }
     }
@@ -268,6 +272,12 @@ struct ListScrollArgs {
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct ListTicksArgs {
+    enabled: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct TreeMutateArgs {
     op: TreeMutation,
 }
@@ -308,6 +318,8 @@ enum WireUiRequest {
     GalleryListReplace(ListReplaceArgs),
     #[serde(rename = "gallery.list.scroll")]
     GalleryListScroll(ListScrollArgs),
+    #[serde(rename = "gallery.list.ticks")]
+    GalleryListTicks(ListTicksArgs),
     #[serde(rename = "gallery.tree.mutate")]
     GalleryTreeMutate(TreeMutateArgs),
 }
@@ -354,6 +366,9 @@ impl From<WireUiRequest> for UiRequest {
             WireUiRequest::GalleryListScroll(ListScrollArgs { row }) => {
                 Self::Gallery(GalleryCommand::ListScroll { row })
             }
+            WireUiRequest::GalleryListTicks(ListTicksArgs { enabled }) => {
+                Self::Gallery(GalleryCommand::ListTicks { enabled })
+            }
             WireUiRequest::GalleryTreeMutate(TreeMutateArgs { op }) => {
                 Self::Gallery(GalleryCommand::TreeMutate { op })
             }
@@ -395,6 +410,9 @@ impl From<UiRequest> for WireUiRequest {
                 }
                 GalleryCommand::ListScroll { row } => {
                     Self::GalleryListScroll(ListScrollArgs { row })
+                }
+                GalleryCommand::ListTicks { enabled } => {
+                    Self::GalleryListTicks(ListTicksArgs { enabled })
                 }
                 GalleryCommand::TreeMutate { op } => Self::GalleryTreeMutate(TreeMutateArgs { op }),
             },
@@ -1196,6 +1214,11 @@ mod tests {
                 true,
             ),
             (
+                UiRequest::Gallery(GalleryCommand::ListTicks { enabled: true }),
+                "gallery.list.ticks",
+                true,
+            ),
+            (
                 UiRequest::Gallery(GalleryCommand::TreeMutate {
                     op: TreeMutation::CollapseParentOfSelected,
                 }),
@@ -1218,6 +1241,7 @@ mod tests {
             GalleryCommand::ListReplace { .. } => 9,
             GalleryCommand::ListScroll { .. } => 10,
             GalleryCommand::TreeMutate { .. } => 11,
+            GalleryCommand::ListTicks { .. } => 12,
         };
         let covered: std::collections::BTreeSet<usize> = cases
             .iter()
@@ -1226,7 +1250,7 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert_eq!(covered, (0..12).collect());
+        assert_eq!(covered, (0..13).collect());
         for (request, name, mutation) in cases {
             assert_eq!(request.name(), name);
             assert_eq!(request.is_mutation(), mutation, "{name}");
@@ -1254,6 +1278,9 @@ mod tests {
             json!({"gallery.list.replace": {}}),
             json!({"gallery.list.replace": {"seed": -1}}),
             json!({"gallery.list.scroll": {"row": "end"}}),
+            json!({"gallery.list.ticks": {}}),
+            json!({"gallery.list.ticks": {"enabled": "on"}}),
+            json!({"gallery.list.ticks": {"enabled": true, "extra": 1}}),
             json!({"gallery.tree.mutate": {}}),
             json!({"gallery.tree.mutate": {"op": "shuffle"}}),
             json!({"gallery.tree.mutate": {"op": "insert", "at": 0}}),

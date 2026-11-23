@@ -198,6 +198,7 @@ impl GalleryUi {
         };
         // Список галереи — прибор пунктов задержки `make e2e`.
         list.enable_latency_probe();
+        list.set_latency_ticks(self.model.state().list_ticks);
         plain.place(&list, frame(layout.list));
         let on_intent = Rc::clone(&self.on_intent);
         let tree_list = match TreeList::new(app, &theme, self.tree_state(), move |intent| {
@@ -358,6 +359,13 @@ impl GalleryUi {
             roots,
             expanded: state.tree_expanded.clone(),
             selected: state.tree_selected.clone(),
+        }
+    }
+
+    /// Такты серии задержки списка по состоянию галереи: действуют со следующего фокуса списка.
+    pub fn apply_list_ticks(&self) {
+        if let Some(tree) = &self.tree {
+            tree.list.set_latency_ticks(self.model.state().list_ticks);
         }
     }
 
@@ -529,6 +537,7 @@ impl GalleryUi {
                 ));
             }
             tree.list.scroll_to_row(0);
+            tree.list.set_latency_ticks(self.model.state().list_ticks);
             if let Err(error) = tree.tree_list.set_state(self.tree_state()) {
                 shellio::owner::say_err(format_args!(
                     "shellio: дерево галереи не сброшено: {error}"

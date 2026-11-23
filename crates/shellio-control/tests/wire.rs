@@ -176,6 +176,7 @@ fn request_golden(request: &Request) -> &'static str {
             GalleryCommand::TabsSelect { .. } => "request.ui.gallery_tabs_select",
             GalleryCommand::ListReplace { .. } => "request.ui.gallery_list_replace",
             GalleryCommand::ListScroll { .. } => "request.ui.gallery_list_scroll",
+            GalleryCommand::ListTicks { .. } => "request.ui.gallery_list_ticks",
             GalleryCommand::TreeMutate { .. } => "request.ui.gallery_tree_mutate",
         },
     }
@@ -302,6 +303,13 @@ fn requests() -> Vec<Request> {
             24,
             RequestBody::Ui(UiRequest::Gallery(GalleryCommand::TreeMutate {
                 op: TreeMutation::Insert,
+            })),
+        ),
+        // P1.3, закрытие шага: такты `CADisplayLink` в серии задержки списка.
+        request(
+            25,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::ListTicks {
+                enabled: true,
             })),
         ),
     ]

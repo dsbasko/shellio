@@ -52,6 +52,7 @@ pub const USAGE: &str = "\
   gallery tabs select <side|center|half|wide> <номер вкладки>
   gallery list replace <зерно>
   gallery list scroll <номер строки>
+  gallery list ticks <on|off>
   gallery tree mutate <insert|reorder|collapse_parent_of_selected>
 
 У команд с целью-воркспейсом --target по умолчанию равен --workspace, с --all он обязателен.
@@ -607,6 +608,18 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                     })?;
                     Ok(gallery(GalleryCommand::ListScroll { row }))
                 }
+                "ticks" => {
+                    let enabled = match value.as_str() {
+                        "on" => true,
+                        "off" => false,
+                        _ => {
+                            return Err(usage(format!(
+                                "{call} ticks: ожидается on или off, получено «{value}»"
+                            )));
+                        }
+                    };
+                    Ok(gallery(GalleryCommand::ListTicks { enabled }))
+                }
                 _ => Err(usage(format!("неизвестный вызов «{call} {verb}»"))),
             }
         }
@@ -933,6 +946,14 @@ mod tests {
             action_of(&["gallery", "list", "scroll", "9999"]),
             gallery(GalleryCommand::ListScroll { row: 9_999 })
         );
+        assert_eq!(
+            action_of(&["gallery", "list", "ticks", "on"]),
+            gallery(GalleryCommand::ListTicks { enabled: true })
+        );
+        assert_eq!(
+            action_of(&["gallery", "list", "ticks", "off"]),
+            gallery(GalleryCommand::ListTicks { enabled: false })
+        );
         for op in TreeMutation::ALL {
             assert_eq!(
                 action_of(&["gallery", "tree", "mutate", op.as_str()]),
@@ -943,7 +964,7 @@ mod tests {
 
     #[test]
     fn gallery_calls_check_operands() {
-        let cases: [(&[&str], &str); 18] = [
+        let cases: [(&[&str], &str); 19] = [
             (&["gallery"], "не указано действие"),
             (&["gallery", "cell", "light"], "операндов"),
             (
@@ -967,6 +988,7 @@ mod tests {
             (&["gallery", "list", "sort", "1"], "неизвестный вызов"),
             (&["gallery", "list", "replace", "1e3"], "зерно"),
             (&["gallery", "list", "scroll", "конец"], "номер строки"),
+            (&["gallery", "list", "ticks", "yes"], "on или off"),
             (
                 &["gallery", "tabs", "close", "side", "1"],
                 "неизвестный вызов",

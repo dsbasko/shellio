@@ -56,14 +56,14 @@
     {
       "id": "list.row",
       "component": "gallery.list.row.s0.r00003",
-      "rect": { "x": 160, "y": 4, "width": 88, "height": 18 },
+      "rect": { "x": 140, "y": 4, "width": 88, "height": 18 },
       "slot": "panel",
       "layer": "veil"
     },
     {
       "id": "list.selected",
       "component": "gallery.list.row.s0.r00000",
-      "rect": { "x": 160, "y": 4, "width": 88, "height": 18 },
+      "rect": { "x": 140, "y": 4, "width": 88, "height": 18 },
       "slot": "sel",
       "layer": "veil"
     }

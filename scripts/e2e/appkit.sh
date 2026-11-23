@@ -2635,9 +2635,10 @@ lat_drawn() {
 }
 
 # Разбор ряда задержек: первые 10 нажатий — прогрев, следующие 100 учитываются. Вывод — строки «ключ значение»;
-# код 2 — сбой измерителя (причина в строке error).
+# код 2 — сбой измерителя (причина в строке error). lat_analyze <hz> <on|off> <ui.stats>: при off блок шёл без
+# тактов CADisplayLink, частота и фаза не считаются.
 lat_analyze() {
-  /usr/bin/perl -MJSON::PP -e 'local $/; my ($hz) = @ARGV;
+  /usr/bin/perl -MJSON::PP -e 'local $/; my ($hz, $mode) = @ARGV;
     my $s = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{stats};
     my $kl = $s->{key_latency} or do { print "error нет ряда key_latency в ui.stats\n"; exit 2 };
     my @p = @{$kl->{presses}}; my @t = @{$kl->{ticks}};
@@ -2664,6 +2665,10 @@ lat_analyze() {
     }
     my ($from, $to) = ($c[0]{event}, $c[-1]{drawn});
     my @w = grep { $_ >= $from && $_ <= $to } @t;
+    if ($mode eq "off") {
+      if (@t) { printf "error блок без тактов, а тактов CADisplayLink %d\n", scalar @t; exit 2 }
+      print "ticks 0\n"; exit 0;
+    }
     if (@w < 2) { print "error тактов CADisplayLink за серию меньше двух\n"; exit 2 }
     my $period = $med->(map { $ms->($w[$_ - 1], $w[$_]) } 1 .. $#w);
     printf "period %.3f\nticks %d\n", $period, scalar @w;
@@ -2677,7 +2682,7 @@ lat_analyze() {
     my $iqr = @sp ? $sp[int(0.75 * $#sp)] - $sp[int(0.25 * $#sp)] : -1;
     my $kind = $iqr < 0 ? "не различено" : $iqr <= 0.25 * $period ? "собраны у такта" : $iqr >= 0.4 * $period ? "равномерные" : "не различено";
     printf "phase_iqr %.2f\nphase_median %.2f\nphase %s\n", $iqr, (@sp ? $med->(@sp) : -1), $kind;
-  ' "$1" <"$2"
+  ' "$1" "$2" <"$3"
 }
 
 lat_n=0
@@ -2687,13 +2692,71 @@ lat_val() {
   awk -v k="$1" '$1 == k { $1 = ""; sub(/^ /, ""); print; exit }' "$lat_file"
 }
 
-# Ряд задержек клавиш на частоте hz (120 или 60): 10 прогревочных и 100 учитываемых нажатий Down, каждое после
-# отметки отрисовки предыдущего. Режим недоступен — not_run, сбой измерителя — ошибка исполнения и fail пункта,
-# годная серия — сравнение p95 с бюджетом.
+# Блок серии задержки: сброс галереи, такты CADisplayLink (on|off), фокус списку, 10 прогревочных и 100
+# учитываемых нажатий Down, каждое после отметки отрисовки предыдущего, разбор в <каталог>/latency.txt.
+# lat_block <каталог> <on|off> <hz>; код 0 — годный блок, иначе сбой измерителя с причиной в lat_why.
+lat_block() {
+  local dir="$1" mode="$2" hz="$3" pid="$owner_pid_g" n code=0
+  lat_why=""
+  mkdir -p "$dir"
+  if ! ui_cmd "$profile_g" "$dir/reset" gallery reset || ! ui_cmd "$profile_g" "$dir/ticks" gallery list ticks "$mode" ||
+    ! front_owner "$pid" "$dir" || ! ui_cmd "$profile_g" "$dir/focus" gallery focus list; then
+    lat_why="$WHY"
+    return 1
+  fi
+  if ! poll_inspect "$profile_g" "$dir/focused" "$STATE_MS" list_focused; then
+    lat_why="после gallery.focus list таблица не first responder: $(responders "$dir/focused.stdout")"
+    ui_cmd "$profile_g" "$dir/unfocus" gallery focus window || true
+    return 1
+  fi
+  for n in $(seq 1 110); do
+    if ! input_ready "$pid"; then
+      lat_why="передний план сменился во время серии перед нажатием $n: $WHY"
+      code=2
+      break
+    fi
+    if ! se_key "$dir" 125; then
+      lat_why="нажатие $n не отправлено: $(oneline "$dir/keys.log")"
+      code=2
+      break
+    fi
+    lat_n="$n"
+    if ! poll_stats "$profile_g" "$dir/press" "$STATE_MS" lat_drawn; then
+      lat_why="нажатие $n без отметки отрисовки за $STATE_MS мс (нет события в приложении или отрисовки)"
+      code=2
+      break
+    fi
+  done
+  if ((code == 0)); then
+    ui_read "$profile_g" "$dir/stats" stats || true
+    lat_analyze "$hz" "$mode" "$dir/stats.stdout" >"$dir/latency.txt" 2>&1 || code=$?
+    ((code == 0)) || lat_why="$(sed -n 's/^error //p' "$dir/latency.txt" | head -1)"
+  fi
+  ui_cmd "$profile_g" "$dir/unfocus" gallery focus window || true
+  ((code == 0))
+}
+
+# Строка блока для причины пункта.
+lat_line() {
+  local name="$1" mode="$2"
+  lat_file="$run_lat/$name/latency.txt"
+  local line="$name (такты $mode): p95 $(lat_val p95) мс, медиана $(lat_val median), максимум $(lat_val max); p95 и медиана участков «событие → вход в keyDown» $(lat_val seg_delivery), «вход → применение» $(lat_val seg_handler), «применение → отрисовка» $(lat_val seg_draw)"
+  if [[ "$mode" == on ]]; then
+    line="$line; такт CADisplayLink $(lat_val period) мс по $(lat_val ticks) тактам, фаза пробуждения после такта — медиана $(lat_val phase_median), размах $(lat_val phase_iqr): $(lat_val phase)"
+  fi
+  printf '%s' "$line"
+}
+
+# Ряд задержек клавиш на частоте hz (120 или 60) по разделу «Уточнено в P1.3 (закрытие шага)» ADR-0021: блоки
+# A B B A на одном владельце, A — с тактами CADisplayLink всю серию, B — без них. Бюджет судят оба блока B: p95 не
+# больше 16 мс в каждом, частота — штатный режим экрана с maximumFramesPerSecond hz. Блоки A — диагностика
+# влияния display link, бюджет они не судят. Режим недоступен — not_run, сбой измерителя в любом блоке —
+# ошибка исполнения и fail пункта.
 item_key_latency() {
-  local item="$1" hz="$2" dir="$run/$1" pid="$owner_pid_g" screen="" n code=0 lo hi summary
+  local item="$1" hz="$2" dir="$run/$1" screen="" fps block mode lines=() b_fail=() wfile="$run/$1/window.stdout"
   failures=()
   log "== $item"
+  run_lat="$dir"
   if ! ui_read "$profile_g" "$dir/window" window; then
     record "$item" fail "ui.window не прочитан"
     return 0
@@ -2711,58 +2774,36 @@ item_key_latency() {
       record "$item" fail "окно не перенесено на экран $screen с 60 Гц: ${WHY:-ui.window показывает экран $(jv "$dir/placed.stdout" ok.ui.window.screen || echo ?)}"
       return 0
     fi
+    wfile="$dir/placed.stdout"
   fi
-  if ! ui_cmd "$profile_g" "$dir/reset" gallery reset || ! front_owner "$pid" "$dir" ||
-    ! ui_cmd "$profile_g" "$dir/focus" gallery focus list; then
-    record "$item" fail "$WHY"
+  fps="$(jv "$wfile" "ok.ui.window.screens[$(jv "$wfile" ok.ui.window.screen || echo 0)].maximum_frames_per_second" || echo ?)"
+  if [[ "$fps" != "$hz" ]]; then
+    record "$item" not_run "режим недоступен: maximumFramesPerSecond экрана окна $fps, а не $hz"
     return 0
   fi
-  if ! poll_inspect "$profile_g" "$dir/focused" "$STATE_MS" list_focused; then
-    record "$item" fail "после gallery.focus list таблица не first responder: $(responders "$dir/focused.stdout")"
-    ui_cmd "$profile_g" "$dir/unfocus" gallery focus window || true
-    return 0
-  fi
-  for n in $(seq 1 110); do
-    if ! input_ready "$pid"; then
-      summary="сбой измерителя: передний план сменился во время серии перед нажатием $n: $WHY"
-      code=2
-      break
+  for block in a1:on b1:off b2:off a2:on; do
+    mode="${block#*:}"
+    block="${block%%:*}"
+    log "$item: блок $block, такты $mode"
+    if ! lat_block "$dir/$block" "$mode" "$hz"; then
+      if ((hz == 60)); then
+        ui_cmd "$profile_g" "$dir/place-back" gallery place "$(jv "$dir/window.stdout" ok.ui.window.screen || echo 0)" || true
+      fi
+      add_error "$item: сбой измерителя в блоке $block: ${lat_why:-причина не записана}"
+      record "$item" fail "сбой измерителя в блоке $block: ${lat_why:-причина не записана}"
+      return 0
     fi
-    if ! se_key "$dir" 125; then
-      summary="сбой измерителя: нажатие $n не отправлено: $(oneline "$dir/keys.log")"
-      code=2
-      break
-    fi
-    lat_n="$n"
-    if ! poll_stats "$profile_g" "$dir/press" "$STATE_MS" lat_drawn; then
-      summary="сбой измерителя: нажатие $n без отметки отрисовки за $STATE_MS мс (нет события в приложении или отрисовки)"
-      code=2
-      break
+    lines+=("$(lat_line "$block" "$mode")")
+    if [[ "$mode" == off ]]; then
+      lat_file="$dir/$block/latency.txt"
+      fcmp "$(lat_val p95)" "<=" 16 || b_fail+=("$block — p95 $(lat_val p95) мс")
     fi
   done
-  if ((code == 0)); then
-    ui_read "$profile_g" "$dir/stats" stats || true
-    lat_analyze "$hz" "$dir/stats.stdout" >"$dir/latency.txt" 2>&1 || code=$?
-    ((code == 0)) || summary="сбой измерителя: $(sed -n 's/^error //p' "$dir/latency.txt" | head -1)"
-  fi
-  ui_cmd "$profile_g" "$dir/unfocus" gallery focus window || failures+=("снятие фокуса: $WHY")
   if ((hz == 60)); then
     ui_cmd "$profile_g" "$dir/place-back" gallery place "$(jv "$dir/window.stdout" ok.ui.window.screen || echo 0)" || true
   fi
-  if ((code != 0)); then
-    add_error "$item: ${summary:-сбой измерителя}"
-    record "$item" fail "${summary:-сбой измерителя}"
-    return 0
-  fi
-  lat_file="$dir/latency.txt"
-  if ((hz == 120)); then lo=7.83 hi=8.83; else lo=15.67 hi=17.67; fi
-  summary="p95 «событие → отрисовка» $(lat_val p95) мс (медиана $(lat_val median), максимум $(lat_val max)); p95 и медиана участков: «событие → вход в keyDown» $(lat_val seg_delivery), «вход → применение выбора» $(lat_val seg_handler), «применение → отрисовка» $(lat_val seg_draw); частота — медиана такта CADisplayLink $(lat_val period) мс по $(lat_val ticks) тактам, maximumFramesPerSecond экрана окна $(jv "$dir/window.stdout" "ok.ui.window.screens[$(jv "$dir/window.stdout" ok.ui.window.screen || echo 0)].maximum_frames_per_second" || echo ?); фаза пробуждения после такта — медиана $(lat_val phase_median) мс, межквартильный размах $(lat_val phase_iqr) мс: $(lat_val phase)"
-  if ! fcmp "$(lat_val period)" ">=" "$lo" || ! fcmp "$(lat_val period)" "<=" "$hi"; then
-    record "$item" not_run "режим недоступен: фактическая частота не $hz Гц; $summary"
-    return 0
-  fi
-  fcmp "$(lat_val p95)" "<=" 16 || failures+=("p95 $(lat_val p95) мс больше бюджета 16 мс (правило «Исход провала 16 мс»); $summary")
-  conclude "$item" "$summary"
+  ((${#b_fail[@]} == 0)) || failures+=("блоки без тактов больше бюджета 16 мс (правило «Исход провала 16 мс»): ${b_fail[*]}")
+  conclude "$item" "экран окна — maximumFramesPerSecond $fps, штатный режим; бюджет судят блоки B; $(printf '%s; ' "${lines[@]}" | sed 's/; $//')"
 }
 
 # --- дерево (задача 13) ---

@@ -105,12 +105,15 @@ struct ListModel {
     /// Замер задержки клавиш включён: без него список не ведёт журнал нажатий и не заводит
     /// `CADisplayLink`.
     latency_probe: Cell<bool>,
+    /// Такты `CADisplayLink` во время серии. Сам display link будит главный цикл каждый кадр и
+    /// меняет то, что мерит, поэтому по умолчанию серия идёт без него.
+    latency_ticks: Cell<bool>,
     /// Нажатия Up и Down серии задержки: серия начинается, когда таблица получает фокус.
     presses: RefCell<PressLog>,
     /// Такты `CADisplayLink` окна за серию, секунды с загрузки.
     ticks: RefCell<VecDeque<f64>>,
-    /// Такты идут только при включённом замере и пока таблица держит фокус: в простое цикл они
-    /// не будят.
+    /// Такты идут только при включённых замере и тактах и пока таблица держит фокус: в простое
+    /// цикл они не будят.
     link: Rc<RefCell<Option<Retained<CADisplayLink>>>>,
 }
 
@@ -206,6 +209,7 @@ impl VirtualList {
             cell_views: Cell::new(0),
             on_intent: Box::new(on_intent),
             latency_probe: Cell::new(false),
+            latency_ticks: Cell::new(false),
             presses: RefCell::new(PressLog::default()),
             ticks: RefCell::new(VecDeque::new()),
             link: Rc::new(RefCell::new(None)),
@@ -303,9 +307,15 @@ impl VirtualList {
     }
 
     /// Включает замер задержки клавиш: со следующего получения фокуса список ведёт журнал нажатий
-    /// Up и Down и такты `CADisplayLink`, пока фокус у него. Без включения замер не идёт.
+    /// Up и Down, а при [`VirtualList::set_latency_ticks`] — и такты `CADisplayLink`, пока фокус у
+    /// него. Без включения замер не идёт.
     pub fn enable_latency_probe(&self) {
         self.view.rust().latency_probe.set(true);
+    }
+
+    /// Такты `CADisplayLink` во время серии задержки. Действует со следующего получения фокуса.
+    pub fn set_latency_ticks(&self, enabled: bool) {
+        self.view.rust().latency_ticks.set(enabled);
     }
 
     /// Окно опубликовало поколение: нажатия, чей выбор уже применён, получают его.
@@ -660,6 +670,9 @@ impl ListTable {
             model.stop_ticks();
             model.presses.borrow_mut().clear();
             model.ticks.borrow_mut().clear();
+            if !model.latency_ticks.get() {
+                return;
+            }
             let ticker = ListTicker::new(self.mtm(), owner);
             // SAFETY: цель — объект с методом `tick:` для `CADisplayLink`; ссылка держит цель до
             // `invalidate`, цель достаёт список только слабой ссылкой.

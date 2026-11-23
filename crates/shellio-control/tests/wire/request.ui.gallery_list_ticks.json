@@ -1,0 +1,8 @@
+{
+  "id": 25,
+  "ui": {
+    "gallery.list.ticks": {
+      "enabled": true
+    }
+  }
+}

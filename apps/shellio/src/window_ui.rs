@@ -204,6 +204,7 @@ impl OwnerWindow {
             }
             Effect::List => gallery.show_list(),
             Effect::ListScroll(row) => gallery.scroll_list(row),
+            Effect::ListTicks => gallery.apply_list_ticks(),
             Effect::Tree => gallery.show_tree(),
         }
         self.sync_theme();
