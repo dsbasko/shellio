@@ -1,0 +1,10 @@
+{
+  "id": 33,
+  "command": {
+    "cmd": "layout.resize",
+    "zone": "center",
+    "part_of": "00000000-0000-0000-0000-000000000004",
+    "size": 400
+  },
+  "scope": "all"
+}

@@ -1,0 +1,9 @@
+{
+  "id": 34,
+  "command": {
+    "cmd": "layout.equal",
+    "workbench": "00000000-0000-0000-0000-000000000002",
+    "zone": "right"
+  },
+  "scope": "all"
+}

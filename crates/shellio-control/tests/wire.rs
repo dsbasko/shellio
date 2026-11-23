@@ -30,9 +30,10 @@ use shellio_control::{
 use shellio_core::test_support::SequentialIds;
 use shellio_core::{
     AppearanceChoice, Change, Command, CommandValue, CoreError, Entity, Event, EventsSince, IdGen,
-    Query, Reply, Revision, Route, Snapshot, State, Title, TreeScope, UiCommand, WindowState,
-    Workspace, WorkspaceId,
+    PanelId, Query, Reply, ReplyValue, Revision, Route, Snapshot, State, Title, TreeScope,
+    UiCommand, WindowState, WorkbenchId, Workspace, WorkspaceId,
 };
+use shellio_layout::{Direction, Edge, Hideable, Zone};
 
 fn wire_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/wire")
@@ -148,7 +149,27 @@ fn snapshot(revision: u64) -> Result<Snapshot, String> {
     })
 }
 
-fn request_golden(request: &Request) -> &'static str {
+/// Эталон кадра команды: команды P1.1 — `request.command`, команды раскладки и панелей P1.4 —
+/// по одному эталону на команду.
+fn command_golden(command: &Command) -> String {
+    let name = command.name();
+    if name.starts_with("layout.") || name.starts_with("panel.") {
+        format!("request.command.{}", name.replace('.', "_"))
+    } else {
+        "request.command".to_owned()
+    }
+}
+
+fn request_golden(request: &Request) -> String {
+    let name = match &request.body {
+        RequestBody::Command { command, .. } => return command_golden(command),
+        RequestBody::Query(Query::Layout { .. }) => return "request.query.layout".to_owned(),
+        _ => request_golden_static(request),
+    };
+    name.to_owned()
+}
+
+fn request_golden_static(request: &Request) -> &'static str {
     match &request.body {
         RequestBody::Hello(_) => "request.hello",
         RequestBody::Command { .. } => "request.command",
@@ -182,8 +203,20 @@ fn request_golden(request: &Request) -> &'static str {
     }
 }
 
+/// Панели и рабочая область образцов P1.4.
+fn layout_ids() -> (PanelId, PanelId, WorkbenchId) {
+    let mut generator = SequentialIds::new();
+    let generator: &mut dyn IdGen = &mut generator;
+    let _ = WorkspaceId::generate(generator);
+    let workbench = WorkbenchId::generate(generator);
+    let panel = PanelId::generate(generator);
+    let anchor = PanelId::generate(generator);
+    (panel, anchor, workbench)
+}
+
 fn requests() -> Vec<Request> {
     let workspace = workspace_id();
+    let (panel, anchor, workbench) = layout_ids();
     let request = |id, body| Request {
         id: RequestId(id),
         body,
@@ -312,7 +345,73 @@ fn requests() -> Vec<Request> {
                 enabled: true,
             })),
         ),
+        // P1.4, задача 6: команды раскладки и панелей, чтение `query.layout`.
+        request(
+            26,
+            RequestBody::Query(Query::Layout {
+                scope: TreeScope::Workspace(workspace),
+                workbench: Some(workbench),
+            }),
+        ),
     ]
+    .into_iter()
+    .chain(
+        [
+            Command::LayoutSplit {
+                panel,
+                open: Some("terminal".into()),
+            },
+            Command::PanelFocus {
+                panel: None,
+                workbench: Some(workbench),
+                direction: Some(Direction::Left),
+            },
+            Command::PanelSelect { panel },
+            Command::PanelMove {
+                panel,
+                zone: Zone::Bottom,
+            },
+            Command::PanelMovePart {
+                panel,
+                anchor,
+                edge: Some(Edge::After),
+            },
+            Command::PanelClose { panel },
+            Command::LayoutResize {
+                workbench: None,
+                zone: Zone::Center,
+                part_of: Some(anchor),
+                size: 400,
+            },
+            Command::LayoutEqual {
+                workbench: Some(workbench),
+                zone: Zone::Right,
+            },
+            Command::LayoutZoom {
+                panel: None,
+                workbench: Some(workbench),
+                off: Some(true),
+            },
+            Command::LayoutOnly { workbench: None },
+            Command::LayoutVisibility {
+                workbench: Some(workbench),
+                target: Hideable::Plate,
+                visible: false,
+            },
+        ]
+        .into_iter()
+        .zip(27..)
+        .map(|(command, id)| {
+            request(
+                id,
+                RequestBody::Command {
+                    command,
+                    scope: TreeScope::All,
+                },
+            )
+        }),
+    )
+    .collect()
 }
 
 fn request_samples() -> Samples {
@@ -328,6 +427,14 @@ fn response_golden(response: &Response) -> &'static str {
             value: OkValue::Hello(_),
             ..
         } => "response.ok.hello",
+        Response::Ok {
+            value:
+                OkValue::Reply(Reply {
+                    value: ReplyValue::Layout(_),
+                    ..
+                }),
+            ..
+        } => "response.ok.layout",
         Response::Ok {
             value: OkValue::Reply(_),
             ..
@@ -630,7 +737,15 @@ fn responses() -> Result<Vec<Response>, String> {
             id: RequestId(5),
             snapshot: snapshot(1300)?,
         },
+        // P1.4, задача 6: ответ `query.layout` — эталон ядра `reply.layout` внутри кадра.
+        ok(26, OkValue::Reply(core_layout_reply()?)),
     ])
+}
+
+fn core_layout_reply() -> Result<Reply, String> {
+    let path = core_wire_dir().join("reply.layout.json");
+    let text = fs::read_to_string(&path).map_err(|error| format!("{}: {error}", path.display()))?;
+    serde_json::from_str(&text).map_err(|error| format!("{}: {error}", path.display()))
 }
 
 fn rect(x: f64, y: f64, width: f64, height: f64) -> Rect {
@@ -1245,6 +1360,15 @@ fn request_golden_names_follow_frame_keys() {
                 let suffix = suffix.strip_prefix("ui_").unwrap_or(&suffix);
                 assert_eq!(name, format!("{kind}.{suffix}"));
             }
+            RequestBody::Command { command, .. } if name != kind => {
+                assert_eq!(name, format!("{kind}.{}", command.name().replace('.', "_")));
+            }
+            RequestBody::Query(query) if name != kind => {
+                assert_eq!(
+                    name,
+                    format!("{kind}.{}", query.name().trim_start_matches("query."))
+                );
+            }
             _ => assert_eq!(name, kind),
         }
     }
@@ -1564,6 +1688,48 @@ fn unknown_variant_is_malformed() {
         r#"{"id":4,"events_since":{"cursor":1},"scope":"none"}"#,
         Some(4),
         "unknown variant `none`",
+    );
+}
+
+/// P1.4: команды раскладки и чтение `query.layout` так же строги, как кадры P1.1.
+#[test]
+fn layout_frames_are_strict() {
+    assert_malformed(
+        &format!(
+            r#"{{"id":1,"command":{{"cmd":"panel.close","panel":"{ID}","zone":"left"}},"scope":"all"}}"#
+        ),
+        Some(1),
+        "unknown field `zone`",
+    );
+    assert_malformed(
+        &format!(
+            r#"{{"id":2,"command":{{"cmd":"panel.move","panel":"{ID}","zone":"top"}},"scope":"all"}}"#
+        ),
+        Some(2),
+        "unknown variant `top`",
+    );
+    assert_malformed(
+        &format!(
+            r#"{{"id":3,"command":{{"cmd":"panel.move_part","panel":"{ID}","anchor":"{ID}","edge":"side"}},"scope":"all"}}"#
+        ),
+        Some(3),
+        "unknown variant `side`",
+    );
+    assert_malformed(
+        r#"{"id":4,"command":{"cmd":"layout.visibility","target":"center","visible":true},"scope":"all"}"#,
+        Some(4),
+        "unknown variant `center`",
+    );
+    assert_malformed(
+        r#"{"id":5,"query":{"query":"layout","scope":"all","viewport":{"width":1,"height":1}}}"#,
+        Some(5),
+        "unknown field `viewport`",
+    );
+    assert_rejected(
+        r#"{"id":6,"query":{"query":"layout"}}"#,
+        ControlErrorCode::MalformedRequest,
+        Some(6),
+        "missing field `scope`",
     );
 }
 

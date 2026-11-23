@@ -1,0 +1,9 @@
+{
+  "id": 35,
+  "command": {
+    "cmd": "layout.zoom",
+    "workbench": "00000000-0000-0000-0000-000000000002",
+    "off": true
+  },
+  "scope": "all"
+}

@@ -1,0 +1,9 @@
+{
+  "id": 30,
+  "command": {
+    "cmd": "panel.move",
+    "panel": "00000000-0000-0000-0000-000000000003",
+    "zone": "bottom"
+  },
+  "scope": "all"
+}

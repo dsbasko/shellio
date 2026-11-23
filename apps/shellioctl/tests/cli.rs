@@ -21,9 +21,10 @@ use shellio_control::{
 };
 use shellio_core::test_support::{ManualClock as CoreClock, MemoryPersist, SequentialIds};
 use shellio_core::{
-    CommandValue, Core, ErrorCode, EventsSince, FsRootResolver, Reply, ReplyValue, Revision, Route,
-    TreeView, UnixMillis, WorkspaceId,
+    CommandValue, Core, ErrorCode, EventsSince, FsRootResolver, LayoutView, PanelId, Reply,
+    ReplyValue, Revision, Route, TreeView, UnixMillis, WorkbenchId, WorkspaceId,
 };
+use shellio_layout::{Viewport, Zone};
 use shellio_store::Profile;
 use tempfile::TempDir;
 use tokio::runtime::Handle;
@@ -169,10 +170,19 @@ impl Owner {
     async fn start(dir: &Dir) -> TestResult<Self> {
         Self::start_with(dir, WithoutUi).await
     }
+
+    /// Владелец с размером окна: так главный поток передаёт его ядру до публикации сокета.
+    async fn start_sized(dir: &Dir, viewport: Viewport) -> TestResult<Self> {
+        Self::start_inner(dir, WithoutUi, Some(viewport)).await
+    }
 }
 
 impl<U: UiHandler> Owner<U> {
     async fn start_with(dir: &Dir, ui: U) -> TestResult<Self> {
+        Self::start_inner(dir, ui, None).await
+    }
+
+    async fn start_inner(dir: &Dir, ui: U, viewport: Option<Viewport>) -> TestResult<Self> {
         let mut ownership = dir.hold()?;
         let listener = ownership.publish()?;
         let core = Core::start(
@@ -182,6 +192,7 @@ impl<U: UiHandler> Owner<U> {
             Box::new(SequentialIds::new()),
             Arc::new(FsRootResolver),
         )?;
+        core.set_viewport(viewport);
         let config = ServerConfig {
             server: "test 0.1.0".to_owned(),
             pid: PID,
@@ -867,5 +878,357 @@ async fn ui_deadline_codes_are_75_and_74() -> TestResult {
         done.stderr.starts_with("shellioctl: outcome_unknown: "),
         "{done:?}"
     );
+    owner.stop().await
+}
+
+/// Рабочая область с раскладкой по умолчанию, открытая в окне: штатный путь CLI.
+async fn open_workbench(dir: &Dir) -> TestResult<WorkbenchId> {
+    let home = tree(dir, &["--all"])
+        .await?
+        .active_workspace
+        .ok_or("нет активного воркспейса")?
+        .to_string();
+    let source = dir.dir.path().join("src");
+    fs::create_dir_all(&source)?;
+    let added = dir
+        .run(&[
+            "project",
+            "add",
+            &source.to_string_lossy(),
+            "--target",
+            &home,
+            "--all",
+            "--json",
+        ])
+        .await?
+        .expect(0)?;
+    let CommandValue::Project { project, .. } = added.command_value()? else {
+        return Err(format!("ожидался проект: {added:?}").into());
+    };
+    let created = dir
+        .run(&[
+            "workbench",
+            "new",
+            "--target",
+            &project.to_string(),
+            "Основная",
+            "--all",
+            "--json",
+        ])
+        .await?
+        .expect(0)?;
+    let CommandValue::Workbench { workbench } = created.command_value()? else {
+        return Err(format!("ожидалась рабочая область: {created:?}").into());
+    };
+    dir.run(&[
+        "workbench",
+        "open",
+        "--target",
+        &workbench.to_string(),
+        "--all",
+    ])
+    .await?
+    .expect(0)?;
+    Ok(workbench)
+}
+
+async fn layout(dir: &Dir, extra: &[&str]) -> TestResult<LayoutView> {
+    let mut args = vec!["layout", "get", "--all", "--json"];
+    args.extend_from_slice(extra);
+    match dir.run(&args).await?.expect(0)?.reply()?.value {
+        ReplyValue::Layout(view) => Ok(*view),
+        other => Err(format!("ожидалась раскладка, получено {other:?}").into()),
+    }
+}
+
+/// Панель плагина `plugin` в ответе `layout get`.
+fn panel_of(view: &LayoutView, plugin: &str) -> TestResult<PanelId> {
+    view.panels
+        .iter()
+        .find(|panel| panel.plugin.as_str() == plugin)
+        .map(|panel| panel.id)
+        .ok_or_else(|| format!("нет панели {plugin}: {view:?}").into())
+}
+
+fn zone_tabs(view: &LayoutView, zone: Zone) -> Vec<Vec<PanelId>> {
+    view.layout
+        .zones
+        .get(zone)
+        .parts
+        .iter()
+        .map(|part| part.tabs.clone())
+        .collect()
+}
+
+/// Отказ ядра: код 1 и кадр `core_error` с причиной `reason` в stdout `--json`.
+fn assert_refused(run: Run, reason: &str) -> TestResult {
+    let run = run.expect(1)?;
+    match run.frame()? {
+        Response::CoreError { .. } if run.stdout.contains(&format!("\"{reason}\"")) => Ok(()),
+        other => Err(format!("ожидался отказ {reason}, получено {other:?}").into()),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn layout_and_panel_calls_against_sized_owner() -> TestResult {
+    let dir = Dir::new()?;
+    let owner = Owner::start_sized(
+        &dir,
+        Viewport {
+            width: 1180,
+            height: 720,
+        },
+    )
+    .await?;
+    let workbench = open_workbench(&dir).await?;
+    let bench_id = workbench.to_string();
+
+    let start = layout(&dir, &[]).await?;
+    assert_eq!(start.workbench, workbench);
+    assert!(start.frames.is_some(), "кадры по размеру окна");
+    assert_eq!(layout(&dir, &["--workbench", &bench_id]).await?, start);
+    let navigator = panel_of(&start, "navigator")?;
+    let terminal = panel_of(&start, "terminal")?;
+    assert_eq!(start.layout.navigator, Some(navigator));
+    assert_eq!(zone_tabs(&start, Zone::Center), vec![vec![terminal]]);
+    let (term, nav) = (terminal.to_string(), navigator.to_string());
+
+    let text = dir.run(&["layout", "get", "--all"]).await?.expect(0)?;
+    let parsed: LayoutView = serde_json::from_str(&text.stdout)?;
+    assert_eq!(parsed, start, "текстовый вывод layout get — JSON раскладки");
+
+    let split = dir
+        .run(&[
+            "layout", "split", &term, "--open", "terminal", "--all", "--json",
+        ])
+        .await?
+        .expect(0)?;
+    let CommandValue::Panel { panel: second } = split.command_value()? else {
+        return Err(format!("ожидалась новая панель: {split:?}").into());
+    };
+    let sec = second.to_string();
+    let view = layout(&dir, &[]).await?;
+    assert_eq!(
+        zone_tabs(&view, Zone::Center),
+        vec![vec![terminal], vec![second]]
+    );
+    assert_eq!(view.layout.focus.last(), Some(&second));
+
+    assert_refused(
+        dir.run(&["layout", "split", &term, "--all", "--json"])
+            .await?,
+        "split_needs_panel",
+    )?;
+    assert_refused(
+        dir.run(&[
+            "layout", "split", &nav, "--open", "terminal", "--all", "--json",
+        ])
+        .await?,
+        "navigator_not_splittable",
+    )?;
+    assert_refused(
+        dir.run(&["layout", "split", &term, "--open", "Bad", "--all", "--json"])
+            .await?,
+        "plugin_invalid",
+    )?;
+
+    let focused = dir
+        .run(&["panel", "focus", &term, "--all"])
+        .await?
+        .expect(0)?;
+    assert!(focused.stdout.starts_with("ревизия "), "{focused:?}");
+    assert_eq!(
+        layout(&dir, &[]).await?.layout.focus.last(),
+        Some(&terminal)
+    );
+    dir.run(&[
+        "panel",
+        "focus",
+        "--dir",
+        "l",
+        "--workbench",
+        &bench_id,
+        "--all",
+    ])
+    .await?
+    .expect(0)?;
+    assert_eq!(layout(&dir, &[]).await?.layout.focus.last(), Some(&second));
+    dir.run(&["panel", "select", &term, "--all"])
+        .await?
+        .expect(0)?;
+    assert_eq!(
+        layout(&dir, &[]).await?.layout.focus.last(),
+        Some(&terminal)
+    );
+
+    dir.run(&["panel", "move", &sec, "--zone", "right", "--all"])
+        .await?
+        .expect(0)?;
+    let view = layout(&dir, &[]).await?;
+    assert_eq!(zone_tabs(&view, Zone::Right), vec![vec![second]]);
+    assert_eq!(zone_tabs(&view, Zone::Center), vec![vec![terminal]]);
+
+    dir.run(&[
+        "panel",
+        "move-part",
+        &sec,
+        "--to",
+        &term,
+        "--edge",
+        "after",
+        "--all",
+    ])
+    .await?
+    .expect(0)?;
+    let view = layout(&dir, &[]).await?;
+    assert!(zone_tabs(&view, Zone::Right).is_empty(), "{view:?}");
+    assert_eq!(
+        zone_tabs(&view, Zone::Center),
+        vec![vec![terminal], vec![second]]
+    );
+
+    dir.run(&[
+        "layout",
+        "resize",
+        "--zone",
+        "center",
+        "--part-of",
+        &term,
+        "400",
+        "--all",
+    ])
+    .await?
+    .expect(0)?;
+    let shares = |view: &LayoutView| -> Vec<u16> {
+        view.layout
+            .zones
+            .center
+            .parts
+            .iter()
+            .map(|part| part.share)
+            .collect()
+    };
+    assert_eq!(shares(&layout(&dir, &[]).await?), vec![400, 600]);
+    assert_refused(
+        dir.run(&[
+            "layout",
+            "resize",
+            "--zone",
+            "center",
+            "--part-of",
+            &term,
+            "10",
+            "--all",
+            "--json",
+        ])
+        .await?,
+        "resize_out_of_range",
+    )?;
+    assert_refused(
+        dir.run(&[
+            "layout", "resize", "--zone", "right", "300", "--all", "--json",
+        ])
+        .await?,
+        "zone_empty",
+    )?;
+    dir.run(&["layout", "equal", "--zone", "center", "--all"])
+        .await?
+        .expect(0)?;
+    assert_eq!(shares(&layout(&dir, &[]).await?), vec![500, 500]);
+
+    dir.run(&["layout", "zoom", &term, "--all"])
+        .await?
+        .expect(0)?;
+    assert_eq!(layout(&dir, &[]).await?.layout.zoomed, Some(terminal));
+    dir.run(&["layout", "zoom", "--off", "--workbench", &bench_id, "--all"])
+        .await?
+        .expect(0)?;
+    assert_eq!(layout(&dir, &[]).await?.layout.zoomed, None);
+
+    dir.run(&["layout", "only", "--all"]).await?.expect(0)?;
+    assert_eq!(layout(&dir, &[]).await?.layout.only, Some(Zone::Center));
+    dir.run(&["layout", "only", "--all"]).await?.expect(0)?;
+    assert_eq!(layout(&dir, &[]).await?.layout.only, None);
+
+    dir.run(&["layout", "hide", "navigator", "--all"])
+        .await?
+        .expect(0)?;
+    assert!(layout(&dir, &[]).await?.layout.hidden.navigator);
+    dir.run(&[
+        "layout",
+        "show",
+        "navigator",
+        "--workbench",
+        &bench_id,
+        "--all",
+    ])
+    .await?
+    .expect(0)?;
+    assert!(!layout(&dir, &[]).await?.layout.hidden.navigator);
+    assert_refused(
+        dir.run(&["layout", "hide", "plate", "--all", "--json"])
+            .await?,
+        "zone_empty",
+    )?;
+
+    dir.run(&["panel", "close", &sec, "--all"])
+        .await?
+        .expect(0)?;
+    let view = layout(&dir, &[]).await?;
+    assert_eq!(view.panels.len(), 2, "{view:?}");
+    assert_eq!(zone_tabs(&view, Zone::Center), vec![vec![terminal]]);
+
+    let missing = dir
+        .run(&["panel", "close", &sec, "--all", "--json"])
+        .await?;
+    let missing = missing.expect(1)?;
+    match missing.frame()? {
+        Response::CoreError { error, .. } => assert_eq!(error.code(), ErrorCode::NotFound),
+        other => return Err(format!("ожидался not_found, получено {other:?}").into()),
+    }
+
+    let usage = dir.run(&["layout", "split", "--all"]).await?.expect(2)?;
+    assert!(usage.stderr.contains("операндов"), "{usage:?}");
+    let usage = dir
+        .run(&["panel", "close", &term, "--workbench", &bench_id, "--all"])
+        .await?
+        .expect(2)?;
+    assert!(usage.stderr.contains("не применим"), "{usage:?}");
+
+    owner.stop().await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn layout_without_viewport_refuses_only_room_commands() -> TestResult {
+    let dir = Dir::new()?;
+    let owner = Owner::start(&dir).await?;
+    let workbench = open_workbench(&dir).await?;
+    let view = layout(&dir, &["--workbench", &workbench.to_string()]).await?;
+    assert_eq!(view.frames, None, "без размера окна кадров нет");
+    let term = panel_of(&view, "terminal")?.to_string();
+
+    for args in [
+        vec!["layout", "split", term.as_str(), "--open", "terminal"],
+        vec!["layout", "resize", "--zone", "bottom", "300"],
+    ] {
+        let mut args = args;
+        args.extend(["--all", "--json"]);
+        assert_refused(dir.run(&args).await?, "no_ui")?;
+    }
+    let text = dir
+        .run(&["layout", "split", &term, "--open", "terminal", "--all"])
+        .await?
+        .expect(1)?;
+    assert!(text.stdout.is_empty(), "{text:?}");
+    assert!(text.stderr.contains("no_ui"), "{text:?}");
+
+    dir.run(&["panel", "move", &term, "--zone", "bottom", "--all"])
+        .await?
+        .expect(0)?;
+    assert_eq!(
+        zone_tabs(&layout(&dir, &[]).await?, Zone::Bottom),
+        vec![vec![panel_of(&view, "terminal")?]]
+    );
+
     owner.stop().await
 }

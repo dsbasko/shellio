@@ -367,11 +367,14 @@ pub struct MinSize { pub width: f64, pub height: f64 }
 - Create: `crates/shellio-control/tests/wire/request.command.layout_*.json`, `request.command.panel_*.json`, `request.query.layout.json`, `response.ok.layout.json`
 - Modify: `apps/shellioctl/src/{args.rs,main.rs,output.rs}`
 
-- [ ] кадры команд и чтения, новые эталоны JSON
-- [ ] `shellioctl layout split|resize|equal|zoom|only|show|hide|get` и `panel focus|select|move|move-part|close` с `--workbench`
-- [ ] тесты кадров и эталонов
-- [ ] тесты `shellioctl` отдельным процессом против `shellio-owner-fixture` с заданным размером: каждая команда, ошибка использования, отказ ядра с кодом
-- [ ] `make check`
+- [x] кадры команд и чтения, новые эталоны JSON
+- [x] `shellioctl layout split|resize|equal|zoom|only|show|hide|get` и `panel focus|select|move|move-part|close` с `--workbench`
+- [x] тесты кадров и эталонов
+- [x] тесты `shellioctl` отдельным процессом против `shellio-owner-fixture` с заданным размером: каждая команда, ошибка использования, отказ ядра с кодом
+- [x] `make check`
+- Решение исполнителя по правилу плана (план молчит, выбран ближайший к ADR-0007 и самый дешёвый вариант), кадры: варианты `Command` и `Query::Layout` — типы ядра внутри кадров, поэтому `crates/shellio-control/src/{wire.rs,client.rs}` не менялись. Эталоны протокола — по одному на команду раскладки и панелей `request.command.<имя через _>` (`request.command.layout_split` … `request.command.panel_move_part`), `request.query.layout` и `response.ok.layout`; прежние эталоны не менялись. Образец `response.ok.layout` — эталон ядра `reply.layout` внутри кадра, поэтому кадры `f64` закреплены один раз. Строгость разбора проверяет `layout_frames_are_strict`: лишнее поле, неизвестные `zone`, `edge` и цель видимости, размер окна в `query.layout`, чтение без области.
+- Решение исполнителя по правилу плана, CLI: каждый вызов `layout` и `panel` требует области `--workspace <id>` или `--all`, как остальные команды P1.2 (ADR-0007). `--workbench` принимают только формы без панели-операнда (`layout get|resize|equal|only|show|hide`, `layout zoom --off`, `panel focus --dir`): у остальных рабочую область задаёт панель, поэтому флаг — ошибка использования, код 2, а не отказ ядра `arguments_conflict`. Сочетания панели с `--off` и `--dir` тоже проверяет CLI. `--dir` принимает только `h`, `j`, `k`, `l`, `--open` уходит строкой без проверки, plugin id проверяет ядро (`plugin_invalid`). `layout get` печатает JSON раскладки и в текстовом режиме. `shellioctl` получил зависимость `shellio-layout` ради типов `Zone`, `Direction`, `Edge` и `Hideable`.
+- ⚠️ `shellio-owner-fixture` — бинарь пакета `apps/shellio`, тестам `apps/shellioctl` его путь (`CARGO_BIN_EXE_*`) недоступен. Тесты `shellioctl` идут отдельным процессом против владельца в процессе теста (`apps/shellioctl/tests/cli.rs`, `Owner::start_sized`): тот же сервер над ядром в памяти под настоящей блокировкой, размер окна задаётся `CoreHandle::set_viewport` до первого вызова. Без размера (`Owner::start`) деление и размер отвечают `no_ui` с кодом 1, перенос выполняется, `layout get` даёт `frames: null`.
 
 ### Task 7: Адаптер раскладки в обычном окне
 

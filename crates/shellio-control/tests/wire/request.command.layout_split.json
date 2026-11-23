@@ -1,0 +1,9 @@
+{
+  "id": 27,
+  "command": {
+    "cmd": "layout.split",
+    "panel": "00000000-0000-0000-0000-000000000003",
+    "open": "terminal"
+  },
+  "scope": "all"
+}

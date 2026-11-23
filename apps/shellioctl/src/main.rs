@@ -64,6 +64,9 @@ async fn execute(client: &Client<TokioClock>, action: Action, printer: Printer) 
         Action::Follow => return follow(client, printer).await,
         Action::Status => RequestBody::Query(Query::Status {}),
         Action::Tree(scope) => RequestBody::Query(Query::Tree { scope }),
+        Action::Layout { scope, workbench } => {
+            RequestBody::Query(Query::Layout { scope, workbench })
+        }
         Action::Command { command, scope } => RequestBody::Command { command, scope },
         Action::EventsSince(cursor) => RequestBody::EventsSince { cursor },
         Action::Ui(request) => RequestBody::Ui(request),

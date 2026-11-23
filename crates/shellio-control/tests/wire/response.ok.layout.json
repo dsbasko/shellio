@@ -1,0 +1,167 @@
+{
+  "id": 26,
+  "ok": {
+    "revision": 12,
+    "value": {
+      "workbench": "00000000-0000-0000-0000-000000000004",
+      "layout": {
+        "navigator": "00000000-0000-0000-0000-000000000009",
+        "zones": {
+          "left": {
+            "parts": [],
+            "last_active": 0
+          },
+          "right": {
+            "parts": [],
+            "last_active": 0
+          },
+          "center": {
+            "parts": [
+              {
+                "tabs": [
+                  "00000000-0000-0000-0000-00000000000a"
+                ],
+                "active": 0,
+                "share": 1000
+              }
+            ],
+            "last_active": 0
+          },
+          "bottom": {
+            "parts": [],
+            "last_active": 0
+          }
+        },
+        "sizes": {
+          "navigator": 236,
+          "plate": 372,
+          "right": 372,
+          "bottom": 236
+        },
+        "hidden": {
+          "navigator": false,
+          "plate": false,
+          "right": false,
+          "bottom": false
+        },
+        "only": null,
+        "zoomed": null,
+        "focus": [
+          "00000000-0000-0000-0000-00000000000a"
+        ]
+      },
+      "panels": [
+        {
+          "id": "00000000-0000-0000-0000-000000000009",
+          "workbench": "00000000-0000-0000-0000-000000000004",
+          "plugin": "navigator",
+          "title": "Навигатор",
+          "created_at": 1795000000000
+        },
+        {
+          "id": "00000000-0000-0000-0000-00000000000a",
+          "workbench": "00000000-0000-0000-0000-000000000004",
+          "plugin": "terminal",
+          "title": "Терминал",
+          "created_at": 1795000000000
+        }
+      ],
+      "frames": {
+        "area": {
+          "x": 0.0,
+          "y": 40.0,
+          "width": 1180.0,
+          "height": 654.0
+        },
+        "status": {
+          "x": 0.0,
+          "y": 694.0,
+          "width": 1180.0,
+          "height": 26.0
+        },
+        "zones": {
+          "navigator": {
+            "x": 0.0,
+            "y": 40.0,
+            "width": 236.0,
+            "height": 654.0
+          },
+          "left": null,
+          "column": {
+            "x": 236.0,
+            "y": 46.0,
+            "width": 938.0,
+            "height": 642.0
+          },
+          "center": {
+            "x": 236.0,
+            "y": 46.0,
+            "width": 938.0,
+            "height": 642.0
+          },
+          "bottom": null,
+          "right": null
+        },
+        "navigator": {
+          "panel": "00000000-0000-0000-0000-000000000009",
+          "frame": {
+            "x": 0.0,
+            "y": 40.0,
+            "width": 236.0,
+            "height": 654.0
+          },
+          "body": {
+            "x": 6.0,
+            "y": 46.0,
+            "width": 224.0,
+            "height": 642.0
+          },
+          "geometry": {
+            "zone": "left",
+            "size": "narrow",
+            "width": 224.0,
+            "height": 642.0
+          },
+          "stub": false
+        },
+        "parts": [
+          {
+            "zone": "center",
+            "index": 0,
+            "frame": {
+              "x": 236.0,
+              "y": 46.0,
+              "width": 938.0,
+              "height": 642.0
+            },
+            "tab_strip": {
+              "x": 237.0,
+              "y": 47.0,
+              "width": 936.0,
+              "height": 34.0
+            },
+            "body": {
+              "x": 237.0,
+              "y": 81.0,
+              "width": 936.0,
+              "height": 606.0
+            },
+            "tabs": [
+              "00000000-0000-0000-0000-00000000000a"
+            ],
+            "active": "00000000-0000-0000-0000-00000000000a",
+            "geometry": {
+              "zone": "center",
+              "size": "regular",
+              "width": 936.0,
+              "height": 606.0
+            },
+            "stub": false
+          }
+        ],
+        "zoomed": null,
+        "no_panels": null
+      }
+    }
+  }
+}

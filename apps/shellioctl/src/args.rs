@@ -15,8 +15,10 @@ use shellio_control::{
     TreeMutation, UiRequest,
 };
 use shellio_core::{
-    AppearanceChoice, Command, ProjectId, Revision, TreeScope, UiCommand, WorkbenchId, WorkspaceId,
+    AppearanceChoice, Command, PanelId, ProjectId, Revision, TreeScope, UiCommand, WorkbenchId,
+    WorkspaceId,
 };
+use shellio_layout::{Direction, Edge, Hideable, Zone};
 
 /// Справка.
 pub const USAGE: &str = "\
@@ -33,6 +35,20 @@ pub const USAGE: &str = "\
   workbench new --target <проект> <имя> (--workspace <id> | --all)
   workbench rename --target <id> <имя> (--workspace <id> | --all)
   workbench open --target <id> (--workspace <id> | --all)
+  layout get [--workbench <id>] (--workspace <id> | --all)
+  layout split <панель> [--open <плагин>] (--workspace <id> | --all)
+  layout resize --zone <зона> [--part-of <панель>] [--workbench <id>] <размер> (--workspace <id> | --all)
+  layout equal --zone <зона> [--workbench <id>] (--workspace <id> | --all)
+  layout zoom <панель> (--workspace <id> | --all)
+  layout zoom --off [--workbench <id>] (--workspace <id> | --all)
+  layout only [--workbench <id>] (--workspace <id> | --all)
+  layout <show|hide> <navigator|plate|right|bottom> [--workbench <id>] (--workspace <id> | --all)
+  panel focus <панель> (--workspace <id> | --all)
+  panel focus --dir <h|j|k|l> [--workbench <id>] (--workspace <id> | --all)
+  panel select <панель> (--workspace <id> | --all)
+  panel move <панель> --zone <зона> (--workspace <id> | --all)
+  panel move-part <панель> --to <панель> [--edge <before|after>] (--workspace <id> | --all)
+  panel close <панель> (--workspace <id> | --all)
   events --since <курсор> --all
   events --follow --all
   ui window
@@ -56,6 +72,9 @@ pub const USAGE: &str = "\
   gallery tree mutate <insert|reorder|collapse_parent_of_selected>
 
 У команд с целью-воркспейсом --target по умолчанию равен --workspace, с --all он обязателен.
+Зона — left, right, center или bottom. Размер у layout resize — точки зоны, с --part-of — доля
+части в тысячных. Команда с панелью берёт её рабочую область, без панели — --workbench, иначе
+открытую в окне.
 --json печатает кадры ответа построчно, --timeout задаёт срок вызова (по умолчанию 5000 мс).
 Вызовы gallery — служебные входы тестов, только у владельца в режиме --gallery; auto у gallery cell
 оставляет ось без переопределения галереи.
@@ -92,6 +111,11 @@ pub enum Action {
         command: Command,
         scope: TreeScope,
     },
+    /// Чтение `query.layout`.
+    Layout {
+        scope: TreeScope,
+        workbench: Option<WorkbenchId>,
+    },
     EventsSince(Revision),
     Follow,
     /// Запрос к UI владельца.
@@ -123,11 +147,19 @@ enum Flag {
     Title,
     Since,
     Follow,
+    Workbench,
+    Open,
+    Zone,
+    PartOf,
+    Off,
+    Dir,
+    To,
+    Edge,
     Help,
 }
 
 impl Flag {
-    const ALL: [Self; 10] = [
+    const ALL: [Self; 18] = [
         Self::Json,
         Self::Timeout,
         Self::Socket,
@@ -137,6 +169,14 @@ impl Flag {
         Self::Title,
         Self::Since,
         Self::Follow,
+        Self::Workbench,
+        Self::Open,
+        Self::Zone,
+        Self::PartOf,
+        Self::Off,
+        Self::Dir,
+        Self::To,
+        Self::Edge,
         Self::Help,
     ];
 
@@ -151,6 +191,14 @@ impl Flag {
             Self::Title => "--title",
             Self::Since => "--since",
             Self::Follow => "--follow",
+            Self::Workbench => "--workbench",
+            Self::Open => "--open",
+            Self::Zone => "--zone",
+            Self::PartOf => "--part-of",
+            Self::Off => "--off",
+            Self::Dir => "--dir",
+            Self::To => "--to",
+            Self::Edge => "--edge",
             Self::Help => "--help",
         }
     }
@@ -162,8 +210,15 @@ impl Flag {
             | Self::Workspace
             | Self::Target
             | Self::Title
-            | Self::Since => true,
-            Self::Json | Self::All | Self::Follow | Self::Help => false,
+            | Self::Since
+            | Self::Workbench
+            | Self::Open
+            | Self::Zone
+            | Self::PartOf
+            | Self::Dir
+            | Self::To
+            | Self::Edge => true,
+            Self::Json | Self::All | Self::Follow | Self::Off | Self::Help => false,
         }
     }
 
@@ -176,7 +231,15 @@ impl Flag {
             | Self::Target
             | Self::Title
             | Self::Since
-            | Self::Follow => false,
+            | Self::Follow
+            | Self::Workbench
+            | Self::Open
+            | Self::Zone
+            | Self::PartOf
+            | Self::Off
+            | Self::Dir
+            | Self::To
+            | Self::Edge => false,
         }
     }
 
@@ -305,6 +368,64 @@ impl Given {
             .ok_or_else(|| usage(format!("{call}: нужен --target <id>")))?;
         parse_id(Flag::Target, id)
     }
+
+    /// Необязательная рабочая область `--workbench`.
+    fn workbench(&self) -> Result<Option<WorkbenchId>, Usage> {
+        self.value(Flag::Workbench)
+            .map(|id| parse_id(Flag::Workbench, id))
+            .transpose()
+    }
+
+    /// Обязательная зона `--zone`.
+    fn zone(&self, call: &str) -> Result<Zone, Usage> {
+        let value = self
+            .value(Flag::Zone)
+            .ok_or_else(|| usage(format!("{call}: нужна --zone <зона>")))?;
+        name_of(
+            Flag::Zone.name(),
+            value,
+            &[
+                ("left", Zone::Left),
+                ("right", Zone::Right),
+                ("center", Zone::Center),
+                ("bottom", Zone::Bottom),
+            ],
+        )
+    }
+}
+
+/// Значение из таблицы имён.
+fn name_of<T: Copy>(what: &str, value: &str, names: &[(&str, T)]) -> Result<T, Usage> {
+    names
+        .iter()
+        .find(|(name, _)| *name == value)
+        .map(|(_, item)| *item)
+        .ok_or_else(|| {
+            let expected: Vec<&str> = names.iter().map(|(name, _)| *name).collect();
+            usage(format!(
+                "{what}: ожидается {}, получено «{value}»",
+                expected.join(", ")
+            ))
+        })
+}
+
+/// Панель-операнд вызова `call`.
+fn panel_id(call: &str, value: &str) -> Result<PanelId, Usage> {
+    value
+        .parse()
+        .map_err(|_| usage(format!("{call}: неверный идентификатор панели «{value}»")))
+}
+
+/// Не больше одного операнда вызова `call`.
+fn optional_operand<'a>(call: &str, operands: &'a [String]) -> Result<Option<&'a str>, Usage> {
+    match operands {
+        [] => Ok(None),
+        [operand] => Ok(Some(operand)),
+        _ => Err(usage(format!(
+            "{call}: ожидается не больше одного операнда, получено: {}",
+            operands.len()
+        ))),
+    }
 }
 
 fn parse_id<T: FromStr>(flag: Flag, value: &str) -> Result<T, Usage> {
@@ -371,7 +492,15 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
         Some((group, rest))
             if matches!(
                 group.as_str(),
-                "workspace" | "project" | "workbench" | "ui" | "window" | "app" | "gallery"
+                "workspace"
+                    | "project"
+                    | "workbench"
+                    | "layout"
+                    | "panel"
+                    | "ui"
+                    | "window"
+                    | "app"
+                    | "gallery"
             ) =>
         {
             match rest.split_first() {
@@ -462,6 +591,226 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
             let scope = given.scope(call)?;
             let workbench: WorkbenchId = given.target(call)?;
             command(Command::WorkbenchOpen { workbench }, scope)
+        }
+        "layout get" => {
+            given.only(call, &[Flag::Workbench, Flag::Workspace, Flag::All])?;
+            operands::<0>(call, rest)?;
+            Ok(Action::Layout {
+                scope: given.scope(call)?,
+                workbench: given.workbench()?,
+            })
+        }
+        "layout split" => {
+            given.only(call, &[Flag::Open, Flag::Workspace, Flag::All])?;
+            let [panel] = operands(call, rest)?;
+            let scope = given.scope(call)?;
+            let panel = panel_id(call, &panel)?;
+            let open = given.value(Flag::Open).map(str::to_owned);
+            command(Command::LayoutSplit { panel, open }, scope)
+        }
+        "layout resize" => {
+            given.only(
+                call,
+                &[
+                    Flag::Zone,
+                    Flag::PartOf,
+                    Flag::Workbench,
+                    Flag::Workspace,
+                    Flag::All,
+                ],
+            )?;
+            let [size] = operands(call, rest)?;
+            let scope = given.scope(call)?;
+            let zone = given.zone(call)?;
+            let part_of = given
+                .value(Flag::PartOf)
+                .map(|panel| panel_id(call, panel))
+                .transpose()?;
+            let size = size.parse().map_err(|_| {
+                usage(format!(
+                    "{call}: ожидается размер — целое без знака, получено «{size}»"
+                ))
+            })?;
+            command(
+                Command::LayoutResize {
+                    workbench: given.workbench()?,
+                    zone,
+                    part_of,
+                    size,
+                },
+                scope,
+            )
+        }
+        "layout equal" => {
+            given.only(
+                call,
+                &[Flag::Zone, Flag::Workbench, Flag::Workspace, Flag::All],
+            )?;
+            operands::<0>(call, rest)?;
+            let scope = given.scope(call)?;
+            let zone = given.zone(call)?;
+            command(
+                Command::LayoutEqual {
+                    workbench: given.workbench()?,
+                    zone,
+                },
+                scope,
+            )
+        }
+        "layout zoom" => {
+            given.only(
+                call,
+                &[Flag::Off, Flag::Workbench, Flag::Workspace, Flag::All],
+            )?;
+            let panel = optional_operand(call, rest)?;
+            let scope = given.scope(call)?;
+            let workbench = given.workbench()?;
+            let zoom = match (panel, given.has(Flag::Off)) {
+                (Some(_), true) => {
+                    return Err(usage(format!("{call}: панель и --off взаимоисключающие")));
+                }
+                (Some(_), false) if workbench.is_some() => {
+                    return Err(usage(format!(
+                        "{call}: --workbench не применим к развороту панели"
+                    )));
+                }
+                (Some(panel), false) => Command::LayoutZoom {
+                    panel: Some(panel_id(call, panel)?),
+                    workbench: None,
+                    off: None,
+                },
+                (None, true) => Command::LayoutZoom {
+                    panel: None,
+                    workbench,
+                    off: Some(true),
+                },
+                (None, false) => return Err(usage(format!("{call}: нужна панель или --off"))),
+            };
+            command(zoom, scope)
+        }
+        "layout only" => {
+            given.only(call, &[Flag::Workbench, Flag::Workspace, Flag::All])?;
+            operands::<0>(call, rest)?;
+            let scope = given.scope(call)?;
+            command(
+                Command::LayoutOnly {
+                    workbench: given.workbench()?,
+                },
+                scope,
+            )
+        }
+        "layout show" | "layout hide" => {
+            given.only(call, &[Flag::Workbench, Flag::Workspace, Flag::All])?;
+            let [target] = operands(call, rest)?;
+            let scope = given.scope(call)?;
+            let target = name_of(
+                call,
+                &target,
+                &[
+                    ("navigator", Hideable::Navigator),
+                    ("plate", Hideable::Plate),
+                    ("right", Hideable::Right),
+                    ("bottom", Hideable::Bottom),
+                ],
+            )?;
+            command(
+                Command::LayoutVisibility {
+                    workbench: given.workbench()?,
+                    target,
+                    visible: call == "layout show",
+                },
+                scope,
+            )
+        }
+        "panel focus" => {
+            given.only(
+                call,
+                &[Flag::Dir, Flag::Workbench, Flag::Workspace, Flag::All],
+            )?;
+            let panel = optional_operand(call, rest)?;
+            let scope = given.scope(call)?;
+            let workbench = given.workbench()?;
+            let focus = match (panel, given.value(Flag::Dir)) {
+                (Some(_), Some(_)) => {
+                    return Err(usage(format!("{call}: панель и --dir взаимоисключающие")));
+                }
+                (Some(_), None) if workbench.is_some() => {
+                    return Err(usage(format!(
+                        "{call}: --workbench не применим к фокусу панели"
+                    )));
+                }
+                (Some(panel), None) => Command::PanelFocus {
+                    panel: Some(panel_id(call, panel)?),
+                    workbench: None,
+                    direction: None,
+                },
+                (None, Some(direction)) => Command::PanelFocus {
+                    panel: None,
+                    workbench,
+                    direction: Some(name_of(
+                        Flag::Dir.name(),
+                        direction,
+                        &[
+                            ("h", Direction::Left),
+                            ("j", Direction::Down),
+                            ("k", Direction::Up),
+                            ("l", Direction::Right),
+                        ],
+                    )?),
+                },
+                (None, None) => return Err(usage(format!("{call}: нужна панель или --dir"))),
+            };
+            command(focus, scope)
+        }
+        "panel select" | "panel close" => {
+            given.only(call, &[Flag::Workspace, Flag::All])?;
+            let [panel] = operands(call, rest)?;
+            let scope = given.scope(call)?;
+            let panel = panel_id(call, &panel)?;
+            command(
+                if call == "panel select" {
+                    Command::PanelSelect { panel }
+                } else {
+                    Command::PanelClose { panel }
+                },
+                scope,
+            )
+        }
+        "panel move" => {
+            given.only(call, &[Flag::Zone, Flag::Workspace, Flag::All])?;
+            let [panel] = operands(call, rest)?;
+            let scope = given.scope(call)?;
+            let panel = panel_id(call, &panel)?;
+            let zone = given.zone(call)?;
+            command(Command::PanelMove { panel, zone }, scope)
+        }
+        "panel move-part" => {
+            given.only(call, &[Flag::To, Flag::Edge, Flag::Workspace, Flag::All])?;
+            let [panel] = operands(call, rest)?;
+            let scope = given.scope(call)?;
+            let panel = panel_id(call, &panel)?;
+            let anchor = given
+                .value(Flag::To)
+                .ok_or_else(|| usage(format!("{call}: нужен --to <панель>")))?;
+            let anchor = panel_id(call, anchor)?;
+            let edge = given
+                .value(Flag::Edge)
+                .map(|edge| {
+                    name_of(
+                        Flag::Edge.name(),
+                        edge,
+                        &[("before", Edge::Before), ("after", Edge::After)],
+                    )
+                })
+                .transpose()?;
+            command(
+                Command::PanelMovePart {
+                    panel,
+                    anchor,
+                    edge,
+                },
+                scope,
+            )
         }
         "events" => {
             given.only(call, &[Flag::Since, Flag::Follow, Flag::All])?;
@@ -1253,5 +1602,293 @@ mod tests {
             panic!("ожидалась ошибка использования");
         };
         assert!(message.contains("UTF-8"), "{message}");
+    }
+
+    const PANEL: &str = "00000000-0000-0000-0000-000000000005";
+    const ANCHOR: &str = "00000000-0000-0000-0000-000000000006";
+
+    #[test]
+    fn layout_and_panel_call_forms() {
+        let all = |args: &[&str]| {
+            let mut args = args.to_vec();
+            args.push("--all");
+            action_of(&args)
+        };
+        let cmd = |command: Command| Action::Command {
+            command,
+            scope: TreeScope::All,
+        };
+        let bench = Some(id::<WorkbenchId>(BENCH));
+        assert_eq!(
+            action_of(&["layout", "get", "--workspace", WORK]),
+            Action::Layout {
+                scope: workspace(WORK),
+                workbench: None
+            }
+        );
+        assert_eq!(
+            all(&["layout", "get", "--workbench", BENCH]),
+            Action::Layout {
+                scope: TreeScope::All,
+                workbench: bench
+            }
+        );
+        assert_eq!(
+            all(&["layout", "split", PANEL]),
+            cmd(Command::LayoutSplit {
+                panel: id(PANEL),
+                open: None
+            })
+        );
+        assert_eq!(
+            all(&["layout", "split", PANEL, "--open", "Bad Id"]),
+            cmd(Command::LayoutSplit {
+                panel: id(PANEL),
+                open: Some("Bad Id".into())
+            }),
+            "plugin id проверяет ядро"
+        );
+        assert_eq!(
+            all(&["layout", "resize", "--zone", "right", "400"]),
+            cmd(Command::LayoutResize {
+                workbench: None,
+                zone: Zone::Right,
+                part_of: None,
+                size: 400
+            })
+        );
+        assert_eq!(
+            all(&[
+                "layout",
+                "resize",
+                "--zone",
+                "center",
+                "--part-of",
+                PANEL,
+                "--workbench",
+                BENCH,
+                "250"
+            ]),
+            cmd(Command::LayoutResize {
+                workbench: bench,
+                zone: Zone::Center,
+                part_of: Some(id(PANEL)),
+                size: 250
+            })
+        );
+        assert_eq!(
+            all(&["layout", "equal", "--zone", "bottom"]),
+            cmd(Command::LayoutEqual {
+                workbench: None,
+                zone: Zone::Bottom
+            })
+        );
+        assert_eq!(
+            all(&["layout", "zoom", PANEL]),
+            cmd(Command::LayoutZoom {
+                panel: Some(id(PANEL)),
+                workbench: None,
+                off: None
+            })
+        );
+        assert_eq!(
+            all(&["layout", "zoom", "--off", "--workbench", BENCH]),
+            cmd(Command::LayoutZoom {
+                panel: None,
+                workbench: bench,
+                off: Some(true)
+            })
+        );
+        assert_eq!(
+            all(&["layout", "only"]),
+            cmd(Command::LayoutOnly { workbench: None })
+        );
+        for (verb, visible) in [("show", true), ("hide", false)] {
+            for (name, target) in [
+                ("navigator", Hideable::Navigator),
+                ("plate", Hideable::Plate),
+                ("right", Hideable::Right),
+                ("bottom", Hideable::Bottom),
+            ] {
+                assert_eq!(
+                    all(&["layout", verb, name]),
+                    cmd(Command::LayoutVisibility {
+                        workbench: None,
+                        target,
+                        visible
+                    })
+                );
+            }
+        }
+        assert_eq!(
+            all(&["panel", "focus", PANEL]),
+            cmd(Command::PanelFocus {
+                panel: Some(id(PANEL)),
+                workbench: None,
+                direction: None
+            })
+        );
+        for (key, direction) in [
+            ("h", Direction::Left),
+            ("j", Direction::Down),
+            ("k", Direction::Up),
+            ("l", Direction::Right),
+        ] {
+            assert_eq!(
+                all(&["panel", "focus", "--dir", key, "--workbench", BENCH]),
+                cmd(Command::PanelFocus {
+                    panel: None,
+                    workbench: bench,
+                    direction: Some(direction)
+                })
+            );
+        }
+        assert_eq!(
+            all(&["panel", "select", PANEL]),
+            cmd(Command::PanelSelect { panel: id(PANEL) })
+        );
+        assert_eq!(
+            all(&["panel", "close", PANEL]),
+            cmd(Command::PanelClose { panel: id(PANEL) })
+        );
+        for (name, zone) in [
+            ("left", Zone::Left),
+            ("right", Zone::Right),
+            ("center", Zone::Center),
+            ("bottom", Zone::Bottom),
+        ] {
+            assert_eq!(
+                all(&["panel", "move", PANEL, "--zone", name]),
+                cmd(Command::PanelMove {
+                    panel: id(PANEL),
+                    zone
+                })
+            );
+        }
+        assert_eq!(
+            all(&["panel", "move-part", PANEL, "--to", ANCHOR]),
+            cmd(Command::PanelMovePart {
+                panel: id(PANEL),
+                anchor: id(ANCHOR),
+                edge: None
+            })
+        );
+        assert_eq!(
+            all(&[
+                "panel",
+                "move-part",
+                PANEL,
+                "--to",
+                ANCHOR,
+                "--edge",
+                "before"
+            ]),
+            cmd(Command::PanelMovePart {
+                panel: id(PANEL),
+                anchor: id(ANCHOR),
+                edge: Some(Edge::Before)
+            })
+        );
+        assert_eq!(
+            action_of(&[
+                "panel",
+                "move-part",
+                PANEL,
+                "--to",
+                ANCHOR,
+                "--edge=after",
+                "--workspace",
+                WORK
+            ]),
+            command(
+                Command::PanelMovePart {
+                    panel: id(PANEL),
+                    anchor: id(ANCHOR),
+                    edge: Some(Edge::After)
+                },
+                workspace(WORK)
+            )
+        );
+    }
+
+    #[test]
+    fn layout_and_panel_misuse_is_usage_error() {
+        let cases: &[(&[&str], &str)] = &[
+            (&["layout"], "не указано действие"),
+            (&["layout", "split", PANEL], "нужна область"),
+            (&["layout", "split", "--all"], "операндов"),
+            (
+                &["layout", "split", "nope", "--all"],
+                "идентификатор панели",
+            ),
+            (
+                &["layout", "split", PANEL, "--workbench", BENCH, "--all"],
+                "не применим",
+            ),
+            (&["layout", "resize", "400", "--all"], "--zone"),
+            (
+                &["layout", "resize", "--zone", "top", "400", "--all"],
+                "center",
+            ),
+            (
+                &["layout", "resize", "--zone", "left", "--all", "--", "-4"],
+                "целое без знака",
+            ),
+            (&["layout", "equal", "--all"], "--zone"),
+            (&["layout", "zoom", "--all"], "панель или --off"),
+            (
+                &["layout", "zoom", PANEL, "--off", "--all"],
+                "взаимоисключающие",
+            ),
+            (
+                &["layout", "zoom", PANEL, "--workbench", BENCH, "--all"],
+                "--workbench",
+            ),
+            (
+                &["layout", "zoom", PANEL, ANCHOR, "--all"],
+                "не больше одного",
+            ),
+            (&["layout", "off", "--all"], "неизвестный вызов"),
+            (&["layout", "show", "center", "--all"], "navigator"),
+            (&["layout", "hide", "--all"], "операндов"),
+            (&["panel", "focus", "--all"], "панель или --dir"),
+            (
+                &["panel", "focus", PANEL, "--dir", "h", "--all"],
+                "взаимоисключающие",
+            ),
+            (
+                &["panel", "focus", PANEL, "--workbench", BENCH, "--all"],
+                "--workbench",
+            ),
+            (&["panel", "focus", "--dir", "left", "--all"], "h, j, k, l"),
+            (
+                &["panel", "select", PANEL, "--workbench", BENCH, "--all"],
+                "не применим",
+            ),
+            (&["panel", "move", PANEL, "--all"], "--zone"),
+            (&["panel", "move-part", PANEL, "--all"], "--to"),
+            (
+                &[
+                    "panel",
+                    "move-part",
+                    PANEL,
+                    "--to",
+                    ANCHOR,
+                    "--edge",
+                    "side",
+                    "--all",
+                ],
+                "before",
+            ),
+            (&["panel", "close", PANEL, "--off", "--all"], "не применим"),
+            (
+                &["panel", "close", PANEL, "--off=1", "--all"],
+                "не принимает значения",
+            ),
+        ];
+        for (args, expected) in cases {
+            let message = refused(args);
+            assert!(message.contains(expected), "{args:?}: {message}");
+        }
     }
 }
