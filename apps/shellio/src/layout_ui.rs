@@ -7,6 +7,8 @@
 //! `PanelId`: смена вкладки его прячет и показывает, перенос и `zoom` переставляют родителя.
 //! Развёрнутая панель лежит на отдельной плитке поверх корня, деления под ней не меняются.
 //! Перетаскиваемая вкладка подсвечивает цель на её плитке, отпускание — одна команда переноса.
+//! Тело меньше `min_size` панели показывает заглушку «Развернуть» [`ExpandStub`]: одна на место
+//! тела, вид панели под ней скрыт и жив.
 
 use std::cell::Cell;
 use std::collections::BTreeMap;
@@ -17,9 +19,10 @@ use shellio::scene::{
     SplitId, SplitPlan,
 };
 use shellio_appkit::{
-    App, EmptyNote, Frame, Insets, MainWindow, Menu, MenuEntry, MenuIntent, MenuItem, Pane,
-    PanelCard, PanelView, Plate, Presentation, SplitDirection, SplitDrag, SplitSlot, SplitSpec,
-    SplitView, Tab, TabDrag, TabIntent, TabStatus, TabStripState, ZoneSide,
+    App, EmptyNote, ExpandStub, Frame, Insets, MainWindow, Menu, MenuEntry, MenuIntent, MenuItem,
+    Pane, PanelCard, PanelView, Plate, Presentation, SplitDirection, SplitDrag, SplitSlot,
+    SplitSpec, SplitView, StubCard, StubIntent, Tab, TabDrag, TabIntent, TabStatus, TabStripState,
+    ZoneSide,
 };
 use shellio_control::{ComponentState, ComponentView, PanelNodeView, PartNodeView};
 use shellio_core::{Command, PanelId, State, layout_metrics};
@@ -63,12 +66,18 @@ pub enum PanelAction {
         panel: PanelId,
         plugin: &'static str,
     },
+    /// Кнопка заглушки «Развернуть» на месте тела — `layout.zoom` её панели.
+    Expand(Host),
+    /// Щелчок в тело заглушки мимо кнопки — `panel.focus` её панели.
+    StubPress(Host),
 }
 
 /// Раскладка обычного окна.
 pub struct LayoutUi {
-    // Порядок полей — порядок освобождения: сначала виды панелей и плитки, затем сплиты и
-    // контейнер.
+    // Порядок полей — порядок освобождения: сначала заглушки, виды панелей и плитки, затем сплиты
+    // и контейнер.
+    /// Заглушки «Развернуть» по месту тела: создаются при первой нужде и переиспользуются.
+    stubs: BTreeMap<Host, ExpandStub>,
     views: BTreeMap<PanelId, PanelView>,
     plates: BTreeMap<PartKey, Plate>,
     zoom: Option<Plate>,
@@ -138,6 +147,7 @@ impl LayoutUi {
         let picker_panel = Rc::new(Cell::new(None));
         let picker = picker_menu(app, Rc::clone(&on_panel), Rc::clone(&picker_panel));
         LayoutUi {
+            stubs: BTreeMap::new(),
             views: BTreeMap::new(),
             plates: BTreeMap::new(),
             zoom: None,
@@ -272,6 +282,7 @@ impl LayoutUi {
                     self.views.remove(&panel);
                 }
                 Op::RemovePlate(key) => {
+                    self.stubs.remove(&Host::Part(key));
                     self.plates.remove(&key);
                     if self.drop_at.get() == Some(key) {
                         self.drop_at.set(None);
@@ -293,6 +304,9 @@ impl LayoutUi {
         }
         for view in self.views.values() {
             view.set_theme(theme);
+        }
+        for stub in self.stubs.values() {
+            stub.set_theme(theme);
         }
         self.note.set_theme(theme);
     }
@@ -369,11 +383,7 @@ impl LayoutUi {
                 let Some(slot) = bench.views.get(panel) else {
                     continue;
                 };
-                let parent = match slot.host {
-                    Host::Navigator => NAVIGATOR_ID.to_owned(),
-                    Host::Part(key) => part_id(key),
-                    Host::Zoom => ZOOM_ID.to_owned(),
-                };
+                let parent = host_id(slot.host);
                 let mut component =
                     window_ui::component(view.inspect(&panel_id(*panel), Some(&parent)));
                 component.state = Some(ComponentState::Panel(Box::new(PanelNodeView {
@@ -386,6 +396,13 @@ impl LayoutUi {
                     size: slot.geometry.map(|geometry| geometry.size),
                 })));
                 nodes.push(component);
+            }
+            for host in bench.stubs().keys() {
+                if let Some(stub) = self.stubs.get(host) {
+                    let parent = host_id(*host);
+                    let list = stub.inspect(&format!("{parent}.stub"), Some(&parent));
+                    nodes.extend(list.into_iter().map(window_ui::component));
+                }
             }
         }
         if self.scene.as_ref().and_then(Scene::note).is_some() {
@@ -600,6 +617,8 @@ impl LayoutUi {
             }
         }
 
+        self.place_stubs(app, next, &splits);
+
         match next.note() {
             Some((text, rect)) => {
                 self.note.set_text(text);
@@ -608,6 +627,64 @@ impl LayoutUi {
                 self.note.set_hidden(false);
             }
             None => self.note.set_hidden(true),
+        }
+    }
+}
+
+impl LayoutUi {
+    /// Заглушки «Развернуть» по сцене `next`: на месте тела меньше `min_size` панели — заглушка
+    /// этого места поверх скрытого вида, остальные заглушки скрыты.
+    fn place_stubs(&mut self, app: &App, next: &Scene, splits: &scene::Splits) {
+        let bench = next.bench.as_ref();
+        let stubs = bench.map(Bench::stubs).unwrap_or_default();
+        for (&host, stub) in &stubs {
+            let card = StubCard {
+                title: stub.title.clone(),
+                expandable: stub.expandable,
+            };
+            if !self.stubs.contains_key(&host) {
+                let on_panel = Rc::clone(&self.on_panel);
+                let view = ExpandStub::new(app, &self.theme, card.clone(), move |intent| {
+                    on_panel(match intent {
+                        StubIntent::Expand => PanelAction::Expand(host),
+                        StubIntent::Press => PanelAction::StubPress(host),
+                    });
+                });
+                self.stubs.insert(host, view);
+            }
+            let Some(view) = self.stubs.get(&host) else {
+                continue;
+            };
+            view.set_card(card);
+            match host {
+                Host::Navigator => {
+                    let insets = splits.root_panes.first().map_or(Insets::ZERO, |pane| {
+                        to_insets(scene::insets(stub.body, *pane))
+                    });
+                    self.root.with_pane(0, |pane| pane.place(view, insets));
+                }
+                Host::Part(key) => {
+                    let plate_frame = bench
+                        .and_then(|bench| bench.plates.get(&key))
+                        .and_then(|slot| slot.frame.as_ref());
+                    if let (Some(plate), Some(plate_frame)) = (self.plates.get(&key), plate_frame) {
+                        plate
+                            .place_body(view, frame(scene::relative(stub.body, plate_frame.frame)));
+                    }
+                }
+                Host::Zoom => {
+                    let zoomed = bench.and_then(|bench| bench.zoomed.as_ref());
+                    if let (Some(zoom), Some(zoomed)) = (&self.zoom, zoomed) {
+                        zoom.place_body(view, frame(scene::relative(stub.body, zoomed.frame)));
+                    }
+                }
+            }
+            view.set_hidden(false);
+        }
+        for (host, view) in &self.stubs {
+            if !stubs.contains_key(host) {
+                view.set_hidden(true);
+            }
         }
     }
 }
@@ -686,6 +763,15 @@ fn split_id(zone: Zone) -> String {
 
 fn part_id(key: PartKey) -> String {
     format!("layout.part.{}.{}", zone_name(key.zone), key.index)
+}
+
+/// Id узла `ui.inspect` места тела: колонки навигатора, плитки части или развёрнутой плитки.
+fn host_id(host: Host) -> String {
+    match host {
+        Host::Navigator => NAVIGATOR_ID.to_owned(),
+        Host::Part(key) => part_id(key),
+        Host::Zoom => ZOOM_ID.to_owned(),
+    }
 }
 
 fn panel_id(panel: PanelId) -> String {

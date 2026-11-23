@@ -76,8 +76,6 @@ ITEMS=(layout-default layout-snapshot move-cli move-menu-zone move-menu-part mov
   resize-drag split-two-fit split-button-unfocused split-single-picker split-refused stub-expand zoom-restore
   only-bottom hide-zones tooltips-ax restore-cold restore-legacy voiceover-speech system-contrast)
 REQUIRED=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0)
-# Пункты следующих задач плана: до них прогон пишет not_run с задачей, обязательность — после их появления.
-LATER=(stub-expand:13)
 # min_size панели до P1.5 (план P1.4, «Решения планирования»): query.layout его не отдаёт, условия пунктов места
 # судятся по этому числу.
 MIN_W=200
@@ -751,7 +749,8 @@ ax_frames() {
 
 # Сверка кадров query.layout с ui.inspect и AX: строки нарушений в stdout, пусто — совпало. Кадры частей — строка
 # вкладок (AXTabGroup с именем строки вкладок части) и тело (AXGroup вида панели с названием активной панели),
-# колонка навигатора — тело её вида.
+# колонка навигатора — тело её вида. Тело с флагом stub сверяется с заглушкой «Развернуть» своего места (узел
+# <место>.stub и AXGroup «<название>: здесь тесно»): вид панели под ней скрыт.
 frames_compare() {
   /usr/bin/perl -COEA -Mutf8 -MJSON::PP -e '
     my ($layout, $inspect, $ax, $tol) = @ARGV;
@@ -785,13 +784,23 @@ frames_compare() {
       print "$what: ui.inspect $id ", $fmt->($got), ", query.layout ", $fmt->($want), "\n" unless $near->($got, $want);
       print "$what: узел ui.inspect $id не видим\n" unless $n->{visible};
     };
+    my $body_has = sub {
+      my ($host, $panel, $stub, $want, $what) = @_;
+      my $name = $title{$panel} // "?";
+      if ($stub) {
+        $inspect_has->("$host.stub", $want, "$what, заглушка");
+        $ax_has->("AXGroup", "$name: здесь тесно", $want, "$what, заглушка");
+      } else {
+        $inspect_has->("layout.panel.$panel", $want, "$what, тело");
+        $ax_has->("AXGroup", $name, $want, "$what, тело");
+      }
+    };
     my %zone_name = (left => "левой зоны", right => "правой зоны", center => "центра", bottom => "нижней зоны");
     if (my $z = $f->{zoomed}) {
       $inspect_has->("layout.zoom", $rect->($z->{frame}), "развёрнутая панель, плитка");
       $inspect_has->("layout.zoom.tabs", $rect->($z->{tab_strip}), "развёрнутая панель, строка вкладок");
-      $inspect_has->("layout.panel.$z->{active}", $rect->($z->{body}), "развёрнутая панель, тело");
       $ax_has->("AXTabGroup", "Вкладки развёрнутой панели", $rect->($z->{tab_strip}), "развёрнутая панель, строка вкладок");
-      $ax_has->("AXGroup", $title{$z->{active}} // "?", $rect->($z->{body}), "развёрнутая панель, тело");
+      $body_has->("layout.zoom", $z->{active}, $z->{stub}, $rect->($z->{body}), "развёрнутая панель");
     }
     my %count;
     $count{$_->{zone}}++ for @{$f->{parts}};
@@ -801,13 +810,11 @@ frames_compare() {
       my $id = "layout.part.$p->{zone}.$p->{index}";
       $inspect_has->($id, $rect->($p->{frame}), "$what, плитка");
       $inspect_has->("$id.tabs", $rect->($p->{tab_strip}), "$what, строка вкладок");
-      $inspect_has->("layout.panel.$p->{active}", $rect->($p->{body}), "$what, тело");
       $ax_has->("AXTabGroup", $strip, $rect->($p->{tab_strip}), "$what, строка вкладок");
-      $ax_has->("AXGroup", $title{$p->{active}} // "?", $rect->($p->{body}), "$what, тело");
+      $body_has->($id, $p->{active}, $p->{stub}, $rect->($p->{body}), $what);
     }
     if (my $n = $f->{navigator}) {
-      $inspect_has->("layout.panel.$n->{panel}", $rect->($n->{body}), "колонка навигатора, тело");
-      $ax_has->("AXGroup", $title{$n->{panel}} // "?", $rect->($n->{body}), "колонка навигатора, тело");
+      $body_has->("layout.navigator", $n->{panel}, $n->{stub}, $rect->($n->{body}), "колонка навигатора");
     }
   ' "$1" "$2" "$3" "$FRAME_TOLERANCE"
 }
@@ -1275,6 +1282,58 @@ strip_buttons() {
   WHY=""
   osascript -l JavaScript -e "$AX_STRIP_JS" list "$pid" "$strip" >"$out.json" 2>"$out.stderr" || {
     WHY="кнопки строки «${strip}» по AX не прочитаны: $(oneline "$out.stderr")"
+    return 1
+  }
+}
+
+# AXPress кнопки «Развернуть» заглушки, центр которой лежит в прямоугольнике тела (x, y, w, h) в точках содержимого
+# окна pid с началом сверху слева: заглушки разных частей различаются только местом. Обход дерева AX до глубины 12,
+# внутрь групп вкладок не заходит.
+AX_STUB_JS='function run(argv) {
+  const [pid, x, y, w, h] = argv.map(Number);
+  const se = Application("System Events");
+  const win = se.processes.whose({unixId: pid})[0].windows[0];
+  const prop = (f) => { try { const v = f(); return v === undefined ? null : v; } catch (e) { return null; } };
+  const [wx, wy] = win.position();
+  let found = null;
+  function walk(e, depth) {
+    if (found) return;
+    const role = prop(() => e.role());
+    if (role === "AXTabGroup") return;
+    if (role === "AXButton" && prop(() => e.description()) === "Развернуть") {
+      const p = prop(() => e.position());
+      const s = prop(() => e.size());
+      if (p && s) {
+        const cx = p[0] - wx + s[0] / 2;
+        const cy = p[1] - wy + s[1] / 2;
+        if (cx >= x && cx <= x + w && cy >= y && cy <= y + h) { found = e; return; }
+      }
+    }
+    if (depth >= 12) return;
+    let kids = [];
+    try { kids = e.uiElements(); } catch (e) {}
+    for (const k of kids) walk(k, depth + 1);
+  }
+  walk(win, 0);
+  if (!found) throw new Error("нет кнопки «Развернуть» в теле (" + [x, y, w, h].join(", ") + ")");
+  found.actions.byName("AXPress").perform();
+  return "pressed";
+}'
+
+# AXPress кнопки «Развернуть» заглушки в теле части zone.index по query.layout layout; иначе WHY.
+stub_press() {
+  local pid="$1" layout="$2" zone="$3" index="$4" out="$5" x y w h
+  WHY=""
+  x="$(part_field "$layout" "$zone" "$index" x body)"
+  y="$(part_field "$layout" "$zone" "$index" y body)"
+  w="$(part_field "$layout" "$zone" "$index" width body)"
+  h="$(part_field "$layout" "$zone" "$index" height body)"
+  [[ "$x" != "?" ]] || {
+    WHY="нет части $zone.$index в query.layout"
+    return 1
+  }
+  osascript -l JavaScript -e "$AX_STUB_JS" "$pid" "$x" "$y" "$w" "$h" >"$out.stdout" 2>"$out.stderr" || {
+    WHY="AXPress кнопки «Развернуть» части $zone.$index не выполнен: $(oneline "$out.stderr")"
     return 1
   }
 }
@@ -2296,6 +2355,130 @@ item_tooltips_ax() {
   conclude "$item" "строки вкладок центра и правой зоны: по AX кнопки «Разделить: части рядом» и «Разделить: одна над другой», «Развернуть панель», «Действия панели» с AXHelp «${NO_KEY}»; ui.inspect — подсказки «<действие>  ${NO_KEY}», значки «Разделить» по оси: $symbols"
 }
 
+# Части зоны zone по кадрам query.layout по порядку: строки «номер ширина высота stub» тела каждой части.
+part_bodies() {
+  /usr/bin/perl -MJSON::PP -e 'my ($zone) = @ARGV; local $/;
+    my @p = sort { $a->{index} <=> $b->{index} } grep { $_->{zone} eq $zone }
+      @{JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{frames}{parts}};
+    printf "%d %s %s %s\n", $_->{index}, $_->{body}{width}, $_->{body}{height}, $_->{stub} ? "true" : "false" for @p' \
+    "$2" <"$1"
+}
+
+# Правая зона скрыта, центр делится на три части с телами не меньше min_size, затем правая зона показывается:
+# деление сохранено, части центра показывают заглушку «Развернуть», виды панелей скрыты и живы (ComponentId прежние,
+# ShellioPanelView не создано); кнопка заглушки средней части разворачивает её панель одной ревизией. В конце
+# исходное состояние пункта возвращается командами: следующим пунктам нужны две части центра и показанная правая
+# зона.
+item_stub_expand() {
+  local item=stub-expand dir="$run/stub-expand" source added focus share0 panels created live after i panel
+  local bodies rev target component zoomed last
+  failures=()
+  log "== $item"
+  layout_get "$profile" "$dir/start" "$wb" || fatal "$item: query.layout не прочитан"
+  [[ "$(parts_count "$dir/start.stdout" center)" == 2 && "$(lv "$dir/start.stdout" frames.zones.right || echo null)" != null ]] ||
+    fatal "условие пункта: в центре не две части или правая зона не показана: $(lv "$dir/start.stdout" layout.zones.center)"
+  source="$(active_of "$dir/start.stdout" center 1)"
+  focus="$(focus_of "$dir/start.stdout")"
+  share0="$(lv "$dir/start.stdout" 'layout.zones.center.parts[0].share')"
+  last="$(active_of "$dir/start.stdout" center "$(lv "$dir/start.stdout" layout.zones.center.last_active)")"
+  core_cmd "$profile" "$dir/hide" layout hide right --workbench "$wb" --workspace "$ws" || fatal "условие пункта: $WHY"
+  core_cmd "$profile" "$dir/split" layout split "$source" --open terminal --workspace "$ws" || fatal "условие пункта: $WHY"
+  added="$(jv "$dir/split.stdout" ok.value.panel)" || fatal "условие пункта: деление не назвало новую панель"
+  core_cmd "$profile" "$dir/equal" layout equal --zone center --workbench "$wb" --workspace "$ws" ||
+    fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/settle-wide" "$wb" "$REV" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" wide "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  part_bodies "$dir/wide.layout.stdout" center >"$dir/wide.bodies"
+  awk -v w="$MIN_W" -v h="$MIN_H" '$2 < w || $3 < h || $4 != "false" { bad = 1 } END { exit !(NR == 3 && !bad) }' \
+    "$dir/wide.bodies" ||
+    fatal "условие пункта: при скрытой правой зоне не три части центра с телами не меньше ${MIN_W}×${MIN_H}: $(oneline "$dir/wide.bodies")"
+  [[ -z "$FRAMES" ]] || failures+=("кадры трёх частей: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  panels="$(lv "$dir/wide.layout.stdout" 'panels[#]')"
+  for i in 0 1 2; do
+    panel="$(active_of "$dir/wide.layout.stdout" center "$i")"
+    printf '%s %s\n' "$panel" "$(comp "$dir/wide.inspect.stdout" "layout.panel.$panel" state.panel.component || echo ?)" \
+      >>"$dir/wide.components"
+  done
+  ui_read "$profile" "$dir/wide.stats" stats || fatal "$item: ui.stats не прочитан"
+  created="$(created_of "$dir/wide.stats.stdout" ShellioPanelView)"
+
+  core_cmd "$profile" "$dir/show" layout show right --workbench "$wb" --workspace "$ws" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  rev="$REV"
+  settle_layout "$profile" "$dir/settle-stubbed" "$wb" "$rev" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" stubbed "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  part_bodies "$dir/stubbed.layout.stdout" center >"$dir/stubbed.bodies"
+  awk -v w="$MIN_W" '$2 >= w { bad = 1 } END { exit !(NR == 3 && !bad) }' "$dir/stubbed.bodies" ||
+    fatal "условие пункта: при показанной правой зоне не три части центра уже ${MIN_W} точек: $(oneline "$dir/stubbed.bodies")"
+  [[ "$(lv "$dir/stubbed.layout.stdout" layout.zones.center)" == "$(lv "$dir/wide.layout.stdout" layout.zones.center)" ]] ||
+    failures+=("деление центра изменилось: $(lv "$dir/stubbed.layout.stdout" layout.zones.center)")
+  awk '$4 != "true" { bad = 1 } END { exit bad }' "$dir/stubbed.bodies" ||
+    failures+=("query.layout: не у всех частей центра stub: $(oneline "$dir/stubbed.bodies")")
+  while read -r panel component; do
+    i="$(place_of "$dir/stubbed.layout.stdout" "$panel")"
+    [[ "$(comp "$dir/stubbed.inspect.stdout" "layout.part.$i.stub" visible || echo нет)" == true ]] ||
+      failures+=("ui.inspect: заглушка части $i не видима")
+    [[ "$(comp "$dir/stubbed.inspect.stdout" "layout.part.$i.stub.expand" visible || echo нет)" == true ]] ||
+      failures+=("ui.inspect: кнопка «Развернуть» части $i не видима")
+    [[ "$(comp "$dir/stubbed.inspect.stdout" "layout.part.$i.stub" label || echo нет)" == "Терминал: здесь тесно" ]] ||
+      failures+=("ui.inspect: подпись заглушки части $i — $(comp "$dir/stubbed.inspect.stdout" "layout.part.$i.stub" label || echo нет)")
+    [[ "$(comp "$dir/stubbed.inspect.stdout" "layout.panel.$panel" state.panel.shown || echo нет)" == false ]] ||
+      failures+=("ui.inspect: вид панели $panel под заглушкой не скрыт")
+    [[ "$(comp "$dir/stubbed.inspect.stdout" "layout.panel.$panel" state.panel.component || echo нет)" == "$component" ]] ||
+      failures+=("ComponentId вида панели $panel: $component → $(comp "$dir/stubbed.inspect.stdout" "layout.panel.$panel" state.panel.component || echo нет)")
+  done <"$dir/wide.components"
+  ui_read "$profile" "$dir/stubbed.stats" stats || fatal "$item: ui.stats не прочитан"
+  after="$(created_of "$dir/stubbed.stats.stdout" ShellioPanelView)"
+  live="$(jv "$dir/stubbed.stats.stdout" 'ok.ui.stats.instances[name=ShellioPanelView].live' || echo ?)"
+  [[ "$after" == "$created" ]] || failures+=("создано видов панели ShellioPanelView: $created → $after")
+  [[ "$live" == "$panels" ]] || failures+=("живых ShellioPanelView $live, панелей $panels")
+  [[ -z "$FRAMES" ]] || failures+=("кадры заглушек: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+
+  target="$(active_of "$dir/stubbed.layout.stdout" center 1)"
+  front_owner_ok "$dir" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  stub_press "$owner_pid" "$dir/stubbed.layout.stdout" center 1 "$dir/press" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_layout "$profile" "$dir/wait-zoom" "$wb" layout.zoomed "$target" || {
+    record "$item" fail "кнопка «Развернуть» заглушки части center.1: $WHY"
+    return 0
+  }
+  zoomed="$(jv "$dir/wait-zoom.stdout" ok.revision)"
+  ((zoomed == rev + 1)) || failures+=("кнопка заглушки: ревизия $rev → $zoomed, ожидалась одна команда")
+  [[ "$(focus_of "$dir/wait-zoom.stdout")" == "$target" ]] ||
+    failures+=("после разворота фокус на $(focus_of "$dir/wait-zoom.stdout"), а не на $target")
+  settle_layout "$profile" "$dir/settle-zoom" "$wb" "$zoomed" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" zoomed "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(lv "$dir/zoomed.layout.stdout" frames.zoomed.stub)" == false ]] ||
+    failures+=("развёрнутая панель $target тоже под заглушкой")
+  [[ "$(comp "$dir/zoomed.inspect.stdout" "layout.panel.$target" state.panel.shown || echo нет)" == true ]] ||
+    failures+=("ui.inspect: вид развёрнутой панели $target не показан")
+  ui_read "$profile" "$dir/zoomed.stats" stats || fatal "$item: ui.stats не прочитан"
+  after="$(created_of "$dir/zoomed.stats.stdout" ShellioPanelView)"
+  [[ "$after" == "$created" ]] || failures+=("после разворота создано видов панели ShellioPanelView: $created → $after")
+  [[ -z "$FRAMES" ]] || failures+=("кадры развёрнутой панели: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+
+  core_cmd "$profile" "$dir/unzoom" layout zoom --off --workbench "$wb" --workspace "$ws" || fatal "$item: возврат: $WHY"
+  core_cmd "$profile" "$dir/close" panel close "$added" --workspace "$ws" || fatal "$item: возврат: $WHY"
+  core_cmd "$profile" "$dir/share" layout resize --zone center --part-of "$(active_of "$dir/start.stdout" center 0)" "$share0" \
+    --workbench "$wb" --workspace "$ws" || fatal "$item: возврат: $WHY"
+  # Последняя активная часть центра и фокус — как в начале: фокус следует за панелью и сдвинул их.
+  core_cmd "$profile" "$dir/last" panel focus "$last" --workspace "$ws" || fatal "$item: возврат: $WHY"
+  core_cmd "$profile" "$dir/focus" panel focus "$focus" --workspace "$ws" || fatal "$item: возврат: $WHY"
+  settle_layout "$profile" "$dir/settle-back" "$wb" "$REV" || fatal "$item: $WHY"
+  layout_get "$profile" "$dir/back" "$wb" || fatal "$item: query.layout не прочитан"
+  [[ "$(layout_core "$dir/back.stdout")" == "$(layout_core "$dir/start.stdout")" ]] ||
+    failures+=("исходное состояние пункта не вернулось: start.stdout и back.stdout")
+  bodies="$(awk '{ printf "%s%s", (NR > 1 ? ", " : ""), $2 }' "$dir/stubbed.bodies")"
+  conclude "$item" "правая зона скрыта, layout split --open terminal и layout equal: три части центра с телами не меньше ${MIN_W}×${MIN_H}; layout show right: тела $bodies точек, деление прежнее, у всех трёх частей stub в query.layout, видимая заглушка «Терминал: здесь тесно» с кнопкой «Развернуть» по ui.inspect и AX, виды панелей скрыты с прежними ComponentId, ShellioPanelView не создано ($created), живых $live на $panels панелей; кнопка заглушки части center.1 развернула $target одной ревизией с фокусом, вид показан; исходное состояние возвращено"
+}
+
 # Перенос, изменение размера CLI и перетаскиванием, деление, скрытие, фокус и zoom → app quit → новый запуск на том же
 # профиле; затем «Вернуть раскладку» и сверка всех частей по AX.
 item_restore_cold() {
@@ -2417,15 +2600,6 @@ item_restore_legacy() {
   conclude "$item" "state.db схемы v1 с открытой рабочей областью: сразу после запуска раскладка по умолчанию (колонка навигатора, terminal в центре), кадры совпали; после второго запуска те же PanelId ($first) и та же раскладка"
 }
 
-# Пункты следующих задач плана.
-later_items() {
-  local entry
-  for entry in "${LATER[@]}"; do
-    set_required "${entry%%:*}" 0
-    record "${entry%%:*}" not_run "пункт задачи ${entry##*:} плана P1.4, в этом прогоне ещё не исполняется"
-  done
-}
-
 prepare
 preconditions
 item_layout_default
@@ -2445,12 +2619,12 @@ item_split_single_picker
 item_only_bottom
 item_zoom_restore
 item_tooltips_ax
+item_stub_expand
 item_restore_cold
 # System Events разрешает элементы окна по имени процесса: при двух владельцах бандла AX читает чужое окно, поэтому
 # restore-legacy идёт при единственном живом владельце.
 quit_owner "$profile" "$run/restore-cold" "$owner_pid"
 item_restore_legacy
-later_items
 record voiceover-speech not_run "речь VoiceOver автоматика не наблюдает, роли и названия проверяет tooltips-ax"
 record system-contrast not_run "процесс не переключает Increase Contrast системы, слоты плиток в ячейке IC проверяют модульные тесты темы"
 completed=1

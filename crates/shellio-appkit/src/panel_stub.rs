@@ -1,29 +1,36 @@
 //! Нейтральный вид панели до фабрик P1.5 ([`PanelView`]): название, plugin id, зона и класс размера
 //! тела. Хост рисует его для любого plugin id; вид живёт столько же, сколько панель, и переносится
-//! между плитками без пересоздания. [`EmptyNote`] — сообщение на месте области зон: «Нет открытых
-//! панелей» или «Рабочая область не открыта».
+//! между плитками без пересоздания. [`ExpandStub`] — заглушка «Развернуть» хоста на месте тела
+//! меньше `min_size` панели (ADR-0009, ADR-0031): вид панели под ней скрыт и жив. [`EmptyNote`] —
+//! сообщение на месте области зон: «Нет открытых панелей» или «Рабочая область не открыта».
 
 use std::cell::{Cell, RefCell};
 
 use objc2::rc::Retained;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
-    NSAccessibility, NSAccessibilityGroupRole, NSAutoresizingMaskOptions, NSEvent, NSFont,
-    NSFontWeightMedium, NSFontWeightRegular, NSLineBreakMode, NSResponder, NSTextAlignment,
-    NSTextField, NSView, NSViewLayerContentsRedrawPolicy,
+    NSAccessibility, NSAccessibilityGroupRole, NSAutoresizingMaskOptions, NSButton, NSControl,
+    NSEvent, NSFont, NSFontWeightMedium, NSFontWeightRegular, NSLineBreakMode, NSResponder,
+    NSTextAlignment, NSTextField, NSView, NSViewLayerContentsRedrawPolicy,
 };
 use objc2_foundation::{NSObject, NSPoint, NSRect, NSSize, NSString};
 use shellio_theme::AppTheme;
 
 use crate::app::App;
+use crate::chrome_bar::Frame;
+use crate::components::tab_strip::model::{self as strip, StripButton};
 use crate::counters::{Live, counter};
 use crate::inspect::{self, InspectNode};
 use crate::layer::{self, without_actions};
 use crate::own::{Callback, ComponentId, View};
+use crate::piece::ns_rect;
 use crate::runloop;
 
 counter!(PANEL_OWNER, Owner, "PanelView");
 counter!(PANEL_VIEW, Class, "ShellioPanelView");
+counter!(STUB_OWNER, Owner, "ExpandStub");
+counter!(STUB_VIEW, Class, "ShellioExpandStub");
+counter!(STUB_BUTTON, Class, "ShellioExpandButton");
 counter!(NOTE_OWNER, Owner, "EmptyNote");
 counter!(NOTE_VIEW, Class, "ShellioEmptyNote");
 
@@ -267,6 +274,381 @@ impl PanelStubView {
     }
 }
 
+/// Подпись кнопки заглушки: действие `layout.zoom` (ADR-0032).
+pub const EXPAND_TITLE: &str = "Развернуть";
+/// Отступ содержимого заглушки от краёв тела (`.stub` прототипа).
+const STUB_PAD: f64 = 12.0;
+/// Промежуток между текстом и кнопкой заглушки (`.stub` прототипа).
+const STUB_GAP: f64 = 8.0;
+/// Высота и поля кнопки заглушки (`.btn` прототипа).
+const BUTTON_HEIGHT: f64 = 26.0;
+const BUTTON_PAD: f64 = 11.0;
+
+/// Что показывает заглушка «Развернуть».
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StubCard {
+    /// Название панели под заглушкой.
+    pub title: String,
+    /// Кнопка «Развернуть» есть; у развёрнутой панели разворачивать некуда.
+    pub expandable: bool,
+}
+
+impl StubCard {
+    /// Текст заглушки (`docs/ux.md`, прототип: «<название>: здесь тесно»).
+    pub fn text(&self) -> String {
+        format!("{}: здесь тесно", self.title)
+    }
+}
+
+/// Намерение заглушки.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StubIntent {
+    /// Кнопка «Развернуть».
+    Expand,
+    /// Щелчок в тело заглушки мимо кнопки.
+    Press,
+}
+
+/// Кадры содержимого заглушки в точках тела с началом сверху слева; `None` — части нет.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StubFrames {
+    pub text: Option<Frame>,
+    pub button: Option<Frame>,
+}
+
+/// Раскладка заглушки в теле `width`×`height`: текст над кнопкой по центру тела. Кнопка важнее
+/// текста: в низком теле текст уходит, кнопка остаётся и не шире тела без отступов. Без кнопки —
+/// только текст. `title_width` — ширина подписи кнопки.
+pub fn stub_layout(width: f64, height: f64, title_width: f64, expandable: bool) -> StubFrames {
+    let inner = (width - 2.0 * STUB_PAD).max(0.0);
+    let both = LINE + STUB_GAP + BUTTON_HEIGHT;
+    let text = !expandable || both + 2.0 * STUB_PAD <= height;
+    let column = match (text, expandable) {
+        (true, true) => both,
+        (true, false) => LINE,
+        (false, _) => BUTTON_HEIGHT,
+    };
+    let top = ((height - column) / 2.0).max(0.0).floor();
+    let button_width = (title_width + 2.0 * BUTTON_PAD).ceil().min(inner);
+    StubFrames {
+        text: text.then(|| Frame::new(STUB_PAD, top, inner, LINE)),
+        button: expandable.then(|| {
+            Frame::new(
+                ((width - button_width) / 2.0).floor(),
+                if text { top + LINE + STUB_GAP } else { top },
+                button_width,
+                BUTTON_HEIGHT,
+            )
+        }),
+    }
+}
+
+struct StubModel {
+    id: ComponentId,
+    theme: Cell<AppTheme>,
+    card: RefCell<StubCard>,
+    on_intent: Box<dyn Fn(StubIntent)>,
+}
+
+/// Заглушка «Развернуть» на главном потоке. Хост держит одну на место тела и переиспользует её;
+/// освобождение убирает её из иерархии.
+pub struct ExpandStub {
+    view: View<StubView, StubModel>,
+}
+
+impl ExpandStub {
+    /// Заглушка; `on_intent` получает кнопку и щелчок в тело на главном потоке изнутри AppKit и
+    /// не должен синхронно менять заглушку.
+    pub fn new(
+        app: &App,
+        theme: &AppTheme,
+        card: StubCard,
+        on_intent: impl Fn(StubIntent) + 'static,
+    ) -> ExpandStub {
+        let mtm = app.mtm();
+        let model = StubModel {
+            id: ComponentId::next(),
+            theme: Cell::new(*theme),
+            card: RefCell::new(card),
+            on_intent: Box::new(on_intent),
+        };
+        let mut view = View::new(&STUB_OWNER, model, "ExpandStub.view", |owner| {
+            StubView::new(mtm, owner)
+        });
+        let button = view.view().ivars().button.clone();
+        let control: &NSControl = &button;
+        view.bind_action(control, "ExpandStub.expand", |model| {
+            (model.on_intent)(StubIntent::Expand);
+        });
+        let stub = ExpandStub { view };
+        stub.show_card();
+        stub.apply_theme();
+        stub
+    }
+
+    pub fn id(&self) -> ComponentId {
+        self.view.rust().id
+    }
+
+    pub fn card(&self) -> StubCard {
+        self.view.rust().card.borrow().clone()
+    }
+
+    pub fn set_card(&self, card: StubCard) {
+        let model = self.view.rust();
+        if *model.card.borrow() != card {
+            model.card.replace(card);
+            self.show_card();
+        }
+    }
+
+    pub fn set_theme(&self, theme: &AppTheme) {
+        let model = self.view.rust();
+        if model.theme.get() != *theme {
+            model.theme.set(*theme);
+            self.apply_theme();
+        }
+    }
+
+    /// Прячет или показывает заглушку без неявных анимаций.
+    pub fn set_hidden(&self, hidden: bool) {
+        let view = self.view.view();
+        if view.isHidden() != hidden {
+            without_actions(|| view.setHidden(hidden));
+        }
+    }
+
+    pub fn is_hidden(&self) -> bool {
+        self.view.view().isHidden()
+    }
+
+    pub(crate) fn ns_view(&self) -> &NSView {
+        self.view.view()
+    }
+
+    /// Заглушка и её кнопка для `ui.inspect`: кнопка — `<id>.expand`, она есть только у заглушки
+    /// с кнопкой.
+    pub fn inspect(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {
+        let view = self.view.view();
+        let button = &view.ivars().button;
+        let mut nodes = vec![inspect::node(id, "ExpandStub", parent, view, None, None)];
+        if !button.isHidden() {
+            nodes.push(inspect::node(
+                &format!("{id}.expand"),
+                "ExpandButton",
+                Some(id),
+                button,
+                Some(button.isEnabled()),
+                None,
+            ));
+        }
+        nodes
+    }
+
+    fn show_card(&self) {
+        let view = self.view.view();
+        let card = self.view.rust().card.borrow();
+        let parts = view.ivars();
+        let text = NSString::from_str(&card.text());
+        parts.text.setStringValue(&text);
+        view.setAccessibilityLabel(Some(&text));
+        parts.button.setHidden(!card.expandable);
+        view.place();
+    }
+
+    fn apply_theme(&self) {
+        let view = self.view.view();
+        let theme = self.view.rust().theme.get();
+        let parts = view.ivars();
+        parts
+            .text
+            .setTextColor(Some(&layer::ns_color(theme.colors.text_2)));
+        parts
+            .text
+            .setFont(Some(&font(theme.metrics.font.small, false)));
+        let button = &parts.button;
+        button.setFont(Some(&font(theme.metrics.font.tab, false)));
+        button.setContentTintColor(Some(&layer::ns_color(theme.colors.text)));
+        if let Some(fill) = button.layer() {
+            without_actions(|| {
+                layer::set_fill(&fill, theme.colors.surface);
+                layer::set_line(&fill, Some((theme.colors.line_2, theme.metrics.line)));
+                layer::set_radius(&fill, theme.metrics.radius.control);
+            });
+        }
+        view.place();
+        view.setNeedsDisplay(true);
+    }
+}
+
+struct StubIvars {
+    _live: Live,
+    owner: Callback<StubModel>,
+    text: Retained<NSTextField>,
+    button: Retained<StubButton>,
+}
+
+define_class!(
+    // SAFETY: NSView не требует от подкласса ничего сверх переопределённых ниже методов, `Drop` у
+    // класса нет.
+    #[unsafe(super(NSView, NSResponder, NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "ShellioExpandStub"]
+    #[ivars = StubIvars]
+    struct StubView;
+
+    impl StubView {
+        // SAFETY: селектор и результат — как у `isFlipped` NSView.
+        #[unsafe(method(isFlipped))]
+        fn is_flipped(&self) -> bool {
+            true
+        }
+
+        // SAFETY: селектор и результат — как у `wantsUpdateLayer` NSView.
+        #[unsafe(method(wantsUpdateLayer))]
+        fn wants_update_layer(&self) -> bool {
+            true
+        }
+
+        // SAFETY: селектор и результат — как у `updateLayer` NSView.
+        #[unsafe(method(updateLayer))]
+        fn update_layer(&self) {
+            let Some(theme) = self.ivars().owner.call(|model| {
+                runloop::mark_draw(model.id);
+                model.theme.get()
+            }) else {
+                return;
+            };
+            if let Some(layer) = self.layer() {
+                without_actions(|| layer::set_fill(&layer, theme.colors.panel));
+            }
+        }
+
+        // SAFETY: селектор и аргумент — как у `resizeSubviewsWithOldSize:` NSView: новый размер
+        // тела от владельца ставит текст и кнопку на место без ожидания прохода раскладки.
+        #[unsafe(method(resizeSubviewsWithOldSize:))]
+        fn resize_subviews_with_old_size(&self, old_size: NSSize) {
+            // SAFETY: `resizeSubviewsWithOldSize:` у NSView с тем же размером.
+            let _: () = unsafe { msg_send![super(self), resizeSubviewsWithOldSize: old_size] };
+            self.place();
+        }
+
+        // SAFETY: селектор и аргумент — как у `mouseDown:` NSResponder.
+        #[unsafe(method(mouseDown:))]
+        fn mouse_down(&self, _event: &NSEvent) {
+            self.ivars()
+                .owner
+                .call(|model| (model.on_intent)(StubIntent::Press));
+        }
+
+        // SAFETY: селектор и результат — как у `acceptsFirstMouse:` NSView.
+        #[unsafe(method(acceptsFirstMouse:))]
+        fn accepts_first_mouse(&self, _event: Option<&NSEvent>) -> bool {
+            true
+        }
+    }
+);
+
+impl StubView {
+    fn new(mtm: MainThreadMarker, owner: Callback<StubModel>) -> Retained<StubView> {
+        let text = label(mtm);
+        text.setAlignment(NSTextAlignment::Center);
+        let this = StubView::alloc(mtm).set_ivars(StubIvars {
+            _live: STUB_VIEW.live(),
+            owner,
+            text,
+            button: StubButton::new(mtm),
+        });
+        // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
+        let view: Retained<StubView> = unsafe {
+            msg_send![super(this), initWithFrame: NSRect::new(NSPoint::ZERO, NSSize::new(2.0 * STUB_PAD, 2.0 * STUB_PAD))]
+        };
+        layered(&view);
+        let parts = view.ivars();
+        view.addSubview(&parts.text);
+        view.addSubview(&parts.button);
+        view.setAccessibilityElement(true);
+        // SAFETY: роль доступности — неизменяемая константа AppKit.
+        view.setAccessibilityRole(Some(unsafe { NSAccessibilityGroupRole }));
+        view
+    }
+
+    /// Текст и кнопка по [`stub_layout`] для текущего размера.
+    fn place(&self) {
+        let parts = self.ivars();
+        let size = self.bounds().size;
+        let expandable = !parts.button.isHidden();
+        let title = parts.button.intrinsicContentSize().width.max(0.0);
+        let frames = stub_layout(size.width, size.height, title, expandable);
+        parts.text.setHidden(frames.text.is_none());
+        if let Some(frame) = frames.text {
+            parts.text.setFrame(ns_rect(frame));
+        }
+        if let Some(frame) = frames.button {
+            parts.button.setFrame(ns_rect(frame));
+        }
+    }
+}
+
+struct StubButtonIvars {
+    _live: Live,
+}
+
+define_class!(
+    // SAFETY: NSButton не требует от подкласса ничего сверх переопределённых ниже методов, `Drop` у
+    // класса нет.
+    #[unsafe(super(NSButton, NSControl, NSView, NSResponder, NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "ShellioExpandButton"]
+    #[ivars = StubButtonIvars]
+    struct StubButton;
+
+    impl StubButton {
+        // SAFETY: селектор и результат — как у `acceptsFirstResponder` NSResponder: кнопка
+        // получает фокус клавиатуры независимо от Full Keyboard Access.
+        #[unsafe(method(acceptsFirstResponder))]
+        fn accepts_first_responder(&self) -> bool {
+            self.isEnabled()
+        }
+
+        // SAFETY: селектор и результат — как у `canBecomeKeyView` NSView.
+        #[unsafe(method(canBecomeKeyView))]
+        fn can_become_key_view(&self) -> bool {
+            self.isEnabled() && !self.isHiddenOrHasHiddenAncestor()
+        }
+
+        // SAFETY: селектор и результат — как у `mouseDownCanMoveWindow` NSView.
+        #[unsafe(method(mouseDownCanMoveWindow))]
+        fn mouse_down_can_move_window(&self) -> bool {
+            false
+        }
+    }
+);
+
+impl StubButton {
+    /// Кнопка «Развернуть»: подпись и AX-имя — действие, подсказка и `accessibilityHelp` — клавиша
+    /// `layout.zoom`, до P1.6 «Клавиша не назначена» (ADR-0032).
+    fn new(mtm: MainThreadMarker) -> Retained<StubButton> {
+        let this = StubButton::alloc(mtm).set_ivars(StubButtonIvars {
+            _live: STUB_BUTTON.live(),
+        });
+        // SAFETY: назначенный инициализатор NSButton (через NSControl), ivars уже заданы.
+        let button: Retained<StubButton> =
+            unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] };
+        button.setBordered(false);
+        button.setWantsLayer(true);
+        let title = NSString::from_str(EXPAND_TITLE);
+        button.setTitle(&title);
+        button.setAccessibilityLabel(Some(&title));
+        button.setToolTip(Some(&NSString::from_str(&strip::hint(
+            StripButton::Zoom,
+            None,
+        ))));
+        button.setAccessibilityHelp(Some(&NSString::from_str(&strip::help(None))));
+        button
+    }
+}
+
 struct NoteModel {
     id: ComponentId,
     theme: Cell<AppTheme>,
@@ -441,5 +823,44 @@ mod tests {
             size: "Regular".into(),
         };
         assert_eq!(card.meta(), "terminal · Центр · Regular");
+    }
+
+    #[test]
+    fn stub_text_names_the_panel() {
+        let card = StubCard {
+            title: "Терминал".into(),
+            expandable: true,
+        };
+        assert_eq!(card.text(), "Терминал: здесь тесно");
+    }
+
+    #[test]
+    fn stub_centers_text_over_the_button() {
+        let frames = stub_layout(180.0, 400.0, 60.0, true);
+        let text = frames.text.unwrap();
+        let button = frames.button.unwrap();
+        assert_eq!(text, Frame::new(12.0, 174.0, 156.0, LINE));
+        assert_eq!(button, Frame::new(49.0, 200.0, 82.0, BUTTON_HEIGHT));
+        assert_eq!(button.y, text.y + LINE + STUB_GAP);
+    }
+
+    #[test]
+    fn short_body_keeps_the_button_and_drops_the_text() {
+        let room = LINE + STUB_GAP + BUTTON_HEIGHT + 2.0 * STUB_PAD;
+        assert!(stub_layout(180.0, room, 60.0, true).text.is_some());
+        let short = stub_layout(180.0, room - 1.0, 60.0, true);
+        assert_eq!(short.text, None, "в низком теле текст уходит");
+        let button = short.button.unwrap();
+        assert_eq!(button.y, ((room - 1.0 - BUTTON_HEIGHT) / 2.0).floor());
+    }
+
+    #[test]
+    fn narrow_body_clamps_the_button_and_zoomed_stub_has_none() {
+        let narrow = stub_layout(80.0, 400.0, 60.0, true).button.unwrap();
+        assert_eq!(narrow.width, 80.0 - 2.0 * STUB_PAD, "кнопка не шире тела");
+        assert_eq!(narrow.x, STUB_PAD);
+        let zoomed = stub_layout(180.0, 60.0, 60.0, false);
+        assert_eq!(zoomed.button, None);
+        assert_eq!(zoomed.text.unwrap().y, 21.0, "без кнопки текст по центру");
     }
 }

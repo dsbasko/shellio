@@ -11,7 +11,9 @@
 //! - [`focus_command`] — щелчок в тело панели, [`refusal_text`] — отказ ядра в строке статуса;
 //! - [`panel_menu`] и [`menu_command`] — меню «…» плитки: перенос в соседнюю часть, в зону и
 //!   закрытие;
-//! - [`drop_plan`] — отпускание перетаскиваемой вкладки: цель, подсветка и одна команда переноса.
+//! - [`drop_plan`] — отпускание перетаскиваемой вкладки: цель, подсветка и одна команда переноса;
+//! - [`Bench::stubs`] и [`expand_command`] — заглушка «Развернуть» на месте тела меньше `min_size`
+//!   панели и её кнопка.
 //!
 //! Вид панели живёт, пока панель есть в открытой рабочей области: смена вкладки, перенос и `zoom`
 //! его не пересоздают. Начало координат — левый верхний угол содержимого окна, как у геометрии.
@@ -39,7 +41,7 @@ pub struct PartKey {
 }
 
 /// Где стоит вид панели.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Host {
     /// Колонка навигатора.
     Navigator,
@@ -53,17 +55,32 @@ pub enum Host {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ViewSlot {
     pub host: Host,
-    /// Тело показанного вида в точках содержимого окна; `None` — вид скрыт.
+    /// Показанное тело панели в точках содержимого окна; `None` — тело не показано.
     pub body: Option<Rect>,
     pub geometry: Option<Geometry>,
+    /// Показанное тело меньше `min_size` панели: на его месте заглушка «Развернуть», вид скрыт
+    /// и жив (ADR-0009, ADR-0031).
+    pub stub: bool,
     pub title: String,
     pub plugin: String,
 }
 
 impl ViewSlot {
+    /// Вид панели виден: тело показано и не меньше `min_size`.
     pub fn shown(&self) -> bool {
-        self.body.is_some()
+        self.body.is_some() && !self.stub
     }
+}
+
+/// Заглушка «Развернуть» на месте тела панели.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Stub {
+    pub panel: PanelId,
+    /// Тело в точках содержимого окна.
+    pub body: Rect,
+    pub title: String,
+    /// Кнопка «Развернуть» есть: у развёрнутой панели разворачивать некуда.
+    pub expandable: bool,
 }
 
 /// Плитка части.
@@ -255,24 +272,25 @@ fn bench(
             (_, None) => continue,
         };
         let shown = match (&zoomed, host) {
-            (Some(zoom), Host::Zoom) => Some((zoom.body, zoom.geometry)),
+            (Some(zoom), Host::Zoom) => Some((zoom.body, zoom.geometry, zoom.stub)),
             (Some(_), Host::Navigator | Host::Part(_)) | (None, Host::Zoom) => None,
             (None, Host::Navigator) => frames
                 .navigator
                 .as_ref()
                 .filter(|column| column.panel == panel)
-                .map(|column| (column.body, column.geometry)),
+                .map(|column| (column.body, column.geometry, column.stub)),
             (None, Host::Part(_)) => frames
                 .part_of(&panel)
                 .filter(|part| part.active == panel)
-                .map(|part| (part.body, part.geometry)),
+                .map(|part| (part.body, part.geometry, part.stub)),
         };
         views.insert(
             panel,
             ViewSlot {
                 host,
-                body: shown.map(|(body, _)| body),
-                geometry: shown.map(|(_, geometry)| geometry),
+                body: shown.map(|(body, _, _)| body),
+                geometry: shown.map(|(_, geometry, _)| geometry),
+                stub: shown.is_some_and(|(_, _, stub)| stub),
                 title: record.title.as_str().to_owned(),
                 plugin: record.plugin.as_str().to_owned(),
             },
@@ -313,6 +331,30 @@ fn bench(
         views,
         plates,
         focus,
+    }
+}
+
+impl Bench {
+    /// Заглушки «Развернуть» по месту: показанное тело панели меньше её `min_size`. Вид панели под
+    /// заглушкой скрыт и жив. Колонка навигатора получает заглушку так же, как часть; у развёрнутой
+    /// панели заглушка без кнопки.
+    pub fn stubs(&self) -> BTreeMap<Host, Stub> {
+        self.views
+            .iter()
+            .filter(|(_, slot)| slot.stub)
+            .filter_map(|(&panel, slot)| {
+                let body = slot.body?;
+                Some((
+                    slot.host,
+                    Stub {
+                        panel,
+                        body,
+                        title: slot.title.clone(),
+                        expandable: slot.host != Host::Zoom,
+                    },
+                ))
+            })
+            .collect()
     }
 }
 
@@ -781,6 +823,25 @@ pub fn zoom_command(scene: &Scene, plate: PlateRef) -> Option<Command> {
             off: Some(true),
         }),
     }
+}
+
+/// Кнопка заглушки «Развернуть» на месте `host` — `layout.zoom` панели под заглушкой с явной
+/// целью, как «Развернуть панель» строки вкладок: одна команда, фокус переводит само ядро. `None` —
+/// на месте нет заглушки с кнопкой.
+pub fn expand_command(scene: &Scene, host: Host) -> Option<Command> {
+    let stub = scene.bench.as_ref()?.stubs().remove(&host)?;
+    stub.expandable.then_some(Command::LayoutZoom {
+        panel: Some(stub.panel),
+        workbench: None,
+        off: None,
+    })
+}
+
+/// Щелчок в тело заглушки на месте `host` мимо кнопки — `panel.focus` её панели, как щелчок в
+/// тело вида. `None` — заглушки нет или фокус уже на панели.
+pub fn stub_focus_command(scene: &Scene, host: Host) -> Option<Command> {
+    let stub = scene.bench.as_ref()?.stubs().remove(&host)?;
+    focus_command(scene, stub.panel)
 }
 
 /// Кнопка закрытия вкладки — `panel.close`. `None` — панели нет в открытой рабочей области.
@@ -1502,6 +1563,147 @@ mod tests {
             [Op::Hide(fixture.terminal), Op::Show(second)],
             "смена вкладки не создаёт и не переставляет виды"
         );
+    }
+
+    /// Размер окна, при котором тело центра раскладки по умолчанию ровно `want` по ширине (при
+    /// высоте 720) или по высоте (при ширине 1180).
+    fn viewport_for_center_body(fixture: &Fixture, width: bool, want: f64) -> Viewport {
+        let center = |viewport: Viewport| {
+            let scene = Scene::of(&fixture.state, viewport, layout_metrics());
+            let body = scene.bench.unwrap().views[&fixture.terminal].body.unwrap();
+            if width { body.width } else { body.height }
+        };
+        (100..1180)
+            .map(|size| {
+                if width {
+                    Viewport {
+                        width: size,
+                        ..SMALL
+                    }
+                } else {
+                    Viewport {
+                        height: size,
+                        ..SMALL
+                    }
+                }
+            })
+            .find(|&viewport| center(viewport) == want)
+            .unwrap()
+    }
+
+    #[test]
+    fn stub_replaces_the_view_exactly_below_min_size_and_keeps_it_alive() {
+        let fixture = fixture();
+        let center = Host::Part(PartKey {
+            zone: Zone::Center,
+            index: 0,
+        });
+        let min = shellio_layout::MinSize::DEFAULT;
+        for width in [true, false] {
+            let edge = viewport_for_center_body(
+                &fixture,
+                width,
+                if width { min.width } else { min.height },
+            );
+            let below = if width {
+                Viewport {
+                    width: edge.width - 1,
+                    ..edge
+                }
+            } else {
+                Viewport {
+                    height: edge.height - 1,
+                    ..edge
+                }
+            };
+            let fits = Scene::of(&fixture.state, edge, layout_metrics());
+            let tight = Scene::of(&fixture.state, below, layout_metrics());
+            let (fits_bench, tight_bench) =
+                (fits.bench.as_ref().unwrap(), tight.bench.as_ref().unwrap());
+
+            let slot = &fits_bench.views[&fixture.terminal];
+            assert!(slot.shown() && !slot.stub, "граница min_size — не заглушка");
+            assert!(fits_bench.stubs().is_empty());
+            assert_eq!(expand_command(&fits, center), None);
+
+            let slot = &tight_bench.views[&fixture.terminal];
+            assert!(slot.stub && !slot.shown(), "на точку меньше — заглушка");
+            assert_eq!(slot.host, center, "вид остаётся на своём месте");
+            let stubs = tight_bench.stubs();
+            assert_eq!(stubs.len(), 1, "только центр: {stubs:?}");
+            assert_eq!(
+                stubs[&center],
+                Stub {
+                    panel: fixture.terminal,
+                    body: slot.body.unwrap(),
+                    title: "Терминал".into(),
+                    expandable: true,
+                }
+            );
+            assert_eq!(
+                expand_command(&tight, center),
+                Some(Command::LayoutZoom {
+                    panel: Some(fixture.terminal),
+                    workbench: None,
+                    off: None,
+                })
+            );
+            assert_eq!(
+                stub_focus_command(&tight, center),
+                None,
+                "фокус уже на панели"
+            );
+
+            assert_eq!(
+                diff(fits.bench.as_ref(), tight.bench.as_ref()),
+                [Op::Hide(fixture.terminal)],
+                "заглушка только прячет вид"
+            );
+            assert_eq!(
+                diff(tight.bench.as_ref(), fits.bench.as_ref()),
+                [Op::Show(fixture.terminal)],
+                "и показывает его снова"
+            );
+        }
+    }
+
+    #[test]
+    fn navigator_column_gets_a_stub_and_zoomed_stub_has_no_button() {
+        let mut fixture = fixture();
+        let low = Viewport {
+            width: 1180,
+            height: 170,
+        };
+        let scene = Scene::of(&fixture.state, low, layout_metrics());
+        let stubs = scene.bench.as_ref().unwrap().stubs();
+        assert_eq!(stubs[&Host::Navigator].panel, fixture.navigator);
+        assert!(stubs[&Host::Navigator].expandable);
+        assert_eq!(
+            expand_command(&scene, Host::Navigator),
+            Some(Command::LayoutZoom {
+                panel: Some(fixture.navigator),
+                workbench: None,
+                off: None,
+            })
+        );
+        assert_eq!(
+            stub_focus_command(&scene, Host::Navigator),
+            Some(Command::PanelFocus {
+                panel: Some(fixture.navigator),
+                workbench: None,
+                direction: None,
+            })
+        );
+
+        layout_mut(&mut fixture).zoomed = Some(fixture.terminal);
+        let zoomed = Scene::of(&fixture.state, low, layout_metrics());
+        let stubs = zoomed.bench.as_ref().unwrap().stubs();
+        assert_eq!(stubs.keys().copied().collect::<Vec<_>>(), [Host::Zoom]);
+        assert!(
+            !stubs[&Host::Zoom].expandable,
+            "развёрнутую панель некуда разворачивать"
+        );
+        assert_eq!(expand_command(&zoomed, Host::Zoom), None);
     }
 
     #[test]
