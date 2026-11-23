@@ -553,7 +553,7 @@ impl CommandScope {
 }
 
 /// Рабочая область, открытая в окне, если она жива.
-pub(crate) fn open_workbench(state: &State) -> Option<WorkbenchId> {
+pub fn open_workbench(state: &State) -> Option<WorkbenchId> {
     match state.window.route {
         Route::Workbench(workbench) if state.live_workbench(workbench).is_some() => Some(workbench),
         Route::Workbench(_) | Route::WorkspaceHome => None,

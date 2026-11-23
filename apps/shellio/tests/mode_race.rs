@@ -26,7 +26,7 @@ use shellio_control::{
     Motion, OkValue, Rect, RefuseReason, RequestBody, Response, TokioClock, UiGate, UiRefusal,
     UiReply, UiRequest, WindowView,
 };
-use shellio_core::{AppearanceChoice, Delivery, Mirror, MirrorStep};
+use shellio_core::{AppearanceChoice, CoreHandle, Delivery, Mirror, MirrorStep};
 use shellio_store::Profile;
 use tokio::sync::{oneshot, watch};
 
@@ -65,6 +65,10 @@ impl Ui for RaceUi {
     fn become_owner(&self, window: WindowMode) -> impl Future<Output = Option<i64>> + Send {
         self.modes.lock().unwrap().push(window);
         ready(Some(1))
+    }
+
+    fn attach_core(&self, _core: CoreHandle) -> impl Future<Output = ()> + Send {
+        ready(())
     }
 
     fn activate(&self) -> impl Future<Output = Activation> + Send {

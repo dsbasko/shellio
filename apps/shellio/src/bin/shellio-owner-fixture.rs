@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 use shellio::launch::{self, Mode, WindowMode};
 use shellio::owner::{self, Handoff, MirrorSink, Reopen, Ui};
 use shellio_control::{Activation, Exit, UiGate, UiRefusal, UiReply, UiRequest};
-use shellio_core::{Delivery, Mirror, MirrorStep};
+use shellio_core::{CoreHandle, Delivery, Mirror, MirrorStep};
 use shellio_store::Profile;
 
 /// Строка активации в stdout владельца.
@@ -57,6 +57,10 @@ impl Ui for NoUi {
 
     fn become_owner(&self, _window: WindowMode) -> impl Future<Output = Option<i64>> + Send {
         ready(None)
+    }
+
+    fn attach_core(&self, _core: CoreHandle) -> impl Future<Output = ()> + Send {
+        ready(())
     }
 
     fn activate(&self) -> impl Future<Output = Activation> + Send {

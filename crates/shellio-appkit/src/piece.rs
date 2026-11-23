@@ -14,6 +14,9 @@ use crate::components::text_field::TextField;
 use crate::components::tree_list::TreeList;
 use crate::components::virtual_list::VirtualList;
 use crate::marker::GenerationMarker;
+use crate::panel_stub::{EmptyNote, PanelView};
+use crate::plate::Plate;
+use crate::split_view::{Pane, SplitView};
 use crate::surface::Surface;
 use crate::window::MainWindow;
 
@@ -27,6 +30,11 @@ pub enum Piece<'a> {
     VirtualList(&'a VirtualList),
     TreeList(&'a TreeList),
     Marker(&'a GenerationMarker),
+    SplitView(&'a SplitView),
+    Pane(&'a Pane),
+    Plate(&'a Plate),
+    PanelView(&'a PanelView),
+    Note(&'a EmptyNote),
 }
 
 impl Piece<'_> {
@@ -39,6 +47,11 @@ impl Piece<'_> {
             Piece::VirtualList(list) => list.ns_view(),
             Piece::TreeList(tree) => tree.ns_view(),
             Piece::Marker(marker) => marker.ns_view(),
+            Piece::SplitView(split) => split.ns_view(),
+            Piece::Pane(pane) => pane.ns_view(),
+            Piece::Plate(plate) => plate.ns_view(),
+            Piece::PanelView(panel) => panel.ns_view(),
+            Piece::Note(note) => note.ns_view(),
         }
     }
 }
@@ -82,6 +95,36 @@ impl<'a> From<&'a TreeList> for Piece<'a> {
 impl<'a> From<&'a GenerationMarker> for Piece<'a> {
     fn from(marker: &'a GenerationMarker) -> Self {
         Piece::Marker(marker)
+    }
+}
+
+impl<'a> From<&'a SplitView> for Piece<'a> {
+    fn from(split: &'a SplitView) -> Self {
+        Piece::SplitView(split)
+    }
+}
+
+impl<'a> From<&'a Pane> for Piece<'a> {
+    fn from(pane: &'a Pane) -> Self {
+        Piece::Pane(pane)
+    }
+}
+
+impl<'a> From<&'a Plate> for Piece<'a> {
+    fn from(plate: &'a Plate) -> Self {
+        Piece::Plate(plate)
+    }
+}
+
+impl<'a> From<&'a PanelView> for Piece<'a> {
+    fn from(panel: &'a PanelView) -> Self {
+        Piece::PanelView(panel)
+    }
+}
+
+impl<'a> From<&'a EmptyNote> for Piece<'a> {
+    fn from(note: &'a EmptyNote) -> Self {
+        Piece::Note(note)
     }
 }
 

@@ -55,6 +55,8 @@ struct Parts {
     window: Retained<NSWindow>,
     selection: Cell<ThemeSelection>,
     on_theme: Box<dyn Fn(ThemeSelection)>,
+    /// Размер содержимого окна изменился.
+    on_resize: Box<dyn Fn()>,
     /// Время с загрузки, когда окно впервые стало key.
     first_key: Cell<Option<f64>>,
 }
@@ -84,12 +86,14 @@ pub struct MainWindow {
 
 impl MainWindow {
     /// Создаёт окно, не показывая его. `on_theme` получает новый выбор ячейки после перекраски,
-    /// `on_intent` — намерения заголовка. Оба вызываются на главном потоке изнутри AppKit, поэтому
-    /// не должны синхронно трогать владельца окна.
+    /// `on_intent` — намерения заголовка, `on_resize` — изменение размера содержимого (живое
+    /// изменение, кнопка окна, полный экран). Все вызываются на главном потоке изнутри AppKit,
+    /// поэтому не должны синхронно трогать владельца окна.
     pub fn new(
         app: &App,
         on_theme: impl Fn(ThemeSelection) + 'static,
         on_intent: impl Fn(ChromeIntent) + 'static,
+        on_resize: impl Fn() + 'static,
     ) -> MainWindow {
         let mtm = app.mtm();
         let parts = Rc::new_cyclic(|weak: &std::rc::Weak<Parts>| {
@@ -111,6 +115,7 @@ impl MainWindow {
                 window: new_window(mtm, &theme),
                 selection: Cell::new(selection),
                 on_theme: Box::new(on_theme),
+                on_resize: Box::new(on_resize),
                 first_key: Cell::new(None),
             }
         });
@@ -449,6 +454,7 @@ define_class!(
         #[unsafe(method(windowDidResize:))]
         fn window_did_resize(&self, _notification: &NSNotification) {
             self.relayout();
+            self.call(|parts| (parts.on_resize)());
         }
 
         // SAFETY: селектор и аргумент — как у `windowDidEndLiveResize:` протокола.

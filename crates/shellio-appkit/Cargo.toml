@@ -47,6 +47,9 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "NSRunningApplication",
     "NSScreen",
     "NSScrollView",
+    "NSSplitView",
+    "NSSplitViewController",
+    "NSSplitViewItem",
     "NSTableCellView",
     "NSTableColumn",
     "NSTableHeaderView",
@@ -57,6 +60,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "NSTrackingArea",
     "NSUserInterfaceItemIdentification",
     "NSView",
+    "NSViewController",
     "NSWindow",
     "NSWorkspace",
 ] }

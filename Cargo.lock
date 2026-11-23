@@ -953,6 +953,7 @@ dependencies = [
  "shellio-control",
  "shellio-core",
  "shellio-ghostty",
+ "shellio-layout",
  "shellio-store",
  "shellio-theme",
  "tempfile",

@@ -68,6 +68,10 @@ pub trait Ui: MirrorSink {
     /// `window`. Возвращает `windowNumber` окна, `None` — окна нет.
     fn become_owner(&self, window: WindowMode) -> impl Future<Output = Option<i64>> + Send;
 
+    /// Ядро загружено, сокет ещё не опубликован: главный поток получает ручку ядра и передаёт ему
+    /// первый размер окна внутренним входом (ADR-0009, «Размер окна»). Возвращается после вызова.
+    fn attach_core(&self, core: CoreHandle) -> impl Future<Output = ()> + Send;
+
     /// Выполняет активацию на главном потоке и возвращается после вызова.
     fn activate(&self) -> impl Future<Output = Activation> + Send;
 
@@ -618,6 +622,7 @@ async fn serve<U: Ui>(
         }
     };
     ui.ready().await;
+    ui.attach_core(core.clone()).await;
 
     let (ownership, published) = blocking(move || {
         let mut ownership = ownership;

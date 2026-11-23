@@ -20,12 +20,12 @@ use shellio_control::{
     ControlErrorCode, GalleryCommand, GalleryFocus, GalleryStrip, GalleryTreeView, GalleryView,
     Hello, HelloReply, InspectView, InstanceKind, InstanceView, IntentKind, IntentRecord,
     KeyLatencyView, KeyPressView, LateCallbackView, Launch, LaunchReceipt, Lightness, ListRowView,
-    MaterialView, MenuItemView, MenuView, Motion, OkValue, OwnerState, PROTOCOL,
-    REQUEST_LINE_LIMIT, Rect, RefuseReason, RefusedArg, Rejected, Request, RequestBody, RequestId,
-    Response, RowViewsView, RunLoopView, ScreenView, Size, StartupView, StatsView, StripButtonView,
-    TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone, TextFieldView,
-    TreeListView, TreeMutation, TreeRowView, UI_TIMEOUT, UiReply, UiRequest, VirtualListView,
-    WindowMode, WindowView,
+    MaterialView, MenuItemView, MenuView, Motion, OkValue, OwnerState, PROTOCOL, PanelNodeView,
+    PartNodeView, REQUEST_LINE_LIMIT, Rect, RefuseReason, RefusedArg, Rejected, Request,
+    RequestBody, RequestId, Response, RowViewsView, RunLoopView, ScreenView, Size, StartupView,
+    StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView,
+    TabZone, TextFieldView, TreeListView, TreeMutation, TreeRowView, UI_TIMEOUT, UiReply,
+    UiRequest, VirtualListView, WindowMode, WindowView,
 };
 use shellio_core::test_support::SequentialIds;
 use shellio_core::{
@@ -33,7 +33,7 @@ use shellio_core::{
     PanelId, Query, Reply, ReplyValue, Revision, Route, Snapshot, State, Title, TreeScope,
     UiCommand, WindowState, WorkbenchId, Workspace, WorkspaceId,
 };
-use shellio_layout::{Direction, Edge, Hideable, Zone};
+use shellio_layout::{Direction, Edge, Hideable, SizeClass, Zone};
 
 fn wire_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/wire")
@@ -471,6 +471,16 @@ fn response_golden(response: &Response) -> &'static str {
             }
             UiReply::Inspect(inspect)
                 if inspect.components.iter().any(|component| {
+                    matches!(
+                        component.state,
+                        Some(ComponentState::Part(_) | ComponentState::Panel(_))
+                    )
+                }) =>
+            {
+                "response.ok.ui.inspect.layout"
+            }
+            UiReply::Inspect(inspect)
+                if inspect.components.iter().any(|component| {
                     matches!(component.state, Some(ComponentState::TabStrip(_)))
                 }) =>
             {
@@ -661,6 +671,11 @@ fn responses() -> Result<Vec<Response>, String> {
                 }),
                 ..stats_view()
             }))),
+        ),
+        // P1.4, задача 7: плитка части и вид панели раскладки; прежние эталоны не меняются.
+        ok(
+            8,
+            OkValue::Ui(UiReply::Inspect(Box::new(inspect_layout_view()))),
         ),
         // P1.3, задача 13: состояние `TreeList` с выбором и раскрытием у `NSOutlineView`.
         ok(
@@ -937,6 +952,69 @@ fn inspect_gallery_view() -> InspectView {
                 },
             ],
         }),
+    }
+}
+
+fn inspect_layout_view() -> InspectView {
+    let (terminal, _, _) = layout_ids();
+    let node = |id: &str, class: &str, parent: &str, frame: Rect, state| ComponentView {
+        id: id.into(),
+        class: class.into(),
+        object: 105_553_116_270_000,
+        parent: Some(parent.into()),
+        frame,
+        visible: true,
+        first_responder: false,
+        enabled: None,
+        role: Some("AXGroup".into()),
+        label: Some("Терминал".into()),
+        help: None,
+        selected: None,
+        expanded: None,
+        animation_keys: 0,
+        state: Some(state),
+    };
+    InspectView {
+        window_number: 4242,
+        content: Size {
+            width: 1180.0,
+            height: 720.0,
+        },
+        generation: 3,
+        components: vec![
+            node(
+                "layout.part.center.0",
+                "Plate",
+                "layout.split.center",
+                rect(236.0, 32.0, 938.0, 642.0),
+                ComponentState::Part(Box::new(PartNodeView {
+                    zone: Zone::Center,
+                    index: 0,
+                    tabs: vec![terminal],
+                    active: terminal,
+                    shown: true,
+                    focused: true,
+                    zoomed: false,
+                })),
+            ),
+            node(
+                &format!("layout.panel.{terminal}"),
+                "PanelView",
+                "layout.part.center.0",
+                rect(237.0, 33.0, 936.0, 606.0),
+                ComponentState::Panel(Box::new(PanelNodeView {
+                    panel: terminal,
+                    component: 57,
+                    plugin: "terminal".into(),
+                    title: "Терминал".into(),
+                    shown: true,
+                    zone: Some(Zone::Center),
+                    size: Some(SizeClass::Regular),
+                })),
+            ),
+        ],
+        materials: Vec::new(),
+        gallery: None,
     }
 }
 

@@ -17,7 +17,18 @@ use shellio_core::{
     TreeView,
 };
 
+use shellio_layout::{SizeClass, Zone};
+
 use crate::args::{USAGE, Usage};
+
+fn zone_text(zone: Zone) -> &'static str {
+    match zone {
+        Zone::Left => "left",
+        Zone::Right => "right",
+        Zone::Center => "center",
+        Zone::Bottom => "bottom",
+    }
+}
 
 /// Сообщение в stderr. Если и stderr закрыт, сообщить уже некуда.
 fn complain(message: impl fmt::Display) {
@@ -468,6 +479,30 @@ fn component_text(component: &ComponentView) -> String {
             },
             tree.offset,
             tree.row_views_created
+        )),
+        Some(ComponentState::Part(part)) => facts.push(format!(
+            "часть {} {}, вкладок {}, активна {}, показана — {}, фокус — {}, развёрнута — {}",
+            zone_text(part.zone),
+            part.index,
+            part.tabs.len(),
+            part.active,
+            yes_no(part.shown),
+            yes_no(part.focused),
+            yes_no(part.zoomed)
+        )),
+        Some(ComponentState::Panel(panel)) => facts.push(format!(
+            "панель {} ({}), вид {}, показана — {}, зона {}, класс {}",
+            panel.panel,
+            panel.plugin,
+            panel.component,
+            yes_no(panel.shown),
+            panel.zone.map_or("нет", zone_text),
+            panel.size.map_or("нет", |size| match size {
+                SizeClass::Narrow => "narrow",
+                SizeClass::Regular => "regular",
+                SizeClass::Wide => "wide",
+                SizeClass::ShortBar => "short_bar",
+            })
         )),
         None => {}
     }

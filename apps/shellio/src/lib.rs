@@ -7,3 +7,4 @@
 pub mod gallery;
 pub mod launch;
 pub mod owner;
+pub mod scene;

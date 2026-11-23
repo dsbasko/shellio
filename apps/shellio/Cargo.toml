@@ -11,6 +11,7 @@ shellio-appkit = { path = "../../crates/shellio-appkit" }
 shellio-control = { path = "../../crates/shellio-control" }
 shellio-core = { path = "../../crates/shellio-core" }
 shellio-ghostty = { path = "../../crates/shellio-ghostty" }
+shellio-layout = { path = "../../crates/shellio-layout" }
 shellio-store = { path = "../../crates/shellio-store" }
 shellio-theme = { path = "../../crates/shellio-theme" }
 tokio = { version = "1", default-features = false, features = ["macros", "rt", "rt-multi-thread", "signal", "sync", "time"] }

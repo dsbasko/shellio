@@ -1,0 +1,84 @@
+{
+  "id": 8,
+  "ok": {
+    "ui": {
+      "inspect": {
+        "window_number": 4242,
+        "content": {
+          "width": 1180.0,
+          "height": 720.0
+        },
+        "generation": 3,
+        "components": [
+          {
+            "id": "layout.part.center.0",
+            "class": "Plate",
+            "object": 105553116270000,
+            "parent": "layout.split.center",
+            "frame": {
+              "x": 236.0,
+              "y": 32.0,
+              "width": 938.0,
+              "height": 642.0
+            },
+            "visible": true,
+            "first_responder": false,
+            "enabled": null,
+            "role": "AXGroup",
+            "label": "Терминал",
+            "help": null,
+            "selected": null,
+            "expanded": null,
+            "animation_keys": 0,
+            "state": {
+              "part": {
+                "zone": "center",
+                "index": 0,
+                "tabs": [
+                  "00000000-0000-0000-0000-000000000003"
+                ],
+                "active": "00000000-0000-0000-0000-000000000003",
+                "shown": true,
+                "focused": true,
+                "zoomed": false
+              }
+            }
+          },
+          {
+            "id": "layout.panel.00000000-0000-0000-0000-000000000003",
+            "class": "PanelView",
+            "object": 105553116270000,
+            "parent": "layout.part.center.0",
+            "frame": {
+              "x": 237.0,
+              "y": 33.0,
+              "width": 936.0,
+              "height": 606.0
+            },
+            "visible": true,
+            "first_responder": false,
+            "enabled": null,
+            "role": "AXGroup",
+            "label": "Терминал",
+            "help": null,
+            "selected": null,
+            "expanded": null,
+            "animation_keys": 0,
+            "state": {
+              "panel": {
+                "panel": "00000000-0000-0000-0000-000000000003",
+                "component": 57,
+                "plugin": "terminal",
+                "title": "Терминал",
+                "shown": true,
+                "zone": "center",
+                "size": "regular"
+              }
+            }
+          }
+        ],
+        "materials": []
+      }
+    }
+  }
+}

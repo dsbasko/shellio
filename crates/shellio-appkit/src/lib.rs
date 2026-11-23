@@ -23,6 +23,10 @@
 //! [`Menu`]. Смена состояния компонента отдаёт [`Transition`] для журнала анимаций.
 //! Компоненты размещаются в окне и в подложке через [`Piece`], галерея получает маркер поколения
 //! [`GenerationMarker`] и слабое наблюдение за видами освобождённого дерева [`ViewWatch`].
+//!
+//! P1.4 добавляет компоненты раскладки: сплит [`SplitView`] на обычных `NSSplitViewItem` с
+//! контейнером [`Pane`], плитку части [`Plate`], нейтральный вид панели [`PanelView`] и сообщение
+//! области зон [`EmptyNote`].
 
 #![deny(clippy::undocumented_unsafe_blocks)]
 
@@ -36,8 +40,11 @@ mod main_menu;
 mod marker;
 mod notify;
 mod own;
+mod panel_stub;
 mod piece;
+mod plate;
 mod runloop;
+mod split_view;
 mod surface;
 mod theme_cell;
 mod window;
@@ -86,9 +93,14 @@ pub use inspect::{
 pub use main_menu::{MainMenu, MenuAction};
 pub use marker::{GenerationMarker, MARKER_CELL, MARKER_CELLS, marker_bit};
 pub use own::ComponentId;
+pub use panel_stub::{EmptyNote, PanelCard, PanelView};
 pub use piece::{Piece, ViewWatch};
+pub use plate::{Plate, plate_spec};
 pub use runloop::{
     DrawMark, ITERATION_BUDGET_MS, IterationStats, LoopMonitor, LoopStats, MonitorError,
+};
+pub use split_view::{
+    Insets, Pane, SplitDirection, SplitDrag, SplitSlot, SplitSpec, SplitView, moved_divider,
 };
 pub use surface::{
     FocusLayer, LINE_WIDTH, Surface, SurfaceFill, SurfacePaint, SurfaceRadius, SurfaceSpec,

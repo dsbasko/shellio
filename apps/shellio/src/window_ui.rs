@@ -6,6 +6,11 @@
 //! лежит рядом с окном, а не в нём: `gallery.window.recreate` заменяет окно и дерево галереи, а
 //! поколение продолжает расти.
 //!
+//! В обычном режиме содержимое окна — раскладка открытой рабочей области ([`LayoutUi`]): её
+//! получают доставки зеркала и изменения размера окна. Размер содержимого уходит ядру внутренним
+//! входом [`CoreHandle::set_viewport`]: первый — до публикации сокета, дальше — с объединением до
+//! конца оборота цикла и без повторов.
+//!
 //! Состояние живёт только на главном потоке. Функции модуля вызываются из замыканий
 //! [`MainThread::exec`]. Обратные вызовы AppKit (меню, кнопки заголовка, смена ячейки) не трогают
 //! состояние синхронно: они ставят работу в очередь главного потока, поэтому повторного входа в
@@ -18,11 +23,12 @@ use std::mem::ManuallyDrop;
 use shellio::gallery::{self, Changed, Effect, Generation, Intent};
 use shellio::launch::WindowMode;
 use shellio::owner;
+use shellio::scene::{self, SplitId, ViewportGate};
 use shellio_appkit::{
     App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, LoopMonitor, MainMenu,
     MainThread, MainWindow, MenuAction, MenuEntry, MenuState, NodeState, Regime, SplitAxis,
-    Startup, TabStatus, TabStripFacts, TextFieldState, ThemeSelection, Transition, TransitionPath,
-    TreeListFacts, VirtualListFacts, ZoneSide, instance_counts, late_callbacks,
+    SplitDrag, Startup, TabStatus, TabStripFacts, TextFieldState, ThemeSelection, Transition,
+    TransitionPath, TreeListFacts, VirtualListFacts, ZoneSide, instance_counts, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, ChromeView, ColorSpaceView,
@@ -32,11 +38,14 @@ use shellio_control::{
     TabRegime, TabStatusView, TabStripView, TabZone, TextFieldView, TreeListView, TreeRowView,
     UiRefusal, UiReply, UiRequest, VirtualListView, WindowView,
 };
-use shellio_core::{AppearanceChoice, Delivery, Mirror, MirrorStep, UiCommand};
+use shellio_core::{
+    AppearanceChoice, Command, CoreHandle, Delivery, Mirror, MirrorStep, UiCommand,
+};
 use shellio_theme::AppearanceChoice as ThemeChoice;
 use shellio_theme::{Appearance, Contrast, Motion, Overrides, Source};
 
 use crate::gallery_ui::GalleryUi;
+use crate::layout_ui::LayoutUi;
 
 thread_local! {
     /// Окно владельца; создаётся один раз после выбора роли и живёт до выхода процесса.
@@ -46,6 +55,38 @@ thread_local! {
     static WINDOW: RefCell<Option<ManuallyDrop<OwnerWindow>>> = const { RefCell::new(None) };
     /// Зеркало состояния ядра; ведёт его задача владельца доставками.
     static MIRROR: RefCell<Option<Mirror>> = const { RefCell::new(None) };
+    /// Ручка ядра: размер окна и команды раскладки из интерфейса. Ставится до публикации сокета.
+    static CORE: RefCell<Option<CoreLink>> = const { RefCell::new(None) };
+}
+
+/// Ядро для главного потока: вход размера окна и команды без ожидания, исход — задачей runtime.
+struct CoreLink {
+    core: CoreHandle,
+    runtime: tokio::runtime::Handle,
+}
+
+impl CoreLink {
+    /// Подать команду без ожидания. Отказ показывает раскладку модели заново: событий после него
+    /// не будет, а вид мог остаться там, куда его увёл пользователь.
+    fn send(&self, command: Command) {
+        let name = command.name();
+        let refused = move |reason: String| {
+            owner::say_err(format_args!("shellio: {name} отклонена: {reason}"));
+            defer(refresh_layout);
+        };
+        match self.core.try_request(command) {
+            Ok(receipt) => {
+                self.runtime.spawn(async move {
+                    match receipt.await {
+                        Ok(Ok(_)) => {}
+                        Ok(Err(error)) => refused(error.to_string()),
+                        Err(_) => refused("ядро не ответило".to_owned()),
+                    }
+                });
+            }
+            Err(error) => refused(error.to_string()),
+        }
+    }
 }
 
 /// Сколько последних записей держит журнал анимаций `ui.stats`.
@@ -69,6 +110,10 @@ struct OwnerWindow {
     /// Пересоздаваемая часть: окно и дерево галереи.
     window: MainWindow,
     gallery: Option<GalleryUi>,
+    /// Раскладка обычного режима; в галерее её нет.
+    layout: Option<LayoutUi>,
+    /// Размер окна для ядра.
+    viewport: ViewportGate,
     /// Смены компонентов, ещё не записанные в журнал: запись получает поколение публикации.
     pending: Vec<(&'static str, Transition)>,
     /// Журнал анимаций `ui.stats`.
@@ -119,7 +164,27 @@ impl OwnerWindow {
             let transitions = gallery.set_theme(&selection.theme(), selection.motion);
             self.pending.extend(transitions);
         }
+        if let Some(layout) = self.layout.as_mut() {
+            layout.set_theme(&selection.theme(), selection.motion);
+        }
         true
+    }
+
+    /// Размер содержимого окна в целых точках.
+    fn content_viewport(&self) -> shellio_layout::Viewport {
+        let (width, height) = self.window.content_size();
+        scene::viewport_of(width, height)
+    }
+
+    /// Раскладка по зеркалу и текущему размеру окна.
+    fn render_layout(&mut self, app: &App) {
+        let viewport = self.content_viewport();
+        if let Some(layout) = self.layout.as_mut() {
+            MIRROR.with(|mirror| {
+                let mirror = mirror.borrow();
+                layout.render(app, mirror.as_ref().map(Mirror::state), viewport);
+            });
+        }
     }
 
     /// Переопределения окна: выбор оформления и оси галереи.
@@ -346,6 +411,7 @@ impl OwnerWindow {
         let inspection = self.window.inspect();
         let (width, height) = inspection.content;
         let gallery_nodes = self.gallery.as_ref().map(GalleryUi::inspect);
+        let layout_nodes = self.layout.as_ref().map(LayoutUi::inspect);
         InspectView {
             window_number: self.window.number(),
             content: Size { width, height },
@@ -355,6 +421,7 @@ impl OwnerWindow {
                 .into_iter()
                 .chain(gallery_nodes.into_iter().flatten())
                 .map(component)
+                .chain(layout_nodes.into_iter().flatten())
                 .collect(),
             materials: inspection
                 .materials
@@ -657,7 +724,7 @@ fn tab_strip_view(facts: TabStripFacts) -> TabStripView {
     }
 }
 
-fn component(node: InspectNode) -> ComponentView {
+pub(crate) fn component(node: InspectNode) -> ComponentView {
     let facts = node.facts;
     ComponentView {
         id: node.id,
@@ -737,6 +804,12 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
         })),
         WindowMode::Normal => None,
     };
+    let layout = match mode {
+        WindowMode::Normal => Some(LayoutUi::new(app, &window, |split, drag| {
+            defer(move |app| on_drag(app, split, drag));
+        })),
+        WindowMode::Gallery => None,
+    };
     let projection = MIRROR.with(|mirror| mirror.borrow().as_ref().map(Projection::of));
     let applied = window.selection();
     WINDOW.with(|slot| {
@@ -752,6 +825,8 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             applied,
             window,
             gallery,
+            layout,
+            viewport: ViewportGate::default(),
             pending: Vec::new(),
             animations: VecDeque::new(),
         }));
@@ -759,6 +834,7 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
     if let Some(projection) = projection {
         with_window(|owner| owner.project(projection));
     }
+    with_window(|owner| owner.render_layout(app));
     number
 }
 
@@ -768,6 +844,7 @@ fn new_window(app: &App) -> MainWindow {
         app,
         |_: ThemeSelection| defer(|_| on_theme()),
         |intent| defer(move |app| on_intent(app, intent)),
+        || defer(on_resize),
     )
 }
 
@@ -784,8 +861,8 @@ pub fn reopen(app: &App) {
     }
 }
 
-/// Применить доставку к зеркалу. Применённая доставка обновляет проекции окна.
-pub fn deliver(_app: &App, delivery: Delivery) -> MirrorStep {
+/// Применить доставку к зеркалу. Применённая доставка обновляет проекции окна и раскладку.
+pub fn deliver(app: &App, delivery: Delivery) -> MirrorStep {
     let (step, projection) = MIRROR.with(|slot| {
         let mut mirror = slot.borrow_mut();
         let step = Mirror::deliver_to(&mut mirror, delivery);
@@ -796,9 +873,91 @@ pub fn deliver(_app: &App, delivery: Delivery) -> MirrorStep {
         (step, projection)
     });
     if let Some(projection) = projection {
-        with_window(|owner| owner.project(projection));
+        with_window(|owner| {
+            owner.project(projection);
+            owner.render_layout(app);
+        });
     }
     step
+}
+
+/// Ядро загружено, сокет ещё не опубликован: главный поток получает ручку ядра, обычное окно
+/// передаёт первый размер содержимого. Галерея раскладку не показывает и размера не передаёт:
+/// деление и размер отвечают `no_ui`.
+pub fn attach_core(_app: &App, core: CoreHandle, runtime: tokio::runtime::Handle) {
+    let first = with_window(|owner| {
+        let current = owner.content_viewport();
+        owner
+            .layout
+            .is_some()
+            .then(|| owner.viewport.flush(current))
+            .flatten()
+    })
+    .flatten();
+    if let Some(viewport) = first {
+        core.set_viewport(Some(viewport));
+    }
+    CORE.with(|slot| *slot.borrow_mut() = Some(CoreLink { core, runtime }));
+}
+
+/// Размер содержимого окна изменился: раскладка встаёт по нему сразу, ядро получает его в конце
+/// оборота цикла.
+fn on_resize(app: &App) {
+    let schedule = with_window(|owner| {
+        owner.render_layout(app);
+        owner.layout.is_some() && owner.viewport.request()
+    });
+    if schedule == Some(true) {
+        defer(|_| flush_viewport());
+    }
+}
+
+fn flush_viewport() {
+    let next = with_window(|owner| {
+        let current = owner.content_viewport();
+        owner.viewport.flush(current)
+    })
+    .flatten();
+    if let Some(viewport) = next {
+        CORE.with(|slot| {
+            if let Some(link) = slot.borrow().as_ref() {
+                link.core.set_viewport(Some(viewport));
+            }
+        });
+    }
+}
+
+/// Раскладка модели заново: после отказа команды из интерфейса.
+fn refresh_layout(app: &App) {
+    with_window(|owner| owner.render_layout(app));
+}
+
+/// Конец перетаскивания разделителя: одна команда `layout.resize`. Разделитель, который размер не
+/// меняет, возвращается на место модели.
+fn on_drag(app: &App, split: SplitId, drag: SplitDrag) {
+    let command = with_window(|owner| {
+        let command = owner
+            .layout
+            .as_ref()
+            .and_then(LayoutUi::scene)
+            .and_then(|scene| scene::resize_command(scene, split, drag.divider, drag.position));
+        if command.is_none() {
+            owner.render_layout(app);
+        }
+        command
+    })
+    .flatten();
+    if let Some(command) = command {
+        let sent = CORE.with(|slot| {
+            slot.borrow()
+                .as_ref()
+                .map(|link| link.send(command))
+                .is_some()
+        });
+        if !sent {
+            refresh_layout(app);
+        }
+    }
 }
 
 /// Запрос `ui` управляющего API. Без окна — `no_ui`. Действие выполняет [`handle`]; `app.quit`

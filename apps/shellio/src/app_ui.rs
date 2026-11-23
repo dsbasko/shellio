@@ -10,7 +10,7 @@ use shellio::launch::WindowMode;
 use shellio::owner::{self, Handoff, MirrorSink, Reopen, Ui};
 use shellio_appkit::{App, Delegate, MainThread, Reopened, Transfer};
 use shellio_control::{Activation, UiGate, UiRefusal, UiReply, UiRequest};
-use shellio_core::{Delivery, MirrorStep};
+use shellio_core::{CoreHandle, Delivery, MirrorStep};
 use tokio::sync::{oneshot, watch};
 
 use crate::window_ui;
@@ -130,6 +130,12 @@ impl Ui for AppUi {
             window_ui::create(app, window)
         })
         .await
+    }
+
+    async fn attach_core(&self, core: CoreHandle) {
+        let runtime = tokio::runtime::Handle::current();
+        self.on_main(move |app| window_ui::attach_core(app, core, runtime))
+            .await;
     }
 
     async fn activate(&self) -> Activation {

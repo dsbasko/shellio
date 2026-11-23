@@ -13,7 +13,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
 
 use serde::{Deserialize, Serialize};
-use shellio_core::{AppearanceChoice, UiCommand};
+use shellio_core::{AppearanceChoice, PanelId, UiCommand};
+use shellio_layout::{SizeClass, Zone};
 
 /// Срок запроса `ui` на главном потоке владельца.
 pub const UI_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
@@ -683,6 +684,46 @@ pub enum ComponentState {
     TabStrip(Box<TabStripView>),
     VirtualList(Box<VirtualListView>),
     TreeList(Box<TreeListView>),
+    /// Плитка части зоны раскладки или развёрнутой панели (P1.4).
+    Part(Box<PartNodeView>),
+    /// Вид панели раскладки (P1.4).
+    Panel(Box<PanelNodeView>),
+}
+
+/// Плитка части зоны в `ui.inspect`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PartNodeView {
+    /// Зона части; у развёрнутой панели — `center`.
+    pub zone: Zone,
+    /// Номер части в зоне, у развёрнутой панели — 0.
+    pub index: u32,
+    /// Вкладки части по порядку.
+    pub tabs: Vec<PanelId>,
+    pub active: PanelId,
+    /// Часть показана: зона не скрыта и не пуста, панель не развёрнута поверх.
+    pub shown: bool,
+    /// Фокус в этой части.
+    pub focused: bool,
+    /// Плитка развёрнутой панели.
+    pub zoomed: bool,
+}
+
+/// Вид панели в `ui.inspect`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PanelNodeView {
+    pub panel: PanelId,
+    /// `ComponentId` вида: тот же, пока вид не пересоздан.
+    pub component: u64,
+    pub plugin: String,
+    pub title: String,
+    /// Вид показан: активная вкладка показанной части, колонка навигатора или развёрнутая панель.
+    pub shown: bool,
+    /// Зона тела по геометрии; `None` — вид не показан.
+    pub zone: Option<Zone>,
+    /// Класс размера тела; `None` — вид не показан.
+    pub size: Option<SizeClass>,
 }
 
 /// Сторона зоны полосы вкладок.

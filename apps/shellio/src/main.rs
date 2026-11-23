@@ -13,6 +13,7 @@
 
 mod app_ui;
 mod gallery_ui;
+mod layout_ui;
 mod self_check;
 mod window_ui;
 

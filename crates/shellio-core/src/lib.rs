@@ -28,7 +28,7 @@ mod wire;
 pub use actor::{QUEUE_CAPACITY, SUBSCRIBER_CAPACITY};
 pub use change::Change;
 pub use clock::{Clock, SystemClock, UnixMillis};
-pub use command::{Command, CommandValue};
+pub use command::{Command, CommandValue, open_workbench};
 pub use error::{CoreError, Entity, ErrorCode};
 pub use events::{EVENT_BUFFER, EventsSince, Snapshot};
 pub use handle::{Core, CoreHandle, ReplyReceipt, StartError};
