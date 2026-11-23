@@ -2,11 +2,14 @@
 
 use std::path::Path;
 
+use shellio_layout::Viewport;
+
 use crate::change::Change;
 use crate::clock::Clock;
 use crate::command::{CommandValue, PreparedCommand};
 use crate::error::{CoreError, Entity};
 use crate::ids::{IdGen, PanelId, ProjectId, ProjectRootId, WorkbenchId, WorkspaceId};
+use crate::layout_cmd::layout_command;
 use crate::model::{Project, ProjectRoot, Route, State, WindowState, Workbench, Workspace};
 use crate::panel::{
     NAVIGATOR_PLUGIN, NAVIGATOR_TITLE, Panel, PluginId, TERMINAL_PLUGIN, TERMINAL_TITLE,
@@ -18,16 +21,29 @@ use crate::title::Title;
 /// Имя воркспейса, который создаёт первый запуск.
 pub const BOOTSTRAP_WORKSPACE: &str = "Основной";
 
-/// Внедряемые источники времени и идентификаторов обработчика.
+/// Внедряемые источники времени и идентификаторов обработчика и размер окна.
 pub(crate) struct Ctx<'a> {
-    clock: &'a dyn Clock,
-    ids: &'a mut dyn IdGen,
+    pub(crate) clock: &'a dyn Clock,
+    pub(crate) ids: &'a mut dyn IdGen,
+    /// Размер окна на момент команды. `None` — окна нет (ADR-0007, «Внутренний вход размера
+    /// окна»).
+    pub(crate) viewport: Option<Viewport>,
 }
 
 impl<'a> Ctx<'a> {
-    /// Контекст из часов и генератора идентификаторов.
+    /// Контекст из часов и генератора идентификаторов, без размера окна.
     pub(crate) fn new(clock: &'a dyn Clock, ids: &'a mut dyn IdGen) -> Self {
-        Self { clock, ids }
+        Self {
+            clock,
+            ids,
+            viewport: None,
+        }
+    }
+
+    /// Контекст с размером окна.
+    pub(crate) const fn with_viewport(mut self, viewport: Option<Viewport>) -> Self {
+        self.viewport = viewport;
+        self
     }
 }
 
@@ -39,11 +55,11 @@ pub(crate) struct Outcome {
 }
 
 impl Outcome {
-    const fn new(value: CommandValue, changes: Vec<Change>) -> Self {
+    pub(crate) const fn new(value: CommandValue, changes: Vec<Change>) -> Self {
         Self { value, changes }
     }
 
-    const fn unchanged() -> Self {
+    pub(crate) const fn unchanged() -> Self {
         Self::new(CommandValue::None, Vec::new())
     }
 }
@@ -79,6 +95,7 @@ pub(crate) fn handle(
                 .ok_or_else(|| CoreError::not_found(Entity::Workspace, workspace))?;
             Ok(focus(state, record))
         }
+        PreparedCommand::Layout(command) => layout_command(state, command, ctx),
     }
 }
 
@@ -129,26 +146,40 @@ fn missing_layouts(state: &State, ctx: &mut Ctx<'_>) -> Result<Vec<Change>, Core
 
 /// Раскладка по умолчанию (ADR-0009): новые панели `navigator` и `terminal`, затем раскладка.
 fn default_layout(workbench: WorkbenchId, ctx: &mut Ctx<'_>) -> Result<Vec<Change>, CoreError> {
-    let created_at = ctx.clock.now();
-    let mut panel = |plugin: &str, title: &str| -> Result<Panel, CoreError> {
-        Ok(Panel {
-            id: PanelId::generate(ctx.ids),
-            workbench,
-            plugin: PluginId::new(plugin).map_err(|error| {
-                CoreError::invalid_argument("plugin", "plugin_invalid", error.to_string())
-            })?,
-            title: parse_title(title)?,
-            created_at,
+    let plugin = |raw: &str| {
+        PluginId::new(raw).map_err(|error| {
+            CoreError::invalid_argument("plugin", "plugin_invalid", error.to_string())
         })
     };
-    let navigator = panel(NAVIGATOR_PLUGIN, NAVIGATOR_TITLE)?;
-    let terminal = panel(TERMINAL_PLUGIN, TERMINAL_TITLE)?;
+    let navigator = new_panel(workbench, plugin(NAVIGATOR_PLUGIN)?, ctx)?;
+    let terminal = new_panel(workbench, plugin(TERMINAL_PLUGIN)?, ctx)?;
     let layout = WorkbenchLayout::default_for(navigator.id, terminal.id);
     Ok(vec![
         Change::PanelAdd { panel: navigator },
         Change::PanelAdd { panel: terminal },
         Change::LayoutSet { workbench, layout },
     ])
+}
+
+/// Новая панель плагина `plugin` с названием по умолчанию: «Навигатор» и «Терминал» у известных
+/// плагинов, у остальных — сам plugin id.
+pub(crate) fn new_panel(
+    workbench: WorkbenchId,
+    plugin: PluginId,
+    ctx: &mut Ctx<'_>,
+) -> Result<Panel, CoreError> {
+    let title = match plugin.as_str() {
+        NAVIGATOR_PLUGIN => NAVIGATOR_TITLE,
+        TERMINAL_PLUGIN => TERMINAL_TITLE,
+        other => other,
+    };
+    Ok(Panel {
+        id: PanelId::generate(ctx.ids),
+        workbench,
+        title: parse_title(title)?,
+        plugin,
+        created_at: ctx.clock.now(),
+    })
 }
 
 /// Активный воркспейс, если он есть и не удалён.
@@ -342,16 +373,18 @@ fn workbench_create(
         "workbenches",
     )?;
     let id = WorkbenchId::generate(ctx.ids);
+    let mut changes = vec![Change::WorkbenchInserted {
+        workbench: Workbench {
+            id,
+            project,
+            title,
+            position,
+        },
+    }];
+    changes.extend(default_layout(id, ctx)?);
     Ok(Outcome::new(
         CommandValue::Workbench { workbench: id },
-        vec![Change::WorkbenchInserted {
-            workbench: Workbench {
-                id,
-                project,
-                title,
-                position,
-            },
-        }],
+        changes,
     ))
 }
 
@@ -510,18 +543,10 @@ mod tests {
             startup(&self.state, &mut ctx).unwrap()
         }
 
-        /// Раскладки рабочих областей, созданных командой: их пока дописывает только запуск.
-        fn backfill_layouts(&mut self) {
-            let outcome = self.startup().unwrap();
-            assert!(
-                outcome.changes.iter().all(|change| matches!(
-                    change,
-                    Change::PanelAdd { .. } | Change::LayoutSet { .. }
-                )),
-                "{:?}",
-                outcome.changes
-            );
-            self.commit(&outcome);
+        /// Состояние базы v1: рабочие области без панелей и раскладок.
+        fn strip_layouts(&mut self) {
+            self.state.panels.clear();
+            self.state.layouts.clear();
         }
 
         /// Применить дельты и проверить инварианты. Допустимы только совпадения позиций,
@@ -651,7 +676,7 @@ mod tests {
         let (app, _) = h.add_project(work, "/src/shellio");
         let review = h.create_workbench(app, "Ревью");
         h.ok(Command::WorkbenchOpen { workbench: review });
-        h.backfill_layouts();
+        assert_eq!(h.startup(), None);
         assert!(main < work);
 
         // Совпадение позиций: первым идёт меньший id.
@@ -693,7 +718,6 @@ mod tests {
         let notes = h.create_workbench(docs, "Заметки");
         h.ok(Command::WorkbenchOpen { workbench: notes });
         h.ok(Command::WorkbenchOpen { workbench: review });
-        h.backfill_layouts();
         assert_eq!(h.startup(), None);
 
         // Маршрут и последняя область — в убранном проекте: главная воркспейса.
@@ -787,6 +811,7 @@ mod tests {
         let review = h.create_workbench(app, "Ревью");
         let notes = h.create_workbench(app, "Заметки");
         assert!(review < notes);
+        h.strip_layouts();
 
         let outcome = h.startup().unwrap();
         let ids = added_panels(&outcome.changes);
@@ -814,6 +839,7 @@ mod tests {
         let main = h.bootstrap_workspace();
         let (app, _) = h.add_project(main, "/src/shellio");
         let review = h.create_workbench(app, "Ревью");
+        h.strip_layouts();
         h.state.window.active_workspace = None;
 
         let outcome = h.startup().unwrap();
@@ -836,6 +862,7 @@ mod tests {
         let main = h.bootstrap_workspace();
         let (app, _) = h.add_project(main, "/src/shellio");
         let review = h.create_workbench(app, "Ревью");
+        h.strip_layouts();
         h.state.projects.get_mut(&app).unwrap().removed_at = Some(UnixMillis(5));
         let outcome = h.startup().unwrap();
         assert!(matches!(
@@ -852,7 +879,6 @@ mod tests {
         let main = h.bootstrap_workspace();
         let (app, _) = h.add_project(main, "/src/shellio");
         let review = h.create_workbench(app, "Ревью");
-        h.backfill_layouts();
         let layout = h.state.layouts.remove(&review).unwrap();
         let terminal = layout.focused().unwrap();
         let navigator = layout.navigator.unwrap();
@@ -1019,17 +1045,22 @@ mod tests {
         let CommandValue::Workbench { workbench } = outcome.value else {
             panic!("неожиданное значение {:?}", outcome.value);
         };
-        assert_eq!(
-            outcome.changes,
-            vec![Change::WorkbenchInserted {
-                workbench: Workbench {
-                    id: workbench,
-                    project: app,
-                    title: title("Ревью"),
-                    position: 1,
-                },
-            }]
-        );
+        let [navigator, terminal] = added_panels(&outcome.changes)[..] else {
+            panic!("неожиданные дельты {:?}", outcome.changes);
+        };
+        assert!(navigator < terminal);
+        let mut expected = vec![Change::WorkbenchInserted {
+            workbench: Workbench {
+                id: workbench,
+                project: app,
+                title: title("Ревью"),
+                position: 1,
+            },
+        }];
+        expected.extend(default_layout_changes(workbench, navigator, terminal));
+        assert_eq!(outcome.changes, expected);
+        assert_eq!(h.state.layouts[&workbench].focused(), Some(terminal));
+        assert_eq!(h.startup(), None, "запуск раскладку не дописывает");
         let order: Vec<_> = h
             .state
             .workbenches_in_order(app)

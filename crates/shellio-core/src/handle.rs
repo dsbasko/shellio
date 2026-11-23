@@ -6,6 +6,7 @@ use std::future::Future;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use shellio_layout::Viewport;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
@@ -72,7 +73,8 @@ impl Core {
         ids: Box<dyn IdGen>,
         resolver: Arc<dyn RootResolver>,
     ) -> Result<CoreHandle, StartError> {
-        let actor = Actor::start(persist, clock, ids)?;
+        let (viewport, viewport_rx) = watch::channel(None);
+        let actor = Actor::start(persist, clock, ids, viewport_rx)?;
         let (queue, inbox) = mpsc::channel(QUEUE_CAPACITY);
         let (stopped_tx, stopped) = watch::channel(false);
         runtime.spawn(actor.run(inbox, stopped_tx));
@@ -83,6 +85,7 @@ impl Core {
                 stopped,
                 runtime: runtime.clone(),
                 resolver,
+                viewport,
             }),
         })
     }
@@ -100,6 +103,7 @@ struct Shared {
     stopped: watch::Receiver<bool>,
     runtime: Handle,
     resolver: Arc<dyn RootResolver>,
+    viewport: watch::Sender<Option<Viewport>>,
 }
 
 impl fmt::Debug for CoreHandle {
@@ -228,6 +232,19 @@ impl CoreHandle {
             reply,
         });
         Ok(receipt)
+    }
+
+    /// Размер области содержимого окна (ADR-0007, «Внутренний вход размера окна»). Вызывает главный
+    /// поток: вход не блокирует, не меняет ревизию и не порождает событий, его нет ни в протоколе,
+    /// ни в `Command`. Команды и чтения, принятые актором после вызова, видят новый размер. `None` —
+    /// окна нет: `layout.split` и `layout.resize` отказывают `no_ui`, `query.layout` отвечает без
+    /// кадров. Повтор того же значения ничего не делает.
+    pub fn set_viewport(&self, viewport: Option<Viewport>) {
+        self.shared.viewport.send_if_modified(|current| {
+            let changed = *current != viewport;
+            *current = viewport;
+            changed
+        });
     }
 
     /// Выполнить чтение над текущим состоянием.

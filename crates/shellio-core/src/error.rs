@@ -29,11 +29,13 @@ pub enum ErrorCode {
     Busy,
     /// Ядро завершается и новых запросов не принимает.
     ShuttingDown,
+    /// Команде нужно место, а размера окна у ядра нет.
+    NoUi,
 }
 
 impl ErrorCode {
     /// Все коды.
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 9] = [
         Self::InvalidArgument,
         Self::NotFound,
         Self::NameTaken,
@@ -42,6 +44,7 @@ impl ErrorCode {
         Self::StorageConflict,
         Self::Busy,
         Self::ShuttingDown,
+        Self::NoUi,
     ];
 
     /// Имя кода в JSON.
@@ -55,6 +58,7 @@ impl ErrorCode {
             Self::StorageConflict => "storage_conflict",
             Self::Busy => "busy",
             Self::ShuttingDown => "shutting_down",
+            Self::NoUi => "no_ui",
         }
     }
 
@@ -67,7 +71,8 @@ impl ErrorCode {
             | Self::NameTaken
             | Self::RootTaken
             | Self::StorageConflict
-            | Self::ShuttingDown => false,
+            | Self::ShuttingDown
+            | Self::NoUi => false,
         }
     }
 }
@@ -84,6 +89,7 @@ pub enum Entity {
     Workspace,
     Project,
     Workbench,
+    Panel,
 }
 
 impl Entity {
@@ -93,6 +99,7 @@ impl Entity {
             Self::Workspace => "workspace",
             Self::Project => "project",
             Self::Workbench => "workbench",
+            Self::Panel => "panel",
         }
     }
 
@@ -101,13 +108,14 @@ impl Entity {
             Self::Workspace => "воркспейс",
             Self::Project => "проект",
             Self::Workbench => "рабочая область",
+            Self::Panel => "панель",
         }
     }
 
     const fn not_found_suffix(self) -> &'static str {
         match self {
             Self::Workspace | Self::Project => "не найден",
-            Self::Workbench => "не найдена",
+            Self::Workbench | Self::Panel => "не найдена",
         }
     }
 }
@@ -206,6 +214,133 @@ impl CoreError {
             ErrorCode::NotFound,
             format!("{} {id} {}", entity.noun(), entity.not_found_suffix()),
             Self::details([("entity", entity.as_str().into()), ("id", id.into())]),
+        )
+    }
+
+    /// Открытая рабочая область окна вне области доступа: отвечает как несуществующая, но её
+    /// идентификатор не раскрывается (`id: null`).
+    pub fn open_workbench_hidden() -> Self {
+        Self::new(
+            ErrorCode::NotFound,
+            "открытая рабочая область не найдена".to_owned(),
+            Self::details([
+                ("entity", Entity::Workbench.as_str().into()),
+                ("id", Value::Null),
+            ]),
+        )
+    }
+
+    /// Отказ по состоянию: причина `reason` поля `field` с собственными деталями.
+    fn refused<const N: usize>(
+        field: &str,
+        reason: &str,
+        message: String,
+        extra: [(&str, Value); N],
+    ) -> Self {
+        let mut details = Self::details([("field", field.into()), ("reason", reason.into())]);
+        details.extend(
+            extra
+                .into_iter()
+                .map(|(key, value)| (key.to_owned(), value)),
+        );
+        Self::new(ErrorCode::InvalidArgument, message, details)
+    }
+
+    /// Нет ни явной, ни открытой рабочей области.
+    pub fn no_open_workbench() -> Self {
+        Self::refused(
+            "workbench",
+            "no_open_workbench",
+            "рабочая область не указана и в окне не открыта".to_owned(),
+            [],
+        )
+    }
+
+    /// Деление одиночной вкладки `panel` без новой панели.
+    pub fn split_needs_panel(panel: impl fmt::Display) -> Self {
+        let panel = panel.to_string();
+        Self::refused(
+            "open",
+            "split_needs_panel",
+            format!("у части панели {panel} одна вкладка: новой части нужна панель"),
+            [("panel", panel.into())],
+        )
+    }
+
+    /// Затронутым частям деления не хватит места. `parts` — `[{panel, need, have}]`.
+    pub fn split_no_room(parts: Value, message: String) -> Self {
+        Self::refused("panel", "split_no_room", message, [("parts", parts)])
+    }
+
+    /// Панель `panel` стоит в колонке навигатора, а операции нужна часть зоны. Деление —
+    /// `navigator_not_splittable`, якорь и `part_of` — `navigator_column`.
+    pub fn navigator_column(field: &str, panel: impl fmt::Display) -> Self {
+        let panel = panel.to_string();
+        let reason = if field == "panel" {
+            "navigator_not_splittable"
+        } else {
+            "navigator_column"
+        };
+        Self::refused(
+            field,
+            reason,
+            format!("панель {panel} стоит в колонке навигатора"),
+            [("panel", panel.into())],
+        )
+    }
+
+    /// Зона `zone` (поле `field` — `zone` или `target`) пуста.
+    pub fn zone_empty(field: &str, name: &str) -> Self {
+        Self::refused(
+            field,
+            "zone_empty",
+            format!("{name}: нет панелей"),
+            [(field, name.into())],
+        )
+    }
+
+    /// Размер вне границ `min..=max` в единицах запроса.
+    pub fn resize_out_of_range(min: u32, max: u32) -> Self {
+        Self::refused(
+            "size",
+            "resize_out_of_range",
+            format!("размер вне границ {min}..={max}"),
+            [("min", min.into()), ("max", max.into())],
+        )
+    }
+
+    /// У зоны `zone` нет своего размера: размер центра — остаток.
+    pub fn zone_not_resizable(zone: &str) -> Self {
+        Self::refused(
+            "zone",
+            "zone_not_resizable",
+            format!("у зоны {zone} нет своего размера: размер центра — остаток"),
+            [("zone", zone.into())],
+        )
+    }
+
+    /// Панель `panel` поля `part_of` стоит не в зоне `zone`.
+    pub fn panel_not_in_zone(panel: impl fmt::Display, zone: &str) -> Self {
+        let panel = panel.to_string();
+        Self::refused(
+            "part_of",
+            "panel_not_in_zone",
+            format!("панель {panel} стоит не в зоне {zone}"),
+            [("panel", panel.into()), ("zone", zone.into())],
+        )
+    }
+
+    /// Неверное сочетание полей команды: `field` лишнее или нужное отсутствует.
+    pub fn arguments_conflict(field: &str, message: impl Into<String>) -> Self {
+        Self::invalid_argument(field, "arguments_conflict", message)
+    }
+
+    /// Команде нужно место, а размера окна у ядра нет.
+    pub fn no_ui(command: &str) -> Self {
+        Self::new(
+            ErrorCode::NoUi,
+            format!("{command}: размер окна неизвестен, окна нет"),
+            Map::new(),
         )
     }
 
@@ -325,6 +460,7 @@ mod tests {
             ("storage_conflict", false),
             ("busy", true),
             ("shutting_down", false),
+            ("no_ui", false),
         ];
         for (code, (name, retryable)) in ErrorCode::ALL.into_iter().zip(expected) {
             assert_eq!(code.as_str(), name);
@@ -381,6 +517,9 @@ mod tests {
             ),
             (CoreError::busy(), ErrorCode::Busy),
             (CoreError::shutting_down(), ErrorCode::ShuttingDown),
+            (CoreError::no_ui("layout.split"), ErrorCode::NoUi),
+            (CoreError::no_open_workbench(), ErrorCode::InvalidArgument),
+            (CoreError::open_workbench_hidden(), ErrorCode::NotFound),
         ];
         for (error, code) in cases {
             assert_eq!(error.code(), code);
@@ -422,6 +561,83 @@ mod tests {
             error.detail_str("existing"),
             Some(workspace.to_string().as_str())
         );
+    }
+
+    #[test]
+    fn layout_refusals_name_field_reason_and_details() {
+        let cases = [
+            (
+                CoreError::no_open_workbench(),
+                "workbench",
+                "no_open_workbench",
+            ),
+            (
+                CoreError::split_needs_panel("p"),
+                "open",
+                "split_needs_panel",
+            ),
+            (
+                CoreError::split_no_room(Value::Array(Vec::new()), "x".into()),
+                "panel",
+                "split_no_room",
+            ),
+            (
+                CoreError::navigator_column("panel", "p"),
+                "panel",
+                "navigator_not_splittable",
+            ),
+            (
+                CoreError::navigator_column("anchor", "p"),
+                "anchor",
+                "navigator_column",
+            ),
+            (CoreError::zone_empty("zone", "right"), "zone", "zone_empty"),
+            (
+                CoreError::zone_empty("target", "plate"),
+                "target",
+                "zone_empty",
+            ),
+            (
+                CoreError::resize_out_of_range(1, 2),
+                "size",
+                "resize_out_of_range",
+            ),
+            (
+                CoreError::zone_not_resizable("center"),
+                "zone",
+                "zone_not_resizable",
+            ),
+            (
+                CoreError::panel_not_in_zone("p", "right"),
+                "part_of",
+                "panel_not_in_zone",
+            ),
+            (
+                CoreError::arguments_conflict("panel", "x"),
+                "panel",
+                "arguments_conflict",
+            ),
+        ];
+        for (error, field, reason) in cases {
+            assert_eq!(error.code(), ErrorCode::InvalidArgument, "{error}");
+            assert_eq!(error.detail_str("field"), Some(field), "{error}");
+            assert_eq!(error.detail_str("reason"), Some(reason), "{error}");
+        }
+        let range = CoreError::resize_out_of_range(200, 640);
+        assert_eq!(range.detail("min"), Some(&Value::from(200)));
+        assert_eq!(range.detail("max"), Some(&Value::from(640)));
+        assert_eq!(
+            CoreError::zone_empty("target", "plate").detail_str("target"),
+            Some("plate")
+        );
+
+        let hidden = CoreError::open_workbench_hidden();
+        assert_eq!(hidden.detail_str("entity"), Some("workbench"));
+        assert_eq!(hidden.detail("id"), Some(&Value::Null));
+        let panel = CoreError::not_found(Entity::Panel, "p");
+        assert_eq!(panel.detail_str("entity"), Some("panel"));
+        assert_eq!(panel.message(), "панель p не найдена");
+        assert!(CoreError::no_ui("layout.split").details.is_empty());
     }
 
     #[test]

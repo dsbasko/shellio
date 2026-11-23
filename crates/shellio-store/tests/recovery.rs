@@ -2,7 +2,7 @@
 //! посреди транзакции и случайные последовательности команд. Состояние актора, перезагрузка
 //! из базы и зеркало из снимка и событий подписчика должны совпадать.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -11,10 +11,11 @@ use rusqlite::Connection;
 use shellio_core::test_support::{FakeRootResolver, ManualClock, SequentialIds};
 use shellio_core::{
     BOOTSTRAP_WORKSPACE, Change, Command, CommandValue, CommitError, Core, CoreHandle, ErrorCode,
-    Event, EventsSince, IdGen, Loaded, Persist, Project, ProjectId, ProjectRoot, ProjectRootId,
-    Query, Reply, ReplyValue, Revision, RootKey, RootKind, RootResolver, Route, Snapshot, State,
-    Title, TreeScope, UnixMillis, Workbench, WorkbenchId, Workspace, WorkspaceId,
+    Event, EventsSince, IdGen, Loaded, PanelId, Persist, Project, ProjectId, ProjectRoot,
+    ProjectRootId, Query, Reply, ReplyValue, Revision, RootKey, RootKind, RootResolver, Route,
+    Snapshot, State, Title, TreeScope, UnixMillis, Workbench, WorkbenchId, Workspace, WorkspaceId,
 };
+use shellio_layout::{Hideable, Viewport, Zone};
 use shellio_store::{Database, Profile, SqlitePersist};
 use tempfile::TempDir;
 use tokio::runtime::Handle;
@@ -188,6 +189,107 @@ async fn tree_json(core: &CoreHandle, scope: TreeScope) -> TestResult<String> {
 }
 
 #[tokio::test]
+async fn layout_survives_restart_on_same_database() -> TestResult {
+    let store = Store::new()?;
+    let clock = ManualClock::new(NOW);
+    let core = start(store.persist()?, &clock, resolver())?;
+    core.set_viewport(Some(Viewport {
+        width: 1180,
+        height: 720,
+    }));
+    let workspace = active(&snapshot(&core).await?)?;
+    let project = add_project(&core, workspace, REPO, None).await?;
+    let workbench = create_workbench(&core, project, "main").await?;
+    request(&core, Command::WorkbenchOpen { workbench }).await?;
+    let terminal = snapshot(&core).await?.state.layouts[&workbench]
+        .focused()
+        .ok_or("нет панели с фокусом")?;
+    let reply = request(
+        &core,
+        Command::LayoutSplit {
+            panel: terminal,
+            open: Some("terminal".into()),
+        },
+    )
+    .await?;
+    let CommandValue::Panel { panel: second } = created(&reply)? else {
+        return Err("ожидалась панель".into());
+    };
+    for command in [
+        Command::LayoutResize {
+            workbench: None,
+            zone: Zone::Center,
+            part_of: Some(terminal),
+            size: 600,
+        },
+        Command::PanelMove {
+            panel: second,
+            zone: Zone::Right,
+        },
+        Command::LayoutResize {
+            workbench: None,
+            zone: Zone::Right,
+            part_of: None,
+            size: 320,
+        },
+        Command::LayoutVisibility {
+            workbench: None,
+            target: Hideable::Navigator,
+            visible: false,
+        },
+        Command::LayoutZoom {
+            panel: Some(terminal),
+            workbench: None,
+            off: None,
+        },
+    ] {
+        request(&core, command).await?;
+    }
+    let before = snapshot(&core).await?;
+    let layout = before.state.layouts[&workbench].clone();
+    assert_eq!(layout.zoomed, Some(terminal));
+    assert!(layout.hidden.navigator);
+    assert_eq!(layout.sizes.right, 320);
+    core.shutdown().await;
+
+    // Новый запуск на том же профиле: раскладка, панели и ревизия прежние, запуск не пишет.
+    let core = start(store.persist()?, &clock, resolver())?;
+    let after = snapshot(&core).await?;
+    assert_eq!(after.revision, before.revision);
+    assert_eq!(after.state.diagnostics, Vec::new());
+    assert_eq!(after.state.layouts, before.state.layouts);
+    assert_eq!(after.state.panels, before.state.panels);
+    assert_eq!(after.state.layouts[&workbench].focused(), Some(terminal));
+
+    // Восстановленная раскладка принимает команды без окна, кроме тех, которым нужно место.
+    let reply = request(
+        &core,
+        Command::LayoutZoom {
+            panel: None,
+            workbench: None,
+            off: Some(true),
+        },
+    )
+    .await?;
+    assert_eq!(reply.revision, before.revision.next());
+    let error = core
+        .request(Command::LayoutSplit {
+            panel: terminal,
+            open: Some("terminal".into()),
+        })
+        .await
+        .err()
+        .ok_or("деление без окна прошло")?;
+    assert_eq!(error.code(), ErrorCode::NoUi);
+    let actor = snapshot(&core).await?;
+    core.shutdown().await;
+    let reloaded = store.load()?;
+    assert_eq!(reloaded.state, *actor.state);
+    assert_eq!(reloaded.state.layouts[&workbench].zoomed, None);
+    Ok(())
+}
+
+#[tokio::test]
 async fn reopen_restores_state_revision_and_tree() {
     let store = Store::new().unwrap();
     let clock = ManualClock::new(NOW);
@@ -257,13 +359,13 @@ async fn reopen_restores_state_revision_and_tree() {
         i64::try_from(before.revision.0).unwrap()
     );
 
-    // Рабочие области, созданные командой, получают раскладку первым перезапуском: одна
-    // запись с панелями и раскладками, остальное состояние прежнее.
     let core = start(store.persist().unwrap(), &clock, resolver()).unwrap();
-    let laid_out = snapshot(&core).await.unwrap();
-    assert_eq!(laid_out.revision, before.revision.next());
+    let after = snapshot(&core).await.unwrap();
+    // Перезапуск ничего не пишет: раскладки создала команда `workbench.create`.
+    assert_eq!(after.revision, before.revision);
+    assert_eq!(after.state.diagnostics, Vec::new());
     assert_eq!(
-        laid_out
+        before
             .state
             .layouts
             .keys()
@@ -272,22 +374,8 @@ async fn reopen_restores_state_revision_and_tree() {
         BTreeSet::from([main, review, draft])
     );
     assert_eq!(
-        State {
-            panels: BTreeMap::new(),
-            layouts: BTreeMap::new(),
-            ..(*laid_out.state).clone()
-        },
-        *before.state
-    );
-    core.shutdown().await;
-
-    let core = start(store.persist().unwrap(), &clock, resolver()).unwrap();
-    let after = snapshot(&core).await.unwrap();
-    assert_eq!(after.revision, laid_out.revision);
-    assert_eq!(after.state.diagnostics, Vec::new());
-    assert_eq!(
         without_diagnostics(&after.state),
-        without_diagnostics(&laid_out.state)
+        without_diagnostics(&before.state)
     );
     assert_eq!(tree_json(&core, TreeScope::All).await.unwrap(), tree_all);
     assert_eq!(
@@ -816,7 +904,7 @@ impl Generator {
                     expect,
                 )
             }
-            72..86 => {
+            72..84 => {
                 let target = self.target(&workbenches);
                 // Уже открытая область: окно на ней и она последняя в своём воркспейсе.
                 let expect = target.map_or(Refused(ErrorCode::NotFound), |workbench| {
@@ -831,6 +919,7 @@ impl Generator {
                 let workbench = target.unwrap_or(unknown_workbench);
                 (Command::WorkbenchOpen { workbench }, expect)
             }
+            92.. => self.layout_command(state)?,
             _ => {
                 let target = self.target(&workspaces);
                 let expect = target.map_or(Refused(ErrorCode::NotFound), |workspace| {
@@ -843,6 +932,50 @@ impl Generator {
                 let workspace = target.unwrap_or(unknown_workspace);
                 (Command::WindowFocusWorkspace { workspace }, expect)
             }
+        })
+    }
+}
+
+impl Generator {
+    /// Команда панели: закрытие, перенос в зону или выбор вкладки. Исход предсказывает та же
+    /// чистая операция раскладки: тест сверяет запись, а не модель.
+    fn layout_command(&mut self, state: &State) -> TestResult<(Command, Expect)> {
+        use Expect::{Refused, Unchanged, Written};
+
+        let live: Vec<PanelId> = state
+            .panels
+            .values()
+            .filter(|panel| state.live_workbench(panel.workbench).is_some())
+            .map(|panel| panel.id)
+            .collect();
+        let target = self.target(&live);
+        let panel = target.unwrap_or(PanelId::from_bytes([0xee; 16]));
+        let layout = target
+            .and_then(|panel| state.layouts.get(&state.panels[&panel].workbench))
+            .cloned();
+        let changed = |next: Result<shellio_core::WorkbenchLayout, _>| match (&layout, next) {
+            (Some(layout), Ok(next)) if next == *layout => Ok(Unchanged),
+            (Some(_), Ok(_)) => Ok(Written),
+            (_, Err(error)) => Err(format!("операция модели отказала: {error:?}")),
+            (None, Ok(_)) => Err("нет раскладки".to_owned()),
+        };
+        let Some(current) = layout.clone() else {
+            return Ok((Command::PanelSelect { panel }, Refused(ErrorCode::NotFound)));
+        };
+        Ok(match self.rng.below(3) {
+            0 => (Command::PanelClose { panel }, Written),
+            1 => {
+                let zone = self.rng.pick(&Zone::ALL);
+                let navigator = state.panels[&panel].plugin.is_navigator();
+                (
+                    Command::PanelMove { panel, zone },
+                    changed(current.move_to_zone(panel, zone, navigator))?,
+                )
+            }
+            _ => (
+                Command::PanelSelect { panel },
+                changed(current.select(panel))?,
+            ),
         })
     }
 }
@@ -886,6 +1019,9 @@ impl Coverage {
         assert_eq!(
             self.written,
             BTreeSet::from([
+                "panel.close",
+                "panel.move",
+                "panel.select",
                 "project.add",
                 "window.focus_workspace",
                 "workbench.create",
@@ -896,7 +1032,7 @@ impl Coverage {
             ]),
             "команды с записью"
         );
-        assert_eq!(self.changes.len(), 8, "дельты: {:?}", self.changes);
+        assert_eq!(self.changes.len(), 11, "дельты: {:?}", self.changes);
         assert_eq!(
             self.refused,
             BTreeSet::from(["invalid_argument", "name_taken", "not_found", "root_taken"]),

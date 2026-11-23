@@ -22,6 +22,7 @@ use shellio_core::{
     TreeScope, TreeView, UnixMillis, WindowState, Workbench, WorkbenchId, WorkbenchLayout,
     Workspace, WorkspaceId, read,
 };
+use shellio_layout::{Direction, Edge, Hideable, Viewport, Zone};
 
 fn wire_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/wire")
@@ -145,6 +146,17 @@ fn command_golden(command: &Command) -> &'static str {
         Command::WorkbenchRename { .. } => "command.workbench.rename",
         Command::WorkbenchOpen { .. } => "command.workbench.open",
         Command::WindowFocusWorkspace { .. } => "command.window.focus_workspace",
+        Command::LayoutSplit { .. } => "command.layout.split",
+        Command::PanelFocus { .. } => "command.panel.focus",
+        Command::PanelSelect { .. } => "command.panel.select",
+        Command::PanelMove { .. } => "command.panel.move",
+        Command::PanelMovePart { .. } => "command.panel.move_part",
+        Command::PanelClose { .. } => "command.panel.close",
+        Command::LayoutResize { .. } => "command.layout.resize",
+        Command::LayoutEqual { .. } => "command.layout.equal",
+        Command::LayoutZoom { .. } => "command.layout.zoom",
+        Command::LayoutOnly { .. } => "command.layout.only",
+        Command::LayoutVisibility { .. } => "command.layout.visibility",
     }
 }
 
@@ -177,6 +189,51 @@ fn commands() -> Vec<Command> {
         Command::WindowFocusWorkspace {
             workspace: ids.workspace,
         },
+        Command::LayoutSplit {
+            panel: ids.terminal,
+            open: Some("terminal".into()),
+        },
+        Command::PanelFocus {
+            panel: None,
+            workbench: Some(ids.workbench),
+            direction: Some(Direction::Left),
+        },
+        Command::PanelSelect {
+            panel: ids.terminal,
+        },
+        Command::PanelMove {
+            panel: ids.terminal,
+            zone: Zone::Right,
+        },
+        Command::PanelMovePart {
+            panel: ids.terminal,
+            anchor: ids.navigator,
+            edge: Some(Edge::After),
+        },
+        Command::PanelClose {
+            panel: ids.terminal,
+        },
+        Command::LayoutResize {
+            workbench: None,
+            zone: Zone::Center,
+            part_of: Some(ids.terminal),
+            size: 500,
+        },
+        Command::LayoutEqual {
+            workbench: Some(ids.workbench),
+            zone: Zone::Bottom,
+        },
+        Command::LayoutZoom {
+            panel: None,
+            workbench: Some(ids.workbench),
+            off: Some(true),
+        },
+        Command::LayoutOnly { workbench: None },
+        Command::LayoutVisibility {
+            workbench: Some(ids.workbench),
+            target: Hideable::Plate,
+            visible: false,
+        },
     ]
 }
 
@@ -196,6 +253,7 @@ fn query_golden(query: &Query) -> &'static str {
             scope: TreeScope::All,
         } => "query.tree.all",
         Query::Status {} => "query.status",
+        Query::Layout { .. } => "query.layout",
     }
 }
 
@@ -209,6 +267,10 @@ fn query_samples() -> Samples {
             scope: TreeScope::All,
         },
         Query::Status {},
+        Query::Layout {
+            scope: TreeScope::Workspace(ids.workspace),
+            workbench: Some(ids.workbench),
+        },
     ]
     .into_iter()
     .map(|query| sample(query_golden(&query), query))
@@ -328,6 +390,7 @@ fn error_sample(code: ErrorCode) -> Result<CoreError, String> {
         }
         ErrorCode::Busy => CoreError::busy(),
         ErrorCode::ShuttingDown => CoreError::shutting_down(),
+        ErrorCode::NoUi => CoreError::no_ui("layout.split"),
     })
 }
 
@@ -445,6 +508,8 @@ fn reply_golden(reply: &Reply) -> &'static str {
         ReplyValue::Tree(TreeView { route: Some(_), .. }) => "reply.tree",
         ReplyValue::Tree(TreeView { route: None, .. }) => "reply.tree.scoped_inactive",
         ReplyValue::Status(_) => "reply.status",
+        ReplyValue::Layout(_) => "reply.layout",
+        ReplyValue::Command(CommandValue::Panel { .. }) => "reply.panel",
         ReplyValue::Command(CommandValue::Workspace { .. }) => "reply.workspace",
         ReplyValue::Command(CommandValue::Project { .. }) => "reply.project",
         ReplyValue::Command(CommandValue::Workbench { .. }) => "reply.workbench",
@@ -459,6 +524,7 @@ fn reply_samples() -> Result<Samples, String> {
         &state,
         Revision(12),
         &storage(),
+        None,
         &Query::Tree {
             scope: TreeScope::All,
         },
@@ -469,6 +535,7 @@ fn reply_samples() -> Result<Samples, String> {
         &state,
         Revision(12),
         &storage(),
+        None,
         &Query::Tree {
             scope: TreeScope::Workspace(ids.second_workspace),
         },
@@ -479,8 +546,24 @@ fn reply_samples() -> Result<Samples, String> {
         rowid: 7,
         reason: "висячая ссылка workspace_id".into(),
     });
-    let status = read(&state, Revision(12), &storage(), &Query::Status {})
+    let status = read(&state, Revision(12), &storage(), None, &Query::Status {})
         .map_err(|error| error.to_string())?;
+    with_default_layout(&ids, &mut state)?;
+    // Окно 1180×720, как при первом запуске: кадры раскладки по умолчанию.
+    let layout = read(
+        &state,
+        Revision(12),
+        &storage(),
+        Some(Viewport {
+            width: 1180,
+            height: 720,
+        }),
+        &Query::Layout {
+            scope: TreeScope::All,
+            workbench: None,
+        },
+    )
+    .map_err(|error| error.to_string())?;
     let command = |revision, value: CommandValue| Reply {
         revision: Revision(revision),
         value: value.into(),
@@ -489,6 +572,13 @@ fn reply_samples() -> Result<Samples, String> {
         tree,
         scoped_inactive,
         status,
+        layout,
+        command(
+            13,
+            CommandValue::Panel {
+                panel: ids.terminal,
+            },
+        ),
         command(
             1,
             CommandValue::Workspace {
@@ -544,19 +634,25 @@ fn events_since_golden(since: &EventsSince) -> &'static str {
     }
 }
 
-fn events_since_samples() -> Result<Samples, String> {
-    let ids = ids();
-    let mut state = tree_state(&ids)?;
+/// Панели навигатора и терминала и раскладка по умолчанию открытой рабочей области.
+fn with_default_layout(ids: &Ids, state: &mut State) -> Result<(), String> {
     for (id, plugin, name) in [
         (ids.navigator, "navigator", "Навигатор"),
         (ids.terminal, "terminal", "Терминал"),
     ] {
-        state.panels.insert(id, panel(&ids, id, plugin, name)?);
+        state.panels.insert(id, panel(ids, id, plugin, name)?);
     }
     state.layouts.insert(
         ids.workbench,
         WorkbenchLayout::default_for(ids.navigator, ids.terminal),
     );
+    Ok(())
+}
+
+fn events_since_samples() -> Result<Samples, String> {
+    let ids = ids();
+    let mut state = tree_state(&ids)?;
+    with_default_layout(&ids, &mut state)?;
     assert_eq!(state.check_invariants(), Vec::new());
     state.diagnostics.push(Diagnostic {
         table: "workspaces".into(),

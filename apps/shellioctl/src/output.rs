@@ -160,6 +160,10 @@ fn reply_text(reply: &Reply) -> String {
     match &reply.value {
         ReplyValue::Tree(tree) => tree_text(revision, tree),
         ReplyValue::Status(status) => status_text(revision, status),
+        ReplyValue::Layout(view) => match serde_json::to_string_pretty(view) {
+            Ok(json) => format!("{json}\n"),
+            Err(error) => format!("ревизия {revision}: раскладка не выводится: {error}\n"),
+        },
         ReplyValue::Command(value) => {
             let value = match value {
                 CommandValue::Workspace { workspace } => format!("воркспейс {workspace}"),
@@ -167,6 +171,7 @@ fn reply_text(reply: &Reply) -> String {
                     format!("проект {project}, корень {root}")
                 }
                 CommandValue::Workbench { workbench } => format!("рабочая область {workbench}"),
+                CommandValue::Panel { panel } => format!("панель {panel}"),
                 CommandValue::None => "готово".to_owned(),
             };
             format!("ревизия {revision}: {value}\n")

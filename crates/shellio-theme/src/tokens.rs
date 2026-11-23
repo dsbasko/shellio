@@ -107,6 +107,10 @@ pub struct Metrics {
     pub status_bar: f64,
     /// Отступ между плитками.
     pub gap: f64,
+    /// Толщина линии плитки.
+    pub line: f64,
+    /// Ширина полосы края тела части, где перетаскивание вкладки создаёт новую часть.
+    pub drop_edge: f64,
     pub radius: Radii,
     pub font: FontSizes,
     pub line_height: LineHeights,
@@ -270,12 +274,15 @@ const LIGHT_INCREASED: Colors = Colors {
     ..LIGHT
 };
 
-const METRICS: Metrics = Metrics {
+/// Метрики, одинаковые во всех ячейках.
+pub const METRICS: Metrics = Metrics {
     titlebar: 40.0,
     tabbar: 34.0,
     row: 26.0,
     status_bar: 26.0,
     gap: 6.0,
+    line: 1.0,
+    drop_edge: 24.0,
     radius: Radii {
         row: 5.0,
         control: 6.0,
@@ -431,6 +438,8 @@ impl AppTheme {
             row,
             status_bar,
             gap,
+            line: plate_line,
+            drop_edge,
             radius,
             font,
             line_height,
@@ -519,6 +528,8 @@ impl AppTheme {
             css("metrics.row", "--row", Points(row)),
             css("metrics.status_bar", "--status", Points(status_bar)),
             css("metrics.gap", "--gap", Points(gap)),
+            css("metrics.line", "--plate-line", Points(plate_line)),
+            css("metrics.drop_edge", "--drop-edge", Points(drop_edge)),
             css("metrics.radius.row", "--r-row", Points(radius_row)),
             css("metrics.radius.control", "--r-ctl", Points(radius_control)),
             css("metrics.radius.plate", "--r-plate", Points(radius_plate)),

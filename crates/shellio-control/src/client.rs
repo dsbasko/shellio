@@ -92,7 +92,8 @@ impl Exit {
             | ErrorCode::NameTaken
             | ErrorCode::RootTaken
             | ErrorCode::StorageConflict
-            | ErrorCode::ShuttingDown => Self::Failure,
+            | ErrorCode::ShuttingDown
+            | ErrorCode::NoUi => Self::Failure,
         }
     }
 
@@ -708,6 +709,7 @@ mod tests {
             (ErrorCode::StorageConflict, 1),
             (ErrorCode::Busy, 75),
             (ErrorCode::ShuttingDown, 1),
+            (ErrorCode::NoUi, 1),
         ];
         assert_eq!(expected.len(), ErrorCode::ALL.len());
         for (code, exit) in expected {

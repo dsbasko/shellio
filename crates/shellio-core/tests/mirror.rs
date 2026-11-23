@@ -110,7 +110,7 @@ impl Known {
             CommandValue::Workspace { workspace } => self.workspaces.push(workspace),
             CommandValue::Project { project, .. } => self.projects.push(project),
             CommandValue::Workbench { workbench } => self.workbenches.push(workbench),
-            CommandValue::None => {}
+            CommandValue::Panel { .. } | CommandValue::None => {}
         }
     }
 }

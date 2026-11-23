@@ -3,9 +3,13 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use shellio_layout::{Frames, Viewport, geometry};
 
-use crate::error::CoreError;
+use crate::command::scoped_workbench;
+use crate::error::{CoreError, Entity};
+use crate::ids::{PanelId, WorkbenchId};
 use crate::model::{Diagnostic, Revision, State};
+use crate::panel::{Panel, WorkbenchLayout, layout_metrics, min_size};
 use crate::tree::{TreeScope, TreeView};
 use crate::wire::{Reply, ReplyValue};
 
@@ -22,6 +26,13 @@ pub enum Query {
     /// помеченного перечня serde молча пропускает лишние поля.
     #[serde(rename = "status")]
     Status {},
+    /// Раскладка рабочей области: явной или открытой в окне, в области `scope`.
+    #[serde(rename = "layout")]
+    Layout {
+        scope: TreeScope,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        workbench: Option<WorkbenchId>,
+    },
 }
 
 impl Query {
@@ -30,6 +41,7 @@ impl Query {
         match self {
             Self::Tree { .. } => "query.tree",
             Self::Status {} => "query.status",
+            Self::Layout { .. } => "query.layout",
         }
     }
 }
@@ -53,11 +65,55 @@ pub struct StatusView {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-/// Выполнить чтение над снимком состояния с ревизией `revision`.
+/// Ответ `query.layout`: раскладка, панели рабочей области по `PanelId` и кадры по текущему размеру
+/// окна. Без размера окна `frames` — `null`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LayoutView {
+    pub workbench: WorkbenchId,
+    pub layout: WorkbenchLayout,
+    pub panels: Vec<Panel>,
+    pub frames: Option<Frames<PanelId>>,
+}
+
+impl LayoutView {
+    fn build(
+        state: &State,
+        scope: TreeScope,
+        workbench: Option<WorkbenchId>,
+        viewport: Option<Viewport>,
+    ) -> Result<Self, CoreError> {
+        let workbench = scoped_workbench(state, scope, workbench)?;
+        let layout = state
+            .layouts
+            .get(&workbench)
+            .ok_or_else(|| CoreError::not_found(Entity::Workbench, workbench))?;
+        let frames = viewport.map(|viewport| {
+            geometry(layout, viewport, &layout_metrics(), |panel| {
+                state
+                    .panels
+                    .get(&panel)
+                    .map_or(shellio_layout::MinSize::DEFAULT, |record| {
+                        min_size(&record.plugin)
+                    })
+            })
+        });
+        Ok(Self {
+            workbench,
+            layout: layout.clone(),
+            panels: state.workbench_panels(workbench).cloned().collect(),
+            frames,
+        })
+    }
+}
+
+/// Выполнить чтение над снимком состояния с ревизией `revision`. `viewport` — размер окна, по
+/// которому `query.layout` считает кадры.
 pub fn read(
     state: &State,
     revision: Revision,
     storage: &StorageInfo,
+    viewport: Option<Viewport>,
     query: &Query,
 ) -> Result<Reply, CoreError> {
     let value = match query {
@@ -67,6 +123,9 @@ pub fn read(
             state_db: storage.state_db.clone(),
             diagnostics: state.diagnostics.clone(),
         }),
+        Query::Layout { scope, workbench } => ReplyValue::Layout(Box::new(LayoutView::build(
+            state, *scope, *workbench, viewport,
+        )?)),
     };
     Ok(Reply { revision, value })
 }
@@ -97,7 +156,7 @@ mod tests {
             diagnostics: vec![diagnostic.clone()],
             ..State::default()
         };
-        let reply = read(&state, Revision(7), &storage(), &Query::Status {}).unwrap();
+        let reply = read(&state, Revision(7), &storage(), None, &Query::Status {}).unwrap();
         assert_eq!(
             reply,
             Reply {
@@ -131,7 +190,7 @@ mod tests {
         let query = Query::Tree {
             scope: TreeScope::All,
         };
-        let reply = read(&state, Revision(3), &storage(), &query).unwrap();
+        let reply = read(&state, Revision(3), &storage(), None, &query).unwrap();
         assert_eq!(reply.revision, Revision(3));
         assert_eq!(
             reply.value,
@@ -145,7 +204,7 @@ mod tests {
         let query = Query::Tree {
             scope: TreeScope::Workspace(WorkspaceId::generate(&mut ids)),
         };
-        let error = read(&State::default(), Revision(0), &storage(), &query).unwrap_err();
+        let error = read(&State::default(), Revision(0), &storage(), None, &query).unwrap_err();
         assert_eq!(error.code(), ErrorCode::NotFound);
     }
 

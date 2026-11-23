@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use shellio_layout::Viewport;
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
 
 use crate::change::Change;
@@ -56,6 +57,8 @@ pub(crate) struct Actor {
     storage: StorageThread,
     clock: Box<dyn Clock>,
     ids: Box<dyn IdGen>,
+    /// Размер окна от главного потока: читается на каждом запросе, ревизию не меняет.
+    viewport: watch::Receiver<Option<Viewport>>,
 }
 
 impl Actor {
@@ -64,6 +67,7 @@ impl Actor {
         persist: Box<dyn Persist>,
         clock: Box<dyn Clock>,
         ids: Box<dyn IdGen>,
+        viewport: watch::Receiver<Option<Viewport>>,
     ) -> Result<Self, StartError> {
         let (storage, loaded) = StorageThread::spawn(persist)?;
         let (events, _) = broadcast::channel(SUBSCRIBER_CAPACITY);
@@ -76,6 +80,7 @@ impl Actor {
             storage,
             clock,
             ids,
+            viewport,
         };
         match actor.startup() {
             Ok(()) => Ok(actor),
@@ -144,7 +149,14 @@ impl Actor {
                 let _ = reply.send(result);
             }
             Request::Query { query, reply } => {
-                let _ = reply.send(read(&self.state, self.revision, &self.storage_info, &query));
+                let viewport = *self.viewport.borrow();
+                let _ = reply.send(read(
+                    &self.state,
+                    self.revision,
+                    &self.storage_info,
+                    viewport,
+                    &query,
+                ));
             }
             Request::Subscribe { reply } => {
                 let _ = reply.send((self.snapshot(), self.events.subscribe()));
@@ -162,7 +174,8 @@ impl Actor {
         command: PreparedCommand,
     ) -> Result<Reply, CoreError> {
         scope.check(&self.state)?;
-        let mut ctx = Ctx::new(&*self.clock, &mut *self.ids);
+        let viewport = *self.viewport.borrow();
+        let mut ctx = Ctx::new(&*self.clock, &mut *self.ids).with_viewport(viewport);
         let Outcome { value, changes } = handle(&self.state, command, &mut ctx)?;
         if !changes.is_empty() {
             self.storage.commit(self.revision, changes.clone()).await?;

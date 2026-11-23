@@ -11,6 +11,7 @@ mod events;
 mod handle;
 mod handler;
 mod ids;
+mod layout_cmd;
 #[cfg(feature = "test-support")]
 mod loopback;
 mod mirror;
@@ -43,10 +44,10 @@ pub use model::{
 };
 pub use panel::{
     NAVIGATOR_PLUGIN, NAVIGATOR_TITLE, Panel, PluginId, PluginIdError, TERMINAL_PLUGIN,
-    TERMINAL_TITLE, WorkbenchLayout,
+    TERMINAL_TITLE, WorkbenchLayout, layout_metrics, min_size,
 };
 pub use persist::{CommitError, LoadError, Loaded, Persist};
-pub use query::{Query, StatusView, StorageInfo, read};
+pub use query::{LayoutView, Query, StatusView, StorageInfo, read};
 pub use root::{FsRootResolver, ResolvedRoot, RootError, RootKey, RootKind, RootResolver};
 pub use title::{Title, TitleError};
 pub use tree::{TreeProject, TreeRoot, TreeScope, TreeView, TreeWorkbench, TreeWorkspace};

@@ -13,6 +13,6 @@ pub use cell::{
 };
 pub use color::{Srgb8, Tint, UnitRgb};
 pub use tokens::{
-    Adr0027Column, AppTheme, Colors, CubicBezier, Focus, FontSizes, KeyMode, LineHeights, Metrics,
-    MotionTokens, Origin, Radii, Slot, Value,
+    Adr0027Column, AppTheme, Colors, CubicBezier, Focus, FontSizes, KeyMode, LineHeights, METRICS,
+    Metrics, MotionTokens, Origin, Radii, Slot, Value,
 };

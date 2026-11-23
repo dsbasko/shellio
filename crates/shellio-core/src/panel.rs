@@ -4,7 +4,9 @@
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
-use shellio_layout::{Hidden, Layout, Part, SHARE_TOTAL, ZoneMap, ZoneSizes, ZoneState};
+use shellio_layout::{
+    Hidden, Layout, LayoutMetrics, MinSize, Part, SHARE_TOTAL, ZoneMap, ZoneSizes, ZoneState,
+};
 
 use crate::clock::UnixMillis;
 use crate::ids::{PanelId, WorkbenchId};
@@ -21,6 +23,31 @@ pub const TERMINAL_PLUGIN: &str = "terminal";
 pub const NAVIGATOR_TITLE: &str = "Навигатор";
 /// Название панели терминала раскладки по умолчанию.
 pub const TERMINAL_TITLE: &str = "Терминал";
+
+/// Метрики геометрии раскладки из темы. Ядро считает по ним отказ деления, границы размера и кадры
+/// `query.layout`, адаптер окна — кадры видов, поэтому чтение и кадры AX совпадают.
+pub fn layout_metrics() -> LayoutMetrics {
+    let metrics = shellio_theme::METRICS;
+    LayoutMetrics {
+        titlebar: whole_points(metrics.titlebar),
+        tabbar: whole_points(metrics.tabbar),
+        gap: whole_points(metrics.gap),
+        line: whole_points(metrics.line),
+        status_bar: whole_points(metrics.status_bar),
+        drop_edge: whole_points(metrics.drop_edge),
+    }
+}
+
+/// Метрика темы в целых точках: значения токенов целые, тест сверяет их обратным переводом.
+fn whole_points(value: f64) -> u32 {
+    value.round().clamp(0.0, f64::from(u32::MAX)) as u32
+}
+
+/// `min_size` панели плагина. До манифестов P1.5 у всех плагинов значение по умолчанию 200×120
+/// (ADR-0009).
+pub fn min_size(_plugin: &PluginId) -> MinSize {
+    MinSize::DEFAULT
+}
 
 /// Строковый plugin id панели: от 1 до [`PluginId::MAX_CHARS`] символов из `[a-z0-9-]`
 /// (ADR-0007). До P1.5 хост рисует для любого id вид-заглушку, P1.5 подставляет фабрики по
@@ -170,6 +197,33 @@ mod tests {
 
     use super::*;
     use crate::ids::{IdGen, SequentialIds};
+
+    #[test]
+    fn layout_metrics_come_from_theme_tokens() {
+        let theme = shellio_theme::METRICS;
+        let metrics = layout_metrics();
+        for (points, token) in [
+            (metrics.titlebar, theme.titlebar),
+            (metrics.tabbar, theme.tabbar),
+            (metrics.gap, theme.gap),
+            (metrics.line, theme.line),
+            (metrics.status_bar, theme.status_bar),
+            (metrics.drop_edge, theme.drop_edge),
+        ] {
+            assert_eq!(f64::from(points), token);
+        }
+        assert_eq!(
+            metrics,
+            LayoutMetrics {
+                titlebar: 40,
+                tabbar: 34,
+                gap: 6,
+                line: 1,
+                status_bar: 26,
+                drop_edge: 24,
+            }
+        );
+    }
 
     #[test]
     fn plugin_id_follows_wire_rule() {

@@ -995,6 +995,7 @@ dependencies = [
  "serde_json",
  "shellio-core",
  "shellio-layout",
+ "shellio-theme",
  "tempfile",
  "tokio",
  "uuid",
@@ -1033,6 +1034,7 @@ dependencies = [
  "serde",
  "serde_json",
  "shellio-core",
+ "shellio-layout",
  "shellio-store",
  "tempfile",
  "tokio",
@@ -1050,6 +1052,7 @@ version = "0.1.0"
 name = "shellioctl"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
  "shellio-control",
  "shellio-core",
  "shellio-store",

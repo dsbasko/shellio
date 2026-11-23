@@ -742,6 +742,65 @@ async fn scope_matrix_for_two_workspaces() -> TestResult {
     Ok(())
 }
 
+/// Строка ошибки ядра из сырого ответа.
+fn raw_core_error(raw: &Value) -> TestResult<&Value> {
+    raw.get("core_error")
+        .ok_or_else(|| format!("ожидался отказ ядра, получено {raw}").into())
+}
+
+#[tokio::test]
+async fn layout_outside_scope_looks_missing_over_raw_socket() -> TestResult {
+    let fixture = Fixture::start().await?;
+    let mut peer = fixture.greeted().await?;
+    let w = world(&mut peer).await?;
+    let open = json!({"cmd": "workbench.open", "workbench": w.work_workbench});
+    peer.command(500, open, all()).await??;
+
+    // Открытая рабочая область чужого воркспейса: `not_found` без её идентификатора.
+    let line = json!({"id": 501, "query": {"query": "layout", "scope": in_workspace(w.home)}});
+    let raw = peer.call_value(&line.to_string()).await?;
+    let error = raw_core_error(&raw)?;
+    assert_eq!(error["code"], "not_found", "{raw}");
+    assert_eq!(error["details"], json!({"entity": "workbench", "id": null}));
+    assert!(
+        !raw.to_string().contains(&w.work_workbench.to_string()),
+        "ответ раскрыл рабочую область: {raw}"
+    );
+
+    // Чужая раскладка явно — как несуществующая рабочая область.
+    let line = json!({"id": 502, "query": {
+        "query": "layout", "scope": in_workspace(w.home), "workbench": w.work_workbench}});
+    let raw = peer.call_value(&line.to_string()).await?;
+    let error = raw_core_error(&raw)?;
+    assert_eq!(
+        error["details"],
+        json!({"entity": "workbench", "id": w.work_workbench})
+    );
+
+    // Своя раскладка читается, панели чужой рабочей области в области `home` не найдены.
+    let line = json!({"id": 503, "query": {"query": "layout", "scope": all()}});
+    let raw = peer.call_value(&line.to_string()).await?;
+    let view = &raw["ok"]["value"];
+    assert_eq!(view["workbench"], json!(w.work_workbench), "{raw}");
+    assert_eq!(view["frames"], Value::Null, "у владельца-фикстуры нет окна");
+    let foreign = view["layout"]["focus"][0].clone();
+    let select = json!({"cmd": "panel.select", "panel": foreign});
+    let line = json!({"id": 504, "command": select, "scope": in_workspace(w.home)});
+    let raw = peer.call_value(&line.to_string()).await?;
+    let error = raw_core_error(&raw)?;
+    assert_eq!(error["details"], json!({"entity": "panel", "id": foreign}));
+
+    let line = json!({"id": 505, "query": {
+        "query": "layout", "scope": in_workspace(w.home), "workbench": w.home_workbench}});
+    let raw = peer.call_value(&line.to_string()).await?;
+    assert_eq!(
+        raw["ok"]["value"]["workbench"],
+        json!(w.home_workbench),
+        "{raw}"
+    );
+    Ok(())
+}
+
 #[tokio::test]
 async fn events_since_inside_buffer_and_cursor_ahead() -> TestResult {
     let fixture = Fixture::start().await?;
@@ -818,13 +877,13 @@ async fn reset_after_restart_carries_full_layout() -> TestResult {
     };
     let before = fixture.memory.revision();
     fixture.shutdown()?.await?;
-    let mut laid_out = Fixture::start_on(fixture.memory.clone()).await?;
-    assert_eq!(laid_out.memory.revision(), before.next());
-    laid_out.shutdown()?.await?;
+    // Раскладки создала `workbench.create`, поэтому перезапуск ничего не пишет. Курсор прошлого
+    // запуска буфер нового не покрывает: клиент получает снимок.
     let restarted = Fixture::start_on(fixture.memory.clone()).await?;
+    assert_eq!(restarted.memory.revision(), before);
     let mut peer = restarted.greeted().await?;
 
-    let line = json!({"id": 3, "events_since": {"cursor": before.0}, "scope": "all"});
+    let line = json!({"id": 3, "events_since": {"cursor": before.0 - 1}, "scope": "all"});
     let frame = peer.call_value(&line.to_string()).await?;
     let state = &frame["ok"]["reset"]["state"];
     for workbench in [world.home_workbench, world.work_workbench] {
@@ -849,7 +908,7 @@ async fn reset_after_restart_carries_full_layout() -> TestResult {
     else {
         return Err("ожидался снимок".into());
     };
-    assert_eq!(snapshot.revision, before.next());
+    assert_eq!(snapshot.revision, before);
     assert_eq!(*snapshot.state, restarted.memory.state());
     assert_eq!(snapshot.state.layouts.len(), 2);
     assert_eq!(snapshot.state.panels.len(), 4);

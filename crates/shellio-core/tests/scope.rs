@@ -13,10 +13,11 @@ use shellio_core::test_support::{
 };
 use shellio_core::{
     Command, CommandValue, Core, CoreError, CoreHandle, Entity, ErrorCode, EventsSince, IdGen,
-    Project, ProjectId, ProjectRoot, ProjectRootId, Query, ReplyValue, ResolvedRoot, Revision,
-    RootError, RootKey, RootKind, RootResolver, Route, Snapshot, State, Title, TreeScope, TreeView,
-    UnixMillis, WindowState, Workbench, WorkbenchId, Workspace, WorkspaceId,
+    PanelId, Project, ProjectId, ProjectRoot, ProjectRootId, Query, ReplyValue, ResolvedRoot,
+    Revision, RootError, RootKey, RootKind, RootResolver, Route, Snapshot, State, Title, TreeScope,
+    TreeView, UnixMillis, WindowState, Workbench, WorkbenchId, Workspace, WorkspaceId,
 };
+use shellio_layout::{Viewport, Zone};
 use tokio::runtime::Handle;
 
 type TestResult<T> = Result<T, Box<dyn Error>>;
@@ -685,4 +686,177 @@ async fn tree_shows_window_fields_only_for_scope_of_active_workspace() {
     let view = tree(&w.core, TreeScope::Workspace(w.work)).await.unwrap();
     assert_eq!(view.workspaces[0].projects[0].id, w.work_project);
     assert_ne!(view.workspaces[0].projects[0].id, w.home_project);
+}
+
+/// Панели рабочей области: колонка навигатора и терминал с фокусом.
+async fn panels_of(core: &CoreHandle, workbench: WorkbenchId) -> TestResult<(PanelId, PanelId)> {
+    let state = snapshot(core).await?.state;
+    let layout = state
+        .layouts
+        .get(&workbench)
+        .ok_or("у рабочей области нет раскладки")?;
+    let navigator = layout.navigator.ok_or("нет колонки навигатора")?;
+    let terminal = layout.focused().ok_or("нет панели с фокусом")?;
+    Ok((navigator, terminal))
+}
+
+#[tokio::test]
+async fn layout_targets_outside_scope_look_like_missing_records() -> TestResult<()> {
+    let w = world().await?;
+    let home = TreeScope::Workspace(w.home);
+    let (_, home_terminal) = panels_of(&w.core, w.home_workbench).await?;
+    let (_, work_terminal) = panels_of(&w.core, w.work_workbench).await?;
+    let missing = PanelId::from_bytes([0xee; 16]);
+
+    // Чужая панель в области `home` отвечает так же, как несуществующая.
+    for panel in [work_terminal, missing] {
+        let expected = CoreError::not_found(Entity::Panel, panel);
+        for command in [
+            Command::PanelSelect { panel },
+            Command::PanelClose { panel },
+            Command::LayoutZoom {
+                panel: Some(panel),
+                workbench: None,
+                off: None,
+            },
+        ] {
+            assert_refused(&w.core, &w.faults, home, command, &expected).await?;
+        }
+        // Чужой якорь при своей панели — тоже как несуществующий, в любой области.
+        for scope in [home, TreeScope::All] {
+            let command = Command::PanelMovePart {
+                panel: home_terminal,
+                anchor: panel,
+                edge: None,
+            };
+            assert_refused(&w.core, &w.faults, scope, command, &expected).await?;
+        }
+    }
+
+    // Явная чужая рабочая область — как несуществующая.
+    let only = |workbench| Command::LayoutOnly {
+        workbench: Some(workbench),
+    };
+    let expected = CoreError::not_found(Entity::Workbench, w.work_workbench);
+    assert_refused(&w.core, &w.faults, home, only(w.work_workbench), &expected).await?;
+
+    // Открытая рабочая область `work` в области `home` не раскрывается.
+    w.core
+        .request(Command::WorkbenchOpen {
+            workbench: w.work_workbench,
+        })
+        .await?;
+    let hidden = CoreError::open_workbench_hidden();
+    assert_eq!(hidden.detail("id"), Some(&serde_json::Value::Null));
+    assert_refused(
+        &w.core,
+        &w.faults,
+        home,
+        Command::LayoutOnly { workbench: None },
+        &hidden,
+    )
+    .await?;
+    let read = w
+        .core
+        .query(Query::Layout {
+            scope: home,
+            workbench: None,
+        })
+        .await
+        .err()
+        .ok_or("чтение чужой открытой раскладки прошло")?;
+    assert_eq!(read, hidden);
+    let read = w
+        .core
+        .query(Query::Layout {
+            scope: home,
+            workbench: Some(w.work_workbench),
+        })
+        .await
+        .err()
+        .ok_or("чтение чужой раскладки прошло")?;
+    assert_eq!(read, expected);
+
+    // Своя область и область всех проходят.
+    assert_passes(
+        &w.core,
+        TreeScope::All,
+        Command::LayoutOnly { workbench: None },
+    )
+    .await?;
+    assert_passes(&w.core, home, only(w.home_workbench)).await?;
+    assert_passes(
+        &w.core,
+        home,
+        Command::PanelMove {
+            panel: home_terminal,
+            zone: Zone::Right,
+        },
+    )
+    .await?;
+    match w
+        .core
+        .query(Query::Layout {
+            scope: home,
+            workbench: Some(w.home_workbench),
+        })
+        .await?
+        .value
+    {
+        ReplyValue::Layout(view) => {
+            assert_eq!(view.workbench, w.home_workbench);
+            assert_eq!(view.frames, None, "окна нет");
+        }
+        other => return Err(format!("ожидалась раскладка, получено {other:?}").into()),
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn viewport_reaches_commands_and_reads_without_revision() -> TestResult<()> {
+    let w = world().await?;
+    let (_, terminal) = panels_of(&w.core, w.home_workbench).await?;
+    let split = || Command::LayoutSplit {
+        panel: terminal,
+        open: Some("terminal".into()),
+    };
+    let error = w
+        .core
+        .request(split())
+        .await
+        .err()
+        .ok_or("деление без окна прошло")?;
+    assert_eq!(error.code(), ErrorCode::NoUi);
+
+    let before = snapshot(&w.core).await?.revision;
+    let viewport = Viewport {
+        width: 1180,
+        height: 720,
+    };
+    w.core.set_viewport(Some(viewport));
+    w.core.set_viewport(Some(viewport));
+    assert_eq!(
+        snapshot(&w.core).await?.revision,
+        before,
+        "размер окна — не ревизия"
+    );
+    let read = |workbench| Query::Layout {
+        scope: TreeScope::All,
+        workbench: Some(workbench),
+    };
+    match w.core.query(read(w.home_workbench)).await?.value {
+        ReplyValue::Layout(view) => {
+            let frames = view.frames.ok_or("нет кадров при известном размере")?;
+            assert_eq!(frames.area.width, 1180.0);
+        }
+        other => return Err(format!("ожидалась раскладка, получено {other:?}").into()),
+    }
+    assert_passes(&w.core, TreeScope::All, split()).await?;
+
+    w.core.set_viewport(None);
+    match w.core.query(read(w.home_workbench)).await?.value {
+        ReplyValue::Layout(view) => assert_eq!(view.frames, None),
+        other => return Err(format!("ожидалась раскладка, получено {other:?}").into()),
+    }
+    Ok(())
 }

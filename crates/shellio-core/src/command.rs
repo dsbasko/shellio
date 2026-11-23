@@ -3,10 +3,11 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use shellio_layout::{Direction, Edge, Hideable, Zone};
 
 use crate::error::{CoreError, Entity};
-use crate::ids::{ProjectId, ProjectRootId, WorkbenchId, WorkspaceId};
-use crate::model::State;
+use crate::ids::{PanelId, ProjectId, ProjectRootId, WorkbenchId, WorkspaceId};
+use crate::model::{Route, State};
 use crate::root::{ResolvedRoot, RootResolver};
 use crate::tree::TreeScope;
 
@@ -48,6 +49,81 @@ pub enum Command {
     /// Сделать воркспейс активным.
     #[serde(rename = "window.focus_workspace")]
     WindowFocusWorkspace { workspace: WorkspaceId },
+    /// Деление части панели вдоль оси зоны. `open` — plugin id новой панели новой части.
+    #[serde(rename = "layout.split")]
+    LayoutSplit {
+        panel: PanelId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        open: Option<String>,
+    },
+    /// Фокус на панель (`panel`) или на соседнюю плитку по направлению (`direction`).
+    #[serde(rename = "panel.focus")]
+    PanelFocus {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        panel: Option<PanelId>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        workbench: Option<WorkbenchId>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        direction: Option<Direction>,
+    },
+    /// Сделать вкладку активной в своей части.
+    #[serde(rename = "panel.select")]
+    PanelSelect { panel: PanelId },
+    /// Перенос панели в последнюю активную часть зоны.
+    #[serde(rename = "panel.move")]
+    PanelMove { panel: PanelId, zone: Zone },
+    /// Перенос вкладки в часть якоря, с `edge` — в новую часть рядом с ней.
+    #[serde(rename = "panel.move_part")]
+    PanelMovePart {
+        panel: PanelId,
+        anchor: PanelId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        edge: Option<Edge>,
+    },
+    /// Закрытие вида панели. Сессии у панели до P2.1 нет, поэтому панель удаляется.
+    #[serde(rename = "panel.close")]
+    PanelClose { panel: PanelId },
+    /// Размер зоны в точках, с `part_of` — доля части этой панели в тысячных.
+    #[serde(rename = "layout.resize")]
+    LayoutResize {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        workbench: Option<WorkbenchId>,
+        zone: Zone,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        part_of: Option<PanelId>,
+        size: u32,
+    },
+    /// Равные доли частей зоны.
+    #[serde(rename = "layout.equal")]
+    LayoutEqual {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        workbench: Option<WorkbenchId>,
+        zone: Zone,
+    },
+    /// Разворот панели (`panel`) или его снятие (`off: true`).
+    #[serde(rename = "layout.zoom")]
+    LayoutZoom {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        panel: Option<PanelId>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        workbench: Option<WorkbenchId>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        off: Option<bool>,
+    },
+    /// Видна только зона с фокусом; повтор возвращает прежнее скрытие.
+    #[serde(rename = "layout.only")]
+    LayoutOnly {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        workbench: Option<WorkbenchId>,
+    },
+    /// Показ или скрытие колонки навигатора, плитки, правой или нижней зоны.
+    #[serde(rename = "layout.visibility")]
+    LayoutVisibility {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        workbench: Option<WorkbenchId>,
+        target: Hideable,
+        visible: bool,
+    },
 }
 
 impl Command {
@@ -61,6 +137,17 @@ impl Command {
             Self::WorkbenchRename { .. } => "workbench.rename",
             Self::WorkbenchOpen { .. } => "workbench.open",
             Self::WindowFocusWorkspace { .. } => "window.focus_workspace",
+            Self::LayoutSplit { .. } => "layout.split",
+            Self::PanelFocus { .. } => "panel.focus",
+            Self::PanelSelect { .. } => "panel.select",
+            Self::PanelMove { .. } => "panel.move",
+            Self::PanelMovePart { .. } => "panel.move_part",
+            Self::PanelClose { .. } => "panel.close",
+            Self::LayoutResize { .. } => "layout.resize",
+            Self::LayoutEqual { .. } => "layout.equal",
+            Self::LayoutZoom { .. } => "layout.zoom",
+            Self::LayoutOnly { .. } => "layout.only",
+            Self::LayoutVisibility { .. } => "layout.visibility",
         }
     }
 
@@ -73,7 +160,18 @@ impl Command {
             | Self::WorkbenchCreate { .. }
             | Self::WorkbenchRename { .. }
             | Self::WorkbenchOpen { .. }
-            | Self::WindowFocusWorkspace { .. } => false,
+            | Self::WindowFocusWorkspace { .. }
+            | Self::LayoutSplit { .. }
+            | Self::PanelFocus { .. }
+            | Self::PanelSelect { .. }
+            | Self::PanelMove { .. }
+            | Self::PanelMovePart { .. }
+            | Self::PanelClose { .. }
+            | Self::LayoutResize { .. }
+            | Self::LayoutEqual { .. }
+            | Self::LayoutZoom { .. }
+            | Self::LayoutOnly { .. }
+            | Self::LayoutVisibility { .. } => false,
         }
     }
 
@@ -96,6 +194,42 @@ impl Command {
             Self::WorkbenchRename { workbench, .. } | Self::WorkbenchOpen { workbench } => {
                 Target::Workbench(*workbench)
             }
+            Self::LayoutSplit { panel, .. }
+            | Self::PanelFocus {
+                panel: Some(panel), ..
+            }
+            | Self::PanelSelect { panel }
+            | Self::PanelMove { panel, .. }
+            | Self::PanelMovePart { panel, .. }
+            | Self::PanelClose { panel }
+            | Self::LayoutResize {
+                part_of: Some(panel),
+                ..
+            }
+            | Self::LayoutZoom {
+                panel: Some(panel), ..
+            } => Target::Panel(*panel),
+            Self::PanelFocus {
+                panel: None,
+                workbench,
+                ..
+            }
+            | Self::LayoutResize {
+                part_of: None,
+                workbench,
+                ..
+            }
+            | Self::LayoutEqual { workbench, .. }
+            | Self::LayoutZoom {
+                panel: None,
+                workbench,
+                ..
+            }
+            | Self::LayoutOnly { workbench }
+            | Self::LayoutVisibility { workbench, .. } => match workbench {
+                Some(workbench) => Target::Workbench(*workbench),
+                None => Target::OpenWorkbench,
+            },
         }
     }
 
@@ -126,8 +260,167 @@ impl Command {
             Self::WindowFocusWorkspace { workspace } => {
                 PreparedCommand::WindowFocusWorkspace { workspace }
             }
+            Self::LayoutSplit { panel, open } => {
+                PreparedCommand::Layout(LayoutCommand::Split { panel, open })
+            }
+            Self::PanelFocus {
+                panel,
+                workbench,
+                direction,
+            } => PreparedCommand::Layout(match (panel, direction) {
+                (Some(panel), None) if workbench.is_none() => LayoutCommand::Focus { panel },
+                (None, Some(direction)) => LayoutCommand::FocusDirection {
+                    workbench,
+                    direction,
+                },
+                (Some(_), Some(_)) => {
+                    return Err(CoreError::arguments_conflict(
+                        "direction",
+                        "panel.focus: panel и direction не задаются вместе",
+                    ));
+                }
+                (Some(_), None) => {
+                    return Err(CoreError::arguments_conflict(
+                        "workbench",
+                        "panel.focus: рабочая область берётся у панели, workbench не задаётся",
+                    ));
+                }
+                (None, None) => {
+                    return Err(CoreError::arguments_conflict(
+                        "panel",
+                        "panel.focus: нужен panel или direction",
+                    ));
+                }
+            }),
+            Self::PanelSelect { panel } => PreparedCommand::Layout(LayoutCommand::Select { panel }),
+            Self::PanelMove { panel, zone } => {
+                PreparedCommand::Layout(LayoutCommand::Move { panel, zone })
+            }
+            Self::PanelMovePart {
+                panel,
+                anchor,
+                edge,
+            } => PreparedCommand::Layout(LayoutCommand::MovePart {
+                panel,
+                anchor,
+                edge,
+            }),
+            Self::PanelClose { panel } => PreparedCommand::Layout(LayoutCommand::Close { panel }),
+            Self::LayoutResize {
+                workbench,
+                zone,
+                part_of,
+                size,
+            } => PreparedCommand::Layout(LayoutCommand::Resize {
+                workbench,
+                zone,
+                part_of,
+                size,
+            }),
+            Self::LayoutEqual { workbench, zone } => {
+                PreparedCommand::Layout(LayoutCommand::Equal { workbench, zone })
+            }
+            Self::LayoutZoom {
+                panel,
+                workbench,
+                off,
+            } => PreparedCommand::Layout(match (panel, off) {
+                (Some(panel), None) if workbench.is_none() => LayoutCommand::Zoom { panel },
+                (None, Some(true)) => LayoutCommand::Unzoom { workbench },
+                (None, Some(false)) => {
+                    return Err(CoreError::arguments_conflict(
+                        "off",
+                        "layout.zoom: off принимает только true",
+                    ));
+                }
+                (Some(_), Some(_)) => {
+                    return Err(CoreError::arguments_conflict(
+                        "off",
+                        "layout.zoom: panel и off не задаются вместе",
+                    ));
+                }
+                (Some(_), None) => {
+                    return Err(CoreError::arguments_conflict(
+                        "workbench",
+                        "layout.zoom: рабочая область берётся у панели, workbench не задаётся",
+                    ));
+                }
+                (None, None) => {
+                    return Err(CoreError::arguments_conflict(
+                        "panel",
+                        "layout.zoom: нужен panel или off",
+                    ));
+                }
+            }),
+            Self::LayoutOnly { workbench } => {
+                PreparedCommand::Layout(LayoutCommand::Only { workbench })
+            }
+            Self::LayoutVisibility {
+                workbench,
+                target,
+                visible,
+            } => PreparedCommand::Layout(LayoutCommand::Visibility {
+                workbench,
+                target,
+                visible,
+            }),
         })
     }
+}
+
+/// Команда раскладки после проверки сочетания полей. Рабочую область выбирает обработчик.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum LayoutCommand {
+    Split {
+        panel: PanelId,
+        open: Option<String>,
+    },
+    Focus {
+        panel: PanelId,
+    },
+    FocusDirection {
+        workbench: Option<WorkbenchId>,
+        direction: Direction,
+    },
+    Select {
+        panel: PanelId,
+    },
+    Move {
+        panel: PanelId,
+        zone: Zone,
+    },
+    MovePart {
+        panel: PanelId,
+        anchor: PanelId,
+        edge: Option<Edge>,
+    },
+    Close {
+        panel: PanelId,
+    },
+    Resize {
+        workbench: Option<WorkbenchId>,
+        zone: Zone,
+        part_of: Option<PanelId>,
+        size: u32,
+    },
+    Equal {
+        workbench: Option<WorkbenchId>,
+        zone: Zone,
+    },
+    Zoom {
+        panel: PanelId,
+    },
+    Unzoom {
+        workbench: Option<WorkbenchId>,
+    },
+    Only {
+        workbench: Option<WorkbenchId>,
+    },
+    Visibility {
+        workbench: Option<WorkbenchId>,
+        target: Hideable,
+        visible: bool,
+    },
 }
 
 /// Команда, готовая к чистому обработчику: весь ввод-вывод выполнен до актора.
@@ -160,6 +453,7 @@ pub(crate) enum PreparedCommand {
     WindowFocusWorkspace {
         workspace: WorkspaceId,
     },
+    Layout(LayoutCommand),
 }
 
 /// Цель команды для проверки области.
@@ -170,6 +464,10 @@ enum Target {
     Workspace(WorkspaceId),
     Project(ProjectId),
     Workbench(WorkbenchId),
+    /// Рабочая область панели.
+    Panel(PanelId),
+    /// Рабочая область, открытая в окне.
+    OpenWorkbench,
 }
 
 /// Область команды и её цель: проверяются до подготовки и в акторе.
@@ -194,7 +492,11 @@ impl CommandScope {
             Target::Workspace(workspace) if workspace != scope => {
                 Err(CoreError::not_found(Entity::Workspace, workspace))
             }
-            Target::Workspace(_) | Target::Project(_) | Target::Workbench(_) => Ok(()),
+            Target::Workspace(_)
+            | Target::Project(_)
+            | Target::Workbench(_)
+            | Target::Panel(_)
+            | Target::OpenWorkbench => Ok(()),
         }
     }
 
@@ -229,8 +531,70 @@ impl CommandScope {
                     Err(CoreError::not_found(Entity::Workbench, workbench))
                 }
             }
+            Target::Panel(panel) => {
+                let owner = state
+                    .panels
+                    .get(&panel)
+                    .and_then(|record| state.workbench_workspace(record.workbench));
+                if owner == Some(scope) {
+                    Ok(())
+                } else {
+                    Err(CoreError::not_found(Entity::Panel, panel))
+                }
+            }
+            Target::OpenWorkbench => match open_workbench(state) {
+                Some(workbench) if state.workbench_workspace(workbench) != Some(scope) => {
+                    Err(CoreError::open_workbench_hidden())
+                }
+                Some(_) | None => Ok(()),
+            },
         }
     }
+}
+
+/// Рабочая область, открытая в окне, если она жива.
+pub(crate) fn open_workbench(state: &State) -> Option<WorkbenchId> {
+    match state.window.route {
+        Route::Workbench(workbench) if state.live_workbench(workbench).is_some() => Some(workbench),
+        Route::Workbench(_) | Route::WorkspaceHome => None,
+    }
+}
+
+/// Рабочая область команды или чтения раскладки без проверки области доступа: явная живая, иначе
+/// открытая в окне, иначе `no_open_workbench`.
+pub(crate) fn chosen_workbench(
+    state: &State,
+    workbench: Option<WorkbenchId>,
+) -> Result<WorkbenchId, CoreError> {
+    match workbench {
+        Some(workbench) => state
+            .live_workbench(workbench)
+            .map(|record| record.id)
+            .ok_or_else(|| CoreError::not_found(Entity::Workbench, workbench)),
+        None => open_workbench(state).ok_or_else(CoreError::no_open_workbench),
+    }
+}
+
+/// Рабочая область чтения `query.layout` в области `scope`: та же проверка области доступа, что у
+/// команды без панели, затем тот же выбор рабочей области.
+pub(crate) fn scoped_workbench(
+    state: &State,
+    scope: TreeScope,
+    workbench: Option<WorkbenchId>,
+) -> Result<WorkbenchId, CoreError> {
+    let target = workbench.map_or(Target::OpenWorkbench, Target::Workbench);
+    CommandScope { scope, target }.check(state)?;
+    chosen_workbench(state, workbench)
+}
+
+/// Рабочая область живой панели. Панель удалённой рабочей области не найдена.
+pub(crate) fn panel_workbench(state: &State, panel: PanelId) -> Result<WorkbenchId, CoreError> {
+    state
+        .panels
+        .get(&panel)
+        .map(|record| record.workbench)
+        .filter(|&workbench| state.live_workbench(workbench).is_some())
+        .ok_or_else(|| CoreError::not_found(Entity::Panel, panel))
 }
 
 /// Значение ответа команды: идентификаторы созданных записей.
@@ -246,6 +610,8 @@ pub enum CommandValue {
     Workspace { workspace: WorkspaceId },
     /// `workbench.create`.
     Workbench { workbench: WorkbenchId },
+    /// `layout.split` с `open`: новая панель.
+    Panel { panel: PanelId },
     /// Команды без значения.
     None,
 }
