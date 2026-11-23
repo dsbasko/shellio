@@ -433,24 +433,32 @@ impl<P: Copy + Ord> Layout<P> {
         if state.is_empty() {
             return Err(OpError::ZoneEmpty(zone));
         }
-        let own_min = smallest(0, u32::MAX, |s| f64::from(s) >= own).unwrap_or(u32::MAX);
+        // `own` не отрицателен, приведение насыщается на `u32::MAX`.
+        let own_min = own.ceil() as u32;
 
         let mut scratch = self.clone();
         scratch.zoomed = None;
         scratch.only = None;
         scratch.unhide_zone(zone);
-        let remainder = |part: Zone| match zone {
-            Zone::Left | Zone::Right => matches!(part, Zone::Center | Zone::Bottom),
+        // Остаток — то, что забирает изменение размера: столбец центра и нижней зоны, а без него
+        // правая зона, которая тогда получает свободную ширину (правило «Свободная площадь»).
+        let remainder = |part: Zone, column: bool| match zone {
+            Zone::Left => {
+                matches!(part, Zone::Center | Zone::Bottom) || (!column && part == Zone::Right)
+            }
+            Zone::Right => matches!(part, Zone::Center | Zone::Bottom),
             Zone::Bottom => part == Zone::Center,
             Zone::Center => false,
         };
         let remainder_fits = |s: u32| {
             let mut candidate = scratch.clone();
             candidate.set_zone_size(zone, s);
-            geometry(&candidate, viewport, metrics, &min_size)
+            let frames = geometry(&candidate, viewport, metrics, &min_size);
+            let column = frames.zones.column.is_some();
+            frames
                 .parts
                 .iter()
-                .filter(|part| remainder(part.zone))
+                .filter(|part| remainder(part.zone, column))
                 .all(|part| fits_along(part, min_size(part.active), along))
         };
         let min = own_min.min(current);
@@ -1586,6 +1594,40 @@ mod tests {
     }
 
     #[test]
+    fn resize_of_the_plate_bounds_and_frames() {
+        let mut layout = base();
+        singles(&mut layout, Zone::Left, &[(10, SHARE_TOTAL)]);
+        let resize = |l: &Layout<u32>, size| l.resize_zone(Zone::Left, size, SMALL, &METRICS, min);
+        let resized = resize(&layout, 300).unwrap();
+        valid(&resized);
+        assert_eq!(resized.sizes.plate, 300);
+        assert_eq!(frames(&resized, SMALL).zones.left.unwrap().width, 300.0);
+        let range = Err(OpError::ResizeOutOfRange { min: 202, max: 730 });
+        assert_eq!(resize(&layout, 201), range);
+        assert_eq!(resize(&layout, 731), range);
+
+        // Без столбца правая зона получает свободную ширину и сама становится остатком.
+        let mut free = with_right();
+        singles(&mut free, Zone::Left, &[(10, SHARE_TOTAL)]);
+        let free = free.close(TERM).unwrap();
+        assert_eq!(frames(&free, SMALL).zones.column, None);
+        assert_eq!(resize(&free, 731), range);
+        let widest = resize(&free, 730).unwrap();
+        let f = frames(&widest, SMALL);
+        assert!(
+            !f.part_of(&40).unwrap().stub,
+            "правая зона не меньше min_size"
+        );
+        assert!(!f.part_of(&10).unwrap().stub);
+        assert_eq!(
+            free.resize_zone(Zone::Right, 250, SMALL, &METRICS, min)
+                .map(|l| l.sizes.right),
+            Ok(250),
+            "размер гибкой зоны — предпочтение до возвращения столбца"
+        );
+    }
+
+    #[test]
     fn resize_of_a_hidden_zone_is_checked_as_shown_and_keeps_it_hidden() {
         let hidden = with_right().set_visible(Hideable::Right, false).unwrap();
         assert_eq!(
@@ -1883,6 +1925,8 @@ mod tests {
             Direction::Up,
             Direction::Right,
         ];
+        // Успехи по виду операции за все зёрна: операция, которая всегда отказывает, роняет тест.
+        let mut succeeded = [0usize; 15];
         for seed in 1..=6u64 {
             let mut rng = Lcg(seed);
             let mut layout = base();
@@ -1896,7 +1940,8 @@ mod tests {
                 let viewport = viewports[rng.next(viewports.len())];
                 let zone = zones[rng.next(zones.len())];
                 let mut expected = alive.clone();
-                let result = match rng.next(15) {
+                let op = rng.next(15);
+                let result = match op {
                     0 | 1 => {
                         fresh += 1;
                         expected.insert(fresh);
@@ -1958,6 +2003,7 @@ mod tests {
                     layout = next;
                     alive = expected;
                     applied += 1;
+                    succeeded[op] += 1;
                     most_parts = most_parts.max(
                         layout
                             .zones
@@ -1972,6 +2018,9 @@ mod tests {
                 most_parts >= 4,
                 "seed {seed}: частей не больше {most_parts}"
             );
+        }
+        for (op, count) in succeeded.iter().enumerate() {
+            assert!(*count > 0, "операция {op} ни разу не прошла: {succeeded:?}");
         }
     }
 }

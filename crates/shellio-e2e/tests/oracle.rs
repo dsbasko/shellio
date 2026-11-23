@@ -1389,3 +1389,145 @@ fn binary_without_marker_reports_retry_and_deadline() -> Result<()> {
     assert_eq!(code, 2);
     Ok(())
 }
+
+/// Замер линии по снимку `now` после снимка `before` с поколением окна `before_generation`, через
+/// `elapsed_ms` от первого снимка серии.
+fn underline_after(
+    before: &Canvas,
+    before_generation: u64,
+    elapsed_ms: u64,
+    now: &Canvas,
+) -> std::result::Result<UnderlineReport, String> {
+    let palette = Palette::embedded().map_err(|e| e.to_string())?;
+    let window = expect::parse_window(&window_json(DARK, 2.0, 9)).map_err(|e| e.to_string())?;
+    let previous_window = expect::parse_window(&window_json(DARK, 2.0, before_generation))
+        .map_err(|e| e.to_string())?;
+    let inspect = expect::parse_inspect(&inspect_json(9)).map_err(|e| e.to_string())?;
+    let image = snapshot::decode(&encode(now, Tag::Srgb).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let previous_image = snapshot::decode(&encode(before, Tag::Srgb).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    underline(&UnderlineInputs {
+        palette: &palette,
+        window: &window,
+        inspect: &inspect,
+        image: &image,
+        tab: SIDE_TAB,
+        layer: Layer::ToneNavigation,
+        generation: window.generation,
+        previous: Some(shellio_e2e::Previous {
+            window: &previous_window,
+            image: &previous_image,
+            elapsed_ms,
+        }),
+    })
+    .map_err(|e| e.to_string())
+}
+
+/// Тёмная галерея с линией толщиной `thickness`; маркер — поколение 5, режим без маркера его не
+/// читает.
+fn underlined(thickness: f64) -> Canvas {
+    let mut canvas = Canvas::gallery(2.0, colors(DARK), 5);
+    canvas.underline(colors(DARK).line, thickness);
+    canvas
+}
+
+#[test]
+fn underline_of_two_matching_snapshots_is_judged_without_marker() -> Result<()> {
+    let line = underlined(2.0);
+    let report = underline_after(&line, 9, 120, &line)?;
+    assert_eq!(report.verdict, Verdict::Pass, "{:?}", report.reason);
+    assert_eq!(report.retry, Some(false));
+    assert_eq!(report.thickness_points, Some(2.0));
+
+    let thick = underlined(3.0);
+    let report = underline_after(&thick, 9, 120, &thick)?;
+    assert_eq!(report.verdict, Verdict::Mismatch, "{:?}", report.reason);
+    assert_eq!(report.retry, Some(false));
+    Ok(())
+}
+
+#[test]
+fn underline_column_or_generation_change_needs_another_shot() -> Result<()> {
+    let bare = Canvas::gallery(2.0, colors(DARK), 5);
+    let line = underlined(2.0);
+    let report = underline_after(&bare, 9, 400, &line)?;
+    assert_eq!(report.verdict, Verdict::Generation);
+    assert_eq!(report.retry, Some(true));
+    assert!(
+        report
+            .reason
+            .as_deref()
+            .is_some_and(|r| r.contains("столбец между снимками не совпал")),
+        "{:?}",
+        report.reason
+    );
+    assert!(report.thickness_points.is_none(), "линия не мерилась");
+
+    let report = underline_after(&line, 8, 400, &line)?;
+    assert_eq!(report.verdict, Verdict::Generation);
+    assert_eq!(report.retry, Some(true));
+
+    // После срока несовпадение окончательное.
+    let report = underline_after(&bare, 9, shellio_e2e::SETTLE_MS, &line)?;
+    assert_eq!(report.verdict, Verdict::Generation);
+    assert_eq!(report.retry, Some(false));
+    Ok(())
+}
+
+#[test]
+fn underline_after_a_snapshot_of_another_size_is_an_error() {
+    let small = Canvas::new(1.0);
+    assert!(underline_after(&small, 9, 0, &underlined(2.0)).is_err());
+}
+
+#[test]
+fn binary_measures_the_underline_without_marker() -> Result<()> {
+    let dir = tempfile::tempdir()?;
+    let dir = dir.path();
+    let window = write(dir, "window.json", window_json(DARK, 2.0, 9).as_bytes())?;
+    let inspect = write(dir, "inspect.json", inspect_json(9).as_bytes())?;
+    let line = write(dir, "line.png", &encode(&underlined(2.0), Tag::Srgb)?)?;
+    let bare = write(
+        dir,
+        "bare.png",
+        &encode(&Canvas::gallery(2.0, colors(DARK), 5), Tag::Srgb)?,
+    )?;
+    let run = |previous: &str, elapsed: &str, extra: &[&str]| {
+        let mut args = vec![
+            "underline",
+            "--tab",
+            SIDE_TAB,
+            "--layer",
+            "tone_navigation",
+            "--inspect",
+            &inspect,
+            "--window",
+            &window,
+            "--png",
+            &line,
+            "--previous-window",
+            &window,
+            "--previous-png",
+            previous,
+            "--elapsed-ms",
+            elapsed,
+        ];
+        args.extend_from_slice(extra);
+        oracle(&args)
+    };
+    let (code, stdout, _) = run(&line, "100", &[])?;
+    assert_eq!(code, 0, "{stdout}");
+    let report: serde_json::Value = serde_json::from_str(&stdout)?;
+    assert_eq!(report["retry"], false);
+    let (code, stdout, _) = run(&bare, "100", &[])?;
+    assert_eq!(code, 4, "{stdout}");
+    let report: serde_json::Value = serde_json::from_str(&stdout)?;
+    assert_eq!(report["retry"], true);
+    let (code, stdout, _) = run(&bare, "3000", &[])?;
+    assert_eq!(code, 4, "{stdout}");
+    let report: serde_json::Value = serde_json::from_str(&stdout)?;
+    assert_eq!(report["retry"], false);
+    assert_eq!(run(&line, "100", &["--generation", "9"])?.0, 2);
+    Ok(())
+}

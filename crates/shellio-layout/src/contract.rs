@@ -320,6 +320,7 @@ mod tests {
     #[test]
     fn fixtures_cover_every_zone_and_size_class() {
         let all = fixtures(&METRICS);
+        assert_eq!(all.len(), 24, "ни один случай не потерял кадр: {all:#?}");
         let pairs: BTreeSet<(Zone, u8)> = all
             .iter()
             .map(|fixture| {

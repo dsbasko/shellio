@@ -1841,6 +1841,57 @@ mod tests {
     }
 
     #[test]
+    fn plate_and_side_part_dividers_become_resize_commands() {
+        let mut fixture = fixture();
+        let left = add_panel(&mut fixture, 12);
+        let top = add_panel(&mut fixture, 13);
+        let lower = add_panel(&mut fixture, 14);
+        let layout = layout_mut(&mut fixture);
+        layout
+            .zones
+            .left
+            .parts
+            .push(Part::single(left, SHARE_TOTAL));
+        layout.zones.right.parts.push(Part::single(top, 500));
+        layout.zones.right.parts.push(Part::single(lower, 500));
+        let workbench = Some(fixture.workbench);
+        let plate = |fixture: &Fixture| {
+            let scene = scene(fixture);
+            let column_start = scene.splits().root.spans[2].start;
+            resize_command(&scene, SplitId::Root, 1, column_start + 10.0)
+        };
+        let grown = Some(Command::LayoutResize {
+            workbench,
+            zone: Zone::Left,
+            part_of: None,
+            size: 372 + 10,
+        });
+        assert_eq!(plate(&fixture), grown, "колонка навигатора показана");
+        layout_mut(&mut fixture).hidden.navigator = true;
+        assert_eq!(plate(&fixture), grown, "колонка навигатора скрыта");
+
+        // Разделитель частей правой зоны идёт по высоте: неподвижный оставляет доли как были,
+        // сдвиг на 40 точек вверх уменьшает верхнюю часть на 40 точек доступной высоты.
+        let scene = scene(&fixture);
+        let bench = scene.bench.as_ref().unwrap();
+        let available = bench.frames.zones.right.unwrap().height - 6.0;
+        let lower_start = scene.splits().zones.right.spans[1].start;
+        let share =
+            |position: f64| match resize_command(&scene, SplitId::Zone(Zone::Right), 0, position) {
+                Some(Command::LayoutResize {
+                    zone: Zone::Right,
+                    part_of: Some(panel),
+                    size,
+                    ..
+                }) if panel == top => size,
+                other => panic!("ожидалась команда размера верхней части, получено {other:?}"),
+            };
+        assert_eq!(share(lower_start), 500);
+        let expected = ((available / 2.0 - 40.0) * 1000.0 / available).round() as u32;
+        assert_eq!(share(lower_start - 40.0), expected);
+    }
+
+    #[test]
     fn zone_buttons_follow_occupancy_and_visibility() {
         let mut fixture = fixture();
         let right = add_panel(&mut fixture, 12);

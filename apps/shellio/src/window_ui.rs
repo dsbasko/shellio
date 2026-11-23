@@ -74,6 +74,22 @@ impl CoreLink {
             Ok(receipt) => {
                 self.runtime.spawn(async move {
                     match receipt.await {
+                        // Размер без изменений события не даёт: если зеркало уже на ревизии ответа,
+                        // раскладка ставится заново, иначе её поставит доставка. Так вид, сдвинутый
+                        // перетаскиванием разделителя, возвращается к модели.
+                        Ok(Ok(reply)) if matches!(sent, Command::LayoutResize { .. }) => {
+                            defer(move |app| {
+                                let caught_up = MIRROR.with(|mirror| {
+                                    mirror
+                                        .borrow()
+                                        .as_ref()
+                                        .is_some_and(|mirror| mirror.revision() >= reply.revision)
+                                });
+                                if caught_up {
+                                    refresh_layout(app);
+                                }
+                            });
+                        }
                         Ok(Ok(_)) => {}
                         Ok(Err(error)) => defer(move |app| on_refused(app, &sent, &error)),
                         Err(_) => defer(move |app| {
@@ -1000,6 +1016,11 @@ fn on_resize(app: &App) {
 }
 
 fn flush_viewport() {
+    // Без ядра размер не отмечается отправленным: отправка остаётся запланированной, текущий размер
+    // передаст `attach_core`.
+    if CORE.with(|slot| slot.borrow().is_none()) {
+        return;
+    }
     let next = with_window(|owner| {
         let current = owner.content_viewport();
         owner.viewport.flush(current)
@@ -1074,7 +1095,11 @@ fn on_zone(app: &App, button: ZoneButton) {
         ZoneButton::Bottom => ZoneToggle::Bottom,
         ZoneButton::Side => ZoneToggle::Side,
     };
+    // Клавиша пункта меню «Вид» срабатывает и без окна: скрытое окно её не получает.
     let command = with_window(|owner| {
+        if !owner.window.is_visible() {
+            return None;
+        }
         let scene = owner.layout.as_ref().and_then(LayoutUi::scene)?;
         scene::toggle_command(scene, toggle)
     })

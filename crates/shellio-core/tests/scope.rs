@@ -712,8 +712,24 @@ async fn layout_targets_outside_scope_look_like_missing_records() -> TestResult<
     for panel in [work_terminal, missing] {
         let expected = CoreError::not_found(Entity::Panel, panel);
         for command in [
+            Command::LayoutSplit { panel, open: None },
+            Command::PanelFocus {
+                panel: Some(panel),
+                workbench: None,
+                direction: None,
+            },
             Command::PanelSelect { panel },
+            Command::PanelMove {
+                panel,
+                zone: Zone::Right,
+            },
             Command::PanelClose { panel },
+            Command::LayoutResize {
+                workbench: None,
+                zone: Zone::Center,
+                part_of: Some(panel),
+                size: 500,
+            },
             Command::LayoutZoom {
                 panel: Some(panel),
                 workbench: None,

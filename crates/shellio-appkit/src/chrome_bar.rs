@@ -1,6 +1,6 @@
 //! `ChromeBar` — заголовок окна высотой 40 точек (ADR-0024, ADR-0026). Слева кнопки окна и кнопка
 //! воркспейса (имя и шеврон), по центру поле поиска — неактивный образец до P1.6, справа
-//! неактивные кнопки зон до P1.4 и кнопка оформления, которая по кругу вызывает
+//! кнопки зон (недоступны без открытой рабочей области) и кнопка оформления, которая по кругу вызывает
 //! `ui.appearance.set`.
 //!
 //! Чистая часть — раскладка ([`ChromeLayout`]), сокращение имени ([`shorten`]) и состояние кнопок
@@ -1231,10 +1231,13 @@ mod tests {
     }
 
     #[test]
-    fn state_defaults_until_p1_4_and_p1_7() {
+    fn state_defaults_without_workbench_and_until_p1_7() {
         let state = ChromeState::default();
         assert_eq!(state.workspace_text(), NO_WORKSPACE);
-        assert!(!state.zones, "кнопки зон недоступны до P1.4");
+        assert!(
+            !state.zones,
+            "кнопки зон недоступны без открытой рабочей области"
+        );
         assert!(!state.workspace_menu, "меню воркспейса — P1.7");
         assert_eq!(state.choice, AppearanceChoice::System);
         let named = ChromeState {
