@@ -30,7 +30,7 @@ use super::model::{
 };
 use crate::app::App;
 use crate::chrome_bar::Frame;
-use crate::components::menu::{MenuButton, MenuError, MenuIntent};
+use crate::components::menu::{Menu, MenuButton, MenuError, MenuIntent};
 use crate::counters::{Live, counter};
 use crate::inspect::{self, InspectNode, NodeState, Transition, TransitionPath};
 use crate::layer::{self, without_actions};
@@ -297,6 +297,17 @@ impl TabStrip {
     /// Меню «…» полосы.
     pub fn menu(&self) -> &MenuButton {
         &self.view.rust().menu
+    }
+
+    /// Открывает меню выбора `menu` под кнопкой «Разделить» (ADR-0032: выбор «Открыть в новой
+    /// части» открывается у кнопки), без неё — под полосой. Первый пункт подсвечен.
+    pub fn pop_up_choice(&self, menu: &Menu) {
+        let parts = self.view.view().ivars();
+        if parts.split.isHiddenOrHasHiddenAncestor() {
+            menu.pop_up_choice_below(self.view.view());
+        } else {
+            menu.pop_up_choice_below(&parts.split);
+        }
     }
 
     pub(crate) fn ns_view(&self) -> &NSView {

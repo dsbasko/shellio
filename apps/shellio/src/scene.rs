@@ -734,6 +734,84 @@ pub fn select_command(scene: &Scene, panel: PanelId) -> Option<Command> {
         .then_some(Command::PanelSelect { panel })
 }
 
+/// Плитка, на кнопку строки вкладок которой нажали: часть по месту или плитка развёрнутой панели.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PlateRef {
+    Part(PartKey),
+    Zoom,
+}
+
+/// Активная вкладка плитки `plate` в сцене.
+fn plate_panel(bench: &Bench, plate: PlateRef) -> Option<PanelId> {
+    match plate {
+        PlateRef::Part(key) => bench.plates.get(&key).map(|slot| slot.active),
+        PlateRef::Zoom => bench.zoomed.as_ref().map(|zoomed| zoomed.active),
+    }
+}
+
+/// «Разделить» — `layout.split` активной вкладки плитки с явной целью (ADR-0032): одна команда,
+/// фокус в часть переводит само ядро той же ревизией. У развёрнутой плитки кнопки нет. `None` —
+/// плитки или рабочей области нет.
+pub fn split_command(scene: &Scene, plate: PlateRef) -> Option<Command> {
+    let bench = scene.bench.as_ref()?;
+    match plate {
+        PlateRef::Part(_) => {
+            plate_panel(bench, plate).map(|panel| Command::LayoutSplit { panel, open: None })
+        }
+        PlateRef::Zoom => None,
+    }
+}
+
+/// «Развернуть панель» — `layout.zoom` активной вкладки части с явной целью; у развёрнутой плитки
+/// та же кнопка — «Вернуть раскладку», `layout.zoom` с `off`.
+pub fn zoom_command(scene: &Scene, plate: PlateRef) -> Option<Command> {
+    let bench = scene.bench.as_ref()?;
+    match plate {
+        PlateRef::Part(_) => plate_panel(bench, plate).map(|panel| Command::LayoutZoom {
+            panel: Some(panel),
+            workbench: None,
+            off: None,
+        }),
+        PlateRef::Zoom => bench.zoomed.as_ref().map(|_| Command::LayoutZoom {
+            panel: None,
+            workbench: Some(bench.workbench),
+            off: Some(true),
+        }),
+    }
+}
+
+/// Пункты выбора «Открыть в новой части»: известные хосту plugin id и названия, `terminal` первым.
+pub const PICKER: [(&str, &str); 2] = [
+    (shellio_core::TERMINAL_PLUGIN, shellio_core::TERMINAL_TITLE),
+    (
+        shellio_core::NAVIGATOR_PLUGIN,
+        shellio_core::NAVIGATOR_TITLE,
+    ),
+];
+
+/// Отказ, по которому интерфейс открывает выбор «Открыть в новой части» вместо сообщения строки
+/// статуса (ADR-0009, «Деление»): `split_needs_panel` на `layout.split` без `open`. Ответ — панель,
+/// которую делили: выбор адресует её, а не место части, номера частей могут сдвинуться.
+pub fn picker_target(command: &Command, error: &CoreError) -> Option<PanelId> {
+    match command {
+        Command::LayoutSplit { panel, open: None }
+            if error.code() == ErrorCode::InvalidArgument
+                && error.detail_str("reason") == Some("split_needs_panel") =>
+        {
+            Some(*panel)
+        }
+        _ => None,
+    }
+}
+
+/// Выбран пункт `plugin` выбора: `layout.split` той же панели с `open`.
+pub fn open_command(panel: PanelId, plugin: &str) -> Command {
+    Command::LayoutSplit {
+        panel,
+        open: Some(plugin.to_owned()),
+    }
+}
+
 /// Текст строки статуса для отказа ядра на команду интерфейса (ADR-0031, `docs/ux.md`): что не
 /// вышло и сколько места нужно. `title` — название панели по её id.
 pub fn refusal_text(
@@ -763,7 +841,14 @@ pub fn refusal_text(
         | ErrorCode::StorageConflict => {}
     }
     match error.detail_str("reason") {
-        Some("split_no_room") => split_no_room_text(error, title),
+        Some("split_no_room") => {
+            // Деление с `open` называет и панель, которой ещё нет: это новая часть.
+            let unknown = match command {
+                Command::LayoutSplit { open: Some(_), .. } => "новая часть",
+                _ => "часть",
+            };
+            split_no_room_text(error, title, unknown)
+        }
         Some("split_needs_panel") => "У части одна вкладка: новой части нужна панель".to_owned(),
         Some("navigator_not_splittable") => "Колонка навигатора не делится".to_owned(),
         Some("navigator_column") => {
@@ -810,8 +895,13 @@ pub fn refusal_text(
     }
 }
 
-/// «Не хватает места для новой части»: нужный и доступный размер каждой затронутой части.
-fn split_no_room_text(error: &CoreError, title: impl Fn(PanelId) -> Option<String>) -> String {
+/// «Не хватает места для новой части»: нужный и доступный размер каждой затронутой части. Часть
+/// без известного названия панели зовётся `unknown`.
+fn split_no_room_text(
+    error: &CoreError,
+    title: impl Fn(PanelId) -> Option<String>,
+    unknown: &str,
+) -> String {
     let parts = error
         .detail("parts")
         .and_then(serde_json::Value::as_array)
@@ -830,7 +920,7 @@ fn split_no_room_text(error: &CoreError, title: impl Fn(PanelId) -> Option<Strin
                         .and_then(serde_json::Value::as_str)
                         .and_then(|panel| panel.parse::<PanelId>().ok())
                         .and_then(&title)
-                        .map_or_else(|| "часть".to_owned(), |title| format!("«{title}»"));
+                        .map_or_else(|| unknown.to_owned(), |title| format!("«{title}»"));
                     format!(
                         "{name} — нужно {}×{}, будет {}×{}",
                         size("need", "width"),
@@ -1444,6 +1534,240 @@ mod tests {
         assert_eq!(focus_command(&scene(&fixture), fixture.navigator), None);
     }
 
+    /// Центр из двух частей: терминал слева, новая панель справа; фокус на терминале.
+    fn two_center_parts(fixture: &mut Fixture) -> PanelId {
+        let second = add_panel(fixture, 12);
+        let center = &mut layout_mut(fixture).zones.center;
+        center.parts[0].share = SHARE_TOTAL / 2;
+        center.parts.push(Part::single(second, SHARE_TOTAL / 2));
+        second
+    }
+
+    #[test]
+    fn strip_buttons_become_one_command_with_an_explicit_target() {
+        let mut fixture = fixture();
+        let second = two_center_parts(&mut fixture);
+        let now = scene(&fixture);
+        assert_eq!(now.bench.as_ref().unwrap().focus, Some(fixture.terminal));
+        let right = PlateRef::Part(PartKey {
+            zone: Zone::Center,
+            index: 1,
+        });
+        assert_eq!(
+            split_command(&now, right),
+            Some(Command::LayoutSplit {
+                panel: second,
+                open: None,
+            }),
+            "часть без фокуса адресуется своей активной вкладкой"
+        );
+        assert_eq!(
+            zoom_command(&now, right),
+            Some(Command::LayoutZoom {
+                panel: Some(second),
+                workbench: None,
+                off: None,
+            })
+        );
+        assert_eq!(split_command(&now, PlateRef::Zoom), None);
+        assert_eq!(zoom_command(&now, PlateRef::Zoom), None, "развёрнутой нет");
+        let missing = PlateRef::Part(PartKey {
+            zone: Zone::Bottom,
+            index: 0,
+        });
+        assert_eq!(split_command(&now, missing), None);
+        assert_eq!(zoom_command(&now, missing), None);
+
+        layout_mut(&mut fixture).zoomed = Some(second);
+        let zoomed = scene(&fixture);
+        assert_eq!(
+            zoom_command(&zoomed, PlateRef::Zoom),
+            Some(Command::LayoutZoom {
+                panel: None,
+                workbench: Some(fixture.workbench),
+                off: Some(true),
+            }),
+            "«Вернуть раскладку» снимает zoom рабочей области"
+        );
+        assert_eq!(split_command(&zoomed, PlateRef::Zoom), None);
+
+        fixture.state.window.route = Route::WorkspaceHome;
+        let home = scene(&fixture);
+        assert_eq!(split_command(&home, right), None);
+        assert_eq!(zoom_command(&home, right), None);
+    }
+
+    #[test]
+    fn split_needs_panel_opens_the_picker_instead_of_a_message() {
+        let fixture = fixture();
+        let panel = fixture.terminal;
+        let split = Command::LayoutSplit { panel, open: None };
+        let needs = CoreError::split_needs_panel(panel);
+        assert_eq!(picker_target(&split, &needs), Some(panel));
+        let opened = open_command(panel, PICKER[0].0);
+        assert_eq!(
+            opened,
+            Command::LayoutSplit {
+                panel,
+                open: Some(TERMINAL_PLUGIN.to_owned()),
+            }
+        );
+        assert_eq!(
+            picker_target(&opened, &needs),
+            None,
+            "выбор не зацикливается"
+        );
+        let room = CoreError::split_no_room(serde_json::json!([]), "нет места".to_owned());
+        assert_eq!(picker_target(&split, &room), None);
+        assert_eq!(
+            picker_target(&split, &CoreError::not_found(Entity::Panel, panel)),
+            None
+        );
+        let zoom = Command::LayoutZoom {
+            panel: Some(panel),
+            workbench: None,
+            off: None,
+        };
+        assert_eq!(picker_target(&zoom, &needs), None);
+        assert_eq!(
+            PICKER.map(|(plugin, _)| plugin),
+            [TERMINAL_PLUGIN, NAVIGATOR_PLUGIN],
+            "терминал первым"
+        );
+    }
+
+    /// Строка вкладок по ADR-0032 в фикстурах боковой зоны 372 с двумя вкладками, центра около
+    /// 560 с тремя и половин центра: при любой нагрузке все три кнопки видны внутри строки и не
+    /// заходят на вкладки, а нагрузка показана целиком или скрыта в меню «…». Ширины строк — из
+    /// настоящей геометрии, ширины вкладок — заголовок «Терминал» шириной 56 точек.
+    #[test]
+    fn tab_strips_keep_buttons_and_show_the_payload_whole_or_hidden() {
+        use shellio_appkit::{Presentation, ZoneSide, tab_parts, tab_strip_layout};
+
+        const TITLE: f64 = 56.0;
+        const TITLE_HEIGHT: f64 = 16.0;
+        const BUTTONS: usize = 3;
+
+        let mut cases: Vec<(String, Zone, f64, f64, usize)> = Vec::new();
+        for viewport in [
+            SMALL,
+            Viewport {
+                width: 1440,
+                height: 900,
+            },
+        ] {
+            let mut fixture = fixture();
+            let side = add_panel(&mut fixture, 20);
+            let side_two = add_panel(&mut fixture, 21);
+            let center_two = add_panel(&mut fixture, 22);
+            let center_three = add_panel(&mut fixture, 23);
+            let layout = layout_mut(&mut fixture);
+            layout
+                .zones
+                .right
+                .parts
+                .push(Part::single(side, SHARE_TOTAL));
+            layout.zones.right.parts[0].tabs.push(side_two);
+            layout.zones.center.parts[0]
+                .tabs
+                .extend([center_two, center_three]);
+            let whole = Scene::of(&fixture.state, viewport, layout_metrics());
+            let halves = {
+                let mut halved = Fixture {
+                    state: fixture.state.clone(),
+                    ..fixture
+                };
+                let half = add_panel(&mut halved, 24);
+                let center = &mut layout_mut(&mut halved).zones.center;
+                center.parts[0].share = SHARE_TOTAL / 2;
+                center.parts.push(Part::single(half, SHARE_TOTAL / 2));
+                Scene::of(&halved.state, viewport, layout_metrics())
+            };
+            for (name, scene) in [("whole", whole), ("halves", halves)] {
+                let bench = scene.bench.unwrap();
+                for part in &bench.frames.parts {
+                    cases.push((
+                        format!(
+                            "{}×{} {name} {:?}.{}",
+                            viewport.width, viewport.height, part.zone, part.index
+                        ),
+                        part.zone,
+                        part.tab_strip.width,
+                        part.tab_strip.height,
+                        part.tabs.len(),
+                    ));
+                }
+            }
+        }
+        let side_372 = cases
+            .iter()
+            .any(|(_, zone, width, _, tabs)| *zone == Zone::Right && *width <= 372.0 && *tabs == 2);
+        assert!(
+            side_372,
+            "есть боковая строка до 372 точек с двумя вкладками"
+        );
+        let center_560 = cases.iter().any(|(_, zone, width, _, tabs)| {
+            *zone == Zone::Center && (500.0..=600.0).contains(width) && *tabs == 3
+        });
+        assert!(
+            center_560,
+            "есть центр около 560 точек с тремя вкладками: {cases:?}"
+        );
+
+        let (mut shown, mut hidden) = (0, 0);
+        for (name, zone, width, height, tabs) in &cases {
+            let presentation = Presentation::new(match zone {
+                Zone::Left | Zone::Right => ZoneSide::Side,
+                Zone::Center => ZoneSide::Center,
+                Zone::Bottom => ZoneSide::Bottom,
+            });
+            assert_eq!(presentation.buttons().len(), BUTTONS);
+            let tab = tab_parts(
+                TITLE,
+                TITLE_HEIGHT,
+                presentation.shows_icons(),
+                false,
+                presentation.reserves_close(),
+            )
+            .width;
+            let widths = vec![tab; *tabs];
+            for payload in [None, Some((70.0, 15.0)), Some((150.0, 15.0))] {
+                let strip = tab_strip_layout(*width, *height, &widths, payload, BUTTONS);
+                assert_eq!(strip.buttons.len(), BUTTONS, "{name}");
+                for pair in strip.buttons.windows(2) {
+                    assert!(pair[0].right() <= pair[1].x, "{name}: кнопки не налегают");
+                }
+                for button in &strip.buttons {
+                    assert!(
+                        button.x >= 0.0 && button.right() <= *width,
+                        "{name}: кнопка внутри строки {button:?}"
+                    );
+                }
+                let first = strip.buttons[0].x;
+                assert!(
+                    strip.clip.right() <= first,
+                    "{name}: вкладки не заходят под кнопки"
+                );
+                match (payload, strip.payload) {
+                    (Some((full, _)), Some(frame)) => {
+                        assert_eq!(frame.width, full, "{name}: нагрузка целиком");
+                        assert!(frame.x >= strip.clip.right() && frame.right() <= first);
+                        shown += 1;
+                    }
+                    (Some(_), None) => {
+                        assert!(strip.regime.payload_hidden(), "{name}: нагрузка в меню «…»");
+                        hidden += 1;
+                    }
+                    (None, frame) => assert_eq!(frame, None),
+                }
+            }
+        }
+        assert!(
+            shown > 0 && hidden > 0,
+            "обе ветви: целиком {shown}, скрыта {hidden}"
+        );
+    }
+
     #[test]
     fn refusals_read_as_status_line_text() {
         let fixture = fixture();
@@ -1461,6 +1785,29 @@ mod tests {
         assert_eq!(
             refusal_text(&split, &error, titles),
             "Не хватает места для новой части: «Терминал» — нужно 200×120, будет 151×600"
+        );
+        let opened = open_command(fixture.terminal, TERMINAL_PLUGIN);
+        let fresh: PanelId = id(77);
+        let two = serde_json::json!([
+            {
+                "panel": fixture.terminal.to_string(),
+                "need": {"width": 200.0, "height": 120.0},
+                "have": {"width": 113.0, "height": 606.0},
+            },
+            {
+                "panel": fresh.to_string(),
+                "need": {"width": 200.0, "height": 120.0},
+                "have": {"width": 113.0, "height": 606.0},
+            },
+        ]);
+        assert_eq!(
+            refusal_text(
+                &opened,
+                &CoreError::split_no_room(two, "нет места".to_owned()),
+                titles
+            ),
+            "Не хватает места для новой части: «Терминал» — нужно 200×120, будет 113×606; \
+             новая часть — нужно 200×120, будет 113×606"
         );
         let error = CoreError::split_no_room(serde_json::json!([]), "нет места".to_owned());
         assert_eq!(

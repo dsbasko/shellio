@@ -248,12 +248,10 @@ impl StripButton {
     }
 }
 
-/// Подсказка `toolTip`: действие и клавиша, без клавиши — «Клавиша не назначена» (ADR-0032).
+/// Подсказка `toolTip`: действие и клавиша через два пробела, без клавиши на её месте
+/// «Клавиша не назначена» (ADR-0032).
 pub fn hint(button: StripButton, key: Option<&str>) -> String {
-    match key {
-        Some(key) => format!("{}  {key}", button.label()),
-        None => format!("{}. {NO_KEY}", button.label()),
-    }
+    format!("{}  {}", button.label(), key.unwrap_or(NO_KEY))
 }
 
 /// `accessibilityHelp` кнопки: клавиша, без неё — «Клавиша не назначена».
@@ -784,7 +782,7 @@ mod tests {
         );
         assert_eq!(
             hint(StripButton::Zoom, None),
-            "Развернуть панель. Клавиша не назначена"
+            "Развернуть панель  Клавиша не назначена"
         );
         assert_eq!(help(None), NO_KEY);
         assert_eq!(help(Some("Ctrl-w z")), "Ctrl-w z");

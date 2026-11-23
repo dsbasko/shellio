@@ -1034,7 +1034,7 @@ fn inspect_tab_strip_view() -> InspectView {
         id: id.into(),
         label: label.into(),
         symbol: symbol.into(),
-        hint: format!("{label}. Клавиша не назначена"),
+        hint: format!("{label}  Клавиша не назначена"),
         help: "Клавиша не назначена".into(),
     };
     InspectView {

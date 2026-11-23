@@ -12,12 +12,12 @@ use std::cell::{Cell, RefCell};
 use objc2::rc::Retained;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
-    NSAccessibility, NSAccessibilityGroupRole, NSAutoresizingMaskOptions, NSButton,
-    NSCellImagePosition, NSControl, NSEvent, NSFont, NSFontWeightMedium, NSFontWeightRegular,
-    NSImage, NSImageView, NSLineBreakMode, NSResponder, NSTextField, NSView,
-    NSViewLayerContentsRedrawPolicy, NSWindow, NSWindowButton,
+    NSAccessibility, NSAccessibilityGroupRole, NSAccessibilityToggleSubrole,
+    NSAutoresizingMaskOptions, NSButton, NSCellImagePosition, NSControl, NSEvent, NSFont,
+    NSFontWeightMedium, NSFontWeightRegular, NSImage, NSImageView, NSLineBreakMode, NSResponder,
+    NSTextField, NSView, NSViewLayerContentsRedrawPolicy, NSWindow, NSWindowButton,
 };
-use objc2_foundation::{NSObject, NSPoint, NSRect, NSSize, NSString, NSUserDefaults};
+use objc2_foundation::{NSNumber, NSObject, NSPoint, NSRect, NSSize, NSString, NSUserDefaults};
 use objc2_quartz_core::CALayer;
 use shellio_theme::{AppTheme, AppearanceChoice};
 
@@ -301,6 +301,16 @@ pub fn zone_button(button: ZoneButton, side_plate: bool) -> (&'static str, &'sta
     }
 }
 
+/// Нажатые кнопки зон (прототип: класс `on` и `aria-pressed`): цель видна. Недоступные кнопки
+/// без открытой рабочей области и в галерее не нажаты.
+pub fn zone_pressed(state: &ChromeState) -> [bool; ZONE_COUNT] {
+    if state.zones {
+        state.shown
+    } else {
+        [false; ZONE_COUNT]
+    }
+}
+
 /// Rust-часть заголовка.
 struct ChromeModel {
     id: ComponentId,
@@ -413,6 +423,7 @@ impl ChromeBar {
         let view = self.view.view();
         let parts = view.ivars();
         let state = self.state();
+        let pressed = zone_pressed(&state);
         let mut nodes = vec![
             inspect::node(
                 "chrome",
@@ -445,15 +456,17 @@ impl ChromeBar {
             "chrome.zone.bottom",
             "chrome.zone.right",
         ];
-        for (id, button) in zone_ids.into_iter().zip(&parts.zone_buttons) {
-            nodes.push(inspect::node(
+        for ((id, button), pressed) in zone_ids.into_iter().zip(&parts.zone_buttons).zip(pressed) {
+            let mut node = inspect::node(
                 id,
                 "ZoneButton",
                 ZONES,
                 button,
                 Some(button.isEnabled()),
                 None,
-            ));
+            );
+            node.facts.selected = Some(pressed);
+            nodes.push(node);
         }
         nodes.push(inspect::node(
             "chrome.appearance",
@@ -498,6 +511,7 @@ impl ChromeBar {
                 button.setToolTip(Some(&label));
             }
         }
+        self.style_zone_buttons();
         let (symbol, text) = appearance_button(state.choice);
         let text = NSString::from_str(text);
         parts
@@ -509,6 +523,36 @@ impl ChromeBar {
         // Отметка отрисовки заголовка называет поколение, которое показывает новое состояние:
         // по ней `ui.stats.startup` находит первую отрисовку с первым снимком зеркала.
         self.view.view().setNeedsDisplay(true);
+    }
+
+    /// Нажатая кнопка зоны — заливка `chrome_hi` и текст `text`, остальные без заливки с `text_3`
+    /// (`.ib.on` прототипа). Для доступности кнопка — переключатель со значением 1 или 0, роль
+    /// остаётся `AXButton`.
+    fn style_zone_buttons(&self) {
+        let model = self.view.rust();
+        let theme = model.theme.get();
+        let pressed = zone_pressed(&model.state.borrow());
+        let parts = self.view.view().ivars();
+        for (button, pressed) in parts.zone_buttons.iter().zip(pressed) {
+            let ink = if pressed {
+                theme.colors.text
+            } else {
+                theme.colors.text_3
+            };
+            button.setContentTintColor(Some(&layer::ns_color(ink)));
+            let value = NSNumber::new_bool(pressed);
+            // SAFETY: значение переключателя доступности — NSNumber, AppKit его копирует.
+            unsafe { button.setAccessibilityValue(Some(&value)) };
+            if let Some(fill) = button.layer() {
+                without_actions(|| {
+                    if pressed {
+                        layer::set_fill(&fill, theme.colors.chrome_hi);
+                    } else {
+                        fill.setBackgroundColor(None);
+                    }
+                });
+            }
+        }
     }
 
     fn apply_theme(&self) {
@@ -523,9 +567,8 @@ impl ChromeBar {
         let body = font(theme.metrics.font.body, Weight::Medium);
         parts.workspace.setFont(Some(&body));
         parts.measure.setFont(Some(&body));
-        for button in parts.zone_buttons.iter().chain([&parts.appearance]) {
-            button.setContentTintColor(Some(&muted));
-        }
+        parts.appearance.setContentTintColor(Some(&muted));
+        self.style_zone_buttons();
         let search = parts.search.ivars();
         search.icon.setContentTintColor(Some(&muted));
         search.label.setTextColor(Some(&muted));
@@ -678,12 +721,19 @@ impl ChromeBarView {
 
         let zones = NSView::initWithFrame(NSView::alloc(mtm), NSRect::ZERO);
         layered(&zones);
+        if let Some(seg) = zones.layer() {
+            // Заливка нажатой кнопки не выходит за скруглённую рамку группы (`overflow: hidden`).
+            seg.setMasksToBounds(true);
+        }
         let zone_buttons: Vec<_> = ZoneButton::ALL
             .into_iter()
             .map(|button| zone_button(button, false))
             .map(|(symbol, label)| {
                 let button = ChromeButton::new(mtm, true);
                 let label = NSString::from_str(label);
+                button.setWantsLayer(true);
+                // SAFETY: подроль доступности — неизменяемая константа AppKit.
+                button.setAccessibilitySubrole(Some(unsafe { NSAccessibilityToggleSubrole }));
                 button.setImagePosition(NSCellImagePosition::ImageOnly);
                 button.setImage(symbol_image(symbol, &label).as_deref());
                 button.setAccessibilityLabel(Some(&label));
@@ -1194,6 +1244,24 @@ mod tests {
         };
         assert_eq!(named.workspace_text(), "Работа");
         assert_eq!(workspace_label("Очень длинное"), "Воркспейс: Очень длинное");
+    }
+
+    #[test]
+    fn zone_buttons_are_pressed_only_when_available_and_shown() {
+        let mut state = ChromeState {
+            shown: [true, false, true],
+            ..ChromeState::default()
+        };
+        assert_eq!(
+            zone_pressed(&state),
+            [false; ZONE_COUNT],
+            "недоступные не нажаты"
+        );
+        state.zones = true;
+        assert_eq!(zone_pressed(&state), [true, false, true]);
+        state.side_plate = true;
+        state.shown = [false, true, false];
+        assert_eq!(zone_pressed(&state), [false, true, false]);
     }
 
     #[test]

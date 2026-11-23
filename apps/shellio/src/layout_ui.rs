@@ -7,14 +7,17 @@
 //! `PanelId`: смена вкладки его прячет и показывает, перенос и `zoom` переставляют родителя.
 //! Развёрнутая панель лежит на отдельной плитке поверх корня, деления под ней не меняются.
 
+use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use shellio::scene::{self, Bench, Host, Op, PartKey, PlateSlot, Scene, SplitId, SplitPlan};
+use shellio::scene::{
+    self, Bench, Host, Op, PICKER, PartKey, PlateRef, PlateSlot, Scene, SplitId, SplitPlan,
+};
 use shellio_appkit::{
-    App, EmptyNote, Frame, Insets, MainWindow, Pane, PanelCard, PanelView, Plate, Presentation,
-    SplitDirection, SplitDrag, SplitSlot, SplitSpec, SplitView, Tab, TabIntent, TabStatus,
-    TabStripState, ZoneSide,
+    App, EmptyNote, Frame, Insets, MainWindow, Menu, MenuEntry, MenuIntent, MenuItem, Pane,
+    PanelCard, PanelView, Plate, Presentation, SplitDirection, SplitDrag, SplitSlot, SplitSpec,
+    SplitView, Tab, TabIntent, TabStatus, TabStripState, ZoneSide,
 };
 use shellio_control::{ComponentState, ComponentView, PanelNodeView, PartNodeView};
 use shellio_core::{PanelId, State, layout_metrics};
@@ -30,14 +33,26 @@ const COLUMN_SPLIT_ID: &str = "layout.split.column";
 const NAVIGATOR_ID: &str = "layout.navigator";
 const ZOOM_ID: &str = "layout.zoom";
 const NOTE_ID: &str = "layout.note";
+const PICKER_ID: &str = "layout.picker";
+/// Заголовок меню выбора для новой части (ADR-0031).
+const PICKER_TITLE: &str = "Открыть в новой части";
 
-/// Щелчок в раскладке, который становится командой ядра.
+/// Действие в раскладке, которое становится командой ядра.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PanelAction {
     /// Щелчок по вкладке — `panel.select`.
     Select(PanelId),
     /// Щелчок в тело панели — `panel.focus`.
     Focus(PanelId),
+    /// «Разделить» плитки — `layout.split` её активной вкладки.
+    Split(PlateRef),
+    /// «Развернуть панель» или «Вернуть раскладку» плитки — `layout.zoom`.
+    Zoom(PlateRef),
+    /// Пункт выбора «Открыть в новой части» — `layout.split` панели с `open`.
+    Open {
+        panel: PanelId,
+        plugin: &'static str,
+    },
 }
 
 /// Раскладка обычного окна.
@@ -48,6 +63,11 @@ pub struct LayoutUi {
     plates: BTreeMap<PartKey, Plate>,
     zoom: Option<Plate>,
     note: EmptyNote,
+    /// Выбор «Открыть в новой части»: одно меню на окно, открывается у кнопки «Разделить».
+    /// `None` — меню не построено: отказ `split_needs_panel` идёт в строку статуса.
+    picker: Option<Menu>,
+    /// Панель, которую делит открытый выбор.
+    picker_panel: Rc<Cell<Option<PanelId>>>,
     zones: ZoneMap<SplitView>,
     column: SplitView,
     root: SplitView,
@@ -101,11 +121,16 @@ impl LayoutUi {
         column.with_pane(0, |pane| pane.place(&zones.center, Insets::ZERO));
         column.with_pane(1, |pane| pane.place(&zones.bottom, Insets::ZERO));
         container.place(&note, Insets::ZERO);
+        let on_panel: Rc<dyn Fn(PanelAction)> = Rc::new(on_panel);
+        let picker_panel = Rc::new(Cell::new(None));
+        let picker = picker_menu(app, Rc::clone(&on_panel), Rc::clone(&picker_panel));
         LayoutUi {
             views: BTreeMap::new(),
             plates: BTreeMap::new(),
             zoom: None,
             note,
+            picker,
+            picker_panel,
             zones,
             column,
             root,
@@ -113,8 +138,36 @@ impl LayoutUi {
             scene: None,
             theme,
             motion: selection.motion,
-            on_panel: Rc::new(on_panel),
+            on_panel,
         }
+    }
+
+    /// Открывает выбор «Открыть в новой части» у кнопки «Разделить» плитки панели `panel`.
+    /// `false` — панель не стоит в плитке: выбор не открыт.
+    pub fn open_picker(&self, panel: PanelId) -> bool {
+        let (Some(plate), Some(picker)) = (self.plate_of(panel), &self.picker) else {
+            return false;
+        };
+        self.picker_panel.set(Some(panel));
+        plate.pop_up_choice(picker);
+        true
+    }
+
+    /// Плитка, в которой стоит вид панели `panel`.
+    fn plate_of(&self, panel: PanelId) -> Option<&Plate> {
+        let bench = self.scene.as_ref()?.bench.as_ref()?;
+        match bench.views.get(&panel)?.host {
+            Host::Part(key) => self.plates.get(&key),
+            Host::Zoom => self.zoom.as_ref(),
+            Host::Navigator => None,
+        }
+    }
+
+    /// Плитка, у которой открыт или был открыт выбор новой части.
+    fn picker_plate(&self) -> Option<&Plate> {
+        self.picker_panel
+            .get()
+            .and_then(|panel| self.plate_of(panel))
     }
 
     /// Последняя применённая сцена.
@@ -277,6 +330,13 @@ impl LayoutUi {
                 self.note.inspect(NOTE_ID, Some(ROOT_ID)),
             ));
         }
+        if let Some(picker) = &self.picker {
+            let node = match self.picker_plate() {
+                Some(plate) => picker.inspect_at(PICKER_ID, Some(ROOT_ID), plate.strip()),
+                None => picker.inspect_at(PICKER_ID, Some(ROOT_ID), &self.container),
+            };
+            nodes.push(window_ui::component(node));
+        }
         nodes
     }
 
@@ -286,7 +346,8 @@ impl LayoutUi {
         };
         let count = bench.layout.zones.get(key.zone).parts.len();
         let state = strip_state(key.zone, key.index, count, slot, bench, false);
-        match Plate::new(app, &self.theme, self.motion, state, self.tab_intent()) {
+        let intent = self.tab_intent(PlateRef::Part(key));
+        match Plate::new(app, &self.theme, self.motion, state, intent) {
             Ok(plate) => {
                 self.plates.insert(key, plate);
             }
@@ -296,16 +357,21 @@ impl LayoutUi {
         }
     }
 
-    /// Намерения строки вкладок: щелчок по вкладке — `panel.select`. Кнопки и меню «…» получают
-    /// обработчики в задачах 10 и 12.
-    fn tab_intent(&self) -> impl Fn(TabIntent) + 'static {
+    /// Намерения строки вкладок плитки `plate`: щелчок по вкладке — `panel.select`, «Разделить» и
+    /// «Развернуть панель» / «Вернуть раскладку» — команда с явной целью этой плитки. Плитка
+    /// адресуется местом: панель берётся из сцены в момент действия. Меню «…» и закрытие
+    /// вкладки получают обработчики в задаче 12.
+    fn tab_intent(&self, plate: PlateRef) -> impl Fn(TabIntent) + 'static {
         let on_panel = Rc::clone(&self.on_panel);
-        move |intent| {
-            if let TabIntent::Select { id } = intent
-                && let Ok(panel) = id.parse::<PanelId>()
-            {
-                on_panel(PanelAction::Select(panel));
+        move |intent| match intent {
+            TabIntent::Select { id } => {
+                if let Ok(panel) = id.parse::<PanelId>() {
+                    on_panel(PanelAction::Select(panel));
+                }
             }
+            TabIntent::Split(_) => on_panel(PanelAction::Split(plate)),
+            TabIntent::Zoom | TabIntent::Restore => on_panel(PanelAction::Zoom(plate)),
+            TabIntent::Close { .. } | TabIntent::Menu { .. } => {}
         }
     }
 
@@ -367,7 +433,7 @@ impl LayoutUi {
                 };
                 let state = strip_state(Zone::Center, 0, 1, &slot, bench, true);
                 if self.zoom.is_none() {
-                    let intent = self.tab_intent();
+                    let intent = self.tab_intent(PlateRef::Zoom);
                     match Plate::new(app, &self.theme, self.motion, state.clone(), intent) {
                         Ok(plate) => self.zoom = Some(plate),
                         Err(error) => shellio::owner::say_err(format_args!(
@@ -445,6 +511,37 @@ impl LayoutUi {
             None => self.note.set_hidden(true),
         }
     }
+}
+
+/// Меню выбора «Открыть в новой части»: известные plugin id, `terminal` первым. Выбор уходит
+/// действием [`PanelAction::Open`] для панели открытого выбора, `Esc` закрывает меню без действия.
+fn picker_menu(
+    app: &App,
+    on_panel: Rc<dyn Fn(PanelAction)>,
+    panel: Rc<Cell<Option<PanelId>>>,
+) -> Option<Menu> {
+    let entries = PICKER
+        .iter()
+        .map(|(plugin, title)| MenuEntry::Item(MenuItem::new(plugin, title)))
+        .collect();
+    let chosen = move |intent| match intent {
+        MenuIntent::Chosen { id } => {
+            let plugin = PICKER
+                .iter()
+                .map(|(plugin, _)| *plugin)
+                .find(|plugin| *plugin == id);
+            if let (Some(plugin), Some(panel)) = (plugin, panel.take()) {
+                on_panel(PanelAction::Open { panel, plugin });
+            }
+        }
+    };
+    Menu::new(app, PICKER_TITLE, entries, chosen)
+        .map_err(|error| {
+            shellio::owner::say_err(format_args!(
+                "shellio: выбор новой части не построен: {error}"
+            ));
+        })
+        .ok()
 }
 
 fn spec(plan: &SplitPlan) -> SplitSpec {

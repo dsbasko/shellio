@@ -8,6 +8,7 @@ use shellio_theme::{AppTheme, KeyMode, Motion};
 
 use crate::app::App;
 use crate::chrome_bar::Frame;
+use crate::components::menu::Menu;
 use crate::components::tab_strip::TabStrip;
 use crate::components::tab_strip::model::{TabError, TabIntent, TabStripState};
 use crate::inspect::{self, InspectNode, Transition};
@@ -67,6 +68,11 @@ impl Plate {
 
     pub fn surface(&self) -> &Surface {
         &self.surface
+    }
+
+    /// Открывает меню выбора у кнопки «Разделить» строки вкладок.
+    pub fn pop_up_choice(&self, menu: &Menu) {
+        self.strip.pop_up_choice(menu);
     }
 
     /// Новое состояние строки вкладок и слой фокуса по нему.

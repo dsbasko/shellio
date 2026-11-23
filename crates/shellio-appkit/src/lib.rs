@@ -53,7 +53,7 @@ mod window;
 pub use app::{App, Delegate, MainThread, Reopened, RunError, Transfer};
 pub use chrome_bar::{
     ChromeBar, ChromeIntent, ChromeLayout, ChromeState, Frame, NO_WORKSPACE, ZoneButton, shorten,
-    zone_button,
+    zone_button, zone_pressed,
 };
 pub use components::menu::{
     ItemChange, Menu, MenuButton, MenuEntry, MenuError, MenuIntent, MenuItem, MenuKey, MenuOp,

@@ -67,56 +67,53 @@ struct CoreLink {
 }
 
 impl CoreLink {
-    /// Подать команду без ожидания. Отказ показывает раскладку модели заново: событий после него
-    /// не будет, а вид мог остаться там, куда его увёл пользователь.
+    /// Подать команду без ожидания. Отказ разбирает [`on_refused`] на главном потоке.
     fn send(&self, command: Command) {
-        let name = command.name();
         let sent = command.clone();
-        let refused = move |text: String, reason: String| {
-            owner::say_err(format_args!("shellio: {name} отклонена: {reason}"));
-            defer(move |app| {
-                with_window(|owner| owner.show_status(Some(&text)));
-                refresh_layout(app);
-            });
-        };
-        let explain = move |error: &CoreError| {
-            let text = MIRROR.with(|mirror| {
-                let mirror = mirror.borrow();
-                let state = mirror.as_ref().map(Mirror::state);
-                scene::refusal_text(&sent, error, |panel| {
-                    state
-                        .and_then(|state| state.panels.get(&panel))
-                        .map(|panel| panel.title.to_string())
-                })
-            });
-            (text, error.to_string())
-        };
         match self.core.try_request(command) {
             Ok(receipt) => {
                 self.runtime.spawn(async move {
                     match receipt.await {
                         Ok(Ok(_)) => {}
-                        Ok(Err(error)) => {
-                            let reason = error.to_string();
-                            defer(move |app| {
-                                let (text, _) = explain(&error);
-                                owner::say_err(format_args!("shellio: {name} отклонена: {reason}"));
-                                with_window(|owner| owner.show_status(Some(&text)));
-                                refresh_layout(app);
-                            });
-                        }
-                        Err(_) => {
-                            refused("Ядро не ответило".to_owned(), "ядро не ответило".to_owned())
-                        }
+                        Ok(Err(error)) => defer(move |app| on_refused(app, &sent, &error)),
+                        Err(_) => defer(move |app| {
+                            owner::say_err(format_args!(
+                                "shellio: {} отклонена: ядро не ответило",
+                                sent.name()
+                            ));
+                            with_window(|owner| owner.show_status(Some("Ядро не ответило")));
+                            refresh_layout(app);
+                        }),
                     }
                 });
             }
-            Err(error) => {
-                let (text, reason) = explain(&error);
-                refused(text, reason);
-            }
+            Err(error) => defer(move |app| on_refused(app, &sent, &error)),
         }
     }
+}
+
+/// Отказ ядра на команду интерфейса. `split_needs_panel` деления без `open` открывает выбор
+/// «Открыть в новой части» у кнопки (ADR-0009); остальные отказы пишут причину в строку статуса и
+/// показывают раскладку модели заново: событий после отказа не будет, а вид мог остаться там, куда
+/// его увёл пользователь.
+fn on_refused(app: &App, sent: &Command, error: &CoreError) {
+    owner::say_err(format_args!("shellio: {} отклонена: {error}", sent.name()));
+    if let Some(panel) = scene::picker_target(sent, error)
+        && with_window(|owner| owner.open_picker(panel)) == Some(true)
+    {
+        return;
+    }
+    let text = MIRROR.with(|mirror| {
+        let mirror = mirror.borrow();
+        let state = mirror.as_ref().map(Mirror::state);
+        scene::refusal_text(sent, error, |panel| {
+            state
+                .and_then(|state| state.panels.get(&panel))
+                .map(|panel| panel.title.to_string())
+        })
+    });
+    with_window(|owner| owner.show_status(Some(&text)));
+    refresh_layout(app);
 }
 
 /// Сколько последних записей держит журнал анимаций `ui.stats`.
@@ -210,6 +207,13 @@ impl OwnerWindow {
         if let Some(status) = &self.status {
             status.set_message(message);
         }
+    }
+
+    /// Выбор «Открыть в новой части» для панели `panel`; `false` — выбора нет.
+    fn open_picker(&self, panel: shellio_core::PanelId) -> bool {
+        self.layout
+            .as_ref()
+            .is_some_and(|layout| layout.open_picker(panel))
     }
 
     /// Размер содержимого окна в целых точках.
@@ -1030,7 +1034,9 @@ fn send_ui(app: &App, command: Command) {
     }
 }
 
-/// Щелчок по вкладке или в тело панели: `panel.select` или `panel.focus`, если он что-то меняет.
+/// Действие в раскладке: щелчок по вкладке или в тело панели (`panel.select`, `panel.focus`, если
+/// он что-то меняет), кнопки «Разделить» и «Развернуть панель» / «Вернуть раскладку», пункт выбора
+/// «Открыть в новой части». Каждое — одна команда ядра.
 fn on_panel(app: &App, action: PanelAction) {
     let command = with_window(|owner| {
         owner.show_status(None);
@@ -1038,6 +1044,9 @@ fn on_panel(app: &App, action: PanelAction) {
         match action {
             PanelAction::Select(panel) => scene::select_command(scene, panel),
             PanelAction::Focus(panel) => scene::focus_command(scene, panel),
+            PanelAction::Split(plate) => scene::split_command(scene, plate),
+            PanelAction::Zoom(plate) => scene::zoom_command(scene, plate),
+            PanelAction::Open { panel, plugin } => Some(scene::open_command(panel, plugin)),
         }
     })
     .flatten();

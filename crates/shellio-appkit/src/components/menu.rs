@@ -36,6 +36,7 @@ use crate::counters::{Live, counter};
 use crate::inspect::{self, InspectNode, NodeState};
 use crate::layer;
 use crate::own::{Callback, ComponentId, View};
+use crate::piece::Piece;
 
 counter!(MENU_OWNER, Owner, "Menu");
 counter!(MENU_TARGET, Class, "ShellioMenuTarget");
@@ -353,6 +354,9 @@ struct MenuModel {
     entries: RefCell<Vec<MenuEntry>>,
     open: Cell<bool>,
     highlighted: RefCell<Option<String>>,
+    /// Следующее открытие ставит под якорь первый пункт и подсвечивает его: `Return` выбирает его
+    /// без стрелок.
+    first: Cell<bool>,
     on_intent: Box<dyn Fn(MenuIntent)>,
 }
 
@@ -408,6 +412,7 @@ impl Menu {
             entries: RefCell::new(Vec::new()),
             open: Cell::new(false),
             highlighted: RefCell::new(None),
+            first: Cell::new(false),
             on_intent: Box::new(on_intent),
         });
         let root = new_menu(mtm, title);
@@ -484,12 +489,47 @@ impl Menu {
         walk(&self.root.borrow(), &self.model.entries.borrow(), id)
     }
 
+    /// Меню для `ui.inspect` с кадром вида `anchor`: пункты, открыто ли, подсвеченный пункт. Узел
+    /// видим, только пока меню открыто: закрытое меню на экране ничего не занимает.
+    pub fn inspect_at<'a>(
+        &self,
+        id: &str,
+        parent: Option<&str>,
+        anchor: impl Into<Piece<'a>>,
+    ) -> InspectNode {
+        let mut node = inspect::node(
+            id,
+            "Menu",
+            parent,
+            anchor.into().ns_view(),
+            None,
+            Some(NodeState::Menu(self.state())),
+        );
+        node.facts.visible &= self.is_open();
+        node
+    }
+
+    /// Открывает меню выбора под видом `anchor`: первый пункт стоит под якорем и подсвечен,
+    /// поэтому `Return` выбирает его, а `Esc` закрывает меню без выбора.
+    pub(crate) fn pop_up_choice_below(&self, anchor: &NSView) {
+        if self.model.open.get() {
+            return;
+        }
+        self.model.first.set(true);
+        self.schedule_pop_up(anchor);
+    }
+
     /// Открывает меню под видом `anchor` на следующем обороте цикла главного потока. Открытое меню
     /// повторно не открывается.
     pub(crate) fn pop_up_below(&self, anchor: &NSView) {
         if self.model.open.get() {
             return;
         }
+        self.model.first.set(false);
+        self.schedule_pop_up(anchor);
+    }
+
+    fn schedule_pop_up(&self, anchor: &NSView) {
         // SAFETY: `NSRunLoopCommonModes` — неизменяемая строка Foundation, живущая весь процесс.
         let common = unsafe { NSRunLoopCommonModes };
         let modes = NSArray::from_slice(&[common]);
@@ -821,8 +861,14 @@ impl MenuTarget {
     /// Отслеживание корневого меню под якорем. Вложенный цикл идёт вне заимствований модели:
     /// делегат, `validateMenuItem:` и выбор пункта читают её изнутри цикла.
     fn open_below(&self, anchor: &NSView) {
-        let closed = self.ivars().owner.call(|model| !model.open.get());
-        if closed != Some(true) {
+        let Some((closed, first)) = self
+            .ivars()
+            .owner
+            .call(|model| (!model.open.get(), model.first.get()))
+        else {
+            return;
+        };
+        if !closed {
             return;
         }
         let Some(root) = self.ivars().root.load() else {
@@ -833,8 +879,9 @@ impl MenuTarget {
         } else {
             0.0
         };
+        let item = if first { root.itemAtIndex(0) } else { None };
         root.popUpMenuPositioningItem_atLocation_inView(
-            None,
+            item.as_deref(),
             NSPoint::new(0.0, bottom),
             Some(anchor),
         );
