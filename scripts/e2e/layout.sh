@@ -1254,7 +1254,7 @@ item_resize_drag() {
   cmp -s "$dir/after.frames.json" "$dir/shown.frames.json" ||
     failures+=("кадры после скрытия и показа правой зоны другие: after.frames.json и shown.frames.json")
   [[ -z "$FRAMES" ]] || failures+=("кадры после показа: $(printf '%s' "$FRAMES" | tr '\n' ';')")
-  conclude "$item" "разделитель между частями центра сдвинут CGEvent на $DRAG_DX точек: одна layout.resize, ширина первой части $got (ожидалось $want ± $FRAME_TOLERANCE); после layout hide и show right кадры прежние и совпали с ui.inspect и AX"
+  conclude "$item" "разделитель между частями центра сдвинут CGEvent на $DRAG_DX точек: после квитанции ширина первой части $got (ожидалось $want ± $FRAME_TOLERANCE); после layout hide и show right кадры прежние и совпали с ui.inspect и AX"
 }
 
 # Владелец на переднем плане: щелчки и меню идут в его окно; иначе WHY.
