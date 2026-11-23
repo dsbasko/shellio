@@ -6,17 +6,21 @@
 //! - [`diff`] — разница двух сцен в операции: создать, переставить, показать или скрыть, убрать;
 //! - [`Scene::splits`] — элементы сплитов и прямоугольники их содержимого по кадрам модели;
 //! - [`ViewportGate`] — размер окна для ядра с объединением до конца оборота цикла и без повторов;
-//! - [`resize_command`] — конец перетаскивания разделителя в одну команду `layout.resize`.
+//! - [`resize_command`] — конец перетаскивания разделителя в одну команду `layout.resize`;
+//! - [`Scene::zone_buttons`] и [`toggle_command`] — кнопки зон заголовка и пункты меню «Вид»;
+//! - [`focus_command`] — щелчок в тело панели, [`refusal_text`] — отказ ядра в строке статуса.
 //!
 //! Вид панели живёт, пока панель есть в открытой рабочей области: смена вкладки, перенос и `zoom`
 //! его не пересоздают. Начало координат — левый верхний угол содержимого окна, как у геометрии.
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use shellio_core::{Command, PanelId, State, WorkbenchId, min_size, open_workbench};
+use shellio_core::{
+    Command, CoreError, Entity, ErrorCode, PanelId, State, WorkbenchId, min_size, open_workbench,
+};
 use shellio_layout::{
-    Axis, Frames, Geometry, Layout, LayoutMetrics, PartFrame, Rect, Viewport, Zone, ZoneMap,
-    geometry,
+    Axis, Frames, Geometry, Hideable, Layout, LayoutMetrics, PartFrame, Rect, Viewport, Zone,
+    ZoneMap, geometry,
 };
 
 /// Сообщение области зон без открытой рабочей области.
@@ -627,6 +631,224 @@ pub fn resize_command(
     }
 }
 
+/// Кнопка группы зон заголовка и пункт меню «Вид» (ADR-0024): колонка навигатора, нижняя зона и
+/// третья — правая зона или плитка левой.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ZoneToggle {
+    Navigator,
+    Bottom,
+    Side,
+}
+
+impl ZoneToggle {
+    pub const ALL: [ZoneToggle; 3] = [ZoneToggle::Navigator, ZoneToggle::Bottom, ZoneToggle::Side];
+}
+
+/// Состояние кнопок зон открытой рабочей области: видна ли цель каждой кнопки и куда смотрит
+/// третья.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ZoneButtons {
+    pub navigator: bool,
+    pub bottom: bool,
+    /// Цель третьей кнопки: [`Hideable::Right`] или [`Hideable::Plate`].
+    pub side: Hideable,
+    pub side_shown: bool,
+}
+
+/// Цель третьей кнопки (ADR-0024, `⌥⌘0`): плитка левой зоны, когда она занята, а правая зона пуста;
+/// иначе правая зона. Решает занятость зон, а не их скрытие.
+pub fn side_target<P: Copy + Ord>(layout: &Layout<P>) -> Hideable {
+    if !layout.zones.left.is_empty() && layout.zones.right.is_empty() {
+        Hideable::Plate
+    } else {
+        Hideable::Right
+    }
+}
+
+/// Цель видна при текущем скрытии и режиме `only`.
+fn target_shown<P: Copy + Ord>(layout: &Layout<P>, target: Hideable) -> bool {
+    match target {
+        Hideable::Navigator => layout.navigator_shown(),
+        Hideable::Plate => layout.zone_shown(Zone::Left),
+        Hideable::Right => layout.zone_shown(Zone::Right),
+        Hideable::Bottom => layout.zone_shown(Zone::Bottom),
+    }
+}
+
+fn toggle_target<P: Copy + Ord>(layout: &Layout<P>, toggle: ZoneToggle) -> Hideable {
+    match toggle {
+        ZoneToggle::Navigator => Hideable::Navigator,
+        ZoneToggle::Bottom => Hideable::Bottom,
+        ZoneToggle::Side => side_target(layout),
+    }
+}
+
+impl Scene {
+    /// Кнопки зон; `None` — рабочая область не открыта, кнопки недоступны.
+    pub fn zone_buttons(&self) -> Option<ZoneButtons> {
+        let layout = &self.bench.as_ref()?.layout;
+        let side = side_target(layout);
+        Some(ZoneButtons {
+            navigator: target_shown(layout, Hideable::Navigator),
+            bottom: target_shown(layout, Hideable::Bottom),
+            side,
+            side_shown: target_shown(layout, side),
+        })
+    }
+}
+
+/// Нажатие кнопки зон или пункта меню «Вид» — одна команда `layout.visibility`: видимая цель
+/// скрывается, невидимая показывается (показ снимает режим `only`). `None` — рабочая область не
+/// открыта.
+pub fn toggle_command(scene: &Scene, toggle: ZoneToggle) -> Option<Command> {
+    let bench = scene.bench.as_ref()?;
+    let target = toggle_target(&bench.layout, toggle);
+    Some(Command::LayoutVisibility {
+        workbench: Some(bench.workbench),
+        target,
+        visible: !target_shown(&bench.layout, target),
+    })
+}
+
+/// Щелчок в тело панели — `panel.focus`. `None` — фокус уже на ней или рабочая область не открыта.
+pub fn focus_command(scene: &Scene, panel: PanelId) -> Option<Command> {
+    let bench = scene.bench.as_ref()?;
+    (bench.focus != Some(panel) && bench.views.contains_key(&panel)).then_some(
+        Command::PanelFocus {
+            panel: Some(panel),
+            workbench: None,
+            direction: None,
+        },
+    )
+}
+
+/// Щелчок по вкладке — `panel.select`. `None` — вкладка уже активна и фокус на ней, панели нет или
+/// рабочая область не открыта.
+pub fn select_command(scene: &Scene, panel: PanelId) -> Option<Command> {
+    let bench = scene.bench.as_ref()?;
+    let active = bench
+        .plates
+        .values()
+        .any(|plate| plate.active == panel && plate.tabs.contains(&panel));
+    (bench.views.contains_key(&panel) && !(active && bench.focus == Some(panel)))
+        .then_some(Command::PanelSelect { panel })
+}
+
+/// Текст строки статуса для отказа ядра на команду интерфейса (ADR-0031, `docs/ux.md`): что не
+/// вышло и сколько места нужно. `title` — название панели по её id.
+pub fn refusal_text(
+    command: &Command,
+    error: &CoreError,
+    title: impl Fn(PanelId) -> Option<String>,
+) -> String {
+    match error.code() {
+        ErrorCode::NotFound => {
+            return match error.detail_str("entity") {
+                Some(name) if name == Entity::Panel.as_str() => "Панели уже нет".to_owned(),
+                Some(name) if name == Entity::Workbench.as_str() => {
+                    "Рабочая область не найдена".to_owned()
+                }
+                _ => error.message().to_owned(),
+            };
+        }
+        ErrorCode::NoUi => return "Размер окна ещё не передан ядру".to_owned(),
+        ErrorCode::Busy => return "Ядро занято: повторите действие".to_owned(),
+        ErrorCode::ShuttingDown => return "Приложение завершается".to_owned(),
+        ErrorCode::StorageUnavailable => {
+            return "Раскладка не записана: повторите действие".to_owned();
+        }
+        ErrorCode::InvalidArgument
+        | ErrorCode::NameTaken
+        | ErrorCode::RootTaken
+        | ErrorCode::StorageConflict => {}
+    }
+    match error.detail_str("reason") {
+        Some("split_no_room") => split_no_room_text(error, title),
+        Some("split_needs_panel") => "У части одна вкладка: новой части нужна панель".to_owned(),
+        Some("navigator_not_splittable") => "Колонка навигатора не делится".to_owned(),
+        Some("navigator_column") => {
+            "Панель стоит в колонке навигатора: частей у колонки нет".to_owned()
+        }
+        Some("no_open_workbench") => "Рабочая область не открыта".to_owned(),
+        Some("zone_empty") => {
+            let name = error
+                .detail_str("target")
+                .or_else(|| error.detail_str("zone"));
+            match name {
+                Some("navigator") => "Колонка навигатора пуста: в ней нет панели".to_owned(),
+                Some("plate" | "left") => "Левая зона пуста: перенесите в неё панель".to_owned(),
+                Some("right") => "Правая зона пуста: перенесите в неё панель".to_owned(),
+                Some("bottom") => "Нижняя зона пуста: перенесите в неё панель".to_owned(),
+                Some("center") => "Центр пуст: перенесите в него панель".to_owned(),
+                _ => error.message().to_owned(),
+            }
+        }
+        Some("resize_out_of_range") => {
+            let bound = |key: &str| error.detail(key).and_then(serde_json::Value::as_u64);
+            let (Some(min), Some(max)) = (bound("min"), bound("max")) else {
+                return error.message().to_owned();
+            };
+            match command {
+                Command::LayoutResize {
+                    part_of: Some(_), ..
+                } => {
+                    let percent = |permille: u64| (permille + 5) / 10;
+                    format!(
+                        "Доля части — от {} до {} % зоны",
+                        percent(min),
+                        percent(max)
+                    )
+                }
+                _ => format!("Размер зоны — от {min} до {max} точек"),
+            }
+        }
+        Some("zone_not_resizable") => {
+            "Размер центра — остаток: меняйте размер соседней зоны".to_owned()
+        }
+        Some("panel_not_in_zone") => "Панель стоит в другой зоне".to_owned(),
+        _ => error.message().to_owned(),
+    }
+}
+
+/// «Не хватает места для новой части»: нужный и доступный размер каждой затронутой части.
+fn split_no_room_text(error: &CoreError, title: impl Fn(PanelId) -> Option<String>) -> String {
+    let parts = error
+        .detail("parts")
+        .and_then(serde_json::Value::as_array)
+        .map(|parts| {
+            parts
+                .iter()
+                .map(|part| {
+                    let size = |key: &str, axis: &str| {
+                        part.get(key)
+                            .and_then(|size| size.get(axis))
+                            .and_then(serde_json::Value::as_f64)
+                            .map_or_else(|| "?".to_owned(), |value| format!("{value:.0}"))
+                    };
+                    let name = part
+                        .get("panel")
+                        .and_then(serde_json::Value::as_str)
+                        .and_then(|panel| panel.parse::<PanelId>().ok())
+                        .and_then(&title)
+                        .map_or_else(|| "часть".to_owned(), |title| format!("«{title}»"));
+                    format!(
+                        "{name} — нужно {}×{}, будет {}×{}",
+                        size("need", "width"),
+                        size("need", "height"),
+                        size("have", "width"),
+                        size("have", "height"),
+                    )
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if parts.is_empty() {
+        "Не хватает места для новой части".to_owned()
+    } else {
+        format!("Не хватает места для новой части: {}", parts.join("; "))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use shellio_core::{
@@ -1098,5 +1320,213 @@ mod tests {
         assert_eq!((zone, part_of), (Zone::Center, Some(fixture.terminal)));
         let expected = (target * 1000.0 / available).round() as u32;
         assert_eq!(size, expected);
+    }
+
+    #[test]
+    fn zone_buttons_follow_occupancy_and_visibility() {
+        let mut fixture = fixture();
+        let right = add_panel(&mut fixture, 12);
+        let left = add_panel(&mut fixture, 13);
+        fixture.state.window.route = Route::WorkspaceHome;
+        assert_eq!(
+            scene(&fixture).zone_buttons(),
+            None,
+            "без рабочей области кнопки недоступны"
+        );
+        assert_eq!(
+            toggle_command(&scene(&fixture), ZoneToggle::Navigator),
+            None
+        );
+        fixture.state.window.route = Route::Workbench(fixture.workbench);
+
+        // Первая конфигурация: правая занята, третья кнопка — правая зона.
+        layout_mut(&mut fixture)
+            .zones
+            .right
+            .parts
+            .push(Part::single(right, SHARE_TOTAL));
+        let buttons = scene(&fixture).zone_buttons().unwrap();
+        assert_eq!(
+            buttons,
+            ZoneButtons {
+                navigator: true,
+                bottom: false,
+                side: Hideable::Right,
+                side_shown: true,
+            }
+        );
+        let toggles: Vec<_> = ZoneToggle::ALL
+            .into_iter()
+            .map(|toggle| toggle_command(&scene(&fixture), toggle).unwrap())
+            .collect();
+        let workbench = fixture.workbench;
+        let expect = move |target, visible| Command::LayoutVisibility {
+            workbench: Some(workbench),
+            target,
+            visible,
+        };
+        assert_eq!(
+            toggles,
+            [
+                expect(Hideable::Navigator, false),
+                expect(Hideable::Bottom, true),
+                expect(Hideable::Right, false),
+            ]
+        );
+        layout_mut(&mut fixture).hidden.right = true;
+        let buttons = scene(&fixture).zone_buttons().unwrap();
+        assert_eq!((buttons.side, buttons.side_shown), (Hideable::Right, false));
+        assert_eq!(
+            toggle_command(&scene(&fixture), ZoneToggle::Side),
+            Some(expect(Hideable::Right, true))
+        );
+
+        // Вторая конфигурация: правая пуста, плитка левой зоны занята — третья кнопка — плитка.
+        let layout = layout_mut(&mut fixture);
+        layout.hidden.right = false;
+        layout.zones.right.parts.clear();
+        layout
+            .zones
+            .left
+            .parts
+            .push(Part::single(left, SHARE_TOTAL));
+        let buttons = scene(&fixture).zone_buttons().unwrap();
+        assert_eq!((buttons.side, buttons.side_shown), (Hideable::Plate, true));
+        assert_eq!(
+            toggle_command(&scene(&fixture), ZoneToggle::Side),
+            Some(expect(Hideable::Plate, false))
+        );
+        layout_mut(&mut fixture).hidden.plate = true;
+        assert_eq!(
+            toggle_command(&scene(&fixture), ZoneToggle::Side),
+            Some(expect(Hideable::Plate, true))
+        );
+        // Обе боковые заняты — третья снова правая зона.
+        layout_mut(&mut fixture)
+            .zones
+            .right
+            .parts
+            .push(Part::single(right, SHARE_TOTAL));
+        assert_eq!(
+            scene(&fixture).zone_buttons().unwrap().side,
+            Hideable::Right
+        );
+    }
+
+    #[test]
+    fn clicks_become_select_and_focus_only_when_they_change_something() {
+        let mut fixture = fixture();
+        let second = add_panel(&mut fixture, 12);
+        layout_mut(&mut fixture).zones.center.parts[0]
+            .tabs
+            .push(second);
+        let scene_now = scene(&fixture);
+        let focus = scene_now.bench.as_ref().unwrap().focus;
+        assert_eq!(focus, Some(fixture.terminal));
+        assert_eq!(select_command(&scene_now, fixture.terminal), None);
+        assert_eq!(
+            select_command(&scene_now, second),
+            Some(Command::PanelSelect { panel: second })
+        );
+        assert_eq!(focus_command(&scene_now, fixture.terminal), None);
+        assert_eq!(
+            focus_command(&scene_now, fixture.navigator),
+            Some(Command::PanelFocus {
+                panel: Some(fixture.navigator),
+                workbench: None,
+                direction: None,
+            })
+        );
+        let stranger: PanelId = id(99);
+        assert_eq!(select_command(&scene_now, stranger), None);
+        assert_eq!(focus_command(&scene_now, stranger), None);
+        fixture.state.window.route = Route::WorkspaceHome;
+        assert_eq!(focus_command(&scene(&fixture), fixture.navigator), None);
+    }
+
+    #[test]
+    fn refusals_read_as_status_line_text() {
+        let fixture = fixture();
+        let titles = |panel: PanelId| (panel == fixture.terminal).then(|| "Терминал".to_owned());
+        let split = Command::LayoutSplit {
+            panel: fixture.terminal,
+            open: None,
+        };
+        let parts = serde_json::json!([{
+            "panel": fixture.terminal.to_string(),
+            "need": {"width": 200.0, "height": 120.0},
+            "have": {"width": 151.0, "height": 600.0},
+        }]);
+        let error = CoreError::split_no_room(parts, "нет места".to_owned());
+        assert_eq!(
+            refusal_text(&split, &error, titles),
+            "Не хватает места для новой части: «Терминал» — нужно 200×120, будет 151×600"
+        );
+        let error = CoreError::split_no_room(serde_json::json!([]), "нет места".to_owned());
+        assert_eq!(
+            refusal_text(&split, &error, titles),
+            "Не хватает места для новой части"
+        );
+        assert_eq!(
+            refusal_text(
+                &split,
+                &CoreError::split_needs_panel(fixture.terminal),
+                titles
+            ),
+            "У части одна вкладка: новой части нужна панель"
+        );
+        let visibility = Command::LayoutVisibility {
+            workbench: None,
+            target: Hideable::Right,
+            visible: true,
+        };
+        assert_eq!(
+            refusal_text(
+                &visibility,
+                &CoreError::zone_empty("target", "right"),
+                titles
+            ),
+            "Правая зона пуста: перенесите в неё панель"
+        );
+        assert_eq!(
+            refusal_text(
+                &visibility,
+                &CoreError::zone_empty("target", "plate"),
+                titles
+            ),
+            "Левая зона пуста: перенесите в неё панель"
+        );
+        assert_eq!(
+            refusal_text(&visibility, &CoreError::no_open_workbench(), titles),
+            "Рабочая область не открыта"
+        );
+        let zone = Command::LayoutResize {
+            workbench: None,
+            zone: Zone::Right,
+            part_of: None,
+            size: 10,
+        };
+        assert_eq!(
+            refusal_text(&zone, &CoreError::resize_out_of_range(200, 640), titles),
+            "Размер зоны — от 200 до 640 точек"
+        );
+        let share = Command::LayoutResize {
+            workbench: None,
+            zone: Zone::Center,
+            part_of: Some(fixture.terminal),
+            size: 10,
+        };
+        assert_eq!(
+            refusal_text(&share, &CoreError::resize_out_of_range(150, 850), titles),
+            "Доля части — от 15 до 85 % зоны"
+        );
+        assert_eq!(
+            refusal_text(&zone, &CoreError::zone_not_resizable("center"), titles),
+            "Размер центра — остаток: меняйте размер соседней зоны"
+        );
+        assert_eq!(
+            refusal_text(&zone, &CoreError::busy(), titles),
+            "Ядро занято: повторите действие"
+        );
     }
 }

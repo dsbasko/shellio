@@ -17,6 +17,7 @@ use crate::marker::GenerationMarker;
 use crate::panel_stub::{EmptyNote, PanelView};
 use crate::plate::Plate;
 use crate::split_view::{Pane, SplitView};
+use crate::status_line::StatusLine;
 use crate::surface::Surface;
 use crate::window::MainWindow;
 
@@ -35,6 +36,7 @@ pub enum Piece<'a> {
     Plate(&'a Plate),
     PanelView(&'a PanelView),
     Note(&'a EmptyNote),
+    Status(&'a StatusLine),
 }
 
 impl Piece<'_> {
@@ -52,7 +54,14 @@ impl Piece<'_> {
             Piece::Plate(plate) => plate.ns_view(),
             Piece::PanelView(panel) => panel.ns_view(),
             Piece::Note(note) => note.ns_view(),
+            Piece::Status(line) => line.ns_view(),
         }
+    }
+}
+
+impl<'a> From<&'a StatusLine> for Piece<'a> {
+    fn from(line: &'a StatusLine) -> Self {
+        Piece::Status(line)
     }
 }
 

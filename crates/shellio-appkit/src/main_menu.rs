@@ -11,6 +11,7 @@ use objc2_app_kit::NSApplication;
 use shellio_theme::AppearanceChoice;
 
 use crate::app::App;
+use crate::chrome_bar::{ZoneButton, zone_button};
 use crate::components::menu::{Menu, MenuEntry, MenuIntent, MenuItem, MenuKey};
 use crate::counters::{Live, counter};
 
@@ -22,7 +23,19 @@ pub enum MenuAction {
     Quit,
     CloseWindow,
     Appearance(AppearanceChoice),
+    /// Пункт зон меню «Вид»: тот же обработчик, что у кнопки зон заголовка.
+    Zone(ZoneButton),
 }
+
+/// Состояние пунктов зон меню «Вид»: `None` — недоступны; иначе цель третьего пункта (плитка левой
+/// зоны) и видимость целей.
+pub type ZoneMenu = Option<(bool, [bool; 3])>;
+
+const ZONE_ITEMS: [(ZoneButton, &str); 3] = [
+    (ZoneButton::Navigator, "layout.visibility.navigator"),
+    (ZoneButton::Bottom, "layout.visibility.bottom"),
+    (ZoneButton::Side, "layout.visibility.side"),
+];
 
 /// Пункты меню «Оформление» по порядку: выбор, id пункта, заголовок.
 pub const APPEARANCE_ITEMS: [(AppearanceChoice, &str, &str); 3] = [
@@ -43,7 +56,31 @@ const VIEW_MENU: &str = "menu.view";
 const APPEARANCE_MENU: &str = "menu.view.appearance";
 
 /// Пункты главного меню с отметкой у выбора `choice`.
-fn entries(choice: AppearanceChoice) -> Vec<MenuEntry> {
+fn zone_entries(zones: ZoneMenu) -> Vec<MenuEntry> {
+    let (side_plate, shown) = zones.unwrap_or((false, [false; 3]));
+    ZONE_ITEMS
+        .into_iter()
+        .zip(shown)
+        .map(|((button, id), shown)| {
+            let key = match button {
+                ZoneButton::Navigator => Some(MenuKey::command("0")),
+                ZoneButton::Side => Some(MenuKey {
+                    option: true,
+                    ..MenuKey::command("0")
+                }),
+                ZoneButton::Bottom => None,
+            };
+            MenuEntry::Item(MenuItem {
+                key,
+                enabled: zones.is_some(),
+                checked: shown,
+                ..MenuItem::new(id, zone_button(button, side_plate).1)
+            })
+        })
+        .collect()
+}
+
+fn entries(choice: AppearanceChoice, zones: ZoneMenu) -> Vec<MenuEntry> {
     let submenu = |id: &str, title: &str, children: Vec<MenuEntry>| {
         MenuEntry::Item(MenuItem {
             submenu: Some(children),
@@ -72,11 +109,14 @@ fn entries(choice: AppearanceChoice) -> Vec<MenuEntry> {
             vec![keyed(QUIT, "Выйти из shellio", "q")],
         ),
         submenu(WINDOW_MENU, "Окно", vec![keyed(CLOSE, "Закрыть", "w")]),
-        submenu(
-            VIEW_MENU,
-            "Вид",
-            vec![submenu(APPEARANCE_MENU, "Оформление", appearance)],
-        ),
+        submenu(VIEW_MENU, "Вид", {
+            let mut items = zone_entries(zones);
+            items.push(MenuEntry::Separator {
+                id: "menu.view.separator".to_owned(),
+            });
+            items.push(submenu(APPEARANCE_MENU, "Оформление", appearance));
+            items
+        }),
     ]
 }
 
@@ -85,6 +125,10 @@ fn action_of(id: &str) -> Option<MenuAction> {
     match id {
         QUIT => Some(MenuAction::Quit),
         CLOSE => Some(MenuAction::CloseWindow),
+        _ if ZONE_ITEMS.iter().any(|(_, item)| *item == id) => ZONE_ITEMS
+            .into_iter()
+            .find(|(_, item)| *item == id)
+            .map(|(button, _)| MenuAction::Zone(button)),
         _ => APPEARANCE_ITEMS
             .into_iter()
             .find(|(_, item_id, _)| *item_id == id)
@@ -97,6 +141,7 @@ pub struct MainMenu {
     _live: Live,
     mtm: MainThreadMarker,
     choice: Cell<AppearanceChoice>,
+    zones: Cell<ZoneMenu>,
     menu: Menu,
 }
 
@@ -114,6 +159,7 @@ impl MainMenu {
             _live: MAIN_MENU_OWNER.live(),
             mtm,
             choice: Cell::new(AppearanceChoice::System),
+            zones: Cell::new(None),
             menu,
         };
         main_menu.rebuild();
@@ -133,10 +179,18 @@ impl MainMenu {
         }
     }
 
+    /// Пункты зон меню «Вид».
+    pub fn set_zones(&self, zones: ZoneMenu) {
+        if self.zones.replace(zones) != zones {
+            self.rebuild();
+        }
+    }
+
     fn rebuild(&self) {
         // Id пунктов постоянны и уникальны (тест `ids_are_unique_and_map_to_actions`), отказа здесь
         // не бывает; если он появится, меню остаётся прежним, а причина уходит в stderr.
-        if let Err(error) = self.menu.set_entries(entries(self.choice.get())) {
+        let entries = entries(self.choice.get(), self.zones.get());
+        if let Err(error) = self.menu.set_entries(entries) {
             eprintln!("shellio: главное меню не обновлено: {error}");
         }
     }
@@ -190,13 +244,14 @@ mod tests {
     #[test]
     fn ids_are_unique_and_map_to_actions() {
         for choice in AppearanceChoice::ALL {
-            assert_eq!(check_ids(&entries(choice)), Ok(()));
+            assert_eq!(check_ids(&entries(choice, None)), Ok(()));
         }
         let mut all = Vec::new();
-        ids(&entries(AppearanceChoice::System), &mut all);
+        ids(&entries(AppearanceChoice::System, None), &mut all);
         let actions: Vec<MenuAction> = all.iter().filter_map(|id| action_of(id)).collect();
         let mut expected = vec![MenuAction::Quit, MenuAction::CloseWindow];
         expected.extend(AppearanceChoice::ALL.map(MenuAction::Appearance));
+        expected.extend(ZoneButton::ALL.map(MenuAction::Zone));
         assert_eq!(
             actions.len(),
             expected.len(),
@@ -218,7 +273,7 @@ mod tests {
 
     #[test]
     fn quit_and_close_keep_their_keys() {
-        let all = entries(AppearanceChoice::System);
+        let all = entries(AppearanceChoice::System, None);
         let key = |menu: usize| match &all[menu] {
             MenuEntry::Item(MenuItem {
                 submenu: Some(children),
@@ -236,19 +291,19 @@ mod tests {
     #[test]
     fn changing_the_appearance_moves_only_the_mark() {
         let ops = diff(
-            &entries(AppearanceChoice::System),
-            &entries(AppearanceChoice::Dark),
+            &entries(AppearanceChoice::System, None),
+            &entries(AppearanceChoice::Dark, None),
         );
         assert_eq!(
             ops,
             [
                 MenuOp::Update {
-                    path: vec![2, 0],
+                    path: vec![2, 4],
                     index: 0,
                     change: ItemChange::Checked(false),
                 },
                 MenuOp::Update {
-                    path: vec![2, 0],
+                    path: vec![2, 4],
                     index: 2,
                     change: ItemChange::Checked(true),
                 },
@@ -256,10 +311,58 @@ mod tests {
         );
         assert!(
             diff(
-                &entries(AppearanceChoice::Light),
-                &entries(AppearanceChoice::Light)
+                &entries(AppearanceChoice::Light, None),
+                &entries(AppearanceChoice::Light, None)
             )
             .is_empty()
+        );
+    }
+
+    #[test]
+    fn zone_items_share_the_chrome_labels_and_keys() {
+        let view = |zones: ZoneMenu| match &entries(AppearanceChoice::System, zones)[2] {
+            MenuEntry::Item(MenuItem {
+                submenu: Some(children),
+                ..
+            }) => children[..3]
+                .iter()
+                .map(|entry| match entry {
+                    MenuEntry::Item(item) => (
+                        item.title.clone(),
+                        item.key.as_ref().map(MenuKey::chord),
+                        item.enabled,
+                        item.checked,
+                    ),
+                    MenuEntry::Separator { .. } => unreachable!("пункты зон идут подряд"),
+                })
+                .collect::<Vec<_>>(),
+            _ => Vec::new(),
+        };
+        let off = view(None);
+        assert_eq!(
+            off.iter().map(|item| item.0.as_str()).collect::<Vec<_>>(),
+            ["Навигация", "Нижняя зона", "Правая зона"]
+        );
+        assert_eq!(
+            off.iter().map(|item| item.1.as_deref()).collect::<Vec<_>>(),
+            [Some("cmd+0"), None, Some("opt+cmd+0")]
+        );
+        assert!(
+            off.iter().all(|item| !item.2 && !item.3),
+            "без рабочей области недоступны"
+        );
+        let plate = view(Some((true, [true, false, true])));
+        assert_eq!(plate[2].0, "Левая зона");
+        assert_eq!(
+            plate
+                .iter()
+                .map(|item| (item.2, item.3))
+                .collect::<Vec<_>>(),
+            [(true, true), (true, false), (true, true)]
+        );
+        assert_eq!(
+            action_of("layout.visibility.side"),
+            Some(MenuAction::Zone(ZoneButton::Side))
         );
     }
 }

@@ -65,15 +65,17 @@ FRAME_TOLERANCE=1
 NAVIGATOR_W=236
 GAP=6
 RESIZE_RIGHT=420
+# Сдвиг разделителя между частями центра в resize-drag, точки.
+DRAG_DX=60
 
 ITEMS=(layout-default layout-snapshot move-cli move-menu-zone move-menu-part move-drag move-drag-body center-empty
   resize-drag split-two-fit split-button-unfocused split-single-picker split-refused stub-expand zoom-restore
   only-bottom hide-zones tooltips-ax restore-cold restore-legacy voiceover-speech system-contrast)
 REQUIRED=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0)
 # Пункты следующих задач плана: до них прогон пишет not_run с задачей, обязательность — после их появления.
-LATER=(move-menu-zone:12 move-menu-part:12 move-drag:12 move-drag-body:12 center-empty:11 resize-drag:9
+LATER=(move-menu-zone:12 move-menu-part:12 move-drag:12 move-drag-body:12 center-empty:11
   split-two-fit:11 split-button-unfocused:11 split-single-picker:11 split-refused:11 stub-expand:13 zoom-restore:11
-  only-bottom:11 hide-zones:9 tooltips-ax:11)
+  only-bottom:11 tooltips-ax:11)
 STATUS=()
 REASON=()
 for i in "${!ITEMS[@]}"; do
@@ -1117,7 +1119,235 @@ item_move_cli() {
   conclude "$item" "panel move --zone right: панель $term в правой зоне с прежним PanelId и фокусом, ComponentId вида прежний ($component), созданных ShellioPanelView не прибавилось ($before), кадры совпали"
 }
 
-# Перенос, изменение размера CLI и фокус → app quit → новый запуск на том же профиле.
+# Кадр части zone.index из query.layout: поле field кадра (x, y, width, height).
+part_field() {
+  /usr/bin/perl -MJSON::PP -e 'my ($zone, $index, $field) = @ARGV; local $/;
+    my ($p) = grep { $_->{zone} eq $zone && $_->{index} == $index } @{JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{frames}{parts}};
+    print defined $p ? "$p->{frame}{$field}\n" : "?\n"' "$2" "$3" "$4" <"$1"
+}
+
+# Кадры query.layout каноническим JSON.
+frames_canon() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; print JSON::PP->new->utf8->canonical->encode(JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{frames}), "\n"' <"$1"
+}
+
+# Опрос query.layout до значения want поля path; последнее чтение — <prefix>.stdout, иначе WHY.
+wait_layout() {
+  local state="$1" prefix="$2" bench="$3" path="$4" want="$5" deadline seen=""
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if layout_get "$state" "$prefix" "$bench"; then
+      seen="$(lv "$prefix.stdout" "$path" || echo ?)"
+      [[ "$seen" == "$want" ]] && return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс $path в query.layout — ${seen:-?}, а не $want"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Перетаскивание левой кнопкой из точки CG (x1, y1) в (x2, y2) шагами по 4 точки.
+drag_cg() {
+  osascript -l JavaScript -e "
+    ObjC.import('CoreGraphics');
+    const post = (type, x, y) => \$.CGEventPost(\$.kCGHIDEventTap,
+      \$.CGEventCreateMouseEvent(null, type, \$.CGPointMake(x, y), \$.kCGMouseButtonLeft));
+    post(\$.kCGEventMouseMoved, $1, $2); delay(0.05);
+    post(\$.kCGEventLeftMouseDown, $1, $2); delay(0.05);
+    const steps = Math.max(1, Math.ceil(Math.abs($3 - $1) / 4));
+    for (let i = 1; i <= steps; i++) {
+      post(\$.kCGEventLeftMouseDragged, $1 + ($3 - $1) * i / steps, $2 + ($4 - $2) * i / steps); delay(0.01);
+    }
+    delay(0.05);
+    post(\$.kCGEventLeftMouseUp, $3, $4);
+    'ok';"
+}
+
+# AXPress кнопки окна владельца pid с описанием label; иначе WHY.
+press_button() {
+  local pid="$1" label="$2" out="$3"
+  osascript -l JavaScript -e "
+    const se = Application('System Events');
+    const w = se.processes.whose({unixId: $pid})[0].windows[0];
+    w.buttons.whose({description: '$label'})[0].actions.byName('AXPress').perform();
+    'pressed'" >"$out.stdout" 2>"$out.stderr" || {
+    WHY="AXPress кнопки «$label» не выполнен: $(oneline "$out.stderr")"
+    return 1
+  }
+}
+
+# Пункт title меню «Вид» владельца pid; иначе WHY.
+press_view_item() {
+  local pid="$1" title="$2" out="$3"
+  osascript -l JavaScript -e "
+    const se = Application('System Events');
+    const p = se.processes.whose({unixId: $pid})[0];
+    p.menuBars[0].menuBarItems.byName('Вид').menus[0].menuItems.byName('$title').click();
+    'clicked'" >"$out.stdout" 2>"$out.stderr" || {
+    WHY="пункт «$title» меню «Вид» не выбран: $(oneline "$out.stderr")"
+    return 1
+  }
+}
+
+# Деление центра, перетаскивание разделителя между его частями CGEvent, скрытие и показ правой зоны.
+item_resize_drag() {
+  local item=resize-drag dir="$run/resize-drag" center x0 w0 x1 y gx wx wy sh share want got
+  failures=()
+  log "== $item"
+  center="$(lv "$run/move-cli/moved.layout.stdout" 'layout.zones.center.parts[0].tabs[0]' || echo ?)"
+  core_cmd "$profile" "$dir/split" layout split "$center" --open terminal --workspace "$ws" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  settle_layout "$profile" "$dir/settle" "$wb" "$REV" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" before "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  x0="$(part_field "$dir/before.layout.stdout" center 0 x)"
+  w0="$(part_field "$dir/before.layout.stdout" center 0 width)"
+  x1="$(part_field "$dir/before.layout.stdout" center 1 x)"
+  y="$(awk -v a="$(part_field "$dir/before.layout.stdout" center 0 y)" -v h="$(part_field "$dir/before.layout.stdout" center 0 height)" 'BEGIN { print a + h / 2 }')"
+  share="$(lv "$dir/before.layout.stdout" 'layout.zones.center.parts[0].share' || echo ?)"
+  [[ "$x1" != "?" && "$w0" != "?" ]] || fatal "условие пункта: после деления в центре нет двух частей"
+  wx="$(jv "$dir/before.window.stdout" ok.ui.window.frame.x)"
+  wy="$(jv "$dir/before.window.stdout" ok.ui.window.frame.y)"
+  sh="$(jv "$dir/before.window.stdout" ok.ui.window.screens[0].frame.height)"
+  local wh
+  wh="$(jv "$dir/before.window.stdout" ok.ui.window.frame.height)"
+  # Полоса захвата — промежуток между частями. Кадры query.layout — в точках содержимого с началом сверху слева.
+  gx="$(awk -v a="$x0" -v w="$w0" -v b="$x1" 'BEGIN { printf "%.1f", (a + w + b) / 2 }')"
+  local cx cy
+  cx="$(awk -v wx="$wx" -v gx="$gx" 'BEGIN { printf "%.1f", wx + gx }')"
+  cy="$(awk -v sh="$sh" -v wy="$wy" -v wh="$wh" -v y="$y" 'BEGIN { printf "%.1f", sh - (wy + wh) + y }')"
+  printf 'точка CG %s %s → %s, полоса x=%s содержимого\n' "$cx" "$cy" "$DRAG_DX" "$gx" >"$dir/drag.txt"
+  front_owner_ok "$dir" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  drag_cg "$cx" "$cy" "$(awk -v x="$cx" -v d="$DRAG_DX" 'BEGIN { print x + d }')" "$cy" >"$dir/drag.log" 2>&1 ||
+    fatal "перетаскивание CGEvent не выполнено: $(oneline "$dir/drag.log")"
+  local deadline
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    layout_get "$profile" "$dir/after.layout" "$wb" || fatal "$item: query.layout не прочитан"
+    got="$(lv "$dir/after.layout.stdout" 'layout.zones.center.parts[0].share' || echo ?)"
+    [[ "$got" != "$share" ]] && break
+    if (($(now_ms) >= deadline)); then
+      record "$item" fail "за $MIRROR_MS мс после отпускания доля первой части центра не изменилась ($share): layout.resize не пришла"
+      return 0
+    fi
+    sleep "$POLL"
+  done
+  read_all "$profile" "$dir" after "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  want="$(awk -v w="$w0" -v d="$DRAG_DX" 'BEGIN { print w + d }')"
+  got="$(part_field "$dir/after.layout.stdout" center 0 width)"
+  awk -v a="$got" -v b="$want" -v t="$FRAME_TOLERANCE" 'BEGIN { d = a - b; if (d < 0) d = -d; exit !(d <= t) }' ||
+    failures+=("ширина первой части центра $got после отпускания, ожидалось $want ± $FRAME_TOLERANCE (доля $share → $(lv "$dir/after.layout.stdout" 'layout.zones.center.parts[0].share'))")
+  [[ -z "$FRAMES" ]] || failures+=("кадры после отпускания: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  frames_canon "$dir/after.layout.stdout" >"$dir/after.frames.json"
+  core_cmd "$profile" "$dir/hide" layout hide right --workbench "$wb" --workspace "$ws" || failures+=("$WHY")
+  core_cmd "$profile" "$dir/show" layout show right --workbench "$wb" --workspace "$ws" || failures+=("$WHY")
+  settle_layout "$profile" "$dir/settle-shown" "$wb" "${REV:-0}" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" shown "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  frames_canon "$dir/shown.layout.stdout" >"$dir/shown.frames.json"
+  cmp -s "$dir/after.frames.json" "$dir/shown.frames.json" ||
+    failures+=("кадры после скрытия и показа правой зоны другие: after.frames.json и shown.frames.json")
+  [[ -z "$FRAMES" ]] || failures+=("кадры после показа: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  conclude "$item" "разделитель между частями центра сдвинут CGEvent на $DRAG_DX точек: одна layout.resize, ширина первой части $got (ожидалось $want ± $FRAME_TOLERANCE); после layout hide и show right кадры прежние и совпали с ui.inspect и AX"
+}
+
+# Владелец на переднем плане: щелчки и меню идут в его окно; иначе WHY.
+front_owner_ok() {
+  local dir="$1"
+  WHY=""
+  osascript -l JavaScript -e "
+    const se = Application('System Events');
+    se.processes.whose({unixId: $owner_pid})[0].frontmost = true;
+    'ok'" >"$dir/front.stdout" 2>"$dir/front.stderr" || {
+    WHY="владелец не выведен вперёд: $(oneline "$dir/front.stderr")"
+    return 1
+  }
+  local deadline
+  deadline=$(($(now_ms) + MIRROR_MS))
+  until [[ "$(front_pid)" == "$owner_pid" ]]; do
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс на переднем плане не владелец, а pid $(front_pid)"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Одна кнопка или пункт меню: цель скрывается и снова показывается, размеры и кадры после показа прежние.
+toggle_pair() {
+  local how="$1" label="$2" field="$3" dir="$4" name="$5" before
+  frames_canon "$dir/$name.base.stdout" >"$dir/$name.base.frames.json"
+  before="$(lv "$dir/$name.base.stdout" layout.sizes)"
+  local round want
+  for round in hide show; do
+    [[ $round == hide ]] && want=true || want=false
+    case "$how" in
+      button) press_button "$owner_pid" "$label" "$dir/$name.$round" ;;
+      menu) press_view_item "$owner_pid" "$label" "$dir/$name.$round" ;;
+    esac || {
+      failures+=("$WHY")
+      return 0
+    }
+    wait_layout "$profile" "$dir/$name.$round.layout" "$wb" "layout.hidden.$field" "$want" || {
+      failures+=("$how «$label», $round: $WHY")
+      return 0
+    }
+  done
+  [[ "$(lv "$dir/$name.show.layout.stdout" layout.sizes)" == "$before" ]] ||
+    failures+=("$how «$label»: размеры после показа $(lv "$dir/$name.show.layout.stdout" layout.sizes), до — $before")
+  frames_canon "$dir/$name.show.layout.stdout" >"$dir/$name.shown.frames.json"
+  cmp -s "$dir/$name.base.frames.json" "$dir/$name.shown.frames.json" ||
+    failures+=("$how «$label»: кадры после показа другие ($name.base.frames.json, $name.shown.frames.json)")
+}
+
+# Три кнопки зон ChromeBar и пункты меню «Вид» в двух конфигурациях: правая занята; правая пуста, плитка занята.
+item_hide_zones() {
+  local item=hide-zones dir="$run/hide-zones" bottom right label
+  failures=()
+  log "== $item"
+  # Нижняя зона получает панель второй части центра, правая уже занята переносом move-cli.
+  bottom="$(lv "$run/resize-drag/shown.layout.stdout" 'layout.zones.center.parts[1].tabs[0]' || echo ?)"
+  right="$(lv "$run/resize-drag/shown.layout.stdout" 'layout.zones.right.parts[0].tabs[0]' || echo ?)"
+  core_cmd "$profile" "$dir/bottom" panel move "$bottom" --zone bottom --workspace "$ws" || fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/settle" "$wb" "$REV" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" one "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ -z "$FRAMES" ]] || failures+=("кадры первой конфигурации: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  front_owner_ok "$dir" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  for label in "Навигация:navigator:nav" "Нижняя зона:bottom:bottom" "Правая зона:right:right"; do
+    IFS=: read -r text field name <<<"$label"
+    cp "$dir/one.layout.stdout" "$dir/b-$name.base.stdout"
+    toggle_pair button "$text" "$field" "$dir" "b-$name"
+    cp "$dir/one.layout.stdout" "$dir/m-$name.base.stdout"
+    toggle_pair menu "$text" "$field" "$dir" "m-$name"
+  done
+  # Вторая конфигурация: правая пуста, плитка левой зоны занята — третья кнопка «Левая зона».
+  core_cmd "$profile" "$dir/left" panel move "$right" --zone left --workspace "$ws" || fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/settle-two" "$wb" "$REV" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" two "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ -z "$FRAMES" ]] || failures+=("кадры второй конфигурации: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  [[ "$(comp "$dir/two.inspect.stdout" chrome.zone.right label 2>/dev/null || echo ?)" == "Левая зона" ||
+    -n "$(osascript -l JavaScript -e "Application('System Events').processes.whose({unixId: $owner_pid})[0].windows[0].buttons.whose({description: 'Левая зона'}).length" 2>/dev/null | grep -v '^0$')" ]] ||
+    failures+=("третья кнопка не называется «Левая зона» во второй конфигурации")
+  cp "$dir/two.layout.stdout" "$dir/b-plate.base.stdout"
+  toggle_pair button "Левая зона" plate "$dir" b-plate
+  cp "$dir/two.layout.stdout" "$dir/m-plate.base.stdout"
+  toggle_pair menu "Левая зона" plate "$dir" m-plate
+  # Правая зона возвращается: restore-cold меняет её размер.
+  core_cmd "$profile" "$dir/back" panel move "$right" --zone right --workspace "$ws" || fatal "$item: $WHY"
+  settle_layout "$profile" "$dir/settle-back" "$wb" "$REV" || fatal "$item: $WHY"
+  conclude "$item" "кнопки «Навигация», «Нижняя зона», «Правая зона» и те же пункты меню «Вид» скрывают и показывают колонку навигатора, нижнюю и правую зоны; при пустой правой и занятой плитке третья кнопка и пункт «Левая зона» скрывают и показывают плитку; размеры и кадры после показа прежние"
+}
+
+# Перенос, изменение размера CLI и перетаскиванием, скрытие и фокус → app quit → новый запуск на том же профиле.
 item_restore_cold() {
   local item=restore-cold dir="$run/restore-cold" other focus before after
   failures=()
@@ -1131,9 +1361,15 @@ item_restore_cold() {
     record "$item" fail "$WHY"
     return 0
   }
+  core_cmd "$profile" "$dir/hide" layout hide bottom --workbench "$wb" --workspace "$ws" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
   settle_layout "$profile" "$dir/settle" "$wb" "$REV" || fatal "$item: $WHY"
   read_all "$profile" "$dir" before "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
   [[ -z "$FRAMES" ]] || failures+=("до перезапуска кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  [[ "$(lv "$dir/before.layout.stdout" layout.hidden.bottom)" == true ]] ||
+    failures+=("layout hide bottom: нижняя зона не скрыта")
   [[ "$(lv "$dir/before.layout.stdout" layout.sizes.right)" == "$RESIZE_RIGHT" ]] ||
     failures+=("layout resize: размер правой зоны $(lv "$dir/before.layout.stdout" layout.sizes.right || echo ?)")
   focus="$(focus_of "$dir/before.layout.stdout")"
@@ -1147,13 +1383,15 @@ item_restore_cold() {
   layout_canon "$dir/after.layout.stdout" >"$dir/after.canon.json"
   cmp -s "$dir/before.canon.json" "$dir/after.canon.json" ||
     failures+=("раскладка после перезапуска не равна прежней побайтно: before.canon.json и after.canon.json")
+  [[ "$(lv "$dir/after.layout.stdout" layout.hidden.bottom)" == true ]] ||
+    failures+=("после перезапуска нижняя зона не скрыта")
   [[ "$(focus_of "$dir/after.layout.stdout")" == "$focus" ]] ||
     failures+=("фокус после перезапуска на $(focus_of "$dir/after.layout.stdout"), а не на $focus")
   [[ -z "$FRAMES" ]] || failures+=("после перезапуска кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
   before="$(/usr/bin/perl -MJSON::PP -e 'local $/; print JSON::PP->new->utf8->canonical->encode(JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{frames})' <"$dir/before.layout.stdout")"
   after="$(/usr/bin/perl -MJSON::PP -e 'local $/; print JSON::PP->new->utf8->canonical->encode(JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{frames})' <"$dir/after.layout.stdout")"
   [[ "$before" == "$after" ]] || failures+=("кадры query.layout после перезапуска другие")
-  conclude "$item" "перенос в правую зону, layout resize --zone right $RESIZE_RIGHT и panel focus → app quit → запуск на том же профиле: раскладка и панели query.layout побайтно равны прежним, фокус на $focus, кадры query.layout равны прежним и совпали с ui.inspect и AX"
+  conclude "$item" "перенос в правую зону, деление и перетаскивание разделителя центра, layout resize --zone right $RESIZE_RIGHT, скрытие нижней зоны и panel focus → app quit → запуск на том же профиле: раскладка и панели query.layout побайтно равны прежним, фокус на $focus, кадры query.layout равны прежним и совпали с ui.inspect и AX"
 }
 
 # Профиль схемы v1 с открытой рабочей областью: раскладка по умолчанию сразу, те же PanelId после перезапуска.
@@ -1208,6 +1446,8 @@ preconditions
 item_layout_default
 item_layout_snapshot
 item_move_cli
+item_resize_drag
+item_hide_zones
 item_restore_cold
 # System Events разрешает элементы окна по имени процесса: при двух владельцах бандла AX читает чужое окно, поэтому
 # restore-legacy идёт при единственном живом владельце.

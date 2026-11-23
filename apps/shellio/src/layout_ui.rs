@@ -31,6 +31,15 @@ const NAVIGATOR_ID: &str = "layout.navigator";
 const ZOOM_ID: &str = "layout.zoom";
 const NOTE_ID: &str = "layout.note";
 
+/// Щелчок в раскладке, который становится командой ядра.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PanelAction {
+    /// Щелчок по вкладке — `panel.select`.
+    Select(PanelId),
+    /// Щелчок в тело панели — `panel.focus`.
+    Focus(PanelId),
+}
+
 /// Раскладка обычного окна.
 pub struct LayoutUi {
     // Порядок полей — порядок освобождения: сначала виды панелей и плитки, затем сплиты и
@@ -46,15 +55,18 @@ pub struct LayoutUi {
     scene: Option<Scene>,
     theme: AppTheme,
     motion: Motion,
+    on_panel: Rc<dyn Fn(PanelAction)>,
 }
 
 impl LayoutUi {
     /// Пустая раскладка в содержимом окна `window`. `on_drag` получает конец перетаскивания
-    /// разделителя на главном потоке изнутри AppKit и не должен синхронно трогать раскладку.
+    /// разделителя, `on_panel` — щелчки по вкладкам и телам панелей; оба вызываются на главном
+    /// потоке изнутри AppKit и не должны синхронно трогать раскладку.
     pub fn new(
         app: &App,
         window: &MainWindow,
         on_drag: impl Fn(SplitId, SplitDrag) + 'static,
+        on_panel: impl Fn(PanelAction) + 'static,
     ) -> LayoutUi {
         let selection = window.selection();
         let theme = selection.theme();
@@ -101,6 +113,7 @@ impl LayoutUi {
             scene: None,
             theme,
             motion: selection.motion,
+            on_panel: Rc::new(on_panel),
         }
     }
 
@@ -122,8 +135,11 @@ impl LayoutUi {
                     Op::AddView(panel, _) => {
                         if let Some(slot) = bench.views.get(&panel) {
                             let card = card(slot);
-                            self.views
-                                .insert(panel, PanelView::new(app, &self.theme, card));
+                            let on_panel = Rc::clone(&self.on_panel);
+                            let view = PanelView::new(app, &self.theme, card, move || {
+                                on_panel(PanelAction::Focus(panel));
+                            });
+                            self.views.insert(panel, view);
                         }
                     }
                     Op::Reparent(..)
@@ -270,13 +286,26 @@ impl LayoutUi {
         };
         let count = bench.layout.zones.get(key.zone).parts.len();
         let state = strip_state(key.zone, key.index, count, slot, bench, false);
-        match Plate::new(app, &self.theme, self.motion, state, tab_intent) {
+        match Plate::new(app, &self.theme, self.motion, state, self.tab_intent()) {
             Ok(plate) => {
                 self.plates.insert(key, plate);
             }
             Err(error) => shellio::owner::say_err(format_args!(
                 "shellio: плитка части {key:?} не построена: {error:?}"
             )),
+        }
+    }
+
+    /// Намерения строки вкладок: щелчок по вкладке — `panel.select`. Кнопки и меню «…» получают
+    /// обработчики в задачах 10 и 12.
+    fn tab_intent(&self) -> impl Fn(TabIntent) + 'static {
+        let on_panel = Rc::clone(&self.on_panel);
+        move |intent| {
+            if let TabIntent::Select { id } = intent
+                && let Ok(panel) = id.parse::<PanelId>()
+            {
+                on_panel(PanelAction::Select(panel));
+            }
         }
     }
 
@@ -338,7 +367,8 @@ impl LayoutUi {
                 };
                 let state = strip_state(Zone::Center, 0, 1, &slot, bench, true);
                 if self.zoom.is_none() {
-                    match Plate::new(app, &self.theme, self.motion, state.clone(), tab_intent) {
+                    let intent = self.tab_intent();
+                    match Plate::new(app, &self.theme, self.motion, state.clone(), intent) {
                         Ok(plate) => self.zoom = Some(plate),
                         Err(error) => shellio::owner::say_err(format_args!(
                             "shellio: плитка развёрнутой панели не построена: {error:?}"
@@ -416,10 +446,6 @@ impl LayoutUi {
         }
     }
 }
-
-/// Намерения строк вкладок раскладки получают обработчики вместе с кнопками и щелчками
-/// (P1.4, задачи 9 и 10).
-fn tab_intent(_intent: TabIntent) {}
 
 fn spec(plan: &SplitPlan) -> SplitSpec {
     SplitSpec {

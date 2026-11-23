@@ -8,7 +8,7 @@ use std::cell::{Cell, RefCell};
 use objc2::rc::Retained;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
-    NSAccessibility, NSAccessibilityGroupRole, NSAutoresizingMaskOptions, NSFont,
+    NSAccessibility, NSAccessibilityGroupRole, NSAutoresizingMaskOptions, NSEvent, NSFont,
     NSFontWeightMedium, NSFontWeightRegular, NSLineBreakMode, NSResponder, NSTextAlignment,
     NSTextField, NSView, NSViewLayerContentsRedrawPolicy,
 };
@@ -54,6 +54,7 @@ struct PanelModel {
     id: ComponentId,
     theme: Cell<AppTheme>,
     card: RefCell<PanelCard>,
+    on_press: Box<dyn Fn()>,
 }
 
 /// Вид панели на главном потоке. Освобождение убирает его из иерархии.
@@ -62,12 +63,19 @@ pub struct PanelView {
 }
 
 impl PanelView {
-    pub fn new(app: &App, theme: &AppTheme, card: PanelCard) -> PanelView {
+    /// Вид панели; `on_press` получает щелчок в тело на главном потоке изнутри AppKit.
+    pub fn new(
+        app: &App,
+        theme: &AppTheme,
+        card: PanelCard,
+        on_press: impl Fn() + 'static,
+    ) -> PanelView {
         let mtm = app.mtm();
         let model = PanelModel {
             id: ComponentId::next(),
             theme: Cell::new(*theme),
             card: RefCell::new(card),
+            on_press: Box::new(on_press),
         };
         let view = View::new(&PANEL_OWNER, model, "PanelView.updateLayer", |owner| {
             PanelStubView::new(mtm, owner)
@@ -212,6 +220,18 @@ define_class!(
             if let Some(layer) = self.layer() {
                 without_actions(|| layer::set_fill(&layer, theme.colors.panel));
             }
+        }
+
+        // SAFETY: селектор и аргумент — как у `mouseDown:` NSResponder.
+        #[unsafe(method(mouseDown:))]
+        fn mouse_down(&self, _event: &NSEvent) {
+            self.ivars().owner.call(|model| (model.on_press)());
+        }
+
+        // SAFETY: селектор и результат — как у `acceptsFirstMouse:` NSView.
+        #[unsafe(method(acceptsFirstMouse:))]
+        fn accepts_first_mouse(&self, _event: Option<&NSEvent>) -> bool {
+            true
         }
     }
 );

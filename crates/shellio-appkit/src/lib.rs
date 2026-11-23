@@ -45,13 +45,15 @@ mod piece;
 mod plate;
 mod runloop;
 mod split_view;
+mod status_line;
 mod surface;
 mod theme_cell;
 mod window;
 
 pub use app::{App, Delegate, MainThread, Reopened, RunError, Transfer};
 pub use chrome_bar::{
-    ChromeBar, ChromeIntent, ChromeLayout, ChromeState, Frame, NO_WORKSPACE, shorten,
+    ChromeBar, ChromeIntent, ChromeLayout, ChromeState, Frame, NO_WORKSPACE, ZoneButton, shorten,
+    zone_button,
 };
 pub use components::menu::{
     ItemChange, Menu, MenuButton, MenuEntry, MenuError, MenuIntent, MenuItem, MenuKey, MenuOp,
@@ -90,7 +92,7 @@ pub use inspect::{
     InspectNode, Inspection, MaterialFact, NodeState, ScreenFacts, Transition, TransitionPath,
     ViewFacts, WindowFacts,
 };
-pub use main_menu::{MainMenu, MenuAction};
+pub use main_menu::{MainMenu, MenuAction, ZoneMenu};
 pub use marker::{GenerationMarker, MARKER_CELL, MARKER_CELLS, marker_bit};
 pub use own::ComponentId;
 pub use panel_stub::{EmptyNote, PanelCard, PanelView};
@@ -100,8 +102,9 @@ pub use runloop::{
     DrawMark, ITERATION_BUDGET_MS, IterationStats, LoopMonitor, LoopStats, MonitorError,
 };
 pub use split_view::{
-    Insets, Pane, SplitDirection, SplitDrag, SplitSlot, SplitSpec, SplitView, moved_divider,
+    Insets, Pane, SplitDirection, SplitDrag, SplitSlot, SplitSpec, SplitView, drag_end,
 };
+pub use status_line::StatusLine;
 pub use surface::{
     FocusLayer, LINE_WIDTH, Surface, SurfaceFill, SurfacePaint, SurfaceRadius, SurfaceSpec,
 };

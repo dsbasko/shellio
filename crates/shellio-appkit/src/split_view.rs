@@ -4,25 +4,33 @@
 //! свёртку задаёт владелец ([`SplitView::apply`]) по геометрии модели, собственный расчёт AppKit
 //! кадры не выбирает.
 //!
-//! Правило «Разделитель»: перетаскивание пользователем идёт внутри `mouseDown:` вида сплита. Пока
-//! оно идёт, [`SplitView::apply`] кадры не ставит, а в конце уходит одно намерение [`SplitDrag`] с
-//! итоговым положением. Собственная установка кадров идёт под флагом повторного входа и намерений
-//! не порождает. Полоса захвата разделителя — промежуток перед следующим элементом; разделитель
-//! без полосы не перетаскивается.
+//! Правило «Разделитель»: полоса захвата — собственный вид в промежутке перед следующим элементом,
+//! у конечного края содержимого элемента. Нажатие на ней начинает перетаскивание, отпускание
+//! заканчивает его одним намерением [`SplitDrag`] с итоговым положением. Пока оно идёт,
+//! [`SplitView::apply`] положения не ставит, а за мышью идут края содержимого двух соседних
+//! элементов: конечный край элемента до разделителя и начальный край элемента после него. Положения
+//! элементов ставит только владелец; собственная установка кадров намерений не порождает, их даёт
+//! только полоса. Разделитель без полосы не перетаскивается.
+//!
+//! Собственное перетаскивание `NSSplitView` выключено (действующий прямоугольник разделителя пуст):
+//! при элементах контроллера и разделителе нулевой толщины оно зацикливает проход
+//! `updateConstraints` окна, и AppKit бросает исключение. `setPosition:ofDividerAtIndex:`, пока
+//! нажата кнопка, положение не меняет, поэтому за мышью идёт содержимое, а не элементы (находки
+//! задачи 9 P1.4).
 //!
 //! [`Pane`] — содержимое элемента сплита и контейнер раскладки: дети держат отступы от его краёв,
 //! поэтому при перетаскивании разделителя плитки идут за краем элемента.
 
-use std::cell::{Cell, OnceCell, RefCell};
+use std::cell::{Cell, RefCell};
 
 use objc2::rc::{self, Retained};
 use objc2::runtime::NSObject;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
-    NSAutoresizingMaskOptions, NSEvent, NSResponder, NSSplitView, NSSplitViewController,
-    NSSplitViewItem, NSView, NSViewController,
+    NSAutoresizingMaskOptions, NSCursor, NSEvent, NSResponder, NSSplitView, NSSplitViewController,
+    NSSplitViewItem, NSView, NSViewController, NSWindowOrderingMode,
 };
-use objc2_foundation::{NSInteger, NSPoint, NSRect, NSSize};
+use objc2_foundation::{NSInteger, NSRect, NSSize};
 
 use crate::app::App;
 use crate::chrome_bar::Frame;
@@ -36,6 +44,7 @@ counter!(SPLIT_OWNER, Owner, "SplitView");
 counter!(SPLIT_VIEW, Class, "ShellioSplitView");
 counter!(SPLIT_CONTROLLER, Class, "ShellioSplitController");
 counter!(PANE_VIEW, Class, "ShellioPane");
+counter!(GRIP_VIEW, Class, "ShellioSplitGrip");
 
 /// Приоритет удержания элементов: при изменении размера окна AppKit сначала меняет гибкий элемент,
 /// затем владелец всё равно ставит кадры модели.
@@ -104,31 +113,46 @@ impl Insets {
     }
 }
 
-/// Какой разделитель сдвинулся за перетаскивание: первое начало элемента, изменившееся больше чем
-/// на четверть точки. `None` — разделитель остался на месте.
-pub fn moved_divider(before: &[f64], after: &[f64]) -> Option<SplitDrag> {
-    before
-        .iter()
-        .zip(after)
-        .enumerate()
-        .skip(1)
-        .find(|(_, (old, new))| (*new - *old).abs() > 0.25)
-        .map(|(index, (_, new))| SplitDrag {
-            divider: index - 1,
-            position: *new,
-        })
+impl Insets {
+    /// Отступы, сдвинутые перетаскиванием разделителя: начальный край вдоль оси `axis` на `lead`,
+    /// конечный на `trail`; положительный сдвиг — к концу оси.
+    pub fn shifted(self, axis: SplitDirection, lead: f64, trail: f64) -> Insets {
+        match axis {
+            SplitDirection::Columns => Insets {
+                left: self.left + lead,
+                right: self.right - trail,
+                ..self
+            },
+            SplitDirection::Rows => Insets {
+                top: self.top + lead,
+                bottom: self.bottom - trail,
+                ..self
+            },
+        }
+    }
 }
 
-/// Rust-часть сплита. Виды и контроллер читают её через слабую ссылку.
+/// Конец перетаскивания разделителя `divider` с началом следующего элемента `start` на `delta`
+/// точек. `None` — сдвиг меньше половины точки: размер не меняется.
+pub fn drag_end(divider: usize, start: f64, delta: f64) -> Option<SplitDrag> {
+    (delta.abs() >= 0.5).then_some(SplitDrag {
+        divider,
+        position: start + delta,
+    })
+}
+
+/// Rust-часть сплита. Виды читают её через слабую ссылку.
 struct SplitModel {
     id: ComponentId,
     direction: SplitDirection,
-    grips: RefCell<Vec<f64>>,
-    /// Владелец ставит кадры: события AppKit намерений не порождают.
-    applying: Cell<bool>,
     /// Идёт перетаскивание разделителя пользователем.
     dragging: Cell<bool>,
     on_drag: Box<dyn Fn(SplitDrag)>,
+}
+
+/// Левая кнопка мыши сейчас нажата.
+fn left_button_down() -> bool {
+    NSEvent::pressedMouseButtons() & 1 != 0
 }
 
 struct Entry {
@@ -158,8 +182,6 @@ impl SplitView {
         let model = SplitModel {
             id: ComponentId::next(),
             direction,
-            grips: RefCell::new(Vec::new()),
-            applying: Cell::new(false),
             dragging: Cell::new(false),
             on_drag: Box::new(on_drag),
         };
@@ -168,7 +190,7 @@ impl SplitView {
         });
         let split = view.view();
         split.setVertical(direction == SplitDirection::Columns);
-        let controller = ShellioSplitController::new(mtm, view.callback("SplitView.controller"));
+        let controller = ShellioSplitController::new(mtm);
         controller.setSplitView(split);
         let host = controller.view();
         SplitView {
@@ -202,22 +224,30 @@ impl SplitView {
         self.entries.borrow().get(index).map(|entry| f(&entry.pane))
     }
 
-    /// Ставит элементы по `spec`: число элементов, свёртку и начала. Во время перетаскивания
-    /// пользователем ничего не делает и отвечает `false`.
+    /// Ставит элементы по `spec`: число элементов, свёртку, начала и полосы захвата; сдвиг
+    /// содержимого перетаскиванием снимается. Во время перетаскивания пользователем ничего не делает
+    /// и отвечает `false`. Перетаскивание, отпускание которого полоса не получила (кнопка уже
+    /// отпущена), сначала сбрасывается без намерения.
     pub fn apply(&self, spec: &SplitSpec) -> bool {
         let model = self.view.rust();
         if model.dragging.get() {
-            return false;
+            if left_button_down() {
+                return false;
+            }
+            model.dragging.set(false);
         }
-        model.grips.replace(spec.grips.clone());
         self.set_count(spec.slots.len());
-        model.applying.set(true);
         without_actions(|| {
             let entries = self.entries.borrow();
-            for (entry, slot) in entries.iter().zip(&spec.slots) {
+            for (index, (entry, slot)) in entries.iter().zip(&spec.slots).enumerate() {
                 if entry.item.isCollapsed() != slot.collapsed {
                     entry.item.setCollapsed(slot.collapsed);
                 }
+                let grip = spec.grips.get(index).copied().unwrap_or(0.0);
+                entry.pane.view.set_shift(0.0, 0.0);
+                entry
+                    .pane
+                    .set_grip(self.view.view(), index, model.direction, grip);
             }
             drop(entries);
             let split = self.view.view();
@@ -232,7 +262,6 @@ impl SplitView {
             }
             split.layoutSubtreeIfNeeded();
         });
-        model.applying.set(false);
         true
     }
 
@@ -267,8 +296,10 @@ impl SplitView {
     fn set_count(&self, count: usize) {
         let mut entries = self.entries.borrow_mut();
         let mtm = self.view.view().mtm();
+        let direction = self.view.rust().direction;
         while entries.len() < count {
             let pane = Pane::with_mtm(mtm);
+            pane.view.ivars().axis.set(direction);
             let controller = NSViewController::new(mtm);
             controller.setView(pane.ns_view());
             let item = NSSplitViewItem::splitViewItemWithViewController(&controller);
@@ -326,22 +357,6 @@ define_class!(
         #[unsafe(method(drawDividerInRect:))]
         fn draw_divider_in_rect(&self, _rect: NSRect) {}
 
-        // SAFETY: селектор и аргумент — как у `mouseDown:` NSResponder. NSSplitView отслеживает
-        // перетаскивание разделителя внутри вызова суперкласса и возвращается после отпускания.
-        #[unsafe(method(mouseDown:))]
-        fn mouse_down(&self, event: &NSEvent) {
-            let before = self.starts();
-            self.ivars().owner.call(|model| model.dragging.set(true));
-            // SAFETY: `mouseDown:` суперкласса с тем же событием.
-            let () = unsafe { msg_send![super(self), mouseDown: event] };
-            let after = self.starts();
-            self.ivars().owner.call(|model| {
-                model.dragging.set(false);
-                if let Some(drag) = moved_divider(&before, &after) {
-                    (model.on_drag)(drag);
-                }
-            });
-        }
     }
 );
 
@@ -356,6 +371,42 @@ impl ShellioSplitView {
             unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] };
         view.setWantsLayer(true);
         view
+    }
+
+    /// Точка события вдоль оси сплита в его точках.
+    fn along(&self, event: &NSEvent) -> f64 {
+        let point = self.convertPoint_fromView(event.locationInWindow(), None);
+        match self.direction() {
+            SplitDirection::Columns => point.x,
+            SplitDirection::Rows => point.y,
+        }
+    }
+
+    /// Длина сплита вдоль оси.
+    fn length(&self) -> f64 {
+        let size = self.bounds().size;
+        match self.direction() {
+            SplitDirection::Columns => size.width,
+            SplitDirection::Rows => size.height,
+        }
+    }
+
+    /// Содержимое элементов по обе стороны разделителя `divider` идёт за мышью на `delta` точек.
+    fn shift(&self, divider: usize, delta: f64) {
+        let panes = self.arrangedSubviews();
+        let pane = |index: usize| {
+            (index < panes.count())
+                .then(|| panes.objectAtIndex(index))
+                .and_then(|view| view.downcast::<PaneView>().ok())
+        };
+        without_actions(|| {
+            if let Some(before) = pane(divider) {
+                before.set_shift(before.ivars().lead.get(), delta);
+            }
+            if let Some(after) = pane(divider + 1) {
+                after.set_shift(delta, after.ivars().trail.get());
+            }
+        });
     }
 
     fn direction(&self) -> SplitDirection {
@@ -389,7 +440,6 @@ impl ShellioSplitView {
 
 struct ControllerIvars {
     _live: Live,
-    owner: OnceCell<Callback<SplitModel>>,
 }
 
 define_class!(
@@ -403,54 +453,25 @@ define_class!(
 
     impl ShellioSplitController {
         // SAFETY: селектор, аргументы и результат — как у метода делегата сплита, который
-        // реализует NSSplitViewController. Полоса захвата — промежуток перед следующим элементом.
+        // реализует NSSplitViewController. Пустой прямоугольник выключает собственное
+        // перетаскивание разделителя: его ведёт полоса захвата.
         #[unsafe(method(splitView:effectiveRect:forDrawnRect:ofDividerAtIndex:))]
         fn effective_rect(
             &self,
-            split_view: &NSSplitView,
-            proposed: NSRect,
-            drawn: NSRect,
-            index: NSInteger,
+            _split_view: &NSSplitView,
+            _proposed: NSRect,
+            _drawn: NSRect,
+            _index: NSInteger,
         ) -> NSRect {
-            let grip = self.ivars().owner.get().and_then(|owner| {
-                owner.call(|model| {
-                    let grip = usize::try_from(index)
-                        .ok()
-                        .and_then(|index| model.grips.borrow().get(index).copied())
-                        .unwrap_or(0.0);
-                    (grip, model.direction)
-                })
-            });
-            match grip {
-                Some((grip, _)) if grip <= 0.0 => NSRect::ZERO,
-                Some((grip, SplitDirection::Columns)) => NSRect::new(
-                    NSPoint::new(drawn.origin.x - grip, drawn.origin.y),
-                    NSSize::new(grip + drawn.size.width, drawn.size.height),
-                ),
-                Some((grip, SplitDirection::Rows)) => NSRect::new(
-                    NSPoint::new(drawn.origin.x, drawn.origin.y - grip),
-                    NSSize::new(drawn.size.width, grip + drawn.size.height),
-                ),
-                // SAFETY: тот же метод суперкласса с теми же аргументами.
-                None => unsafe {
-                    msg_send![
-                        super(self),
-                        splitView: split_view,
-                        effectiveRect: proposed,
-                        forDrawnRect: drawn,
-                        ofDividerAtIndex: index
-                    ]
-                },
-            }
+            NSRect::ZERO
         }
     }
 );
 
 impl ShellioSplitController {
-    fn new(mtm: MainThreadMarker, owner: Callback<SplitModel>) -> Retained<ShellioSplitController> {
+    fn new(mtm: MainThreadMarker) -> Retained<ShellioSplitController> {
         let this = ShellioSplitController::alloc(mtm).set_ivars(ControllerIvars {
             _live: SPLIT_CONTROLLER.live(),
-            owner: OnceCell::from(owner),
         });
         // SAFETY: `init` у NSViewController без аргументов, ivars уже заданы.
         unsafe { msg_send![super(this), init] }
@@ -484,6 +505,9 @@ impl Pane {
         let parent = unsafe { child.superview() };
         if !parent.is_some_and(|parent| std::ptr::eq(&*parent, pane)) {
             pane.addSubview(child);
+            if let Some(grip) = self.view.ivars().grip.borrow().as_ref() {
+                pane.addSubview_positioned_relativeTo(grip, NSWindowOrderingMode::Above, None);
+            }
         }
         child.setAutoresizingMask(NSAutoresizingMaskOptions::ViewNotSizable);
         {
@@ -495,8 +519,7 @@ impl Pane {
             });
             children.push((rc::Weak::new(child), insets));
         }
-        let size = pane.bounds().size;
-        child.setFrame(ns_rect(insets.frame_in(size.width, size.height)));
+        self.view.relayout();
     }
 
     /// Прячет или показывает контейнер без неявных анимаций.
@@ -510,6 +533,34 @@ impl Pane {
         &self.view
     }
 
+    /// Полоса захвата разделителя `divider` сплита `split` шириной `width` у конечного края
+    /// содержимого элемента, поверх детей; 0 — полосы нет.
+    fn set_grip(
+        &self,
+        split: &ShellioSplitView,
+        divider: usize,
+        direction: SplitDirection,
+        width: f64,
+    ) {
+        {
+            let mut slot = self.view.ivars().grip.borrow_mut();
+            if width <= 0.0 {
+                if let Some(grip) = slot.as_ref() {
+                    grip.setHidden(true);
+                }
+                return;
+            }
+            let grip = slot.get_or_insert_with(|| {
+                let grip = SplitGrip::new(self.view.mtm(), split, divider, direction);
+                self.view.addSubview(&grip);
+                grip
+            });
+            grip.ivars().width.set(width);
+            grip.setHidden(false);
+        }
+        self.view.place_grip();
+    }
+
     /// Контейнер для `ui.inspect`.
     pub fn inspect(&self, id: &str, class: &'static str, parent: Option<&str>) -> InspectNode {
         inspect::node(id, class, parent, &self.view, None, None)
@@ -519,6 +570,13 @@ impl Pane {
 struct PaneIvars {
     _live: Live,
     children: RefCell<Vec<(rc::Weak<NSView>, Insets)>>,
+    /// Ось сплита, в элементе которого стоит контейнер.
+    axis: Cell<SplitDirection>,
+    /// Сдвиг начального и конечного края детей вдоль оси, пока тянется разделитель.
+    lead: Cell<f64>,
+    trail: Cell<f64>,
+    /// Полоса захвата разделителя после этого элемента.
+    grip: RefCell<Option<Retained<SplitGrip>>>,
 }
 
 define_class!(
@@ -560,6 +618,10 @@ impl PaneView {
         let this = PaneView::alloc(mtm).set_ivars(PaneIvars {
             _live: PANE_VIEW.live(),
             children: RefCell::new(Vec::new()),
+            axis: Cell::new(SplitDirection::Columns),
+            lead: Cell::new(0.0),
+            trail: Cell::new(0.0),
+            grip: RefCell::new(None),
         });
         // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
         let view: Retained<PaneView> =
@@ -572,9 +634,22 @@ impl PaneView {
         view
     }
 
-    /// Дети встают по своим отступам; дети, переставленные в другой вид, забываются.
+    /// Сдвиг краёв детей вдоль оси.
+    fn set_shift(&self, lead: f64, trail: f64) {
+        let parts = self.ivars();
+        if parts.lead.replace(lead) != lead || parts.trail.replace(trail) != trail {
+            self.relayout();
+        }
+    }
+
+    /// Дети встают по своим отступам со сдвигом перетаскивания; дети, переставленные в другой вид,
+    /// забываются.
     fn relayout(&self) {
         let size = self.bounds().size;
+        let (axis, lead, trail) = {
+            let parts = self.ivars();
+            (parts.axis.get(), parts.lead.get(), parts.trail.get())
+        };
         let pane: &NSView = self;
         let placed: Vec<(Retained<NSView>, Insets)> = {
             let mut children = self.ivars().children.borrow_mut();
@@ -591,11 +666,180 @@ impl PaneView {
                 .collect()
         };
         for (child, insets) in placed {
+            let insets = insets.shifted(axis, lead, trail);
             let frame = ns_rect(insets.frame_in(size.width, size.height));
             if child.frame() != frame {
                 child.setFrame(frame);
             }
         }
+        self.place_grip();
+    }
+
+    /// Полоса захвата у конечного края вдоль оси сплита.
+    fn place_grip(&self) {
+        let size = self.bounds().size;
+        let grip = self.ivars().grip.borrow();
+        let Some(grip) = grip.as_ref() else {
+            return;
+        };
+        let parts = grip.ivars();
+        let frame = grip_frame(parts.direction, parts.width.get(), size.width, size.height);
+        let frame = ns_rect(frame);
+        if grip.frame() != frame {
+            grip.setFrame(frame);
+        }
+    }
+}
+
+/// Кадр полосы захвата шириной `width` у конечного края содержимого `width_of`×`height_of`.
+fn grip_frame(direction: SplitDirection, width: f64, width_of: f64, height_of: f64) -> Frame {
+    let width = width.min(match direction {
+        SplitDirection::Columns => width_of,
+        SplitDirection::Rows => height_of,
+    });
+    match direction {
+        SplitDirection::Columns => Frame::new(width_of - width, 0.0, width, height_of),
+        SplitDirection::Rows => Frame::new(0.0, height_of - width, width_of, width),
+    }
+}
+
+/// Перетаскивание полосы: точка нажатия вдоль оси, начало следующего элемента и границы сдвига —
+/// до начала предыдущего элемента и до конца следующего.
+#[derive(Clone, Copy)]
+struct GripDrag {
+    at: f64,
+    start: f64,
+    min: f64,
+    max: f64,
+}
+
+impl GripDrag {
+    fn delta(self, along: f64) -> f64 {
+        (along - self.at).clamp(self.min, self.max)
+    }
+}
+
+struct GripIvars {
+    _live: Live,
+    split: rc::Weak<ShellioSplitView>,
+    divider: usize,
+    direction: SplitDirection,
+    width: Cell<f64>,
+    drag: Cell<Option<GripDrag>>,
+}
+
+define_class!(
+    // SAFETY: NSView не требует от подкласса ничего сверх переопределённых ниже методов, `Drop` у
+    // класса нет.
+    #[unsafe(super(NSView, NSResponder, NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "ShellioSplitGrip"]
+    #[ivars = GripIvars]
+    struct SplitGrip;
+
+    impl SplitGrip {
+        // SAFETY: селектор и результат — как у `isFlipped` NSView.
+        #[unsafe(method(isFlipped))]
+        fn is_flipped(&self) -> bool {
+            true
+        }
+
+        // SAFETY: селектор, аргумент и результат — как у `acceptsFirstMouse:` NSView.
+        #[unsafe(method(acceptsFirstMouse:))]
+        fn accepts_first_mouse(&self, _event: Option<&NSEvent>) -> bool {
+            true
+        }
+
+        // SAFETY: селектор и результат — как у `mouseDownCanMoveWindow` NSView.
+        #[unsafe(method(mouseDownCanMoveWindow))]
+        fn mouse_down_can_move_window(&self) -> bool {
+            false
+        }
+
+        // SAFETY: селектор — как у `resetCursorRects` NSView.
+        #[unsafe(method(resetCursorRects))]
+        fn reset_cursor_rects(&self) {
+            let cursor = match self.ivars().direction {
+                SplitDirection::Columns => NSCursor::columnResizeCursor(),
+                SplitDirection::Rows => NSCursor::rowResizeCursor(),
+            };
+            self.addCursorRect_cursor(self.bounds(), &cursor);
+        }
+
+        // SAFETY: селектор и аргумент — как у `mouseDown:` NSResponder.
+        #[unsafe(method(mouseDown:))]
+        fn mouse_down(&self, event: &NSEvent) {
+            let parts = self.ivars();
+            let Some(split) = parts.split.load() else {
+                return;
+            };
+            let starts = split.starts();
+            let (Some(&previous), Some(&start)) =
+                (starts.get(parts.divider), starts.get(parts.divider + 1))
+            else {
+                return;
+            };
+            let end = starts
+                .get(parts.divider + 2)
+                .copied()
+                .unwrap_or_else(|| split.length());
+            parts.drag.set(Some(GripDrag {
+                at: split.along(event),
+                start,
+                min: previous - start,
+                max: end - start,
+            }));
+            split.ivars().owner.call(|model| model.dragging.set(true));
+        }
+
+        // SAFETY: селектор и аргумент — как у `mouseDragged:` NSResponder.
+        #[unsafe(method(mouseDragged:))]
+        fn mouse_dragged(&self, event: &NSEvent) {
+            let parts = self.ivars();
+            if let (Some(split), Some(drag)) = (parts.split.load(), parts.drag.get()) {
+                split.shift(parts.divider, drag.delta(split.along(event)));
+            }
+        }
+
+        // SAFETY: селектор и аргумент — как у `mouseUp:` NSResponder.
+        #[unsafe(method(mouseUp:))]
+        fn mouse_up(&self, event: &NSEvent) {
+            let parts = self.ivars();
+            let (Some(split), Some(drag)) = (parts.split.load(), parts.drag.take()) else {
+                return;
+            };
+            let delta = drag.delta(split.along(event));
+            let end = drag_end(parts.divider, drag.start, delta);
+            if end.is_none() {
+                split.shift(parts.divider, 0.0);
+            }
+            split.ivars().owner.call(|model| {
+                model.dragging.set(false);
+                if let Some(end) = end {
+                    (model.on_drag)(end);
+                }
+            });
+        }
+    }
+);
+
+impl SplitGrip {
+    fn new(
+        mtm: MainThreadMarker,
+        split: &ShellioSplitView,
+        divider: usize,
+        direction: SplitDirection,
+    ) -> Retained<SplitGrip> {
+        let this = SplitGrip::alloc(mtm).set_ivars(GripIvars {
+            _live: GRIP_VIEW.live(),
+            split: rc::Weak::new(split),
+            divider,
+            direction,
+            width: Cell::new(0.0),
+            drag: Cell::new(None),
+        });
+        // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
+        unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] }
     }
 }
 
@@ -623,23 +867,77 @@ mod tests {
     }
 
     #[test]
-    fn moved_divider_names_the_first_shifted_start() {
+    fn drag_end_names_the_divider_and_its_new_position() {
         assert_eq!(
-            moved_divider(&[0.0, 236.0, 614.0], &[0.0, 236.0, 614.0]),
-            None
-        );
-        assert_eq!(
-            moved_divider(&[0.0, 236.0, 614.0], &[0.0, 236.0, 650.0]),
+            drag_end(1, 614.0, 36.0),
             Some(SplitDrag {
                 divider: 1,
                 position: 650.0
             })
         );
         assert_eq!(
-            moved_divider(&[0.0, 300.0], &[0.0, 300.2]),
-            None,
-            "дробный сдвиг меньше четверти точки — не перетаскивание"
+            drag_end(0, 472.0, -80.0),
+            Some(SplitDrag {
+                divider: 0,
+                position: 392.0
+            })
         );
-        assert_eq!(moved_divider(&[], &[]), None);
+        assert_eq!(
+            drag_end(0, 300.0, 0.2),
+            None,
+            "сдвиг меньше половины точки — не перетаскивание"
+        );
+    }
+
+    #[test]
+    fn shift_moves_only_the_edges_along_the_axis() {
+        let insets = Insets {
+            left: 6.0,
+            top: 6.0,
+            right: 6.0,
+            bottom: 8.0,
+        };
+        assert_eq!(
+            insets.shifted(SplitDirection::Columns, 0.0, -40.0),
+            Insets {
+                right: 46.0,
+                ..insets
+            },
+            "конечный край элемента до разделителя идёт влево"
+        );
+        assert_eq!(
+            insets.shifted(SplitDirection::Columns, -40.0, 0.0),
+            Insets {
+                left: -34.0,
+                ..insets
+            },
+            "начальный край элемента после разделителя идёт влево"
+        );
+        assert_eq!(
+            insets.shifted(SplitDirection::Rows, 12.0, 30.0),
+            Insets {
+                top: 18.0,
+                bottom: -22.0,
+                ..insets
+            }
+        );
+        assert_eq!(insets.shifted(SplitDirection::Rows, 0.0, 0.0), insets);
+    }
+
+    #[test]
+    fn grip_lies_at_the_trailing_edge_along_the_axis() {
+        assert_eq!(
+            grip_frame(SplitDirection::Columns, 6.0, 472.0, 600.0),
+            Frame::new(466.0, 0.0, 6.0, 600.0)
+        );
+        assert_eq!(
+            grip_frame(SplitDirection::Rows, 6.0, 900.0, 300.0),
+            Frame::new(0.0, 294.0, 900.0, 6.0)
+        );
+        assert_eq!(
+            grip_frame(SplitDirection::Columns, 6.0, 4.0, 10.0),
+            Frame::new(0.0, 0.0, 4.0, 10.0),
+            "не шире содержимого"
+        );
     }
 }

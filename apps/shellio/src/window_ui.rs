@@ -23,12 +23,13 @@ use std::mem::ManuallyDrop;
 use shellio::gallery::{self, Changed, Effect, Generation, Intent};
 use shellio::launch::WindowMode;
 use shellio::owner;
-use shellio::scene::{self, SplitId, ViewportGate};
+use shellio::scene::{self, SplitId, ViewportGate, ZoneToggle};
 use shellio_appkit::{
     App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, LoopMonitor, MainMenu,
     MainThread, MainWindow, MenuAction, MenuEntry, MenuState, NodeState, Regime, SplitAxis,
-    SplitDrag, Startup, TabStatus, TabStripFacts, TextFieldState, ThemeSelection, Transition,
-    TransitionPath, TreeListFacts, VirtualListFacts, ZoneSide, instance_counts, late_callbacks,
+    SplitDrag, Startup, StatusLine, TabStatus, TabStripFacts, TextFieldState, ThemeSelection,
+    Transition, TransitionPath, TreeListFacts, VirtualListFacts, ZoneButton, ZoneSide,
+    instance_counts, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, ChromeView, ColorSpaceView,
@@ -39,13 +40,13 @@ use shellio_control::{
     UiRefusal, UiReply, UiRequest, VirtualListView, WindowView,
 };
 use shellio_core::{
-    AppearanceChoice, Command, CoreHandle, Delivery, Mirror, MirrorStep, UiCommand,
+    AppearanceChoice, Command, CoreError, CoreHandle, Delivery, Mirror, MirrorStep, UiCommand,
 };
 use shellio_theme::AppearanceChoice as ThemeChoice;
 use shellio_theme::{Appearance, Contrast, Motion, Overrides, Source};
 
 use crate::gallery_ui::GalleryUi;
-use crate::layout_ui::LayoutUi;
+use crate::layout_ui::{LayoutUi, PanelAction};
 
 thread_local! {
     /// Окно владельца; создаётся один раз после выбора роли и живёт до выхода процесса.
@@ -70,21 +71,50 @@ impl CoreLink {
     /// не будет, а вид мог остаться там, куда его увёл пользователь.
     fn send(&self, command: Command) {
         let name = command.name();
-        let refused = move |reason: String| {
+        let sent = command.clone();
+        let refused = move |text: String, reason: String| {
             owner::say_err(format_args!("shellio: {name} отклонена: {reason}"));
-            defer(refresh_layout);
+            defer(move |app| {
+                with_window(|owner| owner.show_status(Some(&text)));
+                refresh_layout(app);
+            });
+        };
+        let explain = move |error: &CoreError| {
+            let text = MIRROR.with(|mirror| {
+                let mirror = mirror.borrow();
+                let state = mirror.as_ref().map(Mirror::state);
+                scene::refusal_text(&sent, error, |panel| {
+                    state
+                        .and_then(|state| state.panels.get(&panel))
+                        .map(|panel| panel.title.to_string())
+                })
+            });
+            (text, error.to_string())
         };
         match self.core.try_request(command) {
             Ok(receipt) => {
                 self.runtime.spawn(async move {
                     match receipt.await {
                         Ok(Ok(_)) => {}
-                        Ok(Err(error)) => refused(error.to_string()),
-                        Err(_) => refused("ядро не ответило".to_owned()),
+                        Ok(Err(error)) => {
+                            let reason = error.to_string();
+                            defer(move |app| {
+                                let (text, _) = explain(&error);
+                                owner::say_err(format_args!("shellio: {name} отклонена: {reason}"));
+                                with_window(|owner| owner.show_status(Some(&text)));
+                                refresh_layout(app);
+                            });
+                        }
+                        Err(_) => {
+                            refused("Ядро не ответило".to_owned(), "ядро не ответило".to_owned())
+                        }
                     }
                 });
             }
-            Err(error) => refused(error.to_string()),
+            Err(error) => {
+                let (text, reason) = explain(&error);
+                refused(text, reason);
+            }
         }
     }
 }
@@ -112,6 +142,8 @@ struct OwnerWindow {
     gallery: Option<GalleryUi>,
     /// Раскладка обычного режима; в галерее её нет.
     layout: Option<LayoutUi>,
+    /// Строка статуса обычного режима.
+    status: Option<StatusLine>,
     /// Размер окна для ядра.
     viewport: ViewportGate,
     /// Смены компонентов, ещё не записанные в журнал: запись получает поколение публикации.
@@ -167,7 +199,17 @@ impl OwnerWindow {
         if let Some(layout) = self.layout.as_mut() {
             layout.set_theme(&selection.theme(), selection.motion);
         }
+        if let Some(status) = &self.status {
+            status.set_theme(&selection.theme());
+        }
         true
+    }
+
+    /// Сообщение строки статуса; `None` убирает его.
+    fn show_status(&self, message: Option<&str>) {
+        if let Some(status) = &self.status {
+            status.set_message(message);
+        }
     }
 
     /// Размер содержимого окна в целых точках.
@@ -176,15 +218,36 @@ impl OwnerWindow {
         scene::viewport_of(width, height)
     }
 
-    /// Раскладка по зеркалу и текущему размеру окна.
+    /// Раскладка по зеркалу и текущему размеру окна, строка статуса под ней, кнопки зон заголовка
+    /// и пункты меню «Вид» по сцене.
     fn render_layout(&mut self, app: &App) {
         let viewport = self.content_viewport();
-        if let Some(layout) = self.layout.as_mut() {
-            MIRROR.with(|mirror| {
-                let mirror = mirror.borrow();
-                layout.render(app, mirror.as_ref().map(Mirror::state), viewport);
-            });
+        let Some(layout) = self.layout.as_mut() else {
+            return;
+        };
+        MIRROR.with(|mirror| {
+            let mirror = mirror.borrow();
+            layout.render(app, mirror.as_ref().map(Mirror::state), viewport);
+        });
+        let Some(scene) = layout.scene() else {
+            return;
+        };
+        if let Some(status) = &self.status {
+            let top = scene.area.y + scene.area.height;
+            let height = f64::from(viewport.height) - top;
+            self.window.place(
+                status,
+                Frame::new(0.0, top, f64::from(viewport.width), height.max(0.0)),
+            );
         }
+        let zones = scene.zone_buttons().map(|buttons| {
+            (
+                buttons.side == shellio_layout::Hideable::Plate,
+                [buttons.navigator, buttons.bottom, buttons.side_shown],
+            )
+        });
+        self.window.chrome().set_zones(zones);
+        self.menu.set_zones(zones);
     }
 
     /// Переопределения окна: выбор оформления и оси галереи.
@@ -412,6 +475,10 @@ impl OwnerWindow {
         let (width, height) = inspection.content;
         let gallery_nodes = self.gallery.as_ref().map(GalleryUi::inspect);
         let layout_nodes = self.layout.as_ref().map(LayoutUi::inspect);
+        let status_nodes = self
+            .status
+            .as_ref()
+            .map(|status| status.inspect("status", None));
         InspectView {
             window_number: self.window.number(),
             content: Size { width, height },
@@ -420,6 +487,7 @@ impl OwnerWindow {
                 .nodes
                 .into_iter()
                 .chain(gallery_nodes.into_iter().flatten())
+                .chain(status_nodes.into_iter().flatten())
                 .map(component)
                 .chain(layout_nodes.into_iter().flatten())
                 .collect(),
@@ -786,7 +854,14 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
     }
     let window = new_window(app);
     let menu = MainMenu::install(app, |action| {
-        defer(move |app| handle(app, command_of(action)));
+        defer(move |app| match command_of(action) {
+            Some(command) => handle(app, command),
+            None => {
+                if let MenuAction::Zone(button) = action {
+                    on_zone(app, button);
+                }
+            }
+        });
     });
     let monitor = match LoopMonitor::install(app) {
         Ok(monitor) => Some(monitor),
@@ -805,9 +880,16 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
         WindowMode::Normal => None,
     };
     let layout = match mode {
-        WindowMode::Normal => Some(LayoutUi::new(app, &window, |split, drag| {
-            defer(move |app| on_drag(app, split, drag));
-        })),
+        WindowMode::Normal => Some(LayoutUi::new(
+            app,
+            &window,
+            |split, drag| defer(move |app| on_drag(app, split, drag)),
+            |action| defer(move |app| on_panel(app, action)),
+        )),
+        WindowMode::Gallery => None,
+    };
+    let status = match mode {
+        WindowMode::Normal => Some(StatusLine::new(app, &window.selection().theme())),
         WindowMode::Gallery => None,
     };
     let projection = MIRROR.with(|mirror| mirror.borrow().as_ref().map(Projection::of));
@@ -826,6 +908,7 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             window,
             gallery,
             layout,
+            status,
             viewport: ViewportGate::default(),
             pending: Vec::new(),
             animations: VecDeque::new(),
@@ -932,10 +1015,59 @@ fn refresh_layout(app: &App) {
     with_window(|owner| owner.render_layout(app));
 }
 
+/// Команда раскладки из интерфейса: сообщение строки статуса убирается, отказ ядра показывается в
+/// ней. Без ядра раскладка возвращается к модели.
+fn send_ui(app: &App, command: Command) {
+    with_window(|owner| owner.show_status(None));
+    let sent = CORE.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .map(|link| link.send(command))
+            .is_some()
+    });
+    if !sent {
+        refresh_layout(app);
+    }
+}
+
+/// Щелчок по вкладке или в тело панели: `panel.select` или `panel.focus`, если он что-то меняет.
+fn on_panel(app: &App, action: PanelAction) {
+    let command = with_window(|owner| {
+        owner.show_status(None);
+        let scene = owner.layout.as_ref().and_then(LayoutUi::scene)?;
+        match action {
+            PanelAction::Select(panel) => scene::select_command(scene, panel),
+            PanelAction::Focus(panel) => scene::focus_command(scene, panel),
+        }
+    })
+    .flatten();
+    if let Some(command) = command {
+        send_ui(app, command);
+    }
+}
+
+/// Кнопка зон заголовка или пункт меню «Вид»: одна команда `layout.visibility`.
+fn on_zone(app: &App, button: ZoneButton) {
+    let toggle = match button {
+        ZoneButton::Navigator => ZoneToggle::Navigator,
+        ZoneButton::Bottom => ZoneToggle::Bottom,
+        ZoneButton::Side => ZoneToggle::Side,
+    };
+    let command = with_window(|owner| {
+        let scene = owner.layout.as_ref().and_then(LayoutUi::scene)?;
+        scene::toggle_command(scene, toggle)
+    })
+    .flatten();
+    if let Some(command) = command {
+        send_ui(app, command);
+    }
+}
+
 /// Конец перетаскивания разделителя: одна команда `layout.resize`. Разделитель, который размер не
 /// меняет, возвращается на место модели.
 fn on_drag(app: &App, split: SplitId, drag: SplitDrag) {
     let command = with_window(|owner| {
+        owner.show_status(None);
         let command = owner
             .layout
             .as_ref()
@@ -948,15 +1080,7 @@ fn on_drag(app: &App, split: SplitId, drag: SplitDrag) {
     })
     .flatten();
     if let Some(command) = command {
-        let sent = CORE.with(|slot| {
-            slot.borrow()
-                .as_ref()
-                .map(|link| link.send(command))
-                .is_some()
-        });
-        if !sent {
-            refresh_layout(app);
-        }
+        send_ui(app, command);
     }
 }
 
@@ -1023,14 +1147,17 @@ fn on_intent(app: &App, intent: ChromeIntent) {
         }
         // Меню воркспейса появится вместе с источником в P1.7.
         ChromeIntent::WorkspaceMenu => {}
+        ChromeIntent::Zone(button) => on_zone(app, button),
     }
 }
 
-fn command_of(action: MenuAction) -> UiCommand {
+/// Действие меню в команде `ui`; `None` — пункт зон: он идёт командой ядра.
+fn command_of(action: MenuAction) -> Option<UiCommand> {
     match action {
-        MenuAction::Quit => UiCommand::AppQuit,
-        MenuAction::CloseWindow => UiCommand::WindowClose,
-        MenuAction::Appearance(choice) => UiCommand::AppearanceSet(core_choice(choice)),
+        MenuAction::Quit => Some(UiCommand::AppQuit),
+        MenuAction::CloseWindow => Some(UiCommand::WindowClose),
+        MenuAction::Appearance(choice) => Some(UiCommand::AppearanceSet(core_choice(choice))),
+        MenuAction::Zone(_) => None,
     }
 }
 
@@ -1111,13 +1238,19 @@ mod tests {
 
     #[test]
     fn menu_actions_map_to_ui_commands() {
-        assert_eq!(command_of(MenuAction::Quit), UiCommand::AppQuit);
-        assert_eq!(command_of(MenuAction::CloseWindow), UiCommand::WindowClose);
+        assert_eq!(command_of(MenuAction::Quit), Some(UiCommand::AppQuit));
+        assert_eq!(
+            command_of(MenuAction::CloseWindow),
+            Some(UiCommand::WindowClose)
+        );
+        for button in ZoneButton::ALL {
+            assert_eq!(command_of(MenuAction::Zone(button)), None);
+        }
         for choice in AppearanceChoice::ALL {
             assert_eq!(core_choice(theme_choice(choice)), choice);
             assert_eq!(
                 command_of(MenuAction::Appearance(theme_choice(choice))),
-                UiCommand::AppearanceSet(choice)
+                Some(UiCommand::AppearanceSet(choice))
             );
         }
     }

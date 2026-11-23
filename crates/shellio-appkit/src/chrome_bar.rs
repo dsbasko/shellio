@@ -238,8 +238,12 @@ pub struct ChromeState {
     pub choice: AppearanceChoice,
     /// Меню воркспейса появится с источником в P1.7: до него кнопка не получает фокус.
     pub workspace_menu: bool,
-    /// Управление зонами появится в P1.4: до него кнопки зон недоступны.
+    /// Кнопки зон доступны: в обычном окне с открытой рабочей областью.
     pub zones: bool,
+    /// Третья кнопка смотрит на плитку левой зоны («Левая зона»), а не на правую зону.
+    pub side_plate: bool,
+    /// Видны ли цели кнопок: колонка навигатора, нижняя зона, третья цель.
+    pub shown: [bool; ZONE_COUNT],
 }
 
 impl Default for ChromeState {
@@ -249,6 +253,8 @@ impl Default for ChromeState {
             choice: AppearanceChoice::System,
             workspace_menu: false,
             zones: false,
+            side_plate: false,
+            shown: [false; ZONE_COUNT],
         }
     }
 }
@@ -266,6 +272,33 @@ pub enum ChromeIntent {
     WorkspaceMenu,
     /// Кнопка оформления: следующий выбор по кругу.
     AppearanceCycle,
+    /// Кнопка группы зон.
+    Zone(ZoneButton),
+}
+
+/// Кнопка группы зон заголовка и пункт меню «Вид» (ADR-0024).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ZoneButton {
+    /// Колонка навигатора, `⌘0`.
+    Navigator,
+    Bottom,
+    /// Правая зона или плитка левой, `⌥⌘0`.
+    Side,
+}
+
+impl ZoneButton {
+    pub const ALL: [ZoneButton; ZONE_COUNT] =
+        [ZoneButton::Navigator, ZoneButton::Bottom, ZoneButton::Side];
+}
+
+/// Значок и подпись кнопки зон при цели третьей кнопки `side_plate`.
+pub fn zone_button(button: ZoneButton, side_plate: bool) -> (&'static str, &'static str) {
+    match (button, side_plate) {
+        (ZoneButton::Navigator, _) => ("sidebar.left", "Навигация"),
+        (ZoneButton::Bottom, _) => ("rectangle.bottomthird.inset.filled", "Нижняя зона"),
+        (ZoneButton::Side, false) => ("sidebar.right", "Правая зона"),
+        (ZoneButton::Side, true) => ("rectangle.leftthird.inset.filled", "Левая зона"),
+    }
 }
 
 /// Rust-часть заголовка.
@@ -299,6 +332,7 @@ impl ChromeBar {
         });
         let parts = view.view().ivars();
         let (workspace, appearance) = (parts.workspace.clone(), parts.appearance.clone());
+        let zone_buttons = parts.zone_buttons.clone();
         let workspace: &NSControl = &workspace;
         view.bind_action(workspace, "ChromeBar.workspace", |model| {
             (model.on_intent)(ChromeIntent::WorkspaceMenu)
@@ -307,6 +341,12 @@ impl ChromeBar {
         view.bind_action(appearance, "ChromeBar.appearance", |model| {
             (model.on_intent)(ChromeIntent::AppearanceCycle)
         });
+        for (button, kind) in zone_buttons.iter().zip(ZoneButton::ALL) {
+            let control: &NSControl = button;
+            view.bind_action(control, "ChromeBar.zone", move |model| {
+                (model.on_intent)(ChromeIntent::Zone(kind))
+            });
+        }
         let bar = ChromeBar { view };
         bar.apply_state();
         bar.apply_theme();
@@ -328,6 +368,23 @@ impl ChromeBar {
 
     pub fn set_choice(&self, choice: AppearanceChoice) {
         self.update(|state| state.choice = choice);
+    }
+
+    /// Кнопки зон: `None` — недоступны (галерея или рабочая область не открыта), подписи прежние;
+    /// иначе цель третьей кнопки и видимость целей.
+    pub fn set_zones(&self, zones: Option<(bool, [bool; ZONE_COUNT])>) {
+        self.update(|state| match zones {
+            Some((side_plate, shown)) => {
+                state.zones = true;
+                state.side_plate = side_plate;
+                state.shown = shown;
+            }
+            None => {
+                state.zones = false;
+                state.side_plate = false;
+                state.shown = [false; ZONE_COUNT];
+            }
+        });
     }
 
     pub fn set_theme(&self, theme: &AppTheme) {
@@ -428,8 +485,18 @@ impl ChromeBar {
         parts.workspace.setAccessibilityLabel(Some(&label));
         parts.workspace.setToolTip(Some(&label));
         parts.workspace.ivars().focusable.set(state.workspace_menu);
-        for button in &parts.zone_buttons {
+        for (button, kind) in parts.zone_buttons.iter().zip(ZoneButton::ALL) {
             button.setEnabled(state.zones);
+            let (symbol, label) = zone_button(kind, state.side_plate);
+            let label = NSString::from_str(label);
+            if button
+                .accessibilityLabel()
+                .is_none_or(|current| *current != *label)
+            {
+                button.setImage(symbol_image(symbol, &label).as_deref());
+                button.setAccessibilityLabel(Some(&label));
+                button.setToolTip(Some(&label));
+            }
         }
         let (symbol, text) = appearance_button(state.choice);
         let text = NSString::from_str(text);
@@ -611,23 +678,20 @@ impl ChromeBarView {
 
         let zones = NSView::initWithFrame(NSView::alloc(mtm), NSRect::ZERO);
         layered(&zones);
-        let zone_buttons: Vec<_> = [
-            ("sidebar.left", "Навигация"),
-            ("rectangle.bottomthird.inset.filled", "Нижняя зона"),
-            ("sidebar.right", "Правая зона"),
-        ]
-        .into_iter()
-        .map(|(symbol, label)| {
-            let button = ChromeButton::new(mtm, true);
-            let label = NSString::from_str(label);
-            button.setImagePosition(NSCellImagePosition::ImageOnly);
-            button.setImage(symbol_image(symbol, &label).as_deref());
-            button.setAccessibilityLabel(Some(&label));
-            button.setToolTip(Some(&label));
-            zones.addSubview(&button);
-            button
-        })
-        .collect();
+        let zone_buttons: Vec<_> = ZoneButton::ALL
+            .into_iter()
+            .map(|button| zone_button(button, false))
+            .map(|(symbol, label)| {
+                let button = ChromeButton::new(mtm, true);
+                let label = NSString::from_str(label);
+                button.setImagePosition(NSCellImagePosition::ImageOnly);
+                button.setImage(symbol_image(symbol, &label).as_deref());
+                button.setAccessibilityLabel(Some(&label));
+                button.setToolTip(Some(&label));
+                zones.addSubview(&button);
+                button
+            })
+            .collect();
         let separators: Vec<_> = (1..ZONE_COUNT)
             .map(|_| {
                 let separator = CALayer::new();
@@ -1130,5 +1194,19 @@ mod tests {
         };
         assert_eq!(named.workspace_text(), "Работа");
         assert_eq!(workspace_label("Очень длинное"), "Воркспейс: Очень длинное");
+    }
+
+    #[test]
+    fn zone_buttons_keep_their_labels_until_the_third_targets_the_plate() {
+        let labels = |side_plate| ZoneButton::ALL.map(|button| zone_button(button, side_plate).1);
+        assert_eq!(labels(false), ["Навигация", "Нижняя зона", "Правая зона"]);
+        assert_eq!(labels(true), ["Навигация", "Нижняя зона", "Левая зона"]);
+        assert_ne!(
+            zone_button(ZoneButton::Side, true).0,
+            zone_button(ZoneButton::Side, false).0,
+            "значок третьей кнопки меняется вместе с подписью"
+        );
+        let state = ChromeState::default();
+        assert!(!state.side_plate && state.shown == [false; ZONE_COUNT]);
     }
 }
