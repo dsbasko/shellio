@@ -8,6 +8,7 @@ members = [
     "crates/shellio-core",
     "crates/shellio-e2e",
     "crates/shellio-ghostty",
+    "crates/shellio-layout",
     "crates/shellio-sys-ghostty",
     "crates/shellio-theme",
     "crates/shellio-store",

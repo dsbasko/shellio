@@ -1017,6 +1017,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "shellio-layout"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "shellio-store"
 version = "0.1.0"
 dependencies = [
