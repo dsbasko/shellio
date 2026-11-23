@@ -528,6 +528,7 @@ impl Case {
             inspect: &inspect,
             image: &image,
             generation: self.expected_generation,
+            previous: None,
         })
         .map_err(|e| e.to_string())
     }
@@ -1059,6 +1060,7 @@ fn underline_report(
         tab: SIDE_TAB,
         layer: Layer::ToneNavigation,
         generation: expected_generation,
+        previous: None,
     })
     .map_err(|e| e.to_string())
 }
@@ -1205,5 +1207,185 @@ fn binary_measures_the_underline_with_exit_codes() -> Result<()> {
     let mut compare_with_tab = args(&good);
     compare_with_tab[0] = "compare".to_owned();
     assert_eq!(run(compare_with_tab)?.0, 2);
+    Ok(())
+}
+
+// --- режим без маркера (план P1.4, «Наблюдение кадра в обычном окне») ---
+
+impl Case {
+    /// Сравнение снимка `png` после предыдущего снимка `before` с поколением окна
+    /// `before_generation`, через `elapsed_ms` от первого снимка серии.
+    fn run_after(
+        &self,
+        before: &[u8],
+        before_generation: u64,
+        elapsed_ms: u64,
+        png: &[u8],
+    ) -> std::result::Result<Report, String> {
+        let palette = Palette::embedded().map_err(|e| e.to_string())?;
+        let window = self.window().map_err(|e| e.to_string())?;
+        let previous_window =
+            expect::parse_window(&window_json(self.cell, self.scale, before_generation))
+                .map_err(|e| e.to_string())?;
+        let inspect = self.inspect().map_err(|e| e.to_string())?;
+        let image = snapshot::decode(png).map_err(|e| e.to_string())?;
+        let previous_image = snapshot::decode(before).map_err(|e| e.to_string())?;
+        compare(&Inputs {
+            palette: &palette,
+            expectations: &self.expectations,
+            window: &window,
+            inspect: &inspect,
+            image: &image,
+            generation: self.expected_generation,
+            previous: Some(shellio_e2e::Previous {
+                window: &previous_window,
+                image: &previous_image,
+                elapsed_ms,
+            }),
+        })
+        .map_err(|e| e.to_string())
+    }
+}
+
+/// Подложка без фокуса сдвинута на `shift` по зелёному каналу.
+fn shifted(cell: Cell, shift: u8, generation: u64) -> Result<Vec<u8>> {
+    let mut colors = colors(cell);
+    colors.plain = Rgb::new(colors.plain.r, colors.plain.g + shift, colors.plain.b);
+    encode(&Canvas::gallery(2.0, colors, generation), Tag::Srgb)
+}
+
+/// Два совпадающих снимка одного поколения окна принимаются без маркера: маркер другого
+/// поколения в снимке не мешает, участки судятся по ожиданиям.
+#[test]
+fn two_matching_snapshots_are_accepted_without_marker() -> Result<()> {
+    let png = encode(&Canvas::gallery(2.0, colors(LIGHT), 5), Tag::Srgb)?;
+    let report = Case::new(LIGHT, 9)?.run_after(&png, 9, 120, &png)?;
+    assert_eq!(report.verdict, Verdict::Pass, "{:?}", report.reason);
+    assert_eq!(report.retry, Some(false));
+    assert_eq!(report.regions.len(), 10);
+    assert_eq!(report.generation.as_ref().and_then(|g| g.png), None);
+
+    // Совпадение в пределах допуска — тоже устойчивость, а участок вне ожиданий — расхождение.
+    let before = shifted(LIGHT, 7, 9)?;
+    let now = shifted(LIGHT, 10, 9)?;
+    let report = Case::new(LIGHT, 9)?.run_after(&before, 9, 120, &now)?;
+    assert_eq!(report.verdict, Verdict::Mismatch, "{:?}", report.reason);
+    assert_eq!(report.retry, Some(false));
+    Ok(())
+}
+
+/// Расхождение участка между снимками или смена поколения окна — снимок ещё не принят, нужен
+/// следующий; участки по ожиданиям не судятся.
+#[test]
+fn differing_snapshots_need_another_shot() -> Result<()> {
+    let before = shifted(DARK, 4, 9)?;
+    let now = encode(&Canvas::gallery(2.0, colors(DARK), 9), Tag::Srgb)?;
+    let report = Case::new(DARK, 9)?.run_after(&before, 9, 400, &now)?;
+    assert_eq!(report.verdict, Verdict::Generation);
+    assert_eq!(report.retry, Some(true));
+    assert!(report.regions.is_empty());
+    let reason = report.reason.unwrap_or_default();
+    assert!(reason.contains("surface.plain.background"), "{reason}");
+    assert!(!reason.contains("chrome.background"), "{reason}");
+
+    let report = Case::new(DARK, 9)?.run_after(&now, 8, 400, &now)?;
+    assert_eq!(report.verdict, Verdict::Generation);
+    assert_eq!(report.retry, Some(true));
+    assert!(
+        report.reason.unwrap_or_default().contains("8 → 9"),
+        "смена поколения окна не названа"
+    );
+
+    let mut case = Case::new(DARK, 9)?;
+    case.inspect_generation = 8;
+    let report = case.run_after(&now, 9, 400, &now)?;
+    assert_eq!(report.verdict, Verdict::Generation);
+    assert_eq!(report.retry, Some(true));
+    Ok(())
+}
+
+/// После срока несовпадение окончательное: повтор не нужен, причина называет срок.
+#[test]
+fn unsettled_snapshots_after_the_deadline_are_final() -> Result<()> {
+    let before = shifted(DARK, 4, 9)?;
+    let now = encode(&Canvas::gallery(2.0, colors(DARK), 9), Tag::Srgb)?;
+    let case = Case::new(DARK, 9)?;
+    let report = case.run_after(&before, 9, shellio_e2e::SETTLE_MS - 1, &now)?;
+    assert_eq!(report.retry, Some(true));
+    let report = case.run_after(&before, 9, shellio_e2e::SETTLE_MS, &now)?;
+    assert_eq!(report.verdict, Verdict::Generation);
+    assert_eq!(report.retry, Some(false));
+    let reason = report.reason.unwrap_or_default();
+    assert!(reason.contains("не устоялись за 3000 мс"), "{reason}");
+    Ok(())
+}
+
+/// Предыдущий снимок другого размера — ошибка исполнения, а не неустойчивость.
+#[test]
+fn previous_snapshot_of_another_size_is_an_error() -> Result<()> {
+    let before = encode(&Canvas::gallery(1.0, colors(DARK), 9), Tag::Srgb)?;
+    let now = encode(&Canvas::gallery(2.0, colors(DARK), 9), Tag::Srgb)?;
+    assert!(Case::new(DARK, 9)?.run_after(&before, 9, 0, &now).is_err());
+    Ok(())
+}
+
+#[test]
+fn binary_without_marker_reports_retry_and_deadline() -> Result<()> {
+    let dir = tempfile::tempdir()?;
+    let window = write(
+        dir.path(),
+        "window.json",
+        window_json(DARK, 2.0, 9).as_bytes(),
+    )?;
+    let inspect = write(dir.path(), "inspect.json", inspect_json(9).as_bytes())?;
+    let expect = format!("{EXPECT_DIR}/dark.json");
+    let before = write(dir.path(), "before.png", &shifted(DARK, 4, 9)?)?;
+    let now = write(
+        dir.path(),
+        "now.png",
+        &encode(&Canvas::gallery(2.0, colors(DARK), 9), Tag::Srgb)?,
+    )?;
+    let run = |previous: &str, elapsed: &str| {
+        oracle(&[
+            "compare",
+            "--expect",
+            &expect,
+            "--inspect",
+            &inspect,
+            "--window",
+            &window,
+            "--png",
+            &now,
+            "--previous-window",
+            &window,
+            "--previous-png",
+            previous,
+            "--elapsed-ms",
+            elapsed,
+        ])
+    };
+    let (code, stdout, _) = run(&now, "100")?;
+    assert_eq!(code, 0, "{stdout}");
+    let (code, stdout, _) = run(&before, "100")?;
+    assert_eq!(code, 4);
+    assert!(stdout.contains("\"retry\": true"), "{stdout}");
+    let (code, stdout, _) = run(&before, "3000")?;
+    assert_eq!(code, 4);
+    assert!(stdout.contains("\"retry\": false"), "{stdout}");
+    // Флаги режима задаются вместе и без --generation.
+    let (code, _, _) = oracle(&[
+        "compare",
+        "--expect",
+        &expect,
+        "--inspect",
+        &inspect,
+        "--window",
+        &window,
+        "--png",
+        &now,
+        "--previous-png",
+        &before,
+    ])?;
+    assert_eq!(code, 2);
     Ok(())
 }

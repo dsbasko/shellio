@@ -6,6 +6,11 @@
 //! допуском [`TOLERANCE`] на канал. Участки сравниваются только на снимке, чей маркер поколения
 //! равен ожидаемому поколению. Линию под активной вкладкой меряет поперечная серия
 //! ([`underline`]).
+//!
+//! Обычное окно маркера не рисует (план P1.4, «Наблюдение кадра в обычном окне»; ADR-0021,
+//! «Уточнено в P1.4 (планирование)»). Там снимок принимается без маркера ([`Previous`]): на двух
+//! снимках подряд медианы каждого участка совпадают в пределах [`TOLERANCE`], а поколение
+//! `ui.window` между ними не изменилось. Срок ожидания совпадения — [`SETTLE_MS`].
 
 #![forbid(unsafe_code)]
 
@@ -24,6 +29,9 @@ use crate::png::{Image, SrgbTag};
 
 /// Допуск на канал в sRGB («Матрица приёмки»): фиксирован до первого прогона.
 pub const TOLERANCE: u8 = 3;
+
+/// Срок ожидания двух совпадающих снимков в режиме без маркера, мс: как у маркера в `appkit.sh`.
+pub const SETTLE_MS: u64 = 3000;
 
 /// Идентификатор маркера поколения в `ui.inspect`.
 pub const MARKER_COMPONENT: &str = "gallery.marker";
@@ -140,6 +148,64 @@ pub enum Verdict {
     Error,
 }
 
+/// Предыдущий снимок режима без маркера.
+#[derive(Clone, Copy)]
+pub struct Previous<'a> {
+    pub window: &'a WindowView,
+    pub image: &'a Image,
+    /// Сколько прошло от первого снимка серии после квитанции действия, мс.
+    pub elapsed_ms: u64,
+}
+
+/// Снимки ещё не устоялись: причина и признак повтора. Повтор нужен, пока не истёк
+/// [`SETTLE_MS`]; после срока вердикт `generation` окончательный.
+fn unsettled(reason: String, elapsed_ms: u64) -> (String, bool) {
+    if elapsed_ms >= SETTLE_MS {
+        (
+            format!("снимки не устоялись за {SETTLE_MS} мс (прошло {elapsed_ms}): {reason}"),
+            false,
+        )
+    } else {
+        (reason, true)
+    }
+}
+
+/// Поколения окна, дерева и предыдущего снимка в режиме без маркера: `Some` — причина, по
+/// которой пара снимков не принимается.
+fn generations_differ(
+    previous: &Previous<'_>,
+    window: &WindowView,
+    inspect: &InspectView,
+    image: &Image,
+) -> Result<Option<String>, Error> {
+    if (previous.image.width, previous.image.height) != (image.width, image.height)
+        || previous.window.frame != window.frame
+    {
+        return Err(Error::new(format!(
+            "предыдущий снимок {}×{} окна {:?}, текущий {}×{} окна {:?}",
+            previous.image.width,
+            previous.image.height,
+            previous.window.frame,
+            image.width,
+            image.height,
+            window.frame
+        )));
+    }
+    Ok(if previous.window.generation != window.generation {
+        Some(format!(
+            "поколение ui.window между снимками изменилось: {} → {}",
+            previous.window.generation, window.generation
+        ))
+    } else if inspect.generation != window.generation {
+        Some(format!(
+            "ui.inspect снят на поколении {}, ui.window — {}",
+            inspect.generation, window.generation
+        ))
+    } else {
+        None
+    })
+}
+
 /// Поколения сравнения.
 #[derive(Debug, Clone, Serialize)]
 pub struct Generations {
@@ -184,6 +250,9 @@ pub struct Report {
     pub png: Option<PngReport>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub generation: Option<Generations>,
+    /// Режим без маркера: при вердикте `generation` — нужен ли следующий снимок до срока.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry: Option<bool>,
     pub regions: Vec<RegionReport>,
 }
 
@@ -206,6 +275,7 @@ impl Report {
             scale: None,
             png: None,
             generation: None,
+            retry: None,
             regions: Vec::new(),
         }
     }
@@ -218,8 +288,10 @@ pub struct Inputs<'a> {
     pub window: &'a WindowView,
     pub inspect: &'a InspectView,
     pub image: &'a Image,
-    /// Ожидаемое поколение: поколение ответа команды.
+    /// Ожидаемое поколение: поколение ответа команды. Без маркера не сравнивается.
     pub generation: u64,
+    /// Режим без маркера: предыдущий снимок той же серии.
+    pub previous: Option<Previous<'a>>,
 }
 
 /// Медиана по каналам участка и число непрозрачных пикселей.
@@ -271,6 +343,7 @@ pub fn compare(inputs: &Inputs<'_>) -> Result<Report, Error> {
         inspect,
         image,
         generation,
+        previous,
     } = *inputs;
     let geometry = Geometry::new(window, inspect, (image.width, image.height))?;
     let cell = window.cell();
@@ -296,6 +369,7 @@ pub fn compare(inputs: &Inputs<'_>) -> Result<Report, Error> {
             inspect: inspect.generation,
             png: None,
         }),
+        retry: None,
         regions: Vec::new(),
     };
     let placed = expectations
@@ -306,6 +380,38 @@ pub fn compare(inputs: &Inputs<'_>) -> Result<Report, Error> {
             Ok((region, expect::place(region, inspect, &geometry)?, expected))
         })
         .collect::<Result<Vec<_>, Error>>()?;
+    if let Some(previous) = previous {
+        if let Some(generations) = report.generation.as_mut() {
+            generations.expected = window.generation;
+        }
+        let mut reason = generations_differ(&previous, window, inspect, image)?;
+        if reason.is_none() {
+            let mut moved = Vec::new();
+            for (region, place, _) in &placed {
+                let (before, _) = sample(previous.image, place.pixels)?;
+                let (now, _) = sample(image, place.pixels)?;
+                let delta = before.max_delta(now);
+                if delta > TOLERANCE {
+                    moved.push(format!("{}: {before} → {now}", region.id));
+                }
+            }
+            if !moved.is_empty() {
+                reason = Some(format!(
+                    "участки между снимками не совпали: {}",
+                    moved.join("; ")
+                ));
+            }
+        }
+        if let Some(reason) = reason {
+            let (reason, retry) = unsettled(reason, previous.elapsed_ms);
+            report.verdict = Verdict::Generation;
+            report.reason = Some(reason);
+            report.retry = Some(retry);
+            return Ok(report);
+        }
+        report.retry = Some(false);
+        return judge(report, placed, image);
+    }
     let marker = read_marker(image, inspect, &geometry)?;
     if let (Some(generations), Ok(value)) = (report.generation.as_mut(), marker) {
         generations.png = Some(value);
@@ -326,6 +432,15 @@ pub fn compare(inputs: &Inputs<'_>) -> Result<Report, Error> {
         report.reason = Some(reason);
         return Ok(report);
     }
+    judge(report, placed, image)
+}
+
+/// Участки снимка против ожиданий после того, как отрисовка наблюдалась.
+fn judge(
+    mut report: Report,
+    placed: Vec<(&expect::Region, expect::Placed, Rgb)>,
+    image: &Image,
+) -> Result<Report, Error> {
     for (region, place, expected) in placed {
         let (median, transparent) = sample(image, place.pixels)?;
         let max_delta = median.max_delta(expected);

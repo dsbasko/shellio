@@ -1,0 +1,25 @@
+{
+  "cell": { "appearance": "light", "contrast": "normal" },
+  "regions": [
+    {
+      "id": "chrome.background",
+      "component": "chrome",
+      "rect": { "x": 860, "y": 8, "width": 140, "height": 24 },
+      "slot": "chrome"
+    },
+    {
+      "id": "part.focus.body",
+      "component": "layout.panel.@FOCUS@",
+      "rect": { "x": 24, "y": 520, "width": 120, "height": 48 },
+      "slot": "panel",
+      "layer": "tone_navigation"
+    },
+    {
+      "id": "part.other.body",
+      "component": "layout.panel.@OTHER@",
+      "rect": { "x": 24, "y": 520, "width": 120, "height": 48 },
+      "slot": "panel",
+      "layer": "veil"
+    }
+  ]
+}

@@ -594,3 +594,27 @@ fn fixture_v1_migrates_to_v2_with_backup() -> TestResult {
     );
     Ok(())
 }
+
+/// Профиль пункта `restore-legacy` сценария `layout.sh` — образец схемы v1 с открытой рабочей
+/// областью, который мигрирует до v2 без панелей и раскладок: их пишет запуск ядра.
+#[test]
+fn e2e_legacy_fixture_is_schema_v1_with_an_open_workbench() -> TestResult {
+    const LEGACY: &str = include_str!("../../../scripts/e2e/layout-fixtures/v1-open-workbench.sql");
+    let fixture = Fixture::new()?;
+    fs::create_dir_all(fixture.profile.state_dir())?;
+    fixture.raw()?.execute_batch(LEGACY)?;
+    assert_eq!(schema(&fixture.raw()?)?, SCHEMA_V1);
+    assert_eq!(user_version(&fixture.raw()?)?, 1);
+    let db = fixture.open()?;
+    let conn = db.connection();
+    assert_eq!(db.schema_version(), 2);
+    let (route, last): (Vec<u8>, Vec<u8>) = conn.query_row(
+        "SELECT window_state.route_workbench_id, workspaces.last_workbench_id \
+         FROM window_state JOIN workspaces ON workspaces.id = window_state.active_workspace_id",
+        [],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+    assert_eq!(route.len(), 16);
+    assert_eq!(route, last);
+    Ok(())
+}

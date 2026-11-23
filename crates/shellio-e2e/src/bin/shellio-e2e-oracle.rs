@@ -5,6 +5,11 @@
 //! исполнения; 2 — неверный вызов; 3 — маркер совпал, участок вне допуска; 4 — отрисовка
 //! ожидаемого поколения не наблюдалась (маркер не читается или другого поколения), снимок
 //! повторяется до срока.
+//!
+//! Режим без маркера (обычное окно, ADR-0021, «Уточнено в P1.4 (планирование)»):
+//! `--previous-window` и `--previous-png` — предыдущий снимок серии, `--elapsed-ms` — время от
+//! первого снимка. Код 4 с `"retry": true` в отчёте — снимки ещё не устоялись, нужен следующий;
+//! с `"retry": false` — срок истёк, вердикт окончательный.
 
 #![forbid(unsafe_code)]
 
@@ -15,7 +20,7 @@ use std::process::ExitCode;
 use shellio_e2e::css::{Layer, Palette};
 use shellio_e2e::expect::{self, Geometry};
 use shellio_e2e::underline::{UnderlineInputs, UnderlineReport, underline};
-use shellio_e2e::{Error, Inputs, Report, Verdict, compare, png, read_marker};
+use shellio_e2e::{Error, Inputs, Previous, Report, Verdict, compare, png, read_marker};
 
 const USAGE: &str = "\
 использование:
@@ -24,11 +29,15 @@ const USAGE: &str = "\
   shellio-e2e-oracle underline --tab <id вкладки> [--layer none|veil|tone_navigation|tone_input]
                                --inspect <ui.inspect.json> --window <ui.window.json>
                                --png <снимок sRGB> [--generation <N>]
+  shellio-e2e-oracle compare|underline … --previous-window <ui.window.json>
+                             --previous-png <снимок sRGB> --elapsed-ms <мс>
   shellio-e2e-oracle marker --inspect <ui.inspect.json> --window <ui.window.json> --png <снимок sRGB>
 
 compare и underline печатают отчёт JSON в stdout. Ожидаемое поколение — --generation или
 поколение ui.window. underline меряет поперечной серией линию под вкладкой (слой по умолчанию
-none). marker печатает поколение из маркера снимка.
+none). marker печатает поколение из маркера снимка. С --previous-* маркер не читается: снимок
+принимается, когда участки двух снимков подряд совпадают в допуске, а поколение ui.window то же;
+код 4 и \"retry\": true — нужен следующий снимок, \"retry\": false — срок истёк.
 коды: 0 — совпадение, линия в допуске или маркер прочитан, 1 — ошибка исполнения, 2 — неверный
 вызов, 3 — участок или линия вне допуска, 4 — отрисовка ожидаемого поколения не наблюдалась
 ";
@@ -47,6 +56,9 @@ struct Args {
     generation: Option<u64>,
     tab: Option<String>,
     layer: Option<Layer>,
+    previous_window: Option<PathBuf>,
+    previous_png: Option<PathBuf>,
+    elapsed_ms: Option<u64>,
 }
 
 enum Command {
@@ -73,6 +85,15 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
                     .map_err(|_| format!("--generation: не число {text:?}"))?;
                 parsed.generation = Some(generation);
             }
+            "--previous-window" => parsed.previous_window = Some(value()?.into()),
+            "--previous-png" => parsed.previous_png = Some(value()?.into()),
+            "--elapsed-ms" => {
+                let text = value()?;
+                let elapsed = text
+                    .parse()
+                    .map_err(|_| format!("--elapsed-ms: не число {text:?}"))?;
+                parsed.elapsed_ms = Some(elapsed);
+            }
             "--tab" => parsed.tab = Some(value()?),
             "--layer" => {
                 let text = value()?;
@@ -92,6 +113,21 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
         }
     };
     let underline_only = parsed.tab.is_some() || parsed.layer.is_some();
+    let stable = [
+        parsed.previous_window.is_some(),
+        parsed.previous_png.is_some(),
+        parsed.elapsed_ms.is_some(),
+    ];
+    if stable.contains(&true) && stable.contains(&false) {
+        return Err(format!(
+            "{command}: --previous-window, --previous-png и --elapsed-ms задаются вместе"
+        ));
+    }
+    if stable[0] && (command == "marker" || parsed.generation.is_some()) {
+        return Err(format!(
+            "{command}: режим без маркера не принимает marker и --generation"
+        ));
+    }
     match command.as_str() {
         "compare" | "marker" if underline_only => Err(format!(
             "{command}: --tab и --layer принимает только underline"
@@ -146,6 +182,7 @@ fn run_compare(args: &Args) -> Result<Report, Error> {
     let window = expect::parse_window(&read_text(args.window.as_ref(), "ui.window")?)?;
     let inspect = expect::parse_inspect(&read_text(args.inspect.as_ref(), "ui.inspect")?)?;
     let image = read_image(args.png.as_ref())?;
+    let previous = read_previous(args)?;
     compare(&Inputs {
         palette: &palette,
         expectations: &expectations,
@@ -153,7 +190,25 @@ fn run_compare(args: &Args) -> Result<Report, Error> {
         inspect: &inspect,
         image: &image,
         generation: args.generation.unwrap_or(window.generation),
+        previous: previous.as_ref().map(|(window, image)| Previous {
+            window,
+            image,
+            elapsed_ms: args.elapsed_ms.unwrap_or_default(),
+        }),
     })
+}
+
+/// Предыдущий снимок режима без маркера.
+fn read_previous(args: &Args) -> Result<Option<(expect::WindowView, png::Image)>, Error> {
+    if args.previous_window.is_none() {
+        return Ok(None);
+    }
+    let window = expect::parse_window(&read_text(
+        args.previous_window.as_ref(),
+        "предыдущий ui.window",
+    )?)?;
+    let image = read_image(args.previous_png.as_ref())?;
+    Ok(Some((window, image)))
 }
 
 fn run_underline(args: &Args) -> Result<UnderlineReport, Error> {
@@ -161,6 +216,7 @@ fn run_underline(args: &Args) -> Result<UnderlineReport, Error> {
     let window = expect::parse_window(&read_text(args.window.as_ref(), "ui.window")?)?;
     let inspect = expect::parse_inspect(&read_text(args.inspect.as_ref(), "ui.inspect")?)?;
     let image = read_image(args.png.as_ref())?;
+    let previous = read_previous(args)?;
     underline(&UnderlineInputs {
         palette: &palette,
         window: &window,
@@ -169,6 +225,11 @@ fn run_underline(args: &Args) -> Result<UnderlineReport, Error> {
         tab: args.tab.as_deref().unwrap_or_default(),
         layer: args.layer.unwrap_or(Layer::None),
         generation: args.generation.unwrap_or(window.generation),
+        previous: previous.as_ref().map(|(window, image)| Previous {
+            window,
+            image,
+            elapsed_ms: args.elapsed_ms.unwrap_or_default(),
+        }),
     })
 }
 

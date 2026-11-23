@@ -13,7 +13,9 @@ use serde::Serialize;
 use crate::css::{Cell, Layer, Palette, Rgb};
 use crate::expect::{Geometry, InspectView, WindowView};
 use crate::png::Image;
-use crate::{Error, Generations, TOLERANCE, Verdict, read_marker};
+use crate::{
+    Error, Generations, Previous, TOLERANCE, Verdict, generations_differ, read_marker, unsettled,
+};
 
 /// Допуск толщины линии в точках («Матрица приёмки», `tab-underline`).
 pub const THICKNESS_TOLERANCE: f64 = 0.5;
@@ -32,6 +34,8 @@ pub struct UnderlineInputs<'a> {
     /// Слой над вкладкой: тон или вуаль подложки.
     pub layer: Layer,
     pub generation: u64,
+    /// Режим без маркера: предыдущий снимок той же серии, столбец сравнивается попиксельно.
+    pub previous: Option<Previous<'a>>,
 }
 
 /// Отчёт поперечной серии.
@@ -48,6 +52,9 @@ pub struct UnderlineReport {
     pub scale: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub generation: Option<Generations>,
+    /// Режим без маркера: при вердикте `generation` — нужен ли следующий снимок до срока.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry: Option<bool>,
     pub tab: String,
     pub layer: Layer,
     /// Ожидаемый цвет линии и толщина `--focus-h` в точках.
@@ -81,6 +88,7 @@ impl UnderlineReport {
             thickness_tolerance: THICKNESS_TOLERANCE,
             scale: None,
             generation: None,
+            retry: None,
             tab: tab.to_owned(),
             layer,
             expected: None,
@@ -145,6 +153,7 @@ pub fn underline(inputs: &UnderlineInputs<'_>) -> Result<UnderlineReport, Error>
         tab,
         layer,
         generation,
+        previous,
     } = *inputs;
     let geometry = Geometry::new(window, inspect, (image.width, image.height))?;
     let cell = window.cell();
@@ -167,24 +176,40 @@ pub fn underline(inputs: &UnderlineInputs<'_>) -> Result<UnderlineReport, Error>
         return Err(Error::new(format!("вкладка {tab} не видима")));
     }
     geometry.check_inside(component)?;
-    let marker = read_marker(image, inspect, &geometry)?;
-    if let (Some(generations), Ok(value)) = (report.generation.as_mut(), marker) {
-        generations.png = Some(value);
-    }
-    let not_observed = match marker {
-        Err(unreadable) => Some(format!("маркер поколения не читается: {unreadable}")),
-        Ok(value) if value != generation => Some(format!(
-            "в снимке поколение {value}, ожидалось {generation}"
-        )),
-        Ok(_) if inspect.generation != generation => Some(format!(
-            "ui.inspect снят на поколении {}, ожидалось {generation}",
-            inspect.generation
-        )),
-        Ok(_) => None,
+    let not_observed = match previous {
+        Some(previous) => {
+            if let Some(generations) = report.generation.as_mut() {
+                generations.expected = window.generation;
+            }
+            generations_differ(&previous, window, inspect, image)?
+        }
+        None => {
+            let marker = read_marker(image, inspect, &geometry)?;
+            if let (Some(generations), Ok(value)) = (report.generation.as_mut(), marker) {
+                generations.png = Some(value);
+            }
+            match marker {
+                Err(unreadable) => Some(format!("маркер поколения не читается: {unreadable}")),
+                Ok(value) if value != generation => Some(format!(
+                    "в снимке поколение {value}, ожидалось {generation}"
+                )),
+                Ok(_) if inspect.generation != generation => Some(format!(
+                    "ui.inspect снят на поколении {}, ожидалось {generation}",
+                    inspect.generation
+                )),
+                Ok(_) => None,
+            }
+        }
     };
     if let Some(reason) = not_observed {
         report.verdict = Verdict::Generation;
-        report.reason = Some(reason);
+        if let Some(previous) = previous {
+            let (reason, retry) = unsettled(reason, previous.elapsed_ms);
+            report.reason = Some(reason);
+            report.retry = Some(retry);
+        } else {
+            report.reason = Some(reason);
+        }
         return Ok(report);
     }
     let top = geometry.flip(component.frame);
@@ -204,12 +229,35 @@ pub fn underline(inputs: &UnderlineInputs<'_>) -> Result<UnderlineReport, Error>
     report.column = Some(column);
     report.rows = Some((first, last));
     let mut matches = Vec::new();
+    let mut moved = Vec::new();
     for y in first..=last {
         let pixel = image
             .pixel(column, y)
             .ok_or_else(|| Error::new(format!("пиксель {column}×{y} за кадром снимка")))?;
+        if let Some(previous) = previous {
+            let before = previous
+                .image
+                .pixel(column, y)
+                .ok_or_else(|| Error::new(format!("пиксель {column}×{y} за кадром снимка")))?;
+            if before.rgb.max_delta(pixel.rgb) > TOLERANCE {
+                moved.push(format!("строка {y}: {} → {}", before.rgb, pixel.rgb));
+            }
+        }
         report.series.push(pixel.rgb);
         matches.push(pixel.alpha == 255 && pixel.rgb.max_delta(expected) <= TOLERANCE);
+    }
+    if let Some(previous) = previous {
+        if !moved.is_empty() {
+            let (reason, retry) = unsettled(
+                format!("столбец между снимками не совпал: {}", moved.join("; ")),
+                previous.elapsed_ms,
+            );
+            report.verdict = Verdict::Generation;
+            report.reason = Some(reason);
+            report.retry = Some(retry);
+            return Ok(report);
+        }
+        report.retry = Some(false);
     }
     let fail = |report: &mut UnderlineReport, reason: String| {
         report.verdict = Verdict::Mismatch;
