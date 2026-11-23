@@ -1181,7 +1181,7 @@ fn response_samples() -> Result<Samples, String> {
 fn error_sample(code: ControlErrorCode) -> ControlError {
     match code {
         ControlErrorCode::HelloRequired => ControlError::hello_required(),
-        ControlErrorCode::ProtocolMismatch => ControlError::protocol_mismatch(2),
+        ControlErrorCode::ProtocolMismatch => ControlError::protocol_mismatch(1),
         ControlErrorCode::MalformedRequest => {
             ControlError::malformed_request("лишнее поле `extra`")
         }
@@ -1365,7 +1365,7 @@ fn assert_malformed(line: &str, id: Option<u64>, reason: &str) {
     assert_rejected(line, ControlErrorCode::MalformedRequest, id, reason);
 }
 
-const HELLO: &str = r#"{"protocol":1,"client":"test"}"#;
+const HELLO: &str = r#"{"protocol":2,"client":"test"}"#;
 const ID: &str = "00000000-0000-0000-0000-000000000001";
 
 #[test]
@@ -1376,7 +1376,7 @@ fn extra_field_is_malformed_and_keeps_id() {
         "unknown field `extra`",
     );
     assert_malformed(
-        r#"{"id":1,"hello":{"protocol":1,"client":"test","extra":1}}"#,
+        r#"{"id":1,"hello":{"protocol":2,"client":"test","extra":1}}"#,
         Some(1),
         "unknown field `extra`",
     );
@@ -1695,7 +1695,7 @@ fn assert_response_rejected(line: &str, reason: &str) {
     }
 }
 
-const HELLO_REPLY: &str = r#"{"protocol":1,"server":"0.1.0","pid":1,"owner":"ready"}"#;
+const HELLO_REPLY: &str = r#"{"protocol":2,"server":"0.1.0","pid":1,"owner":"ready"}"#;
 const LEAVING: &str = r#"{"code":"owner_leaving","message":"","retryable":true,"details":{}}"#;
 
 #[test]
@@ -1730,8 +1730,8 @@ fn ok_value_is_strict() {
     for ok in [
         r#"{"status":{}}"#.to_owned(),
         format!(r#"{{"hello":{HELLO_REPLY},"extra":1}}"#),
-        r#"{"hello":{"protocol":1,"server":"0.1.0","pid":1,"owner":"ready","extra":1}}"#.to_owned(),
-        r#"{"hello":{"protocol":1,"server":"0.1.0","pid":1,"owner":"starting"}}"#.to_owned(),
+        r#"{"hello":{"protocol":2,"server":"0.1.0","pid":1,"owner":"ready","extra":1}}"#.to_owned(),
+        r#"{"hello":{"protocol":2,"server":"0.1.0","pid":1,"owner":"starting"}}"#.to_owned(),
         r#"{"launch":{"activation":"requested","refused":[{"arg":"x","reason":"busy"}]}}"#
             .to_owned(),
         r#"{"launch":{"activation":"done","refused":[]}}"#.to_owned(),

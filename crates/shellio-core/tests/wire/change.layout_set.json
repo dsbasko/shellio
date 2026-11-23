@@ -1,0 +1,50 @@
+{
+  "change": "layout_set",
+  "workbench": "00000000-0000-0000-0000-000000000004",
+  "layout": {
+    "navigator": "00000000-0000-0000-0000-000000000009",
+    "zones": {
+      "left": {
+        "parts": [],
+        "last_active": 0
+      },
+      "right": {
+        "parts": [],
+        "last_active": 0
+      },
+      "center": {
+        "parts": [
+          {
+            "tabs": [
+              "00000000-0000-0000-0000-00000000000a"
+            ],
+            "active": 0,
+            "share": 1000
+          }
+        ],
+        "last_active": 0
+      },
+      "bottom": {
+        "parts": [],
+        "last_active": 0
+      }
+    },
+    "sizes": {
+      "navigator": 236,
+      "plate": 372,
+      "right": 372,
+      "bottom": 236
+    },
+    "hidden": {
+      "navigator": false,
+      "plate": false,
+      "right": false,
+      "bottom": false
+    },
+    "only": null,
+    "zoomed": null,
+    "focus": [
+      "00000000-0000-0000-0000-00000000000a"
+    ]
+  }
+}

@@ -3,8 +3,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::clock::UnixMillis;
-use crate::ids::{ProjectId, WorkbenchId, WorkspaceId};
+use crate::ids::{PanelId, ProjectId, WorkbenchId, WorkspaceId};
 use crate::model::{Project, ProjectRoot, Route, State, WindowState, Workbench, Workspace};
+use crate::panel::{Panel, WorkbenchLayout};
 use crate::title::Title;
 
 /// Изменение состояния. Закрытый перечень: каждое место, которое его разбирает,
@@ -43,6 +44,15 @@ pub enum Change {
     },
     /// Активный воркспейс и маршрут окна.
     WindowSet { active: WorkspaceId, route: Route },
+    /// Новая панель рабочей области.
+    PanelAdd { panel: Panel },
+    /// Панель удалена.
+    PanelRemove { panel: PanelId },
+    /// Раскладка рабочей области целиком.
+    LayoutSet {
+        workbench: WorkbenchId,
+        layout: WorkbenchLayout,
+    },
 }
 
 impl State {
@@ -93,6 +103,15 @@ impl State {
                     route: *route,
                 };
             }
+            Change::PanelAdd { panel } => {
+                self.panels.insert(panel.id, panel.clone());
+            }
+            Change::PanelRemove { panel } => {
+                self.panels.remove(panel);
+            }
+            Change::LayoutSet { workbench, layout } => {
+                self.layouts.insert(*workbench, layout.clone());
+            }
         }
     }
 
@@ -110,6 +129,7 @@ mod tests {
 
     use super::*;
     use crate::ids::{IdGen, ProjectRootId, SequentialIds};
+    use crate::panel::{NAVIGATOR_PLUGIN, PluginId, TERMINAL_PLUGIN};
     use crate::root::{RootKey, RootKind};
 
     fn title(name: &str) -> Title {
@@ -215,6 +235,46 @@ mod tests {
             workbench: None,
         });
         assert_eq!(state.workspaces[&workspace].last_workbench, None);
+
+        let navigator = PanelId::generate(ids);
+        let terminal = PanelId::generate(ids);
+        let panel = |id, plugin: &str| Panel {
+            id,
+            workbench,
+            plugin: PluginId::new(plugin).unwrap(),
+            title: title(plugin),
+            created_at: UnixMillis(43),
+        };
+        let layout = WorkbenchLayout::default_for(navigator, terminal);
+        state.apply_all(&[
+            Change::PanelAdd {
+                panel: panel(navigator, NAVIGATOR_PLUGIN),
+            },
+            Change::PanelAdd {
+                panel: panel(terminal, TERMINAL_PLUGIN),
+            },
+            Change::LayoutSet {
+                workbench,
+                layout: layout.clone(),
+            },
+        ]);
+        assert_eq!(state.panels[&navigator], panel(navigator, NAVIGATOR_PLUGIN));
+        assert_eq!(state.layouts[&workbench], layout);
+        assert_eq!(state.check_invariants(), Vec::new());
+
+        let mut without_terminal = layout;
+        without_terminal.zones.center.parts.clear();
+        without_terminal.focus = vec![navigator];
+        state.apply_all(&[
+            Change::LayoutSet {
+                workbench,
+                layout: without_terminal.clone(),
+            },
+            Change::PanelRemove { panel: terminal },
+        ]);
+        assert!(!state.panels.contains_key(&terminal));
+        assert_eq!(state.layouts[&workbench], without_terminal);
+        assert_eq!(state.check_invariants(), Vec::new());
     }
 
     #[test]
@@ -239,6 +299,9 @@ mod tests {
                 workbench: WorkbenchId::generate(ids),
                 title: title("Нет"),
             },
+            Change::PanelRemove {
+                panel: PanelId::generate(ids),
+            },
         ]);
         assert_eq!(state, State::default());
     }
@@ -254,5 +317,9 @@ mod tests {
         assert_eq!(json["change"], "project_opened");
         assert_eq!(json["at"], 7);
         assert_eq!(serde_json::from_value::<Change>(json).unwrap(), change);
+
+        let panel = PanelId::generate(&mut ids);
+        let json = serde_json::to_value(Change::PanelRemove { panel }).unwrap();
+        assert_eq!(json["change"], "panel_remove");
     }
 }

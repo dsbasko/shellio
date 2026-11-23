@@ -1,12 +1,14 @@
 //! Модель состояния ядра и её инварианты.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use shellio_layout::LayoutError;
 
 use crate::clock::UnixMillis;
-use crate::ids::{ProjectId, ProjectRootId, WorkbenchId, WorkspaceId};
+use crate::ids::{PanelId, ProjectId, ProjectRootId, WorkbenchId, WorkspaceId};
+use crate::panel::{Panel, WorkbenchLayout};
 use crate::root::{RootKey, RootKind};
 use crate::title::Title;
 
@@ -36,6 +38,9 @@ pub struct State {
     pub projects: BTreeMap<ProjectId, Project>,
     pub roots: BTreeMap<ProjectRootId, ProjectRoot>,
     pub workbenches: BTreeMap<WorkbenchId, Workbench>,
+    pub panels: BTreeMap<PanelId, Panel>,
+    /// Раскладка каждой рабочей области. Запуск ядра дописывает недостающие.
+    pub layouts: BTreeMap<WorkbenchId, WorkbenchLayout>,
     pub window: WindowState,
     /// Находки загрузки. Не хранится в базе.
     pub diagnostics: Vec<Diagnostic>,
@@ -136,6 +141,7 @@ pub enum EntityRef {
     Project(ProjectId),
     Root(ProjectRootId),
     Workbench(WorkbenchId),
+    Panel(PanelId),
 }
 
 /// Родитель, внутри которого позиции записей не совпадают.
@@ -168,6 +174,18 @@ pub enum Violation {
     WorkbenchOwnerMissing {
         workbench: WorkbenchId,
         project: ProjectId,
+    },
+    /// Панель ссылается на несуществующую рабочую область.
+    PanelOwnerMissing {
+        panel: PanelId,
+        workbench: WorkbenchId,
+    },
+    /// Раскладка несуществующей рабочей области.
+    LayoutOwnerMissing { workbench: WorkbenchId },
+    /// Раскладка не проходит `Layout::validate` против панелей своей рабочей области.
+    LayoutInvalid {
+        workbench: WorkbenchId,
+        error: LayoutError<PanelId>,
     },
     /// Последняя рабочая область воркспейса не существует.
     LastWorkbenchMissing {
@@ -269,6 +287,22 @@ impl State {
             .filter(|workbench| self.live_project(workbench.project).is_some())
     }
 
+    /// Панели рабочей области по `PanelId`.
+    pub fn workbench_panels(&self, workbench: WorkbenchId) -> impl Iterator<Item = &Panel> {
+        self.panels
+            .values()
+            .filter(move |panel| panel.workbench == workbench)
+    }
+
+    /// Ключи панелей рабочей области: против них проверяется её раскладка.
+    pub fn workbench_panel_ids(&self, workbench: WorkbenchId) -> BTreeSet<PanelId> {
+        self.panels
+            .iter()
+            .filter(|(_, panel)| panel.workbench == workbench)
+            .map(|(&id, _)| id)
+            .collect()
+    }
+
     /// Неудалённые воркспейсы по `(position, id)`.
     pub fn workspaces_in_order(&self) -> Vec<&Workspace> {
         let mut workspaces: Vec<_> = self
@@ -299,6 +333,7 @@ impl State {
         self.check_soft_refs(&mut violations);
         self.check_unique(&mut violations);
         self.check_positions(&mut violations);
+        self.check_layouts(&mut violations);
         violations
     }
 
@@ -319,6 +354,9 @@ impl State {
         }
         for (key, record) in &self.workbenches {
             mismatch(EntityRef::Workbench(*key), EntityRef::Workbench(record.id));
+        }
+        for (key, record) in &self.panels {
+            mismatch(EntityRef::Panel(*key), EntityRef::Panel(record.id));
         }
     }
 
@@ -345,6 +383,26 @@ impl State {
                     workbench: workbench.id,
                     project: workbench.project,
                 });
+            }
+        }
+        for panel in self.panels.values() {
+            if !self.workbenches.contains_key(&panel.workbench) {
+                out.push(Violation::PanelOwnerMissing {
+                    panel: panel.id,
+                    workbench: panel.workbench,
+                });
+            }
+        }
+    }
+
+    /// Раскладка принадлежит существующей рабочей области и держит ровно её панели.
+    /// Рабочая область без раскладки допустима: запуск ядра дописывает её.
+    fn check_layouts(&self, out: &mut Vec<Violation>) {
+        for (&workbench, layout) in &self.layouts {
+            if !self.workbenches.contains_key(&workbench) {
+                out.push(Violation::LayoutOwnerMissing { workbench });
+            } else if let Err(error) = layout.validate(&self.workbench_panel_ids(workbench)) {
+                out.push(Violation::LayoutInvalid { workbench, error });
             }
         }
     }
@@ -486,6 +544,7 @@ impl State {
 mod tests {
     use super::*;
     use crate::ids::{IdGen, SequentialIds};
+    use crate::panel::{NAVIGATOR_PLUGIN, PluginId, TERMINAL_PLUGIN};
 
     fn title(name: &str) -> Title {
         Title::new(name).unwrap()
@@ -507,6 +566,8 @@ mod tests {
         main: WorkbenchId,
         review: WorkbenchId,
         draft: WorkbenchId,
+        navigator: PanelId,
+        terminal: PanelId,
     }
 
     fn fixture() -> Fixture {
@@ -524,6 +585,8 @@ mod tests {
         let main = WorkbenchId::generate(ids);
         let review = WorkbenchId::generate(ids);
         let draft = WorkbenchId::generate(ids);
+        let navigator = PanelId::generate(ids);
+        let terminal = PanelId::generate(ids);
 
         let workspace = |id, name: &str, position, last_workbench, deleted_at| Workspace {
             id,
@@ -552,6 +615,13 @@ mod tests {
             project,
             title: title(name),
             position,
+        };
+        let panel = |id, plugin: &str, name: &str| Panel {
+            id,
+            workbench: main,
+            plugin: PluginId::new(plugin).unwrap(),
+            title: title(name),
+            created_at: UnixMillis(5),
         };
 
         let state = State {
@@ -587,6 +657,11 @@ mod tests {
                 (review, workbench(review, app, "Ревью", 1)),
                 (draft, workbench(draft, notes, "Основная", 0)),
             ]),
+            panels: BTreeMap::from([
+                (navigator, panel(navigator, NAVIGATOR_PLUGIN, "Навигатор")),
+                (terminal, panel(terminal, TERMINAL_PLUGIN, "Терминал")),
+            ]),
+            layouts: BTreeMap::from([(main, WorkbenchLayout::default_for(navigator, terminal))]),
             window: WindowState {
                 active_workspace: Some(work),
                 route: Route::Workbench(main),
@@ -607,6 +682,8 @@ mod tests {
             main,
             review,
             draft,
+            navigator,
+            terminal,
         }
     }
 
@@ -925,6 +1002,88 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn panel_must_belong_to_existing_workbench() {
+        let ghost = unknown(|ids| WorkbenchId::generate(ids));
+        let mut f = fixture();
+        f.state.panels.get_mut(&f.navigator).unwrap().workbench = ghost;
+        assert_eq!(
+            f.state.check_invariants(),
+            vec![
+                Violation::PanelOwnerMissing {
+                    panel: f.navigator,
+                    workbench: ghost,
+                },
+                Violation::LayoutInvalid {
+                    workbench: f.main,
+                    error: LayoutError::UnknownPanel(f.navigator),
+                },
+            ]
+        );
+
+        let mut f = fixture();
+        let moved = f.state.panels.remove(&f.terminal).unwrap();
+        let wrong = unknown(|ids| PanelId::generate(ids));
+        f.state.panels.insert(wrong, moved);
+        assert_eq!(
+            f.state.check_invariants(),
+            vec![
+                Violation::KeyMismatch {
+                    key: EntityRef::Panel(wrong),
+                    id: EntityRef::Panel(f.terminal),
+                },
+                Violation::LayoutInvalid {
+                    workbench: f.main,
+                    error: LayoutError::UnknownPanel(f.terminal),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn layout_must_belong_to_workbench_and_hold_its_panels() {
+        let ghost = unknown(|ids| WorkbenchId::generate(ids));
+        let mut f = fixture();
+        let layout = f.state.layouts.remove(&f.main).unwrap();
+        // Рабочая область без раскладки допустима: её дописывает запуск ядра.
+        assert_eq!(f.state.check_invariants(), Vec::new());
+        f.state.layouts.insert(ghost, layout.clone());
+        assert_eq!(
+            f.state.check_invariants(),
+            vec![Violation::LayoutOwnerMissing { workbench: ghost }]
+        );
+
+        let mut f = fixture();
+        f.state.layouts.insert(f.review, layout);
+        assert_eq!(
+            f.state.check_invariants(),
+            vec![Violation::LayoutInvalid {
+                workbench: f.review,
+                error: LayoutError::UnknownPanel(f.navigator),
+            }]
+        );
+
+        let mut f = fixture();
+        f.state.layouts.get_mut(&f.main).unwrap().zones.center.parts[0].active = 1;
+        assert!(matches!(
+            f.state.check_invariants().as_slice(),
+            [Violation::LayoutInvalid {
+                error: LayoutError::ActiveOutOfRange { .. },
+                ..
+            }]
+        ));
+    }
+
+    #[test]
+    fn workbench_panels_are_filtered_by_workbench() {
+        let f = fixture();
+        assert_eq!(
+            f.state.workbench_panel_ids(f.main),
+            BTreeSet::from([f.navigator, f.terminal])
+        );
+        assert_eq!(f.state.workbench_panels(f.review).count(), 0);
     }
 
     #[test]

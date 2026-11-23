@@ -328,11 +328,11 @@ mod tests {
 
     #[tokio::test]
     async fn line_split_across_reads_is_joined() {
-        let input = b"{\"id\":1,\"hello\":{\"protocol\":1}}\n{\"id\":2}\n";
+        let input = b"{\"id\":1,\"hello\":{\"protocol\":2}}\n{\"id\":2}\n";
         let mut reader = LineReader::new(BufReader::with_capacity(8, &input[..]), 64);
         assert_eq!(
             reader.next_line().await.unwrap(),
-            Some(&b"{\"id\":1,\"hello\":{\"protocol\":1}}"[..])
+            Some(&b"{\"id\":1,\"hello\":{\"protocol\":2}}"[..])
         );
         assert_eq!(reader.next_line().await.unwrap(), Some(&b"{\"id\":2}"[..]));
         assert!(reader.next_line().await.unwrap().is_none());

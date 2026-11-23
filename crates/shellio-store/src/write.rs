@@ -6,8 +6,11 @@ use rusqlite::{
     Connection, ErrorCode, OptionalExtension, Params, Transaction, TransactionBehavior,
 };
 use shellio_core::{
-    Change, CommitError, Project, ProjectRoot, Revision, Route, Workbench, Workspace,
+    Change, CommitError, Panel, Project, ProjectRoot, Revision, Route, Workbench, WorkbenchId,
+    WorkbenchLayout, Workspace,
 };
+
+use crate::layout_json;
 
 /// Записать `changes` поверх ревизии `base`: проверка `meta.revision == base`, SQL каждой
 /// дельты, `meta.revision = base + 1`. Любой отказ откатывает транзакцию целиком.
@@ -136,7 +139,50 @@ fn write_change(tx: &mut Writer<'_>, change: &Change) -> Result<(), CommitError>
             )
             .map(drop)
         }
+        Change::PanelAdd { panel } => insert_panel(tx, panel),
+        Change::PanelRemove { panel } => update_one(
+            tx,
+            "panels",
+            panel,
+            "DELETE FROM panels WHERE id = ?1",
+            [panel.as_bytes().as_slice()],
+        ),
+        Change::LayoutSet { workbench, layout } => set_layout(tx, *workbench, layout),
     }
+}
+
+fn insert_panel(tx: &mut Writer<'_>, panel: &Panel) -> Result<(), CommitError> {
+    tx.exec(
+        "INSERT INTO panels (id, workbench, plugin, title, created_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        (
+            panel.id.as_bytes().as_slice(),
+            panel.workbench.as_bytes().as_slice(),
+            panel.plugin.as_str(),
+            panel.title.as_str(),
+            panel.created_at.0,
+        ),
+    )
+    .map(drop)
+}
+
+/// Раскладка пишется целиком вставкой с обновлением, как состояние окна.
+fn set_layout(
+    tx: &mut Writer<'_>,
+    workbench: WorkbenchId,
+    layout: &WorkbenchLayout,
+) -> Result<(), CommitError> {
+    let text = layout_json::encode(layout).map_err(|error| {
+        CommitError::Conflict(format!(
+            "раскладка рабочей области {workbench} не сериализуется: {error}"
+        ))
+    })?;
+    tx.exec(
+        "INSERT INTO workbench_layouts (workbench, layout) VALUES (?1, ?2) \
+         ON CONFLICT (workbench) DO UPDATE SET layout = excluded.layout",
+        (workbench.as_bytes().as_slice(), text),
+    )
+    .map(drop)
 }
 
 fn insert_workspace(tx: &mut Writer<'_>, workspace: &Workspace) -> Result<(), CommitError> {

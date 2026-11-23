@@ -7,9 +7,9 @@ use std::path::PathBuf;
 use rusqlite::Connection;
 use shellio_core::test_support::{ManualClock, SequentialIds};
 use shellio_core::{
-    Change, CommitError, CoreError, ErrorCode, IdGen, Loaded, Persist, Project, ProjectId,
-    ProjectRoot, ProjectRootId, Revision, RootKey, RootKind, Route, State, Title, UnixMillis,
-    Workbench, WorkbenchId, Workspace, WorkspaceId,
+    Change, CommitError, CoreError, ErrorCode, IdGen, Loaded, Panel, PanelId, Persist, PluginId,
+    Project, ProjectId, ProjectRoot, ProjectRootId, Revision, RootKey, RootKind, Route, State,
+    Title, UnixMillis, Workbench, WorkbenchId, WorkbenchLayout, Workspace, WorkspaceId,
 };
 use shellio_store::{Database, Profile, SqlitePersist};
 use tempfile::TempDir;
@@ -134,6 +134,16 @@ fn workbench(
     })
 }
 
+fn panel(ids: &mut dyn IdGen, workbench: WorkbenchId, plugin: &str) -> TestResult<Panel> {
+    Ok(Panel {
+        id: PanelId::generate(ids),
+        workbench,
+        plugin: PluginId::new(plugin)?,
+        title: title(plugin)?,
+        created_at: NOW,
+    })
+}
+
 fn assert_conflict(error: &CommitError) {
     assert!(
         matches!(error, CommitError::Conflict(_)),
@@ -196,7 +206,7 @@ fn every_change_is_written_and_reloads() {
     let loaded = store.persist.load().unwrap();
     assert_eq!(loaded.revision, Revision::ZERO);
     assert_eq!(loaded.state, State::default());
-    assert_eq!(loaded.storage.schema_version, 1);
+    assert_eq!(loaded.storage.schema_version, 2);
     assert_eq!(loaded.storage.state_db, store.profile.state_db());
 
     let mut ids = SequentialIds::new();
@@ -218,6 +228,14 @@ fn every_change_is_written_and_reloads() {
     let old_root = root(&mut ids, old.id, "/src/old", RootKind::Folder);
     let main = workbench(&mut ids, app.id, "main", 0).unwrap();
     let review = workbench(&mut ids, app.id, "review", 1).unwrap();
+    let navigator = panel(&mut ids, main.id, "navigator").unwrap();
+    let terminal = panel(&mut ids, main.id, "terminal").unwrap();
+    let notes = panel(&mut ids, main.id, "notes").unwrap();
+    let default_layout = WorkbenchLayout::default_for(navigator.id, terminal.id);
+    let mut with_notes = default_layout.clone();
+    with_notes.zones.center.parts[0].tabs.push(notes.id);
+    with_notes.hidden.navigator = true;
+    with_notes.sizes.bottom = 300;
 
     let steps = vec![
         vec![
@@ -279,6 +297,35 @@ fn every_change_is_written_and_reloads() {
             workspace: work.id,
             workbench: None,
         }],
+        vec![
+            Change::PanelAdd {
+                panel: navigator.clone(),
+            },
+            Change::PanelAdd {
+                panel: terminal.clone(),
+            },
+            Change::LayoutSet {
+                workbench: main.id,
+                layout: default_layout.clone(),
+            },
+        ],
+        // Раскладка заменяется целиком вставкой с обновлением.
+        vec![
+            Change::PanelAdd {
+                panel: notes.clone(),
+            },
+            Change::LayoutSet {
+                workbench: main.id,
+                layout: with_notes,
+            },
+        ],
+        vec![
+            Change::LayoutSet {
+                workbench: main.id,
+                layout: default_layout,
+            },
+            Change::PanelRemove { panel: notes.id },
+        ],
     ];
 
     let mut expected = State::default();
@@ -296,6 +343,9 @@ fn every_change_is_written_and_reloads() {
     }
     assert_eq!(expected.check_invariants(), Vec::new());
     assert_eq!(expected.roots.len(), 3);
+    assert_eq!(expected.panels.len(), 2);
+    assert_eq!(store.count("panels").unwrap(), 2);
+    assert_eq!(store.count("workbench_layouts").unwrap(), 1);
 
     // Маршрут на главную и сброс последней области пишутся явным NULL.
     let raw = store.raw().unwrap();
@@ -504,7 +554,9 @@ fn change_of_record_missing_in_database_is_conflict() {
     let ghost_workspace = WorkspaceId::generate(&mut ids);
     let ghost_project = ProjectId::generate(&mut ids);
     let ghost_workbench = WorkbenchId::generate(&mut ids);
+    let ghost_panel = PanelId::generate(&mut ids);
     let cases = [
+        Change::PanelRemove { panel: ghost_panel },
         Change::WorkspaceRenamed {
             workspace: ghost_workspace,
             title: title("Нет").unwrap(),
@@ -574,4 +626,62 @@ fn window_set_restores_window_row_deleted_outside() {
     assert_eq!(reloaded.state.window.route, Route::Workbench(workbench.id));
     assert_eq!(reloaded.state.diagnostics, Vec::new());
     assert_eq!(store.count("window_state").unwrap(), 1);
+}
+
+#[test]
+fn layout_set_restores_layout_row_deleted_outside() {
+    let Seed {
+        mut store,
+        mut ids,
+        workbench,
+        ..
+    } = seed().unwrap();
+    let navigator = panel(&mut ids, workbench.id, "navigator").unwrap();
+    let terminal = panel(&mut ids, workbench.id, "terminal").unwrap();
+    let layout = WorkbenchLayout::default_for(navigator.id, terminal.id);
+    let mut changes = vec![
+        Change::PanelAdd { panel: navigator },
+        Change::PanelAdd { panel: terminal },
+        Change::LayoutSet {
+            workbench: workbench.id,
+            layout: layout.clone(),
+        },
+    ];
+    store.persist.commit(Revision(1), &changes).unwrap();
+    store
+        .raw()
+        .unwrap()
+        .execute("DELETE FROM workbench_layouts", [])
+        .unwrap();
+    let missing = store.reload().unwrap();
+    assert_eq!(missing.state.layouts.get(&workbench.id), None);
+
+    changes.drain(..2);
+    store.persist.commit(Revision(2), &changes).unwrap();
+    let reloaded = store.reload().unwrap();
+    assert_eq!(reloaded.state.layouts[&workbench.id], layout);
+    assert_eq!(reloaded.state.diagnostics, Vec::new());
+    assert_eq!(store.count("workbench_layouts").unwrap(), 1);
+}
+
+#[test]
+fn panel_of_missing_workbench_is_conflict() {
+    let Seed {
+        mut store, mut ids, ..
+    } = seed().unwrap();
+    let ghost = WorkbenchId::generate(&mut ids);
+    let orphan = panel(&mut ids, ghost, "terminal").unwrap();
+    for change in [
+        Change::PanelAdd { panel: orphan },
+        Change::LayoutSet {
+            workbench: ghost,
+            layout: WorkbenchLayout::default_for(
+                PanelId::generate(&mut ids),
+                PanelId::generate(&mut ids),
+            ),
+        },
+    ] {
+        let error = store.assert_refused(Revision(1), &[change]).unwrap();
+        assert_conflict(&error);
+    }
 }

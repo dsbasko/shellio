@@ -11,9 +11,10 @@ use std::sync::Arc;
 use rusqlite::Connection;
 use shellio_core::test_support::{FakeRootResolver, ManualClock, SequentialIds};
 use shellio_core::{
-    Command, CommandValue, Core, CoreHandle, Diagnostic, ErrorCode, EventsSince, Loaded, Persist,
-    ProjectId, ProjectRootId, Query, ReplyValue, Revision, RootResolver, Route, StartError, State,
-    TreeScope, UnixMillis, Violation, WindowState, WorkbenchId, WorkspaceId,
+    Change, Command, CommandValue, Core, CoreHandle, Diagnostic, ErrorCode, EventsSince, Loaded,
+    NAVIGATOR_PLUGIN, PanelId, Persist, ProjectId, ProjectRootId, Query, ReplyValue, Revision,
+    RootResolver, Route, StartError, State, TERMINAL_PLUGIN, TreeScope, UnixMillis, Violation,
+    WindowState, WorkbenchId, WorkbenchLayout, WorkspaceId,
 };
 use shellio_store::{Database, Profile, SqlitePersist, StoreError};
 use tempfile::TempDir;
@@ -28,6 +29,7 @@ const WS: u8 = 0xa0;
 const PR: u8 = 0xb0;
 const WB: u8 = 0xc0;
 const RT: u8 = 0xd0;
+const PN: u8 = 0xe0;
 
 /// ID записи, вставленной в обход ядра: первый байт — таблица, последний — номер.
 /// Последовательный генератор ядра выдаёт ID с нулевым первым байтом, поэтому они не совпадут.
@@ -54,6 +56,10 @@ fn root_id(n: u8) -> ProjectRootId {
     ProjectRootId::from_bytes(id(RT, n))
 }
 
+fn panel_id(n: u8) -> PanelId {
+    PanelId::from_bytes(id(PN, n))
+}
+
 fn diag(table: &str, rowid: i64, reason: &str) -> Diagnostic {
     Diagnostic {
         table: table.to_owned(),
@@ -73,6 +79,15 @@ impl Db {
         let dir = TempDir::new()?;
         let profile = Profile::isolated(dir.path().join("state"));
         drop(Database::open(&profile, &ManualClock::new(NOW))?);
+        Ok(Self { _dir: dir, profile })
+    }
+
+    /// База v1 из образца, ещё не мигрированная.
+    fn fixture_v1() -> TestResult<Self> {
+        let dir = TempDir::new()?;
+        let profile = Profile::isolated(dir.path().join("state"));
+        profile.ensure_state_dir()?;
+        Connection::open(profile.state_db())?.execute_batch(FIXTURE_V1)?;
         Ok(Self { _dir: dir, profile })
     }
 
@@ -196,6 +211,36 @@ fn workbench_row(
     Ok(())
 }
 
+fn panel_row(
+    conn: &Connection,
+    rowid: i64,
+    id: &[u8],
+    workbench: &[u8],
+    plugin: &str,
+    title: &str,
+    created_at: i64,
+) -> TestResult {
+    conn.execute(
+        "INSERT INTO panels (rowid, id, workbench, plugin, title, created_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        (rowid, id, workbench, plugin, title, created_at),
+    )?;
+    Ok(())
+}
+
+fn layout_row(conn: &Connection, rowid: i64, workbench: &[u8], text: &str) -> TestResult {
+    conn.execute(
+        "INSERT INTO workbench_layouts (rowid, workbench, layout) VALUES (?1, ?2, ?3)",
+        (rowid, workbench, text),
+    )?;
+    Ok(())
+}
+
+/// Текст строки раскладки в конверте версии `version`.
+fn envelope(version: u32, layout: &WorkbenchLayout) -> TestResult<String> {
+    Ok(serde_json::json!({"version": version, "layout": layout}).to_string())
+}
+
 fn set_window(conn: &Connection, active: Option<&[u8]>, route: Option<&[u8]>) -> TestResult {
     conn.execute(
         "UPDATE window_state SET active_workspace_id = ?1, route_workbench_id = ?2 WHERE id = 1",
@@ -230,7 +275,7 @@ fn fixture_v1_loads_without_findings() {
         .load()
         .unwrap();
     assert_eq!(loaded.revision, Revision(12));
-    assert_eq!(loaded.storage.schema_version, 1);
+    assert_eq!(loaded.storage.schema_version, 2);
     assert_eq!(loaded.storage.state_db, profile.state_db());
     let state = &loaded.state;
     assert_eq!(state.diagnostics, Vec::new());
@@ -678,7 +723,7 @@ async fn dangling_active_workspace_is_reset_and_start_focuses_in_one_record() {
         status.diagnostics,
         [diag("window_state", 1, "active_workspace_missing")]
     );
-    assert_eq!(status.schema_version, 1);
+    assert_eq!(status.schema_version, 2);
     assert_eq!(status.state_db, db.profile.state_db());
     core.shutdown().await;
 
@@ -833,4 +878,287 @@ async fn removed_project_keeps_its_root_and_stays_out_of_tree() {
     assert!(snapshot.state.projects[&project_id(1)].is_removed());
     core.shutdown().await;
     assert_eq!(db.revision_in_db().unwrap(), 3);
+}
+
+#[tokio::test]
+async fn fixture_v1_migrates_and_start_gives_default_layouts_once() {
+    let db = Db::fixture_v1().unwrap();
+    let core = db.start(FakeRootResolver::new()).unwrap();
+    let (snapshot, _) = core.subscribe().await.unwrap();
+    assert_eq!(snapshot.revision, Revision(13));
+    let state = &snapshot.state;
+    assert_eq!(state.diagnostics, Vec::new());
+    assert_eq!(state.check_invariants(), Vec::new());
+    assert_eq!(keys(&state.layouts), keys(&state.workbenches));
+    assert_eq!(state.panels.len(), 6);
+
+    // Открытая рабочая область образца получила раскладку без единой команды.
+    let Route::Workbench(open) = state.window.route else {
+        panic!("образец открыт на рабочей области");
+    };
+    let layout = &state.layouts[&open];
+    let navigator = layout.navigator.unwrap();
+    let terminal = layout.focused().unwrap();
+    assert_eq!(*layout, WorkbenchLayout::default_for(navigator, terminal));
+    assert_eq!(state.panels[&navigator].plugin.as_str(), NAVIGATOR_PLUGIN);
+    assert_eq!(state.panels[&terminal].plugin.as_str(), TERMINAL_PLUGIN);
+    assert_eq!(state.panels[&terminal].workbench, open);
+    assert_eq!(state.panels[&terminal].created_at, NOW);
+
+    let EventsSince::Events(events) = core.events_since(Revision(12)).await.unwrap() else {
+        panic!("ожидалось событие запуска");
+    };
+    let [event] = events.as_slice() else {
+        panic!("одна запись запуска: {events:?}");
+    };
+    let adds = event
+        .changes
+        .iter()
+        .filter(|change| matches!(change, Change::PanelAdd { .. }))
+        .count();
+    let sets = event
+        .changes
+        .iter()
+        .filter(|change| matches!(change, Change::LayoutSet { .. }))
+        .count();
+    assert_eq!((adds, sets, event.changes.len()), (6, 3, 9));
+    core.shutdown().await;
+    assert_eq!(db.revision_in_db().unwrap(), 13);
+    assert_eq!(db.count("panels").unwrap(), 6);
+    assert_eq!(db.count("workbench_layouts").unwrap(), 3);
+
+    // Второй запуск находит раскладки и ничего не пишет: `PanelId` прежние.
+    let core = db.start(FakeRootResolver::new()).unwrap();
+    let (again, _) = core.subscribe().await.unwrap();
+    assert_eq!(again, snapshot);
+    core.shutdown().await;
+    assert_eq!(db.revision_in_db().unwrap(), 13);
+}
+
+#[test]
+fn panel_rows_are_checked_like_other_rows() {
+    let db = Db::new().unwrap();
+    let raw = db.raw().unwrap();
+    workspace_row(&raw, 1, &id(WS, 1), "Работа", 0).unwrap();
+    project_row(&raw, 1, &id(PR, 1), &id(WS, 1), "shellio", Some(0)).unwrap();
+    workbench_row(&raw, 1, &id(WB, 1), &id(PR, 1), "main", 0).unwrap();
+    let wb = id(WB, 1);
+    panel_row(&raw, 1, &id(PN, 1), &wb, "navigator", "Навигатор", 1).unwrap();
+    panel_row(&raw, 2, &id(PN, 2)[..15], &wb, "terminal", "Терминал", 1).unwrap();
+    panel_row(&raw, 3, &id(PN, 3), &id(WB, 9), "terminal", "Терминал", 1).unwrap();
+    panel_row(&raw, 4, &id(PN, 4), &wb, "Terminal", "Терминал", 1).unwrap();
+    panel_row(&raw, 5, &id(PN, 5), &wb, "terminal", " ", 1).unwrap();
+    panel_row(&raw, 6, &id(PN, 6), &wb, "terminal", "  Терминал ", 1).unwrap();
+    panel_row(&raw, 7, &id(PN, 7), &wb[..15], "terminal", "Терминал", 1).unwrap();
+    panel_row(&raw, 8, &id(PN, 8), &wb, "", "Пусто", 1).unwrap();
+    drop(raw);
+    let before = db.bytes().unwrap();
+
+    let loaded = db.load().unwrap();
+    assert_eq!(
+        loaded.state.diagnostics,
+        [
+            diag("panels", 2, "invalid_id"),
+            diag("panels", 3, "owner_missing"),
+            diag("panels", 4, "invalid_value"),
+            diag("panels", 5, "title_empty"),
+            diag("panels", 6, "title_trimmed"),
+            diag("panels", 7, "owner_missing"),
+            diag("panels", 8, "invalid_value"),
+            diag("workbenches", 1, "layout_missing"),
+        ]
+    );
+    assert_eq!(
+        keys(&loaded.state.panels),
+        BTreeSet::from([panel_id(1), panel_id(6)])
+    );
+    assert_eq!(loaded.state.panels[&panel_id(6)].title.as_str(), "Терминал");
+    assert_eq!(loaded.state.layouts.len(), 0);
+    assert_eq!(db.bytes().unwrap(), before, "загрузка не пишет в базу");
+}
+
+#[test]
+fn layout_row_without_loaded_workbench_is_owner_missing() {
+    let db = Db::new().unwrap();
+    let raw = db.raw().unwrap();
+    let layout = WorkbenchLayout::default_for(panel_id(1), panel_id(2));
+    layout_row(&raw, 1, &id(WB, 9), &envelope(1, &layout).unwrap()).unwrap();
+    layout_row(&raw, 2, &id(WB, 8)[..15], &envelope(1, &layout).unwrap()).unwrap();
+    drop(raw);
+    let loaded = db.load().unwrap();
+    assert_eq!(
+        loaded.state.diagnostics,
+        [
+            diag("workbench_layouts", 1, "owner_missing"),
+            diag("workbench_layouts", 2, "owner_missing"),
+        ]
+    );
+    assert_eq!(loaded.state.layouts.len(), 0);
+}
+
+#[tokio::test]
+async fn broken_layouts_are_found_and_rebuilt_from_panels_on_start() {
+    let db = Db::new().unwrap();
+    let raw = db.raw().unwrap();
+    workspace_row(&raw, 1, &id(WS, 1), "Работа", 0).unwrap();
+    project_row(&raw, 1, &id(PR, 1), &id(WS, 1), "shellio", Some(0)).unwrap();
+    for n in 1..=9u8 {
+        workbench_row(
+            &raw,
+            i64::from(n),
+            &id(WB, n),
+            &id(PR, 1),
+            &format!("wb{n}"),
+            n.into(),
+        )
+        .unwrap();
+    }
+    set_window(&raw, Some(&id(WS, 1)), Some(&id(WB, 1))).unwrap();
+    set_revision(&raw, 7).unwrap();
+
+    // У каждой рабочей области `n`, кроме 7 и 8, — навигатор 10n+1 и терминал 10n+2.
+    let mut rowid = 0;
+    let mut panel = |n: u8, k: u8, plugin: &str, created_at: i64| {
+        rowid += 1;
+        panel_row(
+            &raw,
+            rowid,
+            &id(PN, 10 * n + k),
+            &id(WB, n),
+            plugin,
+            plugin,
+            created_at,
+        )
+        .unwrap();
+        panel_id(10 * n + k)
+    };
+    let mut pairs = Vec::new();
+    for n in [1, 2, 3, 4, 5, 6, 9] {
+        pairs.push((panel(n, 1, "navigator", 10), panel(n, 2, "terminal", 20)));
+    }
+    // Ни одного навигатора, одинаковое время: порядок по `PanelId`.
+    let lone_b = panel(7, 2, "terminal", 30);
+    let lone_a = panel(7, 1, "notes", 30);
+    // Два навигатора с одинаковым временем и терминал.
+    let terminal_8 = panel(8, 3, "terminal", 5);
+    let second_nav = panel(8, 2, "navigator", 10);
+    let first_nav = panel(8, 1, "navigator", 10);
+
+    let default = |n: usize| WorkbenchLayout::default_for(pairs[n].0, pairs[n].1);
+    let mut active = default(2);
+    active.zones.center.parts[0].active = 5;
+    let mut last_active = default(3);
+    last_active.zones.center.last_active = 3;
+    let mut missing = default(4);
+    missing.zones.center.parts.clear();
+    missing.focus = vec![pairs[4].0];
+    let mut extra = default(5);
+    extra.zones.center.parts[0].tabs.push(panel_id(99));
+    let mut kept = default(6);
+    kept.sizes.bottom = 300;
+    kept.hidden.navigator = true;
+
+    layout_row(&raw, 1, &id(WB, 1), "не JSON").unwrap();
+    layout_row(&raw, 2, &id(WB, 2), &envelope(2, &default(1)).unwrap()).unwrap();
+    layout_row(&raw, 3, &id(WB, 3), &envelope(1, &active).unwrap()).unwrap();
+    layout_row(&raw, 4, &id(WB, 4), &envelope(1, &last_active).unwrap()).unwrap();
+    layout_row(&raw, 5, &id(WB, 5), &envelope(1, &missing).unwrap()).unwrap();
+    layout_row(&raw, 6, &id(WB, 6), &envelope(1, &extra).unwrap()).unwrap();
+    layout_row(&raw, 8, &id(WB, 8), "{}").unwrap();
+    layout_row(&raw, 9, &id(WB, 9), &envelope(1, &kept).unwrap()).unwrap();
+    drop(raw);
+    let before = db.bytes().unwrap();
+
+    let findings = [
+        diag("workbench_layouts", 1, "layout_unreadable"),
+        diag("workbench_layouts", 2, "layout_unreadable"),
+        diag("workbench_layouts", 3, "layout_invalid"),
+        diag("workbench_layouts", 4, "layout_invalid"),
+        diag("workbench_layouts", 5, "layout_invalid"),
+        diag("workbench_layouts", 6, "layout_invalid"),
+        diag("workbench_layouts", 8, "layout_unreadable"),
+        diag("workbenches", 7, "layout_missing"),
+    ];
+    let loaded = db.load().unwrap();
+    assert_eq!(loaded.state.diagnostics, findings);
+    assert_eq!(
+        keys(&loaded.state.layouts),
+        BTreeSet::from([workbench_id(9)])
+    );
+    assert_eq!(loaded.state.panels.len(), 19);
+    assert_eq!(db.bytes().unwrap(), before, "загрузка не пишет в базу");
+
+    let core = db.start(FakeRootResolver::new()).unwrap();
+    let (snapshot, _) = core.subscribe().await.unwrap();
+    assert_eq!(snapshot.revision, Revision(8));
+    assert_eq!(
+        core.events_since(Revision(7)).await.unwrap(),
+        EventsSince::Reset(snapshot.clone()),
+        "исправление пишет запись запуска без события"
+    );
+    let status = core.query(Query::Status {}).await.unwrap();
+    let ReplyValue::Status(status) = status.value else {
+        panic!("неожиданный ответ {status:?}");
+    };
+    assert_eq!(status.diagnostics, findings);
+
+    let state = &snapshot.state;
+    assert_eq!(state.check_invariants(), Vec::new());
+    assert_eq!(state.panels.len(), 19, "восстановление не создаёт панелей");
+    for (n, &(navigator, terminal)) in pairs.iter().enumerate().take(6) {
+        let workbench = workbench_id(u8::try_from(n + 1).unwrap());
+        assert_eq!(
+            state.layouts[&workbench],
+            WorkbenchLayout::default_for(navigator, terminal),
+            "{workbench}"
+        );
+    }
+    let recovered = |navigator: Option<PanelId>, center: Vec<PanelId>| {
+        let mut layout = WorkbenchLayout::default_for(center[0], center[0]);
+        layout.navigator = navigator;
+        layout.zones.center.parts[0].tabs = center;
+        layout
+    };
+    assert_eq!(
+        state.layouts[&workbench_id(7)],
+        recovered(None, vec![lone_a, lone_b])
+    );
+    assert_eq!(
+        state.layouts[&workbench_id(8)],
+        recovered(Some(first_nav), vec![terminal_8, second_nav])
+    );
+    assert_eq!(state.layouts[&workbench_id(9)], kept);
+
+    // Первое изменение после восстановления проходит, повторная загрузка чиста.
+    let renamed = core
+        .request(Command::WorkbenchRename {
+            workbench: workbench_id(1),
+            title: "Переименована".into(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(renamed.revision, Revision(9));
+    let (after, _) = core.subscribe().await.unwrap();
+    core.shutdown().await;
+
+    let reloaded = db.load().unwrap();
+    assert_eq!(reloaded.revision, Revision(9));
+    assert_eq!(reloaded.state.diagnostics, Vec::new());
+    assert_eq!(reloaded.state.layouts, after.state.layouts);
+    assert_eq!(
+        State {
+            diagnostics: Vec::new(),
+            ..reloaded.state.clone()
+        },
+        State {
+            diagnostics: Vec::new(),
+            ..(*after.state).clone()
+        }
+    );
+
+    let core = db.start(FakeRootResolver::new()).unwrap();
+    let (again, _) = core.subscribe().await.unwrap();
+    assert_eq!(again.revision, Revision(9), "чистая база ничего не пишет");
+    assert_eq!(again.state.layouts, after.state.layouts);
+    core.shutdown().await;
 }

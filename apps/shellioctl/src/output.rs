@@ -284,6 +284,12 @@ fn change_text(change: &Change) -> String {
         Change::WindowSet { active, route } => {
             format!("window_set {active}, {}", route_text(*route))
         }
+        Change::PanelAdd { panel } => format!(
+            "panel_add {} {} «{}» в {}",
+            panel.id, panel.plugin, panel.title, panel.workbench
+        ),
+        Change::PanelRemove { panel } => format!("panel_remove {panel}"),
+        Change::LayoutSet { workbench, .. } => format!("layout_set {workbench}"),
     }
 }
 
@@ -621,8 +627,9 @@ mod tests {
 
     use shellio_control::{RefuseReason, RefusedArg, RequestId};
     use shellio_core::{
-        Diagnostic, ProjectId, ProjectRootId, Revision, RootKey, Snapshot, State, Title,
-        TreeProject, TreeRoot, TreeWorkbench, TreeWorkspace, WorkbenchId, WorkspaceId,
+        Diagnostic, Panel, PanelId, PluginId, ProjectId, ProjectRootId, Revision, RootKey,
+        Snapshot, State, Title, TreeProject, TreeRoot, TreeWorkbench, TreeWorkspace, UnixMillis,
+        WorkbenchId, WorkbenchLayout, WorkspaceId,
     };
 
     use super::*;
@@ -745,6 +752,37 @@ mod tests {
                 event: event.clone()
             }),
             event_line
+        );
+
+        let panel = PanelId::from_str("00000000-0000-0000-0000-000000000005").unwrap();
+        let layout_event = Event {
+            revision: Revision(9),
+            changes: vec![
+                Change::PanelAdd {
+                    panel: Panel {
+                        id: panel,
+                        workbench,
+                        plugin: PluginId::new("terminal").unwrap(),
+                        title: Title::new("Терминал").unwrap(),
+                        created_at: UnixMillis(1),
+                    },
+                },
+                Change::LayoutSet {
+                    workbench,
+                    layout: WorkbenchLayout::default_for(panel, panel),
+                },
+                Change::PanelRemove { panel },
+            ],
+        };
+        assert_eq!(
+            out(&Response::Event {
+                id,
+                event: layout_event
+            }),
+            format!(
+                "ревизия 9: panel_add {panel} terminal «Терминал» в {workbench}; \
+                 layout_set {workbench}; panel_remove {panel}\n"
+            )
         );
 
         let command = |value| Response::Ok {

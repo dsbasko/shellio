@@ -258,7 +258,7 @@ impl Peer {
 }
 
 fn hello(id: u64) -> String {
-    json!({"id": id, "hello": {"protocol": 1, "client": "test"}}).to_string()
+    json!({"id": id, "hello": {"protocol": 2, "client": "test"}}).to_string()
 }
 
 fn subscribe(id: u64) -> String {
@@ -388,7 +388,7 @@ async fn hello_must_come_first() -> TestResult {
     assert_eq!(
         reply,
         json!({"id": 4, "ok": {"hello": {
-            "protocol": 1, "server": SERVER, "pid": PID, "owner": "ready"
+            "protocol": 2, "server": SERVER, "pid": PID, "owner": "ready"
         }}})
     );
     let again = peer.call_value(&hello(5)).await?;
@@ -402,15 +402,26 @@ async fn hello_must_come_first() -> TestResult {
     Ok(())
 }
 
+/// Клиент протокола v1 у владельца v2 получает отказ `hello` и ни одной команды не выполняет.
 #[tokio::test]
 async fn protocol_mismatch_keeps_connection_without_greeting() -> TestResult {
     let fixture = Fixture::start().await?;
     let mut peer = fixture.connect().await?;
 
-    let wrong = json!({"id": 1, "hello": {"protocol": 2, "client": "test"}}).to_string();
+    let wrong = json!({"id": 1, "hello": {"protocol": 1, "client": "test"}}).to_string();
     let error = control_error(Some(1), peer.call(&wrong).await?)?;
     assert_eq!(error.code(), ControlErrorCode::ProtocolMismatch);
-    assert_eq!(error.detail("supported"), Some(&json!([1])));
+    assert_eq!(error.detail("supported"), Some(&json!([2])));
+
+    let created = json!({"id": 5, "command": {"cmd": "workspace.create", "title": "Работа"},
+        "scope": "all"});
+    let error = control_error(Some(5), peer.call(&created.to_string()).await?)?;
+    assert_eq!(error.code(), ControlErrorCode::HelloRequired);
+    assert_eq!(
+        fixture.memory.revision(),
+        Revision(1),
+        "команда не выполнена"
+    );
 
     let status = json!({"id": 2, "query": {"query": "status"}}).to_string();
     let error = control_error(Some(2), peer.call(&status).await?)?;
@@ -432,7 +443,7 @@ async fn protocol_mismatch_keeps_connection_without_greeting() -> TestResult {
 async fn request_of_exactly_limit_is_served() -> TestResult {
     let fixture = Fixture::start().await?;
     let mut peer = fixture.connect().await?;
-    let head = r#"{"id":1,"hello":{"protocol":1,"client":""#;
+    let head = r#"{"id":1,"hello":{"protocol":2,"client":""#;
     let tail = r#""}}"#;
     let padding = "a".repeat(REQUEST_LINE_LIMIT - head.len() - tail.len());
     let line = format!("{head}{padding}{tail}");
@@ -793,6 +804,56 @@ async fn events_since_outside_buffer_is_reset() -> TestResult {
     };
     assert_eq!(snapshot.revision, Revision(2));
     assert_eq!(*snapshot.state, restarted.memory.state());
+    Ok(())
+}
+
+/// Рабочие области, созданные командой, получают раскладку при перезапуске. Курсор прошлого
+/// запуска получает снимок протокола v2 с панелями и раскладками целиком.
+#[tokio::test]
+async fn reset_after_restart_carries_full_layout() -> TestResult {
+    let mut fixture = Fixture::start().await?;
+    let world = {
+        let mut peer = fixture.greeted().await?;
+        world(&mut peer).await?
+    };
+    let before = fixture.memory.revision();
+    fixture.shutdown()?.await?;
+    let mut laid_out = Fixture::start_on(fixture.memory.clone()).await?;
+    assert_eq!(laid_out.memory.revision(), before.next());
+    laid_out.shutdown()?.await?;
+    let restarted = Fixture::start_on(fixture.memory.clone()).await?;
+    let mut peer = restarted.greeted().await?;
+
+    let line = json!({"id": 3, "events_since": {"cursor": before.0}, "scope": "all"});
+    let frame = peer.call_value(&line.to_string()).await?;
+    let state = &frame["ok"]["reset"]["state"];
+    for workbench in [world.home_workbench, world.work_workbench] {
+        let layout = &state["layouts"][workbench.to_string()];
+        let navigator = layout["navigator"]
+            .as_str()
+            .ok_or("нет колонки навигатора")?;
+        assert_eq!(state["panels"][navigator]["plugin"], "navigator", "{frame}");
+        let terminal = &layout["zones"]["center"]["parts"][0]["tabs"][0];
+        let terminal = terminal.as_str().ok_or("нет терминала в центре")?;
+        assert_eq!(state["panels"][terminal]["plugin"], "terminal", "{frame}");
+        assert_eq!(
+            state["panels"][terminal]["workbench"],
+            workbench.to_string()
+        );
+    }
+
+    let Response::Ok {
+        value: OkValue::EventsSince(EventsSince::Reset(snapshot)),
+        ..
+    } = serde_json::from_value(frame)?
+    else {
+        return Err("ожидался снимок".into());
+    };
+    assert_eq!(snapshot.revision, before.next());
+    assert_eq!(*snapshot.state, restarted.memory.state());
+    assert_eq!(snapshot.state.layouts.len(), 2);
+    assert_eq!(snapshot.state.panels.len(), 4);
+    assert_eq!(snapshot.state.check_invariants(), Vec::new());
     Ok(())
 }
 

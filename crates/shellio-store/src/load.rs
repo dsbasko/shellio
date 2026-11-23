@@ -2,17 +2,20 @@
 //!
 //! Загрузка ничего не пишет. Повреждённая строка пропускается вместе с зависимыми, висячая
 //! мягкая ссылка сбрасывается только в памяти, совпадения позиций и имён лишь сообщаются.
+//! Раскладка с находкой в память не попадает: недостающие раскладки дописывает запуск ядра.
 //! Каждая находка попадает в `State::diagnostics` как `{table, rowid, reason}`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OptionalExtension, Row};
 use shellio_core::{
-    Diagnostic, Project, ProjectId, ProjectRoot, ProjectRootId, Revision, RootKey, RootKind, Route,
-    State, Title, UnixMillis, WindowState, Workbench, WorkbenchId, Workspace, WorkspaceId,
+    Diagnostic, Panel, PanelId, PluginId, Project, ProjectId, ProjectRoot, ProjectRootId, Revision,
+    RootKey, RootKind, Route, State, Title, UnixMillis, WindowState, Workbench, WorkbenchId,
+    Workspace, WorkspaceId,
 };
 
+use crate::layout_json;
 use crate::open::StoreError;
 
 /// Стабильная причина находки: уходит в `query.status`.
@@ -35,12 +38,18 @@ const ROW_MISSING: Reason = "row_missing";
 // Только сообщение.
 const POSITION_TAKEN: Reason = "position_taken";
 const NAME_TAKEN: Reason = "name_taken";
+// Раскладка не загружена, запуск ядра строит её заново.
+const LAYOUT_UNREADABLE: Reason = "layout_unreadable";
+const LAYOUT_INVALID: Reason = "layout_invalid";
+const LAYOUT_MISSING: Reason = "layout_missing";
 
 const WORKSPACES: &str = "workspaces";
 const PROJECTS: &str = "projects";
 const PROJECT_ROOTS: &str = "project_roots";
 const WORKBENCHES: &str = "workbenches";
 const WINDOW_STATE: &str = "window_state";
+const PANELS: &str = "panels";
+const WORKBENCH_LAYOUTS: &str = "workbench_layouts";
 /// `window_state.id` — псевдоним `rowid`, строка единственная.
 const WINDOW_ROWID: i64 = 1;
 
@@ -61,6 +70,9 @@ pub(crate) fn load(conn: &Connection, path: &Path) -> Result<(State, Revision), 
     loader.window(&tx).map_err(sqlite)?;
     loader.position_collisions();
     loader.name_collisions();
+    loader.panels(&tx).map_err(sqlite)?;
+    loader.layouts(&tx).map_err(sqlite)?;
+    loader.missing_layouts();
     tx.commit().map_err(sqlite)?;
     Ok((loader.finish(), revision))
 }
@@ -105,6 +117,8 @@ struct Loader {
     workbench_rows: BTreeMap<WorkbenchId, i64>,
     /// `last_workbench_id` загруженных воркспейсов: проверяется после рабочих областей.
     last_workbenches: Vec<(i64, WorkspaceId, SoftRef)>,
+    /// Рабочие области, у которых есть строка раскладки, даже испорченная.
+    layout_rows: BTreeSet<WorkbenchId>,
 }
 
 impl Loader {
@@ -389,6 +403,87 @@ impl Loader {
         self.note_all(WORKSPACES, &workspaces, NAME_TAKEN);
         self.note_all(PROJECTS, &projects, NAME_TAKEN);
         self.note_all(WORKBENCHES, &workbenches, NAME_TAKEN);
+    }
+
+    fn panels(&mut self, conn: &Connection) -> rusqlite::Result<()> {
+        let mut stmt = conn.prepare(
+            "SELECT rowid, id, workbench, plugin, title, created_at FROM panels ORDER BY rowid",
+        )?;
+        let mut rows = stmt.query([])?;
+        while let Some(row) = rows.next()? {
+            let rowid: i64 = row.get(0)?;
+            let parsed = (|| -> Result<_, Reason> {
+                let id = PanelId::from_bytes(id(row, 1)?);
+                let workbench = owner(row, 2)
+                    .map(WorkbenchId::from_bytes)
+                    .filter(|workbench| self.state.workbenches.contains_key(workbench))
+                    .ok_or(OWNER_MISSING)?;
+                let plugin: String = row.get(3).map_err(|_| INVALID_VALUE)?;
+                let plugin = PluginId::new(&plugin).map_err(|_| INVALID_VALUE)?;
+                let (title, trimmed) = title(row, 4)?;
+                let created_at: i64 = row.get(5).map_err(|_| INVALID_VALUE)?;
+                let panel = Panel {
+                    id,
+                    workbench,
+                    plugin,
+                    title,
+                    created_at: UnixMillis(created_at),
+                };
+                Ok((panel, trimmed))
+            })();
+            match parsed {
+                Ok((panel, trimmed)) => {
+                    if trimmed {
+                        self.note(PANELS, rowid, TITLE_TRIMMED);
+                    }
+                    self.state.panels.insert(panel.id, panel);
+                }
+                Err(reason) => self.note(PANELS, rowid, reason),
+            }
+        }
+        Ok(())
+    }
+
+    /// Раскладка разбирается и проверяется против загруженных панелей своей рабочей области.
+    fn layouts(&mut self, conn: &Connection) -> rusqlite::Result<()> {
+        let mut stmt =
+            conn.prepare("SELECT rowid, workbench, layout FROM workbench_layouts ORDER BY rowid")?;
+        let mut rows = stmt.query([])?;
+        while let Some(row) = rows.next()? {
+            let rowid: i64 = row.get(0)?;
+            let parsed = (|| -> Result<_, Reason> {
+                let workbench = owner(row, 1)
+                    .map(WorkbenchId::from_bytes)
+                    .filter(|workbench| self.state.workbenches.contains_key(workbench))
+                    .ok_or(OWNER_MISSING)?;
+                self.layout_rows.insert(workbench);
+                let text: String = row.get(2).map_err(|_| INVALID_VALUE)?;
+                let layout = layout_json::decode(&text).ok_or(LAYOUT_UNREADABLE)?;
+                layout
+                    .validate(&self.state.workbench_panel_ids(workbench))
+                    .map_err(|_| LAYOUT_INVALID)?;
+                Ok((workbench, layout))
+            })();
+            match parsed {
+                Ok((workbench, layout)) => {
+                    self.state.layouts.insert(workbench, layout);
+                }
+                Err(reason) => self.note(WORKBENCH_LAYOUTS, rowid, reason),
+            }
+        }
+        Ok(())
+    }
+
+    /// Рабочая область с живыми панелями и без строки раскладки.
+    fn missing_layouts(&mut self) {
+        let missing: Vec<i64> = self
+            .workbench_rows
+            .iter()
+            .filter(|&(workbench, _)| !self.layout_rows.contains(workbench))
+            .filter(|&(&workbench, _)| self.state.workbench_panels(workbench).next().is_some())
+            .map(|(_, &rowid)| rowid)
+            .collect();
+        self.note_all(WORKBENCHES, &missing, LAYOUT_MISSING);
     }
 
     fn note_all(&mut self, table: &str, rowids: &[i64], reason: Reason) {

@@ -11,9 +11,10 @@ use shellio_core::test_support::{
 };
 use shellio_core::{
     BOOTSTRAP_WORKSPACE, Change, Command, CommandValue, Core, CoreError, CoreHandle, EVENT_BUFFER,
-    ErrorCode, Event, EventsSince, IdGen, QUEUE_CAPACITY, Query, ReplyValue, Revision, RootKey,
-    RootKind, Route, SUBSCRIBER_CAPACITY, Snapshot, StartError, State, StatusView, Title, TreeRoot,
-    TreeScope, TreeView, UnixMillis, WorkbenchId, Workspace, WorkspaceId,
+    ErrorCode, Event, EventsSince, IdGen, NAVIGATOR_PLUGIN, Project, ProjectId, QUEUE_CAPACITY,
+    Query, ReplyValue, Revision, RootKey, RootKind, Route, SUBSCRIBER_CAPACITY, Snapshot,
+    StartError, State, StatusView, TERMINAL_PLUGIN, Title, TreeRoot, TreeScope, TreeView,
+    UnixMillis, WindowState, Workbench, WorkbenchId, Workspace, WorkspaceId,
 };
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::error::{RecvError, TryRecvError};
@@ -177,6 +178,98 @@ async fn start_focuses_first_workspace_when_active_is_missing() {
     assert_eq!(snapshot.state.window.active_workspace, Some(first));
     assert_eq!(snapshot.state.workspaces.len(), 2);
     assert_eq!(*snapshot.state, memory.state());
+}
+
+/// Состояние базы v1: открытая рабочая область без панелей и раскладки.
+fn open_workbench_without_layout() -> TestResult<(State, WorkbenchId)> {
+    let mut ids = SequentialIds::new();
+    let ids: &mut dyn IdGen = &mut ids;
+    let workspace = WorkspaceId::generate(ids);
+    let project = ProjectId::generate(ids);
+    let workbench = WorkbenchId::generate(ids);
+    let mut state = State {
+        window: WindowState {
+            active_workspace: Some(workspace),
+            route: Route::Workbench(workbench),
+        },
+        ..State::default()
+    };
+    state.workspaces.insert(
+        workspace,
+        Workspace {
+            id: workspace,
+            title: Title::new("Работа")?,
+            position: 0,
+            last_workbench: Some(workbench),
+            deleted_at: None,
+        },
+    );
+    state.projects.insert(
+        project,
+        Project {
+            id: project,
+            workspace,
+            title: Title::new("shellio")?,
+            list_position: Some(0),
+            removed_at: None,
+            last_opened_at: None,
+        },
+    );
+    state.workbenches.insert(
+        workbench,
+        Workbench {
+            id: workbench,
+            project,
+            title: Title::new("Основная")?,
+            position: 0,
+        },
+    );
+    assert_eq!(state.check_invariants(), Vec::new());
+    Ok((state, workbench))
+}
+
+#[tokio::test]
+async fn start_writes_default_layout_and_snapshot_plus_events_equal_state() {
+    let (seeded, workbench) = open_workbench_without_layout().unwrap();
+    let memory = MemoryPersist::with_state(seeded.clone(), Revision(3));
+
+    let (core, faults) = start_on(&memory).unwrap();
+    assert_eq!(
+        faults.commits(),
+        1,
+        "раскладка пишется одной записью запуска"
+    );
+    let snapshot = snapshot(&core).await.unwrap();
+    assert_eq!(snapshot.revision, Revision(4));
+    assert_eq!(*snapshot.state, memory.state());
+    assert_eq!(snapshot.state.check_invariants(), Vec::new());
+
+    let layout = &snapshot.state.layouts[&workbench];
+    let navigator = &snapshot.state.panels[&layout.navigator.unwrap()];
+    let terminal = &snapshot.state.panels[&layout.focused().unwrap()];
+    assert_eq!(navigator.plugin.as_str(), NAVIGATOR_PLUGIN);
+    assert_eq!(terminal.plugin.as_str(), TERMINAL_PLUGIN);
+    assert_eq!(layout.zones.center.parts[0].tabs, [terminal.id]);
+    assert_eq!((navigator.created_at, terminal.created_at), (NOW, NOW));
+
+    // Снимок до запуска и событие запуска дают то же состояние с раскладкой.
+    let EventsSince::Events(events) = core.events_since(Revision(3)).await.unwrap() else {
+        panic!("ожидалось событие запуска");
+    };
+    let mut replayed = seeded;
+    for event in &events {
+        replayed.apply_all(&event.changes);
+    }
+    assert_eq!(events.len(), 1);
+    assert_eq!(replayed, *snapshot.state);
+    core.shutdown().await;
+
+    // Второй запуск находит раскладку и ничего не пишет: `PanelId` прежние.
+    let (core, faults) = start_on(&memory).unwrap();
+    let again = self::snapshot(&core).await.unwrap();
+    assert_eq!(faults.commits(), 0);
+    assert_eq!(again, snapshot);
+    core.shutdown().await;
 }
 
 #[tokio::test]

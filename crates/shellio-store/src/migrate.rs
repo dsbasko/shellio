@@ -19,10 +19,16 @@ pub struct Migration {
     pub sql: &'static str,
 }
 
-const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    sql: include_str!("../migrations/0001_init.sql"),
-}];
+const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        sql: include_str!("../migrations/0001_init.sql"),
+    },
+    Migration {
+        version: 2,
+        sql: include_str!("../migrations/0002_layout.sql"),
+    },
+];
 
 const BACKUPS_DIR_MODE: u32 = 0o700;
 const BACKUP_FILE_MODE: u32 = 0o600;
@@ -252,7 +258,7 @@ mod tests {
     fn builtin_versions_are_consecutive_from_one() {
         let migrator = Migrator::default();
         assert!(consecutive(migrator.migrations()));
-        assert_eq!(migrator.latest(), 1);
+        assert_eq!(migrator.latest(), 2);
     }
 
     #[test]
@@ -260,7 +266,7 @@ mod tests {
     fn gap_in_versions_is_refused() {
         let mut migrations = MIGRATIONS.to_vec();
         migrations.push(Migration {
-            version: 3,
+            version: 4,
             sql: "",
         });
         Migrator::new(migrations);

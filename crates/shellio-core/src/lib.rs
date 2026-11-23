@@ -15,6 +15,7 @@ mod ids;
 mod loopback;
 mod mirror;
 mod model;
+mod panel;
 mod persist;
 mod query;
 mod root;
@@ -39,6 +40,10 @@ pub use mirror::{Delivery, Mirror, MirrorStep, window_title, workspace_name};
 pub use model::{
     Diagnostic, EntityRef, PositionScope, Project, ProjectRoot, Revision, Route, State, Violation,
     WindowState, Workbench, Workspace,
+};
+pub use panel::{
+    NAVIGATOR_PLUGIN, NAVIGATOR_TITLE, Panel, PluginId, PluginIdError, TERMINAL_PLUGIN,
+    TERMINAL_TITLE, WorkbenchLayout,
 };
 pub use persist::{CommitError, LoadError, Loaded, Persist};
 pub use query::{Query, StatusView, StorageInfo, read};

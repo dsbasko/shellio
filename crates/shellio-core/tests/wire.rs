@@ -17,9 +17,10 @@ use serde_json::Value;
 use shellio_core::test_support::SequentialIds;
 use shellio_core::{
     Change, Command, CommandValue, CoreError, Diagnostic, Entity, ErrorCode, Event, EventsSince,
-    IdGen, Project, ProjectId, ProjectRoot, ProjectRootId, Query, Reply, ReplyValue, Revision,
-    RootError, RootKey, RootKind, Route, Snapshot, State, StorageInfo, Title, TreeScope, TreeView,
-    UnixMillis, WindowState, Workbench, WorkbenchId, Workspace, WorkspaceId, read,
+    IdGen, Panel, PanelId, PluginId, Project, ProjectId, ProjectRoot, ProjectRootId, Query, Reply,
+    ReplyValue, Revision, RootError, RootKey, RootKind, Route, Snapshot, State, StorageInfo, Title,
+    TreeScope, TreeView, UnixMillis, WindowState, Workbench, WorkbenchId, WorkbenchLayout,
+    Workspace, WorkspaceId, read,
 };
 
 fn wire_dir() -> PathBuf {
@@ -104,6 +105,8 @@ struct Ids {
     second_project: ProjectId,
     second_root: ProjectRootId,
     second_workbench: WorkbenchId,
+    navigator: PanelId,
+    terminal: PanelId,
 }
 
 fn ids() -> Ids {
@@ -118,7 +121,19 @@ fn ids() -> Ids {
         second_project: ProjectId::generate(generator),
         second_root: ProjectRootId::generate(generator),
         second_workbench: WorkbenchId::generate(generator),
+        navigator: PanelId::generate(generator),
+        terminal: PanelId::generate(generator),
     }
+}
+
+fn panel(ids: &Ids, id: PanelId, plugin: &str, name: &str) -> Result<Panel, String> {
+    Ok(Panel {
+        id,
+        workbench: ids.workbench,
+        plugin: PluginId::new(plugin).map_err(|error| error.to_string())?,
+        title: title(name)?,
+        created_at: UnixMillis(1_795_000_000_000),
+    })
 }
 
 fn command_golden(command: &Command) -> &'static str {
@@ -210,6 +225,9 @@ fn change_golden(change: &Change) -> &'static str {
         Change::WorkbenchInserted { .. } => "change.workbench_inserted",
         Change::WorkbenchRenamed { .. } => "change.workbench_renamed",
         Change::WindowSet { .. } => "change.window_set",
+        Change::PanelAdd { .. } => "change.panel_add",
+        Change::PanelRemove { .. } => "change.panel_remove",
+        Change::LayoutSet { .. } => "change.layout_set",
     }
 }
 
@@ -269,6 +287,16 @@ fn change_samples() -> Result<Samples, String> {
         Change::WindowSet {
             active: ids.workspace,
             route: Route::WorkspaceHome,
+        },
+        Change::PanelAdd {
+            panel: panel(&ids, ids.terminal, "terminal", "Терминал")?,
+        },
+        Change::PanelRemove {
+            panel: ids.terminal,
+        },
+        Change::LayoutSet {
+            workbench: ids.workbench,
+            layout: WorkbenchLayout::default_for(ids.navigator, ids.terminal),
         },
     ];
     Ok(changes
@@ -519,6 +547,17 @@ fn events_since_golden(since: &EventsSince) -> &'static str {
 fn events_since_samples() -> Result<Samples, String> {
     let ids = ids();
     let mut state = tree_state(&ids)?;
+    for (id, plugin, name) in [
+        (ids.navigator, "navigator", "Навигатор"),
+        (ids.terminal, "terminal", "Терминал"),
+    ] {
+        state.panels.insert(id, panel(&ids, id, plugin, name)?);
+    }
+    state.layouts.insert(
+        ids.workbench,
+        WorkbenchLayout::default_for(ids.navigator, ids.terminal),
+    );
+    assert_eq!(state.check_invariants(), Vec::new());
     state.diagnostics.push(Diagnostic {
         table: "workspaces".into(),
         rowid: 3,

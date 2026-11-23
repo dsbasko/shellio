@@ -2,7 +2,7 @@
 //! посреди транзакции и случайные последовательности команд. Состояние актора, перезагрузка
 //! из базы и зеркало из снимка и событий подписчика должны совпадать.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -180,9 +180,10 @@ fn without_diagnostics(state: &State) -> State {
     }
 }
 
+/// Дерево без ревизии ответа: перезапуск может дописать раскладки, не меняя дерева.
 async fn tree_json(core: &CoreHandle, scope: TreeScope) -> TestResult<String> {
     Ok(serde_json::to_string(
-        &core.query(Query::Tree { scope }).await?,
+        &core.query(Query::Tree { scope }).await?.value,
     )?)
 }
 
@@ -256,13 +257,37 @@ async fn reopen_restores_state_revision_and_tree() {
         i64::try_from(before.revision.0).unwrap()
     );
 
+    // Рабочие области, созданные командой, получают раскладку первым перезапуском: одна
+    // запись с панелями и раскладками, остальное состояние прежнее.
+    let core = start(store.persist().unwrap(), &clock, resolver()).unwrap();
+    let laid_out = snapshot(&core).await.unwrap();
+    assert_eq!(laid_out.revision, before.revision.next());
+    assert_eq!(
+        laid_out
+            .state
+            .layouts
+            .keys()
+            .copied()
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from([main, review, draft])
+    );
+    assert_eq!(
+        State {
+            panels: BTreeMap::new(),
+            layouts: BTreeMap::new(),
+            ..(*laid_out.state).clone()
+        },
+        *before.state
+    );
+    core.shutdown().await;
+
     let core = start(store.persist().unwrap(), &clock, resolver()).unwrap();
     let after = snapshot(&core).await.unwrap();
-    assert_eq!(after.revision, before.revision);
+    assert_eq!(after.revision, laid_out.revision);
     assert_eq!(after.state.diagnostics, Vec::new());
     assert_eq!(
         without_diagnostics(&after.state),
-        without_diagnostics(&before.state)
+        without_diagnostics(&laid_out.state)
     );
     assert_eq!(tree_json(&core, TreeScope::All).await.unwrap(), tree_all);
     assert_eq!(
@@ -280,7 +305,7 @@ async fn reopen_restores_state_revision_and_tree() {
     )
     .await
     .unwrap();
-    assert_eq!(renamed.revision, before.revision.next());
+    assert_eq!(renamed.revision, after.revision.next());
     match core
         .events_since(Revision(before.revision.0 - 1))
         .await
@@ -841,6 +866,9 @@ const fn change_name(change: &Change) -> &'static str {
         Change::WorkbenchInserted { .. } => "workbench_inserted",
         Change::WorkbenchRenamed { .. } => "workbench_renamed",
         Change::WindowSet { .. } => "window_set",
+        Change::PanelAdd { .. } => "panel_add",
+        Change::PanelRemove { .. } => "panel_remove",
+        Change::LayoutSet { .. } => "layout_set",
     }
 }
 

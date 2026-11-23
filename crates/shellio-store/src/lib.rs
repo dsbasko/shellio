@@ -2,6 +2,7 @@
 
 #![forbid(unsafe_code)]
 
+mod layout_json;
 mod load;
 mod migrate;
 mod open;
