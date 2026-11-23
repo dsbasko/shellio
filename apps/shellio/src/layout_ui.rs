@@ -6,22 +6,24 @@
 //! сплит вдоль её оси, в элементе части стоит [`Plate`]. Вид панели создаётся один раз на
 //! `PanelId`: смена вкладки его прячет и показывает, перенос и `zoom` переставляют родителя.
 //! Развёрнутая панель лежит на отдельной плитке поверх корня, деления под ней не меняются.
+//! Перетаскиваемая вкладка подсвечивает цель на её плитке, отпускание — одна команда переноса.
 
 use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use shellio::scene::{
-    self, Bench, Host, Op, PICKER, PartKey, PlateRef, PlateSlot, Scene, SplitId, SplitPlan,
+    self, Bench, Host, MenuRow, Op, PICKER, PanelMenuItem, PartKey, PlateRef, PlateSlot, Scene,
+    SplitId, SplitPlan,
 };
 use shellio_appkit::{
     App, EmptyNote, Frame, Insets, MainWindow, Menu, MenuEntry, MenuIntent, MenuItem, Pane,
     PanelCard, PanelView, Plate, Presentation, SplitDirection, SplitDrag, SplitSlot, SplitSpec,
-    SplitView, Tab, TabIntent, TabStatus, TabStripState, ZoneSide,
+    SplitView, Tab, TabDrag, TabIntent, TabStatus, TabStripState, ZoneSide,
 };
 use shellio_control::{ComponentState, ComponentView, PanelNodeView, PartNodeView};
-use shellio_core::{PanelId, State, layout_metrics};
-use shellio_layout::{Rect, SizeClass, Viewport, Zone, ZoneMap};
+use shellio_core::{Command, PanelId, State, layout_metrics};
+use shellio_layout::{Point, Rect, SizeClass, Viewport, Zone, ZoneMap};
 use shellio_theme::{AppTheme, KeyMode, Motion};
 
 use crate::window_ui;
@@ -38,10 +40,18 @@ const PICKER_ID: &str = "layout.picker";
 const PICKER_TITLE: &str = "Открыть в новой части";
 
 /// Действие в раскладке, которое становится командой ядра.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PanelAction {
     /// Щелчок по вкладке — `panel.select`.
     Select(PanelId),
+    /// Кнопка закрытия вкладки — `panel.close`.
+    Close(PanelId),
+    /// Пункт меню «…» плитки — перенос её активной вкладки или закрытие.
+    Menu(PlateRef, PanelMenuItem),
+    /// Вкладку тянут: подсветка цели под точкой содержимого окна.
+    Drag { panel: PanelId, point: Point },
+    /// Вкладку отпустили: перенос в цель под точкой или отмена.
+    Drop { panel: PanelId, point: Point },
     /// Щелчок в тело панели — `panel.focus`.
     Focus(PanelId),
     /// «Разделить» плитки — `layout.split` её активной вкладки.
@@ -68,6 +78,9 @@ pub struct LayoutUi {
     picker: Option<Menu>,
     /// Панель, которую делит открытый выбор.
     picker_panel: Rc<Cell<Option<PanelId>>>,
+    /// Плитка с подсветкой цели и перетаскиваемая панель.
+    drop_at: Cell<Option<PartKey>>,
+    dragging: Cell<Option<PanelId>>,
     zones: ZoneMap<SplitView>,
     column: SplitView,
     root: SplitView,
@@ -131,6 +144,8 @@ impl LayoutUi {
             note,
             picker,
             picker_panel,
+            drop_at: Cell::new(None),
+            dragging: Cell::new(None),
             zones,
             column,
             root,
@@ -175,6 +190,42 @@ impl LayoutUi {
         self.scene.as_ref()
     }
 
+    /// Вкладку панели `panel` тянут через точку `point`: подсветка цели на её плитке, вне цели
+    /// подсветки нет.
+    pub fn drag_over(&self, panel: PanelId, point: Point) {
+        self.dragging.set(Some(panel));
+        let plan = self
+            .scene
+            .as_ref()
+            .and_then(|scene| scene::drop_plan(scene, panel, point));
+        self.show_drop(plan.map(|plan| (plan.part, plan.highlight)));
+    }
+
+    /// Вкладку панели `panel` отпустили в точке `point`: подсветка уходит, ответ — команда
+    /// переноса в цель; `None` — отмена.
+    pub fn drop_at(&self, panel: PanelId, point: Point) -> Option<Command> {
+        self.dragging.set(None);
+        self.show_drop(None);
+        let scene = self.scene.as_ref()?;
+        scene::drop_plan(scene, panel, point).map(|plan| plan.command)
+    }
+
+    /// Подсветка цели перетаскивания на плитке `target`; прежняя подсветка снимается.
+    fn show_drop(&self, target: Option<(PartKey, Rect)>) {
+        let key = target.map(|(key, _)| key);
+        if let Some(previous) = self.drop_at.replace(key)
+            && Some(previous) != key
+            && let Some(plate) = self.plates.get(&previous)
+        {
+            plate.set_drop(None);
+        }
+        if let Some((key, rect)) = target
+            && let Some(plate) = self.plates.get(&key)
+        {
+            plate.set_drop(Some(frame(rect)));
+        }
+    }
+
     /// Показывает состояние `state` (`None` — снимка ещё нет) при размере содержимого `viewport`.
     pub fn render(&mut self, app: &App, state: Option<&State>, viewport: Viewport) {
         let empty = State::default();
@@ -204,6 +255,15 @@ impl LayoutUi {
             }
         }
         self.place(app, &next);
+        let gone = self.dragging.get().is_some_and(|panel| {
+            next.bench
+                .as_ref()
+                .is_none_or(|bench| !bench.views.contains_key(&panel))
+        });
+        if gone {
+            self.dragging.set(None);
+            self.show_drop(None);
+        }
         for op in ops {
             match op {
                 Op::Show(panel) => self.set_view_hidden(panel, false),
@@ -213,6 +273,9 @@ impl LayoutUi {
                 }
                 Op::RemovePlate(key) => {
                     self.plates.remove(&key);
+                    if self.drop_at.get() == Some(key) {
+                        self.drop_at.set(None);
+                    }
                 }
                 Op::AddPlate(_) | Op::AddView(..) | Op::Reparent(..) => {}
             }
@@ -349,6 +412,7 @@ impl LayoutUi {
         let intent = self.tab_intent(PlateRef::Part(key));
         match Plate::new(app, &self.theme, self.motion, state, intent) {
             Ok(plate) => {
+                plate.set_drag_handler(self.tab_drag());
                 self.plates.insert(key, plate);
             }
             Err(error) => shellio::owner::say_err(format_args!(
@@ -357,10 +421,10 @@ impl LayoutUi {
         }
     }
 
-    /// Намерения строки вкладок плитки `plate`: щелчок по вкладке — `panel.select`, «Разделить» и
-    /// «Развернуть панель» / «Вернуть раскладку» — команда с явной целью этой плитки. Плитка
-    /// адресуется местом: панель берётся из сцены в момент действия. Меню «…» и закрытие
-    /// вкладки получают обработчики в задаче 12.
+    /// Намерения строки вкладок плитки `plate`: щелчок по вкладке — `panel.select`, её кнопка
+    /// закрытия — `panel.close`, «Разделить», «Развернуть панель» / «Вернуть раскладку» и пункты
+    /// меню «…» — команда с явной целью этой плитки. Плитка адресуется местом: панель берётся из
+    /// сцены в момент действия.
     fn tab_intent(&self, plate: PlateRef) -> impl Fn(TabIntent) + 'static {
         let on_panel = Rc::clone(&self.on_panel);
         move |intent| match intent {
@@ -369,9 +433,41 @@ impl LayoutUi {
                     on_panel(PanelAction::Select(panel));
                 }
             }
+            TabIntent::Close { id } => {
+                if let Ok(panel) = id.parse::<PanelId>() {
+                    on_panel(PanelAction::Close(panel));
+                }
+            }
             TabIntent::Split(_) => on_panel(PanelAction::Split(plate)),
             TabIntent::Zoom | TabIntent::Restore => on_panel(PanelAction::Zoom(plate)),
-            TabIntent::Close { .. } | TabIntent::Menu { .. } => {}
+            TabIntent::Menu { id } => {
+                if let Some(item) = PanelMenuItem::of_id(&id) {
+                    on_panel(PanelAction::Menu(plate, item));
+                }
+            }
+        }
+    }
+
+    /// Перетаскивание вкладок строки: движения и отпускание с панелью вкладки.
+    fn tab_drag(&self) -> impl Fn(TabDrag) + 'static {
+        let on_panel = Rc::clone(&self.on_panel);
+        move |drag| {
+            let (id, point, dropped) = match drag {
+                TabDrag::Moved { id, point } => (id, point, false),
+                TabDrag::Dropped { id, point } => (id, point, true),
+            };
+            let Ok(panel) = id.parse::<PanelId>() else {
+                return;
+            };
+            let point = Point {
+                x: point.x,
+                y: point.y,
+            };
+            on_panel(if dropped {
+                PanelAction::Drop { panel, point }
+            } else {
+                PanelAction::Drag { panel, point }
+            });
         }
     }
 
@@ -435,7 +531,10 @@ impl LayoutUi {
                 if self.zoom.is_none() {
                     let intent = self.tab_intent(PlateRef::Zoom);
                     match Plate::new(app, &self.theme, self.motion, state.clone(), intent) {
-                        Ok(plate) => self.zoom = Some(plate),
+                        Ok(plate) => {
+                            plate.set_drag_handler(self.tab_drag());
+                            self.zoom = Some(plate);
+                        }
                         Err(error) => shellio::owner::say_err(format_args!(
                             "shellio: плитка развёрнутой панели не построена: {error:?}"
                         )),
@@ -665,6 +764,13 @@ fn strip_state(
         .then_some(active);
     state.focused = slot.focused;
     state.mode = KeyMode::Navigation;
+    state.actions = scene::panel_menu(&bench.layout, slot.active)
+        .into_iter()
+        .map(|row| match row {
+            MenuRow::Item(item, title) => MenuEntry::Item(MenuItem::new(item.id(), title)),
+            MenuRow::Separator(id) => MenuEntry::Separator { id: id.to_owned() },
+        })
+        .collect();
     state
 }
 

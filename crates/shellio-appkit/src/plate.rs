@@ -10,7 +10,7 @@ use crate::app::App;
 use crate::chrome_bar::Frame;
 use crate::components::menu::Menu;
 use crate::components::tab_strip::TabStrip;
-use crate::components::tab_strip::model::{TabError, TabIntent, TabStripState};
+use crate::components::tab_strip::model::{TabDrag, TabError, TabIntent, TabStripState};
 use crate::inspect::{self, InspectNode, Transition};
 use crate::layer::without_actions;
 use crate::own::ComponentId;
@@ -68,6 +68,17 @@ impl Plate {
 
     pub fn surface(&self) -> &Surface {
         &self.surface
+    }
+
+    /// Владелец перетаскивания вкладок строки (см. [`TabStrip::set_drag_handler`]).
+    pub fn set_drag_handler(&self, on_drag: impl Fn(TabDrag) + 'static) {
+        self.strip.set_drag_handler(on_drag);
+    }
+
+    /// Подсветка цели перетаскивания вкладки с кадром `frame` в точках плитки над строкой вкладок
+    /// и телом; `None` убирает её.
+    pub fn set_drop(&self, frame: Option<Frame>) {
+        self.surface.set_drop(frame);
     }
 
     /// Открывает меню выбора у кнопки «Разделить» строки вкладок.

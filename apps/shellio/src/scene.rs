@@ -8,7 +8,10 @@
 //! - [`ViewportGate`] — размер окна для ядра с объединением до конца оборота цикла и без повторов;
 //! - [`resize_command`] — конец перетаскивания разделителя в одну команду `layout.resize`;
 //! - [`Scene::zone_buttons`] и [`toggle_command`] — кнопки зон заголовка и пункты меню «Вид»;
-//! - [`focus_command`] — щелчок в тело панели, [`refusal_text`] — отказ ядра в строке статуса.
+//! - [`focus_command`] — щелчок в тело панели, [`refusal_text`] — отказ ядра в строке статуса;
+//! - [`panel_menu`] и [`menu_command`] — меню «…» плитки: перенос в соседнюю часть, в зону и
+//!   закрытие;
+//! - [`drop_plan`] — отпускание перетаскиваемой вкладки: цель, подсветка и одна команда переноса.
 //!
 //! Вид панели живёт, пока панель есть в открытой рабочей области: смена вкладки, перенос и `zoom`
 //! его не пересоздают. Начало координат — левый верхний угол содержимого окна, как у геометрии.
@@ -19,8 +22,8 @@ use shellio_core::{
     Command, CoreError, Entity, ErrorCode, PanelId, State, WorkbenchId, min_size, open_workbench,
 };
 use shellio_layout::{
-    Axis, Frames, Geometry, Hideable, Layout, LayoutMetrics, PartFrame, Rect, Viewport, Zone,
-    ZoneMap, geometry,
+    Axis, DropTarget, Edge, Frames, Geometry, Hideable, Layout, LayoutMetrics, Location, PartFrame,
+    Point, Rect, Viewport, Zone, ZoneMap, drop_target, geometry,
 };
 
 /// Сообщение области зон без открытой рабочей области.
@@ -778,6 +781,229 @@ pub fn zoom_command(scene: &Scene, plate: PlateRef) -> Option<Command> {
             off: Some(true),
         }),
     }
+}
+
+/// Кнопка закрытия вкладки — `panel.close`. `None` — панели нет в открытой рабочей области.
+pub fn close_command(scene: &Scene, panel: PanelId) -> Option<Command> {
+    let bench = scene.bench.as_ref()?;
+    bench
+        .views
+        .contains_key(&panel)
+        .then_some(Command::PanelClose { panel })
+}
+
+/// Пункт меню «…» плитки (ADR-0031, `docs/ux.md`, «Две панели рядом»). Id пункта — имя действия
+/// в keymap (ADR-0007).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PanelMenuItem {
+    /// В соседнюю часть вдоль оси зоны: `Before` — левее или выше, `After` — правее или ниже.
+    Part(Edge),
+    /// В другую зону.
+    Zone(Zone),
+    Close,
+}
+
+impl PanelMenuItem {
+    const ALL: [PanelMenuItem; 7] = [
+        PanelMenuItem::Part(Edge::Before),
+        PanelMenuItem::Part(Edge::After),
+        PanelMenuItem::Zone(Zone::Left),
+        PanelMenuItem::Zone(Zone::Right),
+        PanelMenuItem::Zone(Zone::Bottom),
+        PanelMenuItem::Zone(Zone::Center),
+        PanelMenuItem::Close,
+    ];
+
+    pub const fn id(self) -> &'static str {
+        match self {
+            PanelMenuItem::Part(Edge::Before) => "panel.move_part.prev",
+            PanelMenuItem::Part(Edge::After) => "panel.move_part.next",
+            PanelMenuItem::Zone(Zone::Left) => "panel.move.left",
+            PanelMenuItem::Zone(Zone::Right) => "panel.move.right",
+            PanelMenuItem::Zone(Zone::Bottom) => "panel.move.down",
+            PanelMenuItem::Zone(Zone::Center) => "panel.move.up",
+            PanelMenuItem::Close => "panel.close",
+        }
+    }
+
+    /// Пункт по id; `None` — чужой id, например заголовок нагрузки.
+    pub fn of_id(id: &str) -> Option<PanelMenuItem> {
+        PanelMenuItem::ALL.into_iter().find(|item| item.id() == id)
+    }
+
+    /// Название пункта в зоне `zone`: соседняя часть называется по оси зоны.
+    pub const fn title(self, zone: Zone) -> &'static str {
+        match (self, zone.axis()) {
+            (PanelMenuItem::Part(Edge::Before), Axis::SideBySide) => "В часть левее",
+            (PanelMenuItem::Part(Edge::After), Axis::SideBySide) => "В часть правее",
+            (PanelMenuItem::Part(Edge::Before), Axis::Stacked) => "В часть выше",
+            (PanelMenuItem::Part(Edge::After), Axis::Stacked) => "В часть ниже",
+            (PanelMenuItem::Zone(Zone::Left), _) => "В левую зону",
+            (PanelMenuItem::Zone(Zone::Right), _) => "В правую зону",
+            (PanelMenuItem::Zone(Zone::Bottom), _) => "В нижнюю зону",
+            (PanelMenuItem::Zone(Zone::Center), _) => "В центр",
+            (PanelMenuItem::Close, _) => "Закрыть",
+        }
+    }
+}
+
+/// Строка меню «…»: пункт с названием или разделитель с id.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MenuRow {
+    Item(PanelMenuItem, &'static str),
+    Separator(&'static str),
+}
+
+/// Меню «…» плитки с активной вкладкой `panel`: соседние части вдоль оси зоны, если они есть,
+/// другие зоны и «Закрыть». Пустое — панель не стоит в части.
+pub fn panel_menu<P: Copy + Ord>(layout: &Layout<P>, panel: P) -> Vec<MenuRow> {
+    let Some(Location::Part { zone, part, .. }) = layout.locate(panel) else {
+        return Vec::new();
+    };
+    let count = layout.zones.get(zone).parts.len();
+    let mut rows = Vec::new();
+    let item = |item: PanelMenuItem| MenuRow::Item(item, item.title(zone));
+    if part > 0 {
+        rows.push(item(PanelMenuItem::Part(Edge::Before)));
+    }
+    if part + 1 < count {
+        rows.push(item(PanelMenuItem::Part(Edge::After)));
+    }
+    if !rows.is_empty() {
+        rows.push(MenuRow::Separator("panel.menu.parts"));
+    }
+    for target in [Zone::Left, Zone::Right, Zone::Bottom, Zone::Center] {
+        if target != zone {
+            rows.push(item(PanelMenuItem::Zone(target)));
+        }
+    }
+    rows.push(MenuRow::Separator("panel.menu.zones"));
+    rows.push(item(PanelMenuItem::Close));
+    rows
+}
+
+/// Пункт меню «…» плитки `plate` — одна команда для её активной вкладки: соседняя часть —
+/// `panel.move_part` с якорем, активной вкладкой соседней части, без края (вкладка встаёт в неё
+/// последней); зона — `panel.move`; «Закрыть» — `panel.close`. Соседняя часть берётся по раскладке
+/// в момент выбора. `None` — плитки, панели или соседней части уже нет.
+pub fn menu_command(scene: &Scene, plate: PlateRef, item: PanelMenuItem) -> Option<Command> {
+    let bench = scene.bench.as_ref()?;
+    let panel = plate_panel(bench, plate)?;
+    match item {
+        PanelMenuItem::Part(edge) => {
+            let Location::Part { zone, part, .. } = bench.layout.locate(panel)? else {
+                return None;
+            };
+            let neighbour = match edge {
+                Edge::Before => part.checked_sub(1)?,
+                Edge::After => part + 1,
+            };
+            let anchor = bench
+                .layout
+                .zones
+                .get(zone)
+                .parts
+                .get(neighbour)?
+                .active_panel()?;
+            Some(Command::PanelMovePart {
+                panel,
+                anchor,
+                edge: None,
+            })
+        }
+        PanelMenuItem::Zone(zone) => Some(Command::PanelMove { panel, zone }),
+        PanelMenuItem::Close => Some(Command::PanelClose { panel }),
+    }
+}
+
+/// Цель отпускания перетаскиваемой вкладки.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DropPlan {
+    /// Плитка цели.
+    pub part: PartKey,
+    /// Подсветка в точках плитки: вся плитка или её половина со стороны новой части.
+    pub highlight: Rect,
+    /// Одна команда `panel.move_part`.
+    pub command: Command,
+}
+
+/// Вкладка `panel`, отпущенная в точке `point` содержимого окна (ADR-0031): цель по
+/// [`drop_target`] — строка вкладок или тело части переносят вкладку в эту часть последней, полоса
+/// края тела вдоль оси зоны — в новую часть с этой стороны. Отмена (`None`): точка вне частей,
+/// развёрнутая панель, вкладка не из части, собственная часть без края или с краем у одиночной
+/// вкладки (как в прототипе: перенос ничего бы не изменил). Место перенос не проверяет (ADR-0009).
+pub fn drop_plan(scene: &Scene, panel: PanelId, point: Point) -> Option<DropPlan> {
+    let bench = scene.bench.as_ref()?;
+    if bench.zoomed.is_some() {
+        return None;
+    }
+    let Location::Part {
+        zone: from_zone,
+        part: from,
+        ..
+    } = bench.layout.locate(panel)?
+    else {
+        return None;
+    };
+    let source_tabs = bench
+        .layout
+        .zones
+        .get(from_zone)
+        .parts
+        .get(from)?
+        .tabs
+        .len();
+    let (anchor, edge) = match drop_target(&bench.frames, point, &scene.metrics) {
+        DropTarget::Part { anchor } => (anchor, None),
+        DropTarget::NewPart { anchor, edge } => (anchor, Some(edge)),
+        DropTarget::None => return None,
+    };
+    let target = bench.frames.part_of(&anchor)?;
+    let own = target.zone == from_zone && target.index == from;
+    if own && (edge.is_none() || source_tabs < 2) {
+        return None;
+    }
+    let (width, height) = (target.frame.width, target.frame.height);
+    let whole = Rect {
+        x: 0.0,
+        y: 0.0,
+        width,
+        height,
+    };
+    let (half_w, half_h) = ((width / 2.0).floor(), (height / 2.0).floor());
+    let highlight = match (edge, target.zone.axis()) {
+        (None, _) => whole,
+        (Some(Edge::Before), Axis::SideBySide) => Rect {
+            width: half_w,
+            ..whole
+        },
+        (Some(Edge::After), Axis::SideBySide) => Rect {
+            x: half_w,
+            width: width - half_w,
+            ..whole
+        },
+        (Some(Edge::Before), Axis::Stacked) => Rect {
+            height: half_h,
+            ..whole
+        },
+        (Some(Edge::After), Axis::Stacked) => Rect {
+            y: half_h,
+            height: height - half_h,
+            ..whole
+        },
+    };
+    Some(DropPlan {
+        part: PartKey {
+            zone: target.zone,
+            index: target.index,
+        },
+        highlight,
+        command: Command::PanelMovePart {
+            panel,
+            anchor,
+            edge,
+        },
+    })
 }
 
 /// Пункты выбора «Открыть в новой части»: известные хосту plugin id и названия, `terminal` первым.
@@ -1874,6 +2100,379 @@ mod tests {
         assert_eq!(
             refusal_text(&zone, &CoreError::busy(), titles),
             "Ядро занято: повторите действие"
+        );
+    }
+
+    fn titles(rows: &[MenuRow]) -> Vec<&'static str> {
+        rows.iter()
+            .map(|row| match row {
+                MenuRow::Item(_, title) => title,
+                MenuRow::Separator(_) => &"—",
+            })
+            .copied()
+            .collect()
+    }
+
+    #[test]
+    fn panel_menu_follows_the_zone_axis_and_its_neighbours() {
+        let mut fixture = fixture();
+        let layout = &scene(&fixture).bench.unwrap().layout;
+        assert_eq!(
+            titles(&panel_menu(layout, fixture.terminal)),
+            [
+                "В левую зону",
+                "В правую зону",
+                "В нижнюю зону",
+                "—",
+                "Закрыть"
+            ],
+            "одна часть: соседних частей нет, своей зоны в списке нет"
+        );
+        assert!(
+            panel_menu(layout, fixture.navigator).is_empty(),
+            "у колонки навигатора плитки и меню нет"
+        );
+
+        let second = two_center_parts(&mut fixture);
+        let third = add_panel(&mut fixture, 13);
+        let center = &mut layout_mut(&mut fixture).zones.center;
+        center.parts[0].share = 334;
+        center.parts[1].share = 333;
+        center.parts.push(Part::single(third, 333));
+        let layout = &scene(&fixture).bench.unwrap().layout;
+        assert_eq!(
+            titles(&panel_menu(layout, second))[..3],
+            ["В часть левее", "В часть правее", "—"],
+            "центр делится рядом"
+        );
+        assert_eq!(
+            titles(&panel_menu(layout, fixture.terminal))[..2],
+            ["В часть правее", "—"]
+        );
+        assert_eq!(
+            titles(&panel_menu(layout, third))[..2],
+            ["В часть левее", "—"]
+        );
+
+        let (up, down) = (add_panel(&mut fixture, 14), add_panel(&mut fixture, 15));
+        let right = &mut layout_mut(&mut fixture).zones.right;
+        right.parts.push(Part::single(up, SHARE_TOTAL / 2));
+        right.parts.push(Part::single(down, SHARE_TOTAL / 2));
+        let layout = &scene(&fixture).bench.unwrap().layout;
+        assert_eq!(
+            titles(&panel_menu(layout, up)),
+            [
+                "В часть ниже",
+                "—",
+                "В левую зону",
+                "В нижнюю зону",
+                "В центр",
+                "—",
+                "Закрыть"
+            ],
+            "боковая зона делится одна над другой"
+        );
+        assert_eq!(titles(&panel_menu(layout, down))[0], "В часть выше");
+
+        for item in PanelMenuItem::ALL {
+            assert_eq!(PanelMenuItem::of_id(item.id()), Some(item));
+        }
+        assert_eq!(PanelMenuItem::of_id(shellio_appkit::PAYLOAD_ITEM), None);
+        let ids: BTreeSet<&str> = PanelMenuItem::ALL.iter().map(|item| item.id()).collect();
+        assert_eq!(ids.len(), PanelMenuItem::ALL.len());
+    }
+
+    #[test]
+    fn menu_items_become_one_command_for_the_active_tab() {
+        let mut fixture = fixture();
+        let second = two_center_parts(&mut fixture);
+        let guest = add_panel(&mut fixture, 13);
+        let part = &mut layout_mut(&mut fixture).zones.center.parts[1];
+        part.tabs.push(guest);
+        part.active = 1;
+        let now = scene(&fixture);
+        let left = PlateRef::Part(PartKey {
+            zone: Zone::Center,
+            index: 0,
+        });
+        let right = PlateRef::Part(PartKey {
+            zone: Zone::Center,
+            index: 1,
+        });
+        assert_eq!(
+            menu_command(&now, left, PanelMenuItem::Part(Edge::After)),
+            Some(Command::PanelMovePart {
+                panel: fixture.terminal,
+                anchor: guest,
+                edge: None,
+            }),
+            "якорь — активная вкладка соседней части"
+        );
+        assert_eq!(
+            menu_command(&now, left, PanelMenuItem::Part(Edge::Before)),
+            None
+        );
+        assert_eq!(
+            menu_command(&now, right, PanelMenuItem::Part(Edge::Before)),
+            Some(Command::PanelMovePart {
+                panel: guest,
+                anchor: fixture.terminal,
+                edge: None,
+            })
+        );
+        assert_eq!(
+            menu_command(&now, right, PanelMenuItem::Zone(Zone::Bottom)),
+            Some(Command::PanelMove {
+                panel: guest,
+                zone: Zone::Bottom,
+            })
+        );
+        assert_eq!(
+            menu_command(&now, left, PanelMenuItem::Close),
+            Some(Command::PanelClose {
+                panel: fixture.terminal
+            })
+        );
+        assert_eq!(
+            close_command(&now, second),
+            Some(Command::PanelClose { panel: second }),
+            "кнопка закрытия неактивной вкладки закрывает её"
+        );
+        assert_eq!(close_command(&now, id(99)), None);
+        let missing = PlateRef::Part(PartKey {
+            zone: Zone::Bottom,
+            index: 0,
+        });
+        assert_eq!(menu_command(&now, missing, PanelMenuItem::Close), None);
+
+        layout_mut(&mut fixture).zoomed = Some(guest);
+        let zoomed = scene(&fixture);
+        assert_eq!(
+            menu_command(&zoomed, PlateRef::Zoom, PanelMenuItem::Zone(Zone::Right)),
+            Some(Command::PanelMove {
+                panel: guest,
+                zone: Zone::Right,
+            }),
+            "развёрнутая плитка переносит свою панель"
+        );
+        assert_eq!(
+            menu_command(&zoomed, PlateRef::Zoom, PanelMenuItem::Part(Edge::Before)),
+            Some(Command::PanelMovePart {
+                panel: guest,
+                anchor: fixture.terminal,
+                edge: None,
+            })
+        );
+    }
+
+    fn part_frame(scene: &Scene, zone: Zone, index: usize) -> PartFrame<PanelId> {
+        scene
+            .bench
+            .as_ref()
+            .unwrap()
+            .frames
+            .parts
+            .iter()
+            .find(|part| part.zone == zone && part.index == index)
+            .cloned()
+            .unwrap()
+    }
+
+    fn middle(rect: Rect) -> Point {
+        Point {
+            x: rect.x + rect.width / 2.0,
+            y: rect.y + rect.height / 2.0,
+        }
+    }
+
+    #[test]
+    fn drop_plan_targets_parts_and_edges_and_cancels_elsewhere() {
+        let mut fixture = fixture();
+        let second = two_center_parts(&mut fixture);
+        let guest = add_panel(&mut fixture, 13);
+        let part = &mut layout_mut(&mut fixture).zones.center.parts[1];
+        part.tabs.push(guest);
+        part.active = 1;
+        let now = scene(&fixture);
+        let left = part_frame(&now, Zone::Center, 0);
+        let right = part_frame(&now, Zone::Center, 1);
+        let key = |index| PartKey {
+            zone: Zone::Center,
+            index,
+        };
+        let whole = |frame: &PartFrame<PanelId>| Rect {
+            x: 0.0,
+            y: 0.0,
+            width: frame.frame.width,
+            height: frame.frame.height,
+        };
+
+        let body = drop_plan(&now, guest, middle(left.body)).unwrap();
+        assert_eq!(body.part, key(0));
+        assert_eq!(body.highlight, whole(&left), "часть подсвечивается целиком");
+        assert_eq!(
+            body.command,
+            Command::PanelMovePart {
+                panel: guest,
+                anchor: fixture.terminal,
+                edge: None,
+            }
+        );
+        let strip = drop_plan(&now, guest, middle(left.tab_strip)).unwrap();
+        assert_eq!(strip.command, body.command, "строка вкладок — та же цель");
+
+        let edge = Point {
+            x: left.body.right() - 5.0,
+            y: middle(left.body).y,
+        };
+        let after = drop_plan(&now, guest, edge).unwrap();
+        assert_eq!(
+            after.command,
+            Command::PanelMovePart {
+                panel: guest,
+                anchor: fixture.terminal,
+                edge: Some(Edge::After),
+            }
+        );
+        let half = (left.frame.width / 2.0).floor();
+        assert_eq!(
+            after.highlight,
+            Rect {
+                x: half,
+                width: left.frame.width - half,
+                ..whole(&left)
+            },
+            "новая часть правее — правая половина плитки"
+        );
+
+        let own_edge = Point {
+            x: right.body.x + 5.0,
+            y: middle(right.body).y,
+        };
+        let split_off = drop_plan(&now, guest, own_edge).unwrap();
+        assert_eq!(
+            split_off.command,
+            Command::PanelMovePart {
+                panel: guest,
+                anchor: guest,
+                edge: Some(Edge::Before),
+            },
+            "край своей части с двумя вкладками отделяет вкладку"
+        );
+        assert_eq!(
+            split_off.highlight,
+            Rect {
+                width: (right.frame.width / 2.0).floor(),
+                ..whole(&right)
+            }
+        );
+        assert_eq!(
+            drop_plan(&now, second, middle(right.body)),
+            None,
+            "своя часть без края — отмена"
+        );
+        let lone_edge = Point {
+            x: left.body.x + 5.0,
+            y: middle(left.body).y,
+        };
+        assert_eq!(
+            drop_plan(&now, fixture.terminal, lone_edge),
+            None,
+            "край своей части с одной вкладкой ничего не меняет — отмена"
+        );
+        assert_eq!(
+            drop_plan(&now, fixture.terminal, Point { x: 100.0, y: 300.0 }),
+            None,
+            "колонка навигатора — не цель"
+        );
+        assert_eq!(
+            drop_plan(&now, fixture.terminal, Point { x: 600.0, y: 10.0 }),
+            None,
+            "заголовок окна — отмена"
+        );
+        assert_eq!(
+            drop_plan(&now, fixture.navigator, middle(right.body)),
+            None,
+            "колонку навигатора не перетаскивают"
+        );
+
+        layout_mut(&mut fixture).zoomed = Some(guest);
+        assert_eq!(
+            drop_plan(&scene(&fixture), fixture.terminal, middle(right.body)),
+            None,
+            "под развёрнутой панелью целей нет"
+        );
+    }
+
+    #[test]
+    fn drop_on_a_stacked_edge_highlights_the_lower_half() {
+        let mut fixture = fixture();
+        let (up, down) = (add_panel(&mut fixture, 14), add_panel(&mut fixture, 15));
+        let right = &mut layout_mut(&mut fixture).zones.right;
+        right.parts.push(Part::single(up, SHARE_TOTAL / 2));
+        right.parts.push(Part::single(down, SHARE_TOTAL / 2));
+        let now = scene(&fixture);
+        let lower = part_frame(&now, Zone::Right, 1);
+        let point = Point {
+            x: middle(lower.body).x,
+            y: lower.body.bottom() - 5.0,
+        };
+        let plan = drop_plan(&now, fixture.terminal, point).unwrap();
+        assert_eq!(
+            plan.command,
+            Command::PanelMovePart {
+                panel: fixture.terminal,
+                anchor: down,
+                edge: Some(Edge::After),
+            }
+        );
+        let half = (lower.frame.height / 2.0).floor();
+        assert_eq!(
+            plan.highlight,
+            Rect {
+                x: 0.0,
+                y: half,
+                width: lower.frame.width,
+                height: lower.frame.height - half,
+            },
+            "новая часть ниже — нижняя половина плитки"
+        );
+    }
+
+    #[test]
+    fn moving_a_tab_out_of_a_vanishing_part_reparents_the_same_views() {
+        let mut fixture = fixture();
+        let second = two_center_parts(&mut fixture);
+        let before = scene(&fixture);
+        let moved = before
+            .bench
+            .as_ref()
+            .unwrap()
+            .layout
+            .move_to_part(fixture.terminal, second, None)
+            .unwrap();
+        *layout_mut(&mut fixture) = moved;
+        let after = scene(&fixture);
+        let left = PartKey {
+            zone: Zone::Center,
+            index: 0,
+        };
+        assert_eq!(
+            after.bench.as_ref().unwrap().plates[&left].tabs,
+            [second, fixture.terminal]
+        );
+        let ops = diff(before.bench.as_ref(), after.bench.as_ref());
+        assert_eq!(
+            ops,
+            [
+                Op::Reparent(second, Host::Part(left)),
+                Op::Hide(second),
+                Op::RemovePlate(PartKey {
+                    zone: Zone::Center,
+                    index: 1,
+                }),
+            ],
+            "номера частей сдвинулись, а виды переставлены без пересоздания"
         );
     }
 }

@@ -64,9 +64,10 @@ pub use components::tab_strip::layout::{
     tab_parts,
 };
 pub use components::tab_strip::model::{
-    ButtonKeys, NO_KEY, PAYLOAD_ITEM, Presentation, SplitAxis, StripButton, StripKey, StripOp, Tab,
-    TabChange, TabError, TabIntent, TabOp, TabStatus, TabStripState, ZoneSide,
-    diff as tab_strip_diff, diff_tabs, key_intent, menu_entries as tab_menu_entries,
+    ButtonKeys, DRAG_THRESHOLD, DragState, NO_KEY, PAYLOAD_ITEM, Presentation, SplitAxis,
+    StripButton, StripKey, StripOp, Tab, TabChange, TabDrag, TabError, TabIntent, TabOp, TabPoint,
+    TabStatus, TabStripState, ZoneSide, diff as tab_strip_diff, diff_tabs, key_intent,
+    menu_entries as tab_menu_entries,
 };
 pub use components::tab_strip::{ButtonFacts, TabFacts, TabStrip, TabStripFacts};
 pub use components::text_field::{
@@ -106,7 +107,8 @@ pub use split_view::{
 };
 pub use status_line::StatusLine;
 pub use surface::{
-    FocusLayer, LINE_WIDTH, Surface, SurfaceFill, SurfacePaint, SurfaceRadius, SurfaceSpec,
+    DROP_LINE_WIDTH, DropPaint, FocusLayer, LINE_WIDTH, Surface, SurfaceFill, SurfacePaint,
+    SurfaceRadius, SurfaceSpec,
 };
 pub use theme_cell::{CellObserver, SystemInputs, ThemeSelection};
 pub use window::{DEFAULT_TITLE, MainWindow, Startup, WINDOW_HEIGHT, WINDOW_WIDTH};

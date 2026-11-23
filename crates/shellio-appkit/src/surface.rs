@@ -4,7 +4,8 @@
 //! анимаций. Плитки P1.4 строятся на нём.
 //!
 //! Слой фокуса — отдельный вид поверх содержимого, как `::after` панели прототипа: он лежит над
-//! текстом и фоном внутри линии и не принимает нажатий.
+//! текстом и фоном внутри линии и не принимает нажатий. В нём же подсветка цели перетаскивания
+//! вкладки (`.drop` прототипа): непрозрачная заливка выбора с линией цвета навигации.
 
 use std::cell::Cell;
 
@@ -14,6 +15,7 @@ use objc2_app_kit::{
     NSAutoresizingMaskOptions, NSResponder, NSView, NSViewLayerContentsRedrawPolicy,
 };
 use objc2_foundation::{NSObject, NSPoint, NSRect};
+use objc2_quartz_core::CALayer;
 use shellio_theme::{AppTheme, KeyMode, Srgb8, Tint};
 
 use crate::app::App;
@@ -31,6 +33,8 @@ counter!(SURFACE_OVERLAY, Class, "ShellioSurfaceOverlay");
 
 /// Толщина линии по краю в точках (`border: 1px solid var(--line)` прототипа).
 pub const LINE_WIDTH: f64 = 1.0;
+/// Толщина линии подсветки цели перетаскивания (`box-shadow: inset 0 0 0 2px` у `.drop`).
+pub const DROP_LINE_WIDTH: f64 = 2.0;
 
 /// Постоянный слот заливки.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -114,11 +118,34 @@ impl SurfacePaint {
     }
 }
 
+/// Подсветка цели перетаскивания в ячейке темы (`.drop` прототипа): заливка выбора, линия цвета
+/// навигации внутри края и радиус плитки.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DropPaint {
+    pub fill: Srgb8,
+    pub line: Srgb8,
+    pub line_width: f64,
+    pub radius: f64,
+}
+
+impl DropPaint {
+    pub fn resolve(theme: &AppTheme) -> DropPaint {
+        DropPaint {
+            fill: theme.colors.selection,
+            line: theme.colors.accent_nav_line,
+            line_width: DROP_LINE_WIDTH,
+            radius: theme.metrics.radius.plate,
+        }
+    }
+}
+
 /// Rust-часть `Surface`. Виды читают её через слабую ссылку.
 struct SurfaceModel {
     id: ComponentId,
     spec: Cell<SurfaceSpec>,
     theme: Cell<AppTheme>,
+    /// Кадр подсветки цели перетаскивания в точках подложки; `None` — подсветки нет.
+    drop: Cell<Option<Frame>>,
 }
 
 impl SurfaceModel {
@@ -139,13 +166,14 @@ impl Surface {
             id: ComponentId::next(),
             spec: Cell::new(spec),
             theme: Cell::new(*theme),
+            drop: Cell::new(None),
         };
         let view = View::new(&SURFACE_OWNER, model, "Surface.updateLayer", |owner| {
             let overlay = SurfaceOverlay::new(mtm, owner.clone());
             SurfaceView::new(mtm, owner, overlay)
         });
         let surface = Surface { view };
-        surface.show_overlay(surface.paint().overlay.is_some());
+        surface.show_overlay();
         surface
     }
 
@@ -169,6 +197,26 @@ impl Surface {
     /// Новая ячейка темы.
     pub fn set_theme(&self, theme: &AppTheme) {
         self.change(|model| model.theme.set(*theme));
+        if self.view.rust().drop.get().is_some() {
+            self.view.view().ivars().overlay.setNeedsDisplay(true);
+        }
+    }
+
+    /// Подсветка цели перетаскивания с кадром `frame` в точках подложки, начало сверху слева, над
+    /// содержимым и слоем фокуса; `None` убирает её. Нажатий подсветка не принимает.
+    pub fn set_drop(&self, frame: Option<Frame>) {
+        let model = self.view.rust();
+        if model.drop.get() == frame {
+            return;
+        }
+        model.drop.set(frame);
+        self.show_overlay();
+        self.view.view().ivars().overlay.setNeedsDisplay(true);
+    }
+
+    /// Кадр подсветки цели перетаскивания.
+    pub fn drop_frame(&self) -> Option<Frame> {
+        self.view.rust().drop.get()
     }
 
     /// Вид подложки для размещения в иерархии.
@@ -211,14 +259,19 @@ impl Surface {
             surface.setNeedsDisplay(true);
         }
         if (before.overlay, before.radius) != (after.overlay, after.radius) {
-            self.show_overlay(after.overlay.is_some());
+            self.show_overlay();
             surface.ivars().overlay.setNeedsDisplay(true);
         }
     }
 
-    fn show_overlay(&self, visible: bool) {
+    /// Вид слоя фокуса виден, пока есть слой фокуса или подсветка цели.
+    fn show_overlay(&self) {
+        let model = self.view.rust();
+        let visible = model.paint().overlay.is_some() || model.drop.get().is_some();
         let overlay = &self.view.view().ivars().overlay;
-        without_actions(|| overlay.setHidden(!visible));
+        if overlay.isHidden() == visible {
+            without_actions(|| overlay.setHidden(!visible));
+        }
     }
 }
 
@@ -299,6 +352,8 @@ impl SurfaceView {
 struct OverlayIvars {
     _live: Live,
     owner: Callback<SurfaceModel>,
+    /// Подсветка цели перетаскивания.
+    drop: Retained<CALayer>,
 }
 
 define_class!(
@@ -311,6 +366,12 @@ define_class!(
     struct SurfaceOverlay;
 
     impl SurfaceOverlay {
+        // SAFETY: селектор и результат — как у `isFlipped` NSView: кадр подсветки — сверху слева.
+        #[unsafe(method(isFlipped))]
+        fn is_flipped(&self) -> bool {
+            true
+        }
+
         // SAFETY: селектор и результат — как у `wantsUpdateLayer` NSView.
         #[unsafe(method(wantsUpdateLayer))]
         fn wants_update_layer(&self) -> bool {
@@ -327,18 +388,34 @@ define_class!(
         // SAFETY: селектор и результат — как у `updateLayer` NSView.
         #[unsafe(method(updateLayer))]
         fn update_layer(&self) {
-            let Some(paint) = self.ivars().owner.call(|model| {
+            let Some((paint, drop, theme)) = self.ivars().owner.call(|model| {
                 runloop::mark_draw(model.id);
-                model.paint()
+                (model.paint(), model.drop.get(), model.theme.get())
             }) else {
                 return;
             };
-            if let (Some(layer), Some(tint)) = (self.layer(), paint.overlay) {
-                without_actions(|| {
-                    layer::set_tint(&layer, tint);
-                    layer::set_radius(&layer, paint.radius);
-                });
-            }
+            let Some(layer) = self.layer() else {
+                return;
+            };
+            let mark = &self.ivars().drop;
+            without_actions(|| {
+                match paint.overlay {
+                    Some(tint) => layer::set_tint(&layer, tint),
+                    None => layer.setBackgroundColor(None),
+                }
+                layer::set_radius(&layer, paint.radius);
+                match drop {
+                    Some(frame) => {
+                        let drop = DropPaint::resolve(&theme);
+                        mark.setFrame(piece::ns_rect(frame));
+                        layer::set_fill(mark, drop.fill);
+                        layer::set_line(mark, Some((drop.line, drop.line_width)));
+                        layer::set_radius(mark, drop.radius);
+                        mark.setHidden(false);
+                    }
+                    None => mark.setHidden(true),
+                }
+            });
         }
     }
 );
@@ -348,11 +425,17 @@ impl SurfaceOverlay {
         let this = SurfaceOverlay::alloc(mtm).set_ivars(OverlayIvars {
             _live: SURFACE_OVERLAY.live(),
             owner,
+            drop: CALayer::new(),
         });
         // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
         let view: Retained<SurfaceOverlay> =
             unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] };
         layered(&view);
+        let drop = &view.ivars().drop;
+        drop.setHidden(true);
+        if let Some(layer) = view.layer() {
+            layer.addSublayer(drop);
+        }
         view
     }
 }
@@ -455,6 +538,22 @@ mod tests {
                 assert_eq!(tone.overlay, Some(theme.tone(mode)), "{}", cell.name());
                 assert_eq!(tone.fill, veil.fill, "фокус меняет только слой над панелью");
             }
+        }
+    }
+
+    #[test]
+    fn drop_highlight_is_selection_with_navigation_line_in_every_cell() {
+        for cell in ThemeCell::ALL {
+            let theme = AppTheme::for_cell(cell);
+            let paint = DropPaint::resolve(&theme);
+            assert_eq!(paint.fill, theme.colors.selection, "{}", cell.name());
+            assert_eq!(paint.line, theme.colors.accent_nav_line);
+            assert_eq!(paint.line_width, DROP_LINE_WIDTH);
+            assert_eq!(paint.radius, theme.metrics.radius.plate);
+            assert_ne!(
+                paint.fill, theme.colors.panel,
+                "подсветка видна на теле плитки"
+            );
         }
     }
 

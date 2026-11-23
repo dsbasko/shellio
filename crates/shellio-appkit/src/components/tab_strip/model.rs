@@ -512,6 +512,77 @@ pub fn key_intent(state: &TabStripState, key: StripKey) -> Option<TabIntent> {
         .map(|tab| TabIntent::Select { id: tab.id.clone() })
 }
 
+/// Смещение указателя от точки нажатия, после которого нажатие на вкладку становится её
+/// перетаскиванием, в точках (план P1.4, «Адаптер AppKit»).
+pub const DRAG_THRESHOLD: f64 = 4.0;
+
+/// Точка указателя в точках содержимого окна, начало сверху слева, как у геометрии раскладки.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TabPoint {
+    pub x: f64,
+    pub y: f64,
+}
+
+/// Событие перетаскивания вкладки для владельца полосы.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TabDrag {
+    /// Вкладку тянут, указатель в точке `point`.
+    Moved { id: String, point: TabPoint },
+    /// Вкладку отпустили в точке `point`: цель решает владелец, вне цели — отмена.
+    Dropped { id: String, point: TabPoint },
+}
+
+/// Нажатие на вкладку: до порога это щелчок, после — перетаскивание.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum DragState {
+    #[default]
+    Idle,
+    /// Кнопка нажата на вкладке `id` в точке `origin`, порог ещё не пройден.
+    Pressed { id: String, origin: TabPoint },
+    /// Вкладку `id` тянут.
+    Dragging { id: String },
+}
+
+impl DragState {
+    /// Нажатие на вкладку `id` в точке `point`.
+    pub fn press(id: &str, point: TabPoint) -> DragState {
+        DragState::Pressed {
+            id: id.to_owned(),
+            origin: point,
+        }
+    }
+
+    /// Указатель сдвинулся с нажатой кнопкой. Смещение от точки нажатия от [`DRAG_THRESHOLD`]
+    /// начинает перетаскивание; дальше каждое движение — [`TabDrag::Moved`].
+    pub fn moved(&mut self, point: TabPoint) -> Option<TabDrag> {
+        match self {
+            DragState::Idle => None,
+            DragState::Pressed { id, origin } => {
+                let distance = (point.x - origin.x).hypot(point.y - origin.y);
+                if distance < DRAG_THRESHOLD {
+                    return None;
+                }
+                let id = std::mem::take(id);
+                *self = DragState::Dragging { id: id.clone() };
+                Some(TabDrag::Moved { id, point })
+            }
+            DragState::Dragging { id } => Some(TabDrag::Moved {
+                id: id.clone(),
+                point,
+            }),
+        }
+    }
+
+    /// Кнопку отпустили: перетаскивание даёт [`TabDrag::Dropped`], щелчок — ничего (выбор уже
+    /// ушёл при нажатии). Состояние возвращается к [`DragState::Idle`].
+    pub fn released(&mut self, point: TabPoint) -> Option<TabDrag> {
+        match std::mem::take(self) {
+            DragState::Dragging { id } => Some(TabDrag::Dropped { id, point }),
+            DragState::Idle | DragState::Pressed { .. } => None,
+        }
+    }
+}
+
 /// Id заголовка меню «…» с нагрузкой и разделителя под ним.
 pub const PAYLOAD_ITEM: &str = "tabs.payload";
 pub const PAYLOAD_SEPARATOR: &str = "tabs.payload.separator";
@@ -812,6 +883,67 @@ mod tests {
         state.tabs.clear();
         state.selected = None;
         assert_eq!(key_intent(&state, StripKey::Right), None);
+    }
+
+    fn at(x: f64, y: f64) -> TabPoint {
+        TabPoint { x, y }
+    }
+
+    #[test]
+    fn press_becomes_a_drag_only_after_the_threshold() {
+        let mut drag = DragState::press("a", at(100.0, 50.0));
+        assert_eq!(drag.moved(at(102.0, 52.0)), None, "2,8 точки — ещё щелчок");
+        assert_eq!(drag.moved(at(103.9, 50.0)), None);
+        assert!(matches!(drag, DragState::Pressed { .. }));
+        assert_eq!(
+            drag.moved(at(104.0, 50.0)),
+            Some(TabDrag::Moved {
+                id: "a".into(),
+                point: at(104.0, 50.0)
+            }),
+            "ровно 4 точки начинают перетаскивание"
+        );
+        assert_eq!(drag, DragState::Dragging { id: "a".into() });
+        assert_eq!(
+            drag.moved(at(101.0, 50.0)),
+            Some(TabDrag::Moved {
+                id: "a".into(),
+                point: at(101.0, 50.0)
+            }),
+            "после начала порог не действует"
+        );
+        assert_eq!(
+            drag.released(at(300.0, 200.0)),
+            Some(TabDrag::Dropped {
+                id: "a".into(),
+                point: at(300.0, 200.0)
+            })
+        );
+        assert_eq!(drag, DragState::Idle);
+        assert_eq!(
+            drag.moved(at(400.0, 200.0)),
+            None,
+            "без нажатия движения нет"
+        );
+        assert_eq!(drag.released(at(400.0, 200.0)), None);
+    }
+
+    #[test]
+    fn diagonal_threshold_and_click_release() {
+        let mut drag = DragState::press("b", at(0.0, 0.0));
+        assert_eq!(drag.moved(at(2.8, 2.8)), None, "3,96 точки по диагонали");
+        assert!(
+            drag.moved(at(3.0, 3.0)).is_some(),
+            "4,24 точки по диагонали"
+        );
+        let mut click = DragState::press("b", at(0.0, 0.0));
+        assert_eq!(click.moved(at(1.0, 1.0)), None);
+        assert_eq!(
+            click.released(at(1.0, 1.0)),
+            None,
+            "щелчок не роняет вкладку"
+        );
+        assert_eq!(click, DragState::Idle);
     }
 
     #[test]

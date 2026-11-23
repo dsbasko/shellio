@@ -54,6 +54,10 @@ OWNER_START_S=20
 EXIT_S=10
 KILL_S=5
 MIRROR_MS=3000
+# Фоновый AXPress меню «…» ждёт закрытия меню: срок его выхода, секунды.
+MENU_OSA_S=20
+# Нажатий Down до нужного пункта меню «…», не больше.
+MENU_STEPS=12
 SETTLE_MS=3000
 POLL=0.1
 CTL_TIMEOUT_MS=2000
@@ -73,16 +77,17 @@ ITEMS=(layout-default layout-snapshot move-cli move-menu-zone move-menu-part mov
   only-bottom hide-zones tooltips-ax restore-cold restore-legacy voiceover-speech system-contrast)
 REQUIRED=(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0)
 # Пункты следующих задач плана: до них прогон пишет not_run с задачей, обязательность — после их появления.
-LATER=(move-menu-zone:12 move-menu-part:12 move-drag:12 move-drag-body:12 stub-expand:13)
+LATER=(stub-expand:13)
 # min_size панели до P1.5 (план P1.4, «Решения планирования»): query.layout его не отдаёт, условия пунктов места
 # судятся по этому числу.
 MIN_W=200
 MIN_H=120
 # Подсказка кнопок строки вкладок до P1.6 (ADR-0032).
 NO_KEY="Клавиша не назначена"
-# Клавиши System Events: Escape и Return.
+# Клавиши System Events: Escape, Return и Down.
 KEY_ESC=53
 KEY_RETURN=36
+KEY_DOWN=125
 STATUS=()
 REASON=()
 for i in "${!ITEMS[@]}"; do
@@ -1164,7 +1169,7 @@ wait_layout() {
   done
 }
 
-# Перетаскивание левой кнопкой из точки CG (x1, y1) в (x2, y2) шагами по 4 точки.
+# Перетаскивание левой кнопкой из точки CG (x1, y1) в (x2, y2) шагами не длиннее 4 точек по каждой оси.
 drag_cg() {
   osascript -l JavaScript -e "
     ObjC.import('CoreGraphics');
@@ -1172,7 +1177,7 @@ drag_cg() {
       \$.CGEventCreateMouseEvent(null, type, \$.CGPointMake(x, y), \$.kCGMouseButtonLeft));
     post(\$.kCGEventMouseMoved, $1, $2); delay(0.05);
     post(\$.kCGEventLeftMouseDown, $1, $2); delay(0.05);
-    const steps = Math.max(1, Math.ceil(Math.abs($3 - $1) / 4));
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs($3 - $1), Math.abs($4 - $2)) / 4));
     for (let i = 1; i <= steps; i++) {
       post(\$.kCGEventLeftMouseDragged, $1 + ($3 - $1) * i / steps, $2 + ($4 - $2) * i / steps); delay(0.01);
     }
@@ -1359,6 +1364,375 @@ active_of() {
 # Число частей зоны раскладки query.layout.
 parts_count() {
   lv "$1" "layout.zones.$2.parts[#]" || echo ?
+}
+
+# --- перенос меню «…» и перетаскиванием (задача 12) ---
+
+# Раскладка и панели без кадров каноническим JSON, из истории фокуса — только панель с фокусом: сверка исходов из
+# одного состояния, к которому вернулись командами.
+layout_core() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $v = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value};
+    my $l = $v->{layout}; $l->{focus} = [ grep { defined } $l->{focus}[-1] ];
+    print JSON::PP->new->utf8->canonical->encode({ layout => $l, panels => $v->{panels} }), "\n"' <"$1"
+}
+
+# Опрос query.layout до ревизии, отличной от rev; последнее чтение — <prefix>.stdout, иначе WHY.
+wait_revision() {
+  local state="$1" prefix="$2" bench="$3" rev="$4" deadline seen=""
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if layout_get "$state" "$prefix" "$bench"; then
+      seen="$(jv "$prefix.stdout" ok.revision || echo ?)"
+      [[ "$seen" != "$rev" && "$seen" != "?" ]] && return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс ревизия query.layout осталась $rev"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Фоновый AXPress кнопки «Действия панели» строки вкладок strip окна pid: AXPress возвращается после закрытия
+# меню; задание — в bg_job.
+bg_job=""
+press_strip_menu() {
+  local pid="$1" strip="$2" out="$3"
+  osascript -l JavaScript -e "$AX_STRIP_JS" press "$pid" "$strip" "Действия панели" >"$out.stdout" 2>"$out.stderr" &
+  bg_job=$!
+  bg_jobs+=("$bg_job")
+}
+
+# Выход фонового osascript до срока MENU_OSA_S от его старта t0; код — в VALUE, иначе WHY.
+await_bg() {
+  local job="$1" t0="$2"
+  VALUE=""
+  while alive "$job"; do
+    if (($(now_ms) - t0 >= MENU_OSA_S * 1000)); then
+      kill -TERM "$job" 2>/dev/null || true
+      WHY="фоновый AXPress не вышел за $MENU_OSA_S с"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+  if wait "$job"; then
+    VALUE=0
+  else
+    VALUE=$?
+  fi
+}
+VALUE=""
+
+# Пункт want меню «…» строки вкладок strip (узел ui.inspect node): фоновый AXPress «Действия панели», Down до
+# подсветки пункта по ui.inspect, Return; иначе WHY. Меню, оставшееся открытым, закрывает Escape.
+menu_choose() {
+  local state="$1" dir="$2" pid="$3" strip="$4" node="$5" want="$6" t0 deadline seen before step=0
+  WHY=""
+  t0="$(now_ms)"
+  press_strip_menu "$pid" "$strip" "$dir/press"
+  deadline=$(($(now_ms) + MENU_OSA_S * 1000))
+  until ui_read "$state" "$dir/menu-open" inspect &&
+    [[ "$(comp "$dir/menu-open.stdout" "$node" state.menu.open || echo ?)" == true ]]; do
+    if (($(now_ms) >= deadline)) || ! alive "$bg_job"; then
+      WHY="меню «…» строки «${strip}» не открылось после AXPress: $(oneline "$dir/press.stderr")"
+      await_bg "$bg_job" "$t0" || true
+      return 1
+    fi
+    sleep "$POLL"
+  done
+  seen="$(comp "$dir/menu-open.stdout" "$node" state.menu.highlighted || echo null)"
+  while [[ "$seen" != "$want" ]]; do
+    if ((step >= MENU_STEPS)) || ! se_key "$KEY_DOWN" "$dir/keys.log"; then
+      WHY="за $step нажатий Down в меню «…» строки «${strip}» не подсвечен $want, последний — $seen"
+      se_key "$KEY_ESC" "$dir/keys.log" || true
+      await_bg "$bg_job" "$t0" || true
+      return 1
+    fi
+    step=$((step + 1))
+    before="$seen"
+    deadline=$(($(now_ms) + MIRROR_MS))
+    while :; do
+      ui_read "$state" "$dir/menu-step" inspect &&
+        seen="$(comp "$dir/menu-step.stdout" "$node" state.menu.highlighted || echo null)"
+      [[ "$seen" != "$before" ]] && break
+      (($(now_ms) < deadline)) || break
+      sleep "$POLL"
+    done
+  done
+  se_key "$KEY_RETURN" "$dir/keys.log" || {
+    WHY="Return не отправлен: $(oneline "$dir/keys.log")"
+    se_key "$KEY_ESC" "$dir/keys.log" || true
+    await_bg "$bg_job" "$t0" || true
+    return 1
+  }
+  await_bg "$bg_job" "$t0" || return 1
+  [[ "$VALUE" == 0 ]] || {
+    WHY="фоновый AXPress меню «…» вышел с кодом $VALUE: $(oneline "$dir/press.stderr")"
+    return 1
+  }
+  printf 'меню «%s»: %s нажатий Down до %s\n' "$strip" "$step" "$want" >>"$dir/keys.log"
+}
+
+# Точка CG по точке содержимого окна (x, y) с началом сверху слева по чтению ui.window window; печатает «x y».
+cg_point() {
+  local window="$1" x="$2" y="$3" wx wy wh sh
+  wx="$(jv "$window" ok.ui.window.frame.x)"
+  wy="$(jv "$window" ok.ui.window.frame.y)"
+  wh="$(jv "$window" ok.ui.window.frame.height)"
+  sh="$(jv "$window" ok.ui.window.screens[0].frame.height)"
+  awk -v wx="$wx" -v wy="$wy" -v wh="$wh" -v sh="$sh" -v x="$x" -v y="$y" \
+    'BEGIN { printf "%.1f %.1f\n", wx + x, sh - (wy + wh) + y }'
+}
+
+# Точка содержимого на левой части вкладки panel строки части zone.index: x — по кадру вкладки ui.inspect (вдали от
+# кнопки закрытия справа), y — середина строки вкладок query.layout; печатает «x y».
+tab_point() {
+  local inspect="$1" layout="$2" zone="$3" index="$4" panel="$5" tx tw sy sh
+  tx="$(comp "$inspect" "layout.part.$zone.$index.tabs.tab.$panel" frame.x)" || return 1
+  tw="$(comp "$inspect" "layout.part.$zone.$index.tabs.tab.$panel" frame.width)" || return 1
+  sy="$(part_field "$layout" "$zone" "$index" y tab_strip)"
+  sh="$(part_field "$layout" "$zone" "$index" height tab_strip)"
+  [[ "$sy" != "?" ]] || return 1
+  awk -v x="$tx" -v w="$tw" -v y="$sy" -v h="$sh" 'BEGIN { d = w / 4; if (d > 16) d = 16; printf "%.1f %.1f\n", x + d, y + h / 2 }'
+}
+
+# Перетаскивание вкладки panel части zone.index в точку содержимого (x, y) CGEvent по чтениям <dir>/<name>.*;
+# иначе WHY.
+drag_tab() {
+  local dir="$1" name="$2" zone="$3" index="$4" panel="$5" x="$6" y="$7" from to
+  WHY=""
+  from="$(tab_point "$dir/$name.inspect.stdout" "$dir/$name.layout.stdout" "$zone" "$index" "$panel")" || {
+    WHY="нет кадра вкладки $panel части $zone.$index в ui.inspect"
+    return 1
+  }
+  local fx fy cx cy tx ty
+  read -r fx fy <<<"$from"
+  read -r cx cy <<<"$(cg_point "$dir/$name.window.stdout" "$fx" "$fy")"
+  read -r tx ty <<<"$(cg_point "$dir/$name.window.stdout" "$x" "$y")"
+  printf 'вкладка %s: содержимое %s %s → %s %s, CG %s %s → %s %s\n' "$panel" "$fx" "$fy" "$x" "$y" "$cx" "$cy" "$tx" "$ty" >"$dir/drag.txt"
+  front_owner_ok "$dir" || return 1
+  drag_cg "$cx" "$cy" "$tx" "$ty" >"$dir/drag.log" 2>&1 || {
+    WHY="перетаскивание CGEvent не выполнено: $(oneline "$dir/drag.log")"
+    return 1
+  }
+}
+
+# ComponentId вида панели и созданные ShellioPanelView до действия: в COMPONENT и CREATED; иначе ошибка исполнения.
+views_before() {
+  local dir="$1" panel="$2"
+  ui_read "$profile" "$dir/before.stats" stats || fatal "ui.stats не прочитан"
+  COMPONENT="$(comp "$dir/before.inspect.stdout" "layout.panel.$panel" state.panel.component || echo ?)"
+  CREATED="$(created_of "$dir/before.stats.stdout" ShellioPanelView)"
+}
+COMPONENT=""
+CREATED=""
+
+# После действия: фокус на панели, её ComponentId прежний, видов панели не создано, кадры совпали.
+views_after() {
+  local dir="$1" panel="$2" after
+  ui_read "$profile" "$dir/after.stats" stats || fatal "ui.stats не прочитан"
+  after="$(created_of "$dir/after.stats.stdout" ShellioPanelView)"
+  [[ "$(focus_of "$dir/after.layout.stdout")" == "$panel" ]] ||
+    failures+=("фокус на $(focus_of "$dir/after.layout.stdout"), а не на перенесённой панели $panel")
+  [[ "$(comp "$dir/after.inspect.stdout" "layout.panel.$panel" state.panel.component || echo нет)" == "$COMPONENT" ]] ||
+    failures+=("ComponentId вида панели $COMPONENT → $(comp "$dir/after.inspect.stdout" "layout.panel.$panel" state.panel.component || echo нет)")
+  [[ "$after" == "$CREATED" ]] || failures+=("создано видов панели ShellioPanelView: $CREATED → $after")
+  [[ -z "$FRAMES" ]] || failures+=("кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+}
+
+# Панели пунктов переноса: T1 — terminal раскладки по умолчанию, T2 — панель, которую переносит move-cli.
+MOVE_T1=""
+MOVE_T2=""
+move_panels() {
+  MOVE_T1="$(panels_of "$run/layout-default/default.layout.stdout" terminal)"
+  MOVE_T2="$(focus_of "$run/layout-snapshot/split.layout.stdout")"
+  [[ -n "$MOVE_T1" && "$MOVE_T1" != *" "* && -n "$MOVE_T2" && "$MOVE_T2" != "$MOVE_T1" ]] ||
+    fatal "условие пункта: панели переноса не найдены в чтениях layout-default и layout-snapshot"
+}
+
+# Две части центра: T1 и правее T2 (исходное состояние move-cli), фокус на панели focus. T2 встаёт правее T1 по
+# якорю из любого места; чтение — <dir>/<name>.stdout, иначе ошибка исполнения «условие пункта».
+center_pair() {
+  local dir="$1" name="$2" t1="$3" t2="$4" focus="$5"
+  core_cmd "$profile" "$dir/$name.cmd" panel move-part "$t2" --to "$t1" --edge after --workspace "$ws" ||
+    fatal "условие пункта: $WHY"
+  core_cmd "$profile" "$dir/$name.focus" panel focus "$focus" --workspace "$ws" || fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/$name.settle" "$wb" "$REV" || fatal "условие пункта: $WHY"
+  layout_get "$profile" "$dir/$name" "$wb" || fatal "query.layout не прочитан"
+  [[ "$(parts_count "$dir/$name.stdout" center)" == 2 && "$(tabs_of "$dir/$name.stdout" center 0)" == "$t1" &&
+    "$(tabs_of "$dir/$name.stdout" center 1)" == "$t2" && "$(focus_of "$dir/$name.stdout")" == "$focus" ]] ||
+    fatal "условие пункта: центр не из частей $t1 и $t2 с фокусом на $focus: $(lv "$dir/$name.stdout" layout.zones.center)"
+}
+
+# Меню «…» → «В нижнюю зону» в состоянии до move-cli; исход равен переносу CLI из того же состояния.
+item_move_menu_zone() {
+  local item=move-menu-zone dir="$run/move-menu-zone" t1 t2 rev strip node
+  failures=()
+  log "== $item"
+  move_panels
+  t1="$MOVE_T1"
+  t2="$MOVE_T2"
+  center_pair "$dir" s0 "$t1" "$t2" "$t2"
+  layout_core "$dir/s0.stdout" >"$dir/s0.core.json"
+  read_all "$profile" "$dir" before "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  views_before "$dir" "$t2"
+  rev="$(jv "$dir/before.layout.stdout" ok.revision)"
+  strip="$(strip_label center 1 2)"
+  node="layout.part.center.1.tabs.menu"
+  front_owner_ok "$dir" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  menu_choose "$profile" "$dir" "$owner_pid" "$strip" "$node" panel.move.down || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_revision "$profile" "$dir/moved" "$wb" "$rev" || {
+    record "$item" fail "пункт «В нижнюю зону» выбран, а раскладка не изменилась: $WHY"
+    return 0
+  }
+  settle_layout "$profile" "$dir/settle" "$wb" "$(jv "$dir/moved.stdout" ok.revision)" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" after "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(place_of "$dir/after.layout.stdout" "$t2")" == bottom.0 ]] ||
+    failures+=("панель $t2 в $(place_of "$dir/after.layout.stdout" "$t2"), а не в нижней зоне")
+  [[ "$(jv "$dir/after.layout.stdout" ok.revision)" == $((rev + 1)) ]] ||
+    failures+=("ревизия $rev → $(jv "$dir/after.layout.stdout" ok.revision), ожидалась одна команда")
+  views_after "$dir" "$t2"
+  layout_core "$dir/after.layout.stdout" >"$dir/menu.core.json"
+  frames_canon "$dir/after.layout.stdout" >"$dir/menu.frames.json"
+  # Перенос CLI из того же состояния.
+  center_pair "$dir" s1 "$t1" "$t2" "$t2"
+  layout_core "$dir/s1.stdout" >"$dir/s1.core.json"
+  cmp -s "$dir/s0.core.json" "$dir/s1.core.json" ||
+    failures+=("возврат в исходное состояние дал другую раскладку: s0.core.json и s1.core.json")
+  core_cmd "$profile" "$dir/cli" panel move "$t2" --zone bottom --workspace "$ws" || fatal "$item: $WHY"
+  settle_layout "$profile" "$dir/settle-cli" "$wb" "$REV" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" cli "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  layout_core "$dir/cli.layout.stdout" >"$dir/cli.core.json"
+  frames_canon "$dir/cli.layout.stdout" >"$dir/cli.frames.json"
+  cmp -s "$dir/menu.core.json" "$dir/cli.core.json" ||
+    failures+=("раскладка после меню и после panel move CLI из того же состояния разная: menu.core.json и cli.core.json")
+  cmp -s "$dir/menu.frames.json" "$dir/cli.frames.json" ||
+    failures+=("кадры после меню и после panel move CLI разные: menu.frames.json и cli.frames.json")
+  [[ -z "$FRAMES" ]] || failures+=("кадры после CLI: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  conclude "$item" "из состояния до move-cli (центр — $t1 и $t2, фокус на $t2) меню «…» строки «${strip}» → «В нижнюю зону» (фоновый AXPress, Down и Return): $t2 в нижней зоне одной ревизией, фокус на ней, ComponentId прежний ($COMPONENT), созданных ShellioPanelView не прибавилось ($CREATED), кадры совпали; раскладка и кадры равны переносу panel move --zone bottom из того же состояния"
+}
+
+# Две части центра, меню «…» → «В часть правее» для единственной вкладки левой части.
+item_move_menu_part() {
+  local item=move-menu-part dir="$run/move-menu-part" t1 t2 rev strip node
+  failures=()
+  log "== $item"
+  t1="$MOVE_T1"
+  t2="$MOVE_T2"
+  center_pair "$dir" pair "$t1" "$t2" "$t1"
+  read_all "$profile" "$dir" before "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(focus_of "$dir/before.layout.stdout")" == "$t1" && "$(tabs_of "$dir/before.layout.stdout" center 0)" == "$t1" ]] ||
+    fatal "условие пункта: в левой части центра не одна вкладка $t1 с фокусом"
+  views_before "$dir" "$t1"
+  rev="$(jv "$dir/before.layout.stdout" ok.revision)"
+  strip="$(strip_label center 0 2)"
+  node="layout.part.center.0.tabs.menu"
+  front_owner_ok "$dir" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  menu_choose "$profile" "$dir" "$owner_pid" "$strip" "$node" panel.move_part.next || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_revision "$profile" "$dir/moved" "$wb" "$rev" || {
+    record "$item" fail "пункт «В часть правее» выбран, а раскладка не изменилась: $WHY"
+    return 0
+  }
+  settle_layout "$profile" "$dir/settle" "$wb" "$(jv "$dir/moved.stdout" ok.revision)" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" after "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(parts_count "$dir/after.layout.stdout" center)" == 1 ]] ||
+    failures+=("частей центра $(parts_count "$dir/after.layout.stdout" center): левая часть не исчезла")
+  [[ "$(tabs_of "$dir/after.layout.stdout" center 0)" == "$t2 $t1" ]] ||
+    failures+=("вкладки части центра «$(tabs_of "$dir/after.layout.stdout" center 0)», ожидалось «$t2 ${t1}»: вкладка не последней в правой части")
+  views_after "$dir" "$t1"
+  conclude "$item" "две части центра ($t1 | $t2), фокус в левой; меню «…» строки «${strip}» → «В часть правее»: $t1 последней вкладкой в части $t2, левая часть исчезла, фокус на $t1, ComponentId прежний ($COMPONENT), созданных ShellioPanelView не прибавилось ($CREATED), кадры совпали"
+}
+
+# Перетаскивание вкладки CGEvent на правый край тела части центра: новая часть правее.
+item_move_drag() {
+  local item=move-drag dir="$run/move-drag" t1="$MOVE_T1" t2="$MOVE_T2" rev x y
+  failures=()
+  log "== $item"
+  # Одна часть центра с вкладками T2 и T1: исходной части перетаскивания нужна вторая вкладка.
+  center_pair "$dir" pair "$t1" "$t2" "$t2"
+  core_cmd "$profile" "$dir/join" panel move-part "$t1" --to "$t2" --workspace "$ws" || fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/settle-prep" "$wb" "$REV" || fatal "условие пункта: $WHY"
+  read_all "$profile" "$dir" before "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(parts_count "$dir/before.layout.stdout" center)" == 1 && "$(tabs_of "$dir/before.layout.stdout" center 0)" == "$t2 $t1" ]] ||
+    fatal "условие пункта: в центре не одна часть «$t2 ${t1}»: $(lv "$dir/before.layout.stdout" layout.zones.center)"
+  views_before "$dir" "$t2"
+  rev="$(jv "$dir/before.layout.stdout" ok.revision)"
+  # Полоса края — 24 точки тела вдоль оси зоны (LayoutMetrics.drop_edge): точка в 8 точках от правого края тела.
+  x="$(awk -v a="$(part_field "$dir/before.layout.stdout" center 0 x body)" -v w="$(part_field "$dir/before.layout.stdout" center 0 width body)" 'BEGIN { printf "%.1f", a + w - 8 }')"
+  y="$(awk -v a="$(part_field "$dir/before.layout.stdout" center 0 y body)" -v h="$(part_field "$dir/before.layout.stdout" center 0 height body)" 'BEGIN { printf "%.1f", a + h / 2 }')"
+  drag_tab "$dir" before center 0 "$t2" "$x" "$y" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_layout "$profile" "$dir/moved" "$wb" 'layout.zones.center.parts[#]' 2 || {
+    record "$item" fail "после отпускания на правом крае новой части нет: $WHY; если mouseDragged не дошёл до вкладки, это ошибка доставки CGEvent (правило выбора плана)"
+    return 0
+  }
+  settle_layout "$profile" "$dir/settle" "$wb" "$(jv "$dir/moved.stdout" ok.revision)" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" after "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(tabs_of "$dir/after.layout.stdout" center 0)" == "$t1" && "$(tabs_of "$dir/after.layout.stdout" center 1)" == "$t2" ]] ||
+    failures+=("части центра «$(tabs_of "$dir/after.layout.stdout" center 0)» | «$(tabs_of "$dir/after.layout.stdout" center 1)», ожидалось «${t1}» | «${t2}»")
+  views_after "$dir" "$t2"
+  conclude "$item" "вкладка $t2 части центра ($t2 $t1) перетащена CGEvent на правый край её тела ($(oneline "$dir/drag.txt")): новая часть правее исходной, в ней $t2, порядок частей $t1 | $t2 по query.layout, фокус на $t2, ComponentId прежний ($COMPONENT), созданных ShellioPanelView не прибавилось ($CREATED), кадры совпали"
+}
+
+# Перетаскивание вкладки на тело соседней существующей части; затем возврат к состоянию после move-cli.
+item_move_drag_body() {
+  local item=move-drag-body dir="$run/move-drag-body" t1="$MOVE_T1" t2="$MOVE_T2" t3 x y
+  failures=()
+  log "== $item"
+  center_pair "$dir" pair "$t1" "$t2" "$t2"
+  # Исходной части нужна вторая вкладка, чтобы она осталась: новая панель terminal уходит к T1.
+  core_cmd "$profile" "$dir/split" layout split "$t2" --open terminal --workspace "$ws" || fatal "условие пункта: $WHY"
+  t3="$(jv "$dir/split.stdout" ok.value.panel)" || fatal "условие пункта: деление не назвало новую панель"
+  core_cmd "$profile" "$dir/join" panel move-part "$t3" --to "$t1" --workspace "$ws" || fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/settle-prep" "$wb" "$REV" || fatal "условие пункта: $WHY"
+  read_all "$profile" "$dir" before "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(tabs_of "$dir/before.layout.stdout" center 0)" == "$t1 $t3" && "$(tabs_of "$dir/before.layout.stdout" center 1)" == "$t2" &&
+    "$(focus_of "$dir/before.layout.stdout")" == "$t3" ]] ||
+    fatal "условие пункта: центр не «$t1 ${t3}» | «${t2}» с фокусом на $t3: $(lv "$dir/before.layout.stdout" layout.zones.center)"
+  views_before "$dir" "$t3"
+  x="$(awk -v a="$(part_field "$dir/before.layout.stdout" center 1 x body)" -v w="$(part_field "$dir/before.layout.stdout" center 1 width body)" 'BEGIN { printf "%.1f", a + w / 2 }')"
+  y="$(awk -v a="$(part_field "$dir/before.layout.stdout" center 1 y body)" -v h="$(part_field "$dir/before.layout.stdout" center 1 height body)" 'BEGIN { printf "%.1f", a + h / 2 }')"
+  drag_tab "$dir" before center 0 "$t3" "$x" "$y" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_layout "$profile" "$dir/moved" "$wb" 'layout.zones.center.parts[1].tabs[#]' 2 || {
+    record "$item" fail "после отпускания на теле соседней части вкладка в неё не перенесена: $WHY"
+    return 0
+  }
+  settle_layout "$profile" "$dir/settle" "$wb" "$(jv "$dir/moved.stdout" ok.revision)" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" after "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(parts_count "$dir/after.layout.stdout" center)" == 2 ]] ||
+    failures+=("частей центра $(parts_count "$dir/after.layout.stdout" center), а не 2: новая часть создана или исходная исчезла")
+  [[ "$(tabs_of "$dir/after.layout.stdout" center 0)" == "$t1" ]] ||
+    failures+=("исходная часть: вкладки «$(tabs_of "$dir/after.layout.stdout" center 0)», ожидалось «${t1}»")
+  [[ "$(tabs_of "$dir/after.layout.stdout" center 1)" == "$t2 $t3" ]] ||
+    failures+=("целевая часть: вкладки «$(tabs_of "$dir/after.layout.stdout" center 1)», ожидалось «$t2 ${t3}»")
+  views_after "$dir" "$t3"
+  conclude "$item" "вкладка $t3 части «$t1 ${t3}» перетащена CGEvent на тело соседней части «${t2}» ($(oneline "$dir/drag.txt")): $t3 последней в ней, новая часть не создана, в исходной части осталась $t1, фокус на $t3, ComponentId прежний ($COMPONENT), созданных ShellioPanelView не прибавилось ($CREATED), кадры совпали"
+  # Состояние после move-cli для следующих пунктов: T3 закрыта, T2 в правой зоне с фокусом.
+  core_cmd "$profile" "$dir/close" panel close "$t3" --workspace "$ws" || fatal "возврат после $item: $WHY"
+  core_cmd "$profile" "$dir/right" panel move "$t2" --zone right --workspace "$ws" || fatal "возврат после $item: $WHY"
+  core_cmd "$profile" "$dir/refocus" panel focus "$t2" --workspace "$ws" || fatal "возврат после $item: $WHY"
+  settle_layout "$profile" "$dir/settle-back" "$wb" "$REV" || fatal "возврат после $item: $WHY"
+  [[ "$(place_of "$dir/settle-back.layout.stdout" "$t2")" == right.0 && "$(tabs_of "$dir/settle-back.layout.stdout" center 0)" == "$t1" &&
+    "$(parts_count "$dir/settle-back.layout.stdout" center)" == 1 && "$(focus_of "$dir/settle-back.layout.stdout")" == "$t2" ]] ||
+    fatal "возврат после $item: не состояние после move-cli: $(lv "$dir/settle-back.layout.stdout" layout.zones)"
 }
 
 # Деление центра, перетаскивание разделителя между его частями CGEvent, скрытие и показ правой зоны.
@@ -2057,6 +2431,10 @@ preconditions
 item_layout_default
 item_layout_snapshot
 item_move_cli
+item_move_menu_zone
+item_move_menu_part
+item_move_drag
+item_move_drag_body
 item_resize_drag
 item_hide_zones
 item_center_empty

@@ -1035,18 +1035,28 @@ fn send_ui(app: &App, command: Command) {
 }
 
 /// Действие в раскладке: щелчок по вкладке или в тело панели (`panel.select`, `panel.focus`, если
-/// он что-то меняет), кнопки «Разделить» и «Развернуть панель» / «Вернуть раскладку», пункт выбора
-/// «Открыть в новой части». Каждое — одна команда ядра.
+/// он что-то меняет), кнопка закрытия вкладки, кнопки «Разделить» и «Развернуть панель» /
+/// «Вернуть раскладку», пункты меню «…», пункт выбора «Открыть в новой части», отпускание
+/// перетаскиваемой вкладки. Каждое — одна команда ядра; движение перетаскивания только
+/// подсвечивает цель.
 fn on_panel(app: &App, action: PanelAction) {
     let command = with_window(|owner| {
         owner.show_status(None);
-        let scene = owner.layout.as_ref().and_then(LayoutUi::scene)?;
+        let layout = owner.layout.as_ref()?;
+        let scene = layout.scene()?;
         match action {
             PanelAction::Select(panel) => scene::select_command(scene, panel),
+            PanelAction::Close(panel) => scene::close_command(scene, panel),
             PanelAction::Focus(panel) => scene::focus_command(scene, panel),
             PanelAction::Split(plate) => scene::split_command(scene, plate),
             PanelAction::Zoom(plate) => scene::zoom_command(scene, plate),
+            PanelAction::Menu(plate, item) => scene::menu_command(scene, plate, item),
             PanelAction::Open { panel, plugin } => Some(scene::open_command(panel, plugin)),
+            PanelAction::Drag { panel, point } => {
+                layout.drag_over(panel, point);
+                None
+            }
+            PanelAction::Drop { panel, point } => layout.drop_at(panel, point),
         }
     })
     .flatten();

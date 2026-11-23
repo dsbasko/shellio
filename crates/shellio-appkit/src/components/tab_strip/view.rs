@@ -26,7 +26,8 @@ use shellio_theme::{AppTheme, Motion};
 
 use super::layout::{self, Regime, StripLayout, TabParts};
 use super::model::{
-    self, StripButton, StripKey, StripOp, Tab, TabError, TabIntent, TabOp, TabStatus, TabStripState,
+    self, DragState, StripButton, StripKey, StripOp, Tab, TabDrag, TabError, TabIntent, TabOp,
+    TabPoint, TabStatus, TabStripState,
 };
 use crate::app::App;
 use crate::chrome_bar::Frame;
@@ -94,6 +95,9 @@ pub struct TabStripFacts {
     pub buttons: Vec<ButtonFacts>,
 }
 
+/// Владелец перетаскивания вкладок.
+type DragHandler = Rc<dyn Fn(TabDrag)>;
+
 /// Rust-часть полосы. Виды читают её через слабую ссылку.
 struct StripModel {
     id: ComponentId,
@@ -108,6 +112,10 @@ struct StripModel {
     /// Полоса — first responder окна: кольцо выбранной вкладки цвета режима.
     key_focus: Cell<bool>,
     on_intent: Rc<dyn Fn(TabIntent)>,
+    /// Нажатие на вкладку и её перетаскивание.
+    drag: RefCell<DragState>,
+    /// Владелец перетаскивания; `None` — вкладки не перетаскиваются, нажатие только выбирает.
+    on_drag: RefCell<Option<DragHandler>>,
     menu: MenuButton,
 }
 
@@ -163,6 +171,8 @@ impl TabStrip {
             hover: RefCell::new(None),
             key_focus: Cell::new(false),
             on_intent,
+            drag: RefCell::new(DragState::Idle),
+            on_drag: RefCell::new(None),
             menu,
         };
         let mut view = View::new(&STRIP_OWNER, model, "TabStrip.view", |owner| {
@@ -292,6 +302,13 @@ impl TabStrip {
         let view = self.view.view();
         view.window()
             .is_some_and(|window| window.makeFirstResponder(Some(view)))
+    }
+
+    /// Владелец перетаскивания вкладок: после смещения от [`model::DRAG_THRESHOLD`] он получает
+    /// движения и отпускание. Вызывается на главном потоке изнутри AppKit и не должен синхронно
+    /// менять полосу. Без владельца нажатие на вкладку только выбирает её.
+    pub fn set_drag_handler(&self, on_drag: impl Fn(TabDrag) + 'static) {
+        self.view.rust().on_drag.replace(Some(Rc::new(on_drag)));
     }
 
     /// Меню «…» полосы.
@@ -612,6 +629,14 @@ impl TabStrip {
     }
 }
 
+/// Событие перетаскивания владельцу; без владельца оно теряется.
+fn emit_drag(model: &StripModel, drag: Option<TabDrag>) {
+    let handler = model.on_drag.borrow().clone();
+    if let (Some(drag), Some(handler)) = (drag, handler) {
+        handler(drag);
+    }
+}
+
 /// Пункты меню «…»: нагрузка в заголовке, если её нет в строке.
 fn sync_menu(model: &StripModel) {
     let hidden = model
@@ -657,6 +682,18 @@ fn inside(point: NSPoint, rect: NSRect) -> bool {
         && point.x < rect.origin.x + rect.size.width
         && point.y >= rect.origin.y
         && point.y < rect.origin.y + rect.size.height
+}
+
+/// Точка события в точках содержимого окна с началом сверху слева.
+fn content_point(view: &NSView, event: &NSEvent) -> Option<TabPoint> {
+    let content = view.window()?.contentView()?;
+    let point = content.convertPoint_fromView(event.locationInWindow(), None);
+    let y = if content.isFlipped() {
+        point.y
+    } else {
+        content.bounds().size.height - point.y
+    };
+    Some(TabPoint { x: point.x, y })
 }
 
 fn contains(outer: NSRect, inner: NSRect) -> bool {
@@ -1236,7 +1273,8 @@ define_class!(
         }
 
         // SAFETY: селектор и аргумент — как у `mouseDown:` NSResponder. Щелчок по кнопке
-        // закрытия закрывает вкладку, по остальной вкладке — выбирает её.
+        // закрытия закрывает вкладку, по остальной вкладке — выбирает её и начинает нажатие,
+        // которое после порога становится перетаскиванием.
         #[unsafe(method(mouseDown:))]
         fn mouse_down(&self, event: &NSEvent) {
             let point = self.convertPoint_fromView(event.locationInWindow(), None);
@@ -1247,12 +1285,46 @@ define_class!(
                 && point.x < close.right()
                 && point.y >= close.y
                 && point.y < close.y + close.height;
+            let pressed = content_point(self, event);
             self.ivars().owner.call(|model| {
+                model.drag.replace(match (on_close, pressed) {
+                    (false, Some(pressed)) => DragState::press(&id, pressed),
+                    _ => DragState::Idle,
+                });
                 model.emit(Some(if on_close {
                     TabIntent::Close { id }
                 } else {
                     TabIntent::Select { id }
                 }));
+            });
+        }
+
+        // SAFETY: селектор и аргумент — как у `mouseDragged:` NSResponder: события
+        // перетаскивания приходят виду, получившему `mouseDown:`.
+        #[unsafe(method(mouseDragged:))]
+        fn mouse_dragged(&self, event: &NSEvent) {
+            let Some(point) = content_point(self, event) else {
+                return;
+            };
+            self.ivars().owner.call(|model| {
+                let drag = model.drag.borrow_mut().moved(point);
+                emit_drag(model, drag);
+            });
+        }
+
+        // SAFETY: селектор и аргумент — как у `mouseUp:` NSResponder.
+        #[unsafe(method(mouseUp:))]
+        fn mouse_up(&self, event: &NSEvent) {
+            let point = content_point(self, event);
+            self.ivars().owner.call(|model| {
+                let drag = match point {
+                    Some(point) => model.drag.borrow_mut().released(point),
+                    None => {
+                        model.drag.replace(DragState::Idle);
+                        None
+                    }
+                };
+                emit_drag(model, drag);
             });
         }
 
