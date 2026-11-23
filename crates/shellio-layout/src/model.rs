@@ -186,6 +186,12 @@ impl MinSize {
         width: 200.0,
         height: 120.0,
     };
+
+    /// Тело такого размера не меньше `min_size`: заглушка не нужна.
+    #[must_use]
+    pub fn admits(&self, width: f64, height: f64) -> bool {
+        width >= self.width && height >= self.height
+    }
 }
 
 impl Default for MinSize {
@@ -218,6 +224,17 @@ pub enum Location {
     Navigator,
     /// Вкладка `tab` части `part` зоны `zone`.
     Part { zone: Zone, part: usize, tab: usize },
+}
+
+impl Location {
+    /// Зона места: колонка навигатора относится к левой зоне.
+    #[must_use]
+    pub const fn zone(self) -> Zone {
+        match self {
+            Self::Navigator => Zone::Left,
+            Self::Part { zone, .. } => zone,
+        }
+    }
 }
 
 impl<P: Copy + Ord> Layout<P> {

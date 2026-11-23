@@ -60,6 +60,29 @@ impl Rect {
     }
 }
 
+/// Размер в точках.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Size {
+    pub width: f64,
+    pub height: f64,
+}
+
+impl Size {
+    pub const ZERO: Self = Self {
+        width: 0.0,
+        height: 0.0,
+    };
+
+    #[must_use]
+    pub fn of(rect: Rect) -> Self {
+        Self {
+            width: rect.width,
+            height: rect.height,
+        }
+    }
+}
+
 /// Точка в координатах области содержимого окна.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -530,7 +553,7 @@ fn plate<P: Copy>(
 }
 
 fn is_stub(body: Area, min: MinSize) -> bool {
-    (body.w as f64) < min.width || (body.h as f64) < min.height
+    !min.admits(body.w as f64, body.h as f64)
 }
 
 /// Цель перетаскивания вкладки в точке: строка вкладок, линия плитки и середина тела — часть,
