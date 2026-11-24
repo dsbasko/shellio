@@ -1818,10 +1818,12 @@ stub_press() {
   }
 }
 
-# Строка workbench_layouts рабочей области в state.db остановленного владельца: HEX байтов layout.
-layout_row() {
+# Строки workbench_layouts всех рабочих областей в state.db остановленного владельца по порядку id:
+# «HEX id:HEX байтов layout» через запятую.
+layout_rows() {
   /usr/bin/sqlite3 -readonly "$1/state.db" \
-    "SELECT hex(CAST(layout AS BLOB)) FROM workbench_layouts WHERE workbench = X'${2//-/}';" 2>&1
+    "SELECT group_concat(hex(workbench) || ':' || hex(CAST(layout AS BLOB)), ',')
+       FROM (SELECT workbench, layout FROM workbench_layouts ORDER BY workbench);" 2>&1
 }
 
 # Заглушка статуса панели panel профиля state: подпись label заглушки её места без кнопки «Развернуть» по
@@ -3356,8 +3358,8 @@ item_demo_snapshot() {
 # PanelId, данные, opened_from, байты строк panel_states и раскладки прежние. Основной владелец остаётся
 # остановленным.
 item_restore_cold() {
-  local item=restore-cold dir="$run/restore-cold" cold caption list0 field0 from0 layout0 rows0 rows1 got
-  local rows_re='^[0-9]+\|[0-9A-F]+ [0-9]+\|[0-9A-F]+ [0-9A-F]+$'
+  local item=restore-cold dir="$run/restore-cold" cold caption list0 field0 from0 layout0 rows0 rows1 got benches
+  local rows_re='^[0-9]+\|[0-9A-F]+ [0-9]+\|[0-9A-F]+ [0-9A-F]+:[0-9A-F]+(,[0-9A-F]+:[0-9A-F]+)*$'
   failures=()
   log "== $item"
   [[ -n "$demo" ]] || {
@@ -3397,10 +3399,14 @@ item_restore_cold() {
 
   quit_owner "$profile" "$dir" "$owner_pid"
   owner_pid=""
-  rows0="$(row_of "$profile" "$demo") $(row_of "$profile" "$cold") $(layout_row "$profile" "$wb_a")"
+  rows0="$(row_of "$profile" "$demo") $(row_of "$profile" "$cold") $(layout_rows "$profile")"
   printf '%s\n' "$rows0" >"$dir/rows-before.txt"
   [[ "$rows0" =~ $rows_re ]] ||
     failures+=("строки panel_states и workbench_layouts до перезапуска не прочитаны: ${rows0:0:200}")
+  benches="${rows0##* }"
+  [[ ",$benches" == *",$(printf '%s' "${wb_a//-/}" | tr '[:lower:]' '[:upper:]'):"* ]] ||
+    failures+=("строки workbench_layouts рабочей области A до перезапуска нет: rows-before.txt")
+  benches="$(printf '%s' "$benches" | tr ',' '\n' | grep -c .)"
   launch_normal "$profile" "$dir/relaunch"
   owner_pid="$OWNER_PID"
   settle_layout "$profile" "$dir/relaunch-settle" "$wb_a" 0 || fatal "$item: после перезапуска: $WHY"
@@ -3437,12 +3443,12 @@ item_restore_cold() {
   fi
   quit_owner "$profile" "$dir/relaunch" "$owner_pid"
   owner_pid=""
-  rows1="$(row_of "$profile" "$demo") $(row_of "$profile" "$cold") $(layout_row "$profile" "$wb_a")"
+  rows1="$(row_of "$profile" "$demo") $(row_of "$profile" "$cold") $(layout_rows "$profile")"
   printf '%s\n' "$rows1" >"$dir/rows-after.txt"
   [[ "$rows1" == "$rows0" ]] ||
     failures+=("байты строк panel_states и workbench_layouts после перезапуска другие: rows-before.txt и rows-after.txt")
   got="${rows0%% *}"
-  conclude "$item" "список $demo с ключом c и историей [\"a\"], поле $cold со значением «${COLD_VALUE}» и opened_from списка → app quit → запуск на том же профиле: те же PanelId, данные $list0 и $field0 и opened_from структурно равны, строки panel_states (список $got) и строка workbench_layouts рабочей области A побайтно прежние, раскладка query.layout равна; в окне выбрана c, поле и подпись показывают значение, кадры совпали с ui.inspect и AX"
+  conclude "$item" "список $demo с ключом c и историей [\"a\"], поле $cold со значением «${COLD_VALUE}» и opened_from списка → app quit → запуск на том же профиле: те же PanelId, данные $list0 и $field0 и opened_from структурно равны, строки panel_states (список $got) и строки workbench_layouts всех рабочих областей ($benches) побайтно прежние, раскладка A по query.layout равна; в окне выбрана c, поле и подпись показывают значение, кадры совпали с ui.inspect и AX"
 }
 
 # Профиль схемы v3 с каноническими панелями демо, данные которых запуск не принимает: заглушки с причиной, тела не

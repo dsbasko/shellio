@@ -187,6 +187,8 @@ struct PanelIvars {
     owner: Callback<PanelModel>,
     /// Нажатие, о котором владелец уже знает: номер и время события.
     pressed: Cell<Option<(isize, u64)>>,
+    /// Нажатие, адресат которого уже искали при выборе адресата.
+    judged: Cell<Option<(isize, u64)>>,
 }
 
 define_class!(
@@ -240,10 +242,12 @@ define_class!(
             // SAFETY: `hitTest:` у NSView с той же точкой.
             let hit: *mut NSView = unsafe { msg_send![super(self), hitTest: point] };
             let own: &NSView = self;
-            if !hit.is_null() && !std::ptr::eq(hit.cast_const(), own) {
+            if !hit.is_null() && !std::ptr::eq(hit.cast_const(), own) && !PROBING.get() {
                 let event = NSApplication::sharedApplication(self.mtm()).currentEvent();
                 if let Some(event) = event
                     && event.r#type() == NSEventType::LeftMouseDown
+                    && self.ivars().judged.replace(Some(press_key(&event))) != Some(press_key(&event))
+                    && self.receives(&event)
                 {
                     self.press(&event);
                 }
@@ -265,6 +269,7 @@ impl PanelStubView {
             _live: PANEL_VIEW.live(),
             owner,
             pressed: Cell::new(None),
+            judged: Cell::new(None),
         });
         // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
         let view: Retained<PanelStubView> = unsafe {
@@ -280,11 +285,47 @@ impl PanelStubView {
     /// Нажатие `event` в теле: владелец узнаёт о нём один раз, каким бы путём оно ни пришло —
     /// выбором адресата или по цепочке ответчиков.
     fn press(&self, event: &NSEvent) {
-        let key = (event.eventNumber(), event.timestamp().to_bits());
+        let key = press_key(event);
         if self.ivars().pressed.replace(Some(key)) != Some(key) {
             self.ivars().owner.call(|model| (model.on_press)());
         }
     }
+
+    /// Нажатие `event` достаётся виду внутри контейнера. Адресат ищется от содержимого окна в точке
+    /// события, как его ищет само окно: вопрос `hitTest:` в другой точке и нажатие, которое забрал
+    /// вид поверх тела (разделитель, вкладка), нажатием в тело не считаются.
+    fn receives(&self, event: &NSEvent) -> bool {
+        let own: &NSView = self;
+        let Some(window) = own.window() else {
+            return false;
+        };
+        if event.windowNumber() != window.windowNumber() {
+            return false;
+        }
+        let Some(content) = window.contentView() else {
+            return false;
+        };
+        let at = event.locationInWindow();
+        // SAFETY: `superview` у вида содержимого окна на главном потоке.
+        let point = match unsafe { content.superview() } {
+            Some(parent) => parent.convertPoint_fromView(at, None),
+            None => at,
+        };
+        PROBING.set(true);
+        let target = content.hitTest(point);
+        PROBING.set(false);
+        target.is_some_and(|target| !std::ptr::eq(&*target, own) && target.isDescendantOf(own))
+    }
+}
+
+thread_local! {
+    /// Идёт собственный поиск адресата нажатия: контейнеры в нём только отвечают.
+    static PROBING: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Номер и время события нажатия.
+fn press_key(event: &NSEvent) -> (isize, u64) {
+    (event.eventNumber(), event.timestamp().to_bits())
 }
 
 /// Что показывает нейтральная карточка.
