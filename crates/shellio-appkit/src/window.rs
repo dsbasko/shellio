@@ -57,6 +57,8 @@ struct Parts {
     on_theme: Box<dyn Fn(ThemeSelection)>,
     /// Размер содержимого окна изменился.
     on_resize: Box<dyn Fn()>,
+    /// Окно спрятано его кнопкой закрытия.
+    on_close: Box<dyn Fn()>,
     /// Время с загрузки, когда окно впервые стало key.
     first_key: Cell<Option<f64>>,
 }
@@ -87,13 +89,15 @@ pub struct MainWindow {
 impl MainWindow {
     /// Создаёт окно, не показывая его. `on_theme` получает новый выбор ячейки после перекраски,
     /// `on_intent` — намерения заголовка, `on_resize` — изменение размера содержимого (живое
-    /// изменение, кнопка окна, полный экран). Все вызываются на главном потоке изнутри AppKit,
-    /// поэтому не должны синхронно трогать владельца окна.
+    /// изменение, кнопка окна, полный экран), `on_close` — окно спрятано его кнопкой закрытия. Все
+    /// вызываются на главном потоке изнутри AppKit, поэтому не должны синхронно трогать владельца
+    /// окна.
     pub fn new(
         app: &App,
         on_theme: impl Fn(ThemeSelection) + 'static,
         on_intent: impl Fn(ChromeIntent) + 'static,
         on_resize: impl Fn() + 'static,
+        on_close: impl Fn() + 'static,
     ) -> MainWindow {
         let mtm = app.mtm();
         let parts = Rc::new_cyclic(|weak: &std::rc::Weak<Parts>| {
@@ -116,6 +120,7 @@ impl MainWindow {
                 selection: Cell::new(selection),
                 on_theme: Box::new(on_theme),
                 on_resize: Box::new(on_resize),
+                on_close: Box::new(on_close),
                 first_key: Cell::new(None),
             }
         });
@@ -446,7 +451,10 @@ define_class!(
         // прячет окно, а `NO` не даёт AppKit закрыть его.
         #[unsafe(method(windowShouldClose:))]
         fn window_should_close(&self, _sender: &NSWindow) -> bool {
-            self.call(|parts| parts.window.orderOut(None));
+            self.call(|parts| {
+                parts.window.orderOut(None);
+                (parts.on_close)();
+            });
             false
         }
 

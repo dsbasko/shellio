@@ -1,0 +1,55 @@
+{
+  "id": 9,
+  "ok": {
+    "ui": {
+      "stats": {
+        "pid": 123,
+        "generation": 7,
+        "instances": [
+          {
+            "kind": "class",
+            "name": "ShellioChromeBar",
+            "created": 1,
+            "released": 0,
+            "live": 1
+          }
+        ],
+        "late_callbacks": [
+          {
+            "site": "MainWindow.root",
+            "count": 0
+          }
+        ],
+        "run_loop": {
+          "iterations": 90,
+          "wakeups": 90,
+          "unpaired": 2,
+          "display_passes": 170,
+          "over_budget": 1,
+          "max_ms": 37.5,
+          "p95_ms": 1.25,
+          "window": 90,
+          "draws": 12
+        },
+        "startup": {
+          "first_draw_ms": 182.5,
+          "key_ms": 190.0,
+          "key_draw_ms": 190.0
+        },
+        "animations": [],
+        "row_views": [],
+        "gallery_trees": [],
+        "bodies_built": [
+          {
+            "panel": "00000000-0000-0000-0000-000000000001",
+            "built": 1
+          },
+          {
+            "panel": "00000000-0000-0000-0000-000000000002",
+            "built": 0
+          }
+        ]
+      }
+    }
+  }
+}

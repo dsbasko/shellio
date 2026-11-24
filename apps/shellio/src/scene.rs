@@ -12,16 +12,18 @@
 //! - [`panel_menu`] и [`menu_command`] — меню «…» плитки: перенос в соседнюю часть, в зону и
 //!   закрытие;
 //! - [`drop_plan`] — отпускание перетаскиваемой вкладки: цель, подсветка и одна команда переноса;
-//! - [`Bench::stubs`] и [`expand_command`] — заглушка «Развернуть» на месте тела меньше `min_size`
-//!   панели и её кнопка.
+//! - [`Bench::stubs`] и [`expand_command`] — заглушка на месте тела: «Развернуть» с кнопкой у тела
+//!   меньше `min_size` панели и причина статуса [`status_text`] у панели не в `ready`.
 //!
-//! Вид панели живёт, пока панель есть в открытой рабочей области: смена вкладки, перенос и `zoom`
-//! его не пересоздают. Начало координат — левый верхний угол содержимого окна, как у геометрии.
+//! Смена вкладки, перенос и `zoom` вид панели не пересоздают. Что происходит с контейнером и телом
+//! плагина, когда панель уходит из открытой рабочей области или из `ready`, решает
+//! [`crate::bodies`]. Начало координат — левый верхний угол содержимого окна, как у геометрии.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use shellio_core::{
-    Command, CoreError, Entity, ErrorCode, PanelId, State, WorkbenchId, min_size, open_workbench,
+    Command, CoreError, Entity, ErrorCode, PanelId, PanelStatus, State, WorkbenchId, min_size,
+    open_workbench,
 };
 use shellio_layout::{
     Axis, DropTarget, Edge, Frames, Geometry, Hideable, Layout, LayoutMetrics, Location, PartFrame,
@@ -64,24 +66,43 @@ pub struct ViewSlot {
     pub stub: bool,
     pub title: String,
     pub plugin: String,
+    /// Статус панели: вне `ready` тела плагина нет, на месте показанного тела — заглушка статуса
+    /// (ADR-0008).
+    pub status: PanelStatus,
 }
 
 impl ViewSlot {
-    /// Вид панели виден: тело показано и не меньше `min_size`.
+    /// Вид панели виден: тело показано, не меньше `min_size`, панель в `ready`.
     pub fn shown(&self) -> bool {
-        self.body.is_some() && !self.stub
+        self.body.is_some() && !self.stub && self.status == PanelStatus::Ready
     }
 }
 
-/// Заглушка «Развернуть» на месте тела панели.
+/// Заглушка на месте тела панели: «Развернуть» или причина статуса.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Stub {
     pub panel: PanelId,
     /// Тело в точках содержимого окна.
     pub body: Rect,
     pub title: String,
-    /// Кнопка «Развернуть» есть: у развёрнутой панели разворачивать некуда.
+    /// Кнопка «Развернуть» есть: у развёрнутой панели разворачивать некуда, у заглушки статуса
+    /// кнопки нет.
     pub expandable: bool,
+    /// Причина статуса панели не в `ready`: она важнее заглушки `min_size`.
+    pub status: Option<String>,
+}
+
+/// Текст заглушки статуса панели плагина `plugin` с названием `title`; `None` — панель в `ready`.
+pub fn status_text(status: PanelStatus, plugin: &str, title: &str) -> Option<String> {
+    match status {
+        PanelStatus::Ready => None,
+        PanelStatus::PluginMissing => Some(format!("Плагин «{plugin}» недоступен")),
+        PanelStatus::Duplicate => Some(format!("Уже открыт: {title}")),
+        PanelStatus::StateCorrupt => Some("Состояние не прочитано".to_owned()),
+        PanelStatus::InitFailed => Some("Состояние не создано".to_owned()),
+        PanelStatus::MigrateFailed => Some("Состояние не перенесено на новую версию".to_owned()),
+        PanelStatus::StateNewer => Some("Сохранено более новой версией".to_owned()),
+    }
 }
 
 /// Плитка части.
@@ -303,6 +324,7 @@ fn bench(
                 stub: shown.is_some_and(|(_, _, stub)| stub),
                 title: record.title.as_str().to_owned(),
                 plugin: record.plugin.as_str().to_owned(),
+                status: state.status_of(panel),
             },
         );
     }
@@ -345,24 +367,28 @@ fn bench(
 }
 
 impl Bench {
-    /// Заглушки «Развернуть» по месту: показанное тело панели меньше её `min_size`. Вид панели под
-    /// заглушкой скрыт и жив. Колонка навигатора получает заглушку так же, как часть; у развёрнутой
-    /// панели заглушка без кнопки.
+    /// Заглушки по месту: показанное тело панели меньше её `min_size` или панель не в `ready`. Вид
+    /// панели под заглушкой скрыт и жив. Колонка навигатора получает заглушку так же, как часть; у
+    /// развёрнутой панели и у заглушки статуса кнопки нет. Статус важнее `min_size`: тесная панель
+    /// не в `ready` показывает причину статуса.
     pub fn stubs(&self) -> BTreeMap<Host, Stub> {
         self.views
             .iter()
-            .filter(|(_, slot)| slot.stub)
             .filter_map(|(&panel, slot)| {
                 let body = slot.body?;
-                Some((
-                    slot.host,
-                    Stub {
-                        panel,
-                        body,
-                        title: slot.title.clone(),
-                        expandable: slot.host != Host::Zoom,
-                    },
-                ))
+                let status = status_text(slot.status, &slot.plugin, &slot.title);
+                (slot.stub || status.is_some()).then(|| {
+                    (
+                        slot.host,
+                        Stub {
+                            panel,
+                            body,
+                            title: slot.title.clone(),
+                            expandable: slot.host != Host::Zoom && status.is_none(),
+                            status,
+                        },
+                    )
+                })
             })
             .collect()
     }
@@ -1242,7 +1268,7 @@ fn split_no_room_text(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use shellio_core::{
         NAVIGATOR_PLUGIN, Panel, PluginId, ProjectId, Route, TERMINAL_PLUGIN, Title, UnixMillis,
         Workbench, WorkspaceId, layout_metrics,
@@ -1251,12 +1277,12 @@ mod tests {
 
     use super::*;
 
-    const SMALL: Viewport = Viewport {
+    pub(crate) const SMALL: Viewport = Viewport {
         width: 1180,
         height: 720,
     };
 
-    fn id<T: std::str::FromStr>(n: u8) -> T
+    pub(crate) fn id<T: std::str::FromStr>(n: u8) -> T
     where
         T::Err: std::fmt::Debug,
     {
@@ -1265,15 +1291,15 @@ mod tests {
             .unwrap()
     }
 
-    struct Fixture {
-        state: State,
-        workbench: WorkbenchId,
-        navigator: PanelId,
-        terminal: PanelId,
+    pub(crate) struct Fixture {
+        pub(crate) state: State,
+        pub(crate) workbench: WorkbenchId,
+        pub(crate) navigator: PanelId,
+        pub(crate) terminal: PanelId,
     }
 
     /// Открытая рабочая область с раскладкой по умолчанию.
-    fn fixture() -> Fixture {
+    pub(crate) fn fixture() -> Fixture {
         let mut state = State::default();
         let workspace: WorkspaceId = id(1);
         let project: ProjectId = id(2);
@@ -1338,7 +1364,7 @@ mod tests {
         }
     }
 
-    fn add_panel(fixture: &mut Fixture, n: u8) -> PanelId {
+    pub(crate) fn add_panel(fixture: &mut Fixture, n: u8) -> PanelId {
         let panel: PanelId = id(n);
         fixture.state.panels.insert(
             panel,
@@ -1353,12 +1379,12 @@ mod tests {
         panel
     }
 
-    fn layout_mut(fixture: &mut Fixture) -> &mut Layout<PanelId> {
+    pub(crate) fn layout_mut(fixture: &mut Fixture) -> &mut Layout<PanelId> {
         fixture.state.layouts.get_mut(&fixture.workbench).unwrap()
     }
 
     /// Продуктовый реестр: `min_size` заполнителей — 200×120.
-    fn registry() -> Registry {
+    pub(crate) fn registry() -> Registry {
         crate::plugins::registry().unwrap()
     }
 
@@ -1658,6 +1684,7 @@ mod tests {
                     body: slot.body.unwrap(),
                     title: "Терминал".into(),
                     expandable: true,
+                    status: None,
                 }
             );
             assert_eq!(
@@ -1685,6 +1712,107 @@ mod tests {
                 "и показывает его снова"
             );
         }
+    }
+
+    #[test]
+    fn every_status_but_ready_shows_its_own_reason_without_a_button() {
+        let mut fixture = fixture();
+        let center = Host::Part(PartKey {
+            zone: Zone::Center,
+            index: 0,
+        });
+        let reasons = [
+            (PanelStatus::PluginMissing, "Плагин «terminal» недоступен"),
+            (PanelStatus::Duplicate, "Уже открыт: Терминал"),
+            (PanelStatus::StateCorrupt, "Состояние не прочитано"),
+            (PanelStatus::InitFailed, "Состояние не создано"),
+            (
+                PanelStatus::MigrateFailed,
+                "Состояние не перенесено на новую версию",
+            ),
+            (PanelStatus::StateNewer, "Сохранено более новой версией"),
+        ];
+        let ready = scene(&fixture);
+        assert_eq!(
+            status_text(PanelStatus::Ready, "terminal", "Терминал"),
+            None
+        );
+        assert!(ready.bench.as_ref().unwrap().stubs().is_empty());
+
+        let mut texts = BTreeSet::new();
+        for (status, text) in reasons {
+            fixture.state.panel_status.insert(fixture.terminal, status);
+            let scene = scene(&fixture);
+            let bench = scene.bench.as_ref().unwrap();
+            let slot = &bench.views[&fixture.terminal];
+            assert!(!slot.stub, "места телу хватает");
+            assert!(!slot.shown(), "{status:?}: вид панели скрыт под заглушкой");
+            assert_eq!(
+                bench.stubs()[&center],
+                Stub {
+                    panel: fixture.terminal,
+                    body: slot.body.unwrap(),
+                    title: "Терминал".into(),
+                    expandable: false,
+                    status: Some(text.into()),
+                },
+                "{status:?}"
+            );
+            assert_eq!(expand_command(&scene, center), None, "кнопки нет");
+            assert_eq!(
+                diff(ready.bench.as_ref(), scene.bench.as_ref()),
+                [Op::Hide(fixture.terminal)],
+                "{status:?}: заглушка статуса только прячет вид"
+            );
+            texts.insert(text);
+        }
+        assert_eq!(texts.len(), reasons.len(), "у каждой причины свой текст");
+    }
+
+    #[test]
+    fn status_wins_over_the_min_size_stub() {
+        let mut fixture = fixture();
+        let center = Host::Part(PartKey {
+            zone: Zone::Center,
+            index: 0,
+        });
+        let edge = viewport_for_center_body(&fixture, true, shellio_layout::MinSize::DEFAULT.width);
+        let below = Viewport {
+            width: edge.width - 1,
+            ..edge
+        };
+        let cramped = Scene::of(&fixture.state, &registry(), below, layout_metrics());
+        let stub = &cramped.bench.as_ref().unwrap().stubs()[&center];
+        assert!(
+            stub.expandable && stub.status.is_none(),
+            "тесная панель в ready"
+        );
+
+        fixture
+            .state
+            .panel_status
+            .insert(fixture.terminal, PanelStatus::StateNewer);
+        let stale = Scene::of(&fixture.state, &registry(), below, layout_metrics());
+        let bench = stale.bench.as_ref().unwrap();
+        assert!(
+            bench.views[&fixture.terminal].stub,
+            "тело по-прежнему тесное"
+        );
+        let stub = &bench.stubs()[&center];
+        assert_eq!(
+            stub.status.as_deref(),
+            Some("Сохранено более новой версией")
+        );
+        assert!(
+            !stub.expandable,
+            "у заглушки статуса кнопки «Развернуть» нет"
+        );
+        assert_eq!(expand_command(&stale, center), None);
+        assert_eq!(
+            diff(cramped.bench.as_ref(), stale.bench.as_ref()),
+            [],
+            "вид был скрыт и остаётся скрытым"
+        );
     }
 
     #[test]

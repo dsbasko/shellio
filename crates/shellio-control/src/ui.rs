@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
 
 use serde::{Deserialize, Serialize};
-use shellio_core::{AppearanceChoice, PanelId, UiCommand};
+use shellio_core::{AppearanceChoice, PanelId, PanelStatus, UiCommand};
 use shellio_layout::{SizeClass, Zone};
 
 /// Срок запроса `ui` на главном потоке владельца.
@@ -724,6 +724,14 @@ pub struct PanelNodeView {
     pub zone: Option<Zone>,
     /// Класс размера тела; `None` — вид не показан.
     pub size: Option<SizeClass>,
+    /// Статус панели: тело плагина есть только у `ready`, иначе на его месте заглушка статуса.
+    pub status: PanelStatus,
+    /// Тело активно: показано в видимом окне и не меньше `min_size`.
+    pub active: bool,
+    /// Фокус раскладки на этой панели.
+    pub focused: bool,
+    /// Вариант представления, который получило тело; `None` — тела нет или оно ещё не показано.
+    pub variant: Option<String>,
 }
 
 /// Сторона зоны полосы вкладок.
@@ -975,6 +983,10 @@ pub struct StatsView {
     pub row_views: Vec<RowViewsView>,
     /// Слабые ссылки на виды прежних деревьев галереи.
     pub gallery_trees: Vec<GalleryTreeView>,
+    /// Построенные тела плагинов по панелям с живым или припаркованным контейнером; без
+    /// контейнеров ключа в кадре нет.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub bodies_built: Vec<BodiesBuiltView>,
     /// Ряд задержек клавиш списка галереи; `None` — серии не было, и ключа в кадре нет.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_latency: Option<KeyLatencyView>,
@@ -1096,6 +1108,15 @@ pub struct AnimationRecord {
 pub struct RowViewsView {
     pub component: String,
     pub created: u64,
+}
+
+/// Сколько тел плагина построено в контейнере панели за жизнь контейнера: перенос, `zoom`,
+/// заглушка и парковка тело не пересоздают, возврат в `ready` строит новое.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BodiesBuiltView {
+    pub panel: PanelId,
+    pub built: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

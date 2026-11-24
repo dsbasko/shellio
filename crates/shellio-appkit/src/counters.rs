@@ -137,6 +137,12 @@ pub(crate) fn late(site: &'static str) {
     }
 }
 
+/// Отмечает поздний обратный вызов вне этого crate: хост видов считает им запрос и исход запроса
+/// тела панели, которого уже нет.
+pub fn late_callback(site: &'static str) {
+    late(site);
+}
+
 /// Поздние обратные вызовы по местам, в порядке первого появления.
 pub fn late_callbacks() -> Vec<LateCallbacks> {
     LATE.lock()
@@ -204,6 +210,14 @@ mod tests {
         assert_eq!(site("test.counters.other"), Some(1));
         assert_eq!(site("test.counters.never"), None);
         assert!(late_callbacks_total() >= 3);
+    }
+
+    #[test]
+    fn host_counts_late_callbacks_through_the_public_entry() {
+        late_callback("test.counters.host");
+        let all = late_callbacks();
+        let host = all.iter().find(|late| late.site == "test.counters.host");
+        assert_eq!(host.map(|late| late.count), Some(1));
     }
 
     #[test]

@@ -72,7 +72,11 @@
                 "title": "Терминал",
                 "shown": true,
                 "zone": "center",
-                "size": "regular"
+                "size": "regular",
+                "status": "ready",
+                "active": true,
+                "focused": true,
+                "variant": "full"
               }
             }
           }

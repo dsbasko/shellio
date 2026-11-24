@@ -90,7 +90,8 @@ pub use components::virtual_list::model::{
 };
 pub use components::virtual_list::{ListRowFacts, VirtualList, VirtualListFacts};
 pub use counters::{
-    CountKind, InstanceCount, LateCallbacks, instance_counts, late_callbacks, late_callbacks_total,
+    CountKind, InstanceCount, LateCallbacks, instance_counts, late_callback, late_callbacks,
+    late_callbacks_total,
 };
 pub use inspect::{
     InspectNode, Inspection, MaterialFact, NodeState, ScreenFacts, Transition, TransitionPath,

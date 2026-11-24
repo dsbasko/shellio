@@ -1,18 +1,20 @@
 //! Контейнер панели хоста ([`PanelView`]) и нейтральная карточка ([`NeutralCard`]). Контейнер живёт
 //! столько же, сколько панель, переносится между плитками без пересоздания и держит тело панели.
 //! Карточка — тело без собственного содержимого: название, plugin id, зона и класс размера.
-//! [`ExpandStub`] — заглушка «Развернуть» хоста на месте тела меньше `min_size` панели (ADR-0009,
-//! ADR-0031): контейнер панели под ней скрыт и жив. [`EmptyNote`] — сообщение на месте области зон:
-//! «Нет открытых панелей» или «Рабочая область не открыта».
+//! [`ExpandStub`] — заглушка хоста на месте тела: «Развернуть» у тела меньше `min_size` панели
+//! (ADR-0009, ADR-0031) или причина статуса панели без кнопки (ADR-0008). Контейнер панели под ней
+//! скрыт и жив. [`EmptyNote`] — сообщение на месте области зон: «Нет открытых панелей» или «Рабочая
+//! область не открыта».
 
 use std::cell::{Cell, RefCell};
 
 use objc2::rc::Retained;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
-    NSAccessibility, NSAccessibilityGroupRole, NSAutoresizingMaskOptions, NSButton, NSControl,
-    NSEvent, NSFont, NSFontWeightMedium, NSFontWeightRegular, NSLineBreakMode, NSResponder,
-    NSTextAlignment, NSTextField, NSView, NSViewLayerContentsRedrawPolicy,
+    NSAccessibility, NSAccessibilityGroupRole, NSApplication, NSAutoresizingMaskOptions, NSButton,
+    NSControl, NSEvent, NSEventType, NSFont, NSFontWeightMedium, NSFontWeightRegular,
+    NSLineBreakMode, NSResponder, NSTextAlignment, NSTextField, NSView,
+    NSViewLayerContentsRedrawPolicy,
 };
 use objc2_foundation::{NSObject, NSPoint, NSRect, NSSize, NSString};
 use shellio_theme::AppTheme;
@@ -57,7 +59,8 @@ pub struct PanelView {
 
 impl PanelView {
     /// Контейнер панели с названием `title`; `on_press` получает щелчок в тело на главном потоке
-    /// изнутри AppKit.
+    /// изнутри AppKit: и тот, что тело не обработало, и тот, что достался вложенному компоненту
+    /// тела. Одно нажатие — один вызов.
     pub fn new(
         app: &App,
         theme: &AppTheme,
@@ -124,16 +127,42 @@ impl PanelView {
         );
     }
 
-    /// Прячет или показывает контейнер без неявных анимаций.
+    /// Прячет или показывает контейнер без неявных анимаций. Скрытый контейнер ввод не держит:
+    /// иначе AppKit сам отдал бы его следующему виду цикла клавиш.
     pub fn set_hidden(&self, hidden: bool) {
         let view = self.view.view();
         if view.isHidden() != hidden {
+            if hidden {
+                self.resign_focus();
+            }
             without_actions(|| view.setHidden(hidden));
         }
     }
 
     pub fn is_hidden(&self) -> bool {
         self.view.view().isHidden()
+    }
+
+    /// Ввод внутри контейнера: first responder окна — вид его тела.
+    pub fn holds_focus(&self) -> bool {
+        let host: &NSView = self.view.view();
+        host.window()
+            .and_then(|window| window.firstResponder())
+            .and_then(|responder| {
+                responder
+                    .downcast_ref::<NSView>()
+                    .map(|view| view.isDescendantOf(host))
+            })
+            .unwrap_or(false)
+    }
+
+    /// Отдаёт ввод окну, если он внутри контейнера. `true` — ввод был здесь.
+    pub fn resign_focus(&self) -> bool {
+        let held = self.holds_focus();
+        if held && let Some(window) = self.view.view().window() {
+            window.makeFirstResponder(None);
+        }
+        held
     }
 
     pub(crate) fn ns_view(&self) -> &NSView {
@@ -156,6 +185,8 @@ impl PanelView {
 struct PanelIvars {
     _live: Live,
     owner: Callback<PanelModel>,
+    /// Нажатие, о котором владелец уже знает: номер и время события.
+    pressed: Cell<Option<(isize, u64)>>,
 }
 
 define_class!(
@@ -197,8 +228,27 @@ define_class!(
         // SAFETY: селектор и аргумент — как у `mouseDown:` NSResponder. Щелчок в тело, которое его
         // не обработало, приходит сюда по цепочке ответчиков.
         #[unsafe(method(mouseDown:))]
-        fn mouse_down(&self, _event: &NSEvent) {
-            self.ivars().owner.call(|model| (model.on_press)());
+        fn mouse_down(&self, event: &NSEvent) {
+            self.press(event);
+        }
+
+        // SAFETY: селектор, аргумент и результат — как у `hitTest:` NSView. Адресат нажатия остаётся
+        // тем, что выбрал NSView: вложенный компонент тела получает его как обычно. Контейнер только
+        // узнаёт о нажатии, которое до него по цепочке ответчиков не дойдёт.
+        #[unsafe(method(hitTest:))]
+        fn hit_test(&self, point: NSPoint) -> *mut NSView {
+            // SAFETY: `hitTest:` у NSView с той же точкой.
+            let hit: *mut NSView = unsafe { msg_send![super(self), hitTest: point] };
+            let own: &NSView = self;
+            if !hit.is_null() && !std::ptr::eq(hit.cast_const(), own) {
+                let event = NSApplication::sharedApplication(self.mtm()).currentEvent();
+                if let Some(event) = event
+                    && event.r#type() == NSEventType::LeftMouseDown
+                {
+                    self.press(&event);
+                }
+            }
+            hit
         }
 
         // SAFETY: селектор и результат — как у `acceptsFirstMouse:` NSView.
@@ -214,6 +264,7 @@ impl PanelStubView {
         let this = PanelStubView::alloc(mtm).set_ivars(PanelIvars {
             _live: PANEL_VIEW.live(),
             owner,
+            pressed: Cell::new(None),
         });
         // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
         let view: Retained<PanelStubView> = unsafe {
@@ -224,6 +275,15 @@ impl PanelStubView {
         // SAFETY: роль доступности — неизменяемая константа AppKit.
         view.setAccessibilityRole(Some(unsafe { NSAccessibilityGroupRole }));
         view
+    }
+
+    /// Нажатие `event` в теле: владелец узнаёт о нём один раз, каким бы путём оно ни пришло —
+    /// выбором адресата или по цепочке ответчиков.
+    fn press(&self, event: &NSEvent) {
+        let key = (event.eventNumber(), event.timestamp().to_bits());
+        if self.ivars().pressed.replace(Some(key)) != Some(key) {
+            self.ivars().owner.call(|model| (model.on_press)());
+        }
     }
 }
 
@@ -445,19 +505,26 @@ const STUB_GAP: f64 = 8.0;
 const BUTTON_HEIGHT: f64 = 26.0;
 const BUTTON_PAD: f64 = 11.0;
 
-/// Что показывает заглушка «Развернуть».
+/// Что показывает заглушка на месте тела.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StubCard {
     /// Название панели под заглушкой.
     pub title: String,
-    /// Кнопка «Развернуть» есть; у развёрнутой панели разворачивать некуда.
+    /// Кнопка «Развернуть» есть; у развёрнутой панели разворачивать некуда, у заглушки статуса
+    /// кнопки нет.
     pub expandable: bool,
+    /// Причина статуса панели: текст заглушки вместо «<название>: здесь тесно».
+    pub status: Option<String>,
 }
 
 impl StubCard {
-    /// Текст заглушки (`docs/ux.md`, прототип: «<название>: здесь тесно»).
+    /// Текст заглушки: причина статуса панели, иначе «<название>: здесь тесно» (`docs/ux.md`,
+    /// прототип).
     pub fn text(&self) -> String {
-        format!("{}: здесь тесно", self.title)
+        match &self.status {
+            Some(status) => status.clone(),
+            None => format!("{}: здесь тесно", self.title),
+        }
     }
 }
 
@@ -991,8 +1058,19 @@ mod tests {
         let card = StubCard {
             title: "Терминал".into(),
             expandable: true,
+            status: None,
         };
         assert_eq!(card.text(), "Терминал: здесь тесно");
+    }
+
+    #[test]
+    fn status_stub_shows_the_reason_instead_of_the_cramped_text() {
+        let card = StubCard {
+            title: "Демо: список".into(),
+            expandable: false,
+            status: Some("Состояние не прочитано".into()),
+        };
+        assert_eq!(card.text(), "Состояние не прочитано");
     }
 
     #[test]

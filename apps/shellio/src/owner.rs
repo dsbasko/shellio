@@ -570,6 +570,8 @@ async fn load_core(profile: Profile) -> Result<CoreHandle, String> {
     blocking(move || {
         // Реестр собирается до открытия базы: с неверным списком плагинов база не трогается.
         let registry = plugins::shared_registry().map_err(|error| error.to_string())?;
+        // Плагин без фабрики вида остался бы пустой панелью: это ошибка запуска, а не окна.
+        plugins::factories(&registry).map_err(|error| error.to_string())?;
         let db = Database::open(&profile, &SystemClock)
             .map_err(|error| format!("хранилище не открыто: {error}"))?;
         Core::start(

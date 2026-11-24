@@ -15,26 +15,26 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use shellio_control::{
-    Accepted, Activation, AnimationPath, AnimationRecord, Axis, AxisSource, ChromeView,
-    ClassAliveView, ColorSpaceView, ComponentState, ComponentView, Contrast, ControlError,
-    ControlErrorCode, GalleryCommand, GalleryFocus, GalleryStrip, GalleryTreeView, GalleryView,
-    Hello, HelloReply, InspectView, InstanceKind, InstanceView, IntentKind, IntentRecord,
-    KeyLatencyView, KeyPressView, LateCallbackView, Launch, LaunchReceipt, Lightness, ListRowView,
-    MaterialView, MenuItemView, MenuView, Motion, OkValue, OwnerState, PROTOCOL, PanelNodeView,
-    PartNodeView, REQUEST_LINE_LIMIT, Rect, RefuseReason, RefusedArg, Rejected, Request,
-    RequestBody, RequestId, Response, RowViewsView, RunLoopView, ScreenView, Size, StartupView,
-    StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView,
-    TabZone, TextFieldView, TreeListView, TreeMutation, TreeRowView, UI_TIMEOUT, UiReply,
-    UiRequest, VirtualListView, WindowMode, WindowView,
+    Accepted, Activation, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView,
+    ChromeView, ClassAliveView, ColorSpaceView, ComponentState, ComponentView, Contrast,
+    ControlError, ControlErrorCode, GalleryCommand, GalleryFocus, GalleryStrip, GalleryTreeView,
+    GalleryView, Hello, HelloReply, InspectView, InstanceKind, InstanceView, IntentKind,
+    IntentRecord, KeyLatencyView, KeyPressView, LateCallbackView, Launch, LaunchReceipt, Lightness,
+    ListRowView, MaterialView, MenuItemView, MenuView, Motion, OkValue, OwnerState, PROTOCOL,
+    PanelNodeView, PartNodeView, REQUEST_LINE_LIMIT, Rect, RefuseReason, RefusedArg, Rejected,
+    Request, RequestBody, RequestId, Response, RowViewsView, RunLoopView, ScreenView, Size,
+    StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView,
+    TabStripView, TabZone, TextFieldView, TreeListView, TreeMutation, TreeRowView, UI_TIMEOUT,
+    UiReply, UiRequest, VirtualListView, WindowMode, WindowView,
 };
 use shellio_core::test_support::{
     ManualClock as CoreClock, MemoryPersist, SequentialIds, registry,
 };
 use shellio_core::{
     AppearanceChoice, Change, Command, CommandValue, Core, CoreError, Entity, ErrorCode, Event,
-    EventsSince, FsRootResolver, IdGen, LayoutView, OpenOutcome, PanelId, PanelView, PluginsView,
-    Query, Reply, ReplyValue, Revision, Route, Snapshot, State, StatusView, Title, TreeScope,
-    TreeView, UiCommand, UnixMillis, WindowState, WorkbenchId, Workspace, WorkspaceId,
+    EventsSince, FsRootResolver, IdGen, LayoutView, OpenOutcome, PanelId, PanelStatus, PanelView,
+    PluginsView, Query, Reply, ReplyValue, Revision, Route, Snapshot, State, StatusView, Title,
+    TreeScope, TreeView, UiCommand, UnixMillis, WindowState, WorkbenchId, Workspace, WorkspaceId,
 };
 use shellio_layout::{Direction, Edge, Hideable, SizeClass, Zone};
 use tokio::runtime::Handle;
@@ -564,6 +564,9 @@ fn response_golden(response: &Response) -> &'static str {
                 "response.ok.ui.inspect.components"
             }
             UiReply::Inspect(_) => "response.ok.ui.inspect",
+            UiReply::Stats(stats) if !stats.bodies_built.is_empty() => {
+                "response.ok.ui.stats.bodies"
+            }
             UiReply::Stats(stats) if !stats.gallery_trees.is_empty() => {
                 "response.ok.ui.stats.gallery"
             }
@@ -736,6 +739,27 @@ fn responses() -> Result<Vec<Response>, String> {
             OkValue::Ui(UiReply::Inspect(Box::new(inspect_tree_list_view()))),
         ),
         ok(9, OkValue::Ui(UiReply::Stats(Box::new(stats_view())))),
+        // P1.5, задача 8: построенные тела плагинов по панелям; прежние эталоны без ключа
+        // `bodies_built`.
+        ok(
+            9,
+            OkValue::Ui(UiReply::Stats(Box::new(StatsView {
+                bodies_built: {
+                    let (built, stubbed) = body_panels();
+                    vec![
+                        BodiesBuiltView {
+                            panel: built,
+                            built: 1,
+                        },
+                        BodiesBuiltView {
+                            panel: stubbed,
+                            built: 0,
+                        },
+                    ]
+                },
+                ..stats_view()
+            }))),
+        ),
         // P1.3, задача 10: прежние деревья галереи с живыми по классам; эталон
         // `response.ok.ui.stats` не меняется.
         ok(
@@ -1069,6 +1093,10 @@ fn inspect_layout_view() -> InspectView {
                     shown: true,
                     zone: Some(Zone::Center),
                     size: Some(SizeClass::Regular),
+                    status: PanelStatus::Ready,
+                    active: true,
+                    focused: true,
+                    variant: Some("full".into()),
                 })),
             ),
         ],
@@ -1385,6 +1413,13 @@ fn inspect_components_view() -> InspectView {
     }
 }
 
+/// Две панели эталона `ui.stats`: первые идентификаторы последовательного генератора.
+fn body_panels() -> (PanelId, PanelId) {
+    let mut generator = SequentialIds::new();
+    let generator: &mut dyn IdGen = &mut generator;
+    (PanelId::generate(generator), PanelId::generate(generator))
+}
+
 fn stats_view() -> StatsView {
     StatsView {
         pid: 123,
@@ -1419,6 +1454,7 @@ fn stats_view() -> StatsView {
         animations: Vec::new(),
         row_views: Vec::new(),
         gallery_trees: Vec::new(),
+        bodies_built: Vec::new(),
         key_latency: None,
     }
 }

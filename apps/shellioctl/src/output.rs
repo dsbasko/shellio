@@ -523,7 +523,8 @@ fn component_text(component: &ComponentView) -> String {
             yes_no(part.zoomed)
         )),
         Some(ComponentState::Panel(panel)) => facts.push(format!(
-            "панель {} ({}), вид {}, показана — {}, зона {}, класс {}",
+            "панель {} ({}), вид {}, показана — {}, зона {}, класс {}, статус {}, активна — {}, \
+             фокус — {}, вариант {}",
             panel.panel,
             panel.plugin,
             panel.component,
@@ -534,7 +535,11 @@ fn component_text(component: &ComponentView) -> String {
                 SizeClass::Regular => "regular",
                 SizeClass::Wide => "wide",
                 SizeClass::ShortBar => "short_bar",
-            })
+            }),
+            panel.status.as_str(),
+            yes_no(panel.active),
+            yes_no(panel.focused),
+            panel.variant.as_deref().unwrap_or("нет")
         )),
         None => {}
     }
@@ -685,6 +690,9 @@ fn stats_text(stats: &StatsView) -> String {
             instance.released,
             instance.live
         );
+    }
+    for body in &stats.bodies_built {
+        let _ = writeln!(out, "панель {}: построено тел {}", body.panel, body.built);
     }
     let late: u64 = stats.late_callbacks.iter().map(|late| late.count).sum();
     let _ = writeln!(out, "поздних обратных вызовов: {late}");
@@ -1051,6 +1059,7 @@ mod tests {
             animations: Vec::new(),
             row_views: Vec::new(),
             gallery_trees: Vec::new(),
+            bodies_built: Vec::new(),
             key_latency: None,
         };
         let shown = ui_text(&UiReply::Stats(Box::new(stats)));

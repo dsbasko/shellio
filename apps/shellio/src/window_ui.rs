@@ -20,6 +20,7 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::mem::ManuallyDrop;
 
+use shellio::bodies::{self, Failure, Ticket};
 use shellio::gallery::{self, Changed, Effect, Generation, Intent};
 use shellio::launch::WindowMode;
 use shellio::owner;
@@ -32,16 +33,17 @@ use shellio_appkit::{
     instance_counts, late_callbacks,
 };
 use shellio_control::{
-    Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, ChromeView, ColorSpaceView,
-    ComponentState, ComponentView, GalleryCommand, GalleryView, InspectView, InstanceKind,
-    InstanceView, LateCallbackView, ListRowView, MaterialView, MenuItemView, MenuView, Rect,
-    RunLoopView, ScreenView, Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView,
-    TabRegime, TabStatusView, TabStripView, TabZone, TextFieldView, TreeListView, TreeRowView,
-    UiRefusal, UiReply, UiRequest, VirtualListView, WindowView,
+    Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, ChromeView,
+    ColorSpaceView, ComponentState, ComponentView, GalleryCommand, GalleryView, InspectView,
+    InstanceKind, InstanceView, LateCallbackView, ListRowView, MaterialView, MenuItemView,
+    MenuView, Rect, RunLoopView, ScreenView, Size, StartupView, StatsView, StripButtonView,
+    TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone, TextFieldView,
+    TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest, VirtualListView, WindowView,
 };
 use shellio_core::{
     AppearanceChoice, Command, CoreError, CoreHandle, Delivery, Mirror, MirrorStep, UiCommand,
 };
+use shellio_plugin_view::PanelRequest;
 use shellio_theme::AppearanceChoice as ThemeChoice;
 use shellio_theme::{Appearance, Contrast, Motion, Overrides, Source};
 
@@ -105,6 +107,75 @@ impl CoreLink {
             }
             Err(error) => defer(move |app| on_refused(app, &sent, &error)),
         }
+    }
+
+    /// Подать команду тела панели без ожидания. `done` получает исход в задаче runtime, а ранний
+    /// отказ — сразу: строка статуса его не показывает, причину показывает само тело.
+    fn request(&self, command: Command, done: impl FnOnce(Result<(), Failure>) + Send + 'static) {
+        match self.core.try_request(command) {
+            Ok(receipt) => {
+                self.runtime.spawn(async move {
+                    done(match receipt.await {
+                        Ok(Ok(_)) => Ok(()),
+                        Ok(Err(error)) => Err(Failure::Core(error)),
+                        Err(_) => Err(Failure::NoReply),
+                    });
+                });
+            }
+            Err(error) => done(Err(Failure::Core(error))),
+        }
+    }
+}
+
+/// Запрос тела панели: команда своей панели или открытие панели плагина в её рабочей области.
+/// Вызывается изнутри AppKit, поэтому окно владельца не трогает: команда уходит ядру сразу, исход
+/// возвращается в очередь главного потока по номеру запроса.
+fn send_request(ticket: Ticket, request: PanelRequest) {
+    let workbench = MIRROR.with(|mirror| {
+        let mirror = mirror.try_borrow().ok()?;
+        let panel = mirror.as_ref()?.state().panels.get(&ticket.panel)?;
+        Some(panel.workbench)
+    });
+    let command = bodies::command_of(ticket.panel, workbench, request);
+    let name = command.name();
+    let finish = move |outcome: Result<(), Failure>| {
+        defer(move |_| finish_request(ticket, name, outcome));
+    };
+    let sent = CORE.with(|slot| match slot.try_borrow() {
+        Ok(link) => match link.as_ref() {
+            Some(link) => {
+                link.request(command, finish);
+                true
+            }
+            None => false,
+        },
+        Err(_) => false,
+    });
+    if !sent {
+        finish(Err(Failure::NoCore));
+    }
+}
+
+/// Исход запроса тела `ticket`: его получает тело, если оно живо и запрос у него последний.
+fn finish_request(ticket: Ticket, name: &'static str, outcome: Result<(), Failure>) {
+    let outcome = outcome.map_err(|failure| {
+        let refusal = bodies::refusal(&failure);
+        owner::say_err(format_args!(
+            "shellio: {name} панели {} отклонена: {refusal}",
+            ticket.panel
+        ));
+        refusal
+    });
+    let done = with_window(|owner| {
+        owner
+            .layout
+            .as_ref()
+            .and_then(|layout| layout.take_done(ticket))
+    })
+    .flatten();
+    // Вне окна владельца: тело вправе ответить на исход новым запросом.
+    if let Some(done) = done {
+        done(outcome);
     }
 }
 
@@ -245,9 +316,10 @@ impl OwnerWindow {
         let Some(layout) = self.layout.as_mut() else {
             return;
         };
+        let visible = self.window.is_visible();
         MIRROR.with(|mirror| {
             let mirror = mirror.borrow();
-            layout.render(app, mirror.as_ref().map(Mirror::state), viewport);
+            layout.render(app, mirror.as_ref().map(Mirror::state), viewport, visible);
         });
         let Some(scene) = layout.scene() else {
             return;
@@ -584,6 +656,14 @@ impl OwnerWindow {
                 .as_ref()
                 .map(GalleryUi::retired_trees)
                 .unwrap_or_default(),
+            bodies_built: self
+                .layout
+                .as_ref()
+                .map(LayoutUi::bodies_built)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(panel, built)| BodiesBuiltView { panel, built })
+                .collect(),
             key_latency: self
                 .gallery
                 .as_ref()
@@ -905,6 +985,7 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             &window,
             |split, drag| defer(move |app| on_drag(app, split, drag)),
             |action| defer(move |app| on_panel(app, action)),
+            send_request,
         )),
         WindowMode::Gallery => None,
     };
@@ -948,12 +1029,18 @@ fn new_window(app: &App) -> MainWindow {
         |_: ThemeSelection| defer(|_| on_theme()),
         |intent| defer(move |app| on_intent(app, intent)),
         || defer(on_resize),
+        || defer(refresh_layout),
     )
 }
 
 /// Показывает окно владельца (`makeKeyAndOrderFront`). `false` — окна нет: процесс не владелец.
-pub fn show(_app: &App) -> bool {
-    with_window(|owner| owner.window.show()).is_some()
+/// Тела панелей показанного окна снова активны.
+pub fn show(app: &App) -> bool {
+    with_window(|owner| {
+        owner.window.show();
+        owner.render_layout(app);
+    })
+    .is_some()
 }
 
 /// Приложение открыли снова: окно показывается, владелец просит передний план. Без окна ничего не
@@ -1035,7 +1122,8 @@ fn flush_viewport() {
     }
 }
 
-/// Раскладка модели заново: после отказа команды из интерфейса.
+/// Раскладка модели заново: после отказа команды из интерфейса и после того, как окно спрятала
+/// его кнопка закрытия.
 fn refresh_layout(app: &App) {
     with_window(|owner| owner.render_layout(app));
 }
@@ -1165,8 +1253,12 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
 /// Единый обработчик действий интерфейса: меню, кнопка заголовка и CLI.
 pub fn handle(app: &App, command: UiCommand) {
     match command {
+        // Тела панелей скрытого окна неактивны.
         UiCommand::WindowClose => {
-            with_window(|owner| owner.window.hide());
+            with_window(|owner| {
+                owner.window.hide();
+                owner.render_layout(app);
+            });
         }
         // Вне состояния окна: `terminate:` спрашивает делегата приложения на следующем обороте цикла.
         UiCommand::AppQuit => app.terminate(),
