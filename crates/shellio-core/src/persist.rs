@@ -23,6 +23,9 @@ pub struct Loaded {
     /// Ревизия последней записи.
     pub revision: Revision,
     pub storage: StorageInfo,
+    /// Отпечаток реестра плагинов, с которым базу записал прежний запуск. `None` — отпечатка
+    /// ещё нет.
+    pub fingerprint: Option<String>,
 }
 
 /// Отказ записи. Ни один отказ не меняет ни базу, ни состояние ядра.
@@ -59,7 +62,15 @@ pub trait Persist: Send {
     fn load(&mut self) -> Result<Loaded, LoadError>;
 
     /// Записать дельты одной транзакцией: ревизия `base` становится `base + 1`.
-    fn commit(&mut self, base: Revision, changes: &[Change]) -> Result<(), CommitError>;
+    ///
+    /// `fingerprint` — новый отпечаток реестра плагинов: его несёт только запись запуска и
+    /// хранилище пишет его той же транзакцией. `None` — отпечаток прежний.
+    fn commit(
+        &mut self,
+        base: Revision,
+        changes: &[Change],
+        fingerprint: Option<&str>,
+    ) -> Result<(), CommitError>;
 }
 
 type CommitResult = Result<(), CommitError>;
@@ -75,6 +86,7 @@ enum Receipt {
 struct Job {
     base: Revision,
     changes: Vec<Change>,
+    fingerprint: Option<String>,
     receipt: Receipt,
 }
 
@@ -119,17 +131,25 @@ impl StorageThread {
         self.send(Job {
             base,
             changes,
+            fingerprint: None,
             receipt: Receipt::Async(receipt),
         })?;
         done.await.map_err(|_| stopped())?
     }
 
-    /// Записать дельты, блокируя вызывающий поток до квитанции. Только для запуска ядра.
-    pub(crate) fn commit_blocking(&self, base: Revision, changes: Vec<Change>) -> CommitResult {
+    /// Записать дельты и новый отпечаток реестра, блокируя вызывающий поток до квитанции.
+    /// Только для запуска ядра.
+    pub(crate) fn commit_blocking(
+        &self,
+        base: Revision,
+        changes: Vec<Change>,
+        fingerprint: Option<String>,
+    ) -> CommitResult {
         let (receipt, done) = std_mpsc::channel();
         self.send(Job {
             base,
             changes,
+            fingerprint,
             receipt: Receipt::Blocking(receipt),
         })?;
         done.recv().map_err(|_| stopped())?
@@ -176,7 +196,7 @@ fn serve(
         return;
     }
     for job in inbox {
-        let result = persist.commit(job.base, &job.changes);
+        let result = persist.commit(job.base, &job.changes, job.fingerprint.as_deref());
         // Получатель квитанции мог уйти: запись уже выполнена, сообщать некому.
         match job.receipt {
             Receipt::Async(receipt) => {
@@ -201,9 +221,12 @@ mod support {
 
     use tokio::sync::oneshot;
 
+    use shellio_plugin_api::Registry;
+
     use super::{CommitError, LoadError, Loaded, Persist};
     use crate::change::Change;
     use crate::model::{Revision, State};
+    use crate::plugin_host::fingerprint;
     use crate::query::StorageInfo;
 
     /// Хранилище в памяти. Клоны делят одни данные: тест держит клон и видит записанное
@@ -217,6 +240,7 @@ mod support {
     struct Stored {
         state: State,
         revision: Revision,
+        fingerprint: Option<String>,
     }
 
     impl MemoryPersist {
@@ -228,11 +252,28 @@ mod support {
             Self::default()
         }
 
-        /// Хранилище с уже записанным состоянием `state` на ревизии `revision`.
+        /// Хранилище с уже записанным состоянием `state` на ревизии `revision`, без отпечатка
+        /// реестра: первый запуск на нём пишет запись запуска.
         pub fn with_state(state: State, revision: Revision) -> Self {
             Self {
-                stored: Arc::new(Mutex::new(Stored { state, revision })),
+                stored: Arc::new(Mutex::new(Stored {
+                    state,
+                    revision,
+                    fingerprint: None,
+                })),
             }
+        }
+
+        /// То же хранилище с отпечатком реестра `registry`, как после запуска с ним.
+        #[must_use]
+        pub fn written_by(self, registry: &Registry) -> Self {
+            self.lock().fingerprint = Some(fingerprint(registry));
+            self
+        }
+
+        /// Записанный отпечаток реестра.
+        pub fn fingerprint(&self) -> Option<String> {
+            self.lock().fingerprint.clone()
         }
 
         /// Записанное состояние.
@@ -260,10 +301,16 @@ mod support {
                     schema_version: 0,
                     state_db: PathBuf::from(Self::STATE_DB),
                 },
+                fingerprint: stored.fingerprint.clone(),
             })
         }
 
-        fn commit(&mut self, base: Revision, changes: &[Change]) -> Result<(), CommitError> {
+        fn commit(
+            &mut self,
+            base: Revision,
+            changes: &[Change],
+            fingerprint: Option<&str>,
+        ) -> Result<(), CommitError> {
             let mut stored = self.lock();
             if stored.revision != base {
                 return Err(CommitError::Conflict(format!(
@@ -272,6 +319,11 @@ mod support {
                 )));
             }
             stored.state.apply_all(changes);
+            // Статус панели — производное значение: база его не хранит.
+            stored.state.panel_status.clear();
+            if let Some(fingerprint) = fingerprint {
+                stored.fingerprint = Some(fingerprint.to_owned());
+            }
             stored.revision = base.next();
             Ok(())
         }
@@ -305,7 +357,12 @@ mod support {
             self.inner.load()
         }
 
-        fn commit(&mut self, base: Revision, changes: &[Change]) -> Result<(), CommitError> {
+        fn commit(
+            &mut self,
+            base: Revision,
+            changes: &[Change],
+            fingerprint: Option<&str>,
+        ) -> Result<(), CommitError> {
             let (call, fail, gate) = {
                 let mut plan = self.faults.lock();
                 plan.commits += 1;
@@ -326,7 +383,7 @@ mod support {
                     "отказ записи {call} по плану теста"
                 )));
             }
-            self.inner.commit(base, changes)
+            self.inner.commit(base, changes, fingerprint)
         }
     }
 

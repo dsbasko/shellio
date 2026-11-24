@@ -1,15 +1,17 @@
 //! Запись дельт `SqlitePersist` в настоящий `state.db`: каждая дельта, рост ревизии на 1
 //! и отказы записи, которые не меняют ни базу, ни ревизию.
 
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::path::PathBuf;
 
 use rusqlite::Connection;
 use shellio_core::test_support::{ManualClock, SequentialIds};
 use shellio_core::{
-    Change, CommitError, CoreError, ErrorCode, IdGen, Loaded, Panel, PanelId, Persist, PluginId,
-    Project, ProjectId, ProjectRoot, ProjectRootId, Revision, RootKey, RootKind, Route, State,
-    Title, UnixMillis, Workbench, WorkbenchId, WorkbenchLayout, Workspace, WorkspaceId,
+    Change, CommitError, CoreError, ErrorCode, IdGen, Loaded, Panel, PanelData, PanelId,
+    PanelStatus, Persist, PluginId, Project, ProjectId, ProjectRoot, ProjectRootId, Revision,
+    RootKey, RootKind, Route, State, Title, UnixMillis, Workbench, WorkbenchId, WorkbenchLayout,
+    Workspace, WorkspaceId,
 };
 use shellio_store::{Database, Profile, SqlitePersist};
 use tempfile::TempDir;
@@ -65,7 +67,7 @@ impl Store {
     /// Отказ записи `changes` поверх `base` не изменил ни базу, ни ревизию.
     fn assert_refused(&mut self, base: Revision, changes: &[Change]) -> TestResult<CommitError> {
         let before = self.reload()?;
-        let error = match self.persist.commit(base, changes) {
+        let error = match self.persist.commit(base, changes, None) {
             Ok(()) => return Err(format!("запись {changes:?} прошла").into()),
             Err(error) => error,
         };
@@ -190,6 +192,7 @@ fn seed() -> TestResult<Seed> {
                 workbench: workbench.clone(),
             },
         ],
+        None,
     )?;
     Ok(Seed {
         store,
@@ -206,7 +209,7 @@ fn every_change_is_written_and_reloads() {
     let loaded = store.persist.load().unwrap();
     assert_eq!(loaded.revision, Revision::ZERO);
     assert_eq!(loaded.state, State::default());
-    assert_eq!(loaded.storage.schema_version, 2);
+    assert_eq!(loaded.storage.schema_version, 3);
     assert_eq!(loaded.storage.state_db, store.profile.state_db());
 
     let mut ids = SequentialIds::new();
@@ -319,10 +322,49 @@ fn every_change_is_written_and_reloads() {
                 layout: with_notes,
             },
         ],
+        // Данные панели пишутся вставкой, вызывающая панель — столбцом панели.
+        vec![
+            Change::PanelData {
+                panel: terminal.id,
+                version: 1,
+                data: "null".to_owned(),
+            },
+            Change::PanelData {
+                panel: notes.id,
+                version: 1,
+                data: r#"{"count":1}"#.to_owned(),
+            },
+            Change::PanelOpenedFrom {
+                panel: notes.id,
+                opened_from: Some(terminal.id),
+            },
+        ],
+        // Повторная запись заменяет строку данных, вызывающая панель сбрасывается в NULL.
+        vec![
+            Change::PanelData {
+                panel: notes.id,
+                version: 2,
+                data: r#"{"count":2}"#.to_owned(),
+            },
+            Change::PanelOpenedFrom {
+                panel: notes.id,
+                opened_from: None,
+            },
+        ],
+        // Статус в базу не пишется; переезд меняет владельца строки; удаление панели уносит
+        // строку данных каскадом.
         vec![
             Change::LayoutSet {
                 workbench: main.id,
                 layout: default_layout,
+            },
+            Change::PanelStatus {
+                panel: notes.id,
+                status: PanelStatus::StateNewer,
+            },
+            Change::PanelRehome {
+                panel: notes.id,
+                workbench: review.id,
             },
             Change::PanelRemove { panel: notes.id },
         ],
@@ -331,7 +373,7 @@ fn every_change_is_written_and_reloads() {
     let mut expected = State::default();
     for (step, changes) in steps.iter().enumerate() {
         let base = Revision(u64::try_from(step).unwrap());
-        store.persist.commit(base, changes).unwrap();
+        store.persist.commit(base, changes, None).unwrap();
         expected.apply_all(changes);
         let reloaded = store.reload().unwrap();
         assert_eq!(reloaded.revision, base.next(), "шаг {step}");
@@ -346,6 +388,17 @@ fn every_change_is_written_and_reloads() {
     assert_eq!(expected.panels.len(), 2);
     assert_eq!(store.count("panels").unwrap(), 2);
     assert_eq!(store.count("workbench_layouts").unwrap(), 1);
+    assert_eq!(
+        expected.panel_data,
+        BTreeMap::from([(
+            terminal.id,
+            PanelData::Text {
+                version: 1,
+                raw: "null".to_owned()
+            }
+        )])
+    );
+    assert_eq!(store.count("panel_states").unwrap(), 1);
 
     // Маршрут на главную и сброс последней области пишутся явным NULL.
     let raw = store.raw().unwrap();
@@ -384,7 +437,7 @@ fn wrong_base_revision_is_conflict_and_changes_nothing() {
     }
     assert_eq!(store.revision_in_db().unwrap(), 1);
 
-    store.persist.commit(Revision(1), &insert).unwrap();
+    store.persist.commit(Revision(1), &insert, None).unwrap();
     let reloaded = store.reload().unwrap();
     assert_eq!(reloaded.revision, Revision(2));
     assert_eq!(reloaded.state.workspaces[&other.id], other);
@@ -620,7 +673,7 @@ fn window_set_restores_window_row_deleted_outside() {
         active: workspace.id,
         route: Route::Workbench(workbench.id),
     }];
-    store.persist.commit(Revision(1), &changes).unwrap();
+    store.persist.commit(Revision(1), &changes, None).unwrap();
     let reloaded = store.reload().unwrap();
     assert_eq!(reloaded.state.window.active_workspace, Some(workspace.id));
     assert_eq!(reloaded.state.window.route, Route::Workbench(workbench.id));
@@ -647,7 +700,7 @@ fn layout_set_restores_layout_row_deleted_outside() {
             layout: layout.clone(),
         },
     ];
-    store.persist.commit(Revision(1), &changes).unwrap();
+    store.persist.commit(Revision(1), &changes, None).unwrap();
     store
         .raw()
         .unwrap()
@@ -657,7 +710,7 @@ fn layout_set_restores_layout_row_deleted_outside() {
     assert_eq!(missing.state.layouts.get(&workbench.id), None);
 
     changes.drain(..2);
-    store.persist.commit(Revision(2), &changes).unwrap();
+    store.persist.commit(Revision(2), &changes, None).unwrap();
     let reloaded = store.reload().unwrap();
     assert_eq!(reloaded.state.layouts[&workbench.id], layout);
     assert_eq!(reloaded.state.diagnostics, Vec::new());

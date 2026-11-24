@@ -305,6 +305,17 @@ fn change_text(change: &Change) -> String {
             panel.id, panel.plugin, panel.title, panel.workbench
         ),
         Change::PanelRemove { panel } => format!("panel_remove {panel}"),
+        Change::PanelRehome { panel, workbench } => format!("panel_rehome {panel} в {workbench}"),
+        Change::PanelData { panel, version, .. } => {
+            format!("panel_data {panel} версии {version}")
+        }
+        Change::PanelOpenedFrom { panel, opened_from } => match opened_from {
+            Some(caller) => format!("panel_opened_from {panel} {caller}"),
+            None => format!("panel_opened_from {panel} нет"),
+        },
+        Change::PanelStatus { panel, status } => {
+            format!("panel_status {panel} {}", status.as_str())
+        }
         Change::LayoutSet { workbench, .. } => format!("layout_set {workbench}"),
     }
 }
@@ -667,9 +678,9 @@ mod tests {
 
     use shellio_control::{RefuseReason, RefusedArg, RequestId};
     use shellio_core::{
-        Diagnostic, Panel, PanelId, PluginId, ProjectId, ProjectRootId, Revision, RootKey,
-        Snapshot, State, Title, TreeProject, TreeRoot, TreeWorkbench, TreeWorkspace, UnixMillis,
-        WorkbenchId, WorkbenchLayout, WorkspaceId,
+        Diagnostic, Panel, PanelId, PanelStatus, PluginId, ProjectId, ProjectRootId, Revision,
+        RootKey, Snapshot, State, Title, TreeProject, TreeRoot, TreeWorkbench, TreeWorkspace,
+        UnixMillis, WorkbenchId, WorkbenchLayout, WorkspaceId,
     };
 
     use super::*;
@@ -822,6 +833,42 @@ mod tests {
             format!(
                 "ревизия 9: panel_add {panel} terminal «Терминал» в {workbench}; \
                  layout_set {workbench}; panel_remove {panel}\n"
+            )
+        );
+
+        // Данные панели в текст не идут: их читает `--json`.
+        let panel_event = Event {
+            revision: Revision(10),
+            changes: vec![
+                Change::PanelData {
+                    panel,
+                    version: 2,
+                    data: r#"{"key":"c"}"#.to_owned(),
+                },
+                Change::PanelStatus {
+                    panel,
+                    status: PanelStatus::StateNewer,
+                },
+                Change::PanelRehome { panel, workbench },
+                Change::PanelOpenedFrom {
+                    panel,
+                    opened_from: Some(panel),
+                },
+                Change::PanelOpenedFrom {
+                    panel,
+                    opened_from: None,
+                },
+            ],
+        };
+        assert_eq!(
+            out(&Response::Event {
+                id,
+                event: panel_event
+            }),
+            format!(
+                "ревизия 10: panel_data {panel} версии 2; panel_status {panel} state_newer; \
+                 panel_rehome {panel} в {workbench}; panel_opened_from {panel} {panel}; \
+                 panel_opened_from {panel} нет\n"
             )
         );
 

@@ -28,6 +28,10 @@ const MIGRATIONS: &[Migration] = &[
         version: 2,
         sql: include_str!("../migrations/0002_layout.sql"),
     },
+    Migration {
+        version: 3,
+        sql: include_str!("../migrations/0003_panel_state.sql"),
+    },
 ];
 
 const BACKUPS_DIR_MODE: u32 = 0o700;
@@ -258,7 +262,7 @@ mod tests {
     fn builtin_versions_are_consecutive_from_one() {
         let migrator = Migrator::default();
         assert!(consecutive(migrator.migrations()));
-        assert_eq!(migrator.latest(), 2);
+        assert_eq!(migrator.latest(), 3);
     }
 
     #[test]
@@ -266,7 +270,7 @@ mod tests {
     fn gap_in_versions_is_refused() {
         let mut migrations = MIGRATIONS.to_vec();
         migrations.push(Migration {
-            version: 4,
+            version: 5,
             sql: "",
         });
         Migrator::new(migrations);

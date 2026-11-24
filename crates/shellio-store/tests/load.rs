@@ -2,19 +2,19 @@
 //! SQL в обход ядра, пропускаются, сбрасываются или только сообщаются диагностикой, а запуск
 //! ядра на загруженном состоянии держит инварианты.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use rusqlite::Connection;
-use shellio_core::test_support::{FakeRootResolver, ManualClock, SequentialIds};
+use shellio_core::test_support::{FakeRootResolver, ManualClock, SequentialIds, registry};
 use shellio_core::{
-    Change, Command, CommandValue, Core, CoreHandle, Diagnostic, ErrorCode, EventsSince, Loaded,
-    NAVIGATOR_PLUGIN, PanelId, Persist, ProjectId, ProjectRootId, Query, ReplyValue, Revision,
-    RootResolver, Route, StartError, State, TERMINAL_PLUGIN, TreeScope, UnixMillis, Violation,
-    WindowState, WorkbenchId, WorkbenchLayout, WorkspaceId,
+    Command, CommandValue, Core, CoreHandle, Diagnostic, ErrorCode, EventsSince, Loaded,
+    NAVIGATOR_PLUGIN, PanelId, PanelStatus, Persist, ProjectId, ProjectRootId, Query, ReplyValue,
+    Revision, RootResolver, Route, StartError, State, TERMINAL_PLUGIN, TreeScope, UnixMillis,
+    Violation, WindowState, WorkbenchId, WorkbenchLayout, WorkspaceId, fingerprint,
 };
 use shellio_store::{Database, Profile, SqlitePersist, StoreError};
 use tempfile::TempDir;
@@ -68,17 +68,24 @@ fn diag(table: &str, rowid: i64, reason: &str) -> Diagnostic {
     }
 }
 
-/// Пустая база v1 в изолированном профиле.
+/// Пустая база последней схемы в изолированном профиле.
 struct Db {
     _dir: TempDir,
     profile: Profile,
 }
 
 impl Db {
+    /// База, которую прежний владелец записал с тестовым реестром: отпечаток реестра на месте,
+    /// поэтому запуск без находок и без дельт ничего не пишет.
     fn new() -> TestResult<Self> {
         let dir = TempDir::new()?;
         let profile = Profile::isolated(dir.path().join("state"));
-        drop(Database::open(&profile, &ManualClock::new(NOW))?);
+        let db = Database::open(&profile, &ManualClock::new(NOW))?;
+        db.connection().execute(
+            "INSERT INTO plugin_registry (id, fingerprint) VALUES (1, ?1)",
+            [fingerprint(&registry())],
+        )?;
+        drop(db);
         Ok(Self { _dir: dir, profile })
     }
 
@@ -138,6 +145,7 @@ impl Db {
             Box::new(ManualClock::new(NOW)),
             Box::new(SequentialIds::new()),
             Arc::new(resolver),
+            registry(),
         )
         .map_err(|error: StartError| error.to_string())?;
         Ok(core)
@@ -275,7 +283,11 @@ fn fixture_v1_loads_without_findings() {
         .load()
         .unwrap();
     assert_eq!(loaded.revision, Revision(12));
-    assert_eq!(loaded.storage.schema_version, 2);
+    assert_eq!(loaded.storage.schema_version, 3);
+    assert_eq!(
+        loaded.fingerprint, None,
+        "база v1 отпечатка реестра не несёт"
+    );
     assert_eq!(loaded.storage.state_db, profile.state_db());
     let state = &loaded.state;
     assert_eq!(state.diagnostics, Vec::new());
@@ -723,7 +735,7 @@ async fn dangling_active_workspace_is_reset_and_start_focuses_in_one_record() {
         status.diagnostics,
         [diag("window_state", 1, "active_workspace_missing")]
     );
-    assert_eq!(status.schema_version, 2);
+    assert_eq!(status.schema_version, 3);
     assert_eq!(status.state_db, db.profile.state_db());
     core.shutdown().await;
 
@@ -905,27 +917,25 @@ async fn fixture_v1_migrates_and_start_gives_default_layouts_once() {
     assert_eq!(state.panels[&terminal].workbench, open);
     assert_eq!(state.panels[&terminal].created_at, NOW);
 
-    let EventsSince::Events(events) = core.events_since(Revision(12)).await.unwrap() else {
-        panic!("ожидалось событие запуска");
-    };
-    let [event] = events.as_slice() else {
-        panic!("одна запись запуска: {events:?}");
-    };
-    let adds = event
-        .changes
-        .iter()
-        .filter(|change| matches!(change, Change::PanelAdd { .. }))
-        .count();
-    let sets = event
-        .changes
-        .iter()
-        .filter(|change| matches!(change, Change::LayoutSet { .. }))
-        .count();
-    assert_eq!((adds, sets, event.changes.len()), (6, 3, 9));
+    // Каждая новая панель получила начальные данные той же записью, все готовы.
+    assert_eq!(keys(&state.panel_data), keys(&state.panels));
+    assert!(state.panel_status.is_empty(), "{:?}", state.panel_status);
+
+    // База v1 отпечатка реестра не несёт: запись запуска пишет его и в буфер не попадает,
+    // поэтому курсор прежнего владельца получает снимок.
+    assert_eq!(
+        core.events_since(Revision(12)).await.unwrap(),
+        EventsSince::Reset(snapshot.clone())
+    );
     core.shutdown().await;
     assert_eq!(db.revision_in_db().unwrap(), 13);
     assert_eq!(db.count("panels").unwrap(), 6);
+    assert_eq!(db.count("panel_states").unwrap(), 6);
     assert_eq!(db.count("workbench_layouts").unwrap(), 3);
+    assert_eq!(
+        db.load().unwrap().fingerprint,
+        Some(fingerprint(&registry()))
+    );
 
     // Второй запуск находит раскладки и ничего не пишет: `PanelId` прежние.
     let core = db.start(FakeRootResolver::new()).unwrap();
@@ -1145,6 +1155,7 @@ async fn broken_layouts_are_found_and_rebuilt_from_panels_on_start() {
     assert_eq!(reloaded.revision, Revision(9));
     assert_eq!(reloaded.state.diagnostics, Vec::new());
     assert_eq!(reloaded.state.layouts, after.state.layouts);
+    // Находки и статусы панелей в базе не хранятся: сравнивается остальное.
     assert_eq!(
         State {
             diagnostics: Vec::new(),
@@ -1152,8 +1163,18 @@ async fn broken_layouts_are_found_and_rebuilt_from_panels_on_start() {
         },
         State {
             diagnostics: Vec::new(),
+            panel_status: BTreeMap::new(),
             ..(*after.state).clone()
         }
+    );
+    // Панель незарегистрированного плагина и второй навигатор рабочей области — унаследованный
+    // дубликат singleton — не готовы, остальные панели готовы.
+    assert_eq!(
+        after.state.panel_status,
+        BTreeMap::from([
+            (lone_a, PanelStatus::PluginMissing),
+            (second_nav, PanelStatus::Duplicate),
+        ])
     );
 
     let core = db.start(FakeRootResolver::new()).unwrap();

@@ -4,6 +4,7 @@
 
 use std::collections::BTreeMap;
 use std::fmt;
+use std::sync::{Arc, OnceLock};
 
 use shellio_core::{NAVIGATOR_PLUGIN, TERMINAL_PLUGIN};
 use shellio_plugin_api::{Entry, PluginId, Registry, RegistryError};
@@ -85,6 +86,13 @@ pub fn registry() -> Result<Registry, PluginsError> {
             .map(|registration| registration.entry)
             .collect(),
     )
+}
+
+/// Продуктовый реестр процесса: один на ядро и на главный поток. Собирается при первом вызове,
+/// отказ сборки запоминается и повторяется каждому вызывающему.
+pub fn shared_registry() -> Result<Arc<Registry>, PluginsError> {
+    static REGISTRY: OnceLock<Result<Arc<Registry>, PluginsError>> = OnceLock::new();
+    REGISTRY.get_or_init(|| registry().map(Arc::new)).clone()
 }
 
 /// Таблица фабрик главного потока из списка регистраций для плагинов `registry`.

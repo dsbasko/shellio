@@ -154,6 +154,7 @@ mod tests {
     use crate::handle::Core;
     use crate::ids::SequentialIds;
     use crate::persist::MemoryPersist;
+    use crate::plugin_host::registry;
     use crate::query::Query;
     use crate::root::FakeRootResolver;
     use crate::tree::TreeScope;
@@ -182,6 +183,7 @@ mod tests {
             Box::new(ManualClock::new(UnixMillis(1))),
             Box::new(SequentialIds::new()),
             Arc::new(FakeRootResolver::new()),
+            registry(),
         )
         .unwrap();
         let wired = Loopback::new(core.clone());

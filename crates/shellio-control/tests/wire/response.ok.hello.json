@@ -2,7 +2,7 @@
   "id": 1,
   "ok": {
     "hello": {
-      "protocol": 2,
+      "protocol": 3,
       "server": "0.1.0",
       "pid": 123,
       "owner": "ready"

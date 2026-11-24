@@ -18,6 +18,7 @@ mod mirror;
 mod model;
 mod panel;
 mod persist;
+mod plugin_host;
 mod query;
 mod root;
 mod title;
@@ -43,11 +44,12 @@ pub use model::{
     WindowState, Workbench, Workspace,
 };
 pub use panel::{
-    NAVIGATOR_PLUGIN, NAVIGATOR_TITLE, Panel, PluginId, PluginIdError, TERMINAL_PLUGIN,
-    TERMINAL_TITLE, WorkbenchLayout, is_navigator, layout_metrics, min_size,
+    NAVIGATOR_PLUGIN, NAVIGATOR_TITLE, Panel, PanelData, PanelStatus, PluginId, PluginIdError,
+    TERMINAL_PLUGIN, TERMINAL_TITLE, WorkbenchLayout, is_navigator, layout_metrics,
 };
 pub use persist::{CommitError, LoadError, Loaded, Persist};
-pub use query::{LayoutView, Query, StatusView, StorageInfo, read};
+pub use plugin_host::{STATUS_RULES, fingerprint, min_size};
+pub use query::{LayoutPanel, LayoutView, Query, StatusView, StorageInfo, read};
 pub use root::{FsRootResolver, ResolvedRoot, RootError, RootKey, RootKind, RootResolver};
 pub use title::{Title, TitleError};
 pub use tree::{TreeProject, TreeRoot, TreeScope, TreeView, TreeWorkbench, TreeWorkspace};
@@ -61,6 +63,9 @@ pub mod test_support {
     pub use crate::ids::SequentialIds;
     pub use crate::loopback::{Loopback, LoopbackEvents, WireError, Wired};
     pub use crate::persist::{CommitBarrier, Faults, FaultyPersist, MemoryPersist};
+    pub use crate::plugin_host::{
+        COUNTER_MAX, Counter, TestInit, TestMigrate, TestPlugin, registry, registry_of,
+    };
     pub use crate::root::FakeRootResolver;
 }
 

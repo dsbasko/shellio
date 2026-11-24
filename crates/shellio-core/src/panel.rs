@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 use shellio_layout::{
-    Hidden, Layout, LayoutMetrics, MinSize, Part, SHARE_TOTAL, ZoneMap, ZoneSizes, ZoneState,
+    Hidden, Layout, LayoutMetrics, Part, SHARE_TOTAL, ZoneMap, ZoneSizes, ZoneState,
 };
 
 pub use shellio_plugin_api::{PluginId, PluginIdError};
@@ -43,12 +43,6 @@ fn whole_points(value: f64) -> u32 {
     value.round().clamp(0.0, f64::from(u32::MAX)) as u32
 }
 
-/// `min_size` панели плагина. До манифестов P1.5 у всех плагинов значение по умолчанию 200×120
-/// (ADR-0009).
-pub fn min_size(_plugin: &PluginId) -> MinSize {
-    MinSize::DEFAULT
-}
-
 /// Панель колонки навигатора. Особое место навигатора в раскладке — знание хоста, а не контракта
 /// плагина (ADR-0008, «Уточнено в P1.5 (планирование)»).
 pub fn is_navigator(plugin: &PluginId) -> bool {
@@ -64,6 +58,58 @@ pub struct Panel {
     pub plugin: PluginId,
     pub title: Title,
     pub created_at: UnixMillis,
+}
+
+/// Данные панели, как их хранит база: исходный текст JSON с версией или строка, которую прочитать
+/// нельзя (ADR-0018, «Уточнено в P1.5 (планирование)»). Панели без строки данных в
+/// [`crate::model::State::panel_data`] нет.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PanelData {
+    /// Исходный текст данных версии `version`. Текст `null` — данные `null`.
+    Text { version: u32, raw: String },
+    /// Строка есть, но версия вне `1..=u32::MAX`, тип столбца не `TEXT` или байты не UTF-8. Ядро
+    /// её не перезаписывает.
+    ///
+    /// Вариант с пустыми полями, а не единичный: у единичного варианта внутренне помеченного
+    /// перечня serde молча пропускает лишние поля.
+    Unreadable {},
+}
+
+/// Статус панели: производное значение по строкам базы и реестру плагинов, в базу не пишется
+/// (ADR-0008, «Статус панели»). Значения в JSON стабильны.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PanelStatus {
+    /// Тело плагина строится, команды панели принимаются.
+    Ready,
+    /// Плагин панели не зарегистрирован.
+    PluginMissing,
+    /// Панель не каноническая для своего ключа экземпляра.
+    Duplicate,
+    /// Данные нечитаемы или не проходят разбор плагина.
+    StateCorrupt,
+    /// `init` отказал или дал данные больше предела.
+    InitFailed,
+    /// `migrate` отказал или дал данные больше предела.
+    MigrateFailed,
+    /// Данные записаны более новой версией плагина.
+    StateNewer,
+}
+
+impl PanelStatus {
+    /// Имя в JSON и в деталях отказа `panel_unavailable`.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::PluginMissing => "plugin_missing",
+            Self::Duplicate => "duplicate",
+            Self::StateCorrupt => "state_corrupt",
+            Self::InitFailed => "init_failed",
+            Self::MigrateFailed => "migrate_failed",
+            Self::StateNewer => "state_newer",
+        }
+    }
 }
 
 /// Раскладка, восстановленная из панелей рабочей области (ADR-0018, «Восстановление испорченной

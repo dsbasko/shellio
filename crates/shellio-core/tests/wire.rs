@@ -14,13 +14,13 @@ use std::sync::Arc;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
-use shellio_core::test_support::SequentialIds;
+use shellio_core::test_support::{SequentialIds, registry};
 use shellio_core::{
     Change, Command, CommandValue, CoreError, Diagnostic, Entity, ErrorCode, Event, EventsSince,
-    IdGen, Panel, PanelId, PluginId, Project, ProjectId, ProjectRoot, ProjectRootId, Query, Reply,
-    ReplyValue, Revision, RootError, RootKey, RootKind, Route, Snapshot, State, StorageInfo, Title,
-    TreeScope, TreeView, UnixMillis, WindowState, Workbench, WorkbenchId, WorkbenchLayout,
-    Workspace, WorkspaceId, read,
+    IdGen, Panel, PanelData, PanelId, PanelStatus, PluginId, Project, ProjectId, ProjectRoot,
+    ProjectRootId, Query, Reply, ReplyValue, Revision, RootError, RootKey, RootKind, Route,
+    Snapshot, State, StorageInfo, Title, TreeScope, TreeView, UnixMillis, WindowState, Workbench,
+    WorkbenchId, WorkbenchLayout, Workspace, WorkspaceId, read,
 };
 use shellio_layout::{Direction, Edge, Hideable, Viewport, Zone};
 
@@ -289,6 +289,10 @@ fn change_golden(change: &Change) -> &'static str {
         Change::WindowSet { .. } => "change.window_set",
         Change::PanelAdd { .. } => "change.panel_add",
         Change::PanelRemove { .. } => "change.panel_remove",
+        Change::PanelRehome { .. } => "change.panel_rehome",
+        Change::PanelData { .. } => "change.panel_data",
+        Change::PanelOpenedFrom { .. } => "change.panel_opened_from",
+        Change::PanelStatus { .. } => "change.panel_status",
         Change::LayoutSet { .. } => "change.layout_set",
     }
 }
@@ -355,6 +359,23 @@ fn change_samples() -> Result<Samples, String> {
         },
         Change::PanelRemove {
             panel: ids.terminal,
+        },
+        Change::PanelRehome {
+            panel: ids.terminal,
+            workbench: ids.second_workbench,
+        },
+        Change::PanelData {
+            panel: ids.terminal,
+            version: 2,
+            data: r#"{"key":"c","history":["a"]}"#.to_owned(),
+        },
+        Change::PanelOpenedFrom {
+            panel: ids.terminal,
+            opened_from: Some(ids.navigator),
+        },
+        Change::PanelStatus {
+            panel: ids.terminal,
+            status: PanelStatus::StateNewer,
         },
         Change::LayoutSet {
             workbench: ids.workbench,
@@ -520,8 +541,10 @@ fn reply_golden(reply: &Reply) -> &'static str {
 fn reply_samples() -> Result<Samples, String> {
     let ids = ids();
     let mut state = tree_state(&ids)?;
+    let registry = registry();
     let tree = read(
         &state,
+        &registry,
         Revision(12),
         &storage(),
         None,
@@ -533,6 +556,7 @@ fn reply_samples() -> Result<Samples, String> {
     // Область неактивного воркспейса: поля окна пусты, активный воркспейс не раскрыт.
     let scoped_inactive = read(
         &state,
+        &registry,
         Revision(12),
         &storage(),
         None,
@@ -546,12 +570,20 @@ fn reply_samples() -> Result<Samples, String> {
         rowid: 7,
         reason: "висячая ссылка workspace_id".into(),
     });
-    let status = read(&state, Revision(12), &storage(), None, &Query::Status {})
-        .map_err(|error| error.to_string())?;
+    let status = read(
+        &state,
+        &registry,
+        Revision(12),
+        &storage(),
+        None,
+        &Query::Status {},
+    )
+    .map_err(|error| error.to_string())?;
     with_default_layout(&ids, &mut state)?;
     // Окно 1180×720, как при первом запуске: кадры раскладки по умолчанию.
     let layout = read(
         &state,
+        &registry,
         Revision(12),
         &storage(),
         Some(Viewport {
@@ -653,6 +685,22 @@ fn events_since_samples() -> Result<Samples, String> {
     let ids = ids();
     let mut state = tree_state(&ids)?;
     with_default_layout(&ids, &mut state)?;
+    // Данные, статус и вызывающая панель входят в снимок: текст данных, нечитаемая строка и
+    // статус панели не в `ready`.
+    state.panel_data.insert(
+        ids.navigator,
+        PanelData::Text {
+            version: 1,
+            raw: "null".to_owned(),
+        },
+    );
+    state
+        .panel_data
+        .insert(ids.terminal, PanelData::Unreadable {});
+    state
+        .panel_status
+        .insert(ids.terminal, PanelStatus::StateCorrupt);
+    state.opened_from.insert(ids.terminal, ids.navigator);
     assert_eq!(state.check_invariants(), Vec::new());
     state.diagnostics.push(Diagnostic {
         table: "workspaces".into(),

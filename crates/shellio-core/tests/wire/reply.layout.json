@@ -54,14 +54,22 @@
         "workbench": "00000000-0000-0000-0000-000000000004",
         "plugin": "navigator",
         "title": "Навигатор",
-        "created_at": 1795000000000
+        "created_at": 1795000000000,
+        "min_size": {
+          "width": 200.0,
+          "height": 120.0
+        }
       },
       {
         "id": "00000000-0000-0000-0000-00000000000a",
         "workbench": "00000000-0000-0000-0000-000000000004",
         "plugin": "terminal",
         "title": "Терминал",
-        "created_at": 1795000000000
+        "created_at": 1795000000000,
+        "min_size": {
+          "width": 200.0,
+          "height": 120.0
+        }
       }
     ],
     "frames": {

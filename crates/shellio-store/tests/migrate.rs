@@ -1,5 +1,5 @@
-//! Открытие `state.db` и миграции на временных каталогах: последняя схема v2, миграция образца
-//! v1, резервная копия, откат, отказ на новой схеме и на повреждённом файле.
+//! Открытие `state.db` и миграции на временных каталогах: последняя схема v3, миграция образцов
+//! v1 и v2, резервная копия, откат, отказ на новой схеме и на повреждённом файле.
 
 use std::error::Error;
 use std::fs;
@@ -17,20 +17,22 @@ type TestResult<T = ()> = Result<T, Box<dyn Error>>;
 const NOW: UnixMillis = UnixMillis(1_795_000_000_000);
 const SCHEMA_V1: &str = include_str!("schema_v1.sql");
 const SCHEMA_V2: &str = include_str!("schema_v2.sql");
+const SCHEMA_V3: &str = include_str!("schema_v3.sql");
 const FIXTURE_V1: &str = include_str!("fixtures/v1.sql");
+const FIXTURE_V2: &str = include_str!("fixtures/v2.sql");
 /// Последняя версия схемы этой сборки.
-const LATEST: u32 = 2;
+const LATEST: u32 = 3;
 
-/// Синтетическая v3 после последней: настоящее изменение схемы и данных.
-const V3: Migration = Migration {
-    version: 3,
+/// Синтетическая v4 после последней: настоящее изменение схемы и данных.
+const V4: Migration = Migration {
+    version: 4,
     sql: "CREATE TABLE extra (x INTEGER NOT NULL) STRICT;\n\
           ALTER TABLE workspaces ADD COLUMN color TEXT;",
 };
 
-/// Синтетическая v3, которая падает после настоящего изменения схемы.
-const V3_BROKEN: Migration = Migration {
-    version: 3,
+/// Синтетическая v4, которая падает после настоящего изменения схемы.
+const V4_BROKEN: Migration = Migration {
+    version: 4,
     sql: "CREATE TABLE extra (x INTEGER NOT NULL) STRICT;\n\
           INSERT INTO missing_table VALUES (1);",
 };
@@ -161,7 +163,7 @@ fn fresh_database_matches_latest_schema() -> TestResult {
         );
         assert_eq!(
             schema(conn)?,
-            SCHEMA_V2,
+            SCHEMA_V3,
             "схема после открытия расходится с эталоном"
         );
         assert_eq!(user_version(conn)?, i64::from(LATEST));
@@ -202,10 +204,10 @@ fn migration_after_latest_backs_up_first() -> TestResult {
     let fixture = Fixture::new()?;
     fixture.latest_with_workspace()?;
 
-    let db = fixture.open_with(&[V3])?;
-    assert_eq!(db.schema_version(), 3);
+    let db = fixture.open_with(&[V4])?;
+    assert_eq!(db.schema_version(), 4);
     let conn = db.connection();
-    assert_eq!(user_version(conn)?, 3);
+    assert_eq!(user_version(conn)?, 4);
     assert!(table_exists(conn, "extra")?);
     assert_eq!(workspace_titles(conn)?, ["Работа"]);
 
@@ -220,7 +222,7 @@ fn migration_after_latest_backs_up_first() -> TestResult {
         OpenFlags::SQLITE_OPEN_READ_ONLY,
     )?;
     assert_eq!(user_version(&copy)?, i64::from(LATEST));
-    assert_eq!(schema(&copy)?, SCHEMA_V2);
+    assert_eq!(schema(&copy)?, SCHEMA_V3);
     assert_eq!(workspace_titles(&copy)?, ["Работа"]);
     let journal: String = copy.pragma_query_value(None, "journal_mode", |row| row.get(0))?;
     assert_eq!(journal, "delete");
@@ -234,16 +236,16 @@ fn failed_second_migration_rolls_back_and_keeps_backup() -> TestResult {
     let fixture = Fixture::new()?;
     fixture.latest_with_workspace()?;
 
-    let error = fixture.open_with(&[V3_BROKEN]).err();
+    let error = fixture.open_with(&[V4_BROKEN]).err();
     assert!(
-        matches!(error, Some(StoreError::Migration { to: 3, .. })),
+        matches!(error, Some(StoreError::Migration { to: 4, .. })),
         "{error:?}"
     );
 
     let raw = fixture.raw()?;
     assert_eq!(user_version(&raw)?, i64::from(LATEST));
-    assert!(!table_exists(&raw, "extra")?, "первый оператор v3 откатан");
-    assert_eq!(schema(&raw)?, SCHEMA_V2);
+    assert!(!table_exists(&raw, "extra")?, "первый оператор v4 откатан");
+    assert_eq!(schema(&raw)?, SCHEMA_V3);
     assert_eq!(workspace_titles(&raw)?, ["Работа"]);
     drop(raw);
 
@@ -272,15 +274,15 @@ fn failed_second_migration_rolls_back_and_keeps_backup() -> TestResult {
 #[test]
 fn failed_migration_on_fresh_file_stays_on_last_good_version() -> TestResult {
     let fixture = Fixture::new()?;
-    let error = fixture.open_with(&[V3_BROKEN]).err();
+    let error = fixture.open_with(&[V4_BROKEN]).err();
     assert!(
-        matches!(error, Some(StoreError::Migration { to: 3, .. })),
+        matches!(error, Some(StoreError::Migration { to: 4, .. })),
         "{error:?}"
     );
 
     let raw = fixture.raw()?;
     assert_eq!(user_version(&raw)?, i64::from(LATEST));
-    assert_eq!(schema(&raw)?, SCHEMA_V2);
+    assert_eq!(schema(&raw)?, SCHEMA_V3);
     assert!(!fixture.profile.backups_dir().exists());
     Ok(())
 }
@@ -292,7 +294,7 @@ fn backup_failure_prevents_migration() -> TestResult {
     let backups = fixture.profile.backups_dir();
     fs::write(&backups, b"not a directory")?;
 
-    let error = fixture.open_with(&[V3]).err();
+    let error = fixture.open_with(&[V4]).err();
     assert!(
         matches!(
             &error,
@@ -307,7 +309,7 @@ fn backup_failure_prevents_migration() -> TestResult {
     let raw = fixture.raw()?;
     assert_eq!(user_version(&raw)?, i64::from(LATEST));
     assert!(!table_exists(&raw, "extra")?);
-    assert_eq!(schema(&raw)?, SCHEMA_V2);
+    assert_eq!(schema(&raw)?, SCHEMA_V3);
     assert_eq!(workspace_titles(&raw)?, ["Работа"]);
     assert_eq!(fs::read(&backups)?, b"not a directory");
     Ok(())
@@ -322,7 +324,7 @@ fn existing_backup_name_is_not_overwritten() -> TestResult {
     let taken = backups.join(Fixture::backup_name(LATEST));
     fs::write(&taken, b"earlier copy")?;
 
-    let error = fixture.open_with(&[V3]).err();
+    let error = fixture.open_with(&[V4]).err();
     assert!(
         matches!(
             &error,
@@ -334,8 +336,8 @@ fn existing_backup_name_is_not_overwritten() -> TestResult {
     assert_eq!(user_version(&fixture.raw()?)?, i64::from(LATEST));
 
     fixture.clock.advance(1);
-    let db = fixture.open_with(&[V3])?;
-    assert_eq!(db.schema_version(), 3);
+    let db = fixture.open_with(&[V4])?;
+    assert_eq!(db.schema_version(), 4);
     assert_eq!(
         fixture.backups()?,
         [
@@ -352,7 +354,7 @@ fn newer_schema_is_refused_without_writing() -> TestResult {
     fs::create_dir_all(fixture.profile.state_dir())?;
     {
         let raw = fixture.raw()?;
-        raw.execute_batch("CREATE TABLE future (x INTEGER); PRAGMA user_version = 3;")?;
+        raw.execute_batch("CREATE TABLE future (x INTEGER); PRAGMA user_version = 4;")?;
         let journal: String = raw.pragma_query_value(None, "journal_mode", |row| row.get(0))?;
         assert_eq!(
             journal, "delete",
@@ -366,7 +368,7 @@ fn newer_schema_is_refused_without_writing() -> TestResult {
         matches!(
             error,
             Some(StoreError::NewerSchema {
-                found: 3,
+                found: 4,
                 supported: LATEST
             })
         ),
@@ -380,7 +382,7 @@ fn newer_schema_is_refused_without_writing() -> TestResult {
 #[test]
 fn refusal_leaves_outstanding_wal_unapplied() -> TestResult {
     let cases = [
-        ("новая схема", 3, "NewerSchema"),
+        ("новая схема", 4, "NewerSchema"),
         ("отрицательная версия", -1, "Corrupt"),
     ];
     for (label, version, expected) in cases {
@@ -410,7 +412,7 @@ fn refusal_leaves_outstanding_wal_unapplied() -> TestResult {
             "NewerSchema" => matches!(
                 error,
                 Some(StoreError::NewerSchema {
-                    found: 3,
+                    found: 4,
                     supported: LATEST
                 })
             ),
@@ -522,7 +524,7 @@ fn negative_user_version_is_corrupt() -> TestResult {
 }
 
 #[test]
-fn fixture_v1_migrates_to_v2_with_backup() -> TestResult {
+fn fixture_v1_migrates_to_latest_with_backup() -> TestResult {
     let fixture = Fixture::new()?;
     fs::create_dir_all(fixture.profile.state_dir())?;
     fixture.raw()?.execute_batch(FIXTURE_V1)?;
@@ -556,11 +558,16 @@ fn fixture_v1_migrates_to_v2_with_backup() -> TestResult {
 
     let db = fixture.open()?;
     let conn = db.connection();
-    assert_eq!(db.schema_version(), 2);
-    assert_eq!(user_version(conn)?, 2);
-    assert_eq!(schema(conn)?, SCHEMA_V2);
+    assert_eq!(db.schema_version(), LATEST);
+    assert_eq!(user_version(conn)?, i64::from(LATEST));
+    assert_eq!(schema(conn)?, SCHEMA_V3);
     assert_eq!(counts(conn)?, expected);
-    for table in ["panels", "workbench_layouts"] {
+    for table in [
+        "panels",
+        "workbench_layouts",
+        "panel_states",
+        "plugin_registry",
+    ] {
         let rows: i64 = conn.query_row(&format!("SELECT count(*) FROM {table}"), [], |row| {
             row.get(0)
         })?;
@@ -586,7 +593,7 @@ fn fixture_v1_migrates_to_v2_with_backup() -> TestResult {
     drop(copy);
 
     fixture.clock.advance(1);
-    assert_eq!(fixture.open()?.schema_version(), 2);
+    assert_eq!(fixture.open()?.schema_version(), LATEST);
     assert_eq!(
         fixture.backups()?,
         [name.as_str()],
@@ -595,8 +602,78 @@ fn fixture_v1_migrates_to_v2_with_backup() -> TestResult {
     Ok(())
 }
 
+/// Образец v2 с панелями и раскладками мигрирует до v3 с резервной копией: строки прежние,
+/// вызывающей панели ни у кого нет, данных панелей и отпечатка реестра миграция не пишет — их
+/// дописывает запуск ядра.
+#[test]
+fn fixture_v2_migrates_to_v3_with_backup() -> TestResult {
+    const PANELS: &str = "SELECT hex(id) || ':' || hex(workbench) || ':' || plugin || ':' || title \
+                          || ':' || created_at FROM panels ORDER BY id";
+    const LAYOUTS: &str =
+        "SELECT hex(workbench) || ':' || layout FROM workbench_layouts ORDER BY workbench";
+    let rows = |conn: &Connection, sql: &str| -> TestResult<Vec<String>> {
+        let mut stmt = conn.prepare(sql)?;
+        let rows = stmt
+            .query_map([], |row| row.get(0))?
+            .collect::<Result<Vec<String>, _>>()?;
+        Ok(rows)
+    };
+
+    let fixture = Fixture::new()?;
+    fs::create_dir_all(fixture.profile.state_dir())?;
+    fixture.raw()?.execute_batch(FIXTURE_V2)?;
+    let raw = fixture.raw()?;
+    assert_eq!(
+        schema(&raw)?,
+        SCHEMA_V2,
+        "образец v2 расходится со схемой v2"
+    );
+    assert_eq!(user_version(&raw)?, 2);
+    let panels = rows(&raw, PANELS)?;
+    let layouts = rows(&raw, LAYOUTS)?;
+    assert_eq!((panels.len(), layouts.len()), (7, 3));
+    drop(raw);
+
+    let db = fixture.open()?;
+    let conn = db.connection();
+    assert_eq!(db.schema_version(), 3);
+    assert_eq!(user_version(conn)?, 3);
+    assert_eq!(schema(conn)?, SCHEMA_V3);
+    assert_eq!(rows(conn, PANELS)?, panels);
+    assert_eq!(rows(conn, LAYOUTS)?, layouts);
+    let count = |sql: &str| -> TestResult<i64> { Ok(conn.query_row(sql, [], |row| row.get(0))?) };
+    assert_eq!(
+        count("SELECT count(*) FROM panels WHERE opened_from IS NOT NULL")?,
+        0
+    );
+    assert_eq!(count("SELECT count(*) FROM panel_states")?, 0);
+    assert_eq!(count("SELECT count(*) FROM plugin_registry")?, 0);
+    assert_eq!(
+        count("SELECT value FROM meta WHERE key = 'revision'")?,
+        20,
+        "миграция схемы ревизию не меняет"
+    );
+    drop(db);
+
+    let name = Fixture::backup_name(2);
+    assert_eq!(fixture.backups()?, [name.as_str()]);
+    let copy = Connection::open_with_flags(
+        fixture.profile.backups_dir().join(&name),
+        OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )?;
+    assert_eq!(user_version(&copy)?, 2);
+    assert_eq!(schema(&copy)?, SCHEMA_V2);
+    assert_eq!(rows(&copy, PANELS)?, panels);
+    drop(copy);
+
+    fixture.clock.advance(1);
+    assert_eq!(fixture.open()?.schema_version(), 3);
+    assert_eq!(fixture.backups()?, [name.as_str()]);
+    Ok(())
+}
+
 /// Профиль пункта `restore-legacy` сценария `layout.sh` — образец схемы v1 с открытой рабочей
-/// областью, который мигрирует до v2 без панелей и раскладок: их пишет запуск ядра.
+/// областью, который мигрирует до последней схемы без панелей и раскладок: их пишет запуск ядра.
 #[test]
 fn e2e_legacy_fixture_is_schema_v1_with_an_open_workbench() -> TestResult {
     const LEGACY: &str = include_str!("../../../scripts/e2e/layout-fixtures/v1-open-workbench.sql");
@@ -607,7 +684,7 @@ fn e2e_legacy_fixture_is_schema_v1_with_an_open_workbench() -> TestResult {
     assert_eq!(user_version(&fixture.raw()?)?, 1);
     let db = fixture.open()?;
     let conn = db.connection();
-    assert_eq!(db.schema_version(), 2);
+    assert_eq!(db.schema_version(), LATEST);
     let (route, last): (Vec<u8>, Vec<u8>) = conn.query_row(
         "SELECT window_state.route_workbench_id, workspaces.last_workbench_id \
          FROM window_state JOIN workspaces ON workspaces.id = window_state.active_workspace_id",

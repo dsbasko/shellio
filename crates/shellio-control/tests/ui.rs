@@ -18,7 +18,7 @@ use shellio_control::{
     UiRequest, WithoutUi,
 };
 use shellio_core::test_support::{
-    FakeRootResolver, ManualClock as CoreClock, MemoryPersist, SequentialIds,
+    FakeRootResolver, ManualClock as CoreClock, MemoryPersist, SequentialIds, registry,
 };
 use shellio_core::{AppearanceChoice, Core, UiCommand, UnixMillis};
 use tempfile::TempDir;
@@ -91,6 +91,7 @@ impl<U: UiHandler> Fixture<U> {
             Box::new(CoreClock::new(UnixMillis(1_795_000_000_000))),
             Box::new(SequentialIds::new()),
             Arc::new(FakeRootResolver::new()),
+            registry(),
         )?;
         let clock = ManualClock::new();
         let config = ServerConfig {

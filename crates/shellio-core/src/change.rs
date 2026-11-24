@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::clock::UnixMillis;
 use crate::ids::{PanelId, ProjectId, WorkbenchId, WorkspaceId};
 use crate::model::{Project, ProjectRoot, Route, State, WindowState, Workbench, Workspace};
-use crate::panel::{Panel, WorkbenchLayout};
+use crate::panel::{Panel, PanelData, PanelStatus, WorkbenchLayout};
 use crate::title::Title;
 
 /// Изменение состояния. Закрытый перечень: каждое место, которое его разбирает,
@@ -46,8 +46,26 @@ pub enum Change {
     WindowSet { active: WorkspaceId, route: Route },
     /// Новая панель рабочей области.
     PanelAdd { panel: Panel },
-    /// Панель удалена.
+    /// Панель удалена вместе с данными, статусом и записью о вызывающей.
     PanelRemove { panel: PanelId },
+    /// Панель переехала в другую рабочую область с тем же `PanelId`.
+    PanelRehome {
+        panel: PanelId,
+        workbench: WorkbenchId,
+    },
+    /// Данные панели версии `version` исходным текстом JSON.
+    PanelData {
+        panel: PanelId,
+        version: u32,
+        data: String,
+    },
+    /// Вызывающая панель. `None` — записи больше нет.
+    PanelOpenedFrom {
+        panel: PanelId,
+        opened_from: Option<PanelId>,
+    },
+    /// Статус панели. Хранилище его не пишет.
+    PanelStatus { panel: PanelId, status: PanelStatus },
     /// Раскладка рабочей области целиком.
     LayoutSet {
         workbench: WorkbenchId,
@@ -108,6 +126,50 @@ impl State {
             }
             Change::PanelRemove { panel } => {
                 self.panels.remove(panel);
+                self.panel_data.remove(panel);
+                self.panel_status.remove(panel);
+                self.opened_from.remove(panel);
+            }
+            Change::PanelRehome { panel, workbench } => {
+                if let Some(record) = self.panels.get_mut(panel) {
+                    record.workbench = *workbench;
+                }
+            }
+            Change::PanelData {
+                panel,
+                version,
+                data,
+            } => {
+                if self.panels.contains_key(panel) {
+                    self.panel_data.insert(
+                        *panel,
+                        PanelData::Text {
+                            version: *version,
+                            raw: data.clone(),
+                        },
+                    );
+                }
+            }
+            Change::PanelOpenedFrom { panel, opened_from } => {
+                if self.panels.contains_key(panel) {
+                    match opened_from {
+                        Some(caller) => self.opened_from.insert(*panel, *caller),
+                        None => self.opened_from.remove(panel),
+                    };
+                }
+            }
+            Change::PanelStatus { panel, status } => {
+                if self.panels.contains_key(panel) {
+                    match status {
+                        PanelStatus::Ready => self.panel_status.remove(panel),
+                        PanelStatus::PluginMissing
+                        | PanelStatus::Duplicate
+                        | PanelStatus::StateCorrupt
+                        | PanelStatus::InitFailed
+                        | PanelStatus::MigrateFailed
+                        | PanelStatus::StateNewer => self.panel_status.insert(*panel, *status),
+                    };
+                }
             }
             Change::LayoutSet { workbench, layout } => {
                 self.layouts.insert(*workbench, layout.clone());

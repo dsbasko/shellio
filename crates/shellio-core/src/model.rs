@@ -8,7 +8,7 @@ use shellio_layout::LayoutError;
 
 use crate::clock::UnixMillis;
 use crate::ids::{PanelId, ProjectId, ProjectRootId, WorkbenchId, WorkspaceId};
-use crate::panel::{Panel, WorkbenchLayout};
+use crate::panel::{Panel, PanelData, PanelStatus, WorkbenchLayout};
 use crate::root::{RootKey, RootKind};
 use crate::title::Title;
 
@@ -39,6 +39,14 @@ pub struct State {
     pub roots: BTreeMap<ProjectRootId, ProjectRoot>,
     pub workbenches: BTreeMap<WorkbenchId, Workbench>,
     pub panels: BTreeMap<PanelId, Panel>,
+    /// Данные панелей исходным текстом. Панели без строки данных здесь нет.
+    pub panel_data: BTreeMap<PanelId, PanelData>,
+    /// Статусы панелей не в `ready`: панель без записи готова. Не хранится в базе, ядро
+    /// вычисляет его при загрузке по строкам и реестру плагинов.
+    pub panel_status: BTreeMap<PanelId, PanelStatus>,
+    /// Вызывающая панель: кому вернуть фокус при закрытии панели `PerApp`. Ссылка мягкая,
+    /// вызывающей может уже не быть.
+    pub opened_from: BTreeMap<PanelId, PanelId>,
     /// Раскладка каждой рабочей области. Запуск ядра дописывает недостающие.
     pub layouts: BTreeMap<WorkbenchId, WorkbenchLayout>,
     pub window: WindowState,
@@ -180,6 +188,8 @@ pub enum Violation {
         panel: PanelId,
         workbench: WorkbenchId,
     },
+    /// Данные, статус или вызывающая панель записаны для панели, которой нет.
+    PanelRecordOrphan { panel: PanelId },
     /// Раскладка несуществующей рабочей области.
     LayoutOwnerMissing { workbench: WorkbenchId },
     /// Раскладка не проходит `Layout::validate` против панелей своей рабочей области.
@@ -287,6 +297,14 @@ impl State {
             .filter(|workbench| self.live_project(workbench.project).is_some())
     }
 
+    /// Статус панели: без записи — `ready`.
+    pub fn status_of(&self, panel: PanelId) -> PanelStatus {
+        self.panel_status
+            .get(&panel)
+            .copied()
+            .unwrap_or(PanelStatus::Ready)
+    }
+
     /// Панели рабочей области по `PanelId`.
     pub fn workbench_panels(&self, workbench: WorkbenchId) -> impl Iterator<Item = &Panel> {
         self.panels
@@ -391,6 +409,18 @@ impl State {
                     panel: panel.id,
                     workbench: panel.workbench,
                 });
+            }
+        }
+        let recorded: BTreeSet<PanelId> = self
+            .panel_data
+            .keys()
+            .chain(self.panel_status.keys())
+            .chain(self.opened_from.keys())
+            .copied()
+            .collect();
+        for panel in recorded {
+            if !self.panels.contains_key(&panel) {
+                out.push(Violation::PanelRecordOrphan { panel });
             }
         }
     }
@@ -661,6 +691,9 @@ mod tests {
                 (navigator, panel(navigator, NAVIGATOR_PLUGIN, "Навигатор")),
                 (terminal, panel(terminal, TERMINAL_PLUGIN, "Терминал")),
             ]),
+            panel_data: BTreeMap::new(),
+            panel_status: BTreeMap::new(),
+            opened_from: BTreeMap::new(),
             layouts: BTreeMap::from([(main, WorkbenchLayout::default_for(navigator, terminal))]),
             window: WindowState {
                 active_workspace: Some(work),

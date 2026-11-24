@@ -14,11 +14,12 @@ use serde_json::{Value, json};
 use shellio_control::test_support::ManualClock;
 use shellio_control::{
     Activation, ControlError, ControlErrorCode, Launch, LaunchHandler, LaunchReceipt, LineError,
-    LineReader, OkValue, OwnerState, REQUEST_LINE_LIMIT, RESPONSE_LINE_LIMIT, RefuseReason,
-    RefusedArg, RequestId, Response, Server, ServerConfig, WithoutUi,
+    LineReader, OkValue, OwnerState, PROTOCOL, REQUEST_LINE_LIMIT, RESPONSE_LINE_LIMIT,
+    RefuseReason, RefusedArg, RequestId, Response, Server, ServerConfig, WithoutUi,
 };
 use shellio_core::test_support::{
-    FakeRootResolver, Faults, FaultyPersist, ManualClock as CoreClock, MemoryPersist, SequentialIds,
+    FakeRootResolver, Faults, FaultyPersist, ManualClock as CoreClock, MemoryPersist,
+    SequentialIds, registry,
 };
 use shellio_core::{
     CommandValue, Core, CoreError, Entity, ErrorCode, Event, EventsSince, ProjectId, Reply,
@@ -109,6 +110,7 @@ impl Fixture {
             Box::new(CoreClock::new(NOW)),
             Box::new(SequentialIds::new()),
             Arc::new(resolver),
+            registry(),
         )?;
         let clock = ManualClock::new();
         let launcher = FakeLauncher::default();
@@ -258,7 +260,7 @@ impl Peer {
 }
 
 fn hello(id: u64) -> String {
-    json!({"id": id, "hello": {"protocol": 2, "client": "test"}}).to_string()
+    json!({"id": id, "hello": {"protocol": 3, "client": "test"}}).to_string()
 }
 
 fn subscribe(id: u64) -> String {
@@ -388,7 +390,7 @@ async fn hello_must_come_first() -> TestResult {
     assert_eq!(
         reply,
         json!({"id": 4, "ok": {"hello": {
-            "protocol": 2, "server": SERVER, "pid": PID, "owner": "ready"
+            "protocol": 3, "server": SERVER, "pid": PID, "owner": "ready"
         }}})
     );
     let again = peer.call_value(&hello(5)).await?;
@@ -402,16 +404,17 @@ async fn hello_must_come_first() -> TestResult {
     Ok(())
 }
 
-/// Клиент протокола v1 у владельца v2 получает отказ `hello` и ни одной команды не выполняет.
+/// Клиент протокола v2 у владельца v3 получает отказ `hello` и ни одной команды не выполняет.
 #[tokio::test]
 async fn protocol_mismatch_keeps_connection_without_greeting() -> TestResult {
     let fixture = Fixture::start().await?;
     let mut peer = fixture.connect().await?;
 
-    let wrong = json!({"id": 1, "hello": {"protocol": 1, "client": "test"}}).to_string();
+    assert_eq!(PROTOCOL, 3);
+    let wrong = json!({"id": 1, "hello": {"protocol": 2, "client": "test"}}).to_string();
     let error = control_error(Some(1), peer.call(&wrong).await?)?;
     assert_eq!(error.code(), ControlErrorCode::ProtocolMismatch);
-    assert_eq!(error.detail("supported"), Some(&json!([2])));
+    assert_eq!(error.detail("supported"), Some(&json!([3])));
 
     let created = json!({"id": 5, "command": {"cmd": "workspace.create", "title": "Работа"},
         "scope": "all"});
@@ -443,7 +446,7 @@ async fn protocol_mismatch_keeps_connection_without_greeting() -> TestResult {
 async fn request_of_exactly_limit_is_served() -> TestResult {
     let fixture = Fixture::start().await?;
     let mut peer = fixture.connect().await?;
-    let head = r#"{"id":1,"hello":{"protocol":2,"client":""#;
+    let head = r#"{"id":1,"hello":{"protocol":3,"client":""#;
     let tail = r#""}}"#;
     let padding = "a".repeat(REQUEST_LINE_LIMIT - head.len() - tail.len());
     let line = format!("{head}{padding}{tail}");

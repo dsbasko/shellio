@@ -19,7 +19,9 @@ use shellio_control::{
     OwnerState, Ownership, RequestId, Response, SHUTDOWN_GRACE, SOCKET_FILE, Server, ServerConfig,
     UiGate, UiHandler, UiRefusal, UiReply, UiRequest, WithoutUi,
 };
-use shellio_core::test_support::{ManualClock as CoreClock, MemoryPersist, SequentialIds};
+use shellio_core::test_support::{
+    ManualClock as CoreClock, MemoryPersist, SequentialIds, registry,
+};
 use shellio_core::{
     CommandValue, Core, ErrorCode, EventsSince, FsRootResolver, LayoutView, PanelId, Reply,
     ReplyValue, Revision, Route, TreeView, UnixMillis, WorkbenchId, WorkspaceId,
@@ -191,6 +193,7 @@ impl<U: UiHandler> Owner<U> {
             Box::new(CoreClock::new(NOW)),
             Box::new(SequentialIds::new()),
             Arc::new(FsRootResolver),
+            registry(),
         )?;
         core.set_viewport(viewport);
         let config = ServerConfig {

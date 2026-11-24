@@ -1084,6 +1084,7 @@ dependencies = [
  "serde_json",
  "shellio-core",
  "shellio-layout",
+ "shellio-plugin-api",
  "shellio-store",
  "tempfile",
  "tokio",

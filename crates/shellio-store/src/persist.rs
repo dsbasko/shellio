@@ -33,7 +33,11 @@ impl SqlitePersist {
 
 impl Persist for SqlitePersist {
     fn load(&mut self) -> Result<Loaded, LoadError> {
-        let (state, revision) = load::load(self.db.conn(), self.db.path())?;
+        let load::Loaded {
+            state,
+            revision,
+            fingerprint,
+        } = load::load(self.db.conn(), self.db.path())?;
         Ok(Loaded {
             state,
             revision,
@@ -41,15 +45,21 @@ impl Persist for SqlitePersist {
                 schema_version: self.db.schema_version(),
                 state_db: self.db.path().to_path_buf(),
             },
+            fingerprint,
         })
     }
 
-    fn commit(&mut self, base: Revision, changes: &[Change]) -> Result<(), CommitError> {
+    fn commit(
+        &mut self,
+        base: Revision,
+        changes: &[Change],
+        fingerprint: Option<&str>,
+    ) -> Result<(), CommitError> {
         #[cfg(feature = "test-support")]
         let stop_after = self.fault.take();
         #[cfg(not(feature = "test-support"))]
         let stop_after = None;
-        write::commit(self.db.conn_mut(), base, changes, stop_after)
+        write::commit(self.db.conn_mut(), base, changes, fingerprint, stop_after)
     }
 }
 
@@ -63,8 +73,8 @@ pub struct CommitFault {
 
 #[cfg(feature = "test-support")]
 impl CommitFault {
-    /// Следующая запись выполнит `statements` SQL-операторов дельт и ревизии и откажет
-    /// `storage_unavailable` с сообщением «тестовый сбой: …», не дойдя до `COMMIT`.
+    /// Следующая запись выполнит `statements` SQL-операторов дельт, отпечатка реестра и ревизии и
+    /// откажет `storage_unavailable` с сообщением «тестовый сбой: …», не дойдя до `COMMIT`.
     /// Крючок снимает любая следующая запись: та, в которой операторов не больше
     /// `statements`, проходит.
     pub fn fail_next_commit_after(&self, statements: usize) {

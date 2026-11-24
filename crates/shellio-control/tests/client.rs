@@ -19,7 +19,7 @@ use shellio_control::{
     SOCKET_FILE, Server, ServerConfig, Session, UiReply, UiRequest, WithoutUi, encode_line,
 };
 use shellio_core::test_support::{
-    FakeRootResolver, ManualClock as CoreClock, MemoryPersist, SequentialIds,
+    FakeRootResolver, ManualClock as CoreClock, MemoryPersist, SequentialIds, registry,
 };
 use shellio_core::{
     Command, Core, Query, Reply, ReplyValue, Revision, Snapshot, State, TreeScope, UiCommand,
@@ -108,6 +108,7 @@ impl Owner {
             Box::new(CoreClock::new(NOW)),
             Box::new(SequentialIds::new()),
             Arc::new(FakeRootResolver::new()),
+            registry(),
         )?;
         let config = ServerConfig {
             server: "test 0.1.0".to_owned(),
@@ -426,7 +427,7 @@ async fn probe_failure_is_not_retryable() -> TestResult {
     Ok(())
 }
 
-/// Поддельный владелец протокола v1: клиент v2 получает отказ `hello` до первой команды.
+/// Поддельный владелец протокола v2: клиент v3 получает отказ `hello` до первой команды.
 #[tokio::test]
 async fn hello_refusal_is_the_outcome_without_request() -> TestResult {
     let refuse = async |fake: &Fake| -> TestResult<Peer> {
@@ -434,12 +435,12 @@ async fn hello_refusal_is_the_outcome_without_request() -> TestResult {
         let hello = peer.read_line().await?.ok_or("hello не пришёл")?;
         let hello: serde_json::Value = serde_json::from_str(&hello)?;
         assert_eq!(hello["hello"]["protocol"], PROTOCOL, "{hello}");
-        assert_eq!(PROTOCOL, 2);
+        assert_eq!(PROTOCOL, 3);
         let refusal = serde_json::json!({"id": 1, "error": {
             "code": "protocol_mismatch",
-            "message": "версия протокола 2 не поддерживается, сервер поддерживает 1",
+            "message": "версия протокола 3 не поддерживается, сервер поддерживает 2",
             "retryable": false,
-            "details": {"supported": [1]},
+            "details": {"supported": [2]},
         }});
         peer.write(format!("{refusal}\n").as_bytes()).await?;
         Ok(peer)
@@ -447,7 +448,7 @@ async fn hello_refusal_is_the_outcome_without_request() -> TestResult {
     let is_mismatch = |frame: &Response| {
         matches!(frame, Response::Error { id: Some(RequestId(1)), error }
             if error.code() == ControlErrorCode::ProtocolMismatch
-                && error.detail("supported") == Some(&serde_json::json!([1])))
+                && error.detail("supported") == Some(&serde_json::json!([2])))
     };
 
     let fake = Fake::bind()?;

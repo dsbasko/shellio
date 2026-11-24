@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use shellio_layout::Viewport;
+use shellio_plugin_api::Registry;
 
 use crate::change::Change;
 use crate::clock::Clock;
@@ -12,30 +13,36 @@ use crate::ids::{IdGen, PanelId, ProjectId, ProjectRootId, WorkbenchId, Workspac
 use crate::layout_cmd::layout_command;
 use crate::model::{Project, ProjectRoot, Route, State, WindowState, Workbench, Workspace};
 use crate::panel::{
-    NAVIGATOR_PLUGIN, NAVIGATOR_TITLE, Panel, PluginId, TERMINAL_PLUGIN, TERMINAL_TITLE,
-    WorkbenchLayout, recovered_layout,
+    NAVIGATOR_PLUGIN, Panel, PluginId, TERMINAL_PLUGIN, WorkbenchLayout, recovered_layout,
 };
+use crate::plugin_host::created;
 use crate::root::ResolvedRoot;
 use crate::title::Title;
 
 /// Имя воркспейса, который создаёт первый запуск.
 pub const BOOTSTRAP_WORKSPACE: &str = "Основной";
 
-/// Внедряемые источники времени и идентификаторов обработчика и размер окна.
+/// Внедряемые источники времени и идентификаторов обработчика, реестр плагинов и размер окна.
 pub(crate) struct Ctx<'a> {
     pub(crate) clock: &'a dyn Clock,
     pub(crate) ids: &'a mut dyn IdGen,
+    pub(crate) registry: &'a Registry,
     /// Размер окна на момент команды. `None` — окна нет (ADR-0007, «Внутренний вход размера
     /// окна»).
     pub(crate) viewport: Option<Viewport>,
 }
 
 impl<'a> Ctx<'a> {
-    /// Контекст из часов и генератора идентификаторов, без размера окна.
-    pub(crate) fn new(clock: &'a dyn Clock, ids: &'a mut dyn IdGen) -> Self {
+    /// Контекст из часов, генератора идентификаторов и реестра плагинов, без размера окна.
+    pub(crate) fn new(
+        clock: &'a dyn Clock,
+        ids: &'a mut dyn IdGen,
+        registry: &'a Registry,
+    ) -> Self {
         Self {
             clock,
             ids,
+            registry,
             viewport: None,
         }
     }
@@ -144,7 +151,8 @@ fn missing_layouts(state: &State, ctx: &mut Ctx<'_>) -> Result<Vec<Change>, Core
     Ok(changes)
 }
 
-/// Раскладка по умолчанию (ADR-0009): новые панели `navigator` и `terminal`, затем раскладка.
+/// Раскладка по умолчанию (ADR-0009): новые панели `navigator` и `terminal` с начальными данными,
+/// затем раскладка. Экземпляр не ищется: в рабочей области ещё ничего нет.
 fn default_layout(workbench: WorkbenchId, ctx: &mut Ctx<'_>) -> Result<Vec<Change>, CoreError> {
     let plugin = |raw: &str| {
         PluginId::new(raw).map_err(|error| {
@@ -154,25 +162,23 @@ fn default_layout(workbench: WorkbenchId, ctx: &mut Ctx<'_>) -> Result<Vec<Chang
     let navigator = new_panel(workbench, plugin(NAVIGATOR_PLUGIN)?, ctx)?;
     let terminal = new_panel(workbench, plugin(TERMINAL_PLUGIN)?, ctx)?;
     let layout = WorkbenchLayout::default_for(navigator.id, terminal.id);
-    Ok(vec![
-        Change::PanelAdd { panel: navigator },
-        Change::PanelAdd { panel: terminal },
-        Change::LayoutSet { workbench, layout },
-    ])
+    let mut changes = created(ctx.registry, navigator);
+    changes.extend(created(ctx.registry, terminal));
+    changes.push(Change::LayoutSet { workbench, layout });
+    Ok(changes)
 }
 
-/// Новая панель плагина `plugin` с названием по умолчанию: «Навигатор» и «Терминал» у известных
-/// плагинов, у остальных — сам plugin id.
+/// Новая панель плагина `plugin` с названием из его манифеста, у незарегистрированного плагина —
+/// сам plugin id.
 pub(crate) fn new_panel(
     workbench: WorkbenchId,
     plugin: PluginId,
     ctx: &mut Ctx<'_>,
 ) -> Result<Panel, CoreError> {
-    let title = match plugin.as_str() {
-        NAVIGATOR_PLUGIN => NAVIGATOR_TITLE,
-        TERMINAL_PLUGIN => TERMINAL_TITLE,
-        other => other,
-    };
+    let title = ctx
+        .registry
+        .get(&plugin)
+        .map_or(plugin.as_str(), |registered| registered.manifest().title);
     Ok(Panel {
         id: PanelId::generate(ctx.ids),
         workbench,
@@ -484,14 +490,16 @@ fn window_set(active: WorkspaceId, route: Route) -> Outcome {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+    use std::sync::Arc;
 
     use super::*;
     use crate::clock::UnixMillis;
     use crate::command::Command;
     use crate::error::ErrorCode;
     use crate::model::Violation;
+    use crate::panel::{NAVIGATOR_TITLE, TERMINAL_TITLE};
     use crate::root::{RootError, RootKey, RootKind};
-    use crate::test_support::{FakeRootResolver, ManualClock, SequentialIds};
+    use crate::test_support::{FakeRootResolver, ManualClock, SequentialIds, registry};
 
     const START: UnixMillis = UnixMillis(1_000);
 
@@ -504,6 +512,7 @@ mod tests {
         ids: SequentialIds,
         clock: ManualClock,
         resolver: FakeRootResolver,
+        registry: Arc<Registry>,
     }
 
     impl Harness {
@@ -512,6 +521,7 @@ mod tests {
                 state: State::default(),
                 ids: SequentialIds::new(),
                 clock: ManualClock::new(START),
+                registry: registry(),
                 resolver: FakeRootResolver::new()
                     .with_git("/src/shellio", "/src/shellio/.git")
                     .with_git("/src/shellio-wt", "/src/shellio/.git")
@@ -539,13 +549,14 @@ mod tests {
         }
 
         fn startup(&mut self) -> Option<Outcome> {
-            let mut ctx = Ctx::new(&self.clock, &mut self.ids);
+            let mut ctx = Ctx::new(&self.clock, &mut self.ids, &self.registry);
             startup(&self.state, &mut ctx).unwrap()
         }
 
         /// Состояние базы v1: рабочие области без панелей и раскладок.
         fn strip_layouts(&mut self) {
             self.state.panels.clear();
+            self.state.panel_data.clear();
             self.state.layouts.clear();
         }
 
@@ -568,7 +579,7 @@ mod tests {
 
         fn run(&mut self, command: Command) -> Result<Outcome, CoreError> {
             let prepared = command.prepare(&self.resolver)?;
-            let mut ctx = Ctx::new(&self.clock, &mut self.ids);
+            let mut ctx = Ctx::new(&self.clock, &mut self.ids, &self.registry);
             let result = handle(&self.state, prepared, &mut ctx);
             if let Ok(outcome) = &result {
                 self.commit(outcome);
@@ -778,13 +789,21 @@ mod tests {
             title: title(name),
             created_at: START,
         };
+        // Начальные данные заполнителя — `null` версии 1, той же записью, что панель.
+        let init = |panel| Change::PanelData {
+            panel,
+            version: 1,
+            data: "null".to_owned(),
+        };
         vec![
             Change::PanelAdd {
                 panel: panel(navigator, NAVIGATOR_PLUGIN, NAVIGATOR_TITLE),
             },
+            init(navigator),
             Change::PanelAdd {
                 panel: panel(terminal, TERMINAL_PLUGIN, TERMINAL_TITLE),
             },
+            init(terminal),
             Change::LayoutSet {
                 workbench,
                 layout: WorkbenchLayout::default_for(navigator, terminal),

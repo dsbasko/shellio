@@ -8,12 +8,12 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use rusqlite::Connection;
-use shellio_core::test_support::{FakeRootResolver, ManualClock, SequentialIds};
+use shellio_core::test_support::{FakeRootResolver, ManualClock, SequentialIds, registry};
 use shellio_core::{
     BOOTSTRAP_WORKSPACE, Change, Command, CommandValue, CommitError, Core, CoreHandle, ErrorCode,
-    Event, EventsSince, IdGen, Loaded, PanelId, Persist, Project, ProjectId, ProjectRoot,
-    ProjectRootId, Query, Reply, ReplyValue, Revision, RootKey, RootKind, RootResolver, Route,
-    Snapshot, State, Title, TreeScope, UnixMillis, Workbench, WorkbenchId, Workspace, WorkspaceId,
+    EventsSince, IdGen, Loaded, PanelId, Persist, Project, ProjectId, ProjectRoot, ProjectRootId,
+    Query, Reply, ReplyValue, Revision, RootKey, RootKind, RootResolver, Route, Snapshot, State,
+    Title, TreeScope, UnixMillis, Workbench, WorkbenchId, Workspace, WorkspaceId, fingerprint,
 };
 use shellio_layout::{Hideable, Viewport, Zone};
 use shellio_store::{Database, Profile, SqlitePersist};
@@ -87,6 +87,7 @@ fn start(
         Box::new(clock.clone()),
         Box::new(SequentialIds::new()),
         Arc::new(resolver),
+        registry(),
     )
     .map_err(|error| error.to_string())?)
 }
@@ -432,26 +433,19 @@ async fn first_launch_bootstraps_once() {
         .collect();
     assert_eq!(titles, [BOOTSTRAP_WORKSPACE]);
     assert_eq!(first.state.window.route, Route::WorkspaceHome);
-    let EventsSince::Events(events) = core.events_since(Revision::ZERO).await.unwrap() else {
-        panic!("ожидались события запуска");
-    };
+    assert_eq!(first.state.window.active_workspace, Some(workspace));
+    // В новой базе нет отпечатка реестра плагинов: запись запуска пишет его той же транзакцией
+    // и в буфер событий не попадает, курсор 0 получает снимок.
     assert_eq!(
-        events,
-        [Event {
-            revision: Revision(1),
-            changes: vec![
-                Change::WorkspaceInserted {
-                    workspace: first.state.workspaces[&workspace].clone(),
-                },
-                Change::WindowSet {
-                    active: workspace,
-                    route: Route::WorkspaceHome,
-                },
-            ],
-        }]
+        core.events_since(Revision::ZERO).await.unwrap(),
+        EventsSince::Reset(first.clone())
     );
     core.shutdown().await;
     assert_eq!(store.revision_in_db().unwrap(), 1);
+    assert_eq!(
+        store.load().unwrap().fingerprint,
+        Some(fingerprint(&registry()))
+    );
 
     let core = start(store.persist().unwrap(), &clock, resolver()).unwrap();
     let second = snapshot(&core).await.unwrap();
@@ -605,6 +599,61 @@ fn seven_statement_record(ids: &mut dyn IdGen) -> TestResult<Vec<Change>> {
     ])
 }
 
+/// Запись запуска несёт отпечаток реестра той же транзакцией: отказ в любой точке, в том числе
+/// между оператором отпечатка и оператором ревизии, оставляет базу и отпечаток прежними.
+#[test]
+fn commit_fault_between_fingerprint_and_revision_keeps_database_and_fingerprint() {
+    // Шесть операторов дельт, оператор отпечатка и оператор ревизии.
+    const BEFORE_REVISION: usize = 7;
+    let store = Store::new().unwrap();
+    let mut persist = store.persist().unwrap();
+    let fault = persist.commit_fault();
+    persist
+        .commit(Revision::ZERO, &[], Some("прежний"))
+        .unwrap();
+    let before = store.load().unwrap();
+    assert_eq!(before.revision, Revision(1));
+    assert_eq!(before.fingerprint.as_deref(), Some("прежний"));
+    let changes = seven_statement_record(&mut SequentialIds::new()).unwrap();
+
+    for statements in 0..=BEFORE_REVISION {
+        fault.fail_next_commit_after(statements);
+        let error = persist
+            .commit(Revision(1), &changes, Some("новый"))
+            .unwrap_err();
+        assert_eq!(
+            error,
+            CommitError::Unavailable(format!(
+                "тестовый сбой: запись прервана после операторов: {statements}"
+            ))
+        );
+        // Повторное открытие базы отдельным соединением.
+        assert_eq!(store.load().unwrap(), before, "сбой после {statements}");
+        assert_eq!(store.revision_in_db().unwrap(), 1);
+        let stored: String = store
+            .raw()
+            .unwrap()
+            .query_row(
+                "SELECT fingerprint FROM plugin_registry WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(stored, "прежний", "сбой после {statements}");
+        assert_eq!(store.count("workspaces").unwrap(), 0);
+    }
+
+    // Записи хватило операторов: дельты, отпечаток и ревизия записаны вместе.
+    fault.fail_next_commit_after(BEFORE_REVISION + 1);
+    persist
+        .commit(Revision(1), &changes, Some("новый"))
+        .unwrap();
+    let written = store.load().unwrap();
+    assert_eq!(written.revision, Revision(2));
+    assert_eq!(written.fingerprint.as_deref(), Some("новый"));
+    assert_eq!(store.count("workspaces").unwrap(), 1);
+}
+
 #[test]
 fn commit_fault_after_each_statement_leaves_no_partial_record() {
     const STATEMENTS: usize = 7;
@@ -617,7 +666,7 @@ fn commit_fault_after_each_statement_leaves_no_partial_record() {
 
     for statements in 0..STATEMENTS {
         fault.fail_next_commit_after(statements);
-        let error = persist.commit(Revision::ZERO, &changes).unwrap_err();
+        let error = persist.commit(Revision::ZERO, &changes, None).unwrap_err();
         assert_eq!(
             error,
             CommitError::Unavailable(format!(
@@ -637,7 +686,7 @@ fn commit_fault_after_each_statement_leaves_no_partial_record() {
 
     // Записи хватило операторов: крючок снят, запись прошла.
     fault.fail_next_commit_after(STATEMENTS);
-    persist.commit(Revision::ZERO, &changes).unwrap();
+    persist.commit(Revision::ZERO, &changes, None).unwrap();
     let mut expected = before.state.clone();
     expected.apply_all(&changes);
     let written = store.load().unwrap();
@@ -655,6 +704,7 @@ fn commit_fault_after_each_statement_leaves_no_partial_record() {
                 workspace: workspace.id,
                 title: title("Работа 2").unwrap(),
             }],
+            None,
         )
         .unwrap();
     assert_eq!(store.revision_in_db().unwrap(), 2);
@@ -1001,6 +1051,10 @@ const fn change_name(change: &Change) -> &'static str {
         Change::WindowSet { .. } => "window_set",
         Change::PanelAdd { .. } => "panel_add",
         Change::PanelRemove { .. } => "panel_remove",
+        Change::PanelRehome { .. } => "panel_rehome",
+        Change::PanelData { .. } => "panel_data",
+        Change::PanelOpenedFrom { .. } => "panel_opened_from",
+        Change::PanelStatus { .. } => "panel_status",
         Change::LayoutSet { .. } => "layout_set",
     }
 }
@@ -1032,7 +1086,8 @@ impl Coverage {
             ]),
             "команды с записью"
         );
-        assert_eq!(self.changes.len(), 11, "дельты: {:?}", self.changes);
+        // Все дельты, кроме переезда панели, вызывающей панели и статуса: их пишет `panel.open`.
+        assert_eq!(self.changes.len(), 12, "дельты: {:?}", self.changes);
         assert_eq!(
             self.refused,
             BTreeSet::from(["invalid_argument", "name_taken", "not_found", "root_taken"]),

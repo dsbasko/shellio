@@ -27,6 +27,7 @@ use shellio_layout::{
     Axis, DropTarget, Edge, Frames, Geometry, Hideable, Layout, LayoutMetrics, Location, PartFrame,
     Point, Rect, Viewport, Zone, ZoneMap, drop_target, geometry,
 };
+use shellio_plugin_api::Registry;
 
 /// Сообщение области зон без открытой рабочей области.
 pub const NO_WORKBENCH: &str = "Рабочая область не открыта";
@@ -121,8 +122,14 @@ pub struct Scene {
 }
 
 impl Scene {
-    /// Сцена открытой в окне рабочей области по состоянию и размеру содержимого окна.
-    pub fn of(state: &State, viewport: Viewport, metrics: LayoutMetrics) -> Scene {
+    /// Сцена открытой в окне рабочей области по состоянию и размеру содержимого окна. `registry`
+    /// даёт `min_size` панелей — тот же, по которому ядро считает кадры `query.layout`.
+    pub fn of(
+        state: &State,
+        registry: &Registry,
+        viewport: Viewport,
+        metrics: LayoutMetrics,
+    ) -> Scene {
         let empty = Layout::<PanelId> {
             navigator: None,
             zones: ZoneMap::default(),
@@ -138,7 +145,9 @@ impl Scene {
         .area;
         let bench = open_workbench(state).and_then(|workbench| {
             let layout = state.layouts.get(&workbench)?;
-            Some(bench(state, workbench, layout, viewport, &metrics))
+            Some(bench(
+                state, registry, workbench, layout, viewport, &metrics,
+            ))
         });
         Scene {
             viewport,
@@ -234,6 +243,7 @@ impl Scene {
 
 fn bench(
     state: &State,
+    registry: &Registry,
     workbench: WorkbenchId,
     layout: &Layout<PanelId>,
     viewport: Viewport,
@@ -244,7 +254,7 @@ fn bench(
             .panels
             .get(&panel)
             .map_or(shellio_layout::MinSize::DEFAULT, |record| {
-                min_size(&record.plugin)
+                min_size(registry, &record.plugin)
             })
     };
     let base_layout = Layout {
@@ -1347,8 +1357,13 @@ mod tests {
         fixture.state.layouts.get_mut(&fixture.workbench).unwrap()
     }
 
+    /// Продуктовый реестр: `min_size` заполнителей — 200×120.
+    fn registry() -> Registry {
+        crate::plugins::registry().unwrap()
+    }
+
     fn scene(fixture: &Fixture) -> Scene {
-        Scene::of(&fixture.state, SMALL, layout_metrics())
+        Scene::of(&fixture.state, &registry(), SMALL, layout_metrics())
     }
 
     #[test]
@@ -1574,7 +1589,7 @@ mod tests {
     /// высоте 720) или по высоте (при ширине 1180).
     fn viewport_for_center_body(fixture: &Fixture, width: bool, want: f64) -> Viewport {
         let center = |viewport: Viewport| {
-            let scene = Scene::of(&fixture.state, viewport, layout_metrics());
+            let scene = Scene::of(&fixture.state, &registry(), viewport, layout_metrics());
             let body = scene.bench.unwrap().views[&fixture.terminal].body.unwrap();
             if width { body.width } else { body.height }
         };
@@ -1621,8 +1636,8 @@ mod tests {
                     ..edge
                 }
             };
-            let fits = Scene::of(&fixture.state, edge, layout_metrics());
-            let tight = Scene::of(&fixture.state, below, layout_metrics());
+            let fits = Scene::of(&fixture.state, &registry(), edge, layout_metrics());
+            let tight = Scene::of(&fixture.state, &registry(), below, layout_metrics());
             let (fits_bench, tight_bench) =
                 (fits.bench.as_ref().unwrap(), tight.bench.as_ref().unwrap());
 
@@ -1679,7 +1694,7 @@ mod tests {
             width: 1180,
             height: 170,
         };
-        let scene = Scene::of(&fixture.state, low, layout_metrics());
+        let scene = Scene::of(&fixture.state, &registry(), low, layout_metrics());
         let stubs = scene.bench.as_ref().unwrap().stubs();
         assert_eq!(stubs[&Host::Navigator].panel, fixture.navigator);
         assert!(stubs[&Host::Navigator].expandable);
@@ -1701,7 +1716,7 @@ mod tests {
         );
 
         layout_mut(&mut fixture).zoomed = Some(fixture.terminal);
-        let zoomed = Scene::of(&fixture.state, low, layout_metrics());
+        let zoomed = Scene::of(&fixture.state, &registry(), low, layout_metrics());
         let stubs = zoomed.bench.as_ref().unwrap().stubs();
         assert_eq!(stubs.keys().copied().collect::<Vec<_>>(), [Host::Zoom]);
         assert!(
@@ -2202,7 +2217,7 @@ mod tests {
             layout.zones.center.parts[0]
                 .tabs
                 .extend([center_two, center_three]);
-            let whole = Scene::of(&fixture.state, viewport, layout_metrics());
+            let whole = Scene::of(&fixture.state, &registry(), viewport, layout_metrics());
             let halves = {
                 let mut halved = Fixture {
                     state: fixture.state.clone(),
@@ -2212,7 +2227,7 @@ mod tests {
                 let center = &mut layout_mut(&mut halved).zones.center;
                 center.parts[0].share = SHARE_TOTAL / 2;
                 center.parts.push(Part::single(half, SHARE_TOTAL / 2));
-                Scene::of(&halved.state, viewport, layout_metrics())
+                Scene::of(&halved.state, &registry(), viewport, layout_metrics())
             };
             for (name, scene) in [("whole", whole), ("halves", halves)] {
                 let bench = scene.bench.unwrap();

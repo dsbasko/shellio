@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use shellio_layout::Viewport;
+use shellio_plugin_api::Registry;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
@@ -66,15 +67,19 @@ impl Core {
     /// Загрузить состояние на потоке хранения, выполнить внутренние команды запуска и
     /// запустить актор на `runtime`. Блокирует вызывающий поток до конца загрузки и записи
     /// запуска, `runtime` для этого не нужен.
+    ///
+    /// `registry` — зарегистрированные плагины: по нему ядро считает статус панелей, `min_size`
+    /// и отпечаток реестра, с которым сверяется отпечаток в хранилище.
     pub fn start(
         runtime: &Handle,
         persist: Box<dyn Persist>,
         clock: Box<dyn Clock>,
         ids: Box<dyn IdGen>,
         resolver: Arc<dyn RootResolver>,
+        registry: Arc<Registry>,
     ) -> Result<CoreHandle, StartError> {
         let (viewport, viewport_rx) = watch::channel(None);
-        let actor = Actor::start(persist, clock, ids, viewport_rx)?;
+        let actor = Actor::start(persist, clock, ids, registry, viewport_rx)?;
         let (queue, inbox) = mpsc::channel(QUEUE_CAPACITY);
         let (stopped_tx, stopped) = watch::channel(false);
         runtime.spawn(actor.run(inbox, stopped_tx));

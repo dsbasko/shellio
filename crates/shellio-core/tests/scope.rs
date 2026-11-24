@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use shellio_core::test_support::{
-    FakeRootResolver, Faults, FaultyPersist, ManualClock, MemoryPersist, SequentialIds,
+    FakeRootResolver, Faults, FaultyPersist, ManualClock, MemoryPersist, SequentialIds, registry,
 };
 use shellio_core::{
     Command, CommandValue, Core, CoreError, CoreHandle, Entity, ErrorCode, EventsSince, IdGen,
@@ -49,6 +49,7 @@ fn start_with(memory: &MemoryPersist, resolver: FakeRootResolver) -> TestResult<
             inner: resolver,
             calls: Arc::clone(&calls),
         }),
+        registry(),
     )?;
     Ok(Started {
         core,

@@ -6,6 +6,7 @@
 
 use serde_json::{Value, json};
 use shellio_layout::{Hideable, MinSize, OpError, Room, Viewport, Zone};
+use shellio_plugin_api::Registry;
 
 use crate::change::Change;
 use crate::command::{CommandValue, LayoutCommand, chosen_workbench, panel_workbench};
@@ -13,7 +14,8 @@ use crate::error::{CoreError, Entity};
 use crate::handler::{Ctx, Outcome, new_panel};
 use crate::ids::{PanelId, WorkbenchId};
 use crate::model::State;
-use crate::panel::{PluginId, WorkbenchLayout, is_navigator, layout_metrics, min_size};
+use crate::panel::{PluginId, WorkbenchLayout, is_navigator, layout_metrics};
+use crate::plugin_host::{created, min_size};
 
 /// Обработать команду раскладки над снимком состояния.
 pub(crate) fn layout_command(
@@ -22,7 +24,8 @@ pub(crate) fn layout_command(
     ctx: &mut Ctx<'_>,
 ) -> Result<Outcome, CoreError> {
     let metrics = layout_metrics();
-    let sizes = |panel: PanelId| panel_min_size(state, panel);
+    let registry = ctx.registry;
+    let sizes = |panel: PanelId| panel_min_size(state, registry, panel);
     match command {
         LayoutCommand::Split { panel, open } => {
             let workbench = panel_workbench(state, panel)?;
@@ -41,24 +44,20 @@ pub(crate) fn layout_command(
                     .map_err(|error| refusal(error, "panel"))?;
                 return Ok(set(workbench, layout, next));
             };
-            let created = new_panel(workbench, plugin, ctx)?;
-            let id = created.id;
-            let need = min_size(&created.plugin);
+            let added = new_panel(workbench, plugin, ctx)?;
+            let id = added.id;
+            let need = min_size(registry, &added.plugin);
             let next = layout
                 .split(panel, Some(id), viewport, &metrics, |p| {
                     if p == id { need } else { sizes(p) }
                 })
                 .map_err(|error| refusal(error, "panel"))?;
-            Ok(Outcome::new(
-                CommandValue::Panel { panel: id },
-                vec![
-                    Change::PanelAdd { panel: created },
-                    Change::LayoutSet {
-                        workbench,
-                        layout: next,
-                    },
-                ],
-            ))
+            let mut changes = created(registry, added);
+            changes.push(Change::LayoutSet {
+                workbench,
+                layout: next,
+            });
+            Ok(Outcome::new(CommandValue::Panel { panel: id }, changes))
         }
         LayoutCommand::Focus { panel } | LayoutCommand::Select { panel } => {
             with_panel(state, panel, |layout| layout.focus_panel(panel))
@@ -162,12 +161,11 @@ pub(crate) fn layout_command(
     }
 }
 
-/// `min_size` панели по её plugin id. Панели нет в состоянии — значение по умолчанию.
-fn panel_min_size(state: &State, panel: PanelId) -> MinSize {
-    state
-        .panels
-        .get(&panel)
-        .map_or(MinSize::DEFAULT, |record| min_size(&record.plugin))
+/// `min_size` панели из манифеста её плагина. Панели нет в состоянии — значение по умолчанию.
+pub(crate) fn panel_min_size(state: &State, registry: &Registry, panel: PanelId) -> MinSize {
+    state.panels.get(&panel).map_or(MinSize::DEFAULT, |record| {
+        min_size(registry, &record.plugin)
+    })
 }
 
 fn need_viewport(ctx: &Ctx<'_>, command: &str) -> Result<Viewport, CoreError> {
@@ -286,6 +284,8 @@ const fn target_name(target: Hideable) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use shellio_layout::{Direction, Edge, Location};
 
     use super::*;
@@ -294,8 +294,9 @@ mod tests {
     use crate::error::ErrorCode;
     use crate::handler::{handle, startup};
     use crate::model::Route;
+    use crate::panel::PanelStatus;
     use crate::query::{LayoutView, Query, StorageInfo, read};
-    use crate::test_support::{FakeRootResolver, ManualClock, SequentialIds};
+    use crate::test_support::{FakeRootResolver, ManualClock, SequentialIds, registry};
     use crate::tree::TreeScope;
     use crate::wire::ReplyValue;
 
@@ -310,6 +311,7 @@ mod tests {
         ids: SequentialIds,
         clock: ManualClock,
         resolver: FakeRootResolver,
+        registry: Arc<Registry>,
         viewport: Option<Viewport>,
         workbench: WorkbenchId,
         navigator: PanelId,
@@ -325,12 +327,13 @@ mod tests {
                 resolver: FakeRootResolver::new()
                     .with_git("/src/app", "/src/app/.git")
                     .with_git("/src/docs", "/src/docs/.git"),
+                registry: registry(),
                 viewport: Some(VIEWPORT),
                 workbench: WorkbenchId::from_bytes([0; 16]),
                 navigator: PanelId::from_bytes([0; 16]),
                 terminal: PanelId::from_bytes([0; 16]),
             };
-            let mut ctx = Ctx::new(&h.clock, &mut h.ids);
+            let mut ctx = Ctx::new(&h.clock, &mut h.ids, &h.registry);
             let outcome = startup(&h.state, &mut ctx).unwrap().unwrap();
             h.state.apply_all(&outcome.changes);
             let workspace = h.state.workspaces_in_order()[0].id;
@@ -370,7 +373,8 @@ mod tests {
 
         fn run(&mut self, command: Command) -> Result<Outcome, CoreError> {
             let prepared = command.prepare(&self.resolver)?;
-            let mut ctx = Ctx::new(&self.clock, &mut self.ids).with_viewport(self.viewport);
+            let mut ctx =
+                Ctx::new(&self.clock, &mut self.ids, &self.registry).with_viewport(self.viewport);
             let outcome = handle(&self.state, prepared, &mut ctx)?;
             self.state.apply_all(&outcome.changes);
             assert_eq!(self.state.check_invariants(), Vec::new());
@@ -445,11 +449,21 @@ mod tests {
         let CommandValue::Panel { panel } = outcome.value else {
             panic!("ожидалась панель, получено {:?}", outcome.value);
         };
-        let [Change::PanelAdd { panel: added }, Change::LayoutSet { .. }] =
-            outcome.changes.as_slice()
+        // Начальные данные новой панели идут той же записью, что сама панель.
+        let [
+            Change::PanelAdd { panel: added },
+            Change::PanelData {
+                panel: with_data,
+                version: 1,
+                data,
+            },
+            Change::LayoutSet { .. },
+        ] = outcome.changes.as_slice()
         else {
             panic!("неожиданные дельты {:?}", outcome.changes);
         };
+        assert_eq!((*with_data, data.as_str()), (panel, "null"));
+        assert_eq!(h.state.status_of(panel), PanelStatus::Ready);
         assert_eq!(added.id, panel);
         assert_eq!(added.workbench, h.workbench);
         assert_eq!(added.plugin.as_str(), "terminal");
@@ -457,8 +471,11 @@ mod tests {
         assert_eq!(h.center_tabs(), [vec![terminal], vec![panel]]);
         assert_eq!(h.layout().focused(), Some(panel));
 
+        // Незарегистрированный плагин: название — его id, данных нет, статус — `plugin_missing`.
         let notes = h.split_open(panel, "notes");
         assert_eq!(h.state.panels[&notes].title.as_str(), "notes");
+        assert_eq!(h.state.panel_data.get(&notes), None);
+        assert_eq!(h.state.status_of(notes), PanelStatus::PluginMissing);
     }
 
     #[test]
@@ -515,7 +532,18 @@ mod tests {
             panel: right,
             open: Some("terminal".into()),
         });
-        assert_eq!(outcome.changes.len(), 2);
+        assert!(
+            matches!(
+                outcome.changes.as_slice(),
+                [
+                    Change::PanelAdd { .. },
+                    Change::PanelData { .. },
+                    Change::LayoutSet { .. }
+                ]
+            ),
+            "{:?}",
+            outcome.changes
+        );
         let CommandValue::Panel { panel } = outcome.value else {
             panic!("ожидалась панель");
         };
@@ -698,9 +726,16 @@ mod tests {
             workbench: None,
         };
         let view = |viewport, state: &State| -> LayoutView {
-            match read(state, crate::model::Revision(1), &storage, viewport, &query)
-                .unwrap()
-                .value
+            match read(
+                state,
+                &registry(),
+                crate::model::Revision(1),
+                &storage,
+                viewport,
+                &query,
+            )
+            .unwrap()
+            .value
             {
                 ReplyValue::Layout(view) => *view,
                 other => panic!("ожидалась раскладка, получено {other:?}"),
@@ -717,7 +752,15 @@ mod tests {
         assert_eq!(view(None, &h.state).frames, None);
 
         h.state.window.route = Route::WorkspaceHome;
-        let error = read(&h.state, crate::model::Revision(1), &storage, None, &query).unwrap_err();
+        let error = read(
+            &h.state,
+            &h.registry,
+            crate::model::Revision(1),
+            &storage,
+            None,
+            &query,
+        )
+        .unwrap_err();
         assert_refused(
             &error,
             ErrorCode::InvalidArgument,

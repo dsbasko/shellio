@@ -3,13 +3,18 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use shellio_layout::{Frames, Viewport, geometry};
+use shellio_layout::{Frames, MinSize, Viewport, geometry};
+use shellio_plugin_api::Registry;
 
+use crate::clock::UnixMillis;
 use crate::command::scoped_workbench;
 use crate::error::{CoreError, Entity};
 use crate::ids::{PanelId, WorkbenchId};
+use crate::layout_cmd::panel_min_size;
 use crate::model::{Diagnostic, Revision, State};
-use crate::panel::{Panel, WorkbenchLayout, layout_metrics, min_size};
+use crate::panel::{Panel, PluginId, WorkbenchLayout, layout_metrics};
+use crate::plugin_host::min_size;
+use crate::title::Title;
 use crate::tree::{TreeScope, TreeView};
 use crate::wire::{Reply, ReplyValue};
 
@@ -65,6 +70,32 @@ pub struct StatusView {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+/// Панель в ответе `query.layout`: запись панели и `min_size` из манифеста её плагина.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LayoutPanel {
+    pub id: PanelId,
+    pub workbench: WorkbenchId,
+    pub plugin: PluginId,
+    pub title: Title,
+    pub created_at: UnixMillis,
+    /// Наименьший размер тела: меньше него часть показывает заглушку.
+    pub min_size: MinSize,
+}
+
+impl LayoutPanel {
+    fn new(panel: &Panel, registry: &Registry) -> Self {
+        Self {
+            id: panel.id,
+            workbench: panel.workbench,
+            plugin: panel.plugin.clone(),
+            title: panel.title.clone(),
+            created_at: panel.created_at,
+            min_size: min_size(registry, &panel.plugin),
+        }
+    }
+}
+
 /// Ответ `query.layout`: раскладка, панели рабочей области по `PanelId` и кадры по текущему размеру
 /// окна. Без размера окна `frames` — `null`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -72,13 +103,14 @@ pub struct StatusView {
 pub struct LayoutView {
     pub workbench: WorkbenchId,
     pub layout: WorkbenchLayout,
-    pub panels: Vec<Panel>,
+    pub panels: Vec<LayoutPanel>,
     pub frames: Option<Frames<PanelId>>,
 }
 
 impl LayoutView {
     fn build(
         state: &State,
+        registry: &Registry,
         scope: TreeScope,
         workbench: Option<WorkbenchId>,
         viewport: Option<Viewport>,
@@ -90,27 +122,26 @@ impl LayoutView {
             .ok_or_else(|| CoreError::not_found(Entity::Workbench, workbench))?;
         let frames = viewport.map(|viewport| {
             geometry(layout, viewport, &layout_metrics(), |panel| {
-                state
-                    .panels
-                    .get(&panel)
-                    .map_or(shellio_layout::MinSize::DEFAULT, |record| {
-                        min_size(&record.plugin)
-                    })
+                panel_min_size(state, registry, panel)
             })
         });
         Ok(Self {
             workbench,
             layout: layout.clone(),
-            panels: state.workbench_panels(workbench).cloned().collect(),
+            panels: state
+                .workbench_panels(workbench)
+                .map(|panel| LayoutPanel::new(panel, registry))
+                .collect(),
             frames,
         })
     }
 }
 
 /// Выполнить чтение над снимком состояния с ревизией `revision`. `viewport` — размер окна, по
-/// которому `query.layout` считает кадры.
+/// которому `query.layout` считает кадры, `registry` даёт `min_size` панелей.
 pub fn read(
     state: &State,
+    registry: &Registry,
     revision: Revision,
     storage: &StorageInfo,
     viewport: Option<Viewport>,
@@ -124,7 +155,7 @@ pub fn read(
             diagnostics: state.diagnostics.clone(),
         }),
         Query::Layout { scope, workbench } => ReplyValue::Layout(Box::new(LayoutView::build(
-            state, *scope, *workbench, viewport,
+            state, registry, *scope, *workbench, viewport,
         )?)),
     };
     Ok(Reply { revision, value })
@@ -136,7 +167,7 @@ mod tests {
     use crate::error::ErrorCode;
     use crate::ids::{SequentialIds, WorkspaceId};
     use crate::model::Workspace;
-    use crate::title::Title;
+    use crate::test_support::registry;
 
     fn storage() -> StorageInfo {
         StorageInfo {
@@ -156,7 +187,15 @@ mod tests {
             diagnostics: vec![diagnostic.clone()],
             ..State::default()
         };
-        let reply = read(&state, Revision(7), &storage(), None, &Query::Status {}).unwrap();
+        let reply = read(
+            &state,
+            &registry(),
+            Revision(7),
+            &storage(),
+            None,
+            &Query::Status {},
+        )
+        .unwrap();
         assert_eq!(
             reply,
             Reply {
@@ -190,7 +229,7 @@ mod tests {
         let query = Query::Tree {
             scope: TreeScope::All,
         };
-        let reply = read(&state, Revision(3), &storage(), None, &query).unwrap();
+        let reply = read(&state, &registry(), Revision(3), &storage(), None, &query).unwrap();
         assert_eq!(reply.revision, Revision(3));
         assert_eq!(
             reply.value,
@@ -204,7 +243,15 @@ mod tests {
         let query = Query::Tree {
             scope: TreeScope::Workspace(WorkspaceId::generate(&mut ids)),
         };
-        let error = read(&State::default(), Revision(0), &storage(), None, &query).unwrap_err();
+        let error = read(
+            &State::default(),
+            &registry(),
+            Revision(0),
+            &storage(),
+            None,
+            &query,
+        )
+        .unwrap_err();
         assert_eq!(error.code(), ErrorCode::NotFound);
     }
 

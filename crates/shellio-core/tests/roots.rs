@@ -13,7 +13,7 @@ use std::process::Command as Process;
 use std::sync::Arc;
 
 use shellio_core::test_support::{
-    Faults, FaultyPersist, ManualClock, MemoryPersist, SequentialIds,
+    Faults, FaultyPersist, ManualClock, MemoryPersist, SequentialIds, registry,
 };
 use shellio_core::{
     Command, CommandValue, Core, CoreError, CoreHandle, ErrorCode, FsRootResolver, ProjectId,
@@ -110,6 +110,7 @@ fn start(persist: FaultyPersist) -> TestResult<CoreHandle> {
         Box::new(ManualClock::new(NOW)),
         Box::new(SequentialIds::new()),
         Arc::new(FsRootResolver),
+        registry(),
     )?)
 }
 

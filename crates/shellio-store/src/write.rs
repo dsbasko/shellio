@@ -13,15 +13,17 @@ use shellio_core::{
 use crate::layout_json;
 
 /// Записать `changes` поверх ревизии `base`: проверка `meta.revision == base`, SQL каждой
-/// дельты, `meta.revision = base + 1`. Любой отказ откатывает транзакцию целиком.
+/// дельты, новый отпечаток реестра плагинов `fingerprint` записи запуска, `meta.revision =
+/// base + 1`. Любой отказ откатывает транзакцию целиком.
 ///
 /// `stop_after = Some(n)` прерывает запись отказом `Unavailable`, когда выполнено `n`
-/// SQL-операторов дельт и ревизии: так тестовый крючок сбоя рвёт транзакцию посередине.
-/// В продукте — `None`.
+/// SQL-операторов дельт, отпечатка и ревизии: так тестовый крючок сбоя рвёт транзакцию
+/// посередине. В продукте — `None`.
 pub(crate) fn commit(
     conn: &mut Connection,
     base: Revision,
     changes: &[Change],
+    fingerprint: Option<&str>,
     stop_after: Option<usize>,
 ) -> Result<(), CommitError> {
     let tx = conn
@@ -47,6 +49,14 @@ pub(crate) fn commit(
     };
     for change in changes {
         write_change(&mut tx, change)?;
+    }
+    if let Some(fingerprint) = fingerprint {
+        // Строка отпечатка единственная, как строка окна.
+        tx.exec(
+            "INSERT INTO plugin_registry (id, fingerprint) VALUES (1, ?1) \
+             ON CONFLICT (id) DO UPDATE SET fingerprint = excluded.fingerprint",
+            [fingerprint],
+        )?;
     }
     update_one(
         &mut tx,
@@ -140,6 +150,7 @@ fn write_change(tx: &mut Writer<'_>, change: &Change) -> Result<(), CommitError>
             .map(drop)
         }
         Change::PanelAdd { panel } => insert_panel(tx, panel),
+        // Строку данных панели удаляет `ON DELETE CASCADE`.
         Change::PanelRemove { panel } => update_one(
             tx,
             "panels",
@@ -147,6 +158,42 @@ fn write_change(tx: &mut Writer<'_>, change: &Change) -> Result<(), CommitError>
             "DELETE FROM panels WHERE id = ?1",
             [panel.as_bytes().as_slice()],
         ),
+        Change::PanelRehome { panel, workbench } => update_one(
+            tx,
+            "panels",
+            panel,
+            "UPDATE panels SET workbench = ?2 WHERE id = ?1",
+            (panel.as_bytes().as_slice(), workbench.as_bytes().as_slice()),
+        ),
+        // Данные пишутся целиком вставкой с обновлением: строки могло не быть.
+        Change::PanelData {
+            panel,
+            version,
+            data,
+        } => tx
+            .exec(
+                "INSERT INTO panel_states (panel, version, data) VALUES (?1, ?2, ?3) \
+                 ON CONFLICT (panel) DO UPDATE SET \
+                 version = excluded.version, data = excluded.data",
+                (
+                    panel.as_bytes().as_slice(),
+                    i64::from(*version),
+                    data.as_str(),
+                ),
+            )
+            .map(drop),
+        Change::PanelOpenedFrom { panel, opened_from } => update_one(
+            tx,
+            "panels",
+            panel,
+            "UPDATE panels SET opened_from = ?2 WHERE id = ?1",
+            (
+                panel.as_bytes().as_slice(),
+                opened_from.as_ref().map(|id| id.as_bytes().as_slice()),
+            ),
+        ),
+        // Статус — производное значение: в базе его нет, оператора нет.
+        Change::PanelStatus { .. } => Ok(()),
         Change::LayoutSet { workbench, layout } => set_layout(tx, *workbench, layout),
     }
 }

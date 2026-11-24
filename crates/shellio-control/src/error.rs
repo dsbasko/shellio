@@ -416,7 +416,7 @@ mod tests {
     #[test]
     fn protocol_mismatch_names_supported_versions() {
         let error = ControlError::protocol_mismatch(7);
-        assert_eq!(error.detail("supported"), Some(&Value::from(vec![2])));
+        assert_eq!(error.detail("supported"), Some(&Value::from(vec![3])));
         assert!(error.message().contains('7'), "{error}");
     }
 }

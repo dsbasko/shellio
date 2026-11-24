@@ -7,14 +7,14 @@ use std::error::Error;
 use std::sync::Arc;
 
 use shellio_core::test_support::{
-    FakeRootResolver, Faults, FaultyPersist, ManualClock, MemoryPersist, SequentialIds,
+    FakeRootResolver, Faults, FaultyPersist, ManualClock, MemoryPersist, SequentialIds, registry,
 };
 use shellio_core::{
     BOOTSTRAP_WORKSPACE, Change, Command, CommandValue, Core, CoreError, CoreHandle, EVENT_BUFFER,
     ErrorCode, Event, EventsSince, IdGen, NAVIGATOR_PLUGIN, Project, ProjectId, QUEUE_CAPACITY,
     Query, ReplyValue, Revision, RootKey, RootKind, Route, SUBSCRIBER_CAPACITY, Snapshot,
     StartError, State, StatusView, TERMINAL_PLUGIN, Title, TreeRoot, TreeScope, TreeView,
-    UnixMillis, WindowState, Workbench, WorkbenchId, Workspace, WorkspaceId,
+    UnixMillis, WindowState, Workbench, WorkbenchId, Workspace, WorkspaceId, fingerprint,
 };
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::error::{RecvError, TryRecvError};
@@ -31,6 +31,7 @@ fn start(persist: FaultyPersist) -> Result<CoreHandle, StartError> {
         Box::new(ManualClock::new(NOW)),
         Box::new(SequentialIds::new()),
         Arc::new(FakeRootResolver::new()),
+        registry(),
     )
 }
 
@@ -115,15 +116,15 @@ async fn start_on_empty_state_bootstraps_one_workspace() {
     assert_eq!(snapshot.state.window.route, Route::WorkspaceHome);
     assert_eq!(snapshot.state.check_invariants(), Vec::new());
 
-    let events = events(core.events_since(Revision::ZERO).await.unwrap()).unwrap();
-    assert_eq!(revisions(&events), [1]);
-    assert!(matches!(
-        events[0].changes.as_slice(),
-        [
-            Change::WorkspaceInserted { workspace: inserted },
-            Change::WindowSet { active, route: Route::WorkspaceHome },
-        ] if inserted.id == workspace && *active == workspace
-    ));
+    assert_eq!(snapshot.state.window.active_workspace, Some(workspace));
+
+    // Отпечатка реестра в новой базе нет: запись запуска несёт его и в буфер не попадает,
+    // поэтому курсор 0 получает снимок, а не событие.
+    assert_eq!(memory.fingerprint(), Some(fingerprint(&registry())));
+    assert_eq!(
+        core.events_since(Revision::ZERO).await.unwrap(),
+        EventsSince::Reset(snapshot)
+    );
 }
 
 #[tokio::test]
@@ -231,7 +232,8 @@ fn open_workbench_without_layout() -> TestResult<(State, WorkbenchId)> {
 #[tokio::test]
 async fn start_writes_default_layout_and_snapshot_plus_events_equal_state() {
     let (seeded, workbench) = open_workbench_without_layout().unwrap();
-    let memory = MemoryPersist::with_state(seeded.clone(), Revision(3));
+    // Базу писал владелец с тем же реестром: запись запуска — обычное событие в буфере.
+    let memory = MemoryPersist::with_state(seeded.clone(), Revision(3)).written_by(&registry());
 
     let (core, faults) = start_on(&memory).unwrap();
     assert_eq!(
@@ -717,6 +719,7 @@ async fn every_command_result_is_read_through_query_tree() {
         Box::new(clock.clone()),
         Box::new(SequentialIds::new()),
         Arc::new(FakeRootResolver::new().with_git("/src/shellio", "/src/shellio/.git")),
+        registry(),
     )
     .unwrap();
     let (_, start) = tree_all(&core).await.unwrap();

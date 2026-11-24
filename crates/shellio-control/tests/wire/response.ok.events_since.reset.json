@@ -17,6 +17,9 @@
         "roots": {},
         "workbenches": {},
         "panels": {},
+        "panel_data": {},
+        "panel_status": {},
+        "opened_from": {},
         "layouts": {},
         "window": {
           "active_workspace": "00000000-0000-0000-0000-000000000001",

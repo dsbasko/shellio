@@ -38,6 +38,7 @@ use tokio::sync::broadcast::{self, error::RecvError};
 use tokio::task::{JoinHandle, spawn_blocking};
 
 use crate::launch::{self, Outgoing, Run, WindowMode};
+use crate::plugins;
 
 /// Срок второго запуска: подключение, `hello` и отправка `launch`.
 pub const SECOND_LAUNCH_TIMEOUT: Duration = Duration::from_secs(10);
@@ -567,6 +568,8 @@ impl Signals {
 async fn load_core(profile: Profile) -> Result<CoreHandle, String> {
     let runtime = Handle::current();
     blocking(move || {
+        // Реестр собирается до открытия базы: с неверным списком плагинов база не трогается.
+        let registry = plugins::shared_registry().map_err(|error| error.to_string())?;
         let db = Database::open(&profile, &SystemClock)
             .map_err(|error| format!("хранилище не открыто: {error}"))?;
         Core::start(
@@ -575,6 +578,7 @@ async fn load_core(profile: Profile) -> Result<CoreHandle, String> {
             Box::new(SystemClock),
             Box::new(SystemIds),
             Arc::new(FsRootResolver),
+            registry,
         )
         .map_err(|error| format!("ядро не запущено: {error}"))
     })
@@ -737,7 +741,7 @@ mod tests {
     use std::sync::Mutex;
 
     use shellio_core::test_support::{
-        FakeRootResolver, ManualClock as CoreClock, MemoryPersist, SequentialIds,
+        FakeRootResolver, ManualClock as CoreClock, MemoryPersist, SequentialIds, registry,
     };
     use shellio_core::{Command, Mirror, Revision, Snapshot, UnixMillis, workspace_name};
 
@@ -808,6 +812,7 @@ mod tests {
             Box::new(CoreClock::new(UnixMillis(1_700_000_000_000))),
             Box::new(SequentialIds::new()),
             Arc::new(FakeRootResolver::new()),
+            registry(),
         )
         .unwrap();
         let start = snapshot(&core).await.revision;

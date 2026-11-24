@@ -13,7 +13,9 @@
 use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::sync::Arc;
 
+use shellio::plugins;
 use shellio::scene::{
     self, Bench, Host, MenuRow, Op, PICKER, PanelMenuItem, PartKey, PlateRef, PlateSlot, Scene,
     SplitId, SplitPlan,
@@ -27,6 +29,7 @@ use shellio_appkit::{
 use shellio_control::{ComponentState, ComponentView, PanelNodeView, PartNodeView};
 use shellio_core::{Command, PanelId, State, layout_metrics};
 use shellio_layout::{Point, Rect, SizeClass, Viewport, Zone, ZoneMap};
+use shellio_plugin_api::Registry;
 use shellio_theme::{AppTheme, KeyMode, Motion};
 
 use crate::window_ui;
@@ -100,6 +103,8 @@ pub struct LayoutUi {
     theme: AppTheme,
     motion: Motion,
     on_panel: Rc<dyn Fn(PanelAction)>,
+    /// Реестр плагинов процесса: `min_size` панелей сцены.
+    registry: Arc<Registry>,
 }
 
 impl LayoutUi {
@@ -130,8 +135,12 @@ impl LayoutUi {
         };
         let note = EmptyNote::new(app, &theme, scene::NO_WORKBENCH);
         let (width, height) = window.content_size();
+        // Без верного списка плагинов владелец не запустится и скажет причину сам: окну до его
+        // отказа хватает пустого реестра.
+        let registry = plugins::shared_registry().unwrap_or_default();
         let empty = Scene::of(
             &State::default(),
+            &registry,
             scene::viewport_of(width, height),
             layout_metrics(),
         );
@@ -167,6 +176,7 @@ impl LayoutUi {
             theme,
             motion: selection.motion,
             on_panel,
+            registry,
         }
     }
 
@@ -242,7 +252,12 @@ impl LayoutUi {
     /// Показывает состояние `state` (`None` — снимка ещё нет) при размере содержимого `viewport`.
     pub fn render(&mut self, app: &App, state: Option<&State>, viewport: Viewport) {
         let empty = State::default();
-        let next = Scene::of(state.unwrap_or(&empty), viewport, layout_metrics());
+        let next = Scene::of(
+            state.unwrap_or(&empty),
+            &self.registry,
+            viewport,
+            layout_metrics(),
+        );
         let before = self.scene.as_ref().and_then(|scene| scene.bench.as_ref());
         let ops = scene::diff(before, next.bench.as_ref());
         if let Some(bench) = &next.bench {

@@ -8,7 +8,7 @@ use std::error::Error;
 use std::sync::Arc;
 
 use shellio_core::test_support::{
-    FakeRootResolver, FaultyPersist, ManualClock, MemoryPersist, SequentialIds,
+    FakeRootResolver, FaultyPersist, ManualClock, MemoryPersist, SequentialIds, registry,
 };
 use shellio_core::{
     BOOTSTRAP_WORKSPACE, Command, CommandValue, Core, CoreHandle, Delivery, Event, Mirror,
@@ -31,6 +31,7 @@ fn start() -> TestResult<CoreHandle> {
         Box::new(ManualClock::new(NOW)),
         Box::new(SequentialIds::new()),
         Arc::new(FakeRootResolver::new()),
+        registry(),
     )?)
 }
 

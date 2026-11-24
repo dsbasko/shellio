@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use shellio_core::test_support::{
-    FakeRootResolver, Loopback, LoopbackEvents, ManualClock, SequentialIds,
+    FakeRootResolver, Loopback, LoopbackEvents, ManualClock, SequentialIds, registry,
 };
 use shellio_core::{
     Command, CommandValue, Core, CoreError, CoreHandle, ErrorCode, Event, EventsSince, ProjectId,
@@ -41,6 +41,7 @@ impl Side {
             Box::new(clock.clone()),
             Box::new(SequentialIds::new()),
             Arc::new(resolver),
+            registry(),
         )
         .map_err(|error| error.to_string())?;
         Ok(Self {

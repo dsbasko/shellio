@@ -3,16 +3,19 @@
 //! Загрузка ничего не пишет. Повреждённая строка пропускается вместе с зависимыми, висячая
 //! мягкая ссылка сбрасывается только в памяти, совпадения позиций и имён лишь сообщаются.
 //! Раскладка с находкой в память не попадает: недостающие раскладки дописывает запуск ядра.
+//! Данные панели загружаются исходным текстом без разбора. Строка данных, которую прочитать нельзя,
+//! загружается как нечитаемая и остаётся в базе как есть.
 //! Каждая находка попадает в `State::diagnostics` как `{table, rowid, reason}`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
+use rusqlite::types::ValueRef;
 use rusqlite::{Connection, OptionalExtension, Row};
 use shellio_core::{
-    Diagnostic, Panel, PanelId, PluginId, Project, ProjectId, ProjectRoot, ProjectRootId, Revision,
-    RootKey, RootKind, Route, State, Title, UnixMillis, WindowState, Workbench, WorkbenchId,
-    Workspace, WorkspaceId,
+    Diagnostic, Panel, PanelData, PanelId, PluginId, Project, ProjectId, ProjectRoot,
+    ProjectRootId, Revision, RootKey, RootKind, Route, State, Title, UnixMillis, WindowState,
+    Workbench, WorkbenchId, Workspace, WorkspaceId,
 };
 
 use crate::layout_json;
@@ -50,11 +53,20 @@ const WORKBENCHES: &str = "workbenches";
 const WINDOW_STATE: &str = "window_state";
 const PANELS: &str = "panels";
 const WORKBENCH_LAYOUTS: &str = "workbench_layouts";
+const PANEL_STATES: &str = "panel_states";
 /// `window_state.id` — псевдоним `rowid`, строка единственная.
 const WINDOW_ROWID: i64 = 1;
 
-/// Загрузить состояние и ревизию одной читающей транзакцией.
-pub(crate) fn load(conn: &Connection, path: &Path) -> Result<(State, Revision), StoreError> {
+/// Загруженное из базы.
+pub(crate) struct Loaded {
+    pub(crate) state: State,
+    pub(crate) revision: Revision,
+    /// Отпечаток реестра плагинов прежнего запуска. `None` — строки нет или она не текст.
+    pub(crate) fingerprint: Option<String>,
+}
+
+/// Загрузить состояние, ревизию и отпечаток реестра одной читающей транзакцией.
+pub(crate) fn load(conn: &Connection, path: &Path) -> Result<Loaded, StoreError> {
     let sqlite = |source| StoreError::Sqlite {
         path: path.to_path_buf(),
         source,
@@ -71,10 +83,28 @@ pub(crate) fn load(conn: &Connection, path: &Path) -> Result<(State, Revision), 
     loader.position_collisions();
     loader.name_collisions();
     loader.panels(&tx).map_err(sqlite)?;
+    loader.panel_states(&tx).map_err(sqlite)?;
     loader.layouts(&tx).map_err(sqlite)?;
     loader.missing_layouts();
+    let fingerprint = fingerprint(&tx).map_err(sqlite)?;
     tx.commit().map_err(sqlite)?;
-    Ok((loader.finish(), revision))
+    Ok(Loaded {
+        state: loader.finish(),
+        revision,
+        fingerprint,
+    })
+}
+
+/// Отпечаток реестра плагинов. Строка не текстом читается как отсутствующая: запуск запишет
+/// отпечаток заново.
+fn fingerprint(conn: &Connection) -> rusqlite::Result<Option<String>> {
+    conn.query_row(
+        "SELECT fingerprint FROM plugin_registry WHERE id = 1",
+        [],
+        |row| Ok(row.get::<_, String>(0).ok()),
+    )
+    .optional()
+    .map(Option::flatten)
 }
 
 fn revision(conn: &Connection, path: &Path) -> Result<Revision, StoreError> {
@@ -407,7 +437,8 @@ impl Loader {
 
     fn panels(&mut self, conn: &Connection) -> rusqlite::Result<()> {
         let mut stmt = conn.prepare(
-            "SELECT rowid, id, workbench, plugin, title, created_at FROM panels ORDER BY rowid",
+            "SELECT rowid, id, workbench, plugin, title, created_at, opened_from \
+             FROM panels ORDER BY rowid",
         )?;
         let mut rows = stmt.query([])?;
         while let Some(row) = rows.next()? {
@@ -429,17 +460,65 @@ impl Loader {
                     title,
                     created_at: UnixMillis(created_at),
                 };
-                Ok((panel, trimmed))
+                Ok((panel, trimmed, soft_ref(row, 6)))
             })();
             match parsed {
-                Ok((panel, trimmed)) => {
+                Ok((panel, trimmed, opened_from)) => {
                     if trimmed {
                         self.note(PANELS, rowid, TITLE_TRIMMED);
+                    }
+                    // Вызывающей панели может уже не быть: ссылка мягкая и не проверяется.
+                    match opened_from {
+                        SoftRef::Unset => {}
+                        SoftRef::Invalid => self.note(PANELS, rowid, INVALID_VALUE),
+                        SoftRef::Id(bytes) => {
+                            self.state
+                                .opened_from
+                                .insert(panel.id, PanelId::from_bytes(bytes));
+                        }
                     }
                     self.state.panels.insert(panel.id, panel);
                 }
                 Err(reason) => self.note(PANELS, rowid, reason),
             }
+        }
+        Ok(())
+    }
+
+    /// Данные панелей исходным текстом. Строка с версией вне `1..=u32::MAX`, с данными не типа
+    /// `TEXT` или не в UTF-8 загружается как нечитаемая с находкой. Строка панели, которой нет
+    /// среди загруженных, пропускается.
+    fn panel_states(&mut self, conn: &Connection) -> rusqlite::Result<()> {
+        let mut stmt =
+            conn.prepare("SELECT rowid, panel, version, data FROM panel_states ORDER BY rowid")?;
+        let mut rows = stmt.query([])?;
+        while let Some(row) = rows.next()? {
+            let rowid: i64 = row.get(0)?;
+            let panel = owner(row, 1)
+                .map(PanelId::from_bytes)
+                .filter(|panel| self.state.panels.contains_key(panel));
+            let Some(panel) = panel else {
+                self.note(PANEL_STATES, rowid, OWNER_MISSING);
+                continue;
+            };
+            let version = match row.get_ref(2)? {
+                ValueRef::Integer(version) => u32::try_from(version).ok().filter(|&v| v >= 1),
+                ValueRef::Null | ValueRef::Real(_) | ValueRef::Text(_) | ValueRef::Blob(_) => None,
+            };
+            let raw = match row.get_ref(3)? {
+                ValueRef::Text(bytes) => std::str::from_utf8(bytes).ok().map(str::to_owned),
+                ValueRef::Null | ValueRef::Integer(_) | ValueRef::Real(_) | ValueRef::Blob(_) => {
+                    None
+                }
+            };
+            let data = match (version, raw) {
+                (Some(version), Some(raw)) => PanelData::Text { version, raw },
+                (None, _) | (_, None) => {
+                    self.note(PANEL_STATES, rowid, INVALID_VALUE);
+                    PanelData::Unreadable {}
+                }
+            };
+            self.state.panel_data.insert(panel, data);
         }
         Ok(())
     }
