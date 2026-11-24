@@ -21,8 +21,8 @@ use std::sync::Arc;
 use shellio::bodies::{self, Bodies, Build, SharedRequests, Shell, Ticket};
 use shellio::plugins::{self, Factories};
 use shellio::scene::{
-    self, Bench, Host, MenuRow, Op, PICKER, PanelMenuItem, PartKey, PlateRef, PlateSlot, Scene,
-    SplitId, SplitPlan,
+    self, Bench, Host, MenuRow, Op, PanelMenuItem, PartKey, PlateRef, PlateSlot, Scene, SplitId,
+    SplitPlan,
 };
 use shellio_appkit::{
     App, EmptyNote, ExpandStub, Frame, Insets, MainWindow, Menu, MenuEntry, MenuIntent, MenuItem,
@@ -172,7 +172,12 @@ impl LayoutUi {
         container.place(&note, Insets::ZERO);
         let on_panel: Rc<dyn Fn(PanelAction)> = Rc::new(on_panel);
         let picker_panel = Rc::new(Cell::new(None));
-        let picker = picker_menu(app, Rc::clone(&on_panel), Rc::clone(&picker_panel));
+        let picker = picker_menu(
+            app,
+            &registry,
+            Rc::clone(&on_panel),
+            Rc::clone(&picker_panel),
+        );
         LayoutUi {
             stubs: BTreeMap::new(),
             bodies: Bodies::default(),
@@ -209,12 +214,19 @@ impl LayoutUi {
         self.bodies.built()
     }
 
-    /// Открывает выбор «Открыть в новой части» у кнопки «Разделить» плитки панели `panel`.
-    /// `false` — панель не стоит в плитке: выбор не открыт.
-    pub fn open_picker(&self, panel: PanelId) -> bool {
+    /// Открывает выбор «Открыть в новой части» у кнопки «Разделить» плитки панели `panel`: пункты
+    /// и их доступность — по состоянию `state` на момент открытия. `false` — панель не стоит в
+    /// плитке: выбор не открыт.
+    pub fn open_picker(&self, state: &State, panel: PanelId) -> bool {
         let (Some(plate), Some(picker)) = (self.plate_of(panel), &self.picker) else {
             return false;
         };
+        let items = scene::picker_items(state, &self.registry, Some(panel));
+        if let Err(error) = picker.set_entries(picker_entries(&items)) {
+            shellio::owner::say_err(format_args!(
+                "shellio: выбор новой части не обновлён: {error}"
+            ));
+        }
         self.picker_panel.set(Some(panel));
         plate.pop_up_choice(picker);
         true
@@ -781,22 +793,34 @@ impl LayoutUi {
     }
 }
 
-/// Меню выбора «Открыть в новой части»: известные plugin id, `terminal` первым. Выбор уходит
-/// действием [`PanelAction::Open`] для панели открытого выбора, `Esc` закрывает меню без действия.
+fn picker_entries(items: &[scene::PickerItem]) -> Vec<MenuEntry> {
+    items
+        .iter()
+        .map(|item| {
+            MenuEntry::Item(MenuItem {
+                enabled: item.enabled,
+                ..MenuItem::new(item.plugin, &item.title)
+            })
+        })
+        .collect()
+}
+
+/// Меню выбора «Открыть в новой части»: плагины реестра, `terminal` первым; id пункта — plugin id.
+/// Выбор уходит действием [`PanelAction::Open`] для панели открытого выбора, `Esc` закрывает меню
+/// без действия.
 fn picker_menu(
     app: &App,
+    registry: &Arc<Registry>,
     on_panel: Rc<dyn Fn(PanelAction)>,
     panel: Rc<Cell<Option<PanelId>>>,
 ) -> Option<Menu> {
-    let entries = PICKER
-        .iter()
-        .map(|(plugin, title)| MenuEntry::Item(MenuItem::new(plugin, title)))
-        .collect();
+    let entries = picker_entries(&scene::picker_items(&State::default(), registry, None));
+    let known = Arc::clone(registry);
     let chosen = move |intent| match intent {
         MenuIntent::Chosen { id } => {
-            let plugin = PICKER
+            let plugin = known
                 .iter()
-                .map(|(plugin, _)| *plugin)
+                .map(|plugin| plugin.manifest().id)
                 .find(|plugin| *plugin == id);
             if let (Some(plugin), Some(panel)) = (plugin, panel.take()) {
                 on_panel(PanelAction::Open { panel, plugin });

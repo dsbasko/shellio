@@ -49,7 +49,7 @@ pub use panel::{
     TERMINAL_PLUGIN, TERMINAL_TITLE, WorkbenchLayout, is_navigator, layout_metrics,
 };
 pub use persist::{CommitError, LoadError, Loaded, Persist};
-pub use plugin_host::{STATUS_RULES, fingerprint, min_size};
+pub use plugin_host::{STATUS_RULES, SplitOpen, fingerprint, min_size, split_open};
 pub use query::{
     LayoutPanel, LayoutView, PanelView, PluginsView, Query, StatusView, StorageInfo, read,
 };

@@ -24,13 +24,15 @@ use shellio::bodies::{self, Failure, Ticket};
 use shellio::gallery::{self, Changed, Effect, Generation, Intent};
 use shellio::launch::WindowMode;
 use shellio::owner;
+use shellio::plugins;
+use shellio::receipts::{Ending, Ring, Sent};
 use shellio::scene::{self, SplitId, ViewportGate, ZoneToggle};
 use shellio_appkit::{
     App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, LoopMonitor, MainMenu,
-    MainThread, MainWindow, MenuAction, MenuEntry, MenuState, NodeState, Regime, SplitAxis,
-    SplitDrag, Startup, StatusLine, TabStatus, TabStripFacts, TextFieldState, ThemeSelection,
-    Transition, TransitionPath, TreeListFacts, VirtualListFacts, ZoneButton, ZoneSide,
-    instance_counts, late_callbacks,
+    MainThread, MainWindow, MenuAction, MenuEntry, MenuState, NodeState, PanelRow, Regime,
+    SplitAxis, SplitDrag, Startup, StatusLine, TabStatus, TabStripFacts, TextFieldState,
+    ThemeSelection, Transition, TransitionPath, TreeListFacts, VirtualListFacts, ZoneButton,
+    ZoneSide, instance_counts, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, ChromeView,
@@ -41,7 +43,8 @@ use shellio_control::{
     TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest, VirtualListView, WindowView,
 };
 use shellio_core::{
-    AppearanceChoice, Command, CoreError, CoreHandle, Delivery, Mirror, MirrorStep, UiCommand,
+    AppearanceChoice, Command, CoreError, CoreHandle, Delivery, Mirror, MirrorStep, Reply,
+    UiCommand, open_workbench,
 };
 use shellio_plugin_view::PanelRequest;
 use shellio_theme::AppearanceChoice as ThemeChoice;
@@ -66,6 +69,25 @@ thread_local! {
 struct CoreLink {
     core: CoreHandle,
     runtime: tokio::runtime::Handle,
+    /// Квитанции `panel.open`, поданных главным потоком: пишутся при завершении квитанции ядра,
+    /// читаются `ui.receipts`.
+    receipts: RefCell<Ring>,
+}
+
+/// Завершение команды главного потока для кольца квитанций; не `panel.open` в него не пишется.
+/// Вызывается из очереди главного потока, вне заимствований слота ядра на запись.
+fn note_receipt(sent: &Command, ending: Ending<'_>) {
+    if let Some(sent) = Sent::of(sent) {
+        record_receipt(sent, ending);
+    }
+}
+
+fn record_receipt(sent: Sent, ending: Ending<'_>) {
+    CORE.with(|slot| {
+        if let Some(link) = slot.borrow().as_ref() {
+            link.receipts.borrow_mut().record(sent, ending);
+        }
+    });
 }
 
 impl CoreLink {
@@ -92,9 +114,16 @@ impl CoreLink {
                                 }
                             });
                         }
+                        Ok(Ok(reply)) if Sent::of(&sent).is_some() => {
+                            defer(move |_| note_receipt(&sent, Ending::Reply(&reply)));
+                        }
                         Ok(Ok(_)) => {}
-                        Ok(Err(error)) => defer(move |app| on_refused(app, &sent, &error)),
+                        Ok(Err(error)) => defer(move |app| {
+                            note_receipt(&sent, Ending::Refused(&error));
+                            on_refused(app, &sent, &error);
+                        }),
                         Err(_) => defer(move |app| {
+                            note_receipt(&sent, Ending::NoReply);
                             owner::say_err(format_args!(
                                 "shellio: {} отклонена: ядро не ответило",
                                 sent.name()
@@ -105,18 +134,26 @@ impl CoreLink {
                     }
                 });
             }
-            Err(error) => defer(move |app| on_refused(app, &sent, &error)),
+            // Ранний отказ (`busy`) — тоже завершение квитанции.
+            Err(error) => defer(move |app| {
+                note_receipt(&sent, Ending::Refused(&error));
+                on_refused(app, &sent, &error);
+            }),
         }
     }
 
     /// Подать команду тела панели без ожидания. `done` получает исход в задаче runtime, а ранний
     /// отказ — сразу: строка статуса его не показывает, причину показывает само тело.
-    fn request(&self, command: Command, done: impl FnOnce(Result<(), Failure>) + Send + 'static) {
+    fn request(
+        &self,
+        command: Command,
+        done: impl FnOnce(Result<Reply, Failure>) + Send + 'static,
+    ) {
         match self.core.try_request(command) {
             Ok(receipt) => {
                 self.runtime.spawn(async move {
                     done(match receipt.await {
-                        Ok(Ok(_)) => Ok(()),
+                        Ok(Ok(reply)) => Ok(reply),
                         Ok(Err(error)) => Err(Failure::Core(error)),
                         Err(_) => Err(Failure::NoReply),
                     });
@@ -138,20 +175,32 @@ fn send_request(ticket: Ticket, request: PanelRequest) {
     });
     let command = bodies::command_of(ticket.panel, workbench, request);
     let name = command.name();
-    let finish = move |outcome: Result<(), Failure>| {
-        defer(move |_| finish_request(ticket, name, outcome));
-    };
-    let sent = CORE.with(|slot| match slot.try_borrow() {
-        Ok(link) => match link.as_ref() {
-            Some(link) => {
-                link.request(command, finish);
-                true
+    let opened = Sent::of(&command);
+    let finish = move |outcome: Result<Reply, Failure>| {
+        defer(move |_| {
+            if let Some(sent) = opened {
+                match &outcome {
+                    Ok(reply) => record_receipt(sent, Ending::Reply(reply)),
+                    Err(Failure::Core(error)) => record_receipt(sent, Ending::Refused(error)),
+                    Err(Failure::NoReply) => record_receipt(sent, Ending::NoReply),
+                    // Команда ядру не подавалась: квитанции нет.
+                    Err(Failure::NoCore) => {}
+                }
             }
-            None => false,
-        },
-        Err(_) => false,
+            finish_request(ticket, name, outcome.map(|_| ()));
+        });
+    };
+    // Исход уходит ровно один раз: ядру вместе с командой или сразу, если ядра нет.
+    let mut finish = Some(finish);
+    CORE.with(|slot| {
+        if let Ok(link) = slot.try_borrow()
+            && let Some(link) = link.as_ref()
+            && let Some(finish) = finish.take()
+        {
+            link.request(command, finish);
+        }
     });
-    if !sent {
+    if let Some(finish) = finish {
         finish(Err(Failure::NoCore));
     }
 }
@@ -228,6 +277,8 @@ struct OwnerWindow {
     layout: Option<LayoutUi>,
     /// Строка статуса обычного режима.
     status: Option<StatusLine>,
+    /// Плагины пунктов меню «Открыть панель» по порядку пунктов.
+    open_rows: Vec<&'static str>,
     /// Размер окна для ядра.
     viewport: ViewportGate,
     /// Смены компонентов, ещё не записанные в журнал: запись получает поколение публикации.
@@ -296,11 +347,18 @@ impl OwnerWindow {
         }
     }
 
-    /// Выбор «Открыть в новой части» для панели `panel`; `false` — выбора нет.
+    /// Выбор «Открыть в новой части» для панели `panel` по состоянию зеркала; `false` — выбора
+    /// нет.
     fn open_picker(&self, panel: shellio_core::PanelId) -> bool {
-        self.layout
-            .as_ref()
-            .is_some_and(|layout| layout.open_picker(panel))
+        let Some(layout) = self.layout.as_ref() else {
+            return false;
+        };
+        MIRROR.with(|mirror| {
+            mirror
+                .borrow()
+                .as_ref()
+                .is_some_and(|mirror| layout.open_picker(mirror.state(), panel))
+        })
     }
 
     /// Размер содержимого окна в целых точках.
@@ -317,10 +375,13 @@ impl OwnerWindow {
             return;
         };
         let visible = self.window.is_visible();
-        MIRROR.with(|mirror| {
+        let open = MIRROR.with(|mirror| {
             let mirror = mirror.borrow();
-            layout.render(app, mirror.as_ref().map(Mirror::state), viewport, visible);
+            let state = mirror.as_ref().map(Mirror::state);
+            layout.render(app, state, viewport, visible);
+            state.is_some_and(|state| open_workbench(state).is_some())
         });
+        self.menu.set_open_enabled(open);
         let Some(scene) = layout.scene() else {
             return;
         };
@@ -953,16 +1014,30 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
         return number;
     }
     let window = new_window(app);
-    let menu = MainMenu::install(app, |action| {
-        defer(move |app| match command_of(action) {
-            Some(command) => handle(app, command),
-            None => {
-                if let MenuAction::Zone(button) = action {
-                    on_zone(app, button);
-                }
-            }
-        });
-    });
+    // Без верного списка плагинов владелец не запустится и скажет причину сам: меню до его отказа
+    // хватает пустого списка.
+    let rows = plugins::shared_registry()
+        .map(|registry| scene::open_rows(&registry))
+        .unwrap_or_default();
+    let menu = MainMenu::install(
+        app,
+        rows.iter()
+            .map(|row| PanelRow {
+                id: row.plugin.to_owned(),
+                title: row.title.to_owned(),
+            })
+            .collect(),
+        |action| {
+            defer(move |app| match command_of(action) {
+                Some(command) => handle(app, command),
+                None => match action {
+                    MenuAction::Zone(button) => on_zone(app, button),
+                    MenuAction::OpenPanel(row) => on_open_panel(app, row),
+                    MenuAction::Quit | MenuAction::CloseWindow | MenuAction::Appearance(_) => {}
+                },
+            });
+        },
+    );
     let monitor = match LoopMonitor::install(app) {
         Ok(monitor) => Some(monitor),
         Err(error) => {
@@ -1010,6 +1085,7 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             gallery,
             layout,
             status,
+            open_rows: rows.iter().map(|row| row.plugin).collect(),
             viewport: ViewportGate::default(),
             pending: Vec::new(),
             animations: VecDeque::new(),
@@ -1087,7 +1163,13 @@ pub fn attach_core(_app: &App, core: CoreHandle, runtime: tokio::runtime::Handle
     if let Some(viewport) = first {
         core.set_viewport(Some(viewport));
     }
-    CORE.with(|slot| *slot.borrow_mut() = Some(CoreLink { core, runtime }));
+    CORE.with(|slot| {
+        *slot.borrow_mut() = Some(CoreLink {
+            core,
+            runtime,
+            receipts: RefCell::new(Ring::default()),
+        });
+    });
 }
 
 /// Размер содержимого окна изменился: раскладка встаёт по нему сразу, ядро получает его в конце
@@ -1197,6 +1279,22 @@ fn on_zone(app: &App, button: ZoneButton) {
     }
 }
 
+/// Пункт `row` меню «Вид → Открыть панель»: одна команда `panel.open` в рабочую область, открытую
+/// в момент нажатия. Экземпляр ищет актор, завершение команды пишется в кольцо квитанций. Без
+/// открытой рабочей области пункт недоступен, и нажатие ничего не делает.
+fn on_open_panel(app: &App, row: usize) {
+    let Some(plugin) = with_window(|owner| owner.open_rows.get(row).copied()).flatten() else {
+        return;
+    };
+    let command = MIRROR.with(|mirror| {
+        let mirror = mirror.borrow();
+        scene::open_panel_command(mirror.as_ref()?.state(), plugin)
+    });
+    if let Some(command) = command {
+        send_ui(app, command);
+    }
+}
+
 /// Конец перетаскивания разделителя: одна команда `layout.resize`. Разделитель, который размер не
 /// меняет, возвращается на место модели.
 fn on_drag(app: &App, split: SplitId, drag: SplitDrag) {
@@ -1238,6 +1336,14 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
             app.drain_event_pool();
             reply
         }
+        UiRequest::Receipts { after } => with_window(|_| ()).map(|()| {
+            UiReply::Receipts(CORE.with(|slot| {
+                slot.borrow()
+                    .as_ref()
+                    .map(|link| link.receipts.borrow().view(after))
+                    .unwrap_or_default()
+            }))
+        }),
         UiRequest::Command(command) => {
             let owner = with_window(|_| ());
             owner.and_then(|()| {
@@ -1295,7 +1401,7 @@ fn command_of(action: MenuAction) -> Option<UiCommand> {
         MenuAction::Quit => Some(UiCommand::AppQuit),
         MenuAction::CloseWindow => Some(UiCommand::WindowClose),
         MenuAction::Appearance(choice) => Some(UiCommand::AppearanceSet(core_choice(choice))),
-        MenuAction::Zone(_) => None,
+        MenuAction::Zone(_) | MenuAction::OpenPanel(_) => None,
     }
 }
 
@@ -1384,6 +1490,11 @@ mod tests {
         for button in ZoneButton::ALL {
             assert_eq!(command_of(MenuAction::Zone(button)), None);
         }
+        assert_eq!(
+            command_of(MenuAction::OpenPanel(0)),
+            None,
+            "пункт «Открыть панель» идёт командой ядра"
+        );
         for choice in AppearanceChoice::ALL {
             assert_eq!(core_choice(theme_choice(choice)), choice);
             assert_eq!(

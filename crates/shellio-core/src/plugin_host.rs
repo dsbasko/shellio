@@ -4,7 +4,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use shellio_layout::MinSize;
+use shellio_layout::{Location, MinSize};
 use shellio_plugin_api::{Cardinality, Plugin, Registry};
 
 use crate::change::Change;
@@ -129,6 +129,43 @@ pub(crate) fn instance(
         .map(|panel| (panel.created_at, panel.id))
         .min()
         .map(|(_, panel)| panel)
+}
+
+/// Почему `layout.split {open}` панели `panel` откажет плагину ещё до проверки размера.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SplitOpen {
+    Allowed,
+    /// Зона делимой части вне `placements` плагина.
+    ZoneNotAllowed,
+    /// Singleton уже открыт панелью.
+    SingletonExists(PanelId),
+}
+
+/// Исход проверок `layout.split {open}` для плагина `plugin` у панели `panel`, в порядке актора:
+/// зона части, затем экземпляр singleton. Выбор «Открыть в новой части» показывает по нему
+/// недоступные пункты; окончательно судит актор. Неизвестные панель и плагин — `Allowed`.
+pub fn split_open(
+    state: &State,
+    registry: &Registry,
+    panel: PanelId,
+    plugin: &PluginId,
+) -> SplitOpen {
+    let (Some(record), Some(plugin)) = (state.panels.get(&panel), registry.get(plugin)) else {
+        return SplitOpen::Allowed;
+    };
+    let zone = state
+        .layouts
+        .get(&record.workbench)
+        .and_then(|layout| layout.locate(panel));
+    if let Some(Location::Part { zone, .. }) = zone
+        && !plugin.manifest().placements.contains(zone)
+    {
+        return SplitOpen::ZoneNotAllowed;
+    }
+    match instance(state, plugin, record.workbench, None) {
+        Some(existing) => SplitOpen::SingletonExists(existing),
+        None => SplitOpen::Allowed,
+    }
 }
 
 /// Переход права канонического экземпляра при закрытии панели `closed` (ADR-0008,
@@ -961,6 +998,67 @@ mod tests {
                 "{cardinality}"
             );
         }
+    }
+
+    #[test]
+    fn split_open_checks_the_zone_before_the_singleton_like_the_actor() {
+        use shellio_layout::Zone;
+        use shellio_plugin_api::ZoneSet;
+
+        let mut world = World::new();
+        let navigator = world.panel(world.a1, "navigator", 1);
+        let terminal = world.panel(world.a1, "terminal", 2);
+        world.state.layouts.insert(
+            world.a1,
+            shellio_layout::Layout::default_for(navigator, terminal),
+        );
+        let side = ZoneSet::of(&[Zone::Left, Zone::Right]);
+        let registry = registry_of(vec![
+            TestPlugin::new("multi"),
+            TestPlugin::new("solo").cardinality(Cardinality::PerWorkbench),
+            TestPlugin::new("side").zones(side, Zone::Right),
+            TestPlugin::new("side-solo")
+                .zones(side, Zone::Right)
+                .cardinality(Cardinality::PerWorkbench),
+        ]);
+        let verdict = |state: &State, plugin: &str| {
+            split_open(state, &registry, terminal, &PluginId::new(plugin).unwrap())
+        };
+        assert_eq!(verdict(&world.state, "multi"), SplitOpen::Allowed);
+        assert_eq!(verdict(&world.state, "solo"), SplitOpen::Allowed);
+        assert_eq!(
+            verdict(&world.state, "side"),
+            SplitOpen::ZoneNotAllowed,
+            "терминал стоит в центре"
+        );
+        let solo = world.panel(world.a1, "solo", 3);
+        world.panel(world.a1, "side-solo", 4);
+        assert_eq!(
+            verdict(&world.state, "solo"),
+            SplitOpen::SingletonExists(solo)
+        );
+        assert_eq!(
+            verdict(&world.state, "side-solo"),
+            SplitOpen::ZoneNotAllowed,
+            "зона судится раньше экземпляра"
+        );
+        assert_eq!(verdict(&world.state, "multi"), SplitOpen::Allowed);
+        assert_eq!(
+            verdict(&world.state, "gone"),
+            SplitOpen::Allowed,
+            "неизвестный плагин судит актор"
+        );
+        let other = world.panel(world.a2, "solo", 5);
+        assert_eq!(
+            split_open(
+                &world.state,
+                &registry,
+                other,
+                &PluginId::new("side-solo").unwrap()
+            ),
+            SplitOpen::Allowed,
+            "панель вне раскладки и другой рабочей области: экземпляра и зоны нет"
+        );
     }
 
     #[test]

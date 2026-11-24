@@ -22,8 +22,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use shellio_core::{
-    Command, CoreError, Entity, ErrorCode, PanelId, PanelStatus, State, WorkbenchId, min_size,
-    open_workbench,
+    Command, CoreError, Entity, ErrorCode, PanelId, PanelStatus, SplitOpen, State, WorkbenchId,
+    min_size, open_workbench, split_open,
 };
 use shellio_layout::{
     Axis, DropTarget, Edge, Frames, Geometry, Hideable, Layout, LayoutMetrics, Location, PartFrame,
@@ -34,7 +34,7 @@ use shellio_plugin_api::Registry;
 /// Сообщение области зон без открытой рабочей области.
 pub const NO_WORKBENCH: &str = "Рабочая область не открыта";
 /// Сообщение на месте центра, когда вне колонки навигатора панелей нет.
-pub const NO_PANELS: &str = "Нет открытых панелей";
+pub const NO_PANELS: &str = "Нет открытых панелей. Откройте панель: Вид → Открыть панель";
 
 /// Часть зоны по месту в раскладке.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1108,14 +1108,76 @@ pub fn drop_plan(scene: &Scene, panel: PanelId, point: Point) -> Option<DropPlan
     })
 }
 
-/// Пункты выбора «Открыть в новой части»: известные хосту plugin id и названия, `terminal` первым.
-pub const PICKER: [(&str, &str); 2] = [
-    (shellio_core::TERMINAL_PLUGIN, shellio_core::TERMINAL_TITLE),
-    (
-        shellio_core::NAVIGATOR_PLUGIN,
-        shellio_core::NAVIGATOR_TITLE,
-    ),
-];
+/// Строка меню «Вид → Открыть панель»: плагин реестра и его название.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct OpenRow {
+    pub plugin: &'static str,
+    pub title: &'static str,
+}
+
+/// Строки меню «Открыть панель»: плагины реестра в порядке регистрации, `terminal` первым.
+pub fn open_rows(registry: &Registry) -> Vec<OpenRow> {
+    registry
+        .iter()
+        .map(|plugin| {
+            let manifest = plugin.manifest();
+            OpenRow {
+                plugin: manifest.id,
+                title: manifest.title,
+            }
+        })
+        .collect()
+}
+
+/// Пункт меню «Открыть панель»: `panel.open` плагина `plugin` в рабочую область, открытую в момент
+/// нажатия; экземпляр ищет актор. `None` — рабочая область не открыта.
+pub fn open_panel_command(state: &State, plugin: &str) -> Option<Command> {
+    let workbench = open_workbench(state)?;
+    Some(Command::PanelOpen {
+        plugin: plugin.to_owned(),
+        workbench: Some(workbench),
+        zone: None,
+        args: None,
+    })
+}
+
+/// Пункт выбора «Открыть в новой части». У недоступного причина стоит в названии: поля подсказки
+/// у пункта меню нет, а название видно в AX.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PickerItem {
+    pub plugin: &'static str,
+    pub title: String,
+    pub enabled: bool,
+}
+
+/// Пункты выбора для деления панели `panel`: плагины реестра в порядке регистрации, `terminal`
+/// первым. Singleton с существующим экземпляром и плагин, которому зона части не подходит,
+/// недоступны. `None` — выбор ещё не открывали: доступны все. Окончательно судит актор.
+pub fn picker_items(state: &State, registry: &Registry, panel: Option<PanelId>) -> Vec<PickerItem> {
+    registry
+        .iter()
+        .map(|plugin| {
+            let manifest = plugin.manifest();
+            let verdict = panel.map_or(SplitOpen::Allowed, |panel| {
+                split_open(state, registry, panel, plugin.id())
+            });
+            let (title, enabled) = picker_title(manifest.title, verdict);
+            PickerItem {
+                plugin: manifest.id,
+                title,
+                enabled,
+            }
+        })
+        .collect()
+}
+
+fn picker_title(title: &str, verdict: SplitOpen) -> (String, bool) {
+    match verdict {
+        SplitOpen::Allowed => (title.to_owned(), true),
+        SplitOpen::SingletonExists(_) => (format!("{title} (уже открыт)"), false),
+        SplitOpen::ZoneNotAllowed => (format!("{title} (не для этой зоны)"), false),
+    }
+}
 
 /// Отказ, по которому интерфейс открывает выбор «Открыть в новой части» вместо сообщения строки
 /// статуса (ADR-0009, «Деление»): `split_needs_panel` на `layout.split` без `open`. Ответ — панель,
@@ -2278,7 +2340,7 @@ pub(crate) mod tests {
         let split = Command::LayoutSplit { panel, open: None };
         let needs = CoreError::split_needs_panel(panel);
         assert_eq!(picker_target(&split, &needs), Some(panel));
-        let opened = open_command(panel, PICKER[0].0);
+        let opened = open_command(panel, TERMINAL_PLUGIN);
         assert_eq!(
             opened,
             Command::LayoutSplit {
@@ -2303,10 +2365,137 @@ pub(crate) mod tests {
             off: None,
         };
         assert_eq!(picker_target(&zoom, &needs), None);
+    }
+
+    #[test]
+    fn open_panel_menu_lists_the_registry_in_registration_order() {
+        let registry = registry();
+        let rows = open_rows(&registry);
         assert_eq!(
-            PICKER.map(|(plugin, _)| plugin),
-            [TERMINAL_PLUGIN, NAVIGATOR_PLUGIN],
+            rows.iter().map(|row| row.plugin).collect::<Vec<_>>(),
+            registry
+                .iter()
+                .map(|plugin| plugin.manifest().id)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            rows[..2],
+            [
+                OpenRow {
+                    plugin: TERMINAL_PLUGIN,
+                    title: "Терминал",
+                },
+                OpenRow {
+                    plugin: NAVIGATOR_PLUGIN,
+                    title: "Навигатор",
+                },
+            ],
             "терминал первым"
+        );
+        for row in rows {
+            let id: PluginId = PluginId::new(row.plugin).unwrap();
+            assert_eq!(registry.get(&id).unwrap().manifest().title, row.title);
+        }
+    }
+
+    #[test]
+    fn open_panel_item_targets_the_workbench_open_at_the_press() {
+        let mut fixture = fixture();
+        assert_eq!(
+            open_panel_command(&fixture.state, "demo-list"),
+            Some(Command::PanelOpen {
+                plugin: "demo-list".to_owned(),
+                workbench: Some(fixture.workbench),
+                zone: None,
+                args: None,
+            })
+        );
+        fixture.state.window.route = Route::WorkspaceHome;
+        assert_eq!(open_panel_command(&fixture.state, "demo-list"), None);
+    }
+
+    #[test]
+    fn picker_lists_the_registry_and_disables_open_singletons() {
+        let mut fixture = fixture();
+        let registry = registry();
+        let closed = picker_items(&fixture.state, &registry, None);
+        assert_eq!(
+            closed.iter().map(|item| item.plugin).collect::<Vec<_>>(),
+            open_rows(&registry)
+                .iter()
+                .map(|row| row.plugin)
+                .collect::<Vec<_>>()
+        );
+        assert!(closed.iter().all(|item| item.enabled));
+        let item = |items: &[PickerItem], plugin: &str| {
+            items
+                .iter()
+                .find(|item| item.plugin == plugin)
+                .cloned()
+                .unwrap()
+        };
+        let before = picker_items(&fixture.state, &registry, Some(fixture.terminal));
+        assert_eq!(
+            before[0],
+            PickerItem {
+                plugin: TERMINAL_PLUGIN,
+                title: "Терминал".to_owned(),
+                enabled: true,
+            },
+            "терминал первым и доступен: его подсвечивает выбор"
+        );
+        assert_eq!(
+            item(&before, NAVIGATOR_PLUGIN),
+            PickerItem {
+                plugin: NAVIGATOR_PLUGIN,
+                title: "Навигатор (уже открыт)".to_owned(),
+                enabled: false,
+            }
+        );
+        assert_eq!(
+            item(&before, "demo-list"),
+            PickerItem {
+                plugin: "demo-list",
+                title: "Демо: список".to_owned(),
+                enabled: true,
+            }
+        );
+        let list: PanelId = id(12);
+        fixture.state.panels.insert(
+            list,
+            Panel {
+                id: list,
+                workbench: fixture.workbench,
+                plugin: PluginId::new("demo-list").unwrap(),
+                title: Title::new("Демо: список").unwrap(),
+                created_at: UnixMillis(0),
+            },
+        );
+        let after = picker_items(&fixture.state, &registry, Some(fixture.terminal));
+        assert_eq!(
+            item(&after, "demo-list"),
+            PickerItem {
+                plugin: "demo-list",
+                title: "Демо: список (уже открыт)".to_owned(),
+                enabled: false,
+            }
+        );
+        assert!(item(&after, TERMINAL_PLUGIN).enabled);
+    }
+
+    #[test]
+    fn picker_title_names_the_reason_of_a_disabled_item() {
+        assert_eq!(
+            picker_title("Заметки", SplitOpen::Allowed),
+            ("Заметки".to_owned(), true)
+        );
+        assert_eq!(
+            picker_title("Заметки", SplitOpen::SingletonExists(id(9))),
+            ("Заметки (уже открыт)".to_owned(), false)
+        );
+        assert_eq!(
+            picker_title("Заметки", SplitOpen::ZoneNotAllowed),
+            ("Заметки (не для этой зоны)".to_owned(), false)
         );
     }
 

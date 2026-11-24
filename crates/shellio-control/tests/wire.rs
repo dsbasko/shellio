@@ -21,11 +21,11 @@ use shellio_control::{
     GalleryView, Hello, HelloReply, InspectView, InstanceKind, InstanceView, IntentKind,
     IntentRecord, KeyLatencyView, KeyPressView, LateCallbackView, Launch, LaunchReceipt, Lightness,
     ListRowView, MaterialView, MenuItemView, MenuView, Motion, OkValue, OwnerState, PROTOCOL,
-    PanelNodeView, PartNodeView, REQUEST_LINE_LIMIT, Rect, RefuseReason, RefusedArg, Rejected,
-    Request, RequestBody, RequestId, Response, RowViewsView, RunLoopView, ScreenView, Size,
-    StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView,
-    TabStripView, TabZone, TextFieldView, TreeListView, TreeMutation, TreeRowView, UI_TIMEOUT,
-    UiReply, UiRequest, VirtualListView, WindowMode, WindowView,
+    PanelNodeView, PartNodeView, REQUEST_LINE_LIMIT, ReceiptView, ReceiptsView, Rect, RefuseReason,
+    RefusedArg, Rejected, Request, RequestBody, RequestId, Response, RowViewsView, RunLoopView,
+    ScreenView, Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime,
+    TabStatusView, TabStripView, TabZone, TextFieldView, TreeListView, TreeMutation, TreeRowView,
+    UI_TIMEOUT, UiReply, UiRequest, VirtualListView, WindowMode, WindowView,
 };
 use shellio_core::test_support::{
     ManualClock as CoreClock, MemoryPersist, SequentialIds, registry,
@@ -186,6 +186,7 @@ fn request_golden_static(request: &Request) -> &'static str {
         RequestBody::Ui(UiRequest::Window) => "request.ui.window",
         RequestBody::Ui(UiRequest::Inspect) => "request.ui.inspect",
         RequestBody::Ui(UiRequest::Stats) => "request.ui.stats",
+        RequestBody::Ui(UiRequest::Receipts { .. }) => "request.ui.receipts",
         RequestBody::Ui(UiRequest::Command(UiCommand::WindowClose)) => "request.ui.window_close",
         RequestBody::Ui(UiRequest::Command(UiCommand::AppQuit)) => "request.ui.app_quit",
         RequestBody::Ui(UiRequest::Command(UiCommand::AppearanceSet(_))) => {
@@ -439,6 +440,8 @@ fn requests() -> Vec<Request> {
             }),
         ),
         request(41, RequestBody::Query(Query::Plugins {})),
+        // P1.5, задача 10: чтение квитанций `panel.open` главного потока.
+        request(42, RequestBody::Ui(UiRequest::Receipts { after: Some(1) })),
     ])
     .collect()
 }
@@ -575,6 +578,7 @@ fn response_golden(response: &Response) -> &'static str {
             }
             UiReply::Stats(stats) if stats.key_latency.is_some() => "response.ok.ui.stats.list",
             UiReply::Stats(_) => "response.ok.ui.stats",
+            UiReply::Receipts(_) => "response.ok.ui.receipts",
             UiReply::Accepted(_) => "response.ok.ui.accepted",
         },
         Response::CoreError { .. } => "response.core_error",
@@ -836,7 +840,37 @@ fn responses() -> Result<Vec<Response>, String> {
         ok(38, OkValue::Reply(core_reply("reply.opened")?)),
         ok(40, OkValue::Reply(core_reply("reply.panel_view")?)),
         ok(41, OkValue::Reply(core_reply("reply.plugins")?)),
+        // P1.5, задача 10: квитанции `panel.open` главного потока — успех и ранний отказ.
+        ok(42, OkValue::Ui(UiReply::Receipts(receipts_view()))),
     ])
+}
+
+/// Ответ эталона `ui.receipts` на `after: 1`: успешное открытие и ранний отказ `busy`.
+fn receipts_view() -> ReceiptsView {
+    let (panel, _, workbench) = layout_ids();
+    ReceiptsView {
+        last: 3,
+        receipts: vec![
+            ReceiptView {
+                seq: 2,
+                workbench: Some(workbench),
+                plugin: "demo-list".into(),
+                outcome: Some(OpenOutcome::Created),
+                panel: Some(panel),
+                revision: Some(Revision(41)),
+                error: None,
+            },
+            ReceiptView {
+                seq: 3,
+                workbench: Some(workbench),
+                plugin: "terminal".into(),
+                outcome: None,
+                panel: None,
+                revision: None,
+                error: Some("busy".into()),
+            },
+        ],
+    }
 }
 
 /// Ответ ядра из его эталона `name`.
@@ -1781,6 +1815,7 @@ fn ui_replies_answer_only_their_request() {
         ("window", UiReply::Window(Box::new(window_view()))),
         ("inspect", UiReply::Inspect(Box::new(inspect_view()))),
         ("stats", UiReply::Stats(Box::new(stats_view()))),
+        ("receipts", UiReply::Receipts(receipts_view())),
         (
             "accepted",
             UiReply::Accepted(Accepted {
@@ -1794,6 +1829,8 @@ fn ui_replies_answer_only_their_request() {
         (UiRequest::Window, "window"),
         (UiRequest::Inspect, "inspect"),
         (UiRequest::Stats, "stats"),
+        (UiRequest::Receipts { after: None }, "receipts"),
+        (UiRequest::Receipts { after: Some(16) }, "receipts"),
         (UiRequest::Command(UiCommand::WindowClose), "accepted"),
         (UiRequest::Command(UiCommand::AppQuit), "accepted"),
         (UiRequest::Gallery(GalleryCommand::Reset), "accepted"),
@@ -1818,6 +1855,11 @@ fn ui_body_is_strict() {
         r#"{"ui.window":{"extra":1}}"#,
         r#"{"ui.window":null}"#,
         r#""ui.window""#,
+        r#"{"ui.receipts":null}"#,
+        r#"{"ui.receipts":{"after":-1}}"#,
+        r#"{"ui.receipts":{"after":"1"}}"#,
+        r#"{"ui.receipts":{"after":1,"extra":1}}"#,
+        r#"{"ui.receipts":{},"scope":"all"}"#,
         r#"{"gallery.reset":{"seed":1}}"#,
         r#"{"gallery.unknown":{}}"#,
         r#"{"ui.appearance.set":{}}"#,
@@ -1836,6 +1878,67 @@ fn ui_body_is_strict() {
             "{body}"
         );
     }
+}
+
+/// Запись квитанции строгая: лишнее поле, неизвестный исход и запись без номера отвергаются, а
+/// отказ и успех различаются набором ключей.
+#[test]
+fn receipt_record_is_strict() {
+    let golden = fs::read_to_string(wire_dir().join("response.ok.ui.receipts.json")).unwrap();
+    let golden: Value = serde_json::from_str(&golden).unwrap();
+    let view = &golden["ok"]["ui"]["receipts"];
+    let parsed: ReceiptsView = serde_json::from_value(view.clone()).unwrap();
+    assert_eq!(parsed, receipts_view());
+    let done = &view["receipts"][0];
+    let refused = &view["receipts"][1];
+    let keys =
+        |record: &Value| -> Vec<String> { record.as_object().unwrap().keys().cloned().collect() };
+    assert!(!keys(done).contains(&"error".to_owned()));
+    for absent in ["outcome", "panel", "revision"] {
+        assert!(!keys(refused).contains(&absent.to_owned()), "{absent}");
+    }
+    assert_eq!(refused["error"], json!("busy"));
+
+    let with = |record: &Value, key: &str, value: Value| {
+        let mut record = record.clone();
+        record[key] = value;
+        record
+    };
+    let without = |record: &Value, key: &str| {
+        let mut record = record.clone();
+        record.as_object_mut().unwrap().remove(key);
+        record
+    };
+    for bad in [
+        with(done, "args", json!({"key": "c"})),
+        with(done, "outcome", json!("opened")),
+        with(done, "revision", json!(-1)),
+        with(done, "panel", json!("не id")),
+        with(refused, "extra", json!(1)),
+        with(refused, "error", json!(7)),
+        without(done, "seq"),
+        without(done, "plugin"),
+    ] {
+        assert!(
+            serde_json::from_value::<ReceiptView>(bad.clone()).is_err(),
+            "{bad}"
+        );
+    }
+    for bad in [
+        json!({"last": 3}),
+        json!({"receipts": []}),
+        json!({"last": 3, "receipts": [], "next": 4}),
+    ] {
+        assert!(
+            serde_json::from_value::<ReceiptsView>(bad.clone()).is_err(),
+            "{bad}"
+        );
+    }
+    // Пустое кольцо — список без записей, а не отсутствие ключа.
+    assert_eq!(
+        serde_json::to_value(ReceiptsView::default()).unwrap(),
+        json!({"last": 0, "receipts": []})
+    );
 }
 
 #[test]

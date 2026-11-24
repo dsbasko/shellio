@@ -10,7 +10,8 @@ use std::io::{self, Write};
 use shellio_control::{
     Activation, AxisSource, ClientError, ComponentState, ComponentView, Contrast, ControlError,
     Exit, GalleryView, HelloReply, InspectView, IntentKind, LaunchReceipt, Lightness, Motion,
-    OkValue, OwnerState, Rect, Response, StatsView, TabRegime, UiReply, WindowView, encode_line,
+    OkValue, OwnerState, ReceiptsView, Rect, Response, StatsView, TabRegime, UiReply, WindowView,
+    encode_line,
 };
 use shellio_core::{
     Change, CommandValue, Event, EventsSince, OpenOutcome, Reply, ReplyValue, RootKind, Route,
@@ -190,12 +191,7 @@ fn reply_text(reply: &Reply) -> String {
                     workbench,
                     outcome,
                 } => {
-                    let outcome = match outcome {
-                        OpenOutcome::Created => "создана",
-                        OpenOutcome::Focused => "в фокусе",
-                        OpenOutcome::Moved => "переехала",
-                        OpenOutcome::Routed => "окно перешло к ней",
-                    };
+                    let outcome = outcome_text(*outcome);
                     format!("панель {panel} в рабочей области {workbench}: {outcome}")
                 }
                 CommandValue::Workspace { workspace } => format!("воркспейс {workspace}"),
@@ -208,6 +204,15 @@ fn reply_text(reply: &Reply) -> String {
             };
             format!("ревизия {revision}: {value}\n")
         }
+    }
+}
+
+const fn outcome_text(outcome: OpenOutcome) -> &'static str {
+    match outcome {
+        OpenOutcome::Created => "создана",
+        OpenOutcome::Focused => "в фокусе",
+        OpenOutcome::Moved => "переехала",
+        OpenOutcome::Routed => "окно перешло к ней",
     }
 }
 
@@ -358,11 +363,43 @@ fn ui_text(reply: &UiReply) -> String {
         UiReply::Window(window) => window_text(window),
         UiReply::Inspect(inspect) => inspect_text(inspect),
         UiReply::Stats(stats) => stats_text(stats),
+        UiReply::Receipts(receipts) => receipts_text(receipts),
         UiReply::Accepted(accepted) => format!(
             "принято: {}, PID {}, поколение {}\n",
             accepted.command, accepted.pid, accepted.generation
         ),
     }
+}
+
+/// Квитанции `panel.open` главного потока: итог и по строке на запись.
+fn receipts_text(view: &ReceiptsView) -> String {
+    let mut out = format!(
+        "квитанций {}, последняя {}\n",
+        view.receipts.len(),
+        view.last
+    );
+    for receipt in &view.receipts {
+        let workbench = receipt.workbench.map_or_else(
+            || "без рабочей области".to_owned(),
+            |workbench| format!("рабочая область {workbench}"),
+        );
+        let result = match (receipt.outcome, receipt.panel, &receipt.error) {
+            (_, _, Some(error)) => format!("отказ {error}"),
+            (Some(outcome), Some(panel), None) => {
+                let revision = receipt
+                    .revision
+                    .map_or_else(String::new, |revision| format!(", ревизия {}", revision.0));
+                format!("панель {panel} {}{revision}", outcome_text(outcome))
+            }
+            _ => "исход не записан".to_owned(),
+        };
+        let _ = writeln!(
+            out,
+            "  {}: {}, {workbench}: {result}",
+            receipt.seq, receipt.plugin
+        );
+    }
+    out
 }
 
 fn rect_text(rect: &Rect) -> String {
@@ -1065,6 +1102,76 @@ mod tests {
         let shown = ui_text(&UiReply::Stats(Box::new(stats)));
         assert!(shown.contains("монитор не поставлен"), "{shown}");
         assert!(shown.contains("старт: не наблюдался"), "{shown}");
+    }
+
+    #[test]
+    fn ui_receipts_text_tells_success_from_refusal() {
+        use shellio_control::ReceiptView;
+        use shellio_core::Revision;
+
+        let empty = ui_text(&UiReply::Receipts(ReceiptsView::default()));
+        assert_eq!(empty, "квитанций 0, последняя 0\n");
+
+        let panel: shellio_core::PanelId = "00000000-0000-0000-0000-000000000003".parse().unwrap();
+        let workbench: shellio_core::WorkbenchId =
+            "00000000-0000-0000-0000-000000000002".parse().unwrap();
+        let record = |seq, plugin: &str| ReceiptView {
+            seq,
+            workbench: Some(workbench),
+            plugin: plugin.into(),
+            outcome: None,
+            panel: None,
+            revision: None,
+            error: None,
+        };
+        let view = ReceiptsView {
+            last: 19,
+            receipts: vec![
+                ReceiptView {
+                    outcome: Some(OpenOutcome::Created),
+                    panel: Some(panel),
+                    revision: Some(Revision(41)),
+                    ..record(17, "demo-list")
+                },
+                ReceiptView {
+                    error: Some("busy".into()),
+                    ..record(18, "terminal")
+                },
+                ReceiptView {
+                    workbench: None,
+                    error: Some("invalid_argument".into()),
+                    ..record(19, "demo-native")
+                },
+            ],
+        };
+        assert_eq!(
+            ui_text(&UiReply::Receipts(view)),
+            format!(
+                "квитанций 3, последняя 19\n\
+                 \x20 17: demo-list, рабочая область {workbench}: панель {panel} создана, ревизия 41\n\
+                 \x20 18: terminal, рабочая область {workbench}: отказ busy\n\
+                 \x20 19: demo-native, без рабочей области: отказ invalid_argument\n"
+            )
+        );
+        for (outcome, said) in [
+            (OpenOutcome::Focused, "в фокусе"),
+            (OpenOutcome::Moved, "переехала"),
+            (OpenOutcome::Routed, "окно перешло к ней"),
+        ] {
+            let shown = ui_text(&UiReply::Receipts(ReceiptsView {
+                last: 1,
+                receipts: vec![ReceiptView {
+                    outcome: Some(outcome),
+                    panel: Some(panel),
+                    revision: Some(Revision(2)),
+                    ..record(1, "demo-list")
+                }],
+            }));
+            assert!(
+                shown.ends_with(&format!("панель {panel} {said}, ревизия 2\n")),
+                "{shown}"
+            );
+        }
     }
 
     #[test]

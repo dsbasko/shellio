@@ -17,17 +17,17 @@ use serde_json::{Value, json};
 use shellio_control::test_support::ManualClock;
 use shellio_control::{
     Activation, ControlErrorCode, LOCK_FILE, Launch, LaunchHandler, LaunchReceipt, OkValue,
-    OwnerState, Ownership, RequestId, Response, SHUTDOWN_GRACE, SOCKET_FILE, Server, ServerConfig,
-    UiGate, UiHandler, UiRefusal, UiReply, UiRequest, WithoutUi,
+    OwnerState, Ownership, ReceiptView, ReceiptsView, RequestId, Response, SHUTDOWN_GRACE,
+    SOCKET_FILE, Server, ServerConfig, UiGate, UiHandler, UiRefusal, UiReply, UiRequest, WithoutUi,
 };
 use shellio_core::test_support::{
     ManualClock as CoreClock, MemoryPersist, SequentialIds, TestMigrate, TestPlugin, registry,
     registry_of,
 };
 use shellio_core::{
-    CommandValue, Core, CoreError, ErrorCode, EventsSince, FsRootResolver, LayoutView, OpenOutcome,
-    PanelId, PanelStatus, PanelView, PluginsView, Reply, ReplyValue, Revision, Route, TreeView,
-    UnixMillis, WorkbenchId, WorkspaceId,
+    CommandValue, Core, CoreError, ErrorCode, EventsSince, FsRootResolver, IdGen, LayoutView,
+    OpenOutcome, PanelId, PanelStatus, PanelView, PluginsView, Reply, ReplyValue, Revision, Route,
+    TreeView, UnixMillis, WorkbenchId, WorkspaceId,
 };
 use shellio_layout::{Viewport, Zone};
 use shellio_plugin_api::{Cardinality, Registry};
@@ -844,6 +844,154 @@ async fn missing_profile_environment_fails_without_socket() -> TestResult {
     let bare = run(bare).await?.expect(1)?;
     assert!(bare.stderr.contains("профиль"), "{bare:?}");
     Ok(())
+}
+
+/// `ui receipts` у владельца без UI: отказ `no_ui` с тем же кодом выхода, что у `ui stats`, без
+/// записи и без новой ревизии; область и нечисловой курсор — ошибки использования до сокета.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ui_receipts_without_ui_is_no_ui_and_writes_nothing() -> TestResult {
+    let dir = Dir::new()?;
+    let owner = Owner::start(&dir).await?;
+    open_workbench(&dir).await?;
+    let before = revision(&dir).await?;
+
+    let stats = dir.run(&["ui", "stats", "--json"]).await?;
+    assert_eq!(stats.control_code()?, ControlErrorCode::NoUi);
+    for args in [
+        &["ui", "receipts", "--json"][..],
+        &["ui", "receipts", "--after", "3", "--json"],
+    ] {
+        let refused = dir.run(args).await?.expect(stats.code)?;
+        assert_eq!(refused.control_code()?, ControlErrorCode::NoUi, "{args:?}");
+    }
+    let text = dir.run(&["ui", "receipts"]).await?.expect(stats.code)?;
+    assert!(text.stdout.is_empty(), "{text:?}");
+    assert!(text.stderr.starts_with("shellioctl: no_ui: "), "{text:?}");
+    assert_eq!(revision(&dir).await?, before, "чтение квитанций не пишет");
+
+    for (args, expected) in [
+        (&["ui", "receipts", "--all"][..], "не применим"),
+        (&["ui", "receipts", "--workspace", "x"], "не применим"),
+        (&["ui", "receipts", "--after", "x"], "номер квитанции"),
+        (&["ui", "receipts", "--after", "-1"], "номер квитанции"),
+    ] {
+        let usage = dir.run(args).await?.expect(2)?;
+        assert!(usage.stdout.is_empty(), "{usage:?}");
+        assert!(usage.stderr.contains(expected), "{args:?}: {usage:?}");
+    }
+    assert_eq!(revision(&dir).await?, before);
+    owner.stop().await
+}
+
+/// Порт UI с тремя квитанциями: отвечает на `ui.receipts` записями с номером больше `after`.
+#[derive(Clone)]
+struct ReceiptsUi {
+    workbench: WorkbenchId,
+    panel: PanelId,
+}
+
+impl ReceiptsUi {
+    fn view(&self, after: Option<u64>) -> ReceiptsView {
+        let record = |seq, plugin: &str| ReceiptView {
+            seq,
+            workbench: Some(self.workbench),
+            plugin: plugin.into(),
+            outcome: None,
+            panel: None,
+            revision: None,
+            error: None,
+        };
+        let all = [
+            ReceiptView {
+                outcome: Some(OpenOutcome::Created),
+                panel: Some(self.panel),
+                revision: Some(Revision(5)),
+                ..record(1, "notes")
+            },
+            ReceiptView {
+                error: Some("busy".into()),
+                ..record(2, "terminal")
+            },
+            ReceiptView {
+                outcome: Some(OpenOutcome::Focused),
+                panel: Some(self.panel),
+                revision: Some(Revision(5)),
+                ..record(3, "notes")
+            },
+        ];
+        ReceiptsView {
+            last: 3,
+            receipts: all
+                .into_iter()
+                .filter(|receipt| after.is_none_or(|after| receipt.seq > after))
+                .collect(),
+        }
+    }
+}
+
+impl UiHandler for ReceiptsUi {
+    fn ui(
+        &self,
+        request: UiRequest,
+        gate: UiGate,
+    ) -> impl Future<Output = Result<UiReply, UiRefusal>> + Send {
+        let reply = match request {
+            UiRequest::Receipts { after } if gate.begin() => {
+                Ok(UiReply::Receipts(self.view(after)))
+            }
+            _ => Err(UiRefusal::NoUi),
+        };
+        std::future::ready(reply)
+    }
+}
+
+/// `ui receipts` отдельным процессом: курсор `--after` доходит до владельца, кадр `--json` несёт
+/// его ответ как есть, текст различает успех и отказ, ревизия ядра прежняя.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ui_receipts_reads_the_ring_from_the_cursor() -> TestResult {
+    let dir = Dir::new()?;
+    let mut ids = SequentialIds::new();
+    let ids: &mut dyn IdGen = &mut ids;
+    let ui = ReceiptsUi {
+        workbench: WorkbenchId::generate(ids),
+        panel: PanelId::generate(ids),
+    };
+    let owner = Owner::start_with(&dir, ui.clone()).await?;
+    let before = revision(&dir).await?;
+
+    for (args, after) in [
+        (&["ui", "receipts", "--json"][..], None),
+        (&["ui", "receipts", "--after", "0", "--json"], Some(0)),
+        (&["ui", "receipts", "--after", "2", "--json"], Some(2)),
+        (&["ui", "receipts", "--after=3", "--json"], Some(3)),
+    ] {
+        match dir.run(args).await?.expect(0)?.frame()? {
+            Response::Ok {
+                value: OkValue::Ui(UiReply::Receipts(view)),
+                ..
+            } => assert_eq!(view, ui.view(after), "{args:?}"),
+            other => {
+                return Err(format!("{args:?}: ожидались квитанции, получено {other:?}").into());
+            }
+        }
+    }
+    let text = dir
+        .run(&["ui", "receipts", "--after", "1"])
+        .await?
+        .expect(0)?;
+    assert!(text.stderr.is_empty(), "{text:?}");
+    assert_eq!(
+        text.stdout,
+        format!(
+            "квитанций 2, последняя 3\n\
+             \x20 2: terminal, рабочая область {workbench}: отказ busy\n\
+             \x20 3: notes, рабочая область {workbench}: панель {panel} в фокусе, ревизия 5\n",
+            workbench = ui.workbench,
+            panel = ui.panel
+        )
+    );
+    assert_eq!(revision(&dir).await?, before, "чтение квитанций не пишет");
+    owner.stop().await
 }
 
 /// Порт UI, который отдаёт тесту отметку начала каждого запроса и не отвечает никогда.

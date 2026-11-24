@@ -26,6 +26,9 @@
 # Рубежи накопительные (план P1.5, «Матрица приёмки»): пункт, чья задача ещё не выполнена, получает not_run
 # «пункт задачи N» и необязателен.
 #
+# Свидетель меню: пункт, который выбирает команду в меню «Вид → Открыть панель», судится по новой квитанции
+# ui.receipts с номером больше снятого до действия; пункт просмотра или отмены требует прежний номер.
+#
 # Сигналы и уборка адресуют только PID, полученные через hello сокетов прогона и сверенные с бинарём бандла
 # прогона. Внешние условия опрашиваются с крайним сроком, фиксированных пауз вместо условия нет.
 #
@@ -52,6 +55,8 @@ EXIT_S=10
 KILL_S=5
 SECOND_LAUNCH_S=20
 MIRROR_MS=3000
+# Срок фонового osascript пункта меню и shellioctl гонки.
+MENU_OSA_S=20
 POLL=0.1
 CTL_TIMEOUT_MS=2000
 
@@ -67,7 +72,7 @@ ITEMS=(placeholders-default plugin-catalog open-cli retarget-cli drill-keys rest
   demo-snapshot restore-cold voiceover-speech)
 TASK=(9 9 9 9 12 9 9 10 10 10 10 10 10 10 11 11 11 11 11 11 12 12 12 12 12 12 0)
 # Задача, до которой сценарий доведён: пункты более поздних задач не судятся.
-DONE_TASK=9
+DONE_TASK=10
 # Плагины реестра в порядке регистрации: id, название, default_zone, кардинальность, min_size.
 CATALOG=(
   "terminal|Терминал|center|multi|200|120"
@@ -79,6 +84,11 @@ MISSING_BENCH="019a8f2e-0000-7000-8000-00000000c201"
 MISSING_PANEL="019a8f2e-0000-7000-8000-00000000e203"
 MISSING_ROW='1|7B2278223A317D'
 MISSING_STUB="Плагин «gone-plugin» недоступен"
+# Сообщение рабочей области без панелей с подсказкой меню и пометка занятого singleton в выборе новой части.
+NO_PANELS_TEXT="Нет открытых панелей. Откройте панель: Вид → Открыть панель"
+PICKER_TAKEN="(уже открыт)"
+# Коды клавиш (kVK_*).
+KEY_ESC=53
 
 REQUIRED=()
 STATUS=()
@@ -139,6 +149,12 @@ NEW_PROFILE=""
 WHY=""
 GEN=""
 REV=""
+LAST=""
+VALUE=""
+EVENTS=""
+# open-menu этого прогона прошёл: без квитанции UI в гонке это fail, а не «меню не нажато» (план P1.5, «Квитанции
+# гонки»).
+OPEN_MENU_PASS=0
 
 # Профиль основной серии пунктов: воркспейсы W1 и W2, рабочие области A, A2 и B, панель демо-списка в A.
 profile=""
@@ -981,6 +997,418 @@ tree_id() {
   id_by_title "$1/tree-$2.stdout" "$3"
 }
 
+# --- меню «Открыть панель», квитанции UI и выбор новой части (задача 10) ---
+
+# Процесс pid на переднем плане: меню и клавиши идут ему; иначе WHY.
+front_ok() {
+  local pid="$1" dir="$2" deadline
+  WHY=""
+  osascript -l JavaScript -e "
+    const se = Application('System Events');
+    se.processes.whose({unixId: $pid})[0].frontmost = true;
+    'ok'" >"$dir/front.stdout" 2>"$dir/front.stderr" || {
+    WHY="владелец не выведен вперёд: $(oneline "$dir/front.stderr")"
+    return 1
+  }
+  deadline=$(($(now_ms) + MIRROR_MS))
+  until [[ "$(front_pid)" == "$pid" ]]; do
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс на переднем плане не владелец, а pid $(front_pid)"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Подменю «Вид → Открыть панель» владельца по System Events. Режим list — JSON пунктов [{title, enabled}]; press —
+# AXPress пункта title; armed — ссылка на пункт title готовится заранее, в файл ready пишется отметка, AXPress
+# идёт после одного байта из stdin: так нажатие стартует от того же сигнала, что и команда CLI гонки.
+AX_OPEN_MENU_JS='function run(argv) {
+  const [mode, pid, title, ready] = argv;
+  const se = Application("System Events");
+  const p = se.processes.whose({unixId: Number(pid)})[0];
+  const menu = p.menuBars[0].menuBarItems.byName("Вид").menus[0].menuItems.byName("Открыть панель").menus[0];
+  if (mode === "list") {
+    return JSON.stringify(menu.menuItems().map((i) => ({ title: i.name(), enabled: i.enabled() })));
+  }
+  const item = menu.menuItems.byName(title);
+  if (item.name() !== title) throw new Error("нет пункта «" + title + "»");
+  if (mode === "armed") {
+    ObjC.import("Foundation");
+    $("ready\n").writeToFileAtomicallyEncodingError($(ready), true, $.NSUTF8StringEncoding, null);
+    $.NSFileHandle.fileHandleWithStandardInput.readDataOfLength(1);
+  }
+  item.click();
+  return "pressed " + title;
+}'
+
+# Пункты подменю «Открыть панель» владельца pid строкой «название:доступен|…» по порядку; чтение — <out>.json.
+# Сразу после запуска System Events отдаёт меню без пунктов: опрос до want пунктов или срока, иначе WHY.
+MENU=""
+menu_items() {
+  local pid="$1" out="$2" want="$3" deadline
+  WHY=""
+  MENU=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if osascript -l JavaScript -e "$AX_OPEN_MENU_JS" list "$pid" >"$out.json" 2>"$out.stderr"; then
+      MENU="$(/usr/bin/perl -COEA -Mutf8 -MJSON::PP -e 'local $/; open my $fh, "<", $ARGV[0] or exit 2;
+        my $items = eval { JSON::PP->new->utf8->decode(<$fh>) } or exit 2;
+        print join("|", map { ($_->{title} // "?") . ":" . ($_->{enabled} ? "true" : "false") } @$items), "\n"' \
+        "$out.json" 2>/dev/null || true)"
+      if [[ -n "$MENU" ]]; then
+        local seen=1 rest="$MENU"
+        while [[ "$rest" == *"|"* ]]; do
+          rest="${rest#*|}"
+          seen=$((seen + 1))
+        done
+        ((seen < want)) || return 0
+      fi
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="подменю «Вид → Открыть панель» по AX: «${MENU}», ожидалось пунктов $want: $(oneline "$out.stderr")"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# AXPress пункта title подменю «Вид → Открыть панель» владельца pid; иначе WHY.
+press_open_item() {
+  local pid="$1" title="$2" out="$3"
+  WHY=""
+  printf '%s AXPress «%s»\n' "$(now_ms)" "$title" >>"$out.log"
+  osascript -l JavaScript -e "$AX_OPEN_MENU_JS" press "$pid" "$title" >"$out.stdout" 2>"$out.stderr" || {
+    WHY="пункт «${title}» меню «Вид → Открыть панель» не нажат: $(oneline "$out.stderr")"
+    return 1
+  }
+}
+
+# ui.receipts профиля state в <prefix>.stdout; с after — только записи с номером больше after.
+receipts_get() {
+  local state="$1" prefix="$2" after="${3:-}"
+  if [[ -n "$after" ]]; then
+    ctl "$state" "$prefix" --json --timeout "$CTL_TIMEOUT_MS" ui receipts --after "$after"
+  else
+    ctl "$state" "$prefix" --json --timeout "$CTL_TIMEOUT_MS" ui receipts
+  fi
+}
+
+# Номер последней квитанции UI владельца — в LAST; иначе WHY.
+receipts_last() {
+  local state="$1" prefix="$2"
+  WHY=""
+  LAST=""
+  if ! receipts_get "$state" "$prefix"; then
+    WHY="ui.receipts не прочитан: $(oneline "$prefix.stdout") $(oneline "$prefix.stderr")"
+    return 1
+  fi
+  LAST="$(jv "$prefix.stdout" ok.ui.receipts.last || true)"
+  if [[ ! "$LAST" =~ ^[0-9]+$ ]]; then
+    WHY="в ответе ui.receipts нет номера last: $(oneline "$prefix.stdout")"
+    return 1
+  fi
+}
+
+# Опрос ui.receipts до want записей с номером больше after; последнее чтение — <prefix>.stdout, иначе WHY.
+wait_receipts() {
+  local state="$1" prefix="$2" after="$3" want="${4:-1}" deadline seen="?"
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if receipts_get "$state" "$prefix" "$after"; then
+      seen="$(jv "$prefix.stdout" 'ok.ui.receipts.receipts[#]' || echo ?)"
+      [[ "$seen" =~ ^[0-9]+$ ]] && ((seen >= want)) && return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс квитанций UI с номером больше $after — $seen, ожидалось $want"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Поле field квитанции index чтения ui.receipts; «нет» — поля нет.
+rc() {
+  jv "$1" "ok.ui.receipts.receipts[$2].$3" 2>/dev/null || echo нет
+}
+
+# События после курсора rev: ответ — <prefix>.stdout, в EVENTS — «событий|panel_add|ревизии через запятую» или
+# reset, если курсор вытеснен из буфера; иначе WHY.
+events_after() {
+  local state="$1" prefix="$2" rev="$3"
+  WHY=""
+  EVENTS=""
+  if ! ctl "$state" "$prefix" --json --timeout "$CTL_TIMEOUT_MS" events --since "$rev" --all; then
+    WHY="events --since $rev не прочитан: $(oneline "$prefix.stdout") $(oneline "$prefix.stderr")"
+    return 1
+  fi
+  EVENTS="$(/usr/bin/perl -MJSON::PP -e 'local $/; my $ok = JSON::PP->new->utf8->decode(<STDIN>)->{ok};
+    if (ref $ok ne "HASH" || ref $ok->{events} ne "ARRAY") { print "reset\n"; exit }
+    my @e = @{$ok->{events}}; my $adds = 0;
+    for my $e (@e) { $adds += grep { ($_->{change} // "") eq "panel_add" } @{$e->{changes}} }
+    print scalar(@e), "|", $adds, "|", join(",", map { $_->{revision} } @e), "\n"' <"$prefix.stdout" 2>/dev/null || true)"
+  if [[ -z "$EVENTS" ]]; then
+    WHY="ответ events --since $rev не разобран: $(oneline "$prefix.stdout")"
+    return 1
+  fi
+}
+
+# Число вкладок с названием title во всех видимых строках вкладок окна по ui.inspect.
+window_tabs() {
+  /usr/bin/perl -COEA -Mutf8 -MJSON::PP -e 'my ($file, $title) = @ARGV; open my $fh, "<", $file or exit 2; local $/;
+    my $c = JSON::PP->new->utf8->decode(<$fh>)->{ok}{ui}{inspect}{components}; my $n = 0;
+    for my $node (@$c) {
+      next unless $node->{visible} && ref $node->{state} eq "HASH" && ref $node->{state}{tab_strip} eq "HASH";
+      $n += grep { ($_->{title} // "") eq $title } @{$node->{state}{tab_strip}{tabs}};
+    }
+    print "$n\n"' "$1" "$2"
+}
+
+# Опрос ui.inspect до want вкладок с названием title; последнее чтение — <prefix>.stdout, иначе WHY.
+wait_tabs() {
+  local state="$1" prefix="$2" title="$3" want="$4" deadline seen="?"
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$state" "$prefix" inspect; then
+      seen="$(window_tabs "$prefix.stdout" "$title" || echo ?)"
+      [[ "$seen" == "$want" ]] && return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс вкладок «${title}» в окне — $seen, ожидалось $want"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Вкладки части zone.index раскладки query.layout: id через пробел.
+tabs_of() {
+  /usr/bin/perl -MJSON::PP -e 'my ($zone, $index) = @ARGV; local $/;
+    my $p = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{layout}{zones}{$zone}{parts}[$index];
+    print $p ? join(" ", @{$p->{tabs}}) : "?", "\n"' "$2" "$3" <"$1"
+}
+
+# Число частей зоны раскладки query.layout.
+parts_count() {
+  lv "$1" "layout.zones.$2.parts[#]" || echo ?
+}
+
+# Панели раскладки query.layout вне колонки навигатора: id через пробел.
+tile_panels() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $l = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{layout};
+    print join(" ", map { @{$_->{tabs}} } map { @{$l->{zones}{$_}{parts}} } qw(left right center bottom)), "\n"' <"$1"
+}
+
+# Строка вкладок окна по описанию: обход дерева AX до глубины 12, внутрь групп вкладок не заходит. AXPress кнопки
+# строки, описание которой начинается с prefix.
+AX_STRIP_JS='function run(argv) {
+  const [pid, strip, prefix] = argv;
+  const se = Application("System Events");
+  const w = se.processes.whose({unixId: Number(pid)})[0].windows[0];
+  const prop = (f) => { try { const v = f(); return v === undefined ? null : v; } catch (x) { return null; } };
+  let found = null;
+  function walk(e, depth) {
+    if (found) return;
+    const role = prop(() => e.role());
+    if (role === "AXTabGroup") {
+      if (prop(() => e.description()) === strip) found = e;
+      return;
+    }
+    if (depth >= 12) return;
+    let kids = [];
+    try { kids = e.uiElements(); } catch (x) {}
+    for (const k of kids) walk(k, depth + 1);
+  }
+  walk(w, 0);
+  if (!found) throw new Error("нет строки вкладок «" + strip + "»");
+  const buttons = found.buttons().map((b) => ({ element: b, description: prop(() => b.description()) || "" }));
+  const hit = buttons.find((b) => b.description.startsWith(prefix));
+  if (!hit) throw new Error("нет кнопки «" + prefix + "» в строке «" + strip + "»");
+  hit.element.actions.byName("AXPress").perform();
+  return "pressed " + hit.description;
+}'
+
+# Описание строки вкладок части index зоны zone из count частей, как его задаёт адаптер.
+strip_label() {
+  local zone="$1" index="$2" count="$3" name
+  case "$zone" in
+    left) name="левой зоны" ;;
+    right) name="правой зоны" ;;
+    center) name="центра" ;;
+    bottom) name="нижней зоны" ;;
+  esac
+  if ((count > 1)); then
+    printf 'Вкладки %s, часть %s\n' "$name" $((index + 1))
+  else
+    printf 'Вкладки %s\n' "$name"
+  fi
+}
+
+# AXPress кнопки prefix строки вкладок strip окна владельца pid; иначе WHY.
+strip_press() {
+  local pid="$1" strip="$2" prefix="$3" out="$4"
+  WHY=""
+  osascript -l JavaScript -e "$AX_STRIP_JS" "$pid" "$strip" "$prefix" >"$out.stdout" 2>"$out.stderr" || {
+    WHY="AXPress кнопки «${prefix}» строки «${strip}» не выполнен: $(oneline "$out.stderr")"
+    return 1
+  }
+}
+
+# Клавиша key code через System Events; журнал — <out>.
+se_key() {
+  printf '%s key code %s\n' "$(now_ms)" "$1" >>"$2"
+  osascript -e "tell application \"System Events\" to key code $1" >>"$2" 2>&1
+}
+
+# Опрос ui.inspect до состояния выбора «Открыть в новой части»: layout.picker open — want; последнее чтение —
+# <prefix>.stdout, иначе WHY.
+wait_picker() {
+  local state="$1" prefix="$2" want="$3" deadline seen=""
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$state" "$prefix" inspect; then
+      seen="$(comp "$prefix.stdout" layout.picker state.menu.open || echo ?)"
+      [[ "$seen" == "$want" ]] && return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс layout.picker open — ${seen:-?}, а не $want"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Открытый выбор закрывается Escape: путь отказа пункта не оставляет меню следующему.
+close_picker() {
+  local state="$1" dir="$2"
+  ui_read "$state" "$dir/picker-left" inspect || return 0
+  [[ "$(comp "$dir/picker-left.stdout" layout.picker state.menu.open || echo false)" == true ]] || return 0
+  se_key "$KEY_ESC" "$dir/keys.log" || true
+  wait_picker "$state" "$dir/picker-closed" false || true
+}
+
+# Открытый выбор новой части по AX: меню процесса и его окна, JSON [[{title, enabled}]]; пустой список — System
+# Events меню не отдал.
+AX_PICKER_JS='function run(argv) {
+  const se = Application("System Events");
+  const p = se.processes.whose({unixId: Number(argv[0])})[0];
+  const prop = (f) => { try { const v = f(); return v === undefined ? null : v; } catch (x) { return null; } };
+  let roots = [];
+  try { roots = roots.concat(p.menus()); } catch (x) {}
+  try { roots = roots.concat(p.windows[0].menus()); } catch (x) {}
+  const out = [];
+  for (const m of roots) {
+    let items = [];
+    try { items = m.menuItems(); } catch (x) {}
+    out.push(items.map((i) => ({ title: prop(() => i.name()), enabled: prop(() => i.enabled()) })));
+  }
+  return JSON.stringify(out);
+}'
+
+# Выход фонового задания до срока MENU_OSA_S от его старта t0; код — в VALUE, иначе WHY.
+await_bg() {
+  local job="$1" t0="$2"
+  VALUE=""
+  while alive "$job"; do
+    if (($(now_ms) - t0 >= MENU_OSA_S * 1000)); then
+      kill -TERM "$job" 2>/dev/null || true
+      WHY="фоновое задание $job не вышло за $MENU_OSA_S с"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+  if wait "$job"; then
+    VALUE=0
+  else
+    VALUE=$?
+  fi
+}
+
+# Гонка меню и CLI от одного сигнала (план P1.5, «Свидетель меню»): osascript с готовой ссылкой на пункт title и
+# shellioctl panel open plugin ждут по байту из одного FIFO, сигнал — одна запись двух байтов. Конец ввода для
+# этого не годится: FIFO macOS снимает его признак после первого читателя, второй остаётся ждать. Вывод —
+# <dir>/ax.* и <dir>/cli.*, коды — в AX_CODE и CLI_CODE; иначе WHY. Перекрытие в обработке доказывает тест с
+# барьером, а не этот сценарий.
+AX_CODE=""
+CLI_CODE=""
+race_open() {
+  local state="$1" dir="$2" pid="$3" title="$4" plugin="$5" bench="$6" ax cli t0 deadline
+  WHY=""
+  AX_CODE=""
+  CLI_CODE=""
+  rm -f "$dir/go" "$dir/ax.ready" "$dir/cli.ready"
+  mkfifo "$dir/go" || {
+    WHY="FIFO $dir/go не создан"
+    return 1
+  }
+  # Пишущий конец держит сценарий: участники читают без признака конца ввода, пока он открыт.
+  exec 9<>"$dir/go"
+  osascript -l JavaScript -e "$AX_OPEN_MENU_JS" armed "$pid" "$title" "$dir/ax.ready" \
+    <"$dir/go" 9>&- >"$dir/ax.stdout" 2>"$dir/ax.stderr" &
+  ax=$!
+  bg_jobs+=("$ax")
+  (
+    trap - ERR EXIT
+    set +e
+    exec 9>&- 3<"$dir/go"
+    : >"$dir/cli.ready"
+    read -r -n 1 _ <&3
+    exec env -u SHELLIO_SOCKET "SHELLIO_STATE_DIR=$state" "$ctl_bin" --json --timeout "$CTL_TIMEOUT_MS" \
+      panel open "$plugin" --all --workbench "$bench" 3<&- >"$dir/cli.stdout" 2>"$dir/cli.stderr"
+  ) &
+  cli=$!
+  bg_jobs+=("$cli")
+  t0="$(now_ms)"
+  deadline=$((t0 + MENU_OSA_S * 1000))
+  until [[ -e "$dir/ax.ready" && -e "$dir/cli.ready" ]]; do
+    if (($(now_ms) >= deadline)) || ! alive "$ax" || ! alive "$cli"; then
+      # Сначала участники завершаются, потом закрывается FIFO: конец ввода не должен запустить команду.
+      kill -TERM "$ax" "$cli" 2>/dev/null || true
+      await_bg "$ax" "$t0" || true
+      await_bg "$cli" "$t0" || true
+      exec 9>&-
+      WHY="участники гонки не готовы: пункт «${title}» — $(oneline "$dir/ax.stderr"), CLI — $(oneline "$dir/cli.stderr")"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+  printf '%s сигнал: пункт «%s» и panel open %s\n' "$(now_ms)" "$title" "$plugin" >"$dir/go.log"
+  printf 'gg' >&9
+  if ! await_bg "$ax" "$t0"; then
+    exec 9>&-
+    return 1
+  fi
+  AX_CODE="$VALUE"
+  if ! await_bg "$cli" "$t0"; then
+    exec 9>&-
+    return 1
+  fi
+  CLI_CODE="$VALUE"
+  exec 9>&-
+}
+
+# Основной владелец запускается снова на своём профиле: restore-list и пункты с собственным профилем оставляют
+# его остановленным. Окно показывает рабочую область маршрута профиля.
+resume_main() {
+  local dir="$1"
+  [[ -z "$owner_pid" ]] || return 0
+  launch_normal "$profile" "$dir"
+  owner_pid="$OWNER_PID"
+}
+
+# Окно основного владельца переходит к рабочей области bench воркспейса ws и выходит вперёд; иначе ошибка
+# исполнения.
+show_bench() {
+  local dir="$1" bench="$2" ws="$3"
+  core_cmd "$profile" "$dir/show-bench" workbench open --target "$bench" --workspace "$ws" ||
+    fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/show-settle" "$bench" "$REV" || fatal "условие пункта: $WHY"
+  front_ok "$owner_pid" "$dir" || fatal "условие пункта: $WHY"
+}
+
 # --- подготовка, уборка, предусловия ---
 
 prepare() {
@@ -1370,6 +1798,414 @@ item_missing_plugin() {
   conclude "$item" "state.db схемы v3 с панелью gone-plugin: заглушка «${MISSING_STUB}» без кнопки в ui.inspect и AX, статус plugin_missing, panel command — panel_unavailable; после panel move в нижнюю зону и перезапуска строка panel_states $MISSING_ROW побайтно прежняя"
 }
 
+# Подменю «Вид → Открыть панель» по AX: пункты совпадают с plugin list по названиям и порядку, terminal первым;
+# в WorkspaceHome нового профиля пункты недоступны. Просмотр меню квитанций UI не добавляет. Проверка WorkspaceHome
+# идёт при остановленном основном владельце, затем он запускается снова для остальных пунктов.
+item_menu_list() {
+  local item=menu-list dir="$run/menu-list" state pid code count i title want="" off="" last0 file
+  failures=()
+  log "== $item"
+  if [[ -n "$owner_pid" ]]; then
+    quit_owner "$profile" "$dir" "$owner_pid"
+    owner_pid=""
+  fi
+  new_profile
+  state="$NEW_PROFILE"
+  launch_normal "$state" "$dir/home"
+  pid="$OWNER_PID"
+  code=0
+  ctl "$state" "$dir/home.layout" --json --timeout "$CTL_TIMEOUT_MS" layout get --all || code=$?
+  [[ $code -ne 0 && "$(jv "$dir/home.layout.stdout" core_error.details.reason || echo нет)" == no_open_workbench ]] ||
+    fatal "условие пункта: новый профиль не в WorkspaceHome: $(oneline "$dir/home.layout.stdout")"
+  file="$dir/home.plugins.stdout"
+  ctl "$state" "$dir/home.plugins" --json --timeout "$CTL_TIMEOUT_MS" plugin list ||
+    fatal "$item: plugin list не прочитан: $(oneline "$file") $(oneline "$dir/home.plugins.stderr")"
+  count="$(jv "$file" 'ok.value.plugins[#]' || echo 0)"
+  [[ "$count" =~ ^[0-9]+$ ]] && ((count > 0)) || fatal "$item: в plugin list нет плагинов: $(oneline "$file")"
+  for ((i = 0; i < count; i++)); do
+    title="$(jv "$file" "ok.value.plugins[$i].title" || echo ?)"
+    want="${want:+$want|}$title:true"
+    off="${off:+$off|}$title:false"
+  done
+  front_ok "$pid" "$dir/home" || fatal "условие пункта: $WHY"
+  receipts_last "$state" "$dir/home.receipts-before" || fatal "$item: $WHY"
+  last0="$LAST"
+  if menu_items "$pid" "$dir/home.menu" "$count"; then
+    [[ "$MENU" == "$off" ]] ||
+      failures+=("WorkspaceHome: пункты меню «${MENU}», ожидались недоступные «${off}»")
+  else
+    failures+=("WorkspaceHome: $WHY")
+  fi
+  receipts_last "$state" "$dir/home.receipts-after" || fatal "$item: $WHY"
+  [[ "$LAST" == "$last0" ]] || failures+=("WorkspaceHome: просмотр меню добавил квитанцию UI: $last0 → $LAST")
+  quit_owner "$state" "$dir/home" "$pid"
+
+  resume_main "$dir/main"
+  settle_layout "$profile" "$dir/main-settle" "$wb_a" 0 || fatal "$item: основной владелец: $WHY"
+  front_ok "$owner_pid" "$dir" || fatal "условие пункта: $WHY"
+  file="$dir/plugins.stdout"
+  ctl "$profile" "$dir/plugins" --json --timeout "$CTL_TIMEOUT_MS" plugin list ||
+    fatal "$item: plugin list не прочитан: $(oneline "$file") $(oneline "$dir/plugins.stderr")"
+  [[ "$(jv "$file" 'ok.value.plugins[0].id' || echo ?)" == terminal ]] ||
+    failures+=("первый плагин реестра — $(jv "$file" 'ok.value.plugins[0].id' || echo ?), а не terminal")
+  receipts_last "$profile" "$dir/receipts-before" || fatal "$item: $WHY"
+  last0="$LAST"
+  if menu_items "$owner_pid" "$dir/menu" "$count"; then
+    [[ "$MENU" == "$want" ]] ||
+      failures+=("открытая рабочая область: пункты меню «${MENU}», по plugin list ожидались доступные «${want}»")
+  else
+    failures+=("открытая рабочая область: $WHY")
+  fi
+  receipts_last "$profile" "$dir/receipts-after" || fatal "$item: $WHY"
+  [[ "$LAST" == "$last0" ]] || failures+=("просмотр меню добавил квитанцию UI: $last0 → $LAST")
+  conclude "$item" "AX меню «Вид → Открыть панель»: пункты «${want}» совпали с plugin list по названиям и порядку, terminal первым, при открытой рабочей области доступны; в WorkspaceHome нового профиля те же пункты недоступны; номер последней квитанции UI прежний ($last0)"
+}
+
+# AXPress «Вид → Открыть панель → Демо: список» в A2: одна новая квитанция created с панелью из чтений, панель в
+# правой зоне окна.
+item_open_menu() {
+  local item=open-menu dir="$run/open-menu" last0 panel rev
+  failures=()
+  log "== $item"
+  show_bench "$dir" "$wb_a2" "$ws1"
+  layout_get "$profile" "$dir/before" "$wb_a2" || fatal "$item: query.layout не прочитан"
+  [[ -z "$(panels_of "$dir/before.stdout" demo-list)" ]] ||
+    fatal "условие пункта: в A2 уже есть демо-список $(panels_of "$dir/before.stdout" demo-list)"
+  receipts_last "$profile" "$dir/receipts-before" || fatal "$item: $WHY"
+  last0="$LAST"
+  press_open_item "$owner_pid" "Демо: список" "$dir/press" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_receipts "$profile" "$dir/receipts" "$last0" 1 || {
+    record "$item" fail "меню закрылось без квитанции: $WHY"
+    return 0
+  }
+  panel="$(rc "$dir/receipts.stdout" 0 panel)"
+  rev="$(rc "$dir/receipts.stdout" 0 revision)"
+  [[ "$(jv "$dir/receipts.stdout" 'ok.ui.receipts.receipts[#]' || echo ?)" == 1 ]] ||
+    failures+=("новых квитанций UI $(jv "$dir/receipts.stdout" 'ok.ui.receipts.receipts[#]' || echo ?), ожидалась одна")
+  [[ "$(jv "$dir/receipts.stdout" ok.ui.receipts.last || echo ?)" == $((last0 + 1)) ]] ||
+    failures+=("номер последней квитанции $(jv "$dir/receipts.stdout" ok.ui.receipts.last || echo ?), до нажатия $last0")
+  [[ "$(rc "$dir/receipts.stdout" 0 plugin)" == demo-list ]] ||
+    failures+=("квитанция плагина $(rc "$dir/receipts.stdout" 0 plugin), а не demo-list")
+  [[ "$(rc "$dir/receipts.stdout" 0 outcome)" == created ]] ||
+    failures+=("исход квитанции $(rc "$dir/receipts.stdout" 0 outcome) (отказ $(rc "$dir/receipts.stdout" 0 error)), ожидался created")
+  [[ "$(rc "$dir/receipts.stdout" 0 workbench)" == "$wb_a2" ]] ||
+    failures+=("рабочая область квитанции $(rc "$dir/receipts.stdout" 0 workbench), а не A2 $wb_a2")
+  if [[ "$rev" =~ ^[0-9]+$ ]]; then
+    settle_layout "$profile" "$dir/settle" "$wb_a2" "$rev" || fatal "$item: $WHY"
+    wait_inspect "$profile" "$dir/wait" "layout.panel.$panel" state.panel.plugin demo-list ||
+      failures+=("панель в окне: $WHY")
+    read_all "$profile" "$dir" opened "$wb_a2" "$owner_pid" || fatal "условие пункта: $WHY"
+    [[ "$(panels_of "$dir/opened.layout.stdout" demo-list)" == "$panel" ]] ||
+      failures+=("демо-список в чтениях «$(panels_of "$dir/opened.layout.stdout" demo-list)», в квитанции $panel")
+    [[ "$(place_of "$dir/opened.layout.stdout" "$panel")" == right.* ]] ||
+      failures+=("панель в «$(place_of "$dir/opened.layout.stdout" "$panel")», а не в правой зоне")
+    [[ -z "$FRAMES" ]] || failures+=("кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  else
+    failures+=("в квитанции нет ревизии: $(oneline "$dir/receipts.stdout")")
+  fi
+  [[ ${#failures[@]} -ne 0 ]] || OPEN_MENU_PASS=1
+  conclude "$item" "AXPress «Вид → Открыть панель → Демо: список» в A2: одна новая квитанция ui.receipts $((last0 + 1)) — panel.open demo-list created, панель $panel равна панели query.layout и стоит в правой зоне окна, кадры совпали с ui.inspect и AX"
+}
+
+# A2 без панелей: сообщение «Нет открытых панелей» с подсказкой меню; меню «Терминал» открывает терминал в центре.
+item_empty_workbench_open() {
+  local item=empty-workbench-open dir="$run/empty-workbench-open" nav panel last0 rev n=0
+  failures=()
+  log "== $item"
+  show_bench "$dir" "$wb_a2" "$ws1"
+  layout_get "$profile" "$dir/before" "$wb_a2" || fatal "$item: query.layout не прочитан"
+  nav="$(lv "$dir/before.stdout" layout.navigator || echo null)"
+  for panel in $(tile_panels "$dir/before.stdout"); do
+    n=$((n + 1))
+    core_cmd "$profile" "$dir/close-$n" panel close "$panel" --workspace "$ws1" || fatal "условие пункта: $WHY"
+  done
+  if [[ "$nav" != null ]]; then
+    core_cmd "$profile" "$dir/close-navigator" panel close "$nav" --workspace "$ws1" || fatal "условие пункта: $WHY"
+  fi
+  ((n > 0)) || [[ "$nav" != null ]] || fatal "условие пункта: в A2 нечего закрывать"
+  settle_layout "$profile" "$dir/settle-empty" "$wb_a2" "$REV" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" empty "$wb_a2" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(lv "$dir/empty.layout.stdout" 'panels[#]' || echo ?)" == 0 ]] ||
+    fatal "условие пункта: в A2 остались панели: $(lv "$dir/empty.layout.stdout" panels | cut -c 1-200)"
+  [[ "$(lv "$dir/empty.layout.stdout" frames.no_panels || echo null)" != null ]] ||
+    failures+=("в query.layout нет места сообщения frames.no_panels")
+  wait_inspect "$profile" "$dir/empty.note" layout.note label "$NO_PANELS_TEXT" ||
+    failures+=("сообщение в окне: $WHY")
+  [[ "$(comp "$dir/empty.note.stdout" layout.note visible || echo false)" == true ]] ||
+    failures+=("узел layout.note не видим")
+  wait_ax_text "$owner_pid" "$dir/empty.note.ax.json" "$NO_PANELS_TEXT" ||
+    failures+=("в AX окна нет элемента «${NO_PANELS_TEXT}»")
+  front_ok "$owner_pid" "$dir" || fatal "условие пункта: $WHY"
+  receipts_last "$profile" "$dir/receipts-before" || fatal "$item: $WHY"
+  last0="$LAST"
+  press_open_item "$owner_pid" "Терминал" "$dir/press" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_receipts "$profile" "$dir/receipts" "$last0" 1 || {
+    record "$item" fail "меню закрылось без квитанции: $WHY"
+    return 0
+  }
+  panel="$(rc "$dir/receipts.stdout" 0 panel)"
+  rev="$(rc "$dir/receipts.stdout" 0 revision)"
+  [[ "$(rc "$dir/receipts.stdout" 0 plugin)" == terminal ]] ||
+    failures+=("квитанция плагина $(rc "$dir/receipts.stdout" 0 plugin), а не terminal")
+  [[ "$(rc "$dir/receipts.stdout" 0 outcome)" == created ]] ||
+    failures+=("исход квитанции $(rc "$dir/receipts.stdout" 0 outcome) (отказ $(rc "$dir/receipts.stdout" 0 error)), ожидался created")
+  if [[ "$rev" =~ ^[0-9]+$ ]]; then
+    settle_layout "$profile" "$dir/settle" "$wb_a2" "$rev" || fatal "$item: $WHY"
+    wait_inspect "$profile" "$dir/wait" "layout.panel.$panel" state.panel.plugin terminal ||
+      failures+=("терминал в окне: $WHY")
+    read_all "$profile" "$dir" opened "$wb_a2" "$owner_pid" || fatal "условие пункта: $WHY"
+    [[ "$(place_of "$dir/opened.layout.stdout" "$panel")" == center.0 ]] ||
+      failures+=("терминал в «$(place_of "$dir/opened.layout.stdout" "$panel")», а не в центре")
+    [[ "$(panels_of "$dir/opened.layout.stdout" terminal)" == "$panel" ]] ||
+      failures+=("панели terminal в чтениях «$(panels_of "$dir/opened.layout.stdout" terminal)», в квитанции $panel")
+    [[ "$(comp "$dir/opened.inspect.stdout" layout.note visible || echo false)" != true ]] ||
+      failures+=("сообщение «Нет открытых панелей» осталось видимым")
+    [[ -z "$FRAMES" ]] || failures+=("кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  else
+    failures+=("в квитанции нет ревизии: $(oneline "$dir/receipts.stdout")")
+  fi
+  conclude "$item" "A2 без панелей (закрыто $n вне колонки и навигатор): сообщение «${NO_PANELS_TEXT}» в query.layout, ui.inspect и AX; меню «Терминал» — квитанция created, терминал $panel в центре, кадры совпали с ui.inspect и AX"
+}
+
+# Общая часть open-race и race-multi: окно показывает B, курсор и номер квитанции снимаются до действия, меню и CLI
+# стартуют от одного сигнала. Ответ CLI — <dir>/cli.stdout, квитанция UI — <dir>/receipts.stdout, курсор — в
+# RACE_REV. Код 1 — пункт уже записан.
+RACE_REV=""
+race_run() {
+  local item="$1" dir="$2" title="$3" plugin="$4" last0
+  RACE_REV=""
+  receipts_last "$profile" "$dir/receipts-before" || fatal "$item: $WHY"
+  last0="$LAST"
+  layout_get "$profile" "$dir/cursor" "$wb_b" || fatal "$item: query.layout не прочитан"
+  RACE_REV="$(jv "$dir/cursor.stdout" ok.revision)" || fatal "$item: в query.layout нет ревизии"
+  race_open "$profile" "$dir" "$owner_pid" "$title" "$plugin" "$wb_b" || fatal "$item: $WHY"
+  if ! wait_receipts "$profile" "$dir/receipts" "$last0" 1; then
+    # План P1.5, «Квитанции гонки»: без квитанции UI судит одиночный open-menu того же прогона.
+    if ((OPEN_MENU_PASS)); then
+      record "$item" fail "квитанции UI нет при open-menu pass: $WHY; osascript — код $AX_CODE, $(oneline "$dir/ax.stderr")"
+      return 1
+    fi
+    fatal "$item: меню не нажато: $WHY; osascript — код $AX_CODE, $(oneline "$dir/ax.stderr")"
+  fi
+  [[ "$(jv "$dir/receipts.stdout" 'ok.ui.receipts.receipts[#]' || echo ?)" == 1 ]] ||
+    failures+=("новых квитанций UI $(jv "$dir/receipts.stdout" 'ok.ui.receipts.receipts[#]' || echo ?), ожидалась одна")
+  [[ "$CLI_CODE" == 0 ]] ||
+    failures+=("shellioctl panel open $plugin: код $CLI_CODE: $(oneline "$dir/cli.stdout") $(oneline "$dir/cli.stderr")")
+  [[ "$(rc "$dir/receipts.stdout" 0 plugin)" == "$plugin" ]] ||
+    failures+=("квитанция UI плагина $(rc "$dir/receipts.stdout" 0 plugin), а не $plugin")
+  [[ "$(rc "$dir/receipts.stdout" 0 error)" == нет ]] ||
+    failures+=("квитанция UI — отказ $(rc "$dir/receipts.stdout" 0 error)")
+}
+
+# В B без демо-списка меню «Демо: список» и shellioctl panel open demo-list от одного сигнала: одна панель.
+item_open_race() {
+  local item=open-race dir="$run/open-race" cp co cw cr up uo uw ur next outcomes
+  failures=()
+  log "== $item"
+  show_bench "$dir" "$wb_b" "$ws2"
+  layout_get "$profile" "$dir/before" "$wb_b" || fatal "$item: query.layout не прочитан"
+  [[ -z "$(panels_of "$dir/before.stdout" demo-list)" ]] ||
+    fatal "условие пункта: в B уже есть демо-список $(panels_of "$dir/before.stdout" demo-list)"
+  race_run "$item" "$dir" "Демо: список" demo-list || return 0
+  next=$((RACE_REV + 1))
+  cp="$(jv "$dir/cli.stdout" ok.value.panel 2>/dev/null || echo нет)"
+  co="$(jv "$dir/cli.stdout" ok.value.outcome 2>/dev/null || echo нет)"
+  cw="$(jv "$dir/cli.stdout" ok.value.workbench 2>/dev/null || echo нет)"
+  cr="$(jv "$dir/cli.stdout" ok.revision 2>/dev/null || echo нет)"
+  up="$(rc "$dir/receipts.stdout" 0 panel)"
+  uo="$(rc "$dir/receipts.stdout" 0 outcome)"
+  uw="$(rc "$dir/receipts.stdout" 0 workbench)"
+  ur="$(rc "$dir/receipts.stdout" 0 revision)"
+  [[ "$cp" != нет && "$cp" == "$up" ]] || failures+=("панели разные: CLI $cp, квитанция UI $up")
+  [[ "$cw" == "$wb_b" && "$uw" == "$wb_b" ]] ||
+    failures+=("рабочая область: CLI $cw, квитанция UI $uw, ожидалась B $wb_b")
+  outcomes="$(printf '%s\n%s\n' "$co" "$uo" | sort | tr '\n' ' ')"
+  [[ "$outcomes" == "created focused " ]] || failures+=("исходы: CLI $co, квитанция UI $uo, ожидались created и focused")
+  [[ "$cr" == "$next" && "$ur" == "$next" ]] ||
+    failures+=("ревизии квитанций: CLI $cr, UI $ur, ожидалась $next у обеих")
+  if events_after "$profile" "$dir/events" "$RACE_REV"; then
+    [[ "$EVENTS" == "1|1|$next" ]] ||
+      failures+=("события после курсора $RACE_REV: «${EVENTS}» (событий|panel_add|ревизии), ожидалось «1|1|${next}»")
+  else
+    failures+=("$WHY")
+  fi
+  settle_layout "$profile" "$dir/settle" "$wb_b" "$next" || failures+=("$WHY")
+  wait_tabs "$profile" "$dir/tabs" "Демо: список" 1 || failures+=("$WHY")
+  layout_get "$profile" "$dir/after" "$wb_b" || fatal "$item: query.layout не прочитан"
+  [[ "$(panels_of "$dir/after.stdout" demo-list)" == "$cp" ]] ||
+    failures+=("демо-списки B в чтениях «$(panels_of "$dir/after.stdout" demo-list)», в ответах $cp")
+  conclude "$item" "AXPress «Демо: список» и shellioctl panel open demo-list --all --workbench B от одного сигнала: обе квитанции успешны, один PanelId $cp в B, исходы CLI $co и UI $uo, после курсора $RACE_REV одно событие с одним panel_add и ревизией $next, обе квитанции несут $next, в окне одна вкладка «Демо: список»"
+}
+
+# То же с «Терминал» (Multi): две новые панели.
+item_race_multi() {
+  local item=race-multi dir="$run/race-multi" cp co cr up uo ur tabs before want_tabs rev adds
+  failures=()
+  log "== $item"
+  show_bench "$dir" "$wb_b" "$ws2"
+  layout_get "$profile" "$dir/before" "$wb_b" || fatal "$item: query.layout не прочитан"
+  before="$(panels_of "$dir/before.stdout" terminal)"
+  ui_read "$profile" "$dir/before.inspect" inspect || fatal "$item: ui.inspect не прочитан"
+  tabs="$(window_tabs "$dir/before.inspect.stdout" "Терминал")" || fatal "$item: вкладки окна не сосчитаны"
+  want_tabs=$((tabs + 2))
+  race_run "$item" "$dir" "Терминал" terminal || return 0
+  cp="$(jv "$dir/cli.stdout" ok.value.panel 2>/dev/null || echo нет)"
+  co="$(jv "$dir/cli.stdout" ok.value.outcome 2>/dev/null || echo нет)"
+  cr="$(jv "$dir/cli.stdout" ok.revision 2>/dev/null || echo нет)"
+  up="$(rc "$dir/receipts.stdout" 0 panel)"
+  uo="$(rc "$dir/receipts.stdout" 0 outcome)"
+  ur="$(rc "$dir/receipts.stdout" 0 revision)"
+  [[ "$cp" != нет && "$up" != нет && "$cp" != "$up" ]] || failures+=("панели не две разные: CLI $cp, квитанция UI $up")
+  [[ " $before " != *" $cp "* && " $before " != *" $up "* ]] ||
+    failures+=("панель из ответов уже была в B до действия: CLI $cp, UI $up, до действия «${before}»")
+  [[ "$co" == created && "$uo" == created ]] || failures+=("исходы: CLI $co, квитанция UI $uo, ожидались оба created")
+  if events_after "$profile" "$dir/events" "$RACE_REV"; then
+    adds="${EVENTS#*|}"
+    adds="${adds%%|*}"
+    [[ "$EVENTS" != reset && "$adds" == 2 ]] ||
+      failures+=("события после курсора $RACE_REV: «${EVENTS}» (событий|panel_add|ревизии), ожидалось ровно два panel_add")
+  else
+    failures+=("$WHY")
+  fi
+  rev="$RACE_REV"
+  [[ "$cr" =~ ^[0-9]+$ ]] && ((cr > rev)) && rev="$cr"
+  [[ "$ur" =~ ^[0-9]+$ ]] && ((ur > rev)) && rev="$ur"
+  settle_layout "$profile" "$dir/settle" "$wb_b" "$rev" || failures+=("$WHY")
+  wait_tabs "$profile" "$dir/tabs" "Терминал" "$want_tabs" || failures+=("$WHY")
+  conclude "$item" "AXPress «Терминал» и shellioctl panel open terminal --all --workbench B от одного сигнала: две разные панели $cp и $up, оба исхода created, после курсора $RACE_REV ровно два panel_add (${EVENTS}), вкладок «Терминал» в окне $want_tabs — на две больше, чем до действия ($tabs)"
+}
+
+# layout split <terminal> --open demo-list при существующем демо-списке A: отказ singleton_exists без изменений.
+item_singleton_split() {
+  local item=singleton-split dir="$run/singleton-split" term rev before after code reason
+  failures=()
+  log "== $item"
+  layout_get "$profile" "$dir/before" "$wb_a" || fatal "$item: query.layout не прочитан"
+  [[ -n "$demo" && "$(panels_of "$dir/before.stdout" demo-list)" == "$demo" ]] ||
+    fatal "условие пункта: в A нет демо-списка open-cli: «$(panels_of "$dir/before.stdout" demo-list)»"
+  term="$(panels_of "$dir/before.stdout" terminal)"
+  term="${term%% *}"
+  [[ -n "$term" ]] || fatal "условие пункта: в A нет панели terminal"
+  rev="$(jv "$dir/before.stdout" ok.revision)" || fatal "$item: в query.layout нет ревизии"
+  before="$(layout_canon "$dir/before.stdout")"
+  code=0
+  ctl "$profile" "$dir/split" --json --timeout "$CTL_TIMEOUT_MS" layout split "$term" --open demo-list \
+    --workspace "$ws1" || code=$?
+  reason="$(jv "$dir/split.stdout" core_error.details.reason 2>/dev/null || echo нет)"
+  [[ $code -ne 0 && "$reason" == singleton_exists ]] ||
+    failures+=("layout split --open demo-list: код $code, причина $reason, ожидался отказ singleton_exists: $(oneline "$dir/split.stdout" | cut -c 1-200)")
+  [[ "$(jv "$dir/split.stdout" core_error.details.panel 2>/dev/null || echo нет)" == "$demo" ]] ||
+    failures+=("отказ называет панель $(jv "$dir/split.stdout" core_error.details.panel 2>/dev/null || echo нет), а не демо-список $demo")
+  layout_get "$profile" "$dir/after" "$wb_a" || fatal "$item: query.layout не прочитан"
+  after="$(layout_canon "$dir/after.stdout")"
+  [[ "$after" == "$before" ]] || failures+=("раскладка A после отказа другая (before.stdout, after.stdout)")
+  [[ "$(jv "$dir/after.stdout" ok.revision || echo ?)" == "$rev" ]] ||
+    failures+=("ревизия после отказа $(jv "$dir/after.stdout" ok.revision || echo ?), до него $rev")
+  if events_after "$profile" "$dir/events" "$rev"; then
+    [[ "$EVENTS" == "0|0|" ]] || failures+=("события после курсора $rev: «${EVENTS}», ожидалось ни одного")
+  else
+    failures+=("$WHY")
+  fi
+  conclude "$item" "layout split $term --open demo-list при демо-списке $demo в A: отказ singleton_exists с его PanelId, раскладка и ревизия $rev прежние, событий после курсора нет"
+}
+
+# Выбор «Открыть в новой части» у части центра A с одной вкладкой терминала при открытом демо-списке: «Терминал»
+# первым и доступен, занятый singleton недоступен с пометкой в названии; Escape ничего не меняет.
+item_picker_singleton() {
+  local item=picker-singleton dir="$run/picker-singleton" term rev last0 strip parts file taken ax
+  failures=()
+  log "== $item"
+  [[ -n "$demo" ]] || fatal "условие пункта: панели демо-списка нет: open-cli её не создал"
+  show_bench "$dir" "$wb_a" "$ws1"
+  layout_get "$profile" "$dir/start" "$wb_a" || fatal "$item: query.layout не прочитан"
+  if [[ "$(place_of "$dir/start.stdout" "$demo")" != right.* ]]; then
+    core_cmd "$profile" "$dir/demo-right" panel move "$demo" --zone right --workspace "$ws1" ||
+      fatal "условие пункта: $WHY"
+    layout_get "$profile" "$dir/start" "$wb_a" || fatal "$item: query.layout не прочитан"
+  fi
+  term="$(tabs_of "$dir/start.stdout" center 0)"
+  [[ "$(parts_count "$dir/start.stdout" center)" == 1 && "$term" != "?" && "$term" != *" "* &&
+    " $(panels_of "$dir/start.stdout" terminal) " == *" $term "* ]] ||
+    fatal "условие пункта: в центре A не одна часть с единственной вкладкой терминала: частей $(parts_count "$dir/start.stdout" center), вкладки «${term}»"
+  core_cmd "$profile" "$dir/focus" panel focus "$term" --workspace "$ws1" || fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/settle" "$wb_a" "$REV" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" before "$wb_a" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(focus_of "$dir/before.layout.stdout")" == "$term" ]] ||
+    fatal "условие пункта: фокус на $(focus_of "$dir/before.layout.stdout"), а не на терминале $term"
+  [[ "$(place_of "$dir/before.layout.stdout" "$demo")" == right.* ]] ||
+    fatal "условие пункта: демо-список в «$(place_of "$dir/before.layout.stdout" "$demo")», а не в правой зоне"
+  rev="$(jv "$dir/before.layout.stdout" ok.revision)" || fatal "$item: в query.layout нет ревизии"
+  parts="$(parts_count "$dir/before.layout.stdout" center)"
+  receipts_last "$profile" "$dir/receipts-before" || fatal "$item: $WHY"
+  last0="$LAST"
+  strip="$(strip_label center 0 1)"
+  front_ok "$owner_pid" "$dir" || fatal "условие пункта: $WHY"
+  strip_press "$owner_pid" "$strip" "Разделить" "$dir/press" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_picker "$profile" "$dir/open" true || {
+    record "$item" fail "«Разделить» строки «${strip}»: $WHY"
+    return 0
+  }
+  file="$dir/open.stdout"
+  taken="Демо: список $PICKER_TAKEN"
+  [[ "$(comp "$file" layout.picker 'state.menu.items[0].id' || echo ?)" == terminal ]] ||
+    failures+=("первый пункт выбора — $(comp "$file" layout.picker 'state.menu.items[0].id' || echo ?), а не terminal")
+  [[ "$(comp "$file" layout.picker 'state.menu.items[0].title' || echo ?)" == "Терминал" ]] ||
+    failures+=("название первого пункта «$(comp "$file" layout.picker 'state.menu.items[0].title' || echo ?)», а не «Терминал»")
+  [[ "$(comp "$file" layout.picker 'state.menu.items[0].enabled' || echo ?)" == true ]] ||
+    failures+=("пункт «Терминал» недоступен")
+  [[ "$(comp "$file" layout.picker 'state.menu.items[id=demo-list].title' || echo нет)" == "$taken" ]] ||
+    failures+=("пункт demo-list называется «$(comp "$file" layout.picker 'state.menu.items[id=demo-list].title' || echo нет)», а не «${taken}»")
+  [[ "$(comp "$file" layout.picker 'state.menu.items[id=demo-list].enabled' || echo ?)" == false ]] ||
+    failures+=("пункт «${taken}» доступен")
+  # AX открытого выбора: System Events отдаёт меню не всегда; отданное судится, неотданное — запись в причине.
+  ax="$(osascript -l JavaScript -e "$AX_PICKER_JS" "$owner_pid" 2>"$dir/picker.ax.stderr" || true)"
+  printf '%s\n' "$ax" >"$dir/picker.ax.json"
+  ax="$(/usr/bin/perl -COEA -Mutf8 -MJSON::PP -e 'my ($file, $first, $taken) = @ARGV; open my $fh, "<", $file or exit 0;
+    local $/; my $menus = eval { JSON::PP->new->utf8->decode(<$fh>) }; exit 0 unless ref $menus eq "ARRAY";
+    for my $m (@$menus) {
+      next unless @$m && ($m->[0]{title} // "") eq $first;
+      my ($hit) = grep { ($_->{title} // "") eq $taken } @$m;
+      print $m->[0]{enabled} && $hit && !$hit->{enabled} ? "ok\n" : "bad\n";
+      exit 0;
+    }' "$dir/picker.ax.json" "Терминал" "$taken" 2>/dev/null || true)"
+  case "$ax" in
+    ok) ax="AX выбора: «Терминал» первым и доступен, «${taken}» недоступен" ;;
+    bad)
+      failures+=("AX выбора расходится с ui.inspect: $(oneline "$dir/picker.ax.json" | cut -c 1-300)")
+      ax="AX выбора расходится"
+      ;;
+    *) ax="System Events меню выбора не отдал (picker.ax.json), пункты судятся по ui.inspect" ;;
+  esac
+  se_key "$KEY_ESC" "$dir/keys.log" || failures+=("Escape не отправлен: $(oneline "$dir/keys.log")")
+  wait_picker "$profile" "$dir/closed" false || {
+    close_picker "$profile" "$dir"
+    record "$item" fail "Escape: $WHY"
+    return 0
+  }
+  layout_get "$profile" "$dir/escaped" "$wb_a" || fatal "$item: query.layout не прочитан"
+  [[ "$(parts_count "$dir/escaped.stdout" center)" == "$parts" ]] ||
+    failures+=("после Escape частей центра $(parts_count "$dir/escaped.stdout" center), до — $parts")
+  [[ "$(jv "$dir/escaped.stdout" ok.revision || echo ?)" == "$rev" ]] ||
+    failures+=("после Escape ревизия $(jv "$dir/escaped.stdout" ok.revision || echo ?), до — $rev")
+  if events_after "$profile" "$dir/events" "$rev"; then
+    [[ "$EVENTS" == "0|0|" ]] || failures+=("события после курсора $rev: «${EVENTS}», ожидалось ни одного")
+  else
+    failures+=("$WHY")
+  fi
+  receipts_last "$profile" "$dir/receipts-after" || fatal "$item: $WHY"
+  [[ "$LAST" == "$last0" ]] || failures+=("выбор и Escape добавили квитанцию UI: $last0 → $LAST")
+  conclude "$item" "«Разделить» строки «${strip}» в A при демо-списке в правой зоне: в выборе «Терминал» первым и доступен, «${taken}» недоступен (ui.inspect layout.picker; ${ax}); Escape — частей центра $parts, ревизия $rev и номер квитанции UI $last0 прежние, событий после курсора нет"
+}
+
 prepare
 preconditions
 setup_main
@@ -1381,6 +2217,22 @@ item_retarget_cli
 # Events находит окно по имени процесса.
 item_restore_list
 item_missing_plugin
+# Пункты рубежа 2 идут в порядке матрицы после пунктов с собственным профилем: menu-list сначала проверяет
+# WorkspaceHome на новом профиле, пока основной владелец остановлен, затем запускает основного владельца снова, и
+# он работает до конца прогона. open-menu и empty-workbench-open идут в A2, open-race и race-multi — в B,
+# singleton-split и picker-singleton — в A с демо-списком open-cli.
+item_menu_list
+item_open_menu
+item_empty_workbench_open
+item_open_race
+item_race_multi
+item_singleton_split
+item_picker_singleton
+if [[ -n "$owner_pid" ]]; then
+  mkdir -p "$run/cleanup"
+  quit_owner "$profile" "$run/cleanup" "$owner_pid"
+  owner_pid=""
+fi
 for i in "${!ITEMS[@]}"; do
   if ((TASK[i] > DONE_TASK)); then
     record "${ITEMS[i]}" not_run "пункт задачи ${TASK[i]}"

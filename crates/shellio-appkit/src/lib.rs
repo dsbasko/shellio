@@ -97,7 +97,7 @@ pub use inspect::{
     InspectNode, Inspection, MaterialFact, NodeState, ScreenFacts, Transition, TransitionPath,
     ViewFacts, WindowFacts,
 };
-pub use main_menu::{MainMenu, MenuAction, ZoneMenu};
+pub use main_menu::{MainMenu, MenuAction, PanelRow, ZoneMenu};
 pub use marker::{GenerationMarker, MARKER_CELL, MARKER_CELLS, marker_bit};
 pub use own::ComponentId;
 pub use panel_stub::{

@@ -1,0 +1,8 @@
+{
+  "id": 42,
+  "ui": {
+    "ui.receipts": {
+      "after": 1
+    }
+  }
+}

@@ -13,7 +13,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
 
 use serde::{Deserialize, Serialize};
-use shellio_core::{AppearanceChoice, PanelId, PanelStatus, UiCommand};
+use shellio_core::{
+    AppearanceChoice, OpenOutcome, PanelId, PanelStatus, Revision, UiCommand, WorkbenchId,
+};
 use shellio_layout::{SizeClass, Zone};
 
 /// Срок запроса `ui` на главном потоке владельца.
@@ -30,6 +32,9 @@ pub enum UiRequest {
     /// `ui.stats`: счётчики, монитор цикла и старт процесса. После чтения владелец сливает пул
     /// автоосвобождения цикла событий: следующее чтение видит освобождения, отложенные до ввода.
     Stats,
+    /// `ui.receipts`: квитанции `panel.open`, поданных главным потоком, с номером больше `after`.
+    /// Чтение ничего не меняет.
+    Receipts { after: Option<u64> },
     /// Действие интерфейса: тот же обработчик, что у главного меню.
     Command(UiCommand),
     /// Служебная команда галереи.
@@ -189,6 +194,7 @@ impl UiRequest {
             Self::Window => "ui.window",
             Self::Inspect => "ui.inspect",
             Self::Stats => "ui.stats",
+            Self::Receipts { .. } => "ui.receipts",
             Self::Command(command) => command.name(),
             Self::Gallery(command) => command.name(),
         }
@@ -197,7 +203,7 @@ impl UiRequest {
     /// Изменяет ли запрос состояние: начатый изменяющий запрос не повторяется.
     pub const fn is_mutation(self) -> bool {
         match self {
-            Self::Window | Self::Inspect | Self::Stats => false,
+            Self::Window | Self::Inspect | Self::Stats | Self::Receipts { .. } => false,
             Self::Command(_) | Self::Gallery(_) => true,
         }
     }
@@ -209,6 +215,7 @@ impl UiRequest {
             (Self::Window, UiReply::Window(_))
                 | (Self::Inspect, UiReply::Inspect(_))
                 | (Self::Stats, UiReply::Stats(_))
+                | (Self::Receipts { .. }, UiReply::Receipts(_))
                 | (Self::Command(_) | Self::Gallery(_), UiReply::Accepted(_))
         )
     }
@@ -218,6 +225,13 @@ impl UiRequest {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct NoArgs {}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReceiptsArgs {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    after: Option<u64>,
+}
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -291,6 +305,8 @@ enum WireUiRequest {
     Inspect(NoArgs),
     #[serde(rename = "ui.stats")]
     Stats(NoArgs),
+    #[serde(rename = "ui.receipts")]
+    Receipts(ReceiptsArgs),
     #[serde(rename = "window.close")]
     WindowClose(NoArgs),
     #[serde(rename = "app.quit")]
@@ -331,6 +347,7 @@ impl From<WireUiRequest> for UiRequest {
             WireUiRequest::Window(NoArgs {}) => Self::Window,
             WireUiRequest::Inspect(NoArgs {}) => Self::Inspect,
             WireUiRequest::Stats(NoArgs {}) => Self::Stats,
+            WireUiRequest::Receipts(ReceiptsArgs { after }) => Self::Receipts { after },
             WireUiRequest::WindowClose(NoArgs {}) => Self::Command(UiCommand::WindowClose),
             WireUiRequest::AppQuit(NoArgs {}) => Self::Command(UiCommand::AppQuit),
             WireUiRequest::AppearanceSet(AppearanceArgs { appearance }) => {
@@ -383,6 +400,7 @@ impl From<UiRequest> for WireUiRequest {
             UiRequest::Window => Self::Window(NoArgs {}),
             UiRequest::Inspect => Self::Inspect(NoArgs {}),
             UiRequest::Stats => Self::Stats(NoArgs {}),
+            UiRequest::Receipts { after } => Self::Receipts(ReceiptsArgs { after }),
             UiRequest::Command(UiCommand::WindowClose) => Self::WindowClose(NoArgs {}),
             UiRequest::Command(UiCommand::AppQuit) => Self::AppQuit(NoArgs {}),
             UiRequest::Command(UiCommand::AppearanceSet(appearance)) => {
@@ -428,8 +446,42 @@ pub enum UiReply {
     Window(Box<WindowView>),
     Inspect(Box<InspectView>),
     Stats(Box<StatsView>),
+    Receipts(ReceiptsView),
     /// Действие принято обработчиком на главном потоке.
     Accepted(Accepted),
+}
+
+/// Квитанции `panel.open` главного потока: ответ `ui.receipts` (ADR-0007, «Квитанции UI»).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReceiptsView {
+    /// Номер последней записанной квитанции процесса; 0 — их не было.
+    pub last: u64,
+    /// Записи кольца с номером больше `after` по возрастанию номера.
+    pub receipts: Vec<ReceiptView>,
+}
+
+/// Завершение одной команды `panel.open`, поданной главным потоком. Данных команды в записи нет.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReceiptView {
+    /// Монотонный номер в пределах процесса, с 1.
+    pub seq: u64,
+    /// Рабочая область: при успехе — где стоит панель, при отказе — куда шла команда.
+    pub workbench: Option<WorkbenchId>,
+    pub plugin: String,
+    /// Исход успешной команды; при отказе ключа нет.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<OpenOutcome>,
+    /// Панель успешной команды.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub panel: Option<PanelId>,
+    /// Ревизия ответа успешной команды.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revision: Option<Revision>,
+    /// Код отказа ядра; ранний отказ главного потока — `busy`, ядро без ответа — `no_reply`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 /// Квитанция действия интерфейса. `app.quit` отвечает до порядка завершения.
@@ -1203,6 +1255,8 @@ mod tests {
             (UiRequest::Window, "ui.window", false),
             (UiRequest::Inspect, "ui.inspect", false),
             (UiRequest::Stats, "ui.stats", false),
+            (UiRequest::Receipts { after: None }, "ui.receipts", false),
+            (UiRequest::Receipts { after: Some(7) }, "ui.receipts", false),
             (
                 UiRequest::Command(UiCommand::WindowClose),
                 "window.close",
@@ -1333,6 +1387,10 @@ mod tests {
             json!({"ui.appearance.set": {}}),
             json!({"ui.appearance.set": {"appearance": "Light"}}),
             json!("ui.window"),
+            json!({"ui.receipts": {"after": -1}}),
+            json!({"ui.receipts": {"extra": 1}}),
+            json!({"ui.receipts": null}),
+            json!({"ui.receipts": {"after": "x"}}),
             json!({"gallery.cell": {"appearance": "sepia"}}),
             json!({"gallery.cell": {"extra": 1}}),
             json!({"gallery.motion": {}}),
@@ -1393,6 +1451,27 @@ mod tests {
                 contrast: None,
             })
         );
+    }
+
+    #[test]
+    fn receipts_cursor_is_optional_and_omitted_when_absent() {
+        let all: UiRequest = serde_json::from_value(json!({"ui.receipts": {}})).unwrap();
+        assert_eq!(all, UiRequest::Receipts { after: None });
+        assert_eq!(
+            serde_json::to_value(all).unwrap(),
+            json!({"ui.receipts": {}})
+        );
+        let later = UiRequest::Receipts { after: Some(3) };
+        assert_eq!(
+            serde_json::to_value(later).unwrap(),
+            json!({"ui.receipts": {"after": 3}})
+        );
+        assert_eq!(
+            serde_json::from_value::<UiRequest>(json!({"ui.receipts": {"after": 0}})).unwrap(),
+            UiRequest::Receipts { after: Some(0) }
+        );
+        assert!(later.answered_by(&UiReply::Receipts(ReceiptsView::default())));
+        assert!(!UiRequest::Stats.answered_by(&UiReply::Receipts(ReceiptsView::default())));
     }
 
     #[test]

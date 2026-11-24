@@ -1,0 +1,26 @@
+{
+  "id": 42,
+  "ok": {
+    "ui": {
+      "receipts": {
+        "last": 3,
+        "receipts": [
+          {
+            "seq": 2,
+            "workbench": "00000000-0000-0000-0000-000000000002",
+            "plugin": "demo-list",
+            "outcome": "created",
+            "panel": "00000000-0000-0000-0000-000000000003",
+            "revision": 41
+          },
+          {
+            "seq": 3,
+            "workbench": "00000000-0000-0000-0000-000000000002",
+            "plugin": "terminal",
+            "error": "busy"
+          }
+        ]
+      }
+    }
+  }
+}

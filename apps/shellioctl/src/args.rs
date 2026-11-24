@@ -59,6 +59,7 @@ pub const USAGE: &str = "\
   ui window
   ui inspect
   ui stats
+  ui receipts [--after <номер>]
   ui appearance <light|dark|system>
   window close
   app quit
@@ -82,6 +83,8 @@ pub const USAGE: &str = "\
 открытую в окне.
 panel open открывает панель плагина по правилу его кардинальности: новую или уже существующую.
 Действие у panel command — полное имя из манифеста плагина, <плагин>.<имя>. --args — объект JSON.
+ui receipts — служебное чтение тестов: квитанции panel.open, поданных из окна, с номером больше
+--after.
 --json печатает кадры ответа построчно, --timeout задаёт срок вызова (по умолчанию 5000 мс).
 Вызовы gallery — служебные входы тестов, только у владельца в режиме --gallery; auto у gallery cell
 оставляет ось без переопределения галереи.
@@ -170,11 +173,12 @@ enum Flag {
     To,
     Edge,
     Args,
+    After,
     Help,
 }
 
 impl Flag {
-    const ALL: [Self; 19] = [
+    const ALL: [Self; 20] = [
         Self::Json,
         Self::Timeout,
         Self::Socket,
@@ -193,6 +197,7 @@ impl Flag {
         Self::To,
         Self::Edge,
         Self::Args,
+        Self::After,
         Self::Help,
     ];
 
@@ -216,6 +221,7 @@ impl Flag {
             Self::To => "--to",
             Self::Edge => "--edge",
             Self::Args => "--args",
+            Self::After => "--after",
             Self::Help => "--help",
         }
     }
@@ -235,7 +241,8 @@ impl Flag {
             | Self::Dir
             | Self::To
             | Self::Edge
-            | Self::Args => true,
+            | Self::Args
+            | Self::After => true,
             Self::Json | Self::All | Self::Follow | Self::Off | Self::Help => false,
         }
     }
@@ -258,7 +265,8 @@ impl Flag {
             | Self::Dir
             | Self::To
             | Self::Edge
-            | Self::Args => false,
+            | Self::Args
+            | Self::After => false,
         }
     }
 
@@ -932,6 +940,21 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
             };
             Ok(Action::Ui(request))
         }
+        "ui receipts" => {
+            given.only(call, &[Flag::After])?;
+            operands::<0>(call, rest)?;
+            let after = given
+                .value(Flag::After)
+                .map(|value| {
+                    value.parse::<u64>().map_err(|_| {
+                        usage(format!(
+                            "--after: ожидается номер квитанции, получено «{value}»"
+                        ))
+                    })
+                })
+                .transpose()?;
+            Ok(Action::Ui(UiRequest::Receipts { after }))
+        }
         "ui appearance" => {
             given.only(call, &[])?;
             let [value] = operands(call, rest)?;
@@ -1319,6 +1342,74 @@ mod tests {
         let flagged = run(&["--json", "ui", "window", "--timeout", "50"]);
         assert!(flagged.json);
         assert_eq!(flagged.action, Action::Ui(UiRequest::Window));
+    }
+
+    #[test]
+    fn ui_receipts_takes_only_the_after_cursor() {
+        assert_eq!(
+            action_of(&["ui", "receipts"]),
+            Action::Ui(UiRequest::Receipts { after: None })
+        );
+        for (args, after) in [
+            (&["ui", "receipts", "--after", "0"][..], 0),
+            (&["ui", "receipts", "--after=16"], 16),
+            (
+                &["--after", "18446744073709551615", "ui", "receipts"],
+                u64::MAX,
+            ),
+        ] {
+            assert_eq!(
+                action_of(args),
+                Action::Ui(UiRequest::Receipts { after: Some(after) }),
+                "{args:?}"
+            );
+        }
+        let flagged = run(&[
+            "--json",
+            "ui",
+            "receipts",
+            "--after",
+            "3",
+            "--timeout",
+            "50",
+        ]);
+        assert!(flagged.json);
+        assert_eq!(
+            flagged.action,
+            Action::Ui(UiRequest::Receipts { after: Some(3) })
+        );
+        let cases: [(&[&str], &str); 11] = [
+            (&["ui", "receipts", "--all"], "не применим"),
+            (&["ui", "receipts", "--workspace", WORK], "не применим"),
+            (&["ui", "receipts", "--workbench", WORK], "не применим"),
+            (&["ui", "receipts", "--after", "x"], "номер квитанции"),
+            (&["ui", "receipts", "--after", "-1"], "номер квитанции"),
+            (&["ui", "receipts", "--after", "1.5"], "номер квитанции"),
+            (&["ui", "receipts", "--after", ""], "номер квитанции"),
+            (
+                &["ui", "receipts", "--after", "18446744073709551616"],
+                "номер квитанции",
+            ),
+            (&["ui", "receipts", "--after"], "нужно значение"),
+            (
+                &["ui", "receipts", "--after", "1", "--after", "2"],
+                "дважды",
+            ),
+            (&["ui", "receipts", "3"], "операндов"),
+        ];
+        for (args, expected) in cases {
+            let message = refused(args);
+            assert!(message.contains(expected), "{args:?}: {message}");
+        }
+        // Курсор квитанций есть только у `ui receipts`.
+        for args in [
+            &["ui", "stats", "--after", "1"][..],
+            &["plugin", "list", "--after", "1"],
+            &["events", "--since", "1", "--after", "1", "--all"],
+        ] {
+            let message = refused(args);
+            assert!(message.contains("не применим"), "{args:?}: {message}");
+        }
     }
 
     #[test]
