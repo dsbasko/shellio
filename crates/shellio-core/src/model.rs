@@ -1076,6 +1076,42 @@ mod tests {
     }
 
     #[test]
+    fn records_of_a_missing_panel_are_orphans() {
+        let ghost = unknown(|ids| PanelId::generate(ids));
+        let records: [fn(&mut State, PanelId, PanelId); 3] = [
+            |state, ghost, _| {
+                let data = PanelData::Text {
+                    version: 1,
+                    raw: "null".to_owned(),
+                };
+                state.panel_data.insert(ghost, data);
+            },
+            |state, ghost, _| {
+                state.panel_status.insert(ghost, PanelStatus::StateCorrupt);
+            },
+            |state, ghost, caller| {
+                state.opened_from.insert(ghost, caller);
+            },
+        ];
+        for record in records {
+            let mut f = fixture();
+            record(&mut f.state, ghost, f.terminal);
+            assert_eq!(
+                f.state.check_invariants(),
+                vec![Violation::PanelRecordOrphan { panel: ghost }]
+            );
+        }
+
+        // Записи живой панели и мягкая ссылка на вызывающую, которой уже нет, допустимы.
+        let mut f = fixture();
+        f.state
+            .panel_status
+            .insert(f.terminal, PanelStatus::StateCorrupt);
+        f.state.opened_from.insert(f.terminal, ghost);
+        assert_eq!(f.state.check_invariants(), Vec::new());
+    }
+
+    #[test]
     fn layout_must_belong_to_workbench_and_hold_its_panels() {
         let ghost = unknown(|ids| WorkbenchId::generate(ids));
         let mut f = fixture();

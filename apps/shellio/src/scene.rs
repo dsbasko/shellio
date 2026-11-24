@@ -523,25 +523,21 @@ pub fn relative(frame: Rect, origin: Rect) -> Rect {
     }
 }
 
-/// Операция адаптера над видами.
+/// Операция адаптера над плитками и видимостью контейнеров панелей. Контейнеры создаёт и ставит
+/// на место адаптер по местам сцены, паркует и освобождает хост тел.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Op {
     /// Создать плитку части.
     AddPlate(PartKey),
-    /// Создать вид панели в месте `host`.
-    AddView(PanelId, Host),
-    /// Переставить вид в другое место без пересоздания.
-    Reparent(PanelId, Host),
     Show(PanelId),
     Hide(PanelId),
-    /// Убрать вид: панели больше нет в открытой рабочей области.
-    RemoveView(PanelId),
     /// Убрать плитку: части больше нет.
     RemovePlate(PartKey),
 }
 
-/// Разница двух сцен в операции. Порядок применения: новые плитки, новые виды, перестановки,
-/// показ и скрытие, затем удаление видов и плиток, из которых виды уже переставлены.
+/// Разница двух сцен в операции. Порядок применения: новые плитки, показ и скрытие, затем
+/// удаление плиток, из которых контейнеры уже переставлены. Панель, которой в прежней сцене не
+/// было, получает показ или скрытие по новой.
 pub fn diff(before: Option<&Bench>, after: Option<&Bench>) -> Vec<Op> {
     let empty_views = BTreeMap::new();
     let empty_plates = BTreeMap::new();
@@ -562,30 +558,12 @@ pub fn diff(before: Option<&Bench>, after: Option<&Bench>) -> Vec<Op> {
         .difference(&old_plates)
         .map(|&key| Op::AddPlate(key))
         .collect();
-    let mut visibility = Vec::new();
     for (&panel, slot) in new_views {
-        match old_views.get(&panel) {
-            None => {
-                ops.push(Op::AddView(panel, slot.host));
-                visibility.push(show(panel, slot.shown()));
-            }
-            Some(old) => {
-                if old.host != slot.host {
-                    ops.push(Op::Reparent(panel, slot.host));
-                }
-                if old.shown() != slot.shown() {
-                    visibility.push(show(panel, slot.shown()));
-                }
-            }
+        let was = old_views.get(&panel).map(ViewSlot::shown);
+        if was != Some(slot.shown()) {
+            ops.push(show(panel, slot.shown()));
         }
     }
-    ops.extend(visibility);
-    ops.extend(
-        old_views
-            .keys()
-            .filter(|panel| !new_views.contains_key(panel))
-            .map(|&panel| Op::RemoveView(panel)),
-    );
     ops.extend(
         old_plates
             .difference(&new_plates)
@@ -1595,7 +1573,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn diff_creates_reparents_hides_and_removes() {
+    fn diff_adds_plates_shows_hides_and_removes_plates() {
         let mut fixture = fixture();
         let empty = diff(None, scene(&fixture).bench.as_ref());
         let center = PartKey {
@@ -1606,8 +1584,6 @@ pub(crate) mod tests {
             empty,
             [
                 Op::AddPlate(center),
-                Op::AddView(fixture.navigator, Host::Navigator),
-                Op::AddView(fixture.terminal, Host::Part(center)),
                 Op::Show(fixture.navigator),
                 Op::Show(fixture.terminal),
             ]
@@ -1629,12 +1605,12 @@ pub(crate) mod tests {
         };
         assert_eq!(
             diff(before.bench.as_ref(), moved.bench.as_ref()),
-            [
-                Op::AddPlate(right),
-                Op::Reparent(terminal, Host::Part(right)),
-                Op::RemovePlate(center),
-            ],
-            "перенос переставляет тот же вид"
+            [Op::AddPlate(right), Op::RemovePlate(center)],
+            "перенос не трогает видимость"
+        );
+        assert_eq!(
+            moved.bench.as_ref().unwrap().views[&terminal].host,
+            Host::Part(right)
         );
 
         layout_mut(&mut fixture).hidden.navigator = true;
@@ -1648,11 +1624,7 @@ pub(crate) mod tests {
         let closed = scene(&fixture);
         assert_eq!(
             diff(hidden.bench.as_ref(), closed.bench.as_ref()),
-            [
-                Op::RemoveView(fixture.navigator),
-                Op::RemoveView(terminal),
-                Op::RemovePlate(right),
-            ]
+            [Op::RemovePlate(right)]
         );
     }
 
@@ -1669,7 +1641,7 @@ pub(crate) mod tests {
         assert_eq!(
             diff(before.bench.as_ref(), after.bench.as_ref()),
             [Op::Hide(fixture.terminal), Op::Show(second)],
-            "смена вкладки не создаёт и не переставляет виды"
+            "смена вкладки только меняет видимость"
         );
     }
 
@@ -1933,21 +1905,11 @@ pub(crate) mod tests {
         assert_eq!(zoomed.note(), None);
         assert_eq!(
             diff(before.bench.as_ref(), zoomed.bench.as_ref()),
-            [
-                Op::Reparent(fixture.terminal, Host::Zoom),
-                Op::Hide(fixture.navigator),
-            ]
+            [Op::Hide(fixture.navigator)]
         );
-        let center = PartKey {
-            zone: Zone::Center,
-            index: 0,
-        };
         assert_eq!(
             diff(zoomed.bench.as_ref(), before.bench.as_ref()),
-            [
-                Op::Reparent(fixture.terminal, Host::Part(center)),
-                Op::Show(fixture.navigator),
-            ]
+            [Op::Show(fixture.navigator)]
         );
     }
 
@@ -3102,14 +3064,17 @@ pub(crate) mod tests {
         assert_eq!(
             ops,
             [
-                Op::Reparent(second, Host::Part(left)),
                 Op::Hide(second),
                 Op::RemovePlate(PartKey {
                     zone: Zone::Center,
                     index: 1,
                 }),
             ],
-            "номера частей сдвинулись, а виды переставлены без пересоздания"
+            "номера частей сдвинулись, вид ушёл в оставшуюся часть невыбранной вкладкой"
+        );
+        assert_eq!(
+            after.bench.as_ref().unwrap().views[&second].host,
+            Host::Part(left)
         );
     }
 }

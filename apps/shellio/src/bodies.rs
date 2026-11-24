@@ -7,7 +7,8 @@
 //!   активность, фокус, закрытие. Повторная доставка той же сцены вызовов не даёт.
 //! - [`Requests`] — исходы запросов тел: исход получает только живое тело своего поколения и только
 //!   за последний запрос.
-//! - [`command_of`] и [`refusal`] — запрос тела в команду ядра и отказ ядра в отказ для тела.
+//! - [`request_command`], [`command_of`] и [`refusal`] — запрос тела в команду ядра и отказ ядра в
+//!   отказ для тела.
 //!
 //! Контейнер панели создаётся, когда её рабочая область впервые показана, и живёт, пока панель есть
 //! хотя бы в одной раскладке. Уход окна к другой рабочей области контейнер паркует, тело остаётся.
@@ -222,6 +223,15 @@ pub fn command_of(
     }
 }
 
+/// Команда ядра на запрос тела панели `panel` по состоянию зеркала `state`: рабочая область — та,
+/// где панель стоит сейчас. Без зеркала и без записи панели рабочую область выбирает ядро.
+pub fn request_command(state: Option<&State>, panel: PanelId, request: PanelRequest) -> Command {
+    let workbench = state
+        .and_then(|state| state.panels.get(&panel))
+        .map(|record| record.workbench);
+    command_of(panel, workbench, request)
+}
+
 /// Заказ тела: фабрика плагина `plugin` строит его по данным `data` в контейнере панели `panel`.
 #[derive(Clone, Copy, Debug)]
 pub struct Build<'a> {
@@ -332,7 +342,8 @@ impl Bodies {
 
     /// Приводит контейнеры и тела к сцене `frame`. Порядок вызовов тела: построение, новые данные,
     /// представление, затем переходы активности и фокуса — сначала уходящие у всех панелей, потом
-    /// приходящие, последним `focus_preferred` панели, получившей ввод.
+    /// приходящие, последним `focus_preferred` панели, получившей ввод, если ввод ещё не в её
+    /// контейнере.
     pub fn sync(&mut self, frame: &Frame<'_>, shell: &mut dyn Shell) {
         let state = frame.state;
         let placed = placed(state);
@@ -474,13 +485,16 @@ impl Bodies {
                 input = Some(panel);
             }
         }
+        // Щелчок в тело уже поставил ввод в его вид: `focus_preferred` увёл бы ввод из вида, по
+        // которому щёлкнули, а у поля сбросил бы каретку и начал правку заново.
+        let gained = input.filter(|&panel| !shell.holds_input(panel));
         // Перестановка контейнера вместе с его родителем сбрасывает first responder окна, хотя
         // фокус панели прежний: панель, которая держала ввод и должна держать его дальше, получает
         // его обратно. Ввод, который до перестановки был вне тел панелей, не отбирается.
         let lost = frame.held.filter(|&panel| {
             self.live(panel).is_some_and(|live| live.input) && !shell.holds_input(panel)
         });
-        if let Some(live) = input
+        if let Some(live) = gained
             .or(lost)
             .and_then(|panel| self.panels.get(&panel))
             .and_then(|hosted| hosted.live.as_ref())
@@ -542,7 +556,7 @@ mod tests {
     use shellio_core::{Panel, ProjectId, Route, Title, UnixMillis, Workbench, layout_metrics};
     use shellio_layout::{Hideable, Viewport, Zone};
     use shellio_plugin_view::ViewWork;
-    use shellio_theme::AppTheme;
+    use shellio_theme::{AppTheme, Appearance, Cell, Contrast};
 
     use super::*;
     use crate::scene::tests::{Fixture, SMALL, add_panel, fixture, id, layout_mut, registry};
@@ -577,7 +591,9 @@ mod tests {
         fn update(&mut self, state: &Value) {
             self.say(format!("update {state}"));
         }
-        fn set_theme(&mut self, _theme: &AppTheme) {}
+        fn set_theme(&mut self, _theme: &AppTheme) {
+            self.say("theme".to_owned());
+        }
         fn set_active(&mut self, active: bool) {
             self.say(format!("active {active}"));
         }
@@ -606,6 +622,8 @@ mod tests {
         log: Log,
         /// Плагины без фабрики.
         missing: Vec<&'static str>,
+        /// Заказы тел, на которые фабрики не нашлось: панель и поколение.
+        refused: Vec<(PanelId, u64)>,
         generations: Vec<(PanelId, u64)>,
         /// Панель, контейнер которой держит ввод после перестановки.
         holding: Option<PanelId>,
@@ -614,6 +632,7 @@ mod tests {
     impl Shell for FakeShell {
         fn build(&mut self, order: Build<'_>) -> Option<Body> {
             if self.missing.contains(&order.plugin.as_str()) {
+                self.refused.push((order.panel, order.generation));
                 return None;
             }
             self.generations.push((order.panel, order.generation));
@@ -1237,12 +1256,80 @@ mod tests {
     }
 
     #[test]
+    fn panel_focused_by_a_press_into_its_body_keeps_the_input_where_it_is() {
+        let mut host = Host::new();
+        let (terminal, panel) = (host.fixture.terminal, host.open_list(list("a", false)));
+        host.sync();
+        host.layout(|layout| layout.focus_panel(terminal).unwrap());
+        host.sync();
+
+        // Щелчок в вид тела: ввод уже в контейнере, когда приходит фокус панели.
+        host.shell.holding = Some(panel);
+        host.layout(|layout| layout.focus_panel(panel).unwrap());
+        assert_eq!(host.of(panel), ["focused true"]);
+
+        // Фокус с клавиатуры: ввод вне контейнера, тело ставит его само.
+        host.shell.holding = None;
+        host.layout(|layout| layout.focus_panel(terminal).unwrap());
+        host.sync();
+        host.layout(|layout| layout.focus_panel(panel).unwrap());
+        assert_eq!(host.of(panel), ["focused true", "focus_preferred"]);
+    }
+
+    #[test]
     fn plugin_without_a_factory_is_asked_again_and_counts_nothing() {
         let mut host = Host::new();
         host.shell.missing = vec!["demo-list"];
         let panel = host.open_list(list("a", false));
-        assert_eq!(host.of(panel), Vec::<String>::new());
+        for asked in 1..=2 {
+            assert_eq!(host.of(panel), Vec::<String>::new());
+            let orders: Vec<u64> = host
+                .shell
+                .refused
+                .iter()
+                .filter(|(known, _)| *known == panel)
+                .map(|(_, generation)| *generation)
+                .collect();
+            assert_eq!(orders.len(), asked, "фабрику спрашивает каждая доставка");
+            // Тело не состоялось: запрос с его поколением некому отдавать.
+            let requests = host.bodies.requests();
+            for generation in orders {
+                let done: Done = Box::new(|_| {});
+                let begun = requests.borrow_mut().begin(panel, generation, done);
+                assert!(begun.is_err(), "поколение {generation}");
+            }
+        }
         assert_eq!(host.bodies.built().last(), Some(&(panel, 0)));
+    }
+
+    #[test]
+    fn theme_reaches_every_built_body_including_the_parked_one() {
+        let mut host = Host::new();
+        let panel = host.open_list(list("a", false));
+        let second = host.second_workbench();
+        host.sync();
+        host.show(second);
+        host.sync();
+        assert!(host.bodies.parked(panel));
+
+        let theme = AppTheme::for_cell(Cell {
+            appearance: Appearance::Dark,
+            contrast: Contrast::Normal,
+        });
+        for view in host.bodies.views_mut() {
+            view.set_theme(&theme);
+        }
+        let mut themed = std::mem::take(&mut *host.shell.log.borrow_mut());
+        themed.sort();
+        let mut expected: Vec<String> = host
+            .bodies
+            .built()
+            .into_iter()
+            .map(|(panel, _)| format!("{} theme", tag(panel)))
+            .collect();
+        expected.sort();
+        assert_eq!(expected.len(), 5, "тела обеих рабочих областей");
+        assert_eq!(themed, expected);
     }
 
     fn late(site: &str) -> u64 {
@@ -1360,6 +1447,30 @@ mod tests {
                 zone: None,
                 args: None,
             }
+        );
+    }
+
+    #[test]
+    fn panel_opened_by_a_body_goes_to_the_workbench_of_its_panel() {
+        let fixture = fixture();
+        let open = || PanelRequest::Open {
+            plugin: "demo-native".into(),
+            args: None,
+        };
+        let workbench_of = |command| match command {
+            Command::PanelOpen { workbench, .. } => workbench,
+            other => panic!("ожидалась panel.open, получено {other:?}"),
+        };
+        let state = Some(&fixture.state);
+        assert_eq!(
+            workbench_of(request_command(state, fixture.terminal, open())),
+            Some(fixture.workbench)
+        );
+        // Панели в зеркале нет или зеркала ещё нет: рабочую область выбирает ядро.
+        assert_eq!(workbench_of(request_command(state, id(0x43), open())), None);
+        assert_eq!(
+            workbench_of(request_command(None, fixture.terminal, open())),
+            None
         );
     }
 

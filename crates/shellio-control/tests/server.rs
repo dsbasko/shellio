@@ -1277,9 +1277,15 @@ async fn two_clients_racing_panel_open_get_one_panel_and_one_revision() -> TestR
     barrier.entered().await;
     let line = json!({"id": 202, "command": open, "scope": in_workspace(w.home)});
     second.send(&line.to_string()).await?;
-    while fixture.core.queued() == 0 {
-        tokio::task::yield_now().await;
-    }
+    // Срок вместо зависания: команда, которой сервер отказал до очереди, в неё не встанет.
+    let queued = async {
+        while fixture.core.queued() == 0 {
+            tokio::task::yield_now().await;
+        }
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(30), queued)
+        .await
+        .map_err(|_| "вторая команда не встала в очередь")?;
     assert_eq!(
         fixture.memory.revision(),
         base,

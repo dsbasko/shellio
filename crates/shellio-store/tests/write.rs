@@ -238,6 +238,12 @@ fn every_change_is_written_and_reloads() {
     let mut with_notes = default_layout.clone();
     with_notes.zones.center.parts[0].tabs.push(notes.id);
     with_notes.hidden.navigator = true;
+    // Раскладка второй рабочей области с переехавшей панелью и она же после её удаления.
+    let mut review_layout = WorkbenchLayout::default_for(navigator.id, notes.id);
+    review_layout.navigator = None;
+    let mut review_empty = review_layout.clone();
+    review_empty.zones.center.parts.clear();
+    review_empty.focus.clear();
     with_notes.sizes.bottom = 300;
 
     let steps = vec![
@@ -351,24 +357,36 @@ fn every_change_is_written_and_reloads() {
                 opened_from: None,
             },
         ],
-        // Статус в базу не пишется; переезд меняет владельца строки; удаление панели уносит
-        // строку данных каскадом.
+        // Переезд меняет владельца строки панели: перезагрузка видит её во второй рабочей области
+        // с прежними данными.
         vec![
             Change::LayoutSet {
                 workbench: main.id,
                 layout: default_layout,
             },
-            Change::PanelStatus {
-                panel: notes.id,
-                status: PanelStatus::StateNewer,
-            },
             Change::PanelRehome {
                 panel: notes.id,
                 workbench: review.id,
             },
+            Change::LayoutSet {
+                workbench: review.id,
+                layout: review_layout,
+            },
+        ],
+        // Статус в базу не пишется; удаление панели уносит строку данных каскадом.
+        vec![
+            Change::PanelStatus {
+                panel: notes.id,
+                status: PanelStatus::StateNewer,
+            },
+            Change::LayoutSet {
+                workbench: review.id,
+                layout: review_empty,
+            },
             Change::PanelRemove { panel: notes.id },
         ],
     ];
+    let rehome_step = steps.len() - 2;
 
     let mut expected = State::default();
     for (step, changes) in steps.iter().enumerate() {
@@ -382,12 +400,16 @@ fn every_change_is_written_and_reloads() {
             store.revision_in_db().unwrap(),
             i64::try_from(base.next().0).unwrap()
         );
+        if step == rehome_step {
+            assert_eq!(reloaded.state.panels[&notes.id].workbench, review.id);
+            assert!(reloaded.state.panel_data.contains_key(&notes.id));
+        }
     }
     assert_eq!(expected.check_invariants(), Vec::new());
     assert_eq!(expected.roots.len(), 3);
     assert_eq!(expected.panels.len(), 2);
     assert_eq!(store.count("panels").unwrap(), 2);
-    assert_eq!(store.count("workbench_layouts").unwrap(), 1);
+    assert_eq!(store.count("workbench_layouts").unwrap(), 2);
     assert_eq!(
         expected.panel_data,
         BTreeMap::from([(
@@ -556,7 +578,23 @@ fn primary_and_foreign_key_violations_are_conflicts() {
     let mut orphan_project = self::project(&mut ids, ghost_workspace, "orphan").unwrap();
     orphan_project.list_position = None;
     let orphan_root = root(&mut ids, ghost_project, "/src/orphan", RootKind::Folder);
+    let moved = panel(&mut ids, workbench.id, "terminal").unwrap();
     let cases = [
+        // Данные панели, которой нет, и переезд в рабочую область, которой нет.
+        vec![Change::PanelData {
+            panel: PanelId::generate(&mut ids),
+            version: 1,
+            data: "null".to_owned(),
+        }],
+        vec![
+            Change::PanelAdd {
+                panel: moved.clone(),
+            },
+            Change::PanelRehome {
+                panel: moved.id,
+                workbench: WorkbenchId::generate(&mut ids),
+            },
+        ],
         vec![Change::WorkspaceInserted {
             workspace: Workspace {
                 title: title("Другой").unwrap(),
@@ -602,6 +640,7 @@ fn change_of_record_missing_in_database_is_conflict() {
         mut store,
         mut ids,
         workspace,
+        workbench,
         ..
     } = seed().unwrap();
     let ghost_workspace = WorkspaceId::generate(&mut ids);
@@ -610,6 +649,14 @@ fn change_of_record_missing_in_database_is_conflict() {
     let ghost_panel = PanelId::generate(&mut ids);
     let cases = [
         Change::PanelRemove { panel: ghost_panel },
+        Change::PanelRehome {
+            panel: ghost_panel,
+            workbench: workbench.id,
+        },
+        Change::PanelOpenedFrom {
+            panel: ghost_panel,
+            opened_from: None,
+        },
         Change::WorkspaceRenamed {
             workspace: ghost_workspace,
             title: title("Нет").unwrap(),

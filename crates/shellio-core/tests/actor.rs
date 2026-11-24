@@ -1022,6 +1022,11 @@ impl Race {
         barrier.entered().await;
         let second = self.submit(second.0, second.1)?;
         while self.core.queued() == 0 {
+            // Команда, которой отказали до очереди, оставила бы цикл без конца.
+            assert!(
+                !second.is_finished(),
+                "вторая команда завершилась, не встав в очередь"
+            );
             tokio::task::yield_now().await;
         }
         // Вторая ждёт: до отпускания барьера ни записи, ни ответов нет.

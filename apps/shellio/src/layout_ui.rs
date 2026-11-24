@@ -337,11 +337,7 @@ impl LayoutUi {
             match *op {
                 Op::Show(panel) => self.set_view_hidden(panel, false),
                 Op::Hide(panel) => self.set_view_hidden(panel, true),
-                Op::AddPlate(_)
-                | Op::AddView(..)
-                | Op::Reparent(..)
-                | Op::RemoveView(_)
-                | Op::RemovePlate(_) => {}
+                Op::AddPlate(_) | Op::RemovePlate(_) => {}
             }
         }
         // Тела получают сцену, когда контейнеры уже стоят в окне: `focus_preferred` переводит ввод в

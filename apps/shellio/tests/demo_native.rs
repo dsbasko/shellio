@@ -1,6 +1,6 @@
 //! Запросы тела панели на ядре в памяти (ADR-0008, «Уточнено в P1.5 (планирование)»): путь «вид →
 //! отправитель хоста → команда ядра → исход телу» с подставными плагинами и с «Демо: поле». Сторону
-//! окна заменяет [`Port`]: те же `bodies::sink`, `command_of`, `refusal` и `settle_request`, что у
+//! окна заменяет [`Port`]: те же `bodies::sink`, `request_command`, `refusal` и `settle_request`, что у
 //! адаптера, без AppKit.
 
 // allow-unwrap-in-tests не распространяется на вспомогательные функции интеграционного теста.
@@ -181,12 +181,8 @@ impl Port {
         core: &CoreHandle,
         request: PanelRequest,
     ) -> TestResult<Result<Reply, CoreError>> {
-        let workbench = state(core)
-            .await?
-            .panels
-            .get(&self.panel)
-            .map(|panel| panel.workbench);
-        let command = bodies::command_of(self.panel, workbench, request);
+        let state = state(core).await?;
+        let command = bodies::request_command(Some(&state), self.panel, request);
         Ok(core.request(command).await)
     }
 

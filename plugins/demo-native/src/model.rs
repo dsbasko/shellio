@@ -8,6 +8,7 @@ use shellio_plugin_api::{
     Cardinality, CommandSpec, Manifest, PanelModel, Presentation, Reach, Refusal, Region,
     SizeVariants, VariantTable, Via, ZoneSet,
 };
+use shellio_theme::METRICS;
 
 /// Сохранить значение поля.
 pub const SET: &str = "demo-native.set";
@@ -142,13 +143,14 @@ fn variant(geometry: &Geometry) -> &'static str {
     }
 }
 
-/// Отступ поля и подписи от края тела.
-const PAD: f64 = 12.0;
+/// Отступ поля и подписи от края тела: два промежутка темы.
+const PAD: f64 = 2.0 * METRICS.gap;
 /// Промежуток между полем и подписью.
-const GAP: f64 = 8.0;
-/// Высота поля и подписи.
-const LINE: f64 = 32.0;
-/// Наибольшая ширина пары поля и подписи в `center`.
+const GAP: f64 = METRICS.gap;
+/// Высота поля и подписи: строка основного текста с отступом и линией сверху и снизу, как у
+/// компонента поля.
+pub const LINE: f64 = METRICS.line_height.body + 2.0 * (METRICS.gap + METRICS.line);
+/// Наибольшая ширина пары поля и подписи в `center`: граница раскладки тела, не отступ темы.
 const CENTER_MAX: f64 = 560.0;
 /// Доля поля в ширине пары: в `row` поровну с подписью, в `center` поле шире.
 const ROW_FIELD_SHARE: f64 = 0.5;
@@ -590,30 +592,30 @@ mod tests {
             frames(Zone::Right, 300.0, 400.0),
             [
                 (FIELD_REGION, rect(12.0, 12.0, 276.0)),
-                (CAPTION_REGION, rect(12.0, 52.0, 276.0)),
+                (CAPTION_REGION, rect(12.0, 50.0, 276.0)),
             ],
             "stack: поле над подписью"
         );
         assert_eq!(
             frames(Zone::Bottom, 700.0, 300.0),
             [
-                (FIELD_REGION, rect(12.0, 12.0, 334.0)),
-                (CAPTION_REGION, rect(354.0, 12.0, 334.0)),
+                (FIELD_REGION, rect(12.0, 12.0, 335.0)),
+                (CAPTION_REGION, rect(353.0, 12.0, 335.0)),
             ],
             "row: поле и подпись в строку поровну"
         );
         assert_eq!(
             frames(Zone::Center, 900.0, 600.0),
             [
-                (FIELD_REGION, rect(170.0, 284.0, 331.0)),
-                (CAPTION_REGION, rect(509.0, 284.0, 221.0)),
+                (FIELD_REGION, rect(170.0, 284.0, 332.0)),
+                (CAPTION_REGION, rect(508.0, 284.0, 222.0)),
             ],
             "center: пара не шире 560 точек по центру тела"
         );
         assert_eq!(
             frames(Zone::Center, 300.0, 400.0),
             [
-                (FIELD_REGION, rect(12.0, 184.0, 160.0)),
+                (FIELD_REGION, rect(12.0, 184.0, 162.0)),
                 (CAPTION_REGION, rect(180.0, 184.0, 108.0)),
             ],
             "center в узком теле занимает ширину без отступов"

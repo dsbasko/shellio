@@ -872,7 +872,7 @@ mod tests {
         }
     }
 
-    /// Имена команд, чтений и действий хоста в исходнике ядра до его тестов: строки вида
+    /// Имена команд, чтений и действий хоста в исходнике до его тестов: строки вида
     /// `<пространство>.<имя>`.
     fn host_names(source: &str) -> Vec<&str> {
         let code = source.split("#[cfg(test)]").next().unwrap_or(source);
@@ -895,6 +895,11 @@ mod tests {
             (include_str!("command.rs"), "panel.close"),
             (include_str!("query.rs"), "query.layout"),
             (include_str!("ui_command.rs"), "app.quit"),
+            // Запросы `ui` и команды галереи объявляет crate управления.
+            (
+                include_str!("../../shellio-control/src/ui.rs"),
+                "gallery.cell",
+            ),
         ];
         for (source, known) in sources {
             let names = host_names(source);

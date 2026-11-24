@@ -168,12 +168,14 @@ impl CoreLink {
 /// Вызывается изнутри AppKit, поэтому окно владельца не трогает: команда уходит ядру сразу, исход
 /// возвращается в очередь главного потока по номеру запроса.
 fn send_request(ticket: Ticket, request: PanelRequest) {
-    let workbench = MIRROR.with(|mirror| {
-        let mirror = mirror.try_borrow().ok()?;
-        let panel = mirror.as_ref()?.state().panels.get(&ticket.panel)?;
-        Some(panel.workbench)
+    let command = MIRROR.with(|mirror| {
+        let mirror = mirror.try_borrow().ok();
+        let state = mirror
+            .as_ref()
+            .and_then(|mirror| mirror.as_ref())
+            .map(|mirror| mirror.state());
+        bodies::request_command(state, ticket.panel, request)
     });
-    let command = bodies::command_of(ticket.panel, workbench, request);
     let name = command.name();
     let opened = Sent::of(&command);
     let finish = move |outcome: Result<Reply, Failure>| {
@@ -1281,9 +1283,17 @@ fn on_zone(app: &App, button: ZoneButton) {
 
 /// Пункт `row` меню «Вид → Открыть панель»: одна команда `panel.open` в рабочую область, открытую
 /// в момент нажатия. Экземпляр ищет актор, завершение команды пишется в кольцо квитанций. Без
-/// открытой рабочей области пункт недоступен, и нажатие ничего не делает.
+/// открытой рабочей области пункт недоступен, и нажатие ничего не делает. Скрытое окно пункт не
+/// получает, как пункты зон: панель не открывается там, где её не видно.
 fn on_open_panel(app: &App, row: usize) {
-    let Some(plugin) = with_window(|owner| owner.open_rows.get(row).copied()).flatten() else {
+    let plugin = with_window(|owner| {
+        if !owner.window.is_visible() {
+            return None;
+        }
+        owner.open_rows.get(row).copied()
+    })
+    .flatten();
+    let Some(plugin) = plugin else {
         return;
     };
     let command = MIRROR.with(|mirror| {

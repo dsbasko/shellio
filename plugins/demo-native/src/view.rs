@@ -2,7 +2,7 @@
 //! представления модели, текст поля и подписи — форма тела [`Form`]. `Return` шлёт `set` через
 //! отправитель хоста, исход запроса возвращается в форму, сам вид данные панели не меняет.
 
-use std::cell::{OnceCell, RefCell};
+use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 use serde::Deserialize;
@@ -91,8 +91,8 @@ fn parse(state: &Value) -> Option<State> {
 struct Shared {
     form: RefCell<Form>,
     caption: StatusLine,
-    /// Поле создаётся после общей части: его обработчик держит на неё слабую ссылку.
-    field: OnceCell<TextField>,
+    /// Обработчик поля держит на общую часть слабую ссылку.
+    field: TextField,
     sink: PanelSink,
 }
 
@@ -103,9 +103,7 @@ impl Shared {
             let form = self.form.borrow();
             (field_state(&form), form.caption())
         };
-        if let Some(field) = self.field.get() {
-            field.set_state(state);
-        }
+        self.field.set_state(state);
         self.caption.set_message(Some(&caption));
     }
 
@@ -158,19 +156,16 @@ impl View {
                 layer: FocusLayer::Plain,
             },
         );
-        let shared = Rc::new(Shared {
+        let shared = Rc::new_cyclic(|weak: &Weak<Shared>| Shared {
             caption: StatusLine::new(ctx.app, ctx.theme),
-            field: OnceCell::new(),
+            field: build_field(ctx.app, ctx.theme, field_state(&form), weak.clone()),
             sink: ctx.sink.clone(),
             form: RefCell::new(form),
         });
-        let field = build_field(ctx.app, ctx.theme, &shared);
         // До первого представления поле и подпись стоят в подложке без площади.
         let nowhere = Frame::new(0.0, 0.0, 0.0, 0.0);
-        root.place(&field, nowhere);
+        root.place(&shared.field, nowhere);
         root.place(&shared.caption, nowhere);
-        // Ячейка пуста: общая часть только что создана.
-        let _ = shared.field.set(field);
         shared.show();
         View {
             root,
@@ -178,17 +173,16 @@ impl View {
             frames: Frames::default(),
         }
     }
-
-    fn field(&self) -> Option<&TextField> {
-        self.shared.field.get()
-    }
 }
 
-fn build_field(app: &App, theme: &AppTheme, shared: &Rc<Shared>) -> TextField {
-    let weak: Weak<Shared> = Rc::downgrade(shared);
-    let state = field_state(&shared.form.borrow());
+fn build_field(
+    app: &App,
+    theme: &AppTheme,
+    state: TextFieldState,
+    shared: Weak<Shared>,
+) -> TextField {
     TextField::new(app, theme, state, FIELD_LABEL, move |intent| {
-        if let Some(shared) = weak.upgrade() {
+        if let Some(shared) = shared.upgrade() {
             Shared::intent(&shared, intent);
         }
     })
@@ -201,10 +195,10 @@ impl PluginView for View {
 
     fn adapt(&mut self, _geometry: &Geometry, presentation: &Presentation) {
         let frames = Frames::of(presentation);
-        if let (Some(field), Some(frame)) = (self.field(), frames.field)
+        if let Some(frame) = frames.field
             && self.frames.field != Some(frame)
         {
-            self.root.place(field, frame);
+            self.root.place(&self.shared.field, frame);
         }
         if let Some(frame) = frames.caption
             && self.frames.caption != Some(frame)
@@ -226,9 +220,7 @@ impl PluginView for View {
 
     fn set_theme(&mut self, theme: &AppTheme) {
         self.root.set_theme(theme);
-        if let Some(field) = self.field() {
-            field.set_theme(theme);
-        }
+        self.shared.field.set_theme(theme);
         self.shared.caption.set_theme(theme);
     }
 
@@ -237,18 +229,18 @@ impl PluginView for View {
     fn set_focused(&mut self, _focused: bool) {}
 
     fn focus_preferred(&self) {
-        if let Some(field) = self.field() {
-            field.focus();
-        }
+        self.shared.field.focus();
     }
 
     fn inspect(&self, prefix: &str) -> Vec<InspectNode> {
         let parent = prefix.strip_suffix('.').unwrap_or(prefix);
         let body = format!("{prefix}body");
         let mut nodes = self.root.inspect(&body, Some(parent));
-        if let Some(field) = self.field() {
-            nodes.extend(field.inspect(&format!("{prefix}{FIELD_REGION}"), Some(&body)));
-        }
+        nodes.extend(
+            self.shared
+                .field
+                .inspect(&format!("{prefix}{FIELD_REGION}"), Some(&body)),
+        );
         nodes.extend(
             self.shared
                 .caption
@@ -267,9 +259,10 @@ mod tests {
     use shellio_layout::Zone;
     use shellio_plugin_api::{DynModel, PanelModel, Step};
     use shellio_plugin_view::Done;
+    use shellio_theme::Cell;
 
     use super::*;
-    use crate::model::{CENTER, Model, ROW, STACK};
+    use crate::model::{CENTER, LINE, Model, ROW, STACK};
 
     fn presentation(zone: Zone, width: f64, height: f64) -> Presentation {
         Model.adapt(&Geometry::of(zone, width, height), &State::default())
@@ -278,6 +271,14 @@ mod tests {
     #[test]
     fn factory_names_the_plugin_of_the_manifest() {
         assert_eq!(factory().plugin(), "demo-native");
+    }
+
+    #[test]
+    fn line_of_the_model_is_the_height_of_the_field_component() {
+        for cell in Cell::ALL {
+            let theme = AppTheme::for_cell(cell);
+            assert!((shellio_appkit::text_field_height(&theme) - LINE).abs() < f64::EPSILON);
+        }
     }
 
     #[test]
@@ -360,7 +361,7 @@ mod tests {
         }
         let stack = Frames::of(&presentation(Zone::Right, 300.0, 400.0));
         assert_eq!(stack.field, Some(Frame::new(12.0, 12.0, 276.0, 32.0)));
-        assert_eq!(stack.caption, Some(Frame::new(12.0, 52.0, 276.0, 32.0)));
+        assert_eq!(stack.caption, Some(Frame::new(12.0, 50.0, 276.0, 32.0)));
     }
 
     /// Запросы тела и их исходы, которые хост ещё не отдал.
