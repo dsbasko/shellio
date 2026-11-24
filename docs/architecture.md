@@ -83,7 +83,8 @@ crates/
   shellio-keymap/       режимы, деревья последовательностей, keymap.toml
   shellio-control/      протокол управления, выбор владельца, сервер и клиент
   shellio-theme/        чистая тема: слоты, метрики, ячейки оформления
-  shellio-plugin-api/   контракт плагинов
+  shellio-plugin-api/   чистый контракт плагинов: манифест, модель, реестр
+  shellio-plugin-view/  контракт вида плагина на главном потоке
   shellio-appkit/       безопасный слой objc2, окно, компоненты, монитор цикла
   shellio-sys-ghostty/  привязки ghostty.h
   shellio-ghostty/      безопасная обёртка поверхности
@@ -112,20 +113,26 @@ spikes/                 пробы фазы 0 (ADR-0034), продукт от н
 vendor/                 собранный набор ghostty, не хранится в git
 ```
 
-Сейчас в репозитории есть `apps/shellio`, `apps/shellioctl`, `crates/shellio-core`, `shellio-store`, `shellio-control`, `shellio-layout`, `shellio-theme`, `shellio-appkit`, `shellio-e2e`, `shellio-sys-ghostty` и `shellio-ghostty`. Остальные части появляются в своих шагах [дорожной карты](roadmap.md).
+Сейчас в репозитории есть `apps/shellio`, `apps/shellioctl`, `crates/shellio-core`, `shellio-store`, `shellio-control`, `shellio-layout`, `shellio-theme`, `shellio-plugin-api`, `shellio-plugin-view`, `shellio-appkit`, `shellio-e2e`, `shellio-sys-ghostty` и `shellio-ghostty`, а также плагины `plugins/navigator`, `plugins/terminal`, `plugins/demo-list` и `plugins/demo-native`. Остальные части появляются в своих шагах [дорожной карты](roadmap.md).
 
 - `shellio-appkit` с P1.3 содержит `NSApplication`, активацию и завершение через AppKit, безопасный слой над objc2 и компоненты. Слой — это владелец вида, который отвязывает источник данных, делегат и цели до освобождения, слабые обратные вызовы со счётчиком поздних вызовов, подписки на уведомления и счётчики экземпляров каждого класса. На нём построены главное окно, главное меню, `ChromeBar`, примитив `Surface`, `TabStrip`, `VirtualList`, `TreeList`, `TextField`, `Menu`, наблюдатель ячейки оформления, маркер поколения галереи и монитор цикла главного потока. Типы objc2 из crate не выходят ([ADR-0002](adr/0002-ui-stack-appkit.md), «Уточнено в P1.3»).
 - `shellio-layout` с P1.4 — чистая модель раскладки без зависимостей, кроме `serde`: зоны, части, операции, геометрия, классы размера, цель перетаскивания и обвязка контрактного теста геометрии. Модель обобщена по ключу панели, метрики получает своим типом `LayoutMetrics`, от `shellio-core` и `shellio-theme` не зависит. `shellio-core` хранит раскладку в `State` как `Layout<PanelId>` и с P1.4 зависит от `shellio-theme`: `LayoutMetrics` ядра и адаптера строит одна функция `shellio_core::layout_metrics()` ([ADR-0009](adr/0009-layout-and-zones.md)).
+- `shellio-plugin-api` с P1.5 — чистый контракт плагинов: `PluginId`, манифест, кардинальность, представление, типаж модели `PanelModel` со стёртой обёрткой `DynModel`, реестр `Registry` с проверками и проверка представления поверх `shellio_layout::contract`. Он зависит только от `serde`, `serde_json` и `shellio-layout`. `shellio-core` зависит от него и получает реестр в `Core::start`: по нему ядро выполняет `panel.open` и `panel.command`, считает статус панели и берёт `min_size` ([ADR-0008](adr/0008-plugin-system.md), «Уточнено в P1.5»).
+- `shellio-plugin-view` с P1.5 — контракт вида: фабрика `ViewFactory`, вид `PluginView`, отправитель запросов `PanelSink`, токены работы вида `ViewWork`, владелец тела `Body` и нейтральная карточка заполнителей. Он зависит от `shellio-plugin-api`, `shellio-appkit` и `shellio-theme`, от ядра и `shellio-control` не зависит. `shellio-appkit` о плагинах не знает.
+- `plugins/<id>` — один crate на плагин (пакет `plugin-<id>`) с модулями `model` и `view`. `plugins/navigator` и `plugins/terminal` — заполнители с нейтральной карточкой до P1.7 и P2.2, `plugins/demo-list` и `plugins/demo-native` — демонстрационные плагины приёмки хоста. Список регистраций — `apps/shellio/src/plugins.rs`: из него строятся реестр ядра и таблица фабрик главного потока, ровно одна фабрика на id.
 - `shellio-theme` — чистая тема `AppTheme` без AppKit: слоты цвета, метрики и ячейки (светлота, Increase Contrast, движение). Значения сверены тестом с `prototype/css/tokens.css` и таблицей [ADR-0027](adr/0027-focused-panel-contrast.md), метрики для `adapt` плагины берут отсюда.
 - `shellio-e2e` — чистый оракул снимков `make e2e`: сам разбирает `tokens.css` и таблицу ADR-0027 и от `shellio-theme` не зависит, поэтому ожидания не берутся из токенов, которыми рисует приложение ([ADR-0021](adr/0021-testing.md), «Уточнено в P1.3»).
 
 ## Правила зависимостей
 
 1. `shellio-core` и остальные чистые crate не зависят от AppKit.
-2. Модель плагина зависит от `shellio-plugin-api` и сервисных crate. Фабрика вида выполняется на главном потоке и дополнительно использует безопасные компоненты `shellio-appkit` и `shellio-ghostty`. Зависимость от другого плагина запрещена.
+2. Модель плагина зависит от `shellio-plugin-api` и сервисных crate. Фабрика вида выполняется на главном потоке и дополнительно использует `shellio-plugin-view` и безопасные компоненты `shellio-appkit` и `shellio-ghostty`. Модуль `model` плагина не импортирует `shellio_plugin_view`, `shellio_appkit` и `objc2*`. Плагин не зависит от другого плагина, от `shellio-core` и от `apps/*`.
 3. Конкретные плагины знает только `apps/shellio`.
 4. `unsafe` Objective-C находится в `shellio-appkit` и `shellio-ghostty`. Исключение — пробы в `spikes/` ([ADR-0034](adr/0034-probe-code.md)): в них допустим `unsafe` Objective-C и системных C API, а продуктовые crate, плагины и `apps/*` от `spikes/` не зависят.
 5. Плагины взаимодействуют только через команды шины.
+6. `shellio-plugin-api`, `shellio-layout`, `shellio-core`, `shellio-store`, `shellio-control` и `shellio-theme` транзитивно не зависят от `shellio-appkit`, `shellio-plugin-view`, `objc2*` и плагинов, в том числе через необязательные зависимости.
+
+Правила 1, 2 и 6 проверяют тесты `make check`: граф зависимостей по `cargo metadata` (`apps/shellio/tests/dependency_graph.rs`) и текстовый тест модулей модели (`apps/shellio/tests/model_imports.rs`).
 
 ## Поток данных
 
@@ -165,6 +172,10 @@ vendor/                 собранный набор ghostty, не хранит
 ## Плагины
 
 Контракт описан в [ADR-0008](adr/0008-plugin-system.md), зоны и адаптация — в [ADR-0009](adr/0009-layout-and-zones.md), поведение в каждой зоне — в [docs/ux.md](ux.md).
+
+С P1.5 каждая панель окна показывает тело своего плагина. Данные панели — сериализуемое состояние модели: они лежат в `State` ядра и в `state.db` и приходят в зеркало обычными событиями. Модель — чистые функции над ними (`init`, `reopen`, `apply`, `migrate`, `adapt`), сама команд не шлёт. Действие из меню, вида или CLI становится командой ядра `panel.open` или `panel.command`: актор находит канонический экземпляр по кардинальности, зовёт модель и пишет панель, раскладку, данные и статус одной записью.
+
+На главном потоке хост (`apps/shellio/src/bodies.rs` — чистая часть, `layout_ui.rs` — применение к AppKit) держит один контейнер на `PanelId`. Фабрика плагина строит в нём тело один раз, пока панель готова. Перенос, разворот, смена вкладки, заглушка и переезд между рабочими областями переставляют или прячут контейнер и тело не пересоздают. Сцена считает представление чистой `adapt` модели по снимку зеркала и передаёт телу данные, представление, активность и фокус только при изменении. Панель, вид которой показать нельзя (плагина нет, состояние новее или не читается, дубликат), показывает заглушку с причиной, байты её записи сохраняются.
 
 ## Подсистемы
 

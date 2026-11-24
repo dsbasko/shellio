@@ -145,6 +145,31 @@
 - **Откат.** Отказ посреди записи запуска или переезда панели откатывает транзакцию целиком: после повторного открытия база и отпечаток прежние. Это проверяют тесты `shellio-store` на настоящем SQLite с внедрённым отказом фиксации.
 - **Версии.** Версия схемы базы (`user_version`), версия протокола и `state_version` плагина — разные числа.
 
+## Уточнено в P1.5
+
+Вывод плана P1.5 [`plugin-host`](../plans/completed/20261124-plugin-host.md) по `make check` и приёмочному проходу исполнителя 2026-11-24. Таблица размещения не меняется. Статус остаётся `Proposed`: TOML и горячая перезагрузка — P1.6 и P1.8, пакетная запись частых событий — P2.2. Правила «Состояние плагина хранится с `state_version`, плагин отвечает за миграцию» и «Отсутствующий плагин или повреждённая запись не мешают запуску остальных панелей» выполнены.
+
+**Подтверждено тестами** (`crates/shellio-store/tests/{migrate,panel_state,recovery}.rs`, `crates/shellio-core/src/plugin_host.rs`):
+
+- миграция v2 → v3 с резервной копией на фикстуре `tests/fixtures/v2.sql`: панели получают `init` в записи запуска, второй запуск ничего не пишет (`fixture_v2_migrates_to_v3_with_backup`, `fixture_v2_gets_init_on_start_and_second_start_writes_nothing`);
+- отсутствие строки, данные `null` и текст `{` — три разных входа (`missing_null_and_broken_text_are_three_different_inputs`);
+- `plugin_missing`, `state_newer`, `state_corrupt`, `migrate_failed` и `init_failed` сохраняют байты строки (`hex(CAST(data AS BLOB))`) после записи другой панели и перезапуска (`statuses_keep_row_bytes_through_writes_and_restart`);
+- `version` -1, `version` больше `u32::MAX` и `data` не UTF-8 дают `state_corrupt`, строка не перезаписывается (`unreadable_rows_are_state_corrupt_and_never_rewritten`);
+- смена отпечатка реестра над тем же профилем даёт запись запуска и снимок клиенту со старым курсором, вторая панель singleton получает `duplicate`, следующий запуск с тем же реестром ревизию не меняет (`fingerprint_change_writes_startup_record_and_marks_duplicate`);
+- откат на настоящем SQLite с внедрённым отказом фиксации: между отпечатком и ревизией, посреди переезда панели и посреди создания singleton с успешным повтором (`commit_fault_between_fingerprint_and_revision_keeps_database_and_fingerprint`, `commit_fault_mid_panel_move_keeps_database_and_retry_moves_once`, `commit_fault_mid_singleton_creation_then_retry_gives_one_panel`);
+- унаследованный дубликат получает право после закрытия канонического и переживает холодный запуск с прежними байтами (`legacy_duplicate_takes_the_right_after_close_and_survives_cold_start`).
+
+**Наблюдение** — пункты `restore-list`, `restore-cold`, `missing-plugin`, `status-stubs` и `legacy-duplicate` копии `plugins.sh` вне зачёта, все `pass`: байты строк `panel_states` до и после перезапуска равны, `restore-cold` сверяет побайтно и строки `workbench_layouts` всех рабочих областей ([ADR-0021](0021-testing.md), «Уточнено в P1.5»). Статус `migrate_failed` в окне не наблюдался.
+
+**Форма, которую раздел планирования не задавал:**
+
+- Тесты статусов и байтов лежат в `crates/shellio-store/tests/panel_state.rs`: базу готовит настоящее ядро с одним реестром, строки `panel_states` правятся прямым SQL, следующий запуск идёт с другим реестром. Ради типов реестра `shellio-store` получил dev-зависимость от `shellio-plugin-api`.
+- `opened_from` — мягкая ссылка: закрытие вызывающей панели столбец не чистит, загрузка читает его как есть (ADR-0008, «Уточнено в P1.5»).
+- Зеркало применяет новые дельты общим `State::apply_all` без реестра, статус приходит явной дельтой.
+- Эталон свежей схемы — `crates/shellio-store/tests/schema_v3.sql`, с ним сверяют таблицы и столбцы фикстуры E2E `scripts/e2e/plugins-fixtures/` (`crates/shellio-e2e/tests/fixtures.rs`).
+
+**Передачи:** данные панелей с независимой работой и сессиями — P2.1 и P2.2; пакетная запись частых событий — P2.2.
+
 ## Условие пересмотра
 
 Синхронизация между машинами.
